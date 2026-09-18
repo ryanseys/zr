@@ -1051,7 +1051,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "constant path" do
+  it "ARGV reads through a constant path" do
     result = ze0(<<~'RUBY')
       # ConstantPath access — covers ARGV (top-level builtin), built-in
       # constructors (::Array.new etc.), nested const reads (A::B::C),
@@ -1070,6 +1070,28 @@ describe "Constants programs" do
       puts ::ARGV.length
       puts(ARGV[0] == nil)
       puts(::ARGV[0] == nil)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+      0
+      true
+      true
+    OUT
+  end
+
+  it "a built-in constructor answers through an absolute constant path" do
+    result = ze0(<<~'RUBY')
+      # ConstantPath access — covers ARGV (top-level builtin), built-in
+      # constructors (::Array.new etc.), nested const reads (A::B::C),
+      # class-method dispatch (A::B.create), and the relative-vs-root
+      # scope distinction (RootNS::Mid::LEAF vs ::RootNS::Mid::LEAF).
+      # Merged from constant_path_{argv,builtin_new,class_method,
+      # nested_read,new}.rb. The class-method section's `A::B` (a class)
+      # would collide with the nested-read section's `A::B::C` (where
+      # A::B is a module), so the class-method section is namespaced as
+      # CmA::CmB to keep both shapes co-resident.
 
       # ---- Built-in constructors via absolute ConstantPath ----
       require "stringio"
@@ -1097,6 +1119,31 @@ describe "Constants programs" do
       bicur = ::Fiber.current
       puts bicur.alive?
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      4
+      2
+      6
+      a
+      5
+      6
+      true
+    OUT
+  end
+
+  it "a class method dispatches through A::B.create" do
+    result = ze0(<<~'RUBY')
+      # ConstantPath access — covers ARGV (top-level builtin), built-in
+      # constructors (::Array.new etc.), nested const reads (A::B::C),
+      # class-method dispatch (A::B.create), and the relative-vs-root
+      # scope distinction (RootNS::Mid::LEAF vs ::RootNS::Mid::LEAF).
+      # Merged from constant_path_{argv,builtin_new,class_method,
+      # nested_read,new}.rb. The class-method section's `A::B` (a class)
+      # would collide with the nested-read section's `A::B::C` (where
+      # A::B is a module), so the class-method section is namespaced as
+      # CmA::CmB to keep both shapes co-resident.
+
       # ---- ConstantPath class-method dispatch (A::B.create) ----
       module CmA
         class CmB
@@ -1107,6 +1154,26 @@ describe "Constants programs" do
       end
       puts CmA::CmB.create(41)
       puts ::CmA::CmB.create(99)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      100
+    OUT
+  end
+
+  it "a constant nested two and three deep reads through its path" do
+    result = ze0(<<~'RUBY')
+      # ConstantPath access — covers ARGV (top-level builtin), built-in
+      # constructors (::Array.new etc.), nested const reads (A::B::C),
+      # class-method dispatch (A::B.create), and the relative-vs-root
+      # scope distinction (RootNS::Mid::LEAF vs ::RootNS::Mid::LEAF).
+      # Merged from constant_path_{argv,builtin_new,class_method,
+      # nested_read,new}.rb. The class-method section's `A::B` (a class)
+      # would collide with the nested-read section's `A::B::C` (where
+      # A::B is a module), so the class-method section is namespaced as
+      # CmA::CmB to keep both shapes co-resident.
 
       # ---- Nested ConstantPath reads (A::B::C, M::C::X) ----
       module A
@@ -1146,6 +1213,30 @@ describe "Constants programs" do
       puts Lex.pick_relative
       puts Lex.pick_root
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      7
+      11
+      11
+      47
+      31
+    OUT
+  end
+
+  it "a top-level constructor answers through ::T" do
+    result = ze0(<<~'RUBY')
+      # ConstantPath access — covers ARGV (top-level builtin), built-in
+      # constructors (::Array.new etc.), nested const reads (A::B::C),
+      # class-method dispatch (A::B.create), and the relative-vs-root
+      # scope distinction (RootNS::Mid::LEAF vs ::RootNS::Mid::LEAF).
+      # Merged from constant_path_{argv,builtin_new,class_method,
+      # nested_read,new}.rb. The class-method section's `A::B` (a class)
+      # would collide with the nested-read section's `A::B::C` (where
+      # A::B is a module), so the class-method section is namespaced as
+      # CmA::CmB to keep both shapes co-resident.
+
       # ---- Top-level constructor via absolute ConstantPath (::TopC.new) ----
       # Renamed from `class C` to TopC to keep it distinct from M::C above.
       class TopC
@@ -1158,25 +1249,6 @@ describe "Constants programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      0
-      0
-      true
-      true
-      4
-      2
-      6
-      a
-      5
-      6
-      true
-      42
-      100
-      7
-      7
-      11
-      11
-      47
-      31
       start
       init
     OUT
@@ -3122,7 +3194,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "svar scope belongs to the frame that matched" do
+  it "a method keeps its own match, so the caller's is untouched" do
     result = ze0(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
@@ -3154,6 +3226,30 @@ describe "Constants programs" do
       p silent("xyz")
       p probe.call
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "y"
+      ["b", "b"]
+      :done
+      ["b", "b"]
+    OUT
+  end
+
+  it "a class body is a frame, so it holds a match of its own" do
+    result = ze0(<<~'RUBY')
+      # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
+      # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
+      # leaves the caller's match exactly as it found it, and a scope that never
+      # matched reads the one it inherited from where it was ENTERED.
+      #
+      # The rule follows the frame: a method, a class or module body and a
+      # singleton-class body each get a scope of their own; a block, a lambda and a
+      # `define_method` body share the scope of the frame they run under, because
+      # that is the frame ruby gives them.
+
+      probe = -> { [$~ && $~[0], $1] }
+
       # --- a class body is a frame, so it is a scope -----------------------------
       "abc" =~ /(b)/
       class Body
@@ -3176,6 +3272,30 @@ describe "Constants programs" do
       end
       p probe.call
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "y"
+      ["b", "b"]
+      ["b", "b"]
+      ["b", "b"]
+    OUT
+  end
+
+  it "a block shares the match of the frame it runs under" do
+    result = ze0(<<~'RUBY')
+      # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
+      # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
+      # leaves the caller's match exactly as it found it, and a scope that never
+      # matched reads the one it inherited from where it was ENTERED.
+      #
+      # The rule follows the frame: a method, a class or module body and a
+      # singleton-class body each get a scope of their own; a block, a lambda and a
+      # `define_method` body share the scope of the frame they run under, because
+      # that is the frame ruby gives them.
+
+      probe = -> { [$~ && $~[0], $1] }
+
       # --- a block shares the frame it runs under --------------------------------
       "abc" =~ /(b)/
       [1].each { "xyz" =~ /(y)/ }
@@ -3197,6 +3317,31 @@ describe "Constants programs" do
       "abc" =~ /(b)/
       p through_a_block("xyz")
       p probe.call
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["y", "y"]
+      ["y", "y"]
+      ["y", "y"]
+      "y"
+      ["b", "b"]
+    OUT
+  end
+
+  it "a class method and a define_method body each hold their own match" do
+    result = ze0(<<~'RUBY')
+      # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
+      # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
+      # leaves the caller's match exactly as it found it, and a scope that never
+      # matched reads the one it inherited from where it was ENTERED.
+      #
+      # The rule follows the frame: a method, a class or module body and a
+      # singleton-class body each get a scope of their own; a block, a lambda and a
+      # `define_method` body share the scope of the frame they run under, because
+      # that is the frame ruby gives them.
+
+      probe = -> { [$~ && $~[0], $1] }
 
       # --- a class method and a `define_method` body -----------------------------
       class Owner
@@ -3224,6 +3369,32 @@ describe "Constants programs" do
       p fails("xyz")
       p probe.call
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "y"
+      ["b", "b"]
+      "y"
+      ["b", "b"]
+      [nil, nil]
+      ["b", "b"]
+    OUT
+  end
+
+  it "an early return leaves the caller's match as it was" do
+    result = ze0(<<~'RUBY')
+      # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
+      # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
+      # leaves the caller's match exactly as it found it, and a scope that never
+      # matched reads the one it inherited from where it was ENTERED.
+      #
+      # The rule follows the frame: a method, a class or module body and a
+      # singleton-class body each get a scope of their own; a block, a lambda and a
+      # `define_method` body share the scope of the frame they run under, because
+      # that is the frame ruby gives them.
+
+      probe = -> { [$~ && $~[0], $1] }
+
       # --- an early return cannot leak the callee's match ------------------------
       def early(s)
         return :none unless s =~ /(y)/
@@ -3232,6 +3403,28 @@ describe "Constants programs" do
       "abc" =~ /(b)/
       p early("zzz")
       p probe.call
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :none
+      ["b", "b"]
+    OUT
+  end
+
+  it "a raise out of a matched scope pops that match with the frame" do
+    result = ze0(<<~'RUBY')
+      # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
+      # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
+      # leaves the caller's match exactly as it found it, and a scope that never
+      # matched reads the one it inherited from where it was ENTERED.
+      #
+      # The rule follows the frame: a method, a class or module body and a
+      # singleton-class body each get a scope of their own; a block, a lambda and a
+      # `define_method` body share the scope of the frame they run under, because
+      # that is the frame ruby gives them.
+
+      probe = -> { [$~ && $~[0], $1] }
 
       # --- a raise out of a matched scope pops it too ----------------------------
       def raises(s)
@@ -3247,27 +3440,6 @@ describe "Constants programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "y"
-      ["b", "b"]
-      :done
-      ["b", "b"]
-      "y"
-      ["b", "b"]
-      ["b", "b"]
-      ["b", "b"]
-      ["y", "y"]
-      ["y", "y"]
-      ["y", "y"]
-      "y"
-      ["b", "b"]
-      "y"
-      ["b", "b"]
-      "y"
-      ["b", "b"]
-      [nil, nil]
-      ["b", "b"]
-      :none
-      ["b", "b"]
       ["b", "b"]
     OUT
   end
@@ -3515,7 +3687,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "two namespaces can share a constant leaf" do
+  it "a runtime-minted constant beside a same-leaf class keeps each namespace its own" do
     result = ze0(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
@@ -3583,6 +3755,61 @@ describe "Constants programs" do
       row("files_sub_identity") { Files::Sub.equal?(Files.const_get(:Sub)) }
       row("files_constants") { Files.constants.sort.inspect }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      settings_path_kind	"struct"
+      files_path_kind	"class"
+      files_sub_superclass	"Files::Path"
+      files_sub_kind	"class"
+      files_sub_name	"Files::Sub"
+      files_path_identity	true
+      files_sub_identity	true
+      files_constants	"[:Path, :Sub]"
+    OUT
+  end
+
+  it "the same collision in the other order resolves the same way" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
+
       # --- 2. the collision in the other order ------------------------------------
 
       module Early
@@ -3603,6 +3830,56 @@ describe "Constants programs" do
       row("early_tagged_kind") { Early::Tagged.new.kind }
       row("late_token_kind") { Late::Token.new.kind }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      early_tagged_superclass	"Early::Token"
+      early_tagged_kind	"class"
+      late_token_kind	"runtime"
+    OUT
+  end
+
+  it "a genuine runtime superclass still works beside a same-leaf constant" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
+
       # --- 3. a genuine runtime superclass still works ----------------------------
 
       module Real
@@ -3619,6 +3896,57 @@ describe "Constants programs" do
       row("real_derived_extra") { Real::Derived.new.extra }
       row("real_derived_name") { Real::Derived.name }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      real_derived_superclass	true
+      real_derived_kind	"runtime-base"
+      real_derived_extra	7
+      real_derived_name	"Real::Derived"
+    OUT
+  end
+
+  it "a qualified superclass naming a runtime constant resolves to it" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
+
       # --- 4. a qualified superclass naming a runtime constant --------------------
 
       module Outer
@@ -3633,6 +3961,55 @@ describe "Constants programs" do
 
       row("outer_uses_superclass") { Outer::Uses.superclass.equal?(Outer::Inner::Impl) }
       row("outer_uses_kind") { Outer::Uses.new.kind }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      outer_uses_superclass	true
+      outer_uses_kind	"inner-impl"
+    OUT
+  end
+
+  it "a bare top-level constant does not capture a nested reference to the same leaf" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
 
       # --- 5. a bare top-level constant must not capture a nested class -----------
 
@@ -3649,6 +4026,56 @@ describe "Constants programs" do
       row("toplevel_marker") { Marker }
       row("holder_marker_kind") { Holder::Marker.new.kind }
       row("holder_uses_superclass") { Holder::UsesMarker.superclass.to_s }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      toplevel_marker	7
+      holder_marker_kind	"nested"
+      holder_uses_superclass	"Holder::Marker"
+    OUT
+  end
+
+  it "the same leaf three namespaces deep resolves at each level" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
 
       # --- 6. the same leaf three deep --------------------------------------------
 
@@ -3670,6 +4097,57 @@ describe "Constants programs" do
       row("b1_uses_superclass") { B1::Uses.superclass.to_s }
       row("c1_value") { C1::Value }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      a1_value_where	"A1"
+      b1_uses_where	"B1"
+      b1_uses_superclass	"B1::Value"
+      c1_value	3
+    OUT
+  end
+
+  it "a bare class X reopens its own namespace's X, not an unrelated one" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
+
       # --- 7. reopening: a bare `class X` where an unrelated X is runtime-minted --
 
       module Mint
@@ -3690,6 +4168,57 @@ describe "Constants programs" do
       row("plain_shape_two") { Plain::Shape.new.two }
       row("plain_shape_ancestors") { Plain::Shape.ancestors.first.to_s }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      mint_shape_kind	"minted"
+      plain_shape_one	1
+      plain_shape_two	2
+      plain_shape_ancestors	"Plain::Shape"
+    OUT
+  end
+
+  it "a real reopen of a runtime-minted class still reopens it" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
+
       # --- 8. a real reopen of a runtime-minted class still reopens ---------------
 
       module Reopen
@@ -3703,6 +4232,56 @@ describe "Constants programs" do
       row("reopen_thing_two") { Reopen::Thing.new.two }
       row("reopen_thing_count") { Reopen.constants.count { |c| c == :Thing } }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      reopen_thing_one	1
+      reopen_thing_two	2
+      reopen_thing_count	1
+    OUT
+  end
+
+  it "defined? and const_get agree with what the reader resolves" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
+
       # --- 9. `defined?` and const_get must agree with the read -------------------
 
       module Agree
@@ -3714,6 +4293,57 @@ describe "Constants programs" do
       row("agree_defined_branch") { defined?(Agree::Branch) }
       row("agree_get_equals_read") { Agree.const_get(:Branch).equal?(Agree::Branch) }
       row("agree_branch_instance") { Agree::Branch.new.is_a?(Agree::Leaf) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      agree_defined_leaf	"constant"
+      agree_defined_branch	"constant"
+      agree_get_equals_read	true
+      agree_branch_instance	true
+    OUT
+  end
+
+  it "a same-leaf module and class stay apart" do
+    result = ze0(<<~'RUBY')
+      # Two namespaces may each hold a constant of the same LEAF name, and neither
+      # may answer for the other. One row per shape, printed as `name<TAB>result`.
+      #
+      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # class or a runtime `X = Class.new(Super)`, and that decision reads two
+      # whole-program tables: "is this constant assigned?" and "is this constant a
+      # class definition?". The second always asked from the CREF the site is
+      # written in; the first asked by BARE LEAF, over the whole program.
+      #
+      # So one namespace's `Path = Struct.new(...) do ... end` made every `class X <
+      # Path` anywhere look like a subclass of a runtime-minted class, and a plain
+      # `class Path` in another namespace was rewritten into a runtime REOPEN of a
+      # class that does not exist there -- `uninitialized constant Files::Path`,
+      # four lines into this file, for ordinary Ruby.
+      #
+      # Under `require "bundler"` the same collision was quieter and worse:
+      # `Bundler::Settings::Path` rewrote `class Git < Path` in
+      # `bundler/source/git.rb` to `Git = Class.new(Path)`, so
+      # `Bundler::Source::Git` existed TWICE -- once as a compile-time class
+      # nothing ever revealed, once as the runtime class in the constant table.
+      # `const_get(:Git)` answered the second and `Bundler::Source::Git` raised on
+      # the first.
+      #
+      # The fix is one rule: a scope-less write is keyed by its cref path, and the
+      # query is Ruby's own lexical search -- exactly what `record_class_def` and
+      # `class_defined_in_scope` already did for the class half. Two hand-rolled
+      # leaf-matching workarounds went away with it.
+      #
+      # Every row below is ordinary Ruby with an unambiguous answer.
+
+      def row(name)
+        print name, "\t"
+        begin
+          puts(yield.inspect)
+        rescue Exception => e
+          puts "#{e.class}: #{e.message}"
+        end
+      end
 
       # --- 10. a same-leaf module and class ---------------------------------------
 
@@ -3731,41 +4361,6 @@ describe "Constants programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      settings_path_kind	"struct"
-      files_path_kind	"class"
-      files_sub_superclass	"Files::Path"
-      files_sub_kind	"class"
-      files_sub_name	"Files::Sub"
-      files_path_identity	true
-      files_sub_identity	true
-      files_constants	"[:Path, :Sub]"
-      early_tagged_superclass	"Early::Token"
-      early_tagged_kind	"class"
-      late_token_kind	"runtime"
-      real_derived_superclass	true
-      real_derived_kind	"runtime-base"
-      real_derived_extra	7
-      real_derived_name	"Real::Derived"
-      outer_uses_superclass	true
-      outer_uses_kind	"inner-impl"
-      toplevel_marker	7
-      holder_marker_kind	"nested"
-      holder_uses_superclass	"Holder::Marker"
-      a1_value_where	"A1"
-      b1_uses_where	"B1"
-      b1_uses_superclass	"B1::Value"
-      c1_value	3
-      mint_shape_kind	"minted"
-      plain_shape_one	1
-      plain_shape_two	2
-      plain_shape_ancestors	"Plain::Shape"
-      reopen_thing_one	1
-      reopen_thing_two	2
-      reopen_thing_count	1
-      agree_defined_leaf	"constant"
-      agree_defined_branch	"constant"
-      agree_get_equals_read	true
-      agree_branch_instance	true
       kinda_mixed_class	"Module"
       kindb_mixed_class	"Class"
       kindb_uses_superclass	"KindB::Mixed"

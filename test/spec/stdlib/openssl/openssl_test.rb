@@ -1214,9 +1214,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "Digest, HMAC, KDF and Random each answer, and the version strings keep their shape" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
-
+  it "the library version strings keep the shape a build-specific value allows" do
     result = ze0(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
@@ -1228,6 +1226,24 @@ describe "OpenSSL programs" do
       p OpenSSL::OPENSSL_VERSION.start_with?("OpenSSL 3.")
       p OpenSSL::OPENSSL_LIBRARY_VERSION.start_with?("OpenSSL 3.")
       p OpenSSL::OPENSSL_VERSION_NUMBER >= 0x30000000
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -- versions --
+      "4.0.2"
+      true
+      true
+      true
+    OUT
+  end
+
+  it "Digest answers its name and its hexdigest" do
+    result = ze0(<<~'RUBY')
+      # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
+      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # 3.x), so the golden prints shape checks, never the raw strings.
+      require "openssl"
 
       puts "-- digest --"
       d = OpenSSL::Digest.new("SHA256")
@@ -1264,6 +1280,41 @@ describe "OpenSSL programs" do
         p e.class.ancestors.include?(OpenSSL::OpenSSLError)
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -- digest --
+      OpenSSL::Digest
+      "SHA256"
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      32
+      32
+      64
+      true
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      32
+      "a9993e364706816aba3e25717850c26c9cd0d89d"
+      "900150983cd24fb0d6963f7d28e17f72"
+      "a9993e364706816aba3e25717850c26c9cd0d89d"
+      16
+      "SHA256"
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      [16, 20, 48, 64]
+      true
+      OpenSSL::Digest::DigestError
+      true
+    OUT
+  end
+
+  it "HMAC answers the digest of a key and a message" do
+    result = ze0(<<~'RUBY')
+      # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
+      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # 3.x), so the golden prints shape checks, never the raw strings.
+      require "openssl"
+
       puts "-- hmac --"
       p OpenSSL::HMAC.hexdigest("SHA256", "key", "The quick brown fox")
       p OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("SHA256"), "key", "The quick brown fox")
@@ -1289,6 +1340,32 @@ describe "OpenSSL programs" do
         p e.class
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -- hmac --
+      "203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
+      "203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
+      20
+      "UDH+PZicbRU3oBP6bnOdojRj/a7DtwE32Cjjas4iG9A="
+      OpenSSL::HMAC
+      "203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
+      32
+      true
+      true
+      true
+      true
+      OpenSSL::Digest::DigestError
+    OUT
+  end
+
+  it "the KDF rows derive a key from a password and a salt" do
+    result = ze0(<<~'RUBY')
+      # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
+      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # 3.x), so the golden prints shape checks, never the raw strings.
+      require "openssl"
+
       puts "-- kdf --"
       p OpenSSL::KDF.pbkdf2_hmac("password", salt: "salt", iterations: 1000,
                                  length: 32, hash: "SHA256").unpack1("H*")
@@ -1306,6 +1383,28 @@ describe "OpenSSL programs" do
       p OpenSSL::PKCS5.pbkdf2_hmac("password", "salt", 1000, 32, "SHA256") ==
         OpenSSL::KDF.pbkdf2_hmac("password", salt: "salt", iterations: 1000, length: 32, hash: "SHA256")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -- kdf --
+      "632c2812e46d4604102ba7618e9d6d7d2f8128f6266b4a03264d2a0460b7dcb3"
+      "0c60c80f961f0e71f3a9b524af6012062fe037a6"
+      "fe8f9615d2374c0d17f77d1aeaf408c2e75fe0466073d0def23c733e2f862dfd"
+      "d58e7c1c4394984eb3ca168ff7b709d4"
+      "1effd93afcf2b28964026631bf4362b0"
+      [ArgumentError, "missing keyword: :hash"]
+      OpenSSL::OpenSSLError
+      true
+    OUT
+  end
+
+  it "Random answers binary bytes of the length it is asked for" do
+    result = ze0(<<~'RUBY')
+      # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
+      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # 3.x), so the golden prints shape checks, never the raw strings.
+      require "openssl"
+
       puts "-- random + compares --"
       p OpenSSL::Random.random_bytes(16).bytesize
       p OpenSSL::Random.random_bytes(16).encoding
@@ -1317,6 +1416,26 @@ describe "OpenSSL programs" do
       rescue => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -- random + compares --
+      16
+      #<Encoding:BINARY (ASCII-8BIT)>
+      true
+      false
+      true
+      [ArgumentError, "inputs must be of equal length"]
+    OUT
+  end
+
+  it "OpenSSLError descends from StandardError, and each module's error from it" do
+    result = ze0(<<~'RUBY')
+      # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
+      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # 3.x), so the golden prints shape checks, never the raw strings.
+      require "openssl"
 
       puts "-- exception hierarchy --"
       p OpenSSL::OpenSSLError.superclass
@@ -1334,62 +1453,6 @@ describe "OpenSSL programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      -- versions --
-      "4.0.2"
-      true
-      true
-      true
-      -- digest --
-      OpenSSL::Digest
-      "SHA256"
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-      32
-      32
-      64
-      true
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-      32
-      "a9993e364706816aba3e25717850c26c9cd0d89d"
-      "900150983cd24fb0d6963f7d28e17f72"
-      "a9993e364706816aba3e25717850c26c9cd0d89d"
-      16
-      "SHA256"
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-      [16, 20, 48, 64]
-      true
-      OpenSSL::Digest::DigestError
-      true
-      -- hmac --
-      "203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
-      "203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
-      20
-      "UDH+PZicbRU3oBP6bnOdojRj/a7DtwE32Cjjas4iG9A="
-      OpenSSL::HMAC
-      "203d1e5cedd2d18f8c5a3beff0bd9c1ebcb97097dfcb288c46b00c9227fde2c0"
-      32
-      true
-      true
-      true
-      true
-      OpenSSL::Digest::DigestError
-      -- kdf --
-      "632c2812e46d4604102ba7618e9d6d7d2f8128f6266b4a03264d2a0460b7dcb3"
-      "0c60c80f961f0e71f3a9b524af6012062fe037a6"
-      "fe8f9615d2374c0d17f77d1aeaf408c2e75fe0466073d0def23c733e2f862dfd"
-      "d58e7c1c4394984eb3ca168ff7b709d4"
-      "1effd93afcf2b28964026631bf4362b0"
-      [ArgumentError, "missing keyword: :hash"]
-      OpenSSL::OpenSSLError
-      true
-      -- random + compares --
-      16
-      #<Encoding:BINARY (ASCII-8BIT)>
-      true
-      false
-      true
-      [ArgumentError, "inputs must be of equal length"]
       -- exception hierarchy --
       StandardError
       OpenSSL::OpenSSLError

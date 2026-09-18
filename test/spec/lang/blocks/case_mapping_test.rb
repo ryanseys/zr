@@ -199,7 +199,7 @@ describe "Blocks: case mapping" do
     OUT
   end
 
-  it "block param shadow" do
+  it "each's block parameter shadows an outer String local of the same name" do
     result = ze0(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
@@ -220,6 +220,23 @@ describe "Blocks: case mapping" do
       # 30
       # hello
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      20
+      30
+      hello
+    OUT
+  end
+
+  it "each_with_index's index parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- each_with_index, outer string i ---
       def f2
         i = "outer"
@@ -232,6 +249,22 @@ describe "Blocks: case mapping" do
       # a0
       # b1
       # outer
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      a0
+      b1
+      outer
+    OUT
+  end
+
+  it "each_with_index over Strings shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- each_with_index on str_array, outer int i ---
       def f3
@@ -247,6 +280,23 @@ describe "Blocks: case mapping" do
       # c:2
       # 99
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      a:0
+      b:1
+      c:2
+      99
+    OUT
+  end
+
+  it "map's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- map on int_array, outer string i ---
       def f4
         i = "outer"
@@ -257,6 +307,23 @@ describe "Blocks: case mapping" do
         puts i                    # outer
       end
       f4
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      11
+      21
+      31
+      outer
+    OUT
+  end
+
+  it "map over Strings shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- map on str_array, outer int s ---
       def f5
@@ -270,6 +337,23 @@ describe "Blocks: case mapping" do
       end
       f5
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      A
+      B
+      C
+      42
+    OUT
+  end
+
+  it "select's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- select on int_array, outer string n ---
       def f6
         n = "kept"
@@ -281,6 +365,23 @@ describe "Blocks: case mapping" do
       end
       f6
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      3
+      4
+      kept
+    OUT
+  end
+
+  it "reject's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- reject on int_array, outer string n ---
       def f7
         n = "drop"
@@ -291,6 +392,23 @@ describe "Blocks: case mapping" do
         puts n                    # drop
       end
       f7
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      1
+      2
+      drop
+    OUT
+  end
+
+  it "partition's block parameters shadow an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- partition on int_array, outer string n ---
       def f8
@@ -307,6 +425,27 @@ describe "Blocks: case mapping" do
       end
       f8
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      3
+      4
+      5
+      2
+      1
+      2
+      outer
+    OUT
+  end
+
+  it "partition over Strings shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- partition on str_array, outer int x ---
       def f9
         x = 99
@@ -319,6 +458,25 @@ describe "Blocks: case mapping" do
         puts x                    # 99
       end
       f9
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      bb
+      ccc
+      1
+      a
+      99
+    OUT
+  end
+
+  it "each_char's block parameter shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- each_char on string, outer int c ---
       def f10
@@ -334,6 +492,23 @@ describe "Blocks: case mapping" do
       # c!
       # 7
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      a!
+      b!
+      c!
+      7
+    OUT
+  end
+
+  it "each_byte's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- each_byte on string, outer string b ---
       def f11
         b = "kept"
@@ -346,6 +521,22 @@ describe "Blocks: case mapping" do
       # 66
       # 67
       # kept
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      66
+      67
+      kept
+    OUT
+  end
+
+  it "cycle with a count shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- cycle on int_array with count, outer string x ---
       def f12
@@ -362,6 +553,24 @@ describe "Blocks: case mapping" do
       # 20
       # outer
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      20
+      10
+      20
+      outer
+    OUT
+  end
+
+  it "scan with a block shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- scan with block on string, outer int m ---
       def f13
         m = 99
@@ -376,6 +585,23 @@ describe "Blocks: case mapping" do
       # 3!
       # 99
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1!
+      2!
+      3!
+      99
+    OUT
+  end
+
+  it "each_slice's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- each_slice on int_array, outer string v ---
       def f14
         v = "hello"
@@ -388,6 +614,22 @@ describe "Blocks: case mapping" do
       # 2
       # 2
       # hello
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      2
+      hello
+    OUT
+  end
+
+  it "each_cons's block parameter shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- each_cons on str_array, outer int c ---
       def f15
@@ -402,6 +644,22 @@ describe "Blocks: case mapping" do
       # 3
       # 7
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      3
+      7
+    OUT
+  end
+
+  it "tap's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- tap on int receiver, outer string v ---
       def f16
         v = "hello"
@@ -413,6 +671,21 @@ describe "Blocks: case mapping" do
       f16
       # 43
       # hello
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      43
+      hello
+    OUT
+  end
+
+  it "tap over a String shadows an outer Integer local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- tap on string receiver, outer int s ---
       def f17
@@ -426,6 +699,21 @@ describe "Blocks: case mapping" do
       # abc!
       # 99
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      abc!
+      99
+    OUT
+  end
+
+  it "then's block parameter shadows an outer String local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
+
       # --- then on int receiver, outer string v ---
       def f18
         v = "hello"
@@ -436,6 +724,21 @@ describe "Blocks: case mapping" do
       f18
       # 43
       # hello
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      43
+      hello
+    OUT
+  end
+
+  it "yield_self's block parameter shadows an outer Float local" do
+    result = ze0(<<~'RUBY')
+      # Block parameters shadow outer differently-typed locals correctly.
+      # Without push_scope/declare_var around the block body compile, infer_type
+      # returned the outer scope's type for the block param, dispatching the
+      # wrong runtime call (e.g. sp_str_repeat for an int param).
 
       # --- yield_self with int receiver returning string, outer float v ---
       def f19
@@ -450,75 +753,6 @@ describe "Blocks: case mapping" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      10
-      20
-      30
-      hello
-      a0
-      b1
-      outer
-      a:0
-      b:1
-      c:2
-      99
-      11
-      21
-      31
-      outer
-      A
-      B
-      C
-      42
-      2
-      3
-      4
-      kept
-      2
-      1
-      2
-      drop
-      3
-      3
-      4
-      5
-      2
-      1
-      2
-      outer
-      2
-      bb
-      ccc
-      1
-      a
-      99
-      a!
-      b!
-      c!
-      7
-      66
-      67
-      kept
-      10
-      20
-      10
-      20
-      outer
-      1!
-      2!
-      3!
-      99
-      2
-      2
-      hello
-      3
-      3
-      7
-      43
-      hello
-      abc!
-      99
-      43
-      hello
       42!
       3.14
     OUT

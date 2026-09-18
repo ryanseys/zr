@@ -514,7 +514,7 @@ describe "Syntax programs" do
     OUT
   end
 
-  it "expression shapes" do
+  it "return, break and next with several values each answer an array" do
     result = ze0(<<~'RUBY')
       # Expression shapes that were previously clean compile rejections:
       # multi-value return/break/next, parenthesized statement sequences, the
@@ -556,6 +556,27 @@ describe "Syntax programs" do
       p([1].each { break 1, 2 })
       p([[1, 2]].map { |a, b| next a, b })
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      [1, 2, 3]
+      [1, 2, 3]
+      [1, 2]
+      [1]
+      []
+      nil
+      [1, 2]
+      [[1, 2]]
+    OUT
+  end
+
+  it "a parenthesized statement sequence answers its last statement" do
+    result = ze0(<<~'RUBY')
+      # Expression shapes that were previously clean compile rejections:
+      # multi-value return/break/next, parenthesized statement sequences, the
+      # fuller interpolation forms, and top-level instance variables.
+
       # --- parenthesized statement sequences --------------------------------------
       # `(a; b)` evaluates each in order and answers the LAST.
       p((1; 2; 3))
@@ -584,6 +605,28 @@ describe "Syntax programs" do
       # One statement in parens is just that expression.
       p (5)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      10
+      5
+      8
+      side effect
+      42
+      [2, 3]
+      3
+      "after"
+      5
+    OUT
+  end
+
+  it "every interpolation form builds the string it reads as" do
+    result = ze0(<<~'RUBY')
+      # Expression shapes that were previously clean compile rejections:
+      # multi-value return/break/next, parenthesized statement sequences, the
+      # fuller interpolation forms, and top-level instance variables.
+
       # --- string interpolation forms ---------------------------------------------
       # Several statements inside #{ } answer the last...
       p "v=#{1; 2}"
@@ -606,6 +649,23 @@ describe "Syntax programs" do
         end
       end
       puts Speaker.new
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "v=2"
+      "v=6"
+      3
+      "ab"
+      hi, sam
+    OUT
+  end
+
+  it "a top-level @x belongs to main and reads back there" do
+    result = ze0(<<~'RUBY')
+      # Expression shapes that were previously clean compile rejections:
+      # multi-value return/break/next, parenthesized statement sequences, the
+      # fuller interpolation forms, and top-level instance variables.
 
       # --- top-level instance variables -------------------------------------------
       # At the top level `self` is `main`, an ordinary object -- so `@x` there is
@@ -630,30 +690,6 @@ describe "Syntax programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [1, 2]
-      [1, 2, 3]
-      [1, 2, 3]
-      [1, 2]
-      [1]
-      []
-      nil
-      [1, 2]
-      [[1, 2]]
-      3
-      10
-      5
-      8
-      side effect
-      42
-      [2, 3]
-      3
-      "after"
-      5
-      "v=2"
-      "v=6"
-      3
-      "ab"
-      hi, sam
       "set at top level"
       nil
       "set at top level"

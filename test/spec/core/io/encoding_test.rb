@@ -480,7 +480,7 @@ describe "IO: encodings" do
     OUT
   end
 
-  it "IO.new over a descriptor takes the mode and the options File.open takes, and means the same by them" do
+  it "the mode argument of IO.new over a descriptor decides the external encoding" do
     result = ze0(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
@@ -541,6 +541,68 @@ describe "IO: encodings" do
       # `b` claims the external slot only when nothing NAMED an encoding.
       row("mode rb:enc")        { |fd| io = IO.new(fd, "rb:UTF-8"); [[io.external_encoding.name, io.binmode?], io] }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      no mode	["UTF-8", nil]
+      mode r	["UTF-8", nil]
+      mode rb	["ASCII-8BIT", nil]
+      mode r:enc	["EUC-JP", nil]
+      mode r:ext:int	["EUC-JP", "UTF-8"]
+      mode r:ext:-	["EUC-JP", nil]
+      mode: keyword	["EUC-JP", nil]
+      mode as O_ flags	["UTF-8", nil]
+      mode rb:enc	["UTF-8", true]
+    OUT
+  end
+
+  it "external_encoding: and internal_encoding: on IO.new are read, not dropped" do
+    result = ze0(<<~'RUBY')
+      # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
+      # takes, and they mean the same things.
+      #
+      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # ever looked at, and a third argument was `wrong number of arguments (given 3,
+      # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
+      # it was asked for, and irb's
+      #
+      #   IO.open(STDOUT.to_i, 'w', external_encoding: enc, internal_encoding: "-")
+      #
+      # could not be built at all -- which is where `IRB.start` died.
+      require "tmpdir"
+      require "fileutils"
+
+      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      SRC = File.join(DIR, "src.txt")
+      File.binwrite(SRC, "hello\nworld\n")
+
+      # Every row gets a descriptor of its own, and whatever the row builds owns it:
+      # closing one fd twice is a real error, not a test detail.
+      def row(name, mode = "r")
+        fd = IO.sysopen(SRC, mode)
+        made = nil
+        begin
+          value, made = yield fd
+          puts "#{name}\t#{value.inspect}"
+        rescue StandardError => e
+          puts "#{name}\t#{e.class}: #{e.message}"
+        ensure
+          if made
+            made.close
+          else
+            begin
+              IO.for_fd(fd).close
+            rescue SystemCallError
+              nil
+            end
+          end
+        end
+      end
+
+      def encs(io)
+        [[io.external_encoding&.name, io.internal_encoding&.name], io]
+      end
+
       # --- the options Hash --------------------------------------------------------
       row("external_encoding:")  { |fd| encs(IO.new(fd, external_encoding: "EUC-JP")) }
       row("internal_encoding:")  { |fd| encs(IO.new(fd, external_encoding: "EUC-JP", internal_encoding: "UTF-8")) }
@@ -556,10 +618,131 @@ describe "IO: encodings" do
       # An option nobody knows is ignored, not refused.
       row("unknown option")      { |fd| io = IO.new(fd, no_such_option: 1); [io.class, io] }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      external_encoding:	["EUC-JP", nil]
+      internal_encoding:	["EUC-JP", "UTF-8"]
+      internal_encoding: -	["EUC-JP", nil]
+      internal_encoding: nil	["EUC-JP", nil]
+      encoding:	["EUC-JP", nil]
+      encoding: ext:int	["EUC-JP", "UTF-8"]
+      encoding: ext:-	["EUC-JP", nil]
+      binmode:	["ASCII-8BIT", nil]
+      textmode:	["UTF-8", nil]
+      path:	"labelled"
+      autoclose: false	false
+      unknown option	IO
+    OUT
+  end
+
+  it "a mode and an options hash together give irb the handle it opens stdout with" do
+    result = ze0(<<~'RUBY')
+      # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
+      # takes, and they mean the same things.
+      #
+      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # ever looked at, and a third argument was `wrong number of arguments (given 3,
+      # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
+      # it was asked for, and irb's
+      #
+      #   IO.open(STDOUT.to_i, 'w', external_encoding: enc, internal_encoding: "-")
+      #
+      # could not be built at all -- which is where `IRB.start` died.
+      require "tmpdir"
+      require "fileutils"
+
+      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      SRC = File.join(DIR, "src.txt")
+      File.binwrite(SRC, "hello\nworld\n")
+
+      # Every row gets a descriptor of its own, and whatever the row builds owns it:
+      # closing one fd twice is a real error, not a test detail.
+      def row(name, mode = "r")
+        fd = IO.sysopen(SRC, mode)
+        made = nil
+        begin
+          value, made = yield fd
+          puts "#{name}\t#{value.inspect}"
+        rescue StandardError => e
+          puts "#{name}\t#{e.class}: #{e.message}"
+        ensure
+          if made
+            made.close
+          else
+            begin
+              IO.for_fd(fd).close
+            rescue SystemCallError
+              nil
+            end
+          end
+        end
+      end
+
+      def encs(io)
+        [[io.external_encoding&.name, io.internal_encoding&.name], io]
+      end
+
       # --- mode AND options together: the shape irb needs --------------------------
       row("mode + opts")         { |fd| encs(IO.new(fd, "r", external_encoding: "EUC-JP", internal_encoding: "-")) }
       row("open + mode + opts")  { |fd| encs(IO.open(fd, "r", external_encoding: "EUC-JP", internal_encoding: "-")) }
       row("for_fd + mode + opts"){ |fd| encs(IO.for_fd(fd, "r", external_encoding: "EUC-JP", internal_encoding: "-")) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      mode + opts	["EUC-JP", nil]
+      open + mode + opts	["EUC-JP", nil]
+      for_fd + mode + opts	["EUC-JP", nil]
+    OUT
+  end
+
+  it "IO.new refuses a bad access mode and an unknown encoding name" do
+    result = ze0(<<~'RUBY')
+      # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
+      # takes, and they mean the same things.
+      #
+      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # ever looked at, and a third argument was `wrong number of arguments (given 3,
+      # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
+      # it was asked for, and irb's
+      #
+      #   IO.open(STDOUT.to_i, 'w', external_encoding: enc, internal_encoding: "-")
+      #
+      # could not be built at all -- which is where `IRB.start` died.
+      require "tmpdir"
+      require "fileutils"
+
+      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      SRC = File.join(DIR, "src.txt")
+      File.binwrite(SRC, "hello\nworld\n")
+
+      # Every row gets a descriptor of its own, and whatever the row builds owns it:
+      # closing one fd twice is a real error, not a test detail.
+      def row(name, mode = "r")
+        fd = IO.sysopen(SRC, mode)
+        made = nil
+        begin
+          value, made = yield fd
+          puts "#{name}\t#{value.inspect}"
+        rescue StandardError => e
+          puts "#{name}\t#{e.class}: #{e.message}"
+        ensure
+          if made
+            made.close
+          else
+            begin
+              IO.for_fd(fd).close
+            rescue SystemCallError
+              nil
+            end
+          end
+        end
+      end
+
+      def encs(io)
+        [[io.external_encoding&.name, io.internal_encoding&.name], io]
+      end
 
       # --- what is refused ---------------------------------------------------------
       # An access mode naming nothing is refused at the call, not on the first read.
@@ -575,9 +758,122 @@ describe "IO: encodings" do
         puts "fd is not an Integer\t#{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      bad access mode	ArgumentError: invalid access mode zz
+      mode the fd cannot serve	Errno::EINVAL: Invalid argument
+      O_RDWR over a read-only fd	Errno::EINVAL: Invalid argument
+      encoding named twice	ArgumentError: encoding specified twice
+      mode is not a String	TypeError: no implicit conversion of Object into String
+      fd is not an Integer	no implicit conversion of String into Integer
+    OUT
+  end
+
+  it "IO.open over a descriptor yields the handle and closes it after the block" do
+    result = ze0(<<~'RUBY')
+      # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
+      # takes, and they mean the same things.
+      #
+      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # ever looked at, and a third argument was `wrong number of arguments (given 3,
+      # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
+      # it was asked for, and irb's
+      #
+      #   IO.open(STDOUT.to_i, 'w', external_encoding: enc, internal_encoding: "-")
+      #
+      # could not be built at all -- which is where `IRB.start` died.
+      require "tmpdir"
+      require "fileutils"
+
+      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      SRC = File.join(DIR, "src.txt")
+      File.binwrite(SRC, "hello\nworld\n")
+
+      # Every row gets a descriptor of its own, and whatever the row builds owns it:
+      # closing one fd twice is a real error, not a test detail.
+      def row(name, mode = "r")
+        fd = IO.sysopen(SRC, mode)
+        made = nil
+        begin
+          value, made = yield fd
+          puts "#{name}\t#{value.inspect}"
+        rescue StandardError => e
+          puts "#{name}\t#{e.class}: #{e.message}"
+        ensure
+          if made
+            made.close
+          else
+            begin
+              IO.for_fd(fd).close
+            rescue SystemCallError
+              nil
+            end
+          end
+        end
+      end
+
+      def encs(io)
+        [[io.external_encoding&.name, io.internal_encoding&.name], io]
+      end
+
       # --- the block form still closes --------------------------------------------
       fd = IO.sysopen(SRC, "r")
       p IO.open(fd, "r:EUC-JP") { |io| [io.external_encoding.name, io.read(5)] }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["EUC-JP", "hello"]
+    OUT
+  end
+
+  it "a write handle built over a descriptor carries its encoding and writes" do
+    result = ze0(<<~'RUBY')
+      # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
+      # takes, and they mean the same things.
+      #
+      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # ever looked at, and a third argument was `wrong number of arguments (given 3,
+      # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
+      # it was asked for, and irb's
+      #
+      #   IO.open(STDOUT.to_i, 'w', external_encoding: enc, internal_encoding: "-")
+      #
+      # could not be built at all -- which is where `IRB.start` died.
+      require "tmpdir"
+      require "fileutils"
+
+      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      SRC = File.join(DIR, "src.txt")
+      File.binwrite(SRC, "hello\nworld\n")
+
+      # Every row gets a descriptor of its own, and whatever the row builds owns it:
+      # closing one fd twice is a real error, not a test detail.
+      def row(name, mode = "r")
+        fd = IO.sysopen(SRC, mode)
+        made = nil
+        begin
+          value, made = yield fd
+          puts "#{name}\t#{value.inspect}"
+        rescue StandardError => e
+          puts "#{name}\t#{e.class}: #{e.message}"
+        ensure
+          if made
+            made.close
+          else
+            begin
+              IO.for_fd(fd).close
+            rescue SystemCallError
+              nil
+            end
+          end
+        end
+      end
+
+      def encs(io)
+        [[io.external_encoding&.name, io.internal_encoding&.name], io]
+      end
 
       # --- a write handle ----------------------------------------------------------
       DST = File.join(DIR, "dst.txt")
@@ -594,37 +890,6 @@ describe "IO: encodings" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      no mode	["UTF-8", nil]
-      mode r	["UTF-8", nil]
-      mode rb	["ASCII-8BIT", nil]
-      mode r:enc	["EUC-JP", nil]
-      mode r:ext:int	["EUC-JP", "UTF-8"]
-      mode r:ext:-	["EUC-JP", nil]
-      mode: keyword	["EUC-JP", nil]
-      mode as O_ flags	["UTF-8", nil]
-      mode rb:enc	["UTF-8", true]
-      external_encoding:	["EUC-JP", nil]
-      internal_encoding:	["EUC-JP", "UTF-8"]
-      internal_encoding: -	["EUC-JP", nil]
-      internal_encoding: nil	["EUC-JP", nil]
-      encoding:	["EUC-JP", nil]
-      encoding: ext:int	["EUC-JP", "UTF-8"]
-      encoding: ext:-	["EUC-JP", nil]
-      binmode:	["ASCII-8BIT", nil]
-      textmode:	["UTF-8", nil]
-      path:	"labelled"
-      autoclose: false	false
-      unknown option	IO
-      mode + opts	["EUC-JP", nil]
-      open + mode + opts	["EUC-JP", nil]
-      for_fd + mode + opts	["EUC-JP", nil]
-      bad access mode	ArgumentError: invalid access mode zz
-      mode the fd cannot serve	Errno::EINVAL: Invalid argument
-      O_RDWR over a read-only fd	Errno::EINVAL: Invalid argument
-      encoding named twice	ArgumentError: encoding specified twice
-      mode is not a String	TypeError: no implicit conversion of Object into String
-      fd is not an Integer	no implicit conversion of String into Integer
-      ["EUC-JP", "hello"]
       ["EUC-JP", nil]
       "written"
       ran to the end

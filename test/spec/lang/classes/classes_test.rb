@@ -1086,7 +1086,7 @@ describe "Classes programs" do
     OUT
   end
 
-  it "class state" do
+  it "self inside a class body is the class object" do
     result = ze0(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
@@ -1106,6 +1106,26 @@ describe "Classes programs" do
       p Foo.who == Foo
       p Foo.who.name
       p Foo.who.new.class
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Foo
+      true
+      "Foo"
+      Foo
+    OUT
+  end
+
+  it "an @x written in a class body belongs to the class object" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
 
       # --- @x on the class object -------------------------------------------------
       # A bare `@x = ...` in a class body seeds it; `def self.x` reads it.
@@ -1134,6 +1154,25 @@ describe "Classes programs" do
       end
       p Quiet.probe
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["a", "b", "c"]
+      3
+      nil
+    OUT
+  end
+
+  it "a class-level @x is not inherited, where a @@x is shared" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
+
       # --- NOT inherited (the difference from @@x) --------------------------------
       # A subclass inherits the METHOD but gets its own, empty storage. A class
       # variable, by contrast, is genuinely shared.
@@ -1153,6 +1192,25 @@ describe "Classes programs" do
       Sub.tag = "sub"
       p [Base.tag, Sub.tag]              # writes stay independent
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["base", nil]
+      ["shared", "shared"]
+      ["base", "sub"]
+    OUT
+  end
+
+  it "a class @x and an instance @x of one name are different slots" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
+
       # --- a class @x and an instance @x are different slots ----------------------
       # `def self.x` and `def x` are two namespaces in Ruby, and their `@x`s name
       # two different objects' storage.
@@ -1165,6 +1223,23 @@ describe "Classes programs" do
         def x = @x
       end
       p [Dual.x, Dual.new.x]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["class-level", "instance-level"]
+    OUT
+  end
+
+  it "class << self declares the readers for a class-level @x" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
 
       # --- `class << self` -- the idiomatic declaration ---------------------------
       # `attr_accessor` there generates `def self.handler; @handler; end`, so it is
@@ -1187,6 +1262,24 @@ describe "Classes programs" do
       p Plugin.handler
       p Plugin.registered
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "second"
+      ["first", "second"]
+    OUT
+  end
+
+  it "a module body carries its own @x the same way" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
+
       # --- module-level state -----------------------------------------------------
       module Counter
         @n = 0
@@ -1196,6 +1289,23 @@ describe "Classes programs" do
       Counter.bump
       Counter.bump
       p Counter.n
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+    OUT
+  end
+
+  it "an implicit-self call in a class method resolves against the receiver" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
 
       # --- an implicit-self call resolves against the RECEIVER --------------------
       # `new` and `name` below are sends to `self`, and `self` is whichever class
@@ -1218,6 +1328,26 @@ describe "Classes programs" do
       end
       p English.greet                    # names English, not Greeter
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Shape
+      Circle
+      "a Circle"
+      "hello from English"
+    OUT
+  end
+
+  it "a block inside a class method reads the class-level @x" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
+
       # --- class-level @x from inside a block -------------------------------------
       # The block captures `self` as the class object, so the ivar has to resolve
       # to the same storage the direct path uses.
@@ -1229,6 +1359,23 @@ describe "Classes programs" do
         end
       end
       p Collect.run
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [10, 20, 30]
+    OUT
+  end
+
+  it "a class held in a variable dispatches its class methods" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
 
       # --- dispatching over a class held in a variable ----------------------------
       # The receiver isn't a literal constant here, so this can't be a direct call
@@ -1247,6 +1394,26 @@ describe "Classes programs" do
       current = HandlerB
       puts current.run(2)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      A:1
+      B:1
+      A:2
+      B:2
+    OUT
+  end
+
+  it "a class method takes every parameter shape a method takes" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
+
       # --- full parameter shapes on a class method --------------------------------
       class Sig
         def self.m(a, b = 2, *rest, k: 9, **kw, &blk)
@@ -1255,6 +1422,24 @@ describe "Classes programs" do
       end
       p Sig.m(1)
       p Sig.m(1, 3, 4, 5, k: 0, z: 1) { "blk" }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2, [], 9, {}, nil]
+      [1, 3, [4, 5], 0, {z: 1}, "blk"]
+    OUT
+  end
+
+  it "instance_variable_get and its siblings reach a class object's own ivars" do
+    result = ze0(<<~'RUBY')
+      # Class-level state: `self` inside a class method, and the instance
+      # variables of the CLASS OBJECT itself.
+      #
+      # The one rule everything here follows from: in a class method (or a class
+      # body), `self` is the class object. So `@x` there is that object's own ivar
+      # -- a different thing from both `@@x` and an instance's `@x` -- and an
+      # implicit-self call is a send to whichever class was actually called.
 
       # --- reflection over a class object's ivars ---------------------------------
       class Reflect
@@ -1276,31 +1461,6 @@ describe "Classes programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Foo
-      true
-      "Foo"
-      Foo
-      ["a", "b", "c"]
-      3
-      nil
-      ["base", nil]
-      ["shared", "shared"]
-      ["base", "sub"]
-      ["class-level", "instance-level"]
-      "second"
-      ["first", "second"]
-      2
-      Shape
-      Circle
-      "a Circle"
-      "hello from English"
-      [10, 20, 30]
-      A:1
-      B:1
-      A:2
-      B:2
-      [1, 2, [], 9, {}, nil]
-      [1, 3, [4, 5], 0, {z: 1}, "blk"]
       1
       1
       nil

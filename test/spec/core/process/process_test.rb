@@ -404,7 +404,7 @@ describe "Process programs" do
     ERR
   end
 
-  it "every blocking wait is supervised" do
+  it "a self join and its siblings raise ThreadError before any wait begins" do
     result = ze0(<<~'RUBY')
       # Every blocking primitive registers with the deadlock detector and parks in
       # slices, so none of them can hang where CRuby raises.
@@ -448,11 +448,96 @@ describe "Process programs" do
         m.lock
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      self join	ThreadError: Target thread must not be current thread
+      main join	ThreadError: Target thread must not be current thread
+      stop alone	ThreadError: stopping only thread
+      recursive lock	ThreadError: deadlock; recursive locking
+    OUT
+  end
+
+  it "a wait nothing can satisfy is reported as a deadlock rather than left to hang" do
+    result = ze0(<<~'RUBY')
+      # Every blocking primitive registers with the deadlock detector and parks in
+      # slices, so none of them can hang where CRuby raises.
+      #
+      # Before this, exactly ONE of six waits registered -- `Queue#pop`, which is
+      # why `a_deadlocked_wait_raises_fatal.rb` passed while `Mutex#lock`,
+      # `SizedQueue#push` back-pressure, `Thread.stop`, `Thread#join` and both
+      # Ractor receive sites parked untimed and forever. Registration is now a
+      # property of the wait primitive rather than something each site remembers.
+      #
+      # Two of these are not deadlock verdicts at all, and saying so is the point:
+      # `Thread.stop` with no other thread is CRuby's `rb_thread_alone()`
+      # ThreadError, decided BEFORE parking, and joining yourself is a ThreadError
+      # because there is nobody left to finish the thread being waited on.
+      #
+      # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
+      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
+      # The exception, its class and its message agree; only the frame that
+      # reports it differs, so the rows below read the class and message and the
+      # mutex row is not here.
+
+      def attempt(name)
+        r = begin
+          yield.inspect
+        rescue Exception => e
+          # The first line only: CRuby's `fatal` continues with a thread dump of
+          # native addresses that no other implementation can produce.
+          "#{e.class}: #{e.message.lines.first.chomp}"
+        end
+        puts "#{name}\t#{r}"
+      end
+
       # --- Real verdicts --------------------------------------------------------
       attempt("sized queue back-pressure") do
         q = SizedQueue.new(1)
         q << 1
         q << 2
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      sized queue back-pressure	fatal: No live threads left. Deadlock?
+    OUT
+  end
+
+  it "the limit argument of a join is honoured rather than accepted and ignored" do
+    result = ze0(<<~'RUBY')
+      # Every blocking primitive registers with the deadlock detector and parks in
+      # slices, so none of them can hang where CRuby raises.
+      #
+      # Before this, exactly ONE of six waits registered -- `Queue#pop`, which is
+      # why `a_deadlocked_wait_raises_fatal.rb` passed while `Mutex#lock`,
+      # `SizedQueue#push` back-pressure, `Thread.stop`, `Thread#join` and both
+      # Ractor receive sites parked untimed and forever. Registration is now a
+      # property of the wait primitive rather than something each site remembers.
+      #
+      # Two of these are not deadlock verdicts at all, and saying so is the point:
+      # `Thread.stop` with no other thread is CRuby's `rb_thread_alone()`
+      # ThreadError, decided BEFORE parking, and joining yourself is a ThreadError
+      # because there is nobody left to finish the thread being waited on.
+      #
+      # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
+      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
+      # The exception, its class and its message agree; only the frame that
+      # reports it differs, so the rows below read the class and message and the
+      # mutex row is not here.
+
+      def attempt(name)
+        r = begin
+          yield.inspect
+        rescue Exception => e
+          # The first line only: CRuby's `fatal` continues with a thread dump of
+          # native addresses that no other implementation can produce.
+          "#{e.class}: #{e.message.lines.first.chomp}"
+        end
+        puts "#{name}\t#{r}"
       end
 
       # --- The limit argument, which used to be accepted and ignored ------------
@@ -472,9 +557,96 @@ describe "Process programs" do
       attempt("join(nil) on a fast thread") { Thread.new { 1 }.join(nil).class }
       attempt("join(bad)") { Thread.new { 1 }.join(:x) }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      join(0.05) on a slow thread	nil
+      join(0) on a slow thread	nil
+      join(1) on a fast thread	Thread
+      join(nil) on a fast thread	Thread
+      join(bad)	TypeError: can't convert Symbol into Float
+    OUT
+  end
+
+  it "a raise aimed at the current thread is delivered where it is written" do
+    result = ze0(<<~'RUBY')
+      # Every blocking primitive registers with the deadlock detector and parks in
+      # slices, so none of them can hang where CRuby raises.
+      #
+      # Before this, exactly ONE of six waits registered -- `Queue#pop`, which is
+      # why `a_deadlocked_wait_raises_fatal.rb` passed while `Mutex#lock`,
+      # `SizedQueue#push` back-pressure, `Thread.stop`, `Thread#join` and both
+      # Ractor receive sites parked untimed and forever. Registration is now a
+      # property of the wait primitive rather than something each site remembers.
+      #
+      # Two of these are not deadlock verdicts at all, and saying so is the point:
+      # `Thread.stop` with no other thread is CRuby's `rb_thread_alone()`
+      # ThreadError, decided BEFORE parking, and joining yourself is a ThreadError
+      # because there is nobody left to finish the thread being waited on.
+      #
+      # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
+      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
+      # The exception, its class and its message agree; only the frame that
+      # reports it differs, so the rows below read the class and message and the
+      # mutex row is not here.
+
+      def attempt(name)
+        r = begin
+          yield.inspect
+        rescue Exception => e
+          # The first line only: CRuby's `fatal` continues with a thread dump of
+          # native addresses that no other implementation can produce.
+          "#{e.class}: #{e.message.lines.first.chomp}"
+        end
+        puts "#{name}\t#{r}"
+      end
+
       # --- Raising at yourself is delivered NOW, not at some later checkpoint ---
       attempt("current raise") { Thread.current.raise(ArgumentError, "now") }
       attempt("current raise class only") { Thread.current.raise(TypeError) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      current raise	ArgumentError: now
+      current raise class only	TypeError: TypeError
+    OUT
+  end
+
+  it "a Mutex, a Queue and an uncontended lock all still answer under the supervision" do
+    result = ze0(<<~'RUBY')
+      # Every blocking primitive registers with the deadlock detector and parks in
+      # slices, so none of them can hang where CRuby raises.
+      #
+      # Before this, exactly ONE of six waits registered -- `Queue#pop`, which is
+      # why `a_deadlocked_wait_raises_fatal.rb` passed while `Mutex#lock`,
+      # `SizedQueue#push` back-pressure, `Thread.stop`, `Thread#join` and both
+      # Ractor receive sites parked untimed and forever. Registration is now a
+      # property of the wait primitive rather than something each site remembers.
+      #
+      # Two of these are not deadlock verdicts at all, and saying so is the point:
+      # `Thread.stop` with no other thread is CRuby's `rb_thread_alone()`
+      # ThreadError, decided BEFORE parking, and joining yourself is a ThreadError
+      # because there is nobody left to finish the thread being waited on.
+      #
+      # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
+      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
+      # The exception, its class and its message agree; only the frame that
+      # reports it differs, so the rows below read the class and message and the
+      # mutex row is not here.
+
+      def attempt(name)
+        r = begin
+          yield.inspect
+        rescue Exception => e
+          # The first line only: CRuby's `fatal` continues with a thread dump of
+          # native addresses that no other implementation can produce.
+          "#{e.class}: #{e.message.lines.first.chomp}"
+        end
+        puts "#{name}\t#{r}"
+      end
 
       # --- Everything that should still just work -------------------------------
       attempt("mutex synchronize") { Mutex.new.synchronize { 42 } }
@@ -518,18 +690,6 @@ describe "Process programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      self join	ThreadError: Target thread must not be current thread
-      main join	ThreadError: Target thread must not be current thread
-      stop alone	ThreadError: stopping only thread
-      recursive lock	ThreadError: deadlock; recursive locking
-      sized queue back-pressure	fatal: No live threads left. Deadlock?
-      join(0.05) on a slow thread	nil
-      join(0) on a slow thread	nil
-      join(1) on a fast thread	Thread
-      join(nil) on a fast thread	Thread
-      join(bad)	TypeError: can't convert Symbol into Float
-      current raise	ArgumentError: now
-      current raise class only	TypeError: TypeError
       mutex synchronize	42
       uncontended lock	false
       contended lock hands over	[:first, :second]

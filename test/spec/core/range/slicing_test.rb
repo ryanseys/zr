@@ -1235,7 +1235,7 @@ describe "Range: slicing" do
     OUT
   end
 
-  it "each over a literal numeric range yields what the unfused path yields" do
+  it "each over a literal range covers its bounds, an exclusive end included" do
     result = ze0(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
@@ -1263,6 +1263,23 @@ describe "Range: slicing" do
       zero_sum = 0
       (-2...2).each { |i| zero_sum = zero_sum + i }
       puts zero_sum
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      55
+      45
+      0
+      -2
+    OUT
+  end
+
+  it "a one-element range yields once and an empty one yields nothing" do
+    result = ze0(<<~'RUBY')
+      # Range#each over a literal numeric range should fuse to a tight C
+      # for-loop with bounds inlined. Output is identical to the unfused
+      # path; this test pins behavioural parity. The perf win shows up in
+      # the generated C — no sp_Range struct copy on the loop's hot path.
 
       # --- Edge sizes ---
 
@@ -1292,6 +1309,24 @@ describe "Range: slicing" do
       (10...1).each { |i| dec_excl = dec_excl + 1 }
       puts dec_excl
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      0
+      1
+      0
+      0
+    OUT
+  end
+
+  it "the block parameter of a fused range loop belongs to the block" do
+    result = ze0(<<~'RUBY')
+      # Range#each over a literal numeric range should fuse to a tight C
+      # for-loop with bounds inlined. Output is identical to the unfused
+      # path; this test pins behavioural parity. The perf win shows up in
+      # the generated C — no sp_Range struct copy on the loop's hot path.
+
       # --- Block-param scoping ---
 
       # Block param doesn't leak when its name is distinct from outer
@@ -1303,6 +1338,20 @@ describe "Range: slicing" do
       outer_v = 42
       (1..5).each { |inner| outer_v = outer_v + inner }
       puts outer_v
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      57
+    OUT
+  end
+
+  it "a range whose bounds are expressions iterates over the values they answer" do
+    result = ze0(<<~'RUBY')
+      # Range#each over a literal numeric range should fuse to a tight C
+      # for-loop with bounds inlined. Output is identical to the unfused
+      # path; this test pins behavioural parity. The perf win shows up in
+      # the generated C — no sp_Range struct copy on the loop's hot path.
 
       # --- Non-trivial bounds ---
 
@@ -1321,6 +1370,21 @@ describe "Range: slicing" do
       ((1..5)).each { |i| p_sum = p_sum + i }
       puts p_sum
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      20
+      15
+    OUT
+  end
+
+  it "break and next inside a fused range loop mean what they mean anywhere" do
+    result = ze0(<<~'RUBY')
+      # Range#each over a literal numeric range should fuse to a tight C
+      # for-loop with bounds inlined. Output is identical to the unfused
+      # path; this test pins behavioural parity. The perf win shows up in
+      # the generated C — no sp_Range struct copy on the loop's hot path.
+
       # --- Control flow inside the loop ---
 
       # `break` exits the loop early; the accumulator captures only the
@@ -1334,6 +1398,21 @@ describe "Range: slicing" do
       even_sum = 0
       (1..10).each { |i| next if i % 2 != 0; even_sum = even_sum + i }
       puts even_sum
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      15
+      30
+    OUT
+  end
+
+  it "a fused range loop nests inside another" do
+    result = ze0(<<~'RUBY')
+      # Range#each over a literal numeric range should fuse to a tight C
+      # for-loop with bounds inlined. Output is identical to the unfused
+      # path; this test pins behavioural parity. The perf win shows up in
+      # the generated C — no sp_Range struct copy on the loop's hot path.
 
       # --- Nesting ---
 
@@ -1349,20 +1428,6 @@ describe "Range: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      55
-      45
-      0
-      -2
-      1
-      0
-      1
-      0
-      0
-      57
-      20
-      15
-      15
-      30
       36
       22
     OUT

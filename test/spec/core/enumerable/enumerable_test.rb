@@ -175,7 +175,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "chunk_while and slice_when cut on opposite conditions, and every row rides the receiver's own each" do
+  it "chunk_while and slice_when walk adjacent pairs and cut on opposite conditions" do
     result = ze0(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
@@ -195,6 +195,25 @@ describe "Enumerable programs" do
       p [].chunk_while { |i, j| true }.to_a
       p [7].chunk_while { |i, j| true }.to_a
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[1, 2], [4], [9, 10, 11, 12], [15]]
+      [[1, 2], [4], [9, 10, 11, 12], [15]]
+      [[1, 1], [2], [3, 3]]
+      []
+      [[7]]
+    OUT
+  end
+
+  it "slice_before cuts ahead of a match and slice_after behind one" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- slice_before / slice_after --------------------------------------------
       # `before` puts the match at the START of the next slice, `after` at the END
       # of the current one.
@@ -210,6 +229,26 @@ describe "Enumerable programs" do
       p [1, 2, 3, 4, 5].slice_after(3).to_a
       p ["a", "b1", "c"].slice_before(/\d/).to_a
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[1], [2, 3], [4, 5]]
+      [[1, 2], [3, 4], [5]]
+      [[1, 2, 3]]
+      [[1, 2], [3, 4, 5]]
+      [[1, 2, 3], [4, 5]]
+      [["a"], ["b1", "c"]]
+    OUT
+  end
+
+  it "grep keeps what its pattern matches with === and grep_v keeps the rest" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- grep / grep_v ---------------------------------------------------------
       # Also `===`, so a Range covers, a Class checks is_a?, a Regexp matches.
       p (1..10).grep(3..5)
@@ -221,16 +260,71 @@ describe "Enumerable programs" do
       p [1, "a", 2, "b"].grep(Integer) { |x| x * 10 }
       p [1, "a", 2, "b"].grep_v(Integer) { |x| x.upcase }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [3, 4, 5]
+      [1, 2]
+      ["banana"]
+      ["a", "b"]
+      [10, 20]
+      ["A", "B"]
+    OUT
+  end
+
+  it "zip pads a short source with nil and stops at the receiver's length" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- zip -------------------------------------------------------------------
       p [1, 2, 3].zip([4, 5, 6])
       p [1, 2, 3].zip([4, 5], [6])      # short others pad with nil
       p [1, 2].zip([3, 4], [5, 6])
       p([1, 2].zip([3, 4]) { |pair| })  # the block form answers nil
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[1, 4], [2, 5], [3, 6]]
+      [[1, 4, 6], [2, 5, nil], [3, nil, nil]]
+      [[1, 3, 5], [2, 4, 6]]
+      nil
+    OUT
+  end
+
+  it "minmax_by answers the least and the greatest by the block's key, in one pass" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- minmax_by -------------------------------------------------------------
       p [1, 2, 3, 4].minmax_by { |x| -x }
       p ["a", "bbb", "cc"].minmax_by { |s| s.length }
       p [].minmax_by { |x| x }          # a nil PAIR, not []
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [4, 1]
+      ["a", "bbb"]
+      [nil, nil]
+    OUT
+  end
+
+  it "combination and permutation answer their tuples, the empty and impossible cases included" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
 
       # --- Array combinatorics ---------------------------------------------------
       p [1, 2, 3].combination(2).to_a
@@ -244,6 +338,26 @@ describe "Enumerable programs" do
       [1, 2, 3].combination(2) { |c| picked << c.sum }
       p picked
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[1, 2], [1, 3], [2, 3]]
+      [[]]
+      []
+      [[1, 2], [1, 3], [2, 1], [2, 3], [3, 1], [3, 2]]
+      [[1, 2], [2, 1]]
+      [3, 4, 5]
+    OUT
+  end
+
+  it "bsearch answers the leftmost element the block admits, or nil" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- bsearch ---------------------------------------------------------------
       # Find-minimum mode: the array is sorted so every false precedes every true,
       # and the answer is the first true.
@@ -251,6 +365,23 @@ describe "Enumerable programs" do
       p sorted.bsearch { |x| x >= 3 }
       p sorted.bsearch { |x| x >= 99 }  # nil when nothing matches
       p sorted.bsearch_index { |x| x >= 3 }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      nil
+      2
+    OUT
+  end
+
+  it "cycle repeats the source the number of times it is given, and nothing for zero" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
 
       # --- cycle -----------------------------------------------------------------
       p [1, 2, 3].cycle(2).to_a
@@ -267,6 +398,24 @@ describe "Enumerable programs" do
       end
       p count
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2, 3, 1, 2, 3]
+      []
+      [1, 2, 1, 2]
+      5
+    OUT
+  end
+
+  it "flatten!, uniq! and reverse! answer nil when nothing moved and the receiver when it did" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- the destructive forms -------------------------------------------------
       # `flatten!` answers nil when nothing changed; `sort_by!` always answers the
       # receiver.
@@ -278,12 +427,49 @@ describe "Enumerable programs" do
       ordered.sort_by! { |x| -x }
       p ordered
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2, 3, 4]
+      nil
+      [1, 2, [3, [4]]]
+      [3, 2, 1]
+    OUT
+  end
+
+  it "values_at reads a list of indices and pads past the end with nil, and each_index walks them" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
+
       # --- values_at / each_index ------------------------------------------------
       p [1, 2, 3].values_at(0, 2, 5)     # out of bounds is nil, not skipped
       p [1, 2, 3].values_at(-1, -3)
       p [1, 2, 3].values_at(0..1)
       p [1, 2, 3, 4, 5].values_at(3..9)  # one entry PER INDEX the range names
       p [1, 2, 3].each_index.to_a
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 3, nil]
+      [3, 1]
+      [1, 2]
+      [4, 5, nil, nil, nil, nil, nil]
+      [0, 1, 2]
+    OUT
+  end
+
+  it "Array.new fills from a block once per index, and from one value every slot shares" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
 
       # --- Array.new -------------------------------------------------------------
       p Array.new
@@ -300,6 +486,26 @@ describe "Enumerable programs" do
       fresh = Array.new(2) { "x" }
       fresh[0] << "!"
       p fresh
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      []
+      [nil, nil, nil]
+      [0, 1, 4]
+      ["x", "x"]
+      ["x!", "x!"]
+      ["x!", "x"]
+    OUT
+  end
+
+  it "every row above answers the same on a user class that writes only each" do
+    result = ze0(<<~'RUBY')
+      # Enumerable chunking/slicing and Array combinatorics/search.
+      #
+      # Everything here is driven by the receiver's own `each`, so it works the
+      # same on an Array, a Range, or a user class that includes Enumerable --
+      # which the last section shows.
 
       # --- all of it works on a user Enumerable ----------------------------------
       class Steps
@@ -323,58 +529,6 @@ describe "Enumerable programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [[1, 2], [4], [9, 10, 11, 12], [15]]
-      [[1, 2], [4], [9, 10, 11, 12], [15]]
-      [[1, 1], [2], [3, 3]]
-      []
-      [[7]]
-      [[1], [2, 3], [4, 5]]
-      [[1, 2], [3, 4], [5]]
-      [[1, 2, 3]]
-      [[1, 2], [3, 4, 5]]
-      [[1, 2, 3], [4, 5]]
-      [["a"], ["b1", "c"]]
-      [3, 4, 5]
-      [1, 2]
-      ["banana"]
-      ["a", "b"]
-      [10, 20]
-      ["A", "B"]
-      [[1, 4], [2, 5], [3, 6]]
-      [[1, 4, 6], [2, 5, nil], [3, nil, nil]]
-      [[1, 3, 5], [2, 4, 6]]
-      nil
-      [4, 1]
-      ["a", "bbb"]
-      [nil, nil]
-      [[1, 2], [1, 3], [2, 3]]
-      [[]]
-      []
-      [[1, 2], [1, 3], [2, 1], [2, 3], [3, 1], [3, 2]]
-      [[1, 2], [2, 1]]
-      [3, 4, 5]
-      3
-      nil
-      2
-      [1, 2, 3, 1, 2, 3]
-      []
-      [1, 2, 1, 2]
-      5
-      [1, 2, 3, 4]
-      nil
-      [1, 2, [3, [4]]]
-      [3, 2, 1]
-      [1, 3, nil]
-      [3, 1]
-      [1, 2]
-      [4, 5, nil, nil, nil, nil, nil]
-      [0, 1, 2]
-      []
-      [nil, nil, nil]
-      [0, 1, 4]
-      ["x", "x"]
-      ["x!", "x!"]
-      ["x!", "x"]
       [[1, 2], [4, 5, 6], [9]]
       [2, 4, 5]
       [9, 1]

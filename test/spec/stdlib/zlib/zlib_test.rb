@@ -1617,7 +1617,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "the incremental ZStream pair and the IO-shaped gzip pair round-trip what they are given" do
+  it "Deflate and Inflate queue input and answer it back through the incremental surface" do
     result = ze0(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
@@ -1727,6 +1727,52 @@ describe "Zlib programs" do
         [z.inflate(Zlib.deflate("hi") + "EXTRA"), z.finished?]
       end
       show("sync_point?") { Zlib::Inflate.new.sync_point? }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      streamed round-trip: "hello world"
+      shovel queues: "hello world"
+      sync flush mid-stream: [false, "hello"]
+      one-shot class methods: true
+      compressed encoding: "ASCII-8BIT"
+      inflated encoding: "ASCII-8BIT"
+      raw deflate: [203, "hi"]
+      gzip via window bits: [[31, 139], "hi"]
+      auto-detect gzip: "hello"
+      auto-detect zlib: "hello"
+      split across writes: true
+      counters: [11, 436929629, 1, 0, true, false]
+      avail_out is a knob: 100
+      flush_next_out drains: "hello"
+      reset starts over: ["kept", 4]
+      close then use: [true, "Zlib::Error"]
+      deflate after finish: Zlib::StreamError: stream error
+      finish twice: ""
+      not compressed at all: Zlib::DataError: incorrect header check
+      truncated stream: Zlib::BufError: buffer error
+      trailing garbage: ["hi", true]
+      sync_point?: false
+    OUT
+  end
+
+  it "GzipWriter and GzipReader round-trip through the IO-shaped surface" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
 
       # -- GzipWriter/GzipReader --------------------------------------------------
 
@@ -1881,36 +1927,9 @@ describe "Zlib programs" do
       show("bad crc via gunzip") { Zlib.gunzip(corrupt(-8)) }
       show("truncated member") { Zlib::GzipReader.new(StringIO.new(GZ[0..15])).read }
 
-      # -- Checksums --------------------------------------------------------------
-
-      show("crc32") { [Zlib.crc32("abc"), Zlib.crc32, Zlib.crc32("abc", 100)] }
-      show("adler32") { [Zlib.adler32("abc"), Zlib.adler32] }
-      show("crc32 continued") { Zlib.crc32("def", Zlib.crc32("abc")) == Zlib.crc32("abcdef") }
     RUBY
 
     _(result).must_answer <<~'OUT'
-      streamed round-trip: "hello world"
-      shovel queues: "hello world"
-      sync flush mid-stream: [false, "hello"]
-      one-shot class methods: true
-      compressed encoding: "ASCII-8BIT"
-      inflated encoding: "ASCII-8BIT"
-      raw deflate: [203, "hi"]
-      gzip via window bits: [[31, 139], "hi"]
-      auto-detect gzip: "hello"
-      auto-detect zlib: "hello"
-      split across writes: true
-      counters: [11, 436929629, 1, 0, true, false]
-      avail_out is a knob: 100
-      flush_next_out drains: "hello"
-      reset starts over: ["kept", 4]
-      close then use: [true, "Zlib::Error"]
-      deflate after finish: Zlib::StreamError: stream error
-      finish twice: ""
-      not compressed at all: Zlib::DataError: incorrect header check
-      truncated stream: Zlib::BufError: buffer error
-      trailing garbage: ["hi", true]
-      sync_point?: false
       writer round-trip: "hello world"
       writer close answers the io: true
       writer wrap answers the block: [42, "wrapped"]
@@ -1949,6 +1968,35 @@ describe "Zlib programs" do
       bad length via gunzip: Zlib::GzipFile::LengthError: invalid compressed data -- length error
       bad crc via gunzip: Zlib::GzipFile::CRCError: invalid compressed data -- crc error
       truncated member: Zlib::GzipFile::Error: unexpected end of file
+    OUT
+  end
+
+  it "the stream classes report a running crc32 and adler32" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- Checksums --------------------------------------------------------------
+
+      show("crc32") { [Zlib.crc32("abc"), Zlib.crc32, Zlib.crc32("abc", 100)] }
+      show("adler32") { [Zlib.adler32("abc"), Zlib.adler32] }
+      show("crc32 continued") { Zlib.crc32("def", Zlib.crc32("abc")) == Zlib.crc32("abcdef") }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       crc32: [891568578, 0, 2063213118]
       adler32: [38600999, 1]
       crc32 continued: true

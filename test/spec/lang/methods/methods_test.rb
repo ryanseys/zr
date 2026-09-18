@@ -3372,7 +3372,7 @@ describe "Methods programs" do
     OUT
   end
 
-  it "param shapes" do
+  it "a parenthesized parameter destructures the argument it is given" do
     result = ze0(<<~'RUBY')
       # Positional parameter shapes: parenthesized destructuring, the auto-splat
       # rule, post-parameter distribution, and the trailing-comma implicit rest.
@@ -3411,6 +3411,29 @@ describe "Methods programs" do
       end
       p capture([1, 2])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      [3, 4]
+      [1, 2, 3, 4]
+      [1, 2, 3]
+      [1, 2, 3, 4]
+      [1, 2, [3, 4]]
+      [1, 3]
+      1-2
+      [1, 2, 3]
+      [11, 2]
+    OUT
+  end
+
+  it "a block of several parameters auto-splats one array argument" do
+    result = ze0(<<~'RUBY')
+      # Positional parameter shapes: parenthesized destructuring, the auto-splat
+      # rule, post-parameter distribution, and the trailing-comma implicit rest.
+
+      def one(x) = yield x
+
       # --- Auto-splat -------------------------------------------------------------
       # A lone Array argument spreads across a block's positional params -- but a
       # block taking exactly one plain param receives it WHOLE (the `each { |pair| }`
@@ -3433,6 +3456,29 @@ describe "Methods programs" do
       # A lambda is strict and never auto-splats.
       p(->(a) { a }.call([1, 2]))
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      [1, 2]
+      [[1, 2]]
+      [1, 2]
+      [1, 2]
+      [1, [2]]
+      [[1], 2]
+      [1, 2]
+      [[1, 2], []]
+      [1, 2]
+    OUT
+  end
+
+  it "a parameter written after a rest takes from the end" do
+    result = ze0(<<~'RUBY')
+      # Positional parameter shapes: parenthesized destructuring, the auto-splat
+      # rule, post-parameter distribution, and the trailing-comma implicit rest.
+
+      def one(x) = yield x
+
       # --- Post parameters --------------------------------------------------------
       # Post params fill left-to-right from whatever the lead/rest left behind, and
       # nil-pad when there isn't enough to go around.
@@ -3445,10 +3491,42 @@ describe "Methods programs" do
       w, *x, y, z = [1, 2]
       p [w, x, y, z]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, [], 2, nil]
+      [1, [2, 3, 4], 5]
+      [1, 5, 6, 2, nil]
+      [1, 2, 3, 4, 5]
+      [1, [], 2, nil]
+    OUT
+  end
+
+  it "a trailing comma in a parameter list is an implicit rest" do
+    result = ze0(<<~'RUBY')
+      # Positional parameter shapes: parenthesized destructuring, the auto-splat
+      # rule, post-parameter distribution, and the trailing-comma implicit rest.
+
+      def one(x) = yield x
+
       # --- Trailing comma ---------------------------------------------------------
       # `|a, |` means "more than one param", which turns on auto-splat, then
       # discards everything past `a`.
       one([1, 2]) { |a,| p a }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "a block-local declaration after a semicolon shadows the outer local" do
+    result = ze0(<<~'RUBY')
+      # Positional parameter shapes: parenthesized destructuring, the auto-splat
+      # rule, post-parameter distribution, and the trailing-comma implicit rest.
+
+      def one(x) = yield x
 
       # --- Block-local declarations -----------------------------------------------
       # The names after the `;` are FRESH locals scoped to the block: they shadow
@@ -3481,32 +3559,6 @@ describe "Methods programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [1, 2]
-      [3, 4]
-      [1, 2, 3, 4]
-      [1, 2, 3]
-      [1, 2, 3, 4]
-      [1, 2, [3, 4]]
-      [1, 3]
-      1-2
-      [1, 2, 3]
-      [11, 2]
-      [1, 2]
-      [1, 2]
-      [[1, 2]]
-      [1, 2]
-      [1, 2]
-      [1, [2]]
-      [[1], 2]
-      [1, 2]
-      [[1, 2], []]
-      [1, 2]
-      [1, [], 2, nil]
-      [1, [2, 3, 4], 5]
-      [1, 5, 6, 2, nil]
-      [1, 2, 3, 4, 5]
-      [1, [], 2, nil]
-      1
       99
       42
       [1, 2]

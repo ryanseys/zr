@@ -93,7 +93,7 @@ describe "YAML programs" do
     OUT
   end
 
-  it "psych parse node tree" do
+  it "a parsed document carries a Document node over its root" do
     result = ze0(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
@@ -132,80 +132,6 @@ describe "YAML programs" do
       show "seq style flow", seq.style == Psych::Nodes::Sequence::FLOW
       show "seq children", seq.children.map(&:value)
 
-      # --- quoting and block scalars keep their style ---------------------------
-      styles = Psych.parse("- plain\n- 'single'\n- \"double\"\n- |\n  literal\n- >\n  folded\n")
-      show "styles", styles.root.children.map(&:style)
-      show "quoted flags", styles.root.children.map(&:quoted)
-
-      # --- anchors come back as NAMES, not numbers ------------------------------
-      anchored = Psych.parse("a: &base {x: 1}\nb: *base\n")
-      pairs = anchored.root.children
-      show "anchor name", pairs[1].anchor
-      show "alias class", pairs[3].class
-      show "alias anchor", pairs[3].anchor
-
-      # --- tags survive ---------------------------------------------------------
-      tagged = Psych.parse("--- !!str 42\n")
-      show "scalar tag", tagged.root.tag
-      show "scalar value", tagged.root.value
-
-      taggedmap = Psych.parse("--- !ruby/object:Widget\nname: bolt\n")
-      show "mapping tag", taggedmap.root.tag
-
-      # --- an explicit document says so ----------------------------------------
-      show "explicit implicit?", Psych.parse("--- \na: 1\n").implicit
-      show "bare implicit?", Psych.parse("a: 1\n").implicit
-
-      # --- directives -----------------------------------------------------------
-      withdirs = Psych.parse("%YAML 1.1\n%TAG !e! tag:example.com,2000:\n---\na: 1\n")
-      show "version", withdirs.version
-      show "tag directives", withdirs.tag_directives
-
-      # --- the whole stream -----------------------------------------------------
-      stream = Psych.parse_stream("--- 1\n--- 2\n")
-      show "stream class", stream.class
-      show "stream documents", stream.children.size
-      show "stream roots", stream.children.map { |d| d.root.value }
-
-      collected = []
-      Psych.parse_stream("--- 1\n--- 2\n") { |d| collected << d.root.value }
-      show "yielded", collected
-
-      # --- an empty stream ------------------------------------------------------
-      show "empty parse", Psych.parse("")
-
-      # --- each walks depth first, self first -----------------------------------
-      show "each classes", Psych.parse("a: [1]\n").each.map { |n| n.class.to_s.split("::").last }
-
-      # --- to_ruby on a parsed tree --------------------------------------------
-      show "document to_ruby", Psych.parse("a: 1\nb: [2, 3]\n").to_ruby
-      show "root to_ruby", Psych.parse("a: 1\n").root.to_ruby
-      show "scalar to_ruby", Psych.parse("--- 42\n").root.to_ruby
-      show "stream to_ruby", Psych.parse_stream("--- 7\n").to_ruby
-
-      # --- to_ruby on a tree built by hand -------------------------------------
-      built = Psych::Nodes::Mapping.new
-      built.children << Psych::Nodes::Scalar.new("k")
-      built.children << Psych::Nodes::Scalar.new("9")
-      show "hand-built to_ruby", built.to_ruby
-
-      wrapped = Psych::Nodes::Document.new
-      wrapped.children << built
-      show "hand-built document", wrapped.to_ruby
-
-      # --- an alias in a hand-built tree resolves ------------------------------
-      aliased = Psych::Nodes::Mapping.new
-      aliased.children << Psych::Nodes::Scalar.new("a")
-      aliased.children << Psych::Nodes::Sequence.new("keep")
-      aliased.children << Psych::Nodes::Scalar.new("b")
-      aliased.children << Psych::Nodes::Alias.new("keep")
-      built_alias = aliased.to_ruby
-      show "alias resolved", built_alias["a"].equal?(built_alias["b"])
-
-      # `Nodes::Node#yaml` is deliberately absent from these rows: zeo refuses it
-      # (see tests/gaps/a_psych_node_tree_emits_yaml.rb) and ruby raises a
-      # different error again for a bare Document, so the row would compare two
-      # unrelated refusals rather than one behaviour.
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -225,30 +151,324 @@ describe "YAML programs" do
       seq class	Psych::Nodes::Sequence
       seq style flow	true
       seq children	["2", "3"]
+    OUT
+  end
+
+  it "a scalar node remembers the quoting or block style it was written in" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- quoting and block scalars keep their style ---------------------------
+      styles = Psych.parse("- plain\n- 'single'\n- \"double\"\n- |\n  literal\n- >\n  folded\n")
+      show "styles", styles.root.children.map(&:style)
+      show "quoted flags", styles.root.children.map(&:quoted)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       styles	[1, 2, 3, 4, 5]
       quoted flags	[false, true, true, true, true]
+    OUT
+  end
+
+  it "an anchor comes back as its name, and an alias names it" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- anchors come back as NAMES, not numbers ------------------------------
+      anchored = Psych.parse("a: &base {x: 1}\nb: *base\n")
+      pairs = anchored.root.children
+      show "anchor name", pairs[1].anchor
+      show "alias class", pairs[3].class
+      show "alias anchor", pairs[3].anchor
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       anchor name	"base"
       alias class	Psych::Nodes::Alias
       alias anchor	"base"
+    OUT
+  end
+
+  it "a tag survives on the scalar and mapping nodes that carry it" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- tags survive ---------------------------------------------------------
+      tagged = Psych.parse("--- !!str 42\n")
+      show "scalar tag", tagged.root.tag
+      show "scalar value", tagged.root.value
+
+      taggedmap = Psych.parse("--- !ruby/object:Widget\nname: bolt\n")
+      show "mapping tag", taggedmap.root.tag
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       scalar tag	"tag:yaml.org,2002:str"
       scalar value	"42"
       mapping tag	"!ruby/object:Widget"
+    OUT
+  end
+
+  it "an explicit document reports implicit? as false" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- an explicit document says so ----------------------------------------
+      show "explicit implicit?", Psych.parse("--- \na: 1\n").implicit
+      show "bare implicit?", Psych.parse("a: 1\n").implicit
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       explicit implicit?	false
       bare implicit?	true
+    OUT
+  end
+
+  it "the version and tag directives reach the Document node" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- directives -----------------------------------------------------------
+      withdirs = Psych.parse("%YAML 1.1\n%TAG !e! tag:example.com,2000:\n---\na: 1\n")
+      show "version", withdirs.version
+      show "tag directives", withdirs.tag_directives
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       version	[1, 1]
       tag directives	[["!e!", "tag:example.com,2000:"]]
+    OUT
+  end
+
+  it "a Stream node holds every document parsed from the source" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- the whole stream -----------------------------------------------------
+      stream = Psych.parse_stream("--- 1\n--- 2\n")
+      show "stream class", stream.class
+      show "stream documents", stream.children.size
+      show "stream roots", stream.children.map { |d| d.root.value }
+
+      collected = []
+      Psych.parse_stream("--- 1\n--- 2\n") { |d| collected << d.root.value }
+      show "yielded", collected
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       stream class	Psych::Nodes::Stream
       stream documents	2
       stream roots	["1", "2"]
       yielded	["1", "2"]
+    OUT
+  end
+
+  it "an empty source parses to a stream with no document" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- an empty stream ------------------------------------------------------
+      show "empty parse", Psych.parse("")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       empty parse	false
+    OUT
+  end
+
+  it "each walks the node tree depth first, self first" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- each walks depth first, self first -----------------------------------
+      show "each classes", Psych.parse("a: [1]\n").each.map { |n| n.class.to_s.split("::").last }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       each classes	["Scalar", "Scalar", "Sequence", "Mapping", "Document"]
+    OUT
+  end
+
+  it "to_ruby on a parsed tree builds the object the source describes" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- to_ruby on a parsed tree --------------------------------------------
+      show "document to_ruby", Psych.parse("a: 1\nb: [2, 3]\n").to_ruby
+      show "root to_ruby", Psych.parse("a: 1\n").root.to_ruby
+      show "scalar to_ruby", Psych.parse("--- 42\n").root.to_ruby
+      show "stream to_ruby", Psych.parse_stream("--- 7\n").to_ruby
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       document to_ruby	{"a" => 1, "b" => [2, 3]}
       root to_ruby	{"a" => 1}
       scalar to_ruby	42
       stream to_ruby	[7]
+    OUT
+  end
+
+  it "to_ruby builds from a tree assembled by hand too" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- to_ruby on a tree built by hand -------------------------------------
+      built = Psych::Nodes::Mapping.new
+      built.children << Psych::Nodes::Scalar.new("k")
+      built.children << Psych::Nodes::Scalar.new("9")
+      show "hand-built to_ruby", built.to_ruby
+
+      wrapped = Psych::Nodes::Document.new
+      wrapped.children << built
+      show "hand-built document", wrapped.to_ruby
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       hand-built to_ruby	{"k" => 9}
       hand-built document	{"k" => 9}
+    OUT
+  end
+
+  it "an alias in a hand-built tree resolves to its anchor" do
+    result = ze0(<<~'RUBY')
+      # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
+      #
+      # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
+      # rewrite a scalar or count anchors, and `to_ruby` turns any node -- parsed or
+      # hand-built -- into the value it describes.
+
+      require "psych"
+
+      def show(label, v)
+        puts "#{label}\t#{v.inspect}"
+      end
+
+      # --- an alias in a hand-built tree resolves ------------------------------
+      aliased = Psych::Nodes::Mapping.new
+      aliased.children << Psych::Nodes::Scalar.new("a")
+      aliased.children << Psych::Nodes::Sequence.new("keep")
+      aliased.children << Psych::Nodes::Scalar.new("b")
+      aliased.children << Psych::Nodes::Alias.new("keep")
+      built_alias = aliased.to_ruby
+      show "alias resolved", built_alias["a"].equal?(built_alias["b"])
+
+      # `Nodes::Node#yaml` is deliberately absent from these rows: zeo refuses it
+      # (see tests/gaps/a_psych_node_tree_emits_yaml.rb) and ruby raises a
+      # different error again for a bare Document, so the row would compare two
+      # unrelated refusals rather than one behaviour.
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       alias resolved	true
     OUT
   end

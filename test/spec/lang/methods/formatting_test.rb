@@ -1558,7 +1558,7 @@ describe "Methods: formatting and inspection" do
     OUT
   end
 
-  it "names that collide with the compiler" do
+  it "a class named after a builtin type is still the user's class" do
     result = ze0(<<~'RUBY')
       # Ruby names that collide with the compiler's own vocabulary must not leak
       # into the generated program: a class named after a builtin type, a method
@@ -1626,6 +1626,35 @@ describe "Methods: formatting and inspection" do
       p registry[Vec]
       p [Vec.new(0, 0), Vec.new(1, 1)].map(&:to_s)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Vec(11, 22)
+      11
+      Vec
+      "Vec"
+      true
+      true
+      false
+      :fallback
+      :got
+      "boxed"
+      true
+      [1, 2]
+      true
+      :vector
+      ["Vec(0, 0)", "Vec(1, 1)"]
+    OUT
+  end
+
+  it "a method named after a compiler keyword is still a method" do
+    result = ze0(<<~'RUBY')
+      # Ruby names that collide with the compiler's own vocabulary must not leak
+      # into the generated program: a class named after a builtin type, a method
+      # named after a keyword, and Ruby's `_` local, which the generated program
+      # has no named binding for. All are mangled on the way out, and none of the
+      # mangling is observable from Ruby.
+
       # --- Methods named after compiler keywords --------------------------------
 
       class Keywords
@@ -1665,6 +1694,30 @@ describe "Methods: formatting and inspection" do
       s.value = 42
       p s.value
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "a type"
+      "a match"
+      "a loop"
+      "an fn"
+      "an impl"
+      "a type"
+      true
+      false
+      true
+      42
+    OUT
+  end
+
+  it "ruby's _ local takes more than one assignment and still reads back" do
+    result = ze0(<<~'RUBY')
+      # Ruby names that collide with the compiler's own vocabulary must not leak
+      # into the generated program: a class named after a builtin type, a method
+      # named after a keyword, and Ruby's `_` local, which the generated program
+      # has no named binding for. All are mangled on the way out, and none of the
+      # mangling is observable from Ruby.
+
       # --- Ruby's `_` local ------------------------------------------------------
 
       # `_` is an ordinary, readable local in Ruby.
@@ -1689,31 +1742,6 @@ describe "Methods: formatting and inspection" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Vec(11, 22)
-      11
-      Vec
-      "Vec"
-      true
-      true
-      false
-      :fallback
-      :got
-      "boxed"
-      true
-      [1, 2]
-      true
-      :vector
-      ["Vec(0, 0)", "Vec(1, 1)"]
-      "a type"
-      "a match"
-      "a loop"
-      "an fn"
-      "an impl"
-      "a type"
-      true
-      false
-      true
-      42
       10
       15
       1

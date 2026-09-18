@@ -87,7 +87,7 @@ describe "Kernel: conversion" do
     OUT
   end
 
-  it "duck conversions" do
+  it "an &obj block argument converts through to_proc" do
     result = ze0(<<~'RUBY')
       # Ruby's implicit-conversion protocols: `&obj` converts through `to_proc`,
       # `**obj` through `to_hash`, and a splice/auto-splat value through `to_ary`.
@@ -141,6 +141,27 @@ describe "Kernel: conversion" do
         puts "TypeError: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["1", "2", "3"]
+      ["A", "B"]
+      [2, 4, 6]
+      [3, 6, 9]
+      [2, 4, 6]
+      [20, 40]
+      true
+      TypeError: can't convert BadProc to Proc (BadProc#to_proc gives Symbol)
+      TypeError: no implicit conversion of NoProc into Proc
+    OUT
+  end
+
+  it "a **obj argument converts through to_hash" do
+    result = ze0(<<~'RUBY')
+      # Ruby's implicit-conversion protocols: `&obj` converts through `to_proc`,
+      # `**obj` through `to_hash`, and a splice/auto-splat value through `to_ary`.
+      # Each is duck-typed -- any object answering the method participates.
+
       # --- **obj -> to_hash ------------------------------------------------------
 
       class Opts
@@ -177,6 +198,26 @@ describe "Kernel: conversion" do
         puts "TypeError: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      {a: 1, b: 2}
+      {x: 9, a: 1, b: 2}
+      {a: 1, b: 2}
+      [1, 2]
+      [5, 6]
+      {c: 7, a: 5, b: 6}
+      TypeError: no implicit conversion of NoHash into Hash
+    OUT
+  end
+
+  it "a splat and a destructuring assignment convert through to_ary" do
+    result = ze0(<<~'RUBY')
+      # Ruby's implicit-conversion protocols: `&obj` converts through `to_proc`,
+      # `**obj` through `to_hash`, and a splice/auto-splat value through `to_ary`.
+      # Each is duck-typed -- any object answering the method participates.
+
       # --- to_ary ----------------------------------------------------------------
 
       class Pair
@@ -209,23 +250,6 @@ describe "Kernel: conversion" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["1", "2", "3"]
-      ["A", "B"]
-      [2, 4, 6]
-      [3, 6, 9]
-      [2, 4, 6]
-      [20, 40]
-      true
-      TypeError: can't convert BadProc to Proc (BadProc#to_proc gives Symbol)
-      TypeError: no implicit conversion of NoProc into Proc
-      [1, 2]
-      {a: 1, b: 2}
-      {x: 9, a: 1, b: 2}
-      {a: 1, b: 2}
-      [1, 2]
-      [5, 6]
-      {c: 7, a: 5, b: 6}
-      TypeError: no implicit conversion of NoHash into Hash
       [1, 2]
       [3, 4]
       [1, 7, 8, 3]

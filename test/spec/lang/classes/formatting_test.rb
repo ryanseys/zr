@@ -1042,7 +1042,7 @@ describe "Classes: formatting and inspection" do
     OUT
   end
 
-  it "core classes" do
+  it "the File path family is string work that never touches the disk" do
     result = ze0(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
@@ -1068,6 +1068,37 @@ describe "Classes: formatting and inspection" do
       puts File.join("a/", "/b")     # the separator at the seam collapses
       p File.absolute_path?("/abs")
       p File.absolute_path?("rel")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      notes.md
+      notes
+      notes
+      b
+      /home/user
+      .
+      /
+      ".gz"
+      ""
+      "."
+      ["/a/b", "c.rb"]
+      a/b/c
+      a/b
+      true
+      false
+    OUT
+  end
+
+  it "a fixed instant read in UTC answers the same broken-down fields everywhere" do
+    result = ze0(<<~'RUBY')
+      # The P-B core classes: File, Dir, Time, Process, ENV.
+      #
+      # Everything here is zone- and machine-independent on purpose: Time uses a
+      # fixed epoch read in UTC, paths are built under a scratch directory this
+      # script creates, and nothing prints a real pid/clock/environment value --
+      # only facts about them. That is what lets the output be diffed against real
+      # ruby at all.
 
       # --- Time: a fixed instant, read in UTC ------------------------------------
       t = Time.at(1700000000).getutc
@@ -1126,6 +1157,63 @@ describe "Classes: formatting and inspection" do
       p o.utc_offset
       p o.utc?
       puts o.to_s
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2023-11-14 22:13:20 UTC
+      2023-11-14 22:13:20 UTC
+      [2023, 11, 14, 22, 13, 20]
+      [2, 318]
+      1700000000
+      true
+      "UTC"
+      0
+      false
+      true
+      2023-11-14 22:13:20
+      2023-11-14 22:13:20
+      Tue Tuesday Nov November
+      318 2 2 PM 10
+      +0000 UTC
+      100% literal
+      01|1| 1
+      1700000060
+      1699999940
+      60.0
+      Float
+      (1/2)
+      (225179981368525/281474976710656)
+      800000000
+      900000000
+      1.25
+      -1
+      500000000
+      true
+      true
+      2
+      [1, 2, 3]
+      true
+      true
+      "found"
+      123456
+      123456000
+      2007-11-01 15:25:00.123456 UTC
+      3600
+      false
+      2000-01-01 00:00:00 +0100
+    OUT
+  end
+
+  it "Dir and File read and write a real scratch tree" do
+    result = ze0(<<~'RUBY')
+      # The P-B core classes: File, Dir, Time, Process, ENV.
+      #
+      # Everything here is zone- and machine-independent on purpose: Time uses a
+      # fixed epoch read in UTC, paths are built under a scratch directory this
+      # script creates, and nothing prints a real pid/clock/environment value --
+      # only facts about them. That is what lets the output be diffed against real
+      # ruby at all.
 
       # --- Dir and File, on a real scratch tree ----------------------------------
       # (`Dir.mktmpdir`/`Dir.tmpdir` are stdlib's tmpdir.rb, not core -- built by
@@ -1203,99 +1291,9 @@ describe "Classes: formatting and inspection" do
         Dir.rmdir(root) if Dir.exist?(root)
       end
 
-      # --- Errors: the Errno family, with CRuby's message shape ------------------
-      begin
-        File.read("/definitely/not/here")
-      rescue Errno::ENOENT => e
-        puts "#{e.class}: #{e.message}"
-      end
-      p Errno::ENOENT.superclass
-      p Errno::ENOENT.ancestors.include?(StandardError)
-
-      begin
-        Dir.entries("/definitely/not/here")
-      rescue SystemCallError => e     # caught by the PARENT class
-        puts e.class
-      end
-
-      # --- ENV: an Object with Hash-shaped methods, not a Hash -------------------
-      p ENV.class
-      ENV["ZEO_EXAMPLE"] = "set"
-      p ENV["ZEO_EXAMPLE"]
-      p ENV.key?("ZEO_EXAMPLE")
-      p ENV.fetch("ZEO_EXAMPLE")
-      p ENV.fetch("ZEO_ABSENT", "default")
-      p ENV.fetch("ZEO_ABSENT") { |k| "computed:#{k}" }
-      p ENV["ZEO_ABSENT"]
-      p ENV.delete("ZEO_EXAMPLE")
-      p ENV.key?("ZEO_EXAMPLE")
-      p ENV.to_h.class
-      p ENV.keys.class
-
-      # --- Process ---------------------------------------------------------------
-      p Process.pid.is_a?(Integer)
-      p Process.pid > 0
-      p Process.clock_gettime(Process::CLOCK_MONOTONIC).is_a?(Float)
-      p Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond).is_a?(Integer)
     RUBY
 
     _(result).must_answer <<~'OUT'
-      notes.md
-      notes
-      notes
-      b
-      /home/user
-      .
-      /
-      ".gz"
-      ""
-      "."
-      ["/a/b", "c.rb"]
-      a/b/c
-      a/b
-      true
-      false
-      2023-11-14 22:13:20 UTC
-      2023-11-14 22:13:20 UTC
-      [2023, 11, 14, 22, 13, 20]
-      [2, 318]
-      1700000000
-      true
-      "UTC"
-      0
-      false
-      true
-      2023-11-14 22:13:20
-      2023-11-14 22:13:20
-      Tue Tuesday Nov November
-      318 2 2 PM 10
-      +0000 UTC
-      100% literal
-      01|1| 1
-      1700000060
-      1699999940
-      60.0
-      Float
-      (1/2)
-      (225179981368525/281474976710656)
-      800000000
-      900000000
-      1.25
-      -1
-      500000000
-      true
-      true
-      2
-      [1, 2, 3]
-      true
-      true
-      "found"
-      123456
-      123456000
-      2007-11-01 15:25:00.123456 UTC
-      3600
-      false
-      2000-01-01 00:00:00 +0100
       "alpha\nbeta\n"
       ["alpha\n", "beta\n"]
       ["alpha", "beta"]
@@ -1332,10 +1330,71 @@ describe "Classes: formatting and inspection" do
       IOError: closed stream
       false
       true
+    OUT
+  end
+
+  it "the Errno family carries CRuby's own message shape" do
+    result = ze0(<<~'RUBY')
+      # The P-B core classes: File, Dir, Time, Process, ENV.
+      #
+      # Everything here is zone- and machine-independent on purpose: Time uses a
+      # fixed epoch read in UTC, paths are built under a scratch directory this
+      # script creates, and nothing prints a real pid/clock/environment value --
+      # only facts about them. That is what lets the output be diffed against real
+      # ruby at all.
+
+      # --- Errors: the Errno family, with CRuby's message shape ------------------
+      begin
+        File.read("/definitely/not/here")
+      rescue Errno::ENOENT => e
+        puts "#{e.class}: #{e.message}"
+      end
+      p Errno::ENOENT.superclass
+      p Errno::ENOENT.ancestors.include?(StandardError)
+
+      begin
+        Dir.entries("/definitely/not/here")
+      rescue SystemCallError => e     # caught by the PARENT class
+        puts e.class
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       Errno::ENOENT: No such file or directory @ rb_sysopen - /definitely/not/here
       SystemCallError
       true
       Errno::ENOENT
+    OUT
+  end
+
+  it "ENV is an object with hash-shaped methods, not a Hash" do
+    result = ze0(<<~'RUBY')
+      # The P-B core classes: File, Dir, Time, Process, ENV.
+      #
+      # Everything here is zone- and machine-independent on purpose: Time uses a
+      # fixed epoch read in UTC, paths are built under a scratch directory this
+      # script creates, and nothing prints a real pid/clock/environment value --
+      # only facts about them. That is what lets the output be diffed against real
+      # ruby at all.
+
+      # --- ENV: an Object with Hash-shaped methods, not a Hash -------------------
+      p ENV.class
+      ENV["ZEO_EXAMPLE"] = "set"
+      p ENV["ZEO_EXAMPLE"]
+      p ENV.key?("ZEO_EXAMPLE")
+      p ENV.fetch("ZEO_EXAMPLE")
+      p ENV.fetch("ZEO_ABSENT", "default")
+      p ENV.fetch("ZEO_ABSENT") { |k| "computed:#{k}" }
+      p ENV["ZEO_ABSENT"]
+      p ENV.delete("ZEO_EXAMPLE")
+      p ENV.key?("ZEO_EXAMPLE")
+      p ENV.to_h.class
+      p ENV.keys.class
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       Object
       "set"
       true
@@ -1347,6 +1406,27 @@ describe "Classes: formatting and inspection" do
       false
       Hash
       Array
+    OUT
+  end
+
+  it "the Process rows answer for this process" do
+    result = ze0(<<~'RUBY')
+      # The P-B core classes: File, Dir, Time, Process, ENV.
+      #
+      # Everything here is zone- and machine-independent on purpose: Time uses a
+      # fixed epoch read in UTC, paths are built under a scratch directory this
+      # script creates, and nothing prints a real pid/clock/environment value --
+      # only facts about them. That is what lets the output be diffed against real
+      # ruby at all.
+
+      # --- Process ---------------------------------------------------------------
+      p Process.pid.is_a?(Integer)
+      p Process.pid > 0
+      p Process.clock_gettime(Process::CLOCK_MONOTONIC).is_a?(Float)
+      p Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond).is_a?(Integer)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       true
       true
       true
