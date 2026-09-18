@@ -1803,6 +1803,15 @@ module Ze0
         Stop.new("#{node.name} of #{feature.inspect}", line)
       end
 
+      # An autoload that registers nothing and answers nil, which is what
+      # ruby's does for a feature it already holds. The receiver still
+      # runs: `whatever.autoload :X, "set"` calls `whatever` before it
+      # finds there is nothing to do.
+      def nothing(node, line)
+        recv = node.receiver && expr(node.receiver)
+        recv ? Seq.new([recv, Literal.new(nil, line)], line) : Literal.new(nil, line)
+      end
+
       def literal_autoload?(node)
         args = node.arguments&.arguments
         args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))
@@ -1814,6 +1823,17 @@ module Ze0
         line = node.location.start_line
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
+        # A feature the program already holds registers nothing, as it
+        # does in ruby: `require` would answer false and read no file, so
+        # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`,
+        # and a constant that feature does not define stays undefined.
+        #
+        # Without this the loader believes a file must be found while the
+        # program runs, which is the one thing that needs the compiler,
+        # so `autoload :Set, "set"` used to add the whole of it -- 44 MB
+        # -- to a binary for a declaration that does nothing at all.
+        return nothing(node, line) if preloaded?(feature)
+
         path = @loader.resolve(:require, feature, @file)
         # An autoload the gem prelude's boot does not read leaves its file
         # to the program that reads the constant.
