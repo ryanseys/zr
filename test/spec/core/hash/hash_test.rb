@@ -107,7 +107,7 @@ describe "Hash programs" do
   end
 
   it "class ivar save restore" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # A capture-style save/restore of a class-ivar whose type widens to poly under
       # whole-program pressure. @query_log is written a bare `[]` (poly-array), pushed
       # strings (str-array), and restored from `prev`; those heterogeneous writes merge
@@ -139,6 +139,8 @@ describe "Hash programs" do
       end
       p ArticlesTest.new.test_index
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "crashers 536" do
@@ -898,7 +900,7 @@ describe "Hash programs" do
   end
 
   it "hash key via intermediate local" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       # Sibling to #443. `h[pp[1..]] = ap` where pp/ap are intermediate
       # locals (themselves split-result elements) had the hash inferred
       # as str_int_hash instead of str_str_hash. Root cause: the
@@ -932,6 +934,8 @@ describe "Hash programs" do
 
       puts build("a/b/c", "x/y/z")
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "hash literal" do
@@ -1321,7 +1325,7 @@ describe "Hash programs" do
   end
 
   it "hash temp gc root" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # #689: Hash temporaries created from `{}` literals must be GC-rooted
       # before subsequent allocations, otherwise GC may reclaim them mid-
       # expression and the consuming call reads NULL+offset.
@@ -1349,6 +1353,8 @@ describe "Hash programs" do
       end
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "hash transform group" do

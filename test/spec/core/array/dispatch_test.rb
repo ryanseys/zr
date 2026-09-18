@@ -39,7 +39,7 @@ describe "Array: dispatch" do
   end
 
   it "array fill poly" do
-    _(ze0(<<~'RUBY')).must_answer "[42, 42, 42]\n"
+    result = ze0(<<~'RUBY')
       # `arr.fill(val)` on a poly_array used to lower as
       # `sp_PolyArray_set(arr, i, val)` with the raw scalar `val`. The
       # storage is sp_RbVal — passing an unboxed int / str / float
@@ -58,6 +58,8 @@ describe "Array: dispatch" do
 
       p make_arr   # [42, 42, 42]
     RUBY
+
+    _(result).must_answer "[42, 42, 42]\n"
   end
 
   it "array literal empty elem" do
@@ -80,7 +82,7 @@ describe "Array: dispatch" do
   end
 
   it "array new poly size" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       # spinel-dev#24: Array.new(size, fill) where `size` is a poly expression.
       #
       # When a factor of the size widens to poly (here Mat#initialize's `ncols`, bound
@@ -113,6 +115,8 @@ describe "Array: dispatch" do
       m = Mat.new(2, 3)
       puts m.len
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "array transpose poly elements" do

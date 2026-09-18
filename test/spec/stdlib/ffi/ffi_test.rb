@@ -440,7 +440,7 @@ describe "FFI programs" do
   end
 
   it "exception in callback is reraised after the c call" do
-    _(ze0(<<~'RUBY')).must_answer "rescued: boom from callback\n"
+    result = ze0(<<~'RUBY')
       require "ffi"
       module L
         extend FFI::Library
@@ -456,10 +456,12 @@ describe "FFI programs" do
         puts "rescued: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "rescued: boom from callback\n"
   end
 
   it "ffi blocking call with a callback" do
-    _(ze0(<<~'RUBY')).must_answer "[2, 4, 9, 15, 31]\n"
+    result = ze0(<<~'RUBY')
       # `blocking: true` beside a callback argument is legal: the gem releases the
       # GVL around the C body and the callback trampoline re-acquires before
       # re-entering ruby (rdkafka's poll loop is the shape). qsort sorting through
@@ -478,6 +480,8 @@ describe "FFI programs" do
       Q.qsort(buf, 5, 4, proc { |a, b| a.read_int32 <=> b.read_int32 })
       p buf.read_array_of_int32(5)
     RUBY
+
+    _(result).must_answer "[2, 4, 9, 15, 31]\n"
   end
 
   it "ffi callback" do
@@ -600,7 +604,7 @@ describe "FFI programs" do
   end
 
   it "ffi declaration inside an eval" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       # An `FFI::Library` declaration written inside a run-time `eval` attaches
       # for real.
       #
@@ -642,6 +646,8 @@ describe "FFI programs" do
         puts "#{e.class}: #{e.message.lines.first.strip}"
       end
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "ffi declaration spellings widen" do
@@ -931,7 +937,7 @@ describe "FFI programs" do
   end
 
   it "ffi foreign ptr gc" do
-    _(ze0(<<~'RUBY')).must_answer "ok 200\n"
+    result = ze0(<<~'RUBY')
       # A foreign pointer (malloc'd C memory) kept alive in an ivar must not be
       # traced by the GC as a heap object. Heavy allocation churns GC cycles that
       # scan the holder; a collector that followed the foreign pointer would crash.
@@ -969,6 +975,8 @@ describe "FFI programs" do
 
       holders.each { |h| F.free(h.p) }
     RUBY
+
+    _(result).must_answer "ok 200\n"
   end
 
   it "ffi function takes its body as a block" do
@@ -1076,7 +1084,7 @@ describe "FFI programs" do
   end
 
   it "ffi int arg poly value" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # An FFI numeric arg (:int) call site receiving a poly-typed value (an ivar
       # widened by a mixed-type initializer) must coerce the boxed integer rather
       # than passing the box itself. Ported from spinel's ffi_func (#626) to the
@@ -1100,6 +1108,8 @@ describe "FFI programs" do
       s = Sink.new(true)
       puts Lib.abs(s.n)
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "ffi integers take their full c range" do
@@ -1694,7 +1704,7 @@ describe "FFI programs" do
   end
 
   it "ffi runtime dlopen resolves a path candidate list" do
-    _(ze0(<<~'RUBY')).must_answer "256.0\n"
+    result = ze0(<<~'RUBY')
       # An `ffi_lib` whose name only a RUNNING process can resolve -- a path built
       # by interpolation -- takes the dlopen/dlsym tier: the first candidate that
       # opens wins, exactly as the gem tries its alternatives. The list spans both
@@ -1708,10 +1718,12 @@ describe "FFI programs" do
       end
       puts M.pow(2.0, 8.0)
     RUBY
+
+    _(result).must_answer "256.0\n"
   end
 
   it "ffi str arg poly value" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # An FFI :string arg call site receiving a poly-typed value (an ivar widened
       # by a mixed-type initializer) must coerce the boxed string rather than
       # passing the box itself. Ported from spinel's ffi_func (#502) to the real
@@ -1735,10 +1747,12 @@ describe "FFI programs" do
       s = Sink.new(true)
       puts Lib.atoi(s.body)
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "ffi string names and current process" do
-    _(ze0(<<~'RUBY')).must_answer "9\n"
+    result = ze0(<<~'RUBY')
       # The declaration spellings the corpus writes that the strict forms missed:
       # a String function name (the gem calls `.to_sym` on it), and
       # `ffi_lib FFI::CURRENT_PROCESS` (symbols from the already-linked image --
@@ -1752,6 +1766,8 @@ describe "FFI programs" do
       end
       puts L.abs(-9)
     RUBY
+
+    _(result).must_answer "9\n"
   end
 
   it "ffi struct declared inside an eval" do
@@ -2123,7 +2139,7 @@ describe "FFI programs" do
   end
 
   it "ffi typedef aliases a scalar type" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       # FFI `typedef :existing, :alias`: a library-local type alias,
       # declared before use as the gem requires, resolves in a later
       # `attach_function`'s type list. Behaves identically to naming the underlying
@@ -2139,6 +2155,8 @@ describe "FFI programs" do
       end
       puts L.abs(-5)
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "ffi typedefs and guarded directives" do
@@ -2274,7 +2292,7 @@ describe "FFI programs" do
   end
 
   it "i1017" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # Issue #1017, ported to the real ffi gem API: a block whose tail expression
       # is an FFI pointer value must flow that pointer out of the block intact
       # (the original guarded a codegen cast when the tail crossed the proc-return
@@ -2306,6 +2324,8 @@ describe "FFI programs" do
         puts "not_ok"
       end
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "implicit self new in a concealed class" do

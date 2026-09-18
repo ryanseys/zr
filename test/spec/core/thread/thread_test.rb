@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread programs" do
   it "armed gvl holder blocked in fifo open does not stall its siblings" do
-    _(ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})).must_answer "\"through the fifo\\n\"\n"
+    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # File.open's open(2) ITSELF blocks on a FIFO until the other end
       # shows up -- the reason the release wraps the open, not just reads.
       # Without it the reader parks inside the armed Gvl and main can never
@@ -19,6 +19,8 @@ describe "Thread programs" do
       p reader.value
       File.delete(fifo)
     RUBY
+
+    _(result).must_answer "\"through the fifo\\n\"\n"
   end
 
   it "armed read family parks per call without stalling the writer" do
@@ -1174,9 +1176,11 @@ describe "Thread programs" do
   end
 
   it "issue 2978" do
-    _(ze0(<<~'RUBY')).must_answer "ThreadError\n"
+    result = ze0(<<~'RUBY')
       r = (Thread.new rescue $!.class); p r
     RUBY
+
+    _(result).must_answer "ThreadError\n"
   end
 
   it "issue 3124" do
@@ -1335,7 +1339,7 @@ describe "Thread programs" do
   end
 
   it "mutex protected counter across threads is exact" do
-    _(ze0(<<~'RUBY')).must_answer "2000\n"
+    result = ze0(<<~'RUBY')
       # THE canonical threading idiom -- Proc-within-Proc (Thread.new wrapping
       # synchronize). The mutex makes the sum exact (2000) regardless of how the
       # two OS threads interleave.
@@ -1348,6 +1352,8 @@ describe "Thread programs" do
       t2.join
       puts count
     RUBY
+
+    _(result).must_answer "2000\n"
   end
 
   it "mutex synchronize exits with a break value and unlocks" do
@@ -1365,7 +1371,7 @@ describe "Thread programs" do
   end
 
   it "opposite order two container ops do not deadlock" do
-    _(ze0(<<~'RUBY')).must_answer "no deadlock\n"
+    result = ze0(<<~'RUBY')
       # The lock-ordering probe family: mirrored two-container operations
       # (replace, ==, eql?, <=>, string ==, Encoding.compatible?) hammered
       # from two threads in OPPOSITE orders. Any builtin that holds both
@@ -1386,6 +1392,8 @@ describe "Thread programs" do
       t2.join
       puts "no deadlock"
     RUBY
+
+    _(result).must_answer "no deadlock\n"
   end
 
   it "queue and mutex methods on a poly receiver" do
@@ -1550,7 +1558,7 @@ describe "Thread programs" do
   end
 
   it "sleep forever parks until interrupted" do
-    _(ze0(<<~'RUBY')).must_answer "\"woken: done sleeping\"\n"
+    result = ze0(<<~'RUBY')
       # `sleep` with no duration parks until an interrupt arrives, then delivers
       # it normally.
 
@@ -1567,16 +1575,20 @@ describe "Thread programs" do
       t.raise("done sleeping")
       p t.value
     RUBY
+
+    _(result).must_answer "\"woken: done sleeping\"\n"
   end
 
   it "sleep poly arg" do
-    _(ze0(<<~'RUBY')).must_answer "slept\n"
+    result = ze0(<<~'RUBY')
       # sleep with a poly argument (a duration pulled from a heterogeneous hash)
       # must coerce poly -> float for sp_sleep(mrb_float).
       h = { "t" => 0.0, "n" => 2 }
       sleep(h["t"])   # poly value, holds a Float
       puts "slept"
     RUBY
+
+    _(result).must_answer "slept\n"
   end
 
   it "sleep return value" do
@@ -1657,7 +1669,7 @@ describe "Thread programs" do
   end
 
   it "thread concurrent alloc" do
-    _(ze0(<<~'RUBY')).must_answer "sum=8052000.0\n"
+    result = ze0(<<~'RUBY')
       # Concurrent allocation from multiple threads must be thread-safe and
       # deterministic. Each worker thread allocates a fresh Array per work item
       # (exercising sp_gc_alloc + the container growth paths that adjust the GC
@@ -1693,6 +1705,8 @@ describe "Thread programs" do
       ws.each { |t| t.join }
       puts "sum=#{acc.reduce(0.0) { |a, b| a + b }}"
     RUBY
+
+    _(result).must_answer "sum=8052000.0\n"
   end
 
   it "thread gc start" do

@@ -1100,7 +1100,7 @@ describe "Blocks: enumeration" do
   end
 
   it "named block param can be forwarded to another call" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       # `c` is a `New`-assigned LOCAL inside `go`, not a parameter or an
       # implicit-self call target -- see the self-capture test's comment for
       # why (both are separate, pre-existing, unrelated gaps).
@@ -1121,6 +1121,8 @@ describe "Blocks: enumeration" do
       Relay.new.go(3, 4) { |n| total += n }
       puts total
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "nested block captures own local" do
@@ -1274,10 +1276,12 @@ describe "Blocks: enumeration" do
   end
 
   it "runs inside the source" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 4, 9]\n"
+    result = ze0(<<~'RUBY')
       src = "[3,1,2].sort.map { |x| x * x }"
       p eval(src)
     RUBY
+
+    _(result).must_answer "[1, 4, 9]\n"
   end
 
   it "singleton class object yields inside class shift obj" do
@@ -1325,7 +1329,7 @@ describe "Blocks: enumeration" do
   end
 
   it "top level def self singletons can call each other and yield" do
-    _(ze0(<<~'RUBY')).must_answer "o:42\n"
+    result = ze0(<<~'RUBY')
       def self.outer
         "o:#{inner { 1 }}"
       end
@@ -1334,6 +1338,8 @@ describe "Blocks: enumeration" do
       end
       puts outer
     RUBY
+
+    _(result).must_answer "o:42\n"
   end
 
   it "yield inside a nested block literal drives the enclosing methods block" do

@@ -611,7 +611,7 @@ describe "StringScanner programs" do
   end
 
   it "string scanner matches in place" do
-    _(ze0(<<~'RUBY')).must_answer "65000\n"
+    result = ze0(<<~'RUBY')
       # StringScanner matches its pattern at the scan pointer. CRuby hands the
       # compiled pattern the text and the pointer; here each scan copies the
       # rest of the text and compiles the pattern again behind a \A, so a
@@ -632,6 +632,8 @@ describe "StringScanner programs" do
       p count
 
     RUBY
+
+    _(result).must_answer "65000\n"
   end
 
   it "strscan bytes and bounds" do

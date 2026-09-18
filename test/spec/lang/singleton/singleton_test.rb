@@ -21,7 +21,7 @@ describe "Singleton programs" do
   end
 
   it "class shift a constant object defines its singleton" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       # `class << CONST` on a constant-bound object installs per-object
       # singleton methods on it (previously a clean rejection).
 
@@ -35,6 +35,8 @@ describe "Singleton programs" do
       end
       puts Foo::ANOTHER.hi
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "class shift self constants are visible to the singletons class methods" do

@@ -415,7 +415,7 @@ describe "String: searching and matching" do
   end
 
   it "string index nil typeerror" do
-    _(ze0(<<~'RUBY')).must_answer "TypeError: no implicit conversion of nil into String\n"
+    result = ze0(<<~'RUBY')
       # Issue #847: String#index(nil) used to silently return -1 / nil,
       # conflating "no implicit conversion" with "not found". MRI raises
       # TypeError for nil arg.
@@ -426,6 +426,8 @@ describe "String: searching and matching" do
         puts "TypeError: " + e.message
       end
     RUBY
+
+    _(result).must_answer "TypeError: no implicit conversion of nil into String\n"
   end
 
   it "string index write boxed" do

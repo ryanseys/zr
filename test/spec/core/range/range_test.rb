@@ -460,12 +460,14 @@ describe "Range programs" do
   end
 
   it "endless method definition" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       class Calc
         def double(x) = x * 2
       end
       puts Calc.new.double(21)
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "endless method rescue" do
@@ -793,12 +795,14 @@ describe "Range programs" do
   end
 
   it "issue 2925" do
-    _(ze0(<<~'RUBY')).must_answer "5400\n"
+    result = ze0(<<~'RUBY')
       # A `sum` block whose value indexes an Array#find result is poly; the sum
       # must fold through the block (regression alongside #2913).
       table = [["h", 3600], ["m", 60]]
       p ["1h", "30m"].sum { |t| t[0...-1].to_i * table.find { |l, _| l == t[-1] }[1] }
     RUBY
+
+    _(result).must_answer "5400\n"
   end
 
   it "issue 2938" do
@@ -1365,9 +1369,11 @@ describe "Range programs" do
   end
 
   it "top level endless def" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       def double(x) = x * 2
       puts double(21)
     RUBY
+
+    _(result).must_answer "42\n"
   end
 end

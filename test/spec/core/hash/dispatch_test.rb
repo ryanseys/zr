@@ -811,7 +811,7 @@ describe "Hash: dispatch" do
   end
 
   it "poly idx int nullable" do
-    _(ze0(<<~'RUBY')).must_answer "30\n"
+    result = ze0(<<~'RUBY')
       # A poly-typed receiver indexed by an int? value (from a shipped int_int_hash
       # lookup) must dispatch correctly. Before the codegen index-parity fix,
       # emit_poly_builtin_dispatch / compile_poly_method_call skipped every arm when
@@ -827,6 +827,8 @@ describe "Hash: dispatch" do
 
       p tbl[k]                  # poly recv [] with int? index -> want 30
     RUBY
+
+    _(result).must_answer "30\n"
   end
 
   it "poly keyed hash pipeline" do
@@ -1019,7 +1021,7 @@ describe "Hash: dispatch" do
   end
 
   it "poly recv aset poly key" do
-    _(ze0(<<~'RUBY')).must_answer "99\n"
+    result = ze0(<<~'RUBY')
       # #464: `merged[k] = v` where merged is poly-recv AND k is also
       # poly. Pre-fix, the poly recv `[]=` dispatcher emitted only
       # Array setter arms which expect mrb_int index, so passing
@@ -1051,10 +1053,12 @@ describe "Hash: dispatch" do
       outer = { "m" => { "a" => 1 }, "pairs" => { "k" => "b", "v" => 99 } }
       puts run(outer)
     RUBY
+
+    _(result).must_answer "99\n"
   end
 
   it "poly recv fetch arm incompat" do
-    _(ze0(<<~'RUBY')).must_answer "real\n"
+    result = ze0(<<~'RUBY')
       # Sibling to poly_recv_fetch_hash_arms.rb. The dispatch arm for a
       # user class whose `fetch` is sym-keyed (pinned by sym-only direct
       # callers) should be SUPPRESSED at the dispatch site when the source
@@ -1093,6 +1097,8 @@ describe "Hash: dispatch" do
 
       puts lookup({ "x" => { "title" => "real" } })
     RUBY
+
+    _(result).must_answer "real\n"
   end
 
   it "poly recv fetch hash arms" do
@@ -1137,7 +1143,7 @@ describe "Hash: dispatch" do
   end
 
   it "poly recv hash dup" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       # Poly-recv hash `.dup`: the call `outer[k].dup` where outer is
       # a `*_poly_hash` (and so `outer[k]` returns sp_RbVal) used to
       # fall through to int-default ("cannot resolve call to 'dup' on
@@ -1187,6 +1193,8 @@ describe "Hash: dispatch" do
       x = make_poly_hash
       puts first_value(x)
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "poly recv hash each dispatch" do

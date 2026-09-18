@@ -1286,7 +1286,7 @@ describe "Blocks programs" do
   end
 
   it "def in class new block yields" do
-    _(ze0(<<~'RUBY')).must_answer "20\n"
+    result = ze0(<<~'RUBY')
       # A `def` in expression position (a `Class.new` block) threads its
       # block too.
 
@@ -1297,6 +1297,8 @@ describe "Blocks programs" do
       end
       puts k.new.run { |x| x * 2 }
     RUBY
+
+    _(result).must_answer "20\n"
   end
 
   it "default arg find block" do
@@ -2169,7 +2171,7 @@ describe "Blocks programs" do
   end
 
   it "named block parameter can be called explicitly" do
-    _(ze0(<<~'RUBY')).must_answer "10\n"
+    result = ze0(<<~'RUBY')
       # A `&block` parameter is real syntax now (a rejection this test
       # used to check for was lifted).
 
@@ -2180,6 +2182,8 @@ describe "Blocks programs" do
       end
       puts Foo.new.bar { |x| x * 2 }
     RUBY
+
+    _(result).must_answer "10\n"
   end
 
   it "new with block" do
@@ -2467,7 +2471,7 @@ describe "Blocks programs" do
   end
 
   it "proc arg object" do
-    _(ze0(<<~'RUBY')).must_answer "77\n"
+    result = ze0(<<~'RUBY')
       class Wrapper
         def initialize(val)
           @val = val
@@ -2486,6 +2490,8 @@ describe "Blocks programs" do
 
       pass { |w| puts w.value }
     RUBY
+
+    _(result).must_answer "77\n"
   end
 
   it "proc block param call" do
@@ -3478,13 +3484,15 @@ describe "Blocks programs" do
   end
 
   it "top level def called from a lambda" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       def base
         40
       end
       f = ->(x) { base + x }
       puts f.call(2)
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "top level def with block and yield" do

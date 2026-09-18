@@ -34,7 +34,7 @@ describe "Kernel: loading files" do
   end
 
   it "boot preloaded feature needs no require" do
-    _(ze0(<<~'RUBY')).must_answer "Monitor\n"
+    result = ze0(<<~'RUBY')
       # `Monitor` needs NO require: ruby 4.0 loads `monitor` before the program's
       # first line, so its constant is there whatever the program says
       # (oracle-verified). The ext gate is about a feature ruby does NOT preload;
@@ -43,6 +43,8 @@ describe "Kernel: loading files" do
 
       p Monitor.new.class
     RUBY
+
+    _(result).must_answer "Monitor\n"
   end
 
   it "computed require loads a bundled library" do
@@ -654,17 +656,19 @@ describe "Kernel: loading files" do
   end
 
   it "run time compile reruns a loaded feature" do
-    _(ze0(<<~'RUBY', path: "core/kernel/a_run_time_compile_reruns_a_loaded_feature.rb", files: {"../../fixtures/reloaded_feature/wants_forwardable.rb" => "require \"forwardable\"\nmodule WantsForwardable\n  def self.ok = Forwardable::VERSION.is_a?(String)\nend\n"})).must_answer "true\n"
+    result = ze0(<<~'RUBY', path: "core/kernel/a_run_time_compile_reruns_a_loaded_feature.rb", files: {"../../fixtures/reloaded_feature/wants_forwardable.rb" => "require \"forwardable\"\nmodule WantsForwardable\n  def self.ok = Forwardable::VERSION.is_a?(String)\nend\n"})
       require "forwardable"
       $LOAD_PATH.unshift(File.expand_path("../../fixtures/reloaded_feature", __dir__))
       name = "wants_forwardable"
       require name
       p WantsForwardable.ok
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "runtime required gems dependency loads" do
-    _(ze0(<<~'RUBY')).must_answer "created\n"
+    result = ze0(<<~'RUBY')
       # A `require` reached only from a METHOD BODY loads the vendored gem at
       # run time -- but the gem's own nested dependency require does not
       # deliver its constants: tempfile's `require "tmpdir"` leaves
@@ -677,6 +681,8 @@ describe "Kernel: loading files" do
       end
       go
     RUBY
+
+    _(result).must_answer "created\n"
   end
 
   it "second require of one feature answers false" do
@@ -710,7 +716,7 @@ describe "Kernel: loading files" do
   end
 
   it "splat require defers to runtime" do
-    _(ze0(<<~'RUBY')).must_answer "unavailable\n"
+    result = ze0(<<~'RUBY')
       # `require(*names)` has no compile-time feature name -- the call stays live
       # and the runtime `Kernel#require` raises the catchable `LoadError`, which
       # is the whole point: every corpus hit sits inside a `rescue LoadError`
@@ -728,5 +734,7 @@ describe "Kernel: loading files" do
 
       puts try_require("zeo_definitely_does_not_ship_this")
     RUBY
+
+    _(result).must_answer "unavailable\n"
   end
 end

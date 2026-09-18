@@ -119,13 +119,15 @@ describe "String: evaluating a string" do
   end
 
   it "eval non string argument is a type error" do
-    _(ze0(<<~'RUBY')).must_answer "no implicit conversion of Integer into String\n"
+    result = ze0(<<~'RUBY')
       begin
         eval(123)
       rescue TypeError => e
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "no implicit conversion of Integer into String\n"
   end
 
   it "eval string defines a module" do
@@ -193,13 +195,15 @@ describe "String: evaluating a string" do
   end
 
   it "eval string interpolation inside source" do
-    _(ze0(<<~'RUBY')).must_answer "n=36\n"
+    result = ze0(<<~'RUBY')
       code = 'n = 6; "n=#{n * n}"'; puts eval(code)
     RUBY
+
+    _(result).must_answer "n=36\n"
   end
 
   it "instance eval string mutates an ivar" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       class Counter
         def initialize
           @n = 0
@@ -209,10 +213,12 @@ describe "String: evaluating a string" do
       c.instance_eval("@n = @n + 3")
       puts c.instance_eval("@n")
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "instance eval string reads the receivers ivars" do
-    _(ze0(<<~'RUBY')).must_answer "105\n"
+    result = ze0(<<~'RUBY')
       class Account
         def initialize(n)
           @balance = n
@@ -222,11 +228,15 @@ describe "String: evaluating a string" do
       src = "@balance + 5"
       puts acct.instance_eval(src)
     RUBY
+
+    _(result).must_answer "105\n"
   end
 
   it "instance eval string rebinds self to a literal receiver" do
-    _(ze0(<<~'RUBY')).must_answer "OLLEH\n"
+    result = ze0(<<~'RUBY')
       src = "upcase.reverse"; puts "hello".instance_eval(src)
     RUBY
+
+    _(result).must_answer "OLLEH\n"
   end
 end

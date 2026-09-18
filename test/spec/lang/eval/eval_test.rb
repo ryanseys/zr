@@ -1666,7 +1666,7 @@ describe "Eval programs" do
   end
 
   it "eval of a non literal argument runs in the vm" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # A non-literal source is not rejected at compile time; it runs
       # through the runtime `eval`. (`y` is interpolated INTO the source string, not
       # referenced inside the eval.)
@@ -1674,12 +1674,16 @@ describe "Eval programs" do
       y = 40
       puts eval("#{y} + 2")
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "eval short circuit returns the operand" do
-    _(ze0(<<~'RUBY')).must_answer "fallback\n"
+    result = ze0(<<~'RUBY')
       src = "nil || 'fallback'"; puts eval(src)
     RUBY
+
+    _(result).must_answer "fallback\n"
   end
 
   it "eval singleton body homes on the singleton" do
@@ -1734,9 +1738,11 @@ describe "Eval programs" do
   end
 
   it "eval source assembled at runtime" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       op = "-"; puts eval("10 #{op} 3")
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "eval strings" do

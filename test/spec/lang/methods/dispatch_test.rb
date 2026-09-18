@@ -2428,7 +2428,7 @@ describe "Methods: dispatch" do
   end
 
   it "virtual dispatch void override" do
-    _(ze0(<<~'RUBY')).must_answer "sub\n"
+    result = ze0(<<~'RUBY')
       # An implicit-self call to a void method that subclasses override must dispatch
       # on the runtime class, not bind statically to the base implementation.
       class Base
@@ -2446,10 +2446,12 @@ describe "Methods: dispatch" do
       end
       Sub.new.run
     RUBY
+
+    _(result).must_answer "sub\n"
   end
 
   it "virtual dispatch void override empty base" do
-    _(ze0(<<~'RUBY')).must_answer "sub-ran\n"
+    result = ze0(<<~'RUBY')
       # Empty void base body, overridden in a subclass: the implicit-self call from
       # the base method must still reach the subclass override.
       class Base
@@ -2461,5 +2463,7 @@ describe "Methods: dispatch" do
       end
       Sub.new.run
     RUBY
+
+    _(result).must_answer "sub-ran\n"
   end
 end

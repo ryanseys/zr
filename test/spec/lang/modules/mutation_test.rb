@@ -74,7 +74,7 @@ describe "Modules: changing in place" do
   end
 
   it "issue prepend dynamic class body" do
-    _(ze0(<<~'RUBY')).must_answer "\"prepended-base\"\n"
+    result = ze0(<<~'RUBY')
       # `prepend` called inside a `Class.new { ... }` block raises NoMethodError
       # instead of prepending the module -- it only works in a literal `class ...
       # end` body.
@@ -91,6 +91,8 @@ describe "Modules: changing in place" do
       end
       p klass.new.foo
     RUBY
+
+    _(result).must_answer "\"prepended-base\"\n"
   end
 
   it "later prepend reaches back" do
@@ -402,7 +404,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend and include together resolve in correct precedence order" do
-    _(ze0(<<~'RUBY')).must_answer "pre(own(inc))\n"
+    result = ze0(<<~'RUBY')
       # MRO here is `Pre, Own, Inc, Object` -- `Own`'s own `label` calls
       # `super` and reaches `Inc` (the next ancestor after `Own`); `Pre`'s
       # `label` calls `super` and reaches `Own`.
@@ -426,6 +428,8 @@ describe "Modules: changing in place" do
       end
       puts Own.new.label
     RUBY
+
+    _(result).must_answer "pre(own(inc))\n"
   end
 
   it "prepend call form" do
@@ -737,7 +741,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend on builtin super recurses" do
-    _(ze0(<<~'RUBY')).must_answer "\"<AB>\"\n"
+    result = ze0(<<~'RUBY')
       module Loud
         def upcase = "<" + super + ">"
       end
@@ -745,10 +749,12 @@ describe "Modules: changing in place" do
       String.prepend(Loud)
       p "ab".upcase
     RUBY
+
+    _(result).must_answer "\"<AB>\"\n"
   end
 
   it "prepend super basic" do
-    _(ze0(<<~'RUBY')).must_answer "prepend-base\n"
+    result = ze0(<<~'RUBY')
       # Issue #720 follow-up: `super` inside a prepended method now
       # routes back to the original (overridden) method body via the
       # synthetic shadow registered at prepend time. Before the fix the
@@ -768,10 +774,12 @@ describe "Modules: changing in place" do
 
       puts C.new.hi
     RUBY
+
+    _(result).must_answer "prepend-base\n"
   end
 
   it "prepend super chain" do
-    _(ze0(<<~'RUBY')).must_answer "M(c(p))\n"
+    result = ze0(<<~'RUBY')
       # Issue #720 follow-up: prepended super walks through C's own body
       # down to the parent class. MRO is M -> C -> P; M's super -> C's
       # body; C's body's super -> P's body.
@@ -796,10 +804,12 @@ describe "Modules: changing in place" do
 
       puts C.new.hi
     RUBY
+
+    _(result).must_answer "M(c(p))\n"
   end
 
   it "prepend super forward" do
-    _(ze0(<<~'RUBY')).must_answer "105\n"
+    result = ze0(<<~'RUBY')
       # Issue #720 follow-up: bare `super` (ForwardingSuperNode) inside
       # a prepended method forwards every formal parameter to the
       # shadow, same as the explicit form.
@@ -818,10 +828,12 @@ describe "Modules: changing in place" do
 
       puts C.new.add(2, 3)
     RUBY
+
+    _(result).must_answer "105\n"
   end
 
   it "prepend super multi" do
-    _(ze0(<<~'RUBY')).must_answer "M2(M1(C))\n"
+    result = ze0(<<~'RUBY')
       # Issue #720 follow-up: multiple `prepend` calls stack — each
       # prepend's super walks back through the previous prepend's body
       # and eventually to C's own. MRO is M2 -> M1 -> C; M2's super ->
@@ -848,10 +860,12 @@ describe "Modules: changing in place" do
 
       puts C.new.hi
     RUBY
+
+    _(result).must_answer "M2(M1(C))\n"
   end
 
   it "prepend super subclass" do
-    _(ze0(<<~'RUBY')).must_answer "M(c)\n"
+    result = ze0(<<~'RUBY')
       # Issue #720 follow-up: a subclass inherits a prepended method
       # correctly. D inherits hi from C; D.new.hi dispatches to C's
       # prepended hi (M's body) and super walks back to C's original
@@ -874,6 +888,8 @@ describe "Modules: changing in place" do
 
       puts D.new.hi
     RUBY
+
+    _(result).must_answer "M(c)\n"
   end
 
   it "prepend two classes" do
@@ -1106,7 +1122,7 @@ describe "Modules: changing in place" do
   end
 
   it "stacked prepends resolve in reverse declaration order" do
-    _(ze0(<<~'RUBY')).must_answer "m2\n"
+    result = ze0(<<~'RUBY')
       # `prepend M1; prepend M2` -- M2 (most recently prepended) is closest,
       # ahead of M1, ahead of the class's own definition.
 
@@ -1129,5 +1145,7 @@ describe "Modules: changing in place" do
       end
       puts Stacked.new.label
     RUBY
+
+    _(result).must_answer "m2\n"
   end
 end

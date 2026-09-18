@@ -80,7 +80,7 @@ describe "Enumerable programs" do
   end
 
   it "blocked consumer is woken by a producer thread" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # The consumer genuinely BLOCKS on the empty pop (a Condvar wait) and is
       # woken by the producer's push -- exercising the real cross-thread wakeup
       # path. The value is deterministic regardless of which thread runs first.
@@ -91,6 +91,8 @@ describe "Enumerable programs" do
       puts consumer.value
       producer.join
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "dir each child enumerator" do
@@ -663,7 +665,7 @@ describe "Enumerable programs" do
   end
 
   it "exception from deep inside a fibers method stack reraises at the resumer" do
-    _(ze0(<<~'RUBY')).must_answer "resumer caught: deep boom\n"
+    result = ze0(<<~'RUBY')
       class Deep
         def go; boom; end
         def boom
@@ -678,10 +680,12 @@ describe "Enumerable programs" do
         puts "resumer caught: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "resumer caught: deep boom\n"
   end
 
   it "fiber does not see its resumers currently handled exception" do
-    _(ze0(<<~'RUBY')).must_answer "fiber saw: []\n"
+    result = ze0(<<~'RUBY')
       # CRuby: the fiber has its own errinfo (fresh, nil), so its bare
       # `raise` builds a fresh empty-message RuntimeError instead of
       # re-raising the resumer's in-flight exception -- `fiber saw: []`.
@@ -699,6 +703,8 @@ describe "Enumerable programs" do
         puts f.resume
       end
     RUBY
+
+    _(result).must_answer "fiber saw: []\n"
   end
 
   it "fiber reached through a dynamic receiver still resumes" do
@@ -1310,7 +1316,7 @@ describe "Enumerable programs" do
   end
 
   it "resuming a dead fiber raises a catchable fiber error" do
-    _(ze0(<<~'RUBY')).must_answer "attempt to resume a terminated fiber\n"
+    result = ze0(<<~'RUBY')
       d = Fiber.new { :done }
       d.resume
       begin
@@ -1319,6 +1325,8 @@ describe "Enumerable programs" do
         puts e.send(:message)
       end
     RUBY
+
+    _(result).must_answer "attempt to resume a terminated fiber\n"
   end
 
   it "scalar isa dead branch" do
@@ -1488,7 +1496,7 @@ describe "Enumerable programs" do
   end
 
   it "thread and the fiber it resumes have isolated handling" do
-    _(ze0(<<~'RUBY')).must_answer "fiber saw: []\n"
+    result = ze0(<<~'RUBY')
       # A Thread mid-rescue resumes a fiber whose bare raise must see an EMPTY
       # $!, not the thread's in-flight exception.
 
@@ -1508,6 +1516,8 @@ describe "Enumerable programs" do
       end
       puts t.value
     RUBY
+
+    _(result).must_answer "fiber saw: []\n"
   end
 
   it "throw inside a fiber cannot see the resumers catch" do

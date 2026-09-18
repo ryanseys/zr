@@ -499,13 +499,15 @@ describe "Encoding programs" do
   end
 
   it "force encoding symbol argument" do
-    _(ze0(<<~'RUBY')).must_answer "TypeError\n"
+    result = ze0(<<~'RUBY')
       begin
         (+"x").force_encoding(:a)
       rescue TypeError => e
         p e.class
       end
     RUBY
+
+    _(result).must_answer "TypeError\n"
   end
 
   it "frozen string refuses force encoding" do
@@ -976,7 +978,7 @@ describe "Encoding programs" do
   end
 
   it "mutable str force encoding return" do
-    _(ze0(<<~'RUBY')).must_answer "abcd\n"
+    result = ze0(<<~'RUBY')
       # Sequel to #441. The original fix gated force_encoding/encode/b
       # return-type inference on `recv == "string"`, which left the
       # `sp_String *` (mutable_str) receiver case unfixed. Codegen for
@@ -999,6 +1001,8 @@ describe "Encoding programs" do
 
       puts build_via_mutable
     RUBY
+
+    _(result).must_answer "abcd\n"
   end
 
   it "poly each byte" do
@@ -1225,7 +1229,7 @@ describe "Encoding programs" do
   end
 
   it "stdout receives a binary strings raw byte" do
-    _(ze0(<<~'RUBY')).must_answer "\xB4\n1\n".b
+    result = ze0(<<~'RUBY')
       # The harness captures stdout lossily, so the RAW 0xB4 byte surfaces
       # as one U+FFFD replacement char -- whereas a promoted output
       # (0xC2 0xB4) would decode "cleanly" as U+00B4. The replacement char IS
@@ -1236,6 +1240,8 @@ describe "Encoding programs" do
       puts
       p n
     RUBY
+
+    _(result).must_answer "\xB4\n1\n".b
   end
 
   it "str force encoding return" do

@@ -213,13 +213,15 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "enumerable chunk groups consecutive runs" do
-    _(ze0(<<~'RUBY')).must_answer "[[1, 2], [2, 3], [3, 1]]\n"
+    result = ze0(<<~'RUBY')
       p [1, 1, 2, 2, 2, 3].chunk { |x| x }.map { |k, v| [k, v.size] }
     RUBY
+
+    _(result).must_answer "[[1, 2], [2, 3], [3, 1]]\n"
   end
 
   it "multiple producers one consumer sum is exact" do
-    _(ze0(<<~'RUBY')).must_answer "20\n"
+    result = ze0(<<~'RUBY')
       q = Queue.new
       p1 = Thread.new { 10.times { q.push 1 } }
       p2 = Thread.new { 10.times { q.push 1 } }
@@ -237,6 +239,8 @@ describe "Enumerable: splitting and joining" do
       q.close
       puts consumer.value
     RUBY
+
+    _(result).must_answer "20\n"
   end
 
   it "partition boxed predicate" do

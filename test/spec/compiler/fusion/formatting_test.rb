@@ -324,7 +324,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "typed hash caller no body widen" do
-    _(ze0(<<~'RUBY')).must_answer "alice/5/<i>I</i>\n"
+    result = ze0(<<~'RUBY')
       # #556 (Ori Pekelman). Smoke test for the move of
       # infer_hash_param_from_body out of the iterative inference
       # loop. The full bug only triggers in tep's framework
@@ -372,6 +372,8 @@ describe "Fusion: formatting and inspection" do
       req.ivars["raw"] = "<i>I</i>"
       puts forward_to_typed({"unused" => "x"}, req.ivars)
     RUBY
+
+    _(result).must_answer "alice/5/<i>I</i>\n"
   end
 
   it "typed hash inspect and each value" do

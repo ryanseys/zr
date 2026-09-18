@@ -69,7 +69,7 @@ describe "Ostruct: regressions" do
   end
 
   it "issue 3155" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       require "ostruct"
       def assert_equal(expected, actual)
         raise unless expected == actual
@@ -78,10 +78,12 @@ describe "Ostruct: regressions" do
       assert_equal OpenStruct, o.class
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3193" do
-    _(ze0(<<~'RUBY')).must_answer "ok3193\n"
+    result = ze0(<<~'RUBY')
       require "ostruct"
 
       class Main
@@ -102,20 +104,24 @@ describe "Ostruct: regressions" do
       raise unless options[:name] == "lee"
       puts "ok3193"
     RUBY
+
+    _(result).must_answer "ok3193\n"
   end
 
   it "issue 3194" do
-    _(ze0(<<~'RUBY')).must_answer "ok3194\n"
+    result = ze0(<<~'RUBY')
       require "ostruct"
       hash = {a: 1}
       object = OpenStruct.new(hash)
       raise unless object[:a] == 1
       puts "ok3194"
     RUBY
+
+    _(result).must_answer "ok3194\n"
   end
 
   it "issue 3197" do
-    _(ze0(<<~'RUBY')).must_answer "ok3197\n"
+    result = ze0(<<~'RUBY')
       require "ostruct"
 
       class Crash
@@ -129,10 +135,12 @@ describe "Ostruct: regressions" do
       raise unless object.name == "lee"
       puts "ok3197"
     RUBY
+
+    _(result).must_answer "ok3197\n"
   end
 
   it "issue 3201" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       require "ostruct"
       class Main
         def parse(args)
@@ -145,6 +153,8 @@ describe "Ostruct: regressions" do
       raise unless object.name == "bob"
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3270" do
@@ -303,7 +313,7 @@ describe "Ostruct: regressions" do
   end
 
   it "issue 3331 poly to sym arm" do
-    _(ze0(<<~'RUBY')).must_answer ""
+    result = ze0(<<~'RUBY')
       require "ostruct"
       class Config
         attr_reader :flags, :lookup
@@ -396,6 +406,8 @@ describe "Ostruct: regressions" do
       raise "FAIL" unless options[:count] == 2
       raise "FAIL" unless options[:_args] == ["file"]
     RUBY
+
+    _(result).must_answer ""
   end
 
   it "issue 3341 ostruct shadows builtin" do

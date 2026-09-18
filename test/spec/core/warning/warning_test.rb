@@ -106,7 +106,7 @@ describe "Warning programs" do
   end
 
   it "warn category suppresses only deprecated" do
-    _(ze0(<<~'RUBY')).must_answer "done\n", stderr: "plain\nexp\nc\nd\n"
+    result = ze0(<<~'RUBY')
       # :deprecated is off by default (prints nothing); :experimental and the
       # uncategorized form print to stderr. The kwarg Hash is never itself
       # printed.
@@ -118,10 +118,12 @@ describe "Warning programs" do
       warn("c", "d", category: :experimental)
       puts "done"
     RUBY
+
+    _(result).must_answer "done\n", stderr: "plain\nexp\nc\nd\n"
   end
 
   it "warn render" do
-    _(ze0(<<~'RUBY')).must_answer "", stderr: "x\ny\nz\n1\n2\n\ns\n{a: 1}\nt\na\nb\nc\n1.5\n"
+    result = ze0(<<~'RUBY')
       warn ["x", "y"]
       warn "z"
       warn 1, 2
@@ -134,10 +136,12 @@ describe "Warning programs" do
       warn 1.5
 
     RUBY
+
+    _(result).must_answer "", stderr: "x\ny\nz\n1\n2\n\ns\n{a: 1}\nt\na\nb\nc\n1.5\n"
   end
 
   it "warn unresolved call context" do
-    _(ze0(<<~'RUBY')).must_answer "hello\n"
+    result = ze0(<<~'RUBY')
       # #490. A method with no reachable caller defaults its params to
       # mrb_int, then any operation in the body that's invalid on Int
       # fires "cannot resolve call to '<m>' on int (emitting 0)". The
@@ -159,6 +163,8 @@ describe "Warning programs" do
 
       puts "hello"
     RUBY
+
+    _(result).must_answer "hello\n"
   end
 
   it "warn with uplevel" do

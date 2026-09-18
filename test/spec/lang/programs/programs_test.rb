@@ -685,15 +685,19 @@ describe "Programs programs" do
   end
 
   it "hello" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       puts :ok
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "hello world" do
-    _(ze0(<<~'RUBY')).must_answer "Hello, world!\n"
+    result = ze0(<<~'RUBY')
       puts "Hello, world!"
     RUBY
+
+    _(result).must_answer "Hello, world!\n"
   end
 
   it "i1021" do
@@ -806,11 +810,13 @@ describe "Programs programs" do
   end
 
   it "issue drb missing" do
-    _(ze0(<<~'RUBY')).must_answer "\"constant\"\n"
+    result = ze0(<<~'RUBY')
       # `require "drb"` -- the vendored gem loads and defines `DRb`.
       require "drb"
       p defined?(DRb)
     RUBY
+
+    _(result).must_answer "\"constant\"\n"
   end
 
   it "multi write scalar rhs" do
@@ -983,8 +989,10 @@ describe "Programs programs" do
   end
 
   it "zeo dev promote probe" do
-    _(ze0(<<~'RUBY')).must_answer "promoted\n"
+    result = ze0(<<~'RUBY')
       puts "promoted"
     RUBY
+
+    _(result).must_answer "promoted\n"
   end
 end

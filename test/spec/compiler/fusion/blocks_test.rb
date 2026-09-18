@@ -886,7 +886,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield inline receiver self" do
-    _(ze0(<<~'RUBY')).must_answer "[12, 3]\n"
+    result = ze0(<<~'RUBY')
       # A yielding method is inlined at its block call site. The inlined body
       # runs in the RECEIVER's class context, so an implicit-self call inside
       # it (`to_a` / `size` below, both defined on Relation) must resolve
@@ -924,6 +924,8 @@ describe "Fusion: blocks and yields" do
 
       p Paginator.new.run
     RUBY
+
+    _(result).must_answer "[12, 3]\n"
   end
 
   it "yield typed hash block local" do

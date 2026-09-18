@@ -330,7 +330,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly count block arg hoist" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # `cell.neighbors.count { |n| Kind.walkable?(n.kind) }` on a poly receiver.
       #
       # The count arm wrote "if (sp_poly_truthy(" into the statement stream and then
@@ -374,6 +374,8 @@ describe "Blocks: dispatch" do
       a.link(pick(true, 1))
       p a.neighbors.count { |n| Kind.walkable?(n.kind) }
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "poly dispatch block arg" do

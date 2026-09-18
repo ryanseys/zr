@@ -1033,7 +1033,7 @@ describe "TracePoint programs" do
   end
 
   it "tracepoint self and binding" do
-    _(ze0(<<~'RUBY')).must_answer "[Object, Binding]\n"
+    result = ze0(<<~'RUBY')
       # `TracePoint#self` and `#binding` answer for a `:line` event, as CRuby's do:
       # `self` is the object the line ran under and `binding` is that scope.
       #
@@ -1059,5 +1059,7 @@ describe "TracePoint programs" do
 
       puts seen.inspect
     RUBY
+
+    _(result).must_answer "[Object, Binding]\n"
   end
 end

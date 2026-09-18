@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: slicing" do
   it "chained aset on poly hash recv" do
-    _(ze0(<<~'RUBY')).must_answer "z\n"
+    result = ze0(<<~'RUBY')
       # #456: `outer[k1][k2] = v` where outer's value type is sp_RbVal
       # (StrPolyHash). The inner `[]=` recv is poly; with no
       # `is_a?(Hash)` narrowing, the dispatch needs to enumerate Hash-
@@ -25,6 +25,8 @@ describe "Hash: slicing" do
       box = { "x" => { "y" => "old" } }
       puts assign(box)
     RUBY
+
+    _(result).must_answer "z\n"
   end
 
   it "enumerable hash range receiver" do

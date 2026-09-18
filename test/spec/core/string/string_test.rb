@@ -87,13 +87,15 @@ describe "String programs" do
   end
 
   it "catch string tag" do
-    _(ze0(<<~'RUBY')).must_answer "UncaughtThrowError\n"
+    result = ze0(<<~'RUBY')
       begin
         catch("str") { throw "str", :s }
       rescue UncaughtThrowError => e
         p e.class
       end
     RUBY
+
+    _(result).must_answer "UncaughtThrowError\n"
   end
 
   it "clock symbol name" do
@@ -277,7 +279,7 @@ describe "String programs" do
   end
 
   it "gc root ptr array literal" do
-    _(ze0(<<~'RUBY')).must_answer "0\n"
+    result = ze0(<<~'RUBY')
       # Regression test: `@x = [Klass.new(...)]` literal must keep the freshly
       # allocated PtrArray reachable across each element's allocation. Without
       # the SP_GC_ROOT on the temp, GC fired during a later Klass.new sees the
@@ -342,6 +344,8 @@ describe "String programs" do
 
       puts errors
     RUBY
+
+    _(result).must_answer "0\n"
   end
 
   it "gc stat string heap" do
@@ -432,9 +436,11 @@ describe "String programs" do
   end
 
   it "hello prints a symbol" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       puts :ok
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "inherited kwarg nil default string ivar" do
@@ -769,7 +775,7 @@ describe "String programs" do
   end
 
   it "module function str method param" do
-    _(ze0(<<~'RUBY')).must_answer "RED and bold text\n"
+    result = ze0(<<~'RUBY')
       # A module_function-promoted method whose body calls a string method
       # on its param, invoked with a string-literal arg, must route the
       # param to the string path (not the int "0" NoMethodError fallback).
@@ -785,6 +791,8 @@ describe "String programs" do
       end
       puts Strings::ANSI.sanitize("\e[31mRED\e[0m and \e[1mbold\e[0m text")
     RUBY
+
+    _(result).must_answer "RED and bold text\n"
   end
 
   it "param ptr from callee slot" do
@@ -844,13 +852,15 @@ describe "String programs" do
   end
 
   it "plain string raise is caught by an explicit runtime error rescue" do
-    _(ze0(<<~'RUBY')).must_answer "caught runtime: just a string\n"
+    result = ze0(<<~'RUBY')
       begin
         raise "just a string"
       rescue RuntimeError => e
         puts "caught runtime: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught runtime: just a string\n"
   end
 
   it "raise of a plain string is an implicit runtime error" do

@@ -89,7 +89,7 @@ describe "Object programs" do
   end
 
   it "break from a block passed to a singleton method returns from it" do
-    _(ze0(<<~'RUBY')).must_answer "\"stop2\"\n"
+    result = ze0(<<~'RUBY')
       # `break` in the block yields the method's return value -- the method-body
       # lambda's terminal arm folds `Signal::Break` into an `Ok` return, exactly
       # as an ordinary method does.
@@ -103,10 +103,12 @@ describe "Object programs" do
       end
       p(obj.count { |n| break "stop#{n}" if n == 2 })
     RUBY
+
+    _(result).must_answer "\"stop2\"\n"
   end
 
   it "can write an ivar on self" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       class Foo
         def initialize
           eval("@x = 42")
@@ -117,6 +119,8 @@ describe "Object programs" do
       end
       puts Foo.new.x
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "class method prepend is invisible to singleton ancestors" do
@@ -258,7 +262,7 @@ describe "Object programs" do
   end
 
   it "constant inside class of an object resolves in its singleton methods" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # `class << obj; MAX = ...; def m; MAX; end; end` -- a constant on an
       # object's singleton class (tmpdir's `class << RANDOM`). zeo hoists the
       # constant to the enclosing lexical scope, where the singleton method
@@ -273,6 +277,8 @@ describe "Object programs" do
       end
       puts Holder::GEN.emit
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "define singleton method" do
@@ -884,7 +890,7 @@ describe "Object programs" do
   end
 
   it "next from a block passed to a singleton method is its yield value" do
-    _(ze0(<<~'RUBY')).must_answer "[10, 20]\n"
+    result = ze0(<<~'RUBY')
       obj = Object.new
       def obj.run
         a = yield 1
@@ -893,6 +899,8 @@ describe "Object programs" do
       end
       p(obj.run { |n| next n * 10 })
     RUBY
+
+    _(result).must_answer "[10, 20]\n"
   end
 
   it "nil predicate works universally" do
@@ -1167,7 +1175,7 @@ describe "Object programs" do
   end
 
   it "safe navigation on a non nil receiver" do
-    _(ze0(<<~'RUBY')).must_answer "present\n"
+    result = ze0(<<~'RUBY')
       # Only proves `&.` doesn't regress a normal, statically-typed dispatch --
       # a receiver that's *actually* nil at runtime needs a nilable/union type
       # the compiler's `TyKind` doesn't have yet (every `New` is unconditionally
@@ -1186,6 +1194,8 @@ describe "Object programs" do
       b = Box.new(:present)
       puts(b&.value)
     RUBY
+
+    _(result).must_answer "present\n"
   end
 
   it "singleton method object" do

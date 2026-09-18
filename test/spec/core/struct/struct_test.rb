@@ -672,11 +672,13 @@ describe "Struct programs" do
   end
 
   it "data with unknown kw" do
-    _(ze0(<<~'RUBY')).must_answer "ArgumentError\n"
+    result = ze0(<<~'RUBY')
       P = Data.define(:x, :y)
       a = P.new(1, 2)
       r = (a.with(z: 9) rescue $!.class); p r
     RUBY
+
+    _(result).must_answer "ArgumentError\n"
   end
 
   it "nested pattern data deconstruct" do

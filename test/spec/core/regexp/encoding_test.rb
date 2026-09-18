@@ -883,13 +883,15 @@ describe "Regexp: encodings" do
   end
 
   it "regexp new three args" do
-    _(ze0(<<~'RUBY')).must_answer "ArgumentError\n"
+    result = ze0(<<~'RUBY')
       begin
         p Regexp.new("a", nil, "n").encoding.name
       rescue ArgumentError, TypeError => e
         p e.class
       end
     RUBY
+
+    _(result).must_answer "ArgumentError\n"
   end
 
   it "regexp over a multibyte legacy encoding reads characters" do

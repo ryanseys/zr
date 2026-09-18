@@ -61,13 +61,15 @@ describe "Boxes: defining and naming methods" do
   end
 
   it "box singleton alias aborts" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "false\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
       b.eval("class Array; class << self; alias_method :zz2, :new; end; end")
       p Array.respond_to?(:zz2)
     RUBY
+
+    _(result).must_answer "false\n"
   end
 
   it "box singleton class body is invisible to main" do
@@ -87,23 +89,27 @@ describe "Boxes: defining and naming methods" do
   end
 
   it "box singleton define method reaches main" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "false\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
       b.eval("Array.singleton_class.define_method(:dyn) { 42 }")
       p Array.respond_to?(:dyn)
     RUBY
+
+    _(result).must_answer "false\n"
   end
 
   it "box write on a shared class reaches main" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "false\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
       b.eval("class Array; def self.zzz = 9; end")
       p Array.respond_to?(:zzz)
     RUBY
+
+    _(result).must_answer "false\n"
   end
 
   it "boxs class method on a shared class stays in the box" do

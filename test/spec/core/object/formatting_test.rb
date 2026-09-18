@@ -1227,7 +1227,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "value type interp to s" do
-    _(ze0(<<~'RUBY')).must_answer "point: P3\n"
+    result = ze0(<<~'RUBY')
       class Point
         def initialize(x)
           @x = x
@@ -1239,5 +1239,7 @@ describe "Object: formatting and inspection" do
       pt = Point.new(3)
       puts "point: #{pt}"
     RUBY
+
+    _(result).must_answer "point: P3\n"
   end
 end

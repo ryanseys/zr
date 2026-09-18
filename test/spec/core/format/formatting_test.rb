@@ -55,7 +55,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "format directives named positional star and alternate form" do
-    _(ze0(<<~'RUBY')).must_answer "Ada is 36\n0b1010 / 0xff\n   42|\nhello world\n0x1p-1\n03.14\n"
+    result = ze0(<<~'RUBY')
       puts format("%<name>s is %<age>d", name: "Ada", age: 36)
       puts format("%#b / %#x", 10, 255)
       puts format("%*d|", 5, 42)
@@ -63,10 +63,12 @@ describe "Format: formatting and inspection" do
       puts format("%a", 0.5)
       puts("%<x>05.2f" % { x: 3.14159 })
     RUBY
+
+    _(result).must_answer "Ada is 36\n0b1010 / 0xff\n   42|\nhello world\n0x1p-1\n03.14\n"
   end
 
   it "format dynamic named" do
-    _(ze0(<<~'RUBY')).must_answer "    3\n3    |\n3    |\n3.14\n0003.142\n42\n00042\n42\nx-9\n1.23\nKeyError\n"
+    result = ze0(<<~'RUBY')
       # format/sprintf: dynamic width/precision (%*d, %.*f) consume the next
       # positional argument; %<name>conv and %{name} reference a hash argument by
       # key (missing keys raise KeyError). Unknown specs used to echo verbatim.
@@ -86,6 +88,8 @@ describe "Format: formatting and inspection" do
         puts "KeyError"
       end
     RUBY
+
+    _(result).must_answer "    3\n3    |\n3    |\n3.14\n0003.142\n42\n00042\n42\nx-9\n1.23\nKeyError\n"
   end
 
   it "format fixed precision rounding" do
@@ -601,7 +605,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "format s and nonfinite" do
-    _(ze0(<<~'RUBY')).must_answer "sym\n[1, 2]\ntrue\n|\n   ab|\nX\nInf\n-Inf\nNaN\n42\n"
+    result = ze0(<<~'RUBY')
       # %s calls to_s on every argument kind (it printed empty for symbols,
       # collections, booleans, and user objects); %f prints non-finite floats
       # with Ruby's casing (Inf/-Inf/NaN, where C printf lowercases).
@@ -619,6 +623,8 @@ describe "Format: formatting and inspection" do
       puts format("%.2f", Float::NAN)
       puts format("%s", 42)
     RUBY
+
+    _(result).must_answer "sym\n[1, 2]\ntrue\n|\n   ab|\nX\nInf\n-Inf\nNaN\n42\n"
   end
 
   it "format splat array variable" do
@@ -840,7 +846,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "string format polyarr" do
-    _(ze0(<<~'RUBY')).must_answer "age is 25\npi: 3.14\n[   42] hi        \nff\na   b\n"
+    result = ze0(<<~'RUBY')
       # String#% with a poly_array (mixed-type) argument.
       puts "%s is %d" % ["age", 25]
       puts "%s: %.2f" % ["pi", 3.14159]
@@ -848,6 +854,8 @@ describe "Format: formatting and inspection" do
       puts "%x" % [255]
       puts "%-3s %s" % ["a", "b"]
     RUBY
+
+    _(result).must_answer "age is 25\npi: 3.14\n[   42] hi        \nff\na   b\n"
   end
 
   it "string format scalar operands" do

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Tempfile programs" do
   it "tempfile create yields a readable file" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       require "tempfile"
       Tempfile.create("readable") do |f|
         f.write("ok")
@@ -12,5 +12,7 @@ describe "Tempfile programs" do
         puts f.read
       end
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 end

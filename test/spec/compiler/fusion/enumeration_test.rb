@@ -226,7 +226,7 @@ describe "Fusion: enumeration" do
   end
 
   it "redefined array each beats the splice" do
-    _(ze0(<<~'RUBY')).must_answer "\"REDEFINED\"\n"
+    result = ze0(<<~'RUBY')
       # A reopen of `Array#each` makes the splice illegal: `iter_inline_ok_for`
       # answers false and the site's other arm -- an ordinary block send -- is
       # what finds the new definition. Without that guard a fused site would
@@ -237,6 +237,8 @@ describe "Fusion: enumeration" do
       a = [1, 2, 3]
       p a.each { |x| x }
     RUBY
+
+    _(result).must_answer "\"REDEFINED\"\n"
   end
 
   it "two spliced loops in one scope each own their local" do

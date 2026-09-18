@@ -687,13 +687,15 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "extending a non module raises type error" do
-    _(ze0(<<~'RUBY')).must_answer "TypeError\n"
+    result = ze0(<<~'RUBY')
       begin
         Object.new.extend(42)
       rescue TypeError => e
         puts "TypeError"
       end
     RUBY
+
+    _(result).must_answer "TypeError\n"
   end
 
   it "module superclass raises rubys own type error" do
@@ -801,7 +803,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescue matches an included module" do
-    _(ze0(<<~'RUBY')).must_answer "alertable: direct\n"
+    result = ze0(<<~'RUBY')
       module Alertable; end
       class AppError < StandardError
         include Alertable
@@ -812,6 +814,8 @@ describe "Exceptions: inheritance and ancestors" do
         puts "alertable: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "alertable: direct\n"
   end
 
   it "rescue var subclass method" do
@@ -939,7 +943,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescuing a middle class catches a raised leaf subclass" do
-    _(ze0(<<~'RUBY')).must_answer "caught as AppError: bad input\n"
+    result = ze0(<<~'RUBY')
       class AppError < StandardError
       end
       class ValidationError < AppError
@@ -951,6 +955,8 @@ describe "Exceptions: inheritance and ancestors" do
         puts "caught as AppError: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught as AppError: bad input\n"
   end
 
   it "runtime exception subclass" do
@@ -1048,7 +1054,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "super with no definition above raises at runtime" do
-    _(ze0(<<~'RUBY')).must_answer "super: no superclass method 'as_json' for an instance of Rec\n"
+    result = ze0(<<~'RUBY')
       # Real Ruby has no definition-time check for `super`: it resolves against
       # the receiver's live ancestry at CALL time and raises NoMethodError only
       # if that walk comes up empty (vm_search_super_method / vm_eval.c). So a
@@ -1068,6 +1074,8 @@ describe "Exceptions: inheritance and ancestors" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "super: no superclass method 'as_json' for an instance of Rec\n"
   end
 
   it "user exception subclass class method constructs via runtime" do

@@ -28,7 +28,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "alias of a method touching an ivar works through either name" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       class Counter
         def initialize
           @count = 0
@@ -47,6 +47,8 @@ describe "Object: defining and naming methods" do
       c.increment
       puts c.value
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "basic object method missing" do
@@ -199,9 +201,11 @@ describe "Object: defining and naming methods" do
   end
 
   it "dup dispatches dynamically through send" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       puts [1, 2].send(:dup).length
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "dup drops singleton" do
@@ -347,7 +351,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "dynamic send carries a block through to a yield using method" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       class Collector
         def each_num(a, b, c)
           yield a
@@ -359,10 +363,12 @@ describe "Object: defining and naming methods" do
       Collector.new.send(:each_num, 1, 2, 3) { |n| total += n }
       puts total
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "issue method missing dynamic class body" do
-    _(ze0(<<~'RUBY')).must_answer "\"mm:foo:[1, 2]\"\n"
+    result = ze0(<<~'RUBY')
       # method_missing defined inside a `Class.new { ... }` block isn't wired up as
       # the receiver's dispatch fallback; zeo raises NoMethodError for the unknown
       # method instead of routing it to method_missing.
@@ -373,6 +379,8 @@ describe "Object: defining and naming methods" do
       end
       p klass.new.foo(1, 2)
     RUBY
+
+    _(result).must_answer "\"mm:foo:[1, 2]\"\n"
   end
 
   it "issue respond to private default" do
@@ -397,7 +405,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "method missing" do
-    _(ze0(<<~'RUBY')).must_answer "missing\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         def method_missing(name)
           puts :missing
@@ -406,6 +414,8 @@ describe "Object: defining and naming methods" do
 
       Greeter.new.send(:nonexistent)
     RUBY
+
+    _(result).must_answer "missing\n"
   end
 
   it "method missing explicit" do
@@ -435,7 +445,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "method missing fallback on a total miss" do
-    _(ze0(<<~'RUBY')).must_answer "missing\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         def method_missing(name)
           puts :missing
@@ -444,6 +454,8 @@ describe "Object: defining and naming methods" do
 
       Greeter.new.send(:nonexistent)
     RUBY
+
+    _(result).must_answer "missing\n"
   end
 
   it "mixin in the source is the send ruby writes" do
@@ -1313,7 +1325,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "send bypasses visibility entirely" do
-    _(ze0(<<~'RUBY')).must_answer "shh\n"
+    result = ze0(<<~'RUBY')
       class Box
         private
 
@@ -1324,10 +1336,12 @@ describe "Object: defining and naming methods" do
 
       puts Box.new.send(:secret)
     RUBY
+
+    _(result).must_answer "shh\n"
   end
 
   it "send dead code" do
-    _(ze0(<<~'RUBY')).must_answer "pressed a\n"
+    result = ze0(<<~'RUBY')
       # A runtime-name send in an unreachable method must NOT abort compilation.
       # Dead code is pruned before codegen, so the send is never emitted; only a
       # send that codegen actually emits is diagnosed. This mirrors a real program
@@ -1347,6 +1361,8 @@ describe "Object: defining and naming methods" do
 
       puts Pad.new.press(:a)
     RUBY
+
+    _(result).must_answer "pressed a\n"
   end
 
   it "send literal and user" do

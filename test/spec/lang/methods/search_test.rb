@@ -91,7 +91,7 @@ describe "Methods: searching and matching" do
   end
 
   it "codegen const lookup in toplevel method" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # Regression for the `String#index` nil-guard in
       # `current_lexical_scope_name`. A toplevel `def show` body that
       # reads a CONSTANT routes through `resolve_const_read_name`, which
@@ -106,6 +106,8 @@ describe "Methods: searching and matching" do
       def show; puts FOO; end
       show
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "find ifnone" do
@@ -490,7 +492,7 @@ describe "Methods: searching and matching" do
   end
 
   it "primitive method shadow int recv" do
-    _(ze0(<<~'RUBY')).must_answer "compiled-cleanly\n"
+    result = ze0(<<~'RUBY')
       # Issue #305: follow-up to #302's primitive-shadow fix.
       #
       # #302 stopped the body-side param-type inference from committing
@@ -539,6 +541,8 @@ describe "Methods: searching and matching" do
 
       puts "compiled-cleanly"
     RUBY
+
+    _(result).must_answer "compiled-cleanly\n"
   end
 
   it "reflection asks and answers as ruby does" do

@@ -273,7 +273,7 @@ describe "GC programs" do
   end
 
   it "bound method gc" do
-    _(ze0(<<~'RUBY')).must_answer "107\n"
+    result = ze0(<<~'RUBY')
       # GC: a Method captures `self`, and the captured receiver may
       # be reachable only through the Method itself. The auto-generated
       # `sp_Method_gc_scan` walks `iv_self_obj` via `sp_gc_mark`, so
@@ -305,6 +305,8 @@ describe "GC programs" do
       1000.times { String.new("garbage" * 100) }
       puts bm.call(7)
     RUBY
+
+    _(result).must_answer "107\n"
   end
 
   it "cycle block value position" do
@@ -920,7 +922,7 @@ describe "GC programs" do
   end
 
   it "fiber capture no leak to sibling" do
-    _(ze0(<<~'RUBY')).must_answer "client=42\n"
+    result = ze0(<<~'RUBY')
       # #564 (Ori Pekelman). Fiber.new block bodies that capture a
       # local push a `_hcell_<name>_<n>` entry onto
       # @heap_promoted_names so the capturing function's emit sees
@@ -949,6 +951,8 @@ describe "GC programs" do
       f = spawn_for(42)
       f.resume
     RUBY
+
+    _(result).must_answer "client=42\n"
   end
 
   it "finalizer runs after a collection the program did not ask for" do
@@ -1106,7 +1110,7 @@ describe "GC programs" do
   end
 
   it "gc poly local int" do
-    _(ze0(<<~'RUBY')).must_answer "101\n"
+    result = ze0(<<~'RUBY')
       # A poly local holding a non-pointer (int) value must be marked
       # tag-aware: rooting routes through sp_mark_rbval, which skips INT
       # rather than dereferencing the boxed integer as a pointer.
@@ -1119,10 +1123,12 @@ describe "GC programs" do
       GC.start
       p x
     RUBY
+
+    _(result).must_answer "101\n"
   end
 
   it "gc poly local root" do
-    _(ze0(<<~'RUBY')).must_answer "keep_5\n"
+    result = ze0(<<~'RUBY')
       # A poly (sp_RbVal) local assigned from a method whose return type
       # unifies to poly must be GC-rooted, or a collection while it's live
       # frees the object it holds (use-after-free).
@@ -1143,10 +1149,12 @@ describe "GC programs" do
       GC.start
       puts obj.v
     RUBY
+
+    _(result).must_answer "keep_5\n"
   end
 
   it "gc poly local setjmp" do
-    _(ze0(<<~'RUBY')).must_answer "keep_9\n"
+    result = ze0(<<~'RUBY')
       # A poly local live across a rescue (setjmp scope) with a GC: it must
       # be both volatile (longjmp-stable) and GC-rooted.
       class A; def v=(x); @v = x; end; def v; @v; end; end
@@ -1164,6 +1172,8 @@ describe "GC programs" do
       end
       puts obj.v
     RUBY
+
+    _(result).must_answer "keep_9\n"
   end
 
   it "gc root call args" do
@@ -1213,7 +1223,7 @@ describe "GC programs" do
   end
 
   it "gc root heap param" do
-    _(ze0(<<~'RUBY')).must_answer "G-P_7\n"
+    result = ze0(<<~'RUBY')
       # A heap-typed (poly / string) method parameter must stay GC-rooted
       # across a collection triggered inside the method, so a later read of it
       # (e.g. sp_poly_to_s in a %s interpolation arg) is not a use-after-free.
@@ -1236,6 +1246,8 @@ describe "GC programs" do
       wrap(42)                  # int call site forces `body` to a poly param
       puts wrap("P_" + 7.to_s)  # string call site
     RUBY
+
+    _(result).must_answer "G-P_7\n"
   end
 
   it "gc rooted builders" do
@@ -1357,7 +1369,7 @@ describe "GC programs" do
   end
 
   it "generator element cycle" do
-    _(ze0(<<~'RUBY')).must_answer "[13, 63, 16, 66]\n"
+    result = ze0(<<~'RUBY')
       # An extension-field element is a fixed-width array of field elements, and its
       # add is a generator over the two operands. The generator's own value comes
       # from the very methods its result feeds, so answering "array of anything" on
@@ -1397,6 +1409,8 @@ describe "GC programs" do
       alphas = Array.new(3) { |k| [k, k + 1, k + 2, k + 3] }
       p run(50, alphas)
     RUBY
+
+    _(result).must_answer "[13, 63, 16, 66]\n"
   end
 
   it "heap grows past its first arena table" do
@@ -1571,7 +1585,7 @@ describe "GC programs" do
   end
 
   it "poly dispatch recv gc root" do
-    _(ze0(<<~'RUBY')).must_answer "ok r=800\n"
+    result = ze0(<<~'RUBY')
       # The receiver temporary of a polymorphic send (the `switch (cls_id)`
       # dispatch) must be GC-rooted: it can be the only live reference to the
       # receiver, methods do not root their own self, and a collection triggered
@@ -1623,10 +1637,12 @@ describe "GC programs" do
       end
       puts "ok r=#{r}"
     RUBY
+
+    _(result).must_answer "ok r=800\n"
   end
 
   it "poly each receiver gc root" do
-    _(ze0(<<~'RUBY')).must_answer "item-0,item-1,item-2,item-3,item-4\n"
+    result = ze0(<<~'RUBY')
       # The poly (runtime-dispatch) `each` codegen stored the iterated
       # collection in an unrooted temp:
       #
@@ -1668,6 +1684,8 @@ describe "GC programs" do
       end
       puts out.join(",")
     RUBY
+
+    _(result).must_answer "item-0,item-1,item-2,item-3,item-4\n"
   end
 
   it "poly gc" do
@@ -1721,7 +1739,7 @@ describe "GC programs" do
   end
 
   it "proc call blk gc root" do
-    _(ze0(<<~'RUBY')).must_answer "tot=40.0\n"
+    result = ze0(<<~'RUBY')
       # Regression for the sp_proc_call heap-use-after-free: a method keeping a real
       # &blk param (no yield -- the dead Thread.new branch capturing blk forces the
       # escaping sp_Proc path) held the proc box only in an untracked C parameter,
@@ -1764,6 +1782,8 @@ describe "GC programs" do
       while i < 5; tot += acc[i]; i += 1; end
       puts "tot=#{tot}"
     RUBY
+
+    _(result).must_answer "tot=40.0\n"
   end
 
   it "proc return catch no leak" do
@@ -1914,7 +1934,7 @@ describe "GC programs" do
   end
 
   it "struct inspect cycle" do
-    _(ze0(<<~'RUBY')).must_answer "#<struct S x=#<struct S:...>>\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1927,6 +1947,8 @@ describe "GC programs" do
       s.x = s
       p s
     RUBY
+
+    _(result).must_answer "#<struct S x=#<struct S:...>>\n"
   end
 
   it "weakmap prunes a collected key at gc" do

@@ -95,7 +95,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "escaping block can mutate a captured enclosing local" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       class Collector
         def each_num(a, b, c)
           yield a
@@ -107,6 +107,8 @@ describe "Variables: blocks and yields" do
       Collector.new.each_num(1, 2, 3) { |n| total += n }
       puts total
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "inlined times block local is captured by a nested block" do
@@ -223,7 +225,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "nested block reading outer cells and writing its own locals composes" do
-    _(ze0(<<~'RUBY')).must_answer "1340\n"
+    result = ze0(<<~'RUBY')
       # Four levels deep, mixing: a method-level captured local (`total`),
       # an outer block's cell-promoted local (`row`), block params read from
       # two levels down, and inner-only locals. Oracle-verified.
@@ -248,6 +250,8 @@ describe "Variables: blocks and yields" do
       end
       p grid(2)
     RUBY
+
+    _(result).must_answer "1340\n"
   end
 
   it "nested closure captures enclosing blocks own local" do
@@ -324,7 +328,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "singleton method yield with no block raises rescuable local jump error" do
-    _(ze0(<<~'RUBY')).must_answer "caught LocalJumpError: no block given (yield)\n"
+    result = ze0(<<~'RUBY')
       # A `yield` reached with no block is a RESCUABLE LocalJumpError, not a
       # process abort -- including for a singleton method, whose block is
       # threaded through the call site.
@@ -339,5 +343,7 @@ describe "Variables: blocks and yields" do
         puts "caught #{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "caught LocalJumpError: no block given (yield)\n"
   end
 end

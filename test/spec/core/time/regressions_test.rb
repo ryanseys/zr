@@ -4,10 +4,12 @@ require "spec_helper"
 
 describe "Time: regressions" do
   it "issue 2865" do
-    _(ze0(<<~'RUBY')).must_answer "1600000000.5\n"
+    result = ze0(<<~'RUBY')
       c = Time.at(1_600_000_000.5)
       p c.utc.to_f
     RUBY
+
+    _(result).must_answer "1600000000.5\n"
   end
 
   it "issue 2866" do
@@ -54,7 +56,7 @@ describe "Time: regressions" do
   end
 
   it "issue 3090" do
-    _(ze0(<<~'RUBY')).must_answer "3/2\n 3\n4:5:6\n 2\n03/02\n25 12 14\n0\n"
+    result = ze0(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6)
       puts t.strftime("%-d/%-m")
       puts t.strftime("%_d")
@@ -65,6 +67,8 @@ describe "Time: regressions" do
       puts t2.strftime("%-d %-m %-H")
       puts t2.strftime("%-M")
     RUBY
+
+    _(result).must_answer "3/2\n 3\n4:5:6\n 2\n03/02\n25 12 14\n0\n"
   end
 
   it "issue 3091" do

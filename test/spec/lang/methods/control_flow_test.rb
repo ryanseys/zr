@@ -25,7 +25,7 @@ describe "Methods: control flow" do
   end
 
   it "class method int table arg" do
-    _(ze0(<<~'RUBY')).must_answer "18\n"
+    result = ze0(<<~'RUBY')
       # A namespace module whose methods are all `self.` ones passes a table of int
       # arrays between two of them. Emission resolves `M.consume(...)` through the
       # class-method chain, so the narrowing pass has to resolve it the same way --
@@ -53,10 +53,12 @@ describe "Methods: control flow" do
       rows = Array.new(4) { |c| [c, c + 1, c + 2] }
       p M.consume(rows, 3)
     RUBY
+
+    _(result).must_answer "18\n"
   end
 
   it "fib" do
-    _(ze0(<<~'RUBY')).must_answer "6765\n"
+    result = ze0(<<~'RUBY')
       def fib(n)
         if n < 2
           n
@@ -66,6 +68,8 @@ describe "Methods: control flow" do
       end
       puts fib(20)
     RUBY
+
+    _(result).must_answer "6765\n"
   end
 
   it "module singleton new user method" do
@@ -303,7 +307,7 @@ describe "Methods: control flow" do
   end
 
   it "tak" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       def tak(x, y, z)
         if y < x
           tak(tak(x - 1, y, z), tak(y - 1, z, x), tak(z - 1, x, y))
@@ -313,5 +317,7 @@ describe "Methods: control flow" do
       end
       puts tak(18, 12, 6)
     RUBY
+
+    _(result).must_answer "7\n"
   end
 end

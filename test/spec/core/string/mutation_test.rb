@@ -1260,7 +1260,7 @@ describe "String: changing in place" do
   end
 
   it "volatile strip skips coerced arg" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # #700 secondary shape: cast_away_volatile_arg was wrapping a
       # coerced call-arg value with the LV's declared type, producing
       # `(sp_SymPolyHash *)sp_StrPolyHash_from_sym_poly_hash(lv_form_attrs)`
@@ -1292,5 +1292,7 @@ describe "String: changing in place" do
       trigger_setjmp                    # arms @needs_setjmp = 1 globally
       puts build_and_call
     RUBY
+
+    _(result).must_answer "2\n"
   end
 end

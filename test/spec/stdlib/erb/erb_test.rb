@@ -87,10 +87,12 @@ describe "ERB programs" do
   end
 
   it "erb util escapes html" do
-    _(ze0(<<~'RUBY')).must_answer "&lt;a &amp; b&gt;\n"
+    result = ze0(<<~'RUBY')
       require "erb"
       puts ERB::Util.html_escape("<a & b>")
     RUBY
+
+    _(result).must_answer "&lt;a &amp; b&gt;\n"
   end
 
   it "issue erb render needs binding" do

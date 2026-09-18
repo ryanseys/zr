@@ -126,7 +126,7 @@ describe "Object: searching and matching" do
   end
 
   it "enum chain with index object" do
-    _(ze0(<<~'RUBY')).must_answer "0a1b2c\n10:x 11:y \n[2, 4, 6]\n2\n"
+    result = ze0(<<~'RUBY')
       # str.each_char.with_index (block form) and enum.each.with_object desugar
       # into the shapes the chain emitters already serve.
       "abc".each_char.with_index { |c, i| print "#{i}#{c}" }
@@ -138,6 +138,8 @@ describe "Object: searching and matching" do
       h = [1, 2].each.with_object({}) { |v, acc| acc[v.to_s] = v }
       p h.size
     RUBY
+
+    _(result).must_answer "0a1b2c\n10:x 11:y \n[2, 4, 6]\n2\n"
   end
 
   it "is a and instance of answer through class values" do

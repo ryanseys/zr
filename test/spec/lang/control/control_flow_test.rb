@@ -462,7 +462,7 @@ describe "Control: control flow" do
   end
 
   it "control flow break in case in loop" do
-    _(ze0(<<~'RUBY')).must_answer "[0, 1, 2]\n"
+    result = ze0(<<~'RUBY')
       out = []
       i = 0
       loop do
@@ -478,10 +478,12 @@ describe "Control: control flow" do
       end
       p out
     RUBY
+
+    _(result).must_answer "[0, 1, 2]\n"
   end
 
   it "control flow loop cond method arg" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       # A method call used as an ARGUMENT inside a while condition must be
       # re-evaluated every iteration, not hoisted into a temp before the loop.
       class Gen
@@ -507,10 +509,12 @@ describe "Control: control flow" do
       end
       puts count
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "control flow next in case in loop" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2, 4, 5, 7, 8]\n"
+    result = ze0(<<~'RUBY')
       out = []
       i = 0
       while i < 8
@@ -523,10 +527,12 @@ describe "Control: control flow" do
       end
       p out
     RUBY
+
+    _(result).must_answer "[1, 2, 4, 5, 7, 8]\n"
   end
 
   it "control flow until cond method arg" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       # Same re-evaluation requirement for an until condition argument.
       class Gen
         def initialize
@@ -551,10 +557,12 @@ describe "Control: control flow" do
       end
       puts count
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "control flow until modifier method" do
-    _(ze0(<<~'RUBY')).must_answer "4\n"
+    result = ze0(<<~'RUBY')
       class Box
         def initialize
           @v = 0
@@ -573,10 +581,12 @@ describe "Control: control flow" do
       b.bump until b.at_least?(4)
       puts b.get
     RUBY
+
+    _(result).must_answer "4\n"
   end
 
   it "control flow while modifier method" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       class Counter
         def initialize
           @n = 0
@@ -595,6 +605,8 @@ describe "Control: control flow" do
       c.step while c.under?(5)
       puts c.n
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "each loop binds its own stop" do
@@ -1227,7 +1239,7 @@ describe "Control: control flow" do
   end
 
   it "logical value return" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       def assert_equal(expected, actual)
         if expected != actual
           raise "logical value return mismatch"
@@ -1244,6 +1256,8 @@ describe "Control: control flow" do
 
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "loop and redo" do
@@ -2513,7 +2527,7 @@ describe "Control: control flow" do
   end
 
   it "return nil call scalar return" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # A method whose return type is a concrete scalar (here mrb_int, pinned by the
       # `42` branch) but one branch's value is a call that resolves to nil through a
       # nil/unresolved receiver. That call is emitted as a poly nil-box
@@ -2540,10 +2554,12 @@ describe "Control: control flow" do
 
       puts Base.count(true).to_s
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "return table across methods" do
-    _(ze0(<<~'RUBY')).must_answer "18\n"
+    result = ze0(<<~'RUBY')
       # Factoring a table of int arrays out into its own method is the ordinary way
       # to write this, and the caller's `rows = build(n)` has to reach the same
       # storage the callee built. Without a slot for the method's value that write
@@ -2575,6 +2591,8 @@ describe "Control: control flow" do
       rows = T.build(4)
       p T.consume(rows, 3)
     RUBY
+
+    _(result).must_answer "18\n"
   end
 
   it "return unify int vs pointer" do
@@ -2744,7 +2762,7 @@ describe "Control: control flow" do
   end
 
   it "unless" do
-    _(ze0(<<~'RUBY')).must_answer "non_negative\n"
+    result = ze0(<<~'RUBY')
       n = 5
       unless n < 0
         puts :non_negative
@@ -2752,10 +2770,12 @@ describe "Control: control flow" do
         puts :negative
       end
     RUBY
+
+    _(result).must_answer "non_negative\n"
   end
 
   it "unless with else" do
-    _(ze0(<<~'RUBY')).must_answer "non_negative\n"
+    result = ze0(<<~'RUBY')
       n = 5
       unless n < 0
         puts :non_negative
@@ -2763,6 +2783,8 @@ describe "Control: control flow" do
         puts :negative
       end
     RUBY
+
+    _(result).must_answer "non_negative\n"
   end
 
   it "until and an unless guard never send a programs bang" do

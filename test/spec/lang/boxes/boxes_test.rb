@@ -38,13 +38,15 @@ describe "Boxes programs" do
   end
 
   it "box class ivar is not readable in the box" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "7\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
       b.eval("class Array; @civ = 7; def self.civ = @civ; end")
       p b.eval("Array.civ")
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "box class method is absent from mains reflection" do
@@ -80,13 +82,15 @@ describe "Boxes programs" do
   end
 
   it "box const set reaches main" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer ":namee\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
       b.eval("Object.const_set(:BOXCONST, 5)")
       p(begin; Object.const_get(:BOXCONST); rescue NameError; :namee; end)
     RUBY
+
+    _(result).must_answer ":namee\n"
   end
 
   it "box constant on a shared class is its own" do
@@ -417,7 +421,7 @@ describe "Boxes programs" do
   end
 
   it "box pointer to poly" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # `box_val_to_poly` and `box_expr_to_poly` previously fell through
       # to `sp_box_int(val)` for any pointer-typed expression they didn't
       # explicitly recognize (hashes, mutable strings, etc.), yielding
@@ -446,6 +450,8 @@ describe "Boxes programs" do
       y = get(1)
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "box prepend is invisible to main" do
@@ -821,7 +827,7 @@ describe "Boxes programs" do
   end
 
   it "if arms with different object classes box to ruby value" do
-    _(ze0(<<~'RUBY')).must_answer "a\n"
+    result = ze0(<<~'RUBY')
       class A
         def tag = "a"
       end
@@ -832,6 +838,8 @@ describe "Boxes programs" do
       x = pick ? A.new : B.new
       puts x.send(:tag)
     RUBY
+
+    _(result).must_answer "a\n"
   end
 
   it "issue 3329 yield local poly box" do
@@ -851,7 +859,7 @@ describe "Boxes programs" do
   end
 
   it "main definitions are invisible inside a box" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "invisible\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A main-only class/constant is INVISIBLE inside a box (boxes dup from
       # MASTER, not main): resolving it inside box.eval raises NameError-shaped
       # failures rather than leaking main's definitions.
@@ -862,6 +870,8 @@ describe "Boxes programs" do
       box = Ruby::Box.new
       box.eval("begin; p MAIN_ONLY; rescue NameError => e; puts 'invisible'; end")
     RUBY
+
+    _(result).must_answer "invisible\n"
   end
 
   it "master constants stay visible inside a box" do
@@ -942,7 +952,7 @@ describe "Boxes programs" do
   end
 
   it "nullable array keyword box" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # A nil-defaulting array-typed value boxed into a poly slot must become nil,
       # not a truthy OBJ wrapping a NULL pointer (segfault on later access) (#3275).
       class Config
@@ -962,10 +972,12 @@ describe "Boxes programs" do
       c.int "--bad-int", choices: ["1"]
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "poly attr reader box dispatch" do
-    _(ze0(<<~'RUBY')).must_answer "alice\n"
+    result = ze0(<<~'RUBY')
       # #700 shape A: when a poly-widened setter receives an attr_reader
       # value from an int-typed LV (where codegen's
       # compile_int_class_fallback_expr picks the first class with the
@@ -1002,6 +1014,8 @@ describe "Boxes programs" do
       update_from_row(c, row)
       puts c.commenter
     RUBY
+
+    _(result).must_answer "alice\n"
   end
 
   it "poly recv aref box arm" do
@@ -1220,7 +1234,7 @@ describe "Boxes programs" do
   end
 
   it "top level def in a box stays in it" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "NameError\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A top-level `def` written in a box belongs to that box: main cannot call
@@ -1246,10 +1260,12 @@ describe "Boxes programs" do
         p e.class
       end
     RUBY
+
+    _(result).must_answer "NameError\n"
   end
 
   it "yield boxes an object typed argument" do
-    _(ze0(<<~'RUBY')).must_answer "pong\n"
+    result = ze0(<<~'RUBY')
       # (`Builder.new { }` can't be used here: `.new` doesn't forward its
       # block to `initialize` yet -- a separate, pre-existing gap.)
 
@@ -1261,5 +1277,7 @@ describe "Boxes programs" do
       end
       Builder.new.run { |b| puts b.send(:ping) }
     RUBY
+
+    _(result).must_answer "pong\n"
   end
 end

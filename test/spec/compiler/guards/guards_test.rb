@@ -545,12 +545,14 @@ describe "Guards programs" do
   end
 
   it "case in unless guard" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       case [1, 2]
       in [a, *b] unless a == 0
         puts a
       end
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "casecmp folds non ascii" do
@@ -590,7 +592,7 @@ describe "Guards programs" do
   end
 
   it "class body guard folds in cref" do
-    _(ze0(<<~'RUBY')).must_answer "folded\n"
+    result = ze0(<<~'RUBY')
       # A class-body guard folds with the same superset the top level uses, in the
       # body's own cref. Before the lift this whole shape was a compile error ("a
       # position the analyze walk doesn't register"). The probe names a class
@@ -607,6 +609,8 @@ describe "Guards programs" do
       end
       puts Outer::Inner::WHO
     RUBY
+
+    _(result).must_answer "folded\n"
   end
 
   it "class in a block under an undecided guard" do
@@ -679,7 +683,7 @@ describe "Guards programs" do
   end
 
   it "class self conditional def" do
-    _(ze0(<<~'RUBY')).must_answer "new\n"
+    result = ze0(<<~'RUBY')
       # A conditional `def` inside `class << self` -- erb/compiler.rb's
       # `class << self; if defined?(Ractor); def register_scanner ...; else; ...`.
       # zeo statically decides the version/`defined?` guard and registers ONLY the
@@ -699,6 +703,8 @@ describe "Guards programs" do
       end
       puts Scanner.which
     RUBY
+
+    _(result).must_answer "new\n"
   end
 
   it "conditional class body defs" do
@@ -979,7 +985,7 @@ describe "Guards programs" do
   end
 
   it "def two guards deep stays inside both of them" do
-    _(ze0(<<~'RUBY')).must_answer "real\n"
+    result = ze0(<<~'RUBY')
       # Bundler's actual nesting: a guard inside a guard, with a local assigned
       # between them and the body reading a constant only the inner branch writes.
 
@@ -997,6 +1003,8 @@ describe "Guards programs" do
       end
       puts C.new.which
     RUBY
+
+    _(result).must_answer "real\n"
   end
 
   it "defined const document order" do
@@ -1139,7 +1147,7 @@ describe "Guards programs" do
   end
 
   it "explicit so require resolves a statically linked extension" do
-    _(ze0(<<~'RUBY')).must_answer "\"a\"\n"
+    result = ze0(<<~'RUBY')
       # A `.so` require resolves through the static-ext table rather than the
       # filesystem -- zeo is a Ruby built with `--with-static-linked-ext`, and
       # CRuby registers static exts under `"<feature>.so"` (`load.c:1161`).
@@ -1151,6 +1159,8 @@ describe "Guards programs" do
       require "strscan.so"
       p StringScanner.new("ab").scan(/a/)
     RUBY
+
+    _(result).must_answer "\"a\"\n"
   end
 
   it "feature probe defs fold" do
@@ -1466,7 +1476,7 @@ describe "Guards programs" do
   end
 
   it "guarded class method does not take the later bodys position" do
-    _(ze0(<<~'RUBY')).must_answer "real\n"
+    result = ze0(<<~'RUBY')
       # The class-method channel takes the same rule. It is counted apart from the
       # instance channel, so a fix that only watched one would pass everything
       # above and still hand `def self.x` the wrong body.
@@ -1484,6 +1494,8 @@ describe "Guards programs" do
       end
       puts C.which
     RUBY
+
+    _(result).must_answer "real\n"
   end
 
   it "guarded def does not take a positional install" do
@@ -1680,7 +1692,7 @@ describe "Guards programs" do
   end
 
   it "guarded def written last does not displace the earlier body" do
-    _(ze0(<<~'RUBY')).must_answer "real\n"
+    result = ze0(<<~'RUBY')
       # ...and with the guarded body written last, which is the same rule read
       # from the other end.
 
@@ -1694,6 +1706,8 @@ describe "Guards programs" do
       end
       puts C.new.which
     RUBY
+
+    _(result).must_answer "real\n"
   end
 
   it "guarded top level def defines at runtime" do
@@ -2926,7 +2940,7 @@ describe "Guards programs" do
   end
 
   it "two guarded bodies and one real one still answer the real one" do
-    _(ze0(<<~'RUBY')).must_answer "real\n"
+    result = ze0(<<~'RUBY')
       # Three bodies for one name, two of them guarded: the two lists differ by
       # two, so an off-by-one fix would still land on the wrong row.
 
@@ -2943,6 +2957,8 @@ describe "Guards programs" do
       end
       puts C.new.which
     RUBY
+
+    _(result).must_answer "real\n"
   end
 
   it "undef under dynamic guard" do
@@ -3204,7 +3220,7 @@ describe "Guards programs" do
   end
 
   it "version gated def folds" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       module M
         def self.helper?
           true
@@ -3221,5 +3237,7 @@ describe "Guards programs" do
       end
       p K.ancestors.include?(M)
     RUBY
+
+    _(result).must_answer "true\n"
   end
 end

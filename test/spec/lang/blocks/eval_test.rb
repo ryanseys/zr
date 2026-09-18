@@ -4,9 +4,11 @@ require "spec_helper"
 
 describe "Blocks: evaluating a string" do
   it "eval control flow yields last expression" do
-    _(ze0(<<~'RUBY')).must_answer "yes\n"
+    result = ze0(<<~'RUBY')
       src = "if 1 < 2 then :yes else :no end"; puts eval(src)
     RUBY
+
+    _(result).must_answer "yes\n"
   end
 
   it "eval yield needs a def not a block" do

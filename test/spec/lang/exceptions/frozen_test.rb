@@ -275,7 +275,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "frozen error is caught by a runtime error rescue" do
-    _(ze0(<<~'RUBY')).must_answer "runtime-rescued\n"
+    result = ze0(<<~'RUBY')
       g = [1].freeze
       begin
         g[0] = 2
@@ -283,6 +283,8 @@ describe "Exceptions: frozen literals" do
         puts "runtime-rescued"
       end
     RUBY
+
+    _(result).must_answer "runtime-rescued\n"
   end
 
   it "i918" do

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Forwardable programs" do
   it "issue 3300 forwardable" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       require "forwardable"
 
       class Wrapped
@@ -59,6 +59,8 @@ describe "Forwardable programs" do
       raise "FAIL5" unless m.greet == "hi"
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "singleton body macro calls" do

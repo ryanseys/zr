@@ -26,12 +26,14 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in bare bind pattern matches anything" do
-    _(ze0(<<~'RUBY')).must_answer "bound: 42\n"
+    result = ze0(<<~'RUBY')
       case 42
       in x
         puts "bound: #{x}"
       end
     RUBY
+
+    _(result).must_answer "bound: 42\n"
   end
 
   it "case in begin value position" do
@@ -128,7 +130,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in deconstruct" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2]\n"
+    result = ze0(<<~'RUBY')
       # case/in against a custom #deconstruct (array pattern).
       class Pt; def deconstruct; [1, 2]; end; end
       r = case Pt.new
@@ -136,10 +138,12 @@ describe "Pattern: pattern matching" do
           end
       p r
     RUBY
+
+    _(result).must_answer "[1, 2]\n"
   end
 
   it "case in deconstruct absent" do
-    _(ze0(<<~'RUBY')).must_answer "\"nomatch\"\n"
+    result = ze0(<<~'RUBY')
       # An array pattern against an object with no #deconstruct never matches; the
       # arm fails closed and the else branch is taken (as in CRuby).
       class NoDe; end
@@ -149,10 +153,12 @@ describe "Pattern: pattern matching" do
           end
       p r
     RUBY
+
+    _(result).must_answer "\"nomatch\"\n"
   end
 
   it "case in deconstruct keys" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2]\n"
+    result = ze0(<<~'RUBY')
       # case/in against a custom #deconstruct_keys (hash pattern).
       class Qt; def deconstruct_keys(k); {x: 1, y: 2}; end; end
       r = case Qt.new
@@ -160,6 +166,8 @@ describe "Pattern: pattern matching" do
           end
       p r
     RUBY
+
+    _(result).must_answer "[1, 2]\n"
   end
 
   it "case in find pattern locates a matching window" do
@@ -269,7 +277,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in object with no deconstruct falls through to else" do
-    _(ze0(<<~'RUBY')).must_answer "no deconstruct, fell to else\n"
+    result = ze0(<<~'RUBY')
       # An array pattern asks `#deconstruct` at run time; a class without
       # one simply does not match (no raise), so the `else` arm runs.
 
@@ -283,10 +291,12 @@ describe "Pattern: pattern matching" do
         puts "no deconstruct, fell to else"
       end
     RUBY
+
+    _(result).must_answer "no deconstruct, fell to else\n"
   end
 
   it "case in pin pattern matches only the pinned value" do
-    _(ze0(<<~'RUBY')).must_answer "different\n"
+    result = ze0(<<~'RUBY')
       x = 5
       case 10
       in ^x
@@ -295,6 +305,8 @@ describe "Pattern: pattern matching" do
         puts "different"
       end
     RUBY
+
+    _(result).must_answer "different\n"
   end
 
   it "class pattern user object" do

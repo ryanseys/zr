@@ -95,19 +95,23 @@ describe "Net programs" do
   end
 
   it "issue net http missing" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       # `require "net/http"` -- the vendored gem loads and `Net::HTTP.get` answers.
       # net/http has no C extension of its own; it builds on the socket ext.
       require "net/http"
       p Net::HTTP.respond_to?(:get)
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "issue net smtp missing" do
-    _(ze0(<<~'RUBY')).must_answer "\"constant\"\n"
+    result = ze0(<<~'RUBY')
       # `require "net/smtp"` -- the vendored gem loads and defines `Net::SMTP`.
       require "net/smtp"
       p defined?(Net::SMTP)
     RUBY
+
+    _(result).must_answer "\"constant\"\n"
   end
 end

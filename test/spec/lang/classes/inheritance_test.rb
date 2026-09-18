@@ -105,7 +105,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "bare super from anonymous splat" do
-    _(ze0(<<~'RUBY')).must_answer "[9, [{k: 3, z: 4}], 2, {}]\n"
+    result = ze0(<<~'RUBY')
       class A
         def m(a = 1, *rest, k: 2, **kw) = [a, rest, k, kw]
       end
@@ -116,10 +116,12 @@ describe "Classes: inheritance and ancestors" do
 
       p B.new.m(9, k: 3, z: 4)
     RUBY
+
+    _(result).must_answer "[9, [{k: 3, z: 4}], 2, {}]\n"
   end
 
   it "built in hierarchy extension classes are real and ancestor matched" do
-    _(ze0(<<~'RUBY')).must_answer "caught KeyError via IndexError: missing\n"
+    result = ze0(<<~'RUBY')
       # `KeyError < IndexError` -- exercises the extended built-in hierarchy
       # (an addition beyond the original minimal foundation).
 
@@ -129,6 +131,8 @@ describe "Classes: inheritance and ancestors" do
         puts "caught KeyError via IndexError: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught KeyError via IndexError: missing\n"
   end
 
   it "builtin subclasses" do
@@ -551,7 +555,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "dlx subclass ring attr" do
-    _(ze0(<<~'RUBY')).must_answer "[[\"1\", \"3\"], [\"2\", \"3\"]]\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -714,6 +718,8 @@ describe "Classes: inheritance and ancestors" do
       ec = ExactCover.new(%w[1 2 3], [%w[1 2], %w[3], %w[1], %w[2 3]])
       p ec.solve.sort
     RUBY
+
+    _(result).must_answer "[[\"1\", \"3\"], [\"2\", \"3\"]]\n"
   end
 
   it "forward args new and super" do
@@ -2133,7 +2139,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass ring dispatch" do
-    _(ze0(<<~'RUBY')).must_answer "[[\"A\", \"B\"]]\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2308,6 +2314,8 @@ describe "Classes: inheritance and ancestors" do
       k.search
       p k.solutions
     RUBY
+
+    _(result).must_answer "[[\"A\", \"B\"]]\n"
   end
 
   it "subclass through base slot" do
@@ -3051,7 +3059,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super with empty parens passes no arguments" do
-    _(ze0(<<~'RUBY')).must_answer "hi anon!\n"
+    result = ze0(<<~'RUBY')
       # `super()` and bare `super` mean OPPOSITE things: the parens form
       # passes nothing, so the parent's optional takes its default.
 
@@ -3069,6 +3077,8 @@ describe "Classes: inheritance and ancestors" do
 
       puts H.new.greet("bob")
     RUBY
+
+    _(result).must_answer "hi anon!\n"
   end
 
   it "super with explicit args binds the parents own param names" do

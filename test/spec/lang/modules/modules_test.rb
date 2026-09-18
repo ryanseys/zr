@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules programs" do
   it "bare arg in module body" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       # #512. Inside `module M` body, a bare method-name argument
       # (`M.use(h)` where `h` should resolve to `M.h`) used to infer
       # as `int` (the default for unresolved bare calls) and propagate
@@ -35,10 +35,12 @@ describe "Modules programs" do
 
       puts M.use(M.h)
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "class shift self works inside a module" do
-    _(ze0(<<~'RUBY')).must_answer "10\n"
+    result = ze0(<<~'RUBY')
       module MyMath
         class << self
           def double(x)
@@ -48,10 +50,12 @@ describe "Modules programs" do
       end
       puts MyMath.double(5)
     RUBY
+
+    _(result).must_answer "10\n"
   end
 
   it "codegen class in module with explicit parent" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       # Regression for the `String#rindex` nil-guard in
       # `collect_class_with_prefix`. A `class Sub < Parent` written
       # inside a single-level `module M` triggers the parent-resolution
@@ -68,6 +72,8 @@ describe "Modules programs" do
       end
       M::Sub.new.hello
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "definition hooks" do
@@ -857,7 +863,7 @@ describe "Modules programs" do
   end
 
   it "module accessor delete chain" do
-    _(ze0(<<~'RUBY')).must_answer "ran-delete\n"
+    result = ze0(<<~'RUBY')
       # #518. `M.accessor.delete` previously emitted a "cannot resolve
       # call to 'adapter' on class" warning even after #511. Root: the
       # statement-level `delete` handler in compile_call_stmt called
@@ -891,6 +897,8 @@ describe "Modules programs" do
       # repro shape — must not crash and must not warn.
       M.adapter.delete
     RUBY
+
+    _(result).must_answer "ran-delete\n"
   end
 
   it "module accessor nil check" do
@@ -1384,7 +1392,7 @@ describe "Modules programs" do
   end
 
   it "module dispatch param widen" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # Issue #304: module-dispatch ternary call sites
       # (`Disp.adapter.method(args)` where Disp.adapter resolves to N
       # candidate classes via the module-singleton-accessor table) used
@@ -1441,6 +1449,8 @@ describe "Modules programs" do
       c.save                              # no output expected; just compile
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "module included class and toplevel" do

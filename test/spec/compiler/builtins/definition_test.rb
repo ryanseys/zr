@@ -1162,7 +1162,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity reflects the keyword shape" do
-    _(ze0(<<~'RUBY')).must_answer "[0, 2, -2, -1, -3, -2, 2, 2, -2, 2, 1]\n"
+    result = ze0(<<~'RUBY')
       # A required keyword adds one fixed mandatory slot; an optional keyword or
       # keyword-rest with NO required keyword makes the method variadic. An
       # optional positional or rest is variadic; a block never affects arity.
@@ -1183,6 +1183,8 @@ describe "Builtins: defining and naming methods" do
          method(:req_kw).arity, method(:mix_kw).arity, method(:kw_rest).arity,
          method(:req_kw_rest).arity, method(:with_blk).arity]
     RUBY
+
+    _(result).must_answer "[0, 2, -2, -1, -3, -2, 2, 2, -2, 2, 1]\n"
   end
 
   it "new with the wrong arity raises a rescuable runtime error" do

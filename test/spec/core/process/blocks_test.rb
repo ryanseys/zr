@@ -4,10 +4,12 @@ require "spec_helper"
 
 describe "Process: blocks and yields" do
   it "at exit returns proc" do
-    _(ze0(<<~'RUBY')).must_answer "Proc\n"
+    result = ze0(<<~'RUBY')
       v001 = at_exit { }
       p v001.class
     RUBY
+
+    _(result).must_answer "Proc\n"
   end
 
   it "class exec def body" do

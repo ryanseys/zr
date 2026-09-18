@@ -83,7 +83,7 @@ describe "Exceptions programs" do
   end
 
   it "bare raise with no active rescue constructs a runtime error" do
-    _(ze0(<<~'RUBY')).must_answer "[]\n"
+    result = ze0(<<~'RUBY')
       # Bare `raise` (re-raise) outside any active `rescue` clause -- real
       # Ruby constructs a fresh `RuntimeError` with an EMPTY message rather
       # than erroring (oracle-verified: `ruby -e 'begin; raise; rescue => e;
@@ -95,6 +95,8 @@ describe "Exceptions programs" do
         puts "[#{e.message}]"
       end
     RUBY
+
+    _(result).must_answer "[]\n"
   end
 
   it "basicobject dup rescued" do
@@ -119,7 +121,7 @@ describe "Exceptions programs" do
   end
 
   it "begin rescue used as an expressions value" do
-    _(ze0(<<~'RUBY')).must_answer "-1\n"
+    result = ze0(<<~'RUBY')
       x = begin
         raise "bad"
       rescue
@@ -127,6 +129,8 @@ describe "Exceptions programs" do
       end
       puts x
     RUBY
+
+    _(result).must_answer "-1\n"
   end
 
   it "bigint div by zero" do
@@ -279,7 +283,7 @@ describe "Exceptions programs" do
   end
 
   it "case in pattern matching inside a rescue body" do
-    _(ze0(<<~'RUBY')).must_answer "matched string: boom\n"
+    result = ze0(<<~'RUBY')
       # Composes pattern matching with exception handling --
       # `e.send(:message)` is a `Poly` expression, matched via `case/in`'s own
       # `#deconstruct`-independent `ClassCheck`/`Capture` path.
@@ -293,6 +297,8 @@ describe "Exceptions programs" do
         end
       end
     RUBY
+
+    _(result).must_answer "matched string: boom\n"
   end
 
   it "case in with no matching arm and no else raises" do
@@ -951,17 +957,19 @@ describe "Exceptions programs" do
   end
 
   it "eval of invalid literal source raises a catchable syntax error" do
-    _(ze0(<<~'RUBY')).must_answer "caught\n"
+    result = ze0(<<~'RUBY')
       # A literal `eval("...")` whose source doesn't parse does not fail the
       # COMPILE: it falls through to the runtime `eval` and raises a catchable
       # SyntaxError, exactly as CRuby does.
 
       begin; eval("1 +"); rescue SyntaxError; puts "caught"; end
     RUBY
+
+    _(result).must_answer "caught\n"
   end
 
   it "eval syntax error is catchable at runtime" do
-    _(ze0(<<~'RUBY')).must_answer "caught\n"
+    result = ze0(<<~'RUBY')
       bad = "1 +"
       begin
         eval(bad)
@@ -969,6 +977,8 @@ describe "Exceptions programs" do
         puts "caught"
       end
     RUBY
+
+    _(result).must_answer "caught\n"
   end
 
   it "exception attributes raise when unset and private call flag" do
@@ -1886,7 +1896,7 @@ describe "Exceptions programs" do
   end
 
   it "pattern naming an undefined constant raises name error when tried" do
-    _(ze0(<<~'RUBY')).must_answer "NameError: uninitialized constant NopeClass\n"
+    result = ze0(<<~'RUBY')
       x = 5
       r = begin
         case x
@@ -1898,6 +1908,8 @@ describe "Exceptions programs" do
       end
       puts r
     RUBY
+
+    _(result).must_answer "NameError: uninitialized constant NopeClass\n"
   end
 
   it "poly length size nomethod" do
@@ -1946,7 +1958,7 @@ describe "Exceptions programs" do
   end
 
   it "poly receiver call with unknown keyword raises at runtime" do
-    _(ze0(<<~'RUBY')).must_answer "no method, kwargs carried\n"
+    result = ze0(<<~'RUBY')
       # The other old silent-drop site: kwargs on a Poly receiver now ride
       # the G2 convention; an undefined method stays a real NoMethodError.
 
@@ -1960,6 +1972,8 @@ describe "Exceptions programs" do
         end
       end
     RUBY
+
+    _(result).must_answer "no method, kwargs carried\n"
   end
 
   it "poly recv int iterators" do
@@ -2118,7 +2132,7 @@ describe "Exceptions programs" do
   end
 
   it "protected method called from outside any related class raises at runtime" do
-    _(ze0(<<~'RUBY')).must_answer "protected method 'amount' called for an instance of Money\n"
+    result = ze0(<<~'RUBY')
       # Same rule as the private case above -- a runtime NoMethodError.
 
       class Money
@@ -2140,6 +2154,8 @@ describe "Exceptions programs" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "protected method 'amount' called for an instance of Money\n"
   end
 
   it "raise cause and backrefs" do
@@ -2505,7 +2521,7 @@ describe "Exceptions programs" do
   end
 
   it "raise uses exception hook" do
-    _(ze0(<<~'RUBY')).must_answer "\"custom: x\"\n"
+    result = ze0(<<~'RUBY')
       class CustomE < StandardError
         def self.exception(msg = nil) = new("custom: #{msg}")
       end
@@ -2516,6 +2532,8 @@ describe "Exceptions programs" do
         p e.message
       end
     RUBY
+
+    _(result).must_answer "\"custom: x\"\n"
   end
 
   it "raise with a bare class defaults the message to the class name" do
@@ -2539,7 +2557,7 @@ describe "Exceptions programs" do
   end
 
   it "raise with an exception hook" do
-    _(ze0(<<~'RUBY')).must_answer "custom exception hook: hi\ncustom exception hook: \n"
+    result = ze0(<<~'RUBY')
       # `raise obj, "msg"` where obj's class overrides #exception does not even
       # BUILD: codegen hands the constructed object to the raise-argument
       # coercion unboxed, where a boxed value is wanted, and the generated program
@@ -2563,6 +2581,8 @@ describe "Exceptions programs" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "custom exception hook: hi\ncustom exception hook: \n"
   end
 
   it "raising a non exception is a type error" do
@@ -3154,7 +3174,7 @@ describe "Exceptions programs" do
   end
 
   it "scoped const write to an undefined scope raises before the rhs runs" do
-    _(ze0(<<~'RUBY')).must_answer "NameError: uninitialized constant Nope\n"
+    result = ze0(<<~'RUBY')
       # CRuby resolves the scope BEFORE evaluating the value, so the RHS side
       # effect never runs.
 
@@ -3166,10 +3186,12 @@ describe "Exceptions programs" do
       end
       puts r
     RUBY
+
+    _(result).must_answer "NameError: uninitialized constant Nope\n"
   end
 
   it "top level def recursion and mutual calls" do
-    _(ze0(<<~'RUBY')).must_answer "fib(10) = 55\n"
+    result = ze0(<<~'RUBY')
       def fib(n)
         n < 2 ? n : fib(n - 1) + fib(n - 2)
       end
@@ -3178,6 +3200,8 @@ describe "Exceptions programs" do
       end
       announce(10)
     RUBY
+
+    _(result).must_answer "fib(10) = 55\n"
   end
 
   it "transform keys combined cmp wave10" do

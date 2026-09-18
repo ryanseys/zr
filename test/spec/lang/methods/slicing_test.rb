@@ -527,7 +527,7 @@ describe "Methods: slicing" do
   end
 
   it "keyword table to a def without keywords roots no stale slot" do
-    _(ze0(<<~'RUBY')).must_answer "[\"x\", {k: 1999}]\n"
+    result = ze0(<<~'RUBY')
       # Literal keywords reach a def that declares none as one Hash, made
       # before the arity check fills the required parameters' slots: the
       # collector must not read what an earlier frame left in them.
@@ -542,6 +542,8 @@ describe "Methods: slicing" do
       p last
 
     RUBY
+
+    _(result).must_answer "[\"x\", {k: 1999}]\n"
   end
 
   it "kwargs and forwarding" do
@@ -1026,7 +1028,7 @@ describe "Methods: slicing" do
   end
 
   it "redefining a method in one class body last def wins" do
-    _(ze0(<<~'RUBY')).must_answer "second\n"
+    result = ze0(<<~'RUBY')
       class Foo
         def a
           "first"
@@ -1039,6 +1041,8 @@ describe "Methods: slicing" do
 
       puts Foo.new.a
     RUBY
+
+    _(result).must_answer "second\n"
   end
 
   it "redefinition window reports its own body" do

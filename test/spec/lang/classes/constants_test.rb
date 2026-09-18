@@ -682,7 +682,7 @@ describe "Classes: constants" do
   end
 
   it "constants resolve through the superclass chain" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       class Base2
         LIMIT = 5
       end
@@ -695,6 +695,8 @@ describe "Classes: constants" do
 
       puts Sub2.new.l
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "dynamic class new" do

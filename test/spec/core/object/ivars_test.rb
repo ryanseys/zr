@@ -140,7 +140,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar and an instance ivar of the same name are distinct storage" do
-    _(ze0(<<~'RUBY')).must_answer "[\"class-level\", \"instance-level\"]\n"
+    result = ze0(<<~'RUBY')
       # `@x` in a class body/class method and `@x` in an instance method name
       # two completely different slots -- the class object's own, and the
       # instance's. Also exercises the same-name collision across Ruby's two
@@ -155,6 +155,8 @@ describe "Object: instance and class variables" do
       end
       p [C.x, C.new.x]
     RUBY
+
+    _(result).must_answer "[\"class-level\", \"instance-level\"]\n"
   end
 
   it "class ivar in class method" do
@@ -243,7 +245,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar is reachable from a block inside a class method" do
-    _(ze0(<<~'RUBY')).must_answer "[10, 20, 30]\n"
+    result = ze0(<<~'RUBY')
       # The block captures `self` as a plain `RubyValue::Class`, so the ivar
       # resolves through `ivar_get_dyn`/`ivar_set_dyn`'s Class arm rather than
       # the static class-id path -- the two must agree on the same storage.
@@ -257,6 +259,8 @@ describe "Object: instance and class variables" do
       end
       p Blk.collect
     RUBY
+
+    _(result).must_answer "[10, 20, 30]\n"
   end
 
   it "class ivar not inherited" do
@@ -431,7 +435,7 @@ describe "Object: instance and class variables" do
   end
 
   it "default arg ivar value receiver" do
-    _(ze0(<<~'RUBY')).must_answer "v\n"
+    result = ze0(<<~'RUBY')
       # An @ivar read in a default-argument value, on a value-type receiver, must
       # dereference the receiver with `.` (value struct), not `->`.
       class C
@@ -444,6 +448,8 @@ describe "Object: instance and class variables" do
       end
       puts C.new.get_it
     RUBY
+
+    _(result).must_answer "v\n"
   end
 
   it "dup and clone on user objects copy ivars shallowly" do
@@ -597,7 +603,7 @@ describe "Object: instance and class variables" do
   end
 
   it "included module method mutates an ivar on the includer" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       # Real self/ivar capture for a materialized module method -- proves
       # the module body was re-typechecked against the INCLUDER's own
       # concrete struct, not some shared/aliased representation.
@@ -622,6 +628,8 @@ describe "Object: instance and class variables" do
       w.bump
       puts w.count
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "instance variable get poly recv" do
@@ -1721,7 +1729,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar widen poly writer" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1754,10 +1762,12 @@ describe "Object: instance and class variables" do
       end
       p World.new.link                             # b=false, c=true, a=true -> 2
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "ivars" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       class Point
         def initialize(x)
           @x = x
@@ -1770,6 +1780,8 @@ describe "Object: instance and class variables" do
 
       puts Point.new(5).x
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "ivars on a bare value" do
@@ -1957,7 +1969,7 @@ describe "Object: instance and class variables" do
   end
 
   it "module ivar nil poly" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # A module-level instance variable initialized to nil and later widened
       # to a polymorphic value (it holds nil, an empty [], and a String push)
       # must box the nil initializer as sp_box_nil(), not a bare 0, or the
@@ -1976,6 +1988,8 @@ describe "Object: instance and class variables" do
       Store.capture
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "module ivar op write" do
@@ -2530,7 +2544,7 @@ describe "Object: instance and class variables" do
   end
 
   it "singleton method reads ivars and yields" do
-    _(ze0(<<~'RUBY')).must_answer "105\n"
+    result = ze0(<<~'RUBY')
       obj = Object.new
       obj.instance_variable_set(:@base, 100)
       def obj.add
@@ -2538,6 +2552,8 @@ describe "Object: instance and class variables" do
       end
       p obj.add { 5 }
     RUBY
+
+    _(result).must_answer "105\n"
   end
 
   it "stdlib class in ivar" do

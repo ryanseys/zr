@@ -219,7 +219,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "proc return ensure raise" do
-    _(ze0(<<~'RUBY')).must_answer "rescued: from ensure\n"
+    result = ze0(<<~'RUBY')
       # An exception raised inside an `ensure` that runs during a proc-return unwind
       # supersedes the return: it must propagate as a real exception, not be swallowed
       # while the abandoned non-local return is silently resumed.
@@ -239,10 +239,12 @@ describe "Exceptions: blocks and yields" do
         puts "rescued: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "rescued: from ensure\n"
   end
 
   it "proc return nested ensure" do
-    _(ze0(<<~'RUBY')).must_answer "  inner ensure\nensure ran (10)\nouter-value\n"
+    result = ze0(<<~'RUBY')
       # A nested non-local return that itself runs an ensure -- and so completes a
       # full unwind -- while executing inside an outer proc-return's ensure must not
       # discard the outer return. The outer `return "outer-value"` runs its ensure,
@@ -271,6 +273,8 @@ describe "Exceptions: blocks and yields" do
       end
       puts outer
     RUBY
+
+    _(result).must_answer "  inner ensure\nensure ran (10)\nouter-value\n"
   end
 
   it "proc return rescue modifier escape" do
@@ -487,7 +491,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "raise with a splat argument reraises the class and message" do
-    _(ze0(<<~'RUBY')).must_answer "wrapped: orig\n"
+    result = ze0(<<~'RUBY')
       # `raise(*exc)` -- a splat whose element count is a runtime value -- routes
       # through the runtime `Kernel#raise` (optparse's `{|*exc| raise(*exc)}`),
       # rather than the static 0..3-arg form.
@@ -504,6 +508,8 @@ describe "Exceptions: blocks and yields" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "wrapped: orig\n"
   end
 
   it "recursion ten thousand deep" do

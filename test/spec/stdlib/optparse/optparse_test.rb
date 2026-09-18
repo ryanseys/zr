@@ -89,7 +89,7 @@ describe "Optparse programs" do
   end
 
   it "require first line" do
-    _(ze0(<<~'RUBY')).must_answer "OptionParser\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -105,5 +105,7 @@ describe "Optparse programs" do
       o = OptionParser.new
       puts o.class
     RUBY
+
+    _(result).must_answer "OptionParser\n"
   end
 end

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: formatting and inspection" do
   it "bare module body cmethod call" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       # Bare (receiverless) class-method call in a module/class body must propagate
       # the callee's return type to the call expression.
       #
@@ -37,6 +37,8 @@ describe "Modules: formatting and inspection" do
 
       puts M::COUNT.to_s         # 1
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "class hierarchy module" do

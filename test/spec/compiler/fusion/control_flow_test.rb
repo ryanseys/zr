@@ -314,7 +314,7 @@ describe "Fusion: control flow" do
   end
 
   it "inlined loop var capture" do
-    _(ze0(<<~'RUBY')).must_answer "96\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -386,6 +386,8 @@ describe "Fusion: control flow" do
 
       p Grid.new(4, 3).total
     RUBY
+
+    _(result).must_answer "96\n"
   end
 
   it "isa guarded return narrow" do
@@ -431,10 +433,12 @@ describe "Fusion: control flow" do
   end
 
   it "next splat typed map" do
-    _(ze0(<<~'RUBY')).must_answer "[1, [2, 2], 3]\n"
+    result = ze0(<<~'RUBY')
       # A splat-valued `next` contributes the array value to the map result.
       p (1..3).map { |v| next *[v, v] if v == 2; v }
     RUBY
+
+    _(result).must_answer "[1, [2, 2], 3]\n"
   end
 
   it "nil time return guard narrow" do

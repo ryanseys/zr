@@ -357,7 +357,7 @@ describe "Fusion programs" do
   end
 
   it "case in class check pattern binds and statically narrows to int" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       # `Integer => n` both binds `n` AND statically narrows its type for the
       # rest of the arm's body -- `n + 1` should take the native `Int`
       # arithmetic fast path, not a runtime Poly fallback.
@@ -367,15 +367,19 @@ describe "Fusion programs" do
         puts n + 1
       end
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "case in nested array pattern narrows each element" do
-    _(ze0(<<~'RUBY')).must_answer "1a 2b\n"
+    result = ze0(<<~'RUBY')
       case [[1, "a"], [2, "b"]]
       in [[Integer => n1, String => s1], [Integer => n2, String => s2]]
         puts "#{n1}#{s1} #{n2}#{s2}"
       end
     RUBY
+
+    _(result).must_answer "1a 2b\n"
   end
 
   it "cls method specialization boxer" do
@@ -486,7 +490,7 @@ describe "Fusion programs" do
   end
 
   it "const recv yield inline" do
-    _(ze0(<<~'RUBY')).must_answer "1 2 3 \n6\n1 2 3 4 \n"
+    result = ze0(<<~'RUBY')
       # A yield-based method called with a block on a constant receiver. The constant
       # holds an instance (not a class name), so the inline path must fall through to
       # instance-method lookup rather than treating it as a class method -- otherwise
@@ -516,6 +520,8 @@ describe "Fusion programs" do
       end
       puts
     RUBY
+
+    _(result).must_answer "1 2 3 \n6\n1 2 3 4 \n"
   end
 
   it "container fast path argument may reassign its receiver" do
@@ -619,9 +625,11 @@ describe "Fusion programs" do
   end
 
   it "eval of a literal string runs inline" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       puts eval("1 + 2")
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "exception objects expose their typed introspection accessors" do
@@ -1088,7 +1096,7 @@ describe "Fusion programs" do
   end
 
   it "inherited factory poly param narrow attr" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       # An inherited factory (`Base.create`) forwards `new(attrs)` with a Hash,
       # which unifies the subclass ctor parameter to poly (sp_RbVal) across its
       # call sites. The inherited attr_accessor field `id` stays narrow (mrb_int,
@@ -1115,6 +1123,8 @@ describe "Fusion programs" do
 
       puts Article.new(7).id
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "inline struct superclass loses its native rows" do
@@ -1296,7 +1306,7 @@ describe "Fusion programs" do
   end
 
   it "interp local narrowed key" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       module Db
         def self.prepare(sql)
         end
@@ -1377,6 +1387,8 @@ describe "Fusion programs" do
       QueryCountTest.new.test_rechaining_a_loaded_relation_requeries
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "isa narrow" do
@@ -1751,7 +1763,7 @@ describe "Fusion programs" do
   end
 
   it "narrow and predicate" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       # Step 3 narrow extension. `if v.is_a?(C) && other_cond` should
       # narrow `v` to C inside the then-arm just like the bare
       # `if v.is_a?(C)` form. parse_is_a_predicate previously only
@@ -1776,6 +1788,8 @@ describe "Fusion programs" do
         puts consume(v)
       end
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "narrowed element local pin" do
@@ -2267,7 +2281,7 @@ describe "Fusion programs" do
   end
 
   it "require under a statically false engine guard is pruned not spliced" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # `require X if RUBY_ENGINE == "jruby"` names another engine's code; a
       # whole-program AOT compiler eager-splices every literal require it sees,
       # but this one's guard folds statically false on CRuby-targeting zeo, so
@@ -2277,6 +2291,8 @@ describe "Fusion programs" do
       require "no_such_engine_lib_xyz" if RUBY_ENGINE == "jruby"
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "respond to on a poly typed rescue binding" do
@@ -3350,7 +3366,7 @@ describe "Fusion programs" do
   end
 
   it "unresolved into typed hash slot" do
-    _(ze0(<<~'RUBY')).must_answer "NameError\n"
+    result = ze0(<<~'RUBY')
       # An unresolved rhs (a NameError raise token, emitted as a diverging
       # sp_RbVal expression) stored into a typed-value hash in VALUE position
       # (the method tail) must coerce to the slot type so the emitted C
@@ -3367,5 +3383,7 @@ describe "Fusion programs" do
         puts e.class
       end
     RUBY
+
+    _(result).must_answer "NameError\n"
   end
 end

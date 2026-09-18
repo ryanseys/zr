@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "FFI: inheritance and ancestors" do
   it "ffi argument type mismatch raises typeerror" do
-    _(ze0(<<~'RUBY')).must_answer "TypeError\n"
+    result = ze0(<<~'RUBY')
       # An FFI integer argument given a non-Integer is a `TypeError`, exactly as the
       # gem raises -- the marshaling is faithful, not a silent coercion.
 
@@ -21,6 +21,8 @@ describe "FFI: inheritance and ancestors" do
         puts "TypeError"
       end
     RUBY
+
+    _(result).must_answer "TypeError\n"
   end
 
   it "ffi array count from an earlier struct size" do
@@ -450,7 +452,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "ffi nameless enum and data converter" do
-    _(ze0(<<~'RUBY')).must_answer "compiled\n"
+    result = ze0(<<~'RUBY')
       # A NAMELESS `enum [...]` registers no type name and is consumed; a class
       # that `extend FFI::DataConverter` with a `native_type` stands for that
       # native type in later declarations (google-protobuf's Internal::Arena).
@@ -470,6 +472,8 @@ describe "FFI: inheritance and ancestors" do
       end
       puts "compiled"
     RUBY
+
+    _(result).must_answer "compiled\n"
   end
 
   it "ffi pointer can be subclassed" do

@@ -94,7 +94,7 @@ describe "FFI: arithmetic" do
   end
 
   it "ffi int arg bigint" do
-    _(ze0(<<~'RUBY')).must_answer "40\n"
+    result = ze0(<<~'RUBY')
       # An FFI :int argument fed by an integer computed through repeated
       # multiplication (a value a widening analysis could have promoted) still
       # marshals as a plain C int. Ported from spinel's ffi_func to the real ffi
@@ -125,6 +125,8 @@ describe "FFI: arithmetic" do
       b = p.backoff_for(3)   # 5*2*2*2 = 40
       puts M.abs(b)
     RUBY
+
+    _(result).must_answer "40\n"
   end
 
   it "ffi libc" do
@@ -230,7 +232,7 @@ describe "FFI: arithmetic" do
   end
 
   it "ffi ptr array" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # #492 (ported to the real ffi gem API). An array literal whose elements are
       # FFI :pointer returns (e.g. `[LibC.malloc(...)]`) must infer as an array of
       # pointers, not collapse to an int-array representation -- push sites and
@@ -256,6 +258,8 @@ describe "FFI: arithmetic" do
       puts b.slots.length
       b.slots.each { |p| LibC.free(p) }
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "ffi struct fields round trip" do

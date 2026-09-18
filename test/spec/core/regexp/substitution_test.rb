@@ -197,7 +197,7 @@ describe "Regexp: substitution" do
   end
 
   it "poly gsub str arm" do
-    _(ze0(<<~'RUBY')).must_answer "abc_def\n"
+    result = ze0(<<~'RUBY')
       # `v.gsub(/regex/, "repl")` where v is poly-typed (sp_RbVal, e.g.
       # from a poly-valued hash lookup) used to emit an empty SP_TAG_OBJ
       # dispatch shell — the per-tag arm was missing — leaving the result
@@ -223,10 +223,12 @@ describe "Regexp: substitution" do
       h = { stream: "abc/def", count: 5 }
       puts normalize(h)
     RUBY
+
+    _(result).must_answer "abc_def\n"
   end
 
   it "poly gsub str str hash" do
-    _(ze0(<<~'RUBY')).must_answer "a&amp;b&lt;c&gt;\n"
+    result = ze0(<<~'RUBY')
       # #503. `s.gsub(regex, hash)` on a poly-typed receiver still
       # called `sp_re_gsub` (the const-char-* replacement helper) and
       # passed the hash pointer where `rep` was expected. C compile
@@ -265,6 +267,8 @@ describe "Regexp: substitution" do
       src = pick(1)
       puts html_escape(src.body)
     RUBY
+
+    _(result).must_answer "a&amp;b&lt;c&gt;\n"
   end
 
   it "regex const freeze" do

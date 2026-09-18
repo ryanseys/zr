@@ -590,7 +590,7 @@ describe "Methods programs" do
   end
 
   it "constant declared in a superclass resolves from a subclass method" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       class Base
         X = 1
       end
@@ -601,10 +601,12 @@ describe "Methods programs" do
       end
       puts Sub.new.get
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "cvar method first assign" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       class C
         def self.set; @@x = 5; end
         def self.get; @@x; end
@@ -612,6 +614,8 @@ describe "Methods programs" do
       C.set
       p C.get
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "def in the source has a home of its own" do
@@ -836,9 +840,11 @@ describe "Methods programs" do
   end
 
   it "eval dynamic method call on evaluated receiver" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2, 3]\n"
+    result = ze0(<<~'RUBY')
       src = "[3, 1, 2].sort.inspect"; puts eval(src)
     RUBY
+
+    _(result).must_answer "[1, 2, 3]\n"
   end
 
   it "eval return belongs to the enclosing method" do
@@ -981,7 +987,7 @@ describe "Methods programs" do
   end
 
   it "forward call param type inference" do
-    _(ze0(<<~'RUBY')).must_answer "4\n"
+    result = ze0(<<~'RUBY')
       # Direct-call form (no caller-class wrapper): a top-level method
       # `apply` is the caller, target is a parameter. Verifies the callee's
       # param widening fires when the call is inside a top-level method
@@ -1006,6 +1012,8 @@ describe "Methods programs" do
       apply(t, [10, 20, 30, 40])
       puts t.length
     RUBY
+
+    _(result).must_answer "4\n"
   end
 
   it "getter push with user shift" do
@@ -2432,7 +2440,7 @@ describe "Methods programs" do
   end
 
   it "module level state accumulates across class method calls" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       module Counter
         @n = 0
         def self.bump; @n += 1; end
@@ -2443,6 +2451,8 @@ describe "Methods programs" do
       Counter.bump
       p Counter.n
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "module method does not shadow the builtin class method" do
@@ -3117,11 +3127,13 @@ describe "Methods programs" do
   end
 
   it "ruby2 keywords method" do
-    _(ze0(<<~'RUBY')).must_answer "[[1], {k: 2}]\n"
+    result = ze0(<<~'RUBY')
       def target(*a, **k) = [a, k]
       ruby2_keywords def fwd(*a) = target(*a)
       p fwd(1, k: 2)
     RUBY
+
+    _(result).must_answer "[[1], {k: 2}]\n"
   end
 
   it "runtime defined method knows where it was written" do

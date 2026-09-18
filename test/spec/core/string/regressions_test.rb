@@ -1311,13 +1311,15 @@ describe "String: regressions" do
   end
 
   it "issue 3164" do
-    _(ze0(<<~'RUBY')).must_answer "{\"a\" => \"b\\n\", \"c\" => \"d\"}\n"
+    result = ze0(<<~'RUBY')
       r = "a=b\nc=d".each_line.each_with_object({}) do |raw, config|
         key, value = raw.split("=", 2)
         config[key] = value
       end
       p r
     RUBY
+
+    _(result).must_answer "{\"a\" => \"b\\n\", \"c\" => \"d\"}\n"
   end
 
   it "issue 3227 full mutators" do

@@ -34,7 +34,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "big5 refuses cyrillic" do
-    _(ze0(<<~'RUBY')).must_answer "Encoding::UndefinedConversionError: U+0416 from UTF-8 to Big5\n"
+    result = ze0(<<~'RUBY')
       # Encoding Cyrillic to Big5: CRuby's strict Big5 has no Cyrillic rows and
       # refuses with UndefinedConversionError; zeo's WHATWG table maps them (the
       # HKSCS-adjacent region), so it encodes MORE than ruby. The inverse
@@ -46,6 +46,8 @@ describe "Encoding: packing and unpacking" do
         puts "#{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "Encoding::UndefinedConversionError: U+0416 from UTF-8 to Big5\n"
   end
 
   it "binary read mode encoding" do
@@ -985,16 +987,18 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "print of binary chr strings reaches the file byte for byte" do
-    _(ze0(<<~'RUBY')).must_answer "[180, 0, 255]\n"
+    result = ze0(<<~'RUBY')
       path = "/tmp/zeo_e2e_binprint_#{Process.pid}"
       File.open(path, "wb") { |f| f.print 180.chr, 0.chr, 255.chr }
       p File.binread(path).bytes
       File.delete(path)
     RUBY
+
+    _(result).must_answer "[180, 0, 255]\n"
   end
 
   it "puts of binary strings adds newlines without reencoding" do
-    _(ze0(<<~'RUBY')).must_answer "[180, 10, 181, 10]\n"
+    result = ze0(<<~'RUBY')
       # The second argument already ends in a newline BYTE -- `puts` must
       # not double it, and the 0xB5 byte must survive un-promoted.
 
@@ -1003,6 +1007,8 @@ describe "Encoding: packing and unpacking" do
       p File.binread(path).bytes
       File.delete(path)
     RUBY
+
+    _(result).must_answer "[180, 10, 181, 10]\n"
   end
 
   it "random urandom binary length" do

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: defining and naming methods" do
   it "alias before override binds inherited" do
-    _(ze0(<<~'RUBY')).must_answer "\"memoized: inherited scan 1\"\n"
+    result = ze0(<<~'RUBY')
       # An `alias` written BEFORE the class overrides its source binds the body
       # that existed at the alias's position -- the INHERITED one. rspec-core's
       # QueryOptimized does `alias find_items_for items_for` then redefines
@@ -20,6 +20,8 @@ describe "Classes: defining and naming methods" do
       end
       p QueryOptimized.new.items_for(1)
     RUBY
+
+    _(result).must_answer "\"memoized: inherited scan 1\"\n"
   end
 
   it "alias captures the overriding bodys own behavior in a subclass" do

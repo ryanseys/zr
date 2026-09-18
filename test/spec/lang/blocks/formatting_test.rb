@@ -738,7 +738,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "forwarding params forward positionals keywords and block" do
-    _(ze0(<<~'RUBY')).must_answer "1/2/z/\"blk\"\n"
+    result = ze0(<<~'RUBY')
       # `...` is real now (G3): it desugars to internal `*__fwd_rest,
       # **__fwd_kw, &__fwd_blk` params referenced by the call-site `...`.
 
@@ -751,6 +751,8 @@ describe "Blocks: formatting and inspection" do
       end
       puts fwd(1, 2, mode: "z") { "blk" }
     RUBY
+
+    _(result).must_answer "1/2/z/\"blk\"\n"
   end
 
   it "i709" do
@@ -1136,7 +1138,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "new with block no block param" do
-    _(ze0(<<~'RUBY')).must_answer "\"{a: 1}\"\n"
+    result = ze0(<<~'RUBY')
       # `Klass.new { ... }` where `initialize` declares no block parameter. Ruby runs
       # the block through `Proc.new`/`block_given?` and otherwise ignores it; zeo's
       # static `.new` path passes it as a second argument to an `initialize` whose
@@ -1152,6 +1154,8 @@ describe "Blocks: formatting and inspection" do
 
       p Bag.new(a: 1) { :ignored }.show
     RUBY
+
+    _(result).must_answer "\"{a: 1}\"\n"
   end
 
   it "nullable int sentinel boxing" do

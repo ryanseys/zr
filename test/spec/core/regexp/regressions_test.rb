@@ -306,7 +306,7 @@ describe "Regexp: regressions" do
   end
 
   it "issue 3219" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       class Crash
         attr_reader :text
         def initialize(text) = @text = text
@@ -316,6 +316,8 @@ describe "Regexp: regressions" do
       raise unless Crash.new(fn(true)).value == :foo
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3301 case regex last match" do

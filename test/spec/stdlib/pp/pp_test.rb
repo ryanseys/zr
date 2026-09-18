@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "PP programs" do
   it "compiled code releases a dead slot" do
-    _(ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})).must_answer "done\n"
+    result = ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -59,6 +59,8 @@ describe "PP programs" do
       PP.pp(Plain.new, +"")
       puts "done"
     RUBY
+
+    _(result).must_answer "done\n"
   end
 
   it "deferred require loads when it runs" do

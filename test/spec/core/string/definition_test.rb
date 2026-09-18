@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: defining and naming methods" do
   it "alias supports the symbol spelling of both names" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         def hello
           "hi"
@@ -13,6 +13,8 @@ describe "String: defining and naming methods" do
       end
       puts Greeter.new.bonjour
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "define method with a symbol to proc block" do
@@ -44,7 +46,7 @@ describe "String: defining and naming methods" do
   end
 
   it "dynamic send with a non literal target" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         define_method(:hello) do
           puts :hi
@@ -54,6 +56,8 @@ describe "String: defining and naming methods" do
       name = :hello
       Greeter.new.send(name)
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "int element alias not string" do
@@ -227,7 +231,7 @@ describe "String: defining and naming methods" do
   end
 
   it "send with a non literal target binds keyword args" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # The G2 trailing-kwargs-hash convention: `send`'s truly-dynamic
       # fallback (non-literal target name) carries kwargs as one trailing
       # Hash; the callee's trampoline pops and binds it.
@@ -240,10 +244,12 @@ describe "String: defining and naming methods" do
       name = :bar
       puts Foo.new.send(name, x: 41) + 1
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "shared string reference links" do
-    _(ze0(<<~'RUBY')).must_answer "\"abz\"\n"
+    result = ze0(<<~'RUBY')
       # The same String written twice is a `@`-link the second time, so a
       # mutation through one alias is visible through the other after load.
 
@@ -252,6 +258,8 @@ describe "String: defining and naming methods" do
       g[0] << "z"
       p g[1]
     RUBY
+
+    _(result).must_answer "\"abz\"\n"
   end
 
   it "string alias accessor read" do

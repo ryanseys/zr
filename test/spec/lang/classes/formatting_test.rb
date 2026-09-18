@@ -520,7 +520,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class var new arg" do
-    _(ze0(<<~'RUBY')).must_answer "\"P(7)\"\n"
+    result = ze0(<<~'RUBY')
       class Point
         def initialize(x); @x = x; end
         def to_s; "P(#{@x})"; end
@@ -529,6 +529,8 @@ describe "Classes: formatting and inspection" do
       pt = Point
       p pt.new(7).to_s
     RUBY
+
+    _(result).must_answer "\"P(7)\"\n"
   end
 
   it "classes and modules" do
@@ -1733,7 +1735,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "qualified reopen keeps nesting" do
-    _(ze0(<<~'RUBY')).must_answer "[\"Outer::Core::Fmt::Base\"]\n"
+    result = ze0(<<~'RUBY')
       # A class first seen through a compact `module A::B::C` definition still
       # resolves bare enclosing names from a NESTED reopen's body: CRuby's
       # nesting is per definition site, and the nested site carries the full
@@ -1759,6 +1761,8 @@ describe "Classes: formatting and inspection" do
       end
       p Outer::Core::Fmt.registered
     RUBY
+
+    _(result).must_answer "[\"Outer::Core::Fmt::Base\"]\n"
   end
 
   it "reflective program keeps every class" do

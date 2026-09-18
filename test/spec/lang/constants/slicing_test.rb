@@ -404,7 +404,7 @@ describe "Constants: slicing" do
   end
 
   it "top level def last def wins" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       def v
         1
       end
@@ -413,6 +413,8 @@ describe "Constants: slicing" do
       end
       puts v
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "top level defs" do

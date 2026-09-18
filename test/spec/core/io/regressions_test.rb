@@ -464,7 +464,7 @@ describe "IO: regressions" do
   end
 
   it "issue 2968" do
-    _(ze0(<<~'RUBY')).must_answer "0\n"
+    result = ze0(<<~'RUBY')
       d = "/tmp/sp_dir_2968_#{Process.pid}"
       Dir.mkdir(d) unless Dir.exist?(d)
       dd = Dir.new(d)
@@ -472,6 +472,8 @@ describe "IO: regressions" do
       dd.close
       Dir.rmdir(d)
     RUBY
+
+    _(result).must_answer "0\n"
   end
 
   it "issue 2985" do
@@ -684,16 +686,18 @@ describe "IO: regressions" do
   end
 
   it "issue 3104" do
-    _(ze0(<<~'RUBY')).must_answer "0\n"
+    result = ze0(<<~'RUBY')
       path = "/tmp/spinel_issue_3104.txt"
       File.write(path, "x")
       File.open(path) { |f| p f.chown(nil, nil) }
       File.delete(path)
     RUBY
+
+    _(result).must_answer "0\n"
   end
 
   it "issue 3113" do
-    _(ze0(<<~'RUBY')).must_answer "\"x\\ny\\nz\\n\"\n"
+    result = ze0(<<~'RUBY')
       require "stringio"
       out = StringIO.new
       $stderr = out
@@ -702,6 +706,8 @@ describe "IO: regressions" do
       raise if out.string.empty?
       p out.string
     RUBY
+
+    _(result).must_answer "\"x\\ny\\nz\\n\"\n"
   end
 
   it "issue 3118" do
@@ -725,12 +731,14 @@ describe "IO: regressions" do
   end
 
   it "issue 3130" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       p001 = "sp_io_3130.tmp"
       File.write(p001, "hi")
       File.open(p001) { |f| r001 = (f.fcntl(1, 0) rescue $!.class); p r001 }
       File.delete(p001)
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "issue 3131" do
@@ -845,7 +853,7 @@ describe "IO: regressions" do
   end
 
   it "issue 3284 loadpath preamble" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       # `$LOAD_PATH` is still nil when the program's first statement runs: zeo's
       # preamble initializes it after user code rather than before it, so `unshift`
       # raises on a nil receiver. ruby has it populated before line 1 executes.
@@ -855,6 +863,8 @@ describe "IO: regressions" do
       $:.push File.dirname(__FILE__)
       puts 1
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "issue 3321 dir reopen" do

@@ -199,7 +199,7 @@ describe "Exceptions: constants" do
   end
 
   it "missing qualified constant raises name error with the full path" do
-    _(ze0(<<~'RUBY')).must_answer "NameError: uninitialized constant Store::MISSING\n"
+    result = ze0(<<~'RUBY')
       module Store
       end
 
@@ -209,6 +209,8 @@ describe "Exceptions: constants" do
         puts "NameError: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "NameError: uninitialized constant Store::MISSING\n"
   end
 
   it "module const get resolves or raises name error" do
@@ -307,7 +309,7 @@ describe "Exceptions: constants" do
   end
 
   it "raising an undefined constant with a message raises name error" do
-    _(ze0(<<~'RUBY')).must_answer "NameError: uninitialized constant Nope\n"
+    result = ze0(<<~'RUBY')
       # `raise UndefinedConst, "msg"` -- CRuby evaluates the constant (and
       # raises NameError) before the message is ever consulted.
 
@@ -318,10 +320,12 @@ describe "Exceptions: constants" do
       end
       puts r
     RUBY
+
+    _(result).must_answer "NameError: uninitialized constant Nope\n"
   end
 
   it "rescue naming an undefined constant raises name error when matched" do
-    _(ze0(<<~'RUBY')).must_answer "NameError: uninitialized constant NeverDefined\n"
+    result = ze0(<<~'RUBY')
       # When the body DOES raise, evaluating the undefined rescue constant is a
       # runtime NameError (which replaces the original exception) -- exactly
       # CRuby's behavior.
@@ -336,6 +340,8 @@ describe "Exceptions: constants" do
         puts "#{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "NameError: uninitialized constant NeverDefined\n"
   end
 
   it "rescue undefined constant" do
@@ -483,12 +489,14 @@ describe "Exceptions: constants" do
   end
 
   it "unset constant raises a name error" do
-    _(ze0(<<~'RUBY')).must_answer "caught: uninitialized constant UNDEFINED_CONST\n"
+    result = ze0(<<~'RUBY')
       begin
         puts UNDEFINED_CONST
       rescue NameError => e
         puts "caught: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "caught: uninitialized constant UNDEFINED_CONST\n"
   end
 end

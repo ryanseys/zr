@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: inheritance and ancestors" do
   it "class methods are inherited by a subclass with no override" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       class Base
         def self.bump
           1
@@ -14,10 +14,12 @@ describe "Singleton: inheritance and ancestors" do
       end
       puts Sub.bump
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "class shift self include extends the enclosing class" do
-    _(ze0(<<~'RUBY')).must_answer "hi bob\n"
+    result = ze0(<<~'RUBY')
       # `include M` inside `class << self` == `extend M` on the enclosing class:
       # the module's instance methods become the class's class methods.
 
@@ -31,6 +33,8 @@ describe "Singleton: inheritance and ancestors" do
       end
       puts Widget.hi("bob")
     RUBY
+
+    _(result).must_answer "hi bob\n"
   end
 
   it "extend a bare value" do
@@ -693,7 +697,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "issue object extend runtime" do
-    _(ze0(<<~'RUBY')).must_answer "\"ext-help\"\n"
+    result = ze0(<<~'RUBY')
       # Object#extend doesn't actually add the module's instance methods to the
       # receiver's singleton class -- calling the extended method afterward raises
       # NoMethodError.
@@ -706,6 +710,8 @@ describe "Singleton: inheritance and ancestors" do
       obj.extend(m)
       p obj.helper
     RUBY
+
+    _(result).must_answer "\"ext-help\"\n"
   end
 
   it "issue singleton class include after extend" do

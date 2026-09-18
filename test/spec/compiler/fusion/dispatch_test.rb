@@ -567,7 +567,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly local is a string narrow in non tail if" do
-    _(ze0(<<~'RUBY')).must_answer "OK\n"
+    result = ze0(<<~'RUBY')
       # Sibling case to poly_local_is_a_string_narrow_in_tail_if (#612):
       # a poly-typed local narrowed via `if content.is_a?(String) ... end`
       # when the if is NOT in tail position. Before this fix
@@ -608,10 +608,12 @@ describe "Fusion: dispatch" do
       t.assert_select("div", { count: 1 })
       puts "OK"
     RUBY
+
+    _(result).must_answer "OK\n"
   end
 
   it "poly local is a string narrow in tail if" do
-    _(ze0(<<~'RUBY')).must_answer "match\n"
+    result = ze0(<<~'RUBY')
       # Tail-position `if x.is_a?(C) ... end` now pushes a narrow for `x`
       # inside the body, so a typed callee that consumes `x` unboxes via
       # the matching union field (`.v.s` for string, `.v.i` for int, etc.)
@@ -636,10 +638,12 @@ describe "Fusion: dispatch" do
       matcher("Title")
       matcher({ "opt" => 1 })   # content is nil, skips the inner if entirely
     RUBY
+
+    _(result).must_answer "match\n"
   end
 
   it "poly local is a string narrow in y1 inline" do
-    _(ze0(<<~'RUBY')).must_answer "OK\n"
+    result = ze0(<<~'RUBY')
       # Sibling to #615 (poly_local_is_a_string_narrow_in_non_tail_if):
       # the is_a? narrow + LV-read unbox must also fire inside the y1
       # inlined specialization that block-passing creates. The
@@ -668,6 +672,8 @@ describe "Fusion: dispatch" do
       Sub.new.run
       puts "OK"
     RUBY
+
+    _(result).must_answer "OK\n"
   end
 
   it "poly recv dispatch narrow module" do

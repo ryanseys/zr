@@ -29,13 +29,15 @@ describe "Base64 programs" do
   end
 
   it "feature with no ruby half falls through to the static ext table" do
-    _(ze0(<<~'RUBY')).must_answer "\"aGk=\\n\"\n"
+    result = ze0(<<~'RUBY')
       # A feature with no Ruby half falls through to the static-ext table, which is
       # the ordinary case for most extensions.
 
       require "base64"
       p Base64.encode64("hi")
     RUBY
+
+    _(result).must_answer "\"aGk=\\n\"\n"
   end
 
   it "gated constant appears at its require" do
@@ -89,7 +91,7 @@ describe "Base64 programs" do
   end
 
   it "in tree base64 over two args raises argument error at runtime" do
-    _(ze0(<<~'RUBY')).must_answer "argerr\n"
+    result = ze0(<<~'RUBY')
       # The in-tree Base64 ext checks arity at runtime (a rescuable
       # ArgumentError) via `arity!`.
 
@@ -100,6 +102,8 @@ describe "Base64 programs" do
         puts "argerr"
       end
     RUBY
+
+    _(result).must_answer "argerr\n"
   end
 
   it "pack base64" do

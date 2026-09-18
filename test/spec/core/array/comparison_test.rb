@@ -362,11 +362,13 @@ describe "Array: comparison and equality" do
   end
 
   it "hash keyed by an array hashes structurally not by identity" do
-    _(ze0(<<~'RUBY')).must_answer "pair\n"
+    result = ze0(<<~'RUBY')
       h = {}
       h[[1, 2]] = "pair"
       puts h[[1, 2]]
     RUBY
+
+    _(result).must_answer "pair\n"
   end
 
   it "nested array eq" do

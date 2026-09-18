@@ -470,7 +470,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "including a nested module materializes its methods" do
-    _(ze0(<<~'RUBY')).must_answer "hello from nested module\n"
+    result = ze0(<<~'RUBY')
       module Util
         module Greet
           def hello
@@ -485,6 +485,8 @@ describe "Modules: inheritance and ancestors" do
 
       puts Greeter2.new.hello
     RUBY
+
+    _(result).must_answer "hello from nested module\n"
   end
 
   it "later include reaches back" do
@@ -670,7 +672,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module reopen after include namespaced" do
-    _(ze0(<<~'RUBY')).must_answer "post:/x\n"
+    result = ze0(<<~'RUBY')
       # #573 (Sam Ruby). When a module is forward-declared empty,
       # included by a class nested inside another module, and then
       # reopened with method definitions, the included class's
@@ -705,6 +707,8 @@ describe "Modules: inheritance and ancestors" do
 
       puts ActionDispatch::IntegrationTest.new.post("/x")
     RUBY
+
+    _(result).must_answer "post:/x\n"
   end
 
   it "module super into a value builtin" do
@@ -980,7 +984,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "three level super chain crosses a module boundary" do
-    _(ze0(<<~'RUBY')).must_answer "parent(middle(grandparent))\n"
+    result = ze0(<<~'RUBY')
       # `Parent#greet` calls `super`, reaching `Middle#greet` (an included
       # module), which itself calls `super`, reaching `GrandParent#greet` --
       # a chain of 3, verifying `emit_super_inline`'s ancestors-based search
@@ -1005,6 +1009,8 @@ describe "Modules: inheritance and ancestors" do
       end
       puts Parent.new.greet
     RUBY
+
+    _(result).must_answer "parent(middle(grandparent))\n"
   end
 
   it "top level include" do

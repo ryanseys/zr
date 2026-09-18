@@ -396,7 +396,7 @@ describe "Struct: regressions" do
   end
 
   it "issue 3161" do
-    _(ze0(<<~'RUBY')).must_answer "3,4\n"
+    result = ze0(<<~'RUBY')
       Vec = Data.define(:x, :y)
 
       top = [Vec.new(3, 4)].first
@@ -405,6 +405,8 @@ describe "Struct: regressions" do
         puts "#{x},#{y}"
       end
     RUBY
+
+    _(result).must_answer "3,4\n"
   end
 
   it "issue 3179" do

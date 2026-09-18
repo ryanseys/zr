@@ -83,7 +83,7 @@ describe "String: control flow" do
   end
 
   it "loop do end with break value" do
-    _(ze0(<<~'RUBY')).must_answer "30\n"
+    result = ze0(<<~'RUBY')
       i = 0
       result = loop do
         i += 1
@@ -91,6 +91,8 @@ describe "String: control flow" do
       end
       puts result
     RUBY
+
+    _(result).must_answer "30\n"
   end
 
   it "method return mixed int string" do

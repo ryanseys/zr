@@ -131,7 +131,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require gated extension name error is rescuable" do
-    _(ze0(<<~'RUBY')).must_answer "rescued: uninitialized constant Base64\n"
+    result = ze0(<<~'RUBY')
       # Same gate, caught: since the miss surfaces through the runtime
       # constant path it's an ordinary rescuable `NameError` (oracle prints
       # `rescued: uninitialized constant Base64`). This program NEVER requires
@@ -145,6 +145,8 @@ describe "Exceptions: loading files" do
         puts "rescued: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "rescued: uninitialized constant Base64\n"
   end
 
   it "require that cannot resolve takes the rescue" do

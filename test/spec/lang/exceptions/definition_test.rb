@@ -58,7 +58,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "bare rescue does not catch a script error level exception" do
-    _(ze0(<<~'RUBY')).must_answer "outer caught ScriptError: script problem\n"
+    result = ze0(<<~'RUBY')
       # A bare `rescue` matches `StandardError` and below ONLY -- it must NOT
       # catch a raised `ScriptError` (a sibling branch of the hierarchy, both
       # direct children of `Exception`). This is the real semantic bare
@@ -74,6 +74,8 @@ describe "Exceptions: defining and naming methods" do
         puts "outer caught ScriptError: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "outer caught ScriptError: script problem\n"
   end
 
   it "begin ensure with no rescue clause still runs ensure and propagates" do
@@ -335,7 +337,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "method level implicit rescue with no explicit begin end" do
-    _(ze0(<<~'RUBY')).must_answer "handled: oops\n"
+    result = ze0(<<~'RUBY')
       # `def m; ...; rescue => e; ...; end` -- `DefNode::body()` is directly a
       # `BeginNode` with no `begin_keyword_loc` in this shape (confirmed via
       # `Prism.parse`), flowing through the SAME `HirNode::Begin` lowering as
@@ -350,6 +352,8 @@ describe "Exceptions: defining and naming methods" do
       end
       puts Worker.new.safe
     RUBY
+
+    _(result).must_answer "handled: oops\n"
   end
 
   it "missing method via send raises a rescuable no method error" do
@@ -379,7 +383,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "raise inside ensure replaces the original exception" do
-    _(ze0(<<~'RUBY')).must_answer "caught: from ensure\n"
+    result = ze0(<<~'RUBY')
       begin
         begin
           raise "original"
@@ -390,20 +394,24 @@ describe "Exceptions: defining and naming methods" do
         puts "caught: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught: from ensure\n"
   end
 
   it "rescue exception class explicitly catches a script error" do
-    _(ze0(<<~'RUBY')).must_answer "caught via Exception: script problem\n"
+    result = ze0(<<~'RUBY')
       begin
         raise ScriptError, "script problem"
       rescue Exception => e
         puts "caught via Exception: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught via Exception: script problem\n"
   end
 
   it "rescue with a computed exception class expression" do
-    _(ze0(<<~'RUBY')).must_answer "caught MyErr: boom\n"
+    result = ze0(<<~'RUBY')
       # A rescue-list entry that is a COMPUTED expression (not a bare constant or
       # splat) is evaluated and matched at runtime -- net/http's `rescue
       # defined?(OpenSSL::SSL) ? OpenSSL::SSL::SSLError : IOError`.
@@ -416,16 +424,20 @@ describe "Exceptions: defining and naming methods" do
       end
       puts go
     RUBY
+
+    _(result).must_answer "caught MyErr: boom\n"
   end
 
   it "rescue with multiple classes in one clause" do
-    _(ze0(<<~'RUBY')).must_answer "caught one of: wrong type\n"
+    result = ze0(<<~'RUBY')
       begin
         raise TypeError, "wrong type"
       rescue ArgumentError, TypeError => e
         puts "caught one of: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught one of: wrong type\n"
   end
 
   it "singleton body begin rescue and self value" do
@@ -515,7 +527,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "unmatched rescue class propagates to an outer rescue" do
-    _(ze0(<<~'RUBY')).must_answer "outer caught: inner\n"
+    result = ze0(<<~'RUBY')
       begin
         begin
           raise TypeError, "inner"
@@ -526,10 +538,12 @@ describe "Exceptions: defining and naming methods" do
         puts "outer caught: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "outer caught: inner\n"
   end
 
   it "unrescued raise propagates through multiple method call frames" do
-    _(ze0(<<~'RUBY')).must_answer "caught from deep: deep failure\n"
+    result = ze0(<<~'RUBY')
       # Three separate objects (not sibling methods on one class) --
       # implicit-self calls to a sibling method aren't supported yet
       # (a separate, pre-existing, documented gap), so each
@@ -557,5 +571,7 @@ describe "Exceptions: defining and naming methods" do
         puts "caught from deep: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "caught from deep: deep failure\n"
   end
 end

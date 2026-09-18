@@ -159,7 +159,7 @@ describe "Methods: changing in place" do
   end
 
   it "call arg int to obj cast" do
-    _(ze0(<<~'RUBY')).must_answer "h0\n"
+    result = ze0(<<~'RUBY')
       # Issue #379: when a method returns `obj_<C> | nil` and Spinel
       # collapses the union to `mrb_int` upstream, the local catching
       # the call ends up declared `mrb_int`. Use sites that need the
@@ -216,6 +216,8 @@ describe "Methods: changing in place" do
       # signature, with lv_h still typed mrb_int — type-mismatched C.
       puts consume_holder(h)
     RUBY
+
+    _(result).must_answer "h0\n"
   end
 
   it "method object under prepend" do

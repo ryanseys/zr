@@ -87,12 +87,14 @@ describe "Enumerable: slicing" do
   end
 
   it "first resume args bind to the fiber blocks params" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       h = Fiber.new do |a, b|
         a + b
       end
       puts h.resume(3, 4)
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "lazy first no stage" do

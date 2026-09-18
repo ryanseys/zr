@@ -310,7 +310,7 @@ describe "Array: pattern matching" do
   end
 
   it "case in object deconstruct dispatches to array pattern" do
-    _(ze0(<<~'RUBY')).must_answer "array: 1, 2\n"
+    result = ze0(<<~'RUBY')
       class Point
         def initialize(x, y)
           @x = x
@@ -326,6 +326,8 @@ describe "Array: pattern matching" do
         puts "array: #{px}, #{py}"
       end
     RUBY
+
+    _(result).must_answer "array: 1, 2\n"
   end
 
   it "deconstruct must return an array" do

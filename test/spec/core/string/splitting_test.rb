@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: splitting and joining" do
   it "armed each line streams a pipe the writer fills incrementally" do
-    _(ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})).must_answer "[\"alpha\", \"beta\"]\n"
+    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # each_line re-enters the with_file seam once per line, so the
       # consumer parks BETWEEN lines while main wakes to write the next
       # one; the closed write end ends the stream.
@@ -22,6 +22,8 @@ describe "String: splitting and joining" do
       p lines
       r.close
     RUBY
+
+    _(result).must_answer "[\"alpha\", \"beta\"]\n"
   end
 
   it "chunk slice float" do
@@ -256,7 +258,7 @@ describe "String: splitting and joining" do
   end
 
   it "split on unresolved chain" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # A method compiled but never called whose body splits an unresolvable chain
       # (`Undefined.application.class.to_s.split("::")`) must still produce
       # compilable C: the chain resolves to a poly nil at codegen even though it is
@@ -276,6 +278,8 @@ describe "String: splitting and joining" do
 
       puts T.new({ name: "ok" }).name
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "split on whitespace keeps nul inside a word" do

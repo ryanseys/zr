@@ -574,7 +574,7 @@ describe "Time programs" do
   end
 
   it "putc writes one byte of an integer and one character of a string" do
-    _(ze0(<<~'RUBY')).must_answer "[180, 180]\n"
+    result = ze0(<<~'RUBY')
       # `0x1B4` truncates to its low byte; a BINARY string contributes its
       # first BYTE (never a UTF-8 promotion of it).
 
@@ -583,6 +583,8 @@ describe "Time programs" do
       p File.binread(path).bytes
       File.delete(path)
     RUBY
+
+    _(result).must_answer "[180, 180]\n"
   end
 
   it "regexp introspection linear time and class backrefs" do
@@ -721,13 +723,15 @@ describe "Time programs" do
   end
 
   it "time at hash argument" do
-    _(ze0(<<~'RUBY')).must_answer "TypeError\n"
+    result = ze0(<<~'RUBY')
       begin
         Time.at({})
       rescue TypeError => e
         p e.class
       end
     RUBY
+
+    _(result).must_answer "TypeError\n"
   end
 
   it "time at honors the in keyword offset" do
@@ -1415,10 +1419,12 @@ describe "Time programs" do
   end
 
   it "time xmlschema" do
-    _(ze0(<<~'RUBY')).must_answer "\"2026-07-16T13:45:30Z\"\n"
+    result = ze0(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.xmlschema
     RUBY
+
+    _(result).must_answer "\"2026-07-16T13:45:30Z\"\n"
   end
 
   it "time zone inplace" do

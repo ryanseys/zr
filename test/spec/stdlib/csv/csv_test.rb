@@ -49,12 +49,14 @@ describe "CSV programs" do
   end
 
   it "issue csv gem missing" do
-    _(ze0(<<~'RUBY')).must_answer "loaded\n"
+    result = ze0(<<~'RUBY')
       # `require "csv"` -- the vendored gem loads, which brings `CSV.parse` and
       # `CSV.generate` with it.
       require "csv"
       puts "loaded"
     RUBY
+
+    _(result).must_answer "loaded\n"
   end
 
   it "qualified defined answers by position" do

@@ -89,7 +89,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "closing a queue wakes a blocked consumer with nil" do
-    _(ze0(<<~'RUBY')).must_answer "got_nil\n"
+    result = ze0(<<~'RUBY')
       q = Queue.new
       consumer = Thread.new do
         v = q.pop
@@ -103,6 +103,8 @@ describe "Thread: splitting and joining" do
       puts consumer.value
       closer.join
     RUBY
+
+    _(result).must_answer "got_nil\n"
   end
 
   it "concurrency handle nil" do
@@ -196,7 +198,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "freezing in one thread is visible after join" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       # Threads share the heap (no Ractor boundary): a freeze in one is the
       # same AtomicBool every other execution context reads.
 
@@ -205,10 +207,12 @@ describe "Thread: splitting and joining" do
       t.join
       puts s.frozen?
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "method that only recurses hands the turn on" do
-    _(ze0(<<~'RUBY')).must_answer "[:step, :step, :step, :step, :step, :done]\n"
+    result = ze0(<<~'RUBY')
       # A thread that only recurses has no loop, so no back edge of compiled
       # Ruby and no kernel iterator: the poll at each method's entry is where
       # it hands the turn on. The worker's five steps land before the burner
@@ -224,10 +228,12 @@ describe "Thread: splitting and joining" do
       p steps
 
     RUBY
+
+    _(result).must_answer "[:step, :step, :step, :step, :step, :done]\n"
   end
 
   it "queue producer consumer rendezvous with close" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       # pop blocks the thread until a value or closure arrives; a closed empty
       # queue pops nil (`thread_sync.c:1034`).
 
@@ -249,6 +255,8 @@ describe "Thread: splitting and joining" do
       producer.join
       puts consumer.value
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "sized queue and try lock" do
@@ -520,7 +528,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "thread join and value via dynamic dispatch" do
-    _(ze0(<<~'RUBY')).must_answer "[0, 10, 20]\n"
+    result = ze0(<<~'RUBY')
       # The threads live in an Array, so `join`/`value` dispatch dynamically
       # (the runtime Thread table), not the static codegen fast path.
 
@@ -528,6 +536,8 @@ describe "Thread: splitting and joining" do
       threads.each(&:join)
       p threads.map(&:value)
     RUBY
+
+    _(result).must_answer "[0, 10, 20]\n"
   end
 
   it "thread local" do
@@ -845,12 +855,14 @@ describe "Thread: splitting and joining" do
   end
 
   it "three threads join out of creation order" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       t1 = Thread.new { 1 }
       t2 = Thread.new { 2 }
       t3 = Thread.new { 3 }
       puts t3.value + t1.value + t2.value
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "wait converts its timeout before it parks" do

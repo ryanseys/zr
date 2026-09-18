@@ -523,11 +523,13 @@ describe "Struct: formatting and inspection" do
   end
 
   it "struct display to s" do
-    _(ze0(<<~'RUBY')).must_answer "#<struct Point x=1, y=2>\n"
+    result = ze0(<<~'RUBY')
       Point = Struct.new(:x, :y)
       Point.new(1, 2).display
       puts
     RUBY
+
+    _(result).must_answer "#<struct Point x=1, y=2>\n"
   end
 
   it "struct keyword init inspect" do

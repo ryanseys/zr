@@ -160,9 +160,11 @@ describe "Numeric programs" do
   end
 
   it "complex polar constructor" do
-    _(ze0(<<~'RUBY')).must_answer "(2+0.0i)\n"
+    result = ze0(<<~'RUBY')
       p Complex.polar(2, 0)
     RUBY
+
+    _(result).must_answer "(2+0.0i)\n"
   end
 
   it "complex rational class" do
@@ -257,15 +259,19 @@ describe "Numeric programs" do
   end
 
   it "eval dynamic arithmetic honours precedence" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       code = "1 + 2 * 3"; puts eval(code)
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "eval value is usable in the surrounding expression" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       a = "6"; b = "7"; puts(eval(a) * eval(b))
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "float adjacent representable values" do
@@ -1441,7 +1447,7 @@ describe "Numeric programs" do
   end
 
   it "numeric step accepts by and to keywords" do
-    _(ze0(<<~'RUBY')).must_answer "1 3 5 7 9 \n1 3 5 7 9 \n1 2 3 4 5 \n10 7 4 1 \n"
+    result = ze0(<<~'RUBY')
       1.step(by: 2, to: 10) { |i| print i, " " }
       puts
       1.step(10, 2) { |i| print i, " " }
@@ -1451,10 +1457,12 @@ describe "Numeric programs" do
       10.step(by: -3, to: 1) { |i| print i, " " }
       puts
     RUBY
+
+    _(result).must_answer "1 3 5 7 9 \n1 3 5 7 9 \n1 2 3 4 5 \n10 7 4 1 \n"
   end
 
   it "numeric step keywords" do
-    _(ze0(<<~'RUBY')).must_answer "1 3 5 7 9 \n1 3 5 7 9 \n1 2 3 4 5 \n10 7 4 1 \n1.0 1.5 2.0 \n0 5 10 \n"
+    result = ze0(<<~'RUBY')
       # Numeric#step accepts positional (limit, step) and/or keyword (by:, to:) forms.
       1.step(by: 2, to: 9) { |i| print i, " " }
       puts
@@ -1476,6 +1484,8 @@ describe "Numeric programs" do
       0.step(10, by: 5) { |i| print i, " " }
       puts
     RUBY
+
+    _(result).must_answer "1 3 5 7 9 \n1 3 5 7 9 \n1 2 3 4 5 \n10 7 4 1 \n1.0 1.5 2.0 \n0 5 10 \n"
   end
 
   it "numeric subclass defaults" do

@@ -231,7 +231,7 @@ describe "Blocks: regressions" do
   end
 
   it "issue 2958" do
-    _(ze0(<<~'RUBY')).must_answer "{1 => 1, 2 => 4, 3 => 9}\n"
+    result = ze0(<<~'RUBY')
       class Tags
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -241,6 +241,8 @@ describe "Blocks: regressions" do
       freq = Tags.new(1, 2, 3).reduce({}) { |h, x| h[x] = x * x; h }
       p freq
     RUBY
+
+    _(result).must_answer "{1 => 1, 2 => 4, 3 => 9}\n"
   end
 
   it "issue 2959" do
@@ -558,7 +560,7 @@ describe "Blocks: regressions" do
   end
 
   it "issue 3166" do
-    _(ze0(<<~'RUBY')).must_answer "[[:a, :b], [:a, :c], [:b, :c]]\n"
+    result = ze0(<<~'RUBY')
       def hanoi(n, from, to, via, &block)
         return if n.zero?
         hanoi(n - 1, from, via, to, &block)
@@ -570,6 +572,8 @@ describe "Blocks: regressions" do
       hanoi(2, :a, :c, :b) { |m| moves << m }
       p moves
     RUBY
+
+    _(result).must_answer "[[:a, :b], [:a, :c], [:b, :c]]\n"
   end
 
   it "issue 3167" do
@@ -646,7 +650,7 @@ describe "Blocks: regressions" do
   end
 
   it "issue 3209" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       class Foo
         def initialize = @hash = {}
         def empty? = @hash.empty?
@@ -658,6 +662,8 @@ describe "Blocks: regressions" do
       end
       p Crash.fn {}
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "issue 3241" do

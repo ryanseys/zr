@@ -3242,7 +3242,7 @@ describe "Classes: regressions" do
   end
 
   it "bundle classd 04" do
-    _(ze0(<<~'RUBY')).must_answer "3\ntrue\n6\nhello\ntruthy\ndone\n0 1 \n0 1 2 3 4 5 6 \n0\n12\n23\n10\n111\n22\n122\n"
+    result = ze0(<<~'RUBY')
       # Bundled tests:
       #   - instance_eval_return_value
       #   - map_array_block_result
@@ -3393,6 +3393,8 @@ describe "Classes: regressions" do
       puts m3.read(1, 2, 1)   # 122
 
     RUBY
+
+    _(result).must_answer "3\ntrue\n6\nhello\ntruthy\ndone\n0 1 \n0 1 2 3 4 5 6 \n0\n12\n23\n10\n111\n22\n122\n"
   end
 
   it "bundle classd 05" do
@@ -7286,7 +7288,7 @@ describe "Classes: regressions" do
   end
 
   it "issue 2933" do
-    _(ze0(<<~'RUBY')).must_answer "15.7\n"
+    result = ze0(<<~'RUBY')
       # An object whose ivar comes from a destructured-pair block param, summed via a
       # block and rounded (Refs #2913 sum, #2926 round).
       class Shape
@@ -7297,23 +7299,29 @@ describe "Classes: regressions" do
       shapes = [["a", 2], ["b", 3]].map { |_, s| Shape.new(s) }
       p shapes.sum { |x| x.area }.round(2)
     RUBY
+
+    _(result).must_answer "15.7\n"
   end
 
   it "issue 2952" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       class C001
         attr :x
         def initialize; @x = 5; end
       end
       p(C001.new.x)
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "issue 2953" do
-    _(ze0(<<~'RUBY')).must_answer "false\n"
+    result = ze0(<<~'RUBY')
       class C001; end
       p(C001.frozen?)
     RUBY
+
+    _(result).must_answer "false\n"
   end
 
   it "issue 2957" do
@@ -7649,7 +7657,7 @@ describe "Classes: regressions" do
   end
 
   it "issue 3153" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       require "stringio"
       5.times do
         buf = StringIO.new
@@ -7659,6 +7667,8 @@ describe "Classes: regressions" do
       end
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3157" do
@@ -7742,7 +7752,7 @@ describe "Classes: regressions" do
   end
 
   it "issue 3190" do
-    _(ze0(<<~'RUBY')).must_answer "[[58, 64], [139, 154]]\n"
+    result = ze0(<<~'RUBY')
       a = [[1, 2, 3], [4, 5, 6]]
       b = [[7, 8], [9, 10], [11, 12]]
       result = Array.new(a.size) { Array.new(b.first.size, 0) }
@@ -7753,6 +7763,8 @@ describe "Classes: regressions" do
       end
       p result
     RUBY
+
+    _(result).must_answer "[[58, 64], [139, 154]]\n"
   end
 
   it "issue 3191" do
@@ -7778,7 +7790,7 @@ describe "Classes: regressions" do
   end
 
   it "issue 3205" do
-    _(ze0(<<~'RUBY')).must_answer "{\"test\" => \"value\"}\n"
+    result = ze0(<<~'RUBY')
       $wifis = Hash.new
       class Client
         def run
@@ -7788,6 +7800,8 @@ describe "Classes: regressions" do
       Client.new.run
       p $wifis
     RUBY
+
+    _(result).must_answer "{\"test\" => \"value\"}\n"
   end
 
   it "issue 3231" do

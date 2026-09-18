@@ -459,9 +459,11 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "zero arg resume binds nil block params" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       f = Fiber.new { |x| x.nil? }
       puts f.resume
     RUBY
+
+    _(result).must_answer "true\n"
   end
 end

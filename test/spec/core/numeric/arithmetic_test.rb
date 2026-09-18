@@ -4,19 +4,23 @@ require "spec_helper"
 
 describe "Numeric: arithmetic" do
   it "arith" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       puts 1 + 1
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "arith adds integer literals" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       puts 1 + 1
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "arithmetic on a plain method parameter works" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       # Method params are always statically `Poly` (zeo never infers a
       # param's type from call sites) -- this exercises the runtime-checked
       # numeric fallback, not just literal or local `Int` operands.
@@ -28,6 +32,8 @@ describe "Numeric: arithmetic" do
       end
       puts Adder.new.add(3, 4)
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "bigint literal pow" do

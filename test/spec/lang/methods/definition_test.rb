@@ -812,7 +812,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias preserves the original methods own parameters" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       class Calc
         def add(a, b)
           a + b
@@ -821,6 +821,8 @@ describe "Methods: defining and naming methods" do
       end
       puts Calc.new.sum(3, 4)
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "alias under modifier" do
@@ -1540,7 +1542,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method from module unbound" do
-    _(ze0(<<~'RUBY')).must_answer "\"from-M(C)\"\n"
+    result = ze0(<<~'RUBY')
       # `define_method(name, SomeModule.instance_method(:m))` -- a MODULE-owned
       # UnboundMethod binds into any class (CRuby's rule; a CLASS-owned one still
       # requires a descendant). rack installs ERB::Escape#html_escape into
@@ -1553,6 +1555,8 @@ describe "Methods: defining and naming methods" do
       end
       p C.new.hi2
     RUBY
+
+    _(result).must_answer "\"from-M(C)\"\n"
   end
 
   it "define method parameters" do
@@ -1578,7 +1582,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method under private" do
-    _(ze0(<<~'RUBY')).must_answer "[:a, :b]\n"
+    result = ze0(<<~'RUBY')
       class V1
         private
         define_method(:a) { :a }
@@ -1587,6 +1591,8 @@ describe "Methods: defining and naming methods" do
 
       p V1.private_instance_methods(false).sort
     RUBY
+
+    _(result).must_answer "[:a, :b]\n"
   end
 
   it "define method with a proc body" do
@@ -1622,7 +1628,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "dynamic" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         define_method(:hello) do
           puts :hi
@@ -1632,15 +1638,19 @@ describe "Methods: defining and naming methods" do
       name = :hello
       Greeter.new.send(name)
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "dynamic define method" do
-    _(ze0(<<~'RUBY')).must_answer ""
+    result = ze0(<<~'RUBY')
       class BadDynamicDefineMethod
         name = "bad"
         define_method(name) { 1 }
       end
     RUBY
+
+    _(result).must_answer ""
   end
 
   it "forward args" do
@@ -1727,7 +1737,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "issue method vs callee alias" do
-    _(ze0(<<~'RUBY')).must_answer "[:original_name, :aliased_name]\n"
+    result = ze0(<<~'RUBY')
       # __method__ returns the name the method was DEFINED with, __callee__ the name
       # it was CALLED through -- the two diverge for an aliased method.
       class CalleeTest
@@ -1738,6 +1748,8 @@ describe "Methods: defining and naming methods" do
       end
       p CalleeTest.new.aliased_name
     RUBY
+
+    _(result).must_answer "[:original_name, :aliased_name]\n"
   end
 
   it "issue undef method dynamic class body" do
@@ -2026,7 +2038,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "nonliteral define method each" do
-    _(ze0(<<~'RUBY')).must_answer ""
+    result = ze0(<<~'RUBY')
       class BadDefineMethodEach
         names = [:one, :two]
 
@@ -2035,6 +2047,8 @@ describe "Methods: defining and naming methods" do
         end
       end
     RUBY
+
+    _(result).must_answer ""
   end
 
   it "per object undef retires the method for that object" do

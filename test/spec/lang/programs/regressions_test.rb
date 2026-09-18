@@ -95,11 +95,13 @@ describe "Programs: regressions" do
   end
 
   it "issue 2969" do
-    _(ze0(<<~'RUBY')).must_answer "{1 => 1, 2 => 4, 3 => 9}\n"
+    result = ze0(<<~'RUBY')
       h = {}
       [1, 2, 3].each_with_object(h) { |x, acc| acc[x] = x * x }
       p h
     RUBY
+
+    _(result).must_answer "{1 => 1, 2 => 4, 3 => 9}\n"
   end
 
   it "issue 2980" do
@@ -367,9 +369,11 @@ describe "Programs: regressions" do
   end
 
   it "issue 3182" do
-    _(ze0(<<~'RUBY')).must_answer "[3, 3]\n"
+    result = ze0(<<~'RUBY')
       p [3, 3, 5, 2].take_while.with_index { |v, i| i < 2 }
     RUBY
+
+    _(result).must_answer "[3, 3]\n"
   end
 
   it "issue 3223" do

@@ -1161,7 +1161,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "keyword params on a block bind from a trailing yielded hash" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       class Collector
         def emit
           yield x: 1, y: 2
@@ -1169,6 +1169,8 @@ describe "Hash: blocks and yields" do
       end
       Collector.new.emit { |x:, y: 10| puts x + y }
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "new forwarded block stored" do

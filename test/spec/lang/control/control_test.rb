@@ -2149,7 +2149,7 @@ describe "Control programs" do
   end
 
   it "safe navigation" do
-    _(ze0(<<~'RUBY')).must_answer "present\n"
+    result = ze0(<<~'RUBY')
       class Box
         def initialize(value)
           @value = value
@@ -2162,6 +2162,8 @@ describe "Control programs" do
       b = Box.new(:present)
       puts(b&.value)
     RUBY
+
+    _(result).must_answer "present\n"
   end
 
   it "safe navigation returns nil" do
@@ -2247,17 +2249,21 @@ describe "Control programs" do
   end
 
   it "ternary" do
-    _(ze0(<<~'RUBY')).must_answer "big\n"
+    result = ze0(<<~'RUBY')
       n = 7
       puts(n > 5 ? :big : :small)
     RUBY
+
+    _(result).must_answer "big\n"
   end
 
   it "ternary 2" do
-    _(ze0(<<~'RUBY')).must_answer "big\n"
+    result = ze0(<<~'RUBY')
       n = 7
       puts(n > 5 ? :big : :small)
     RUBY
+
+    _(result).must_answer "big\n"
   end
 
   it "then block always breaks" do

@@ -52,7 +52,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "issue runtime refinement module" do
-    _(ze0(<<~'RUBY')).must_answer "\"HI!\"\n"
+    result = ze0(<<~'RUBY')
       # An anonymous refinement module built and used at RUNTIME. Zeo implements
       # refinements as a compile-time lexical rewrite over a NAMED module's `refine`
       # blocks, so `Module.new` produces a plain runtime module with no `refine` on
@@ -77,6 +77,8 @@ describe "Refinements: inheritance and ancestors" do
 
       p Probe.run
     RUBY
+
+    _(result).must_answer "\"HI!\"\n"
   end
 
   it "operator assignment sends through the refinements in force" do
@@ -131,7 +133,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refine import methods" do
-    _(ze0(<<~'RUBY')).must_answer ":helped\n"
+    result = ze0(<<~'RUBY')
       module Helpers
         def helper = :helped
       end
@@ -145,6 +147,8 @@ describe "Refinements: inheritance and ancestors" do
       using R
       p "x".helper
     RUBY
+
+    _(result).must_answer ":helped\n"
   end
 
   it "refine in an anonymous module" do

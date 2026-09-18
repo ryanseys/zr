@@ -268,7 +268,7 @@ describe "Array programs" do
   end
 
   it "array join poly separator" do
-    _(ze0(<<~'RUBY')).must_answer "MyApp : Dash\n"
+    result = ze0(<<~'RUBY')
       # Array#join's separator must be a const char*; when the separator widens to
       # poly (an ivar/reader unified to poly across the program), it has to be
       # coerced with sp_poly_to_s rather than passed raw -- otherwise sp_*Array_join
@@ -292,6 +292,8 @@ describe "Array programs" do
       puts P.new("MyApp", " : ").render
       P.new("X", 5)   # a second call site with a non-string separator widens @sep to poly
     RUBY
+
+    _(result).must_answer "MyApp : Dash\n"
   end
 
   it "array join recursive and delete block" do
@@ -697,7 +699,7 @@ describe "Array programs" do
   end
 
   it "case in value nested array" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2, 3, 4]\n"
+    result = ze0(<<~'RUBY')
       # A nested-array case/in used in value position (its result assigned).
       def s(x); x; end
       r = case s([1, [2, 3], 4])
@@ -705,6 +707,8 @@ describe "Array programs" do
           end
       p r
     RUBY
+
+    _(result).must_answer "[1, 2, 3, 4]\n"
   end
 
   it "data not diggable" do
@@ -1912,7 +1916,7 @@ describe "Array programs" do
   end
 
   it "module const array widen" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # Issue #333: a module-level array constant initialized as an empty
       # literal (`LOG = []`) was typed as `sp_IntArray *`, regardless of
       # how it was used. A later `LOG << some_hash` then emitted
@@ -1950,6 +1954,8 @@ describe "Array programs" do
       Broadcasts.record(:replace)
       puts Broadcasts.size           # 2
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "multi write ivar const from array rhs" do
@@ -2020,7 +2026,7 @@ describe "Array programs" do
   end
 
   it "non overridden inherited initialize flattens ivars onto the subclass struct" do
-    _(ze0(<<~'RUBY')).must_answer "40\n"
+    result = ze0(<<~'RUBY')
       class Parent
         def initialize(x)
           @x = x
@@ -2033,6 +2039,8 @@ describe "Array programs" do
       end
       puts Child.new(4).show
     RUBY
+
+    _(result).must_answer "40\n"
   end
 
   it "obj array param accumulator" do
@@ -2089,7 +2097,7 @@ describe "Array programs" do
   end
 
   it "open class array builtin" do
-    _(ze0(<<~'RUBY')).must_answer "Array\n"
+    result = ze0(<<~'RUBY')
       # Built-in class reopens should not be collected as user classes.
       # Array uses the boxed open-class receiver path rather than emitting
       # a fake sp_Array struct.
@@ -2102,6 +2110,8 @@ describe "Array programs" do
 
       puts [1, 2].marker
     RUBY
+
+    _(result).must_answer "Array\n"
   end
 
   it "recursive array flatten overflows" do

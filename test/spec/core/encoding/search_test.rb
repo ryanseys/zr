@@ -93,12 +93,14 @@ describe "Encoding: searching and matching" do
   end
 
   it "issue word char class ascii scope" do
-    _(ze0(<<~'RUBY')).must_answer "[\"caf\", \"bar\"]\n"
+    result = ze0(<<~'RUBY')
       # `\w` in a regex should only match ASCII word characters ([a-zA-Z0-9_]) by
       # default in CRuby's onig engine, excluding accented/Unicode letters. zeo's
       # `\w` is Unicode-aware and matches "e" with an accent too.
       p "café bar".scan(/\w+/)
     RUBY
+
+    _(result).must_answer "[\"caf\", \"bar\"]\n"
   end
 
   it "match answers in the subjects encoding" do
@@ -249,7 +251,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "regexp invalid byte match" do
-    _(ze0(<<~'RUBY')).must_answer "ArgumentError\n"
+    result = ze0(<<~'RUBY')
       begin
         "\xff".force_encoding("UTF-8") =~ /a/
         p :no_raise
@@ -257,6 +259,8 @@ describe "Encoding: searching and matching" do
         p e.class
       end
     RUBY
+
+    _(result).must_answer "ArgumentError\n"
   end
 
   it "regexp match checks the haystacks encoding" do

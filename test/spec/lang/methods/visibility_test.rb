@@ -111,7 +111,7 @@ describe "Methods: visibility" do
   end
 
   it "issue private class method def" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # `private_class_method def helper ...` under a `module_function` directive
       # registers the def: `private_class_method` takes the def's symbol as an
       # argument, and the def itself defines the method as usual. zeo does not model
@@ -131,6 +131,8 @@ describe "Methods: visibility" do
 
       p M.pub
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "module function dead method dce" do
@@ -335,7 +337,7 @@ describe "Methods: visibility" do
   end
 
   it "protected method callable from a related classs own method" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       class Money
         def initialize(amount)
           @amount = amount
@@ -355,6 +357,8 @@ describe "Methods: visibility" do
 
       puts Money.new(10).greater_than_five
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "public method" do
@@ -474,7 +478,7 @@ describe "Methods: visibility" do
   end
 
   it "visibility keywords switch the default for subsequent defs" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       # A bare `private`/`public` switches the DEFAULT visibility for every
       # subsequent `def` in the class body (see
       # `parse::lower_class_body_statement`'s docs) -- this test only checks
@@ -497,5 +501,7 @@ describe "Methods: visibility" do
       end
       puts Box.new.x
     RUBY
+
+    _(result).must_answer "1\n"
   end
 end

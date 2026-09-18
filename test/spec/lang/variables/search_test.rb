@@ -110,7 +110,7 @@ describe "Variables: searching and matching" do
   end
 
   it "compound index assignment in tail position compiles" do
-    _(ze0(<<~'RUBY')).must_answer "11\n"
+    result = ze0(<<~'RUBY')
       # Regression test for a pre-existing codegen bug found during the
       # freeze work (not freeze-related): `HirNode::Seq` -- the lowering
       # artifact behind `arr[i] += 1` -- emitted a brace-less statement
@@ -127,6 +127,8 @@ describe "Variables: searching and matching" do
       end
       puts Bumper.new.bump
     RUBY
+
+    _(result).must_answer "11\n"
   end
 
   it "defined classifies assignments it and match globals" do
@@ -251,7 +253,7 @@ describe "Variables: searching and matching" do
   end
 
   it "index compound assignment works inside a thread block" do
-    _(ze0(<<~'RUBY')).must_answer "60\n"
+    result = ze0(<<~'RUBY')
       # From the reference corpus (index_opassign_in_thread_block.rb): the
       # `Seq` desugar's hidden temps declared inside an escaping Proc's own
       # prelude, against a captured-cell array.
@@ -263,6 +265,8 @@ describe "Variables: searching and matching" do
       t.join
       puts arr[0]
     RUBY
+
+    _(result).must_answer "60\n"
   end
 
   it "index opassign value prelude rhs" do

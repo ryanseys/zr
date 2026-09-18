@@ -215,7 +215,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "issue method name def in block" do
-    _(ze0(<<~'RUBY')).must_answer "method_name: :named_method\n"
+    result = ze0(<<~'RUBY')
       # `__method__` inside a `def` written in a BLOCK. Such a def installs at
       # runtime, as a method-body lambda, so the name has to be carried into the
       # body: reading it off the enclosing scope answers whatever encloses the
@@ -232,6 +232,8 @@ describe "Methods: blocks and yields" do
         named_method
       end
     RUBY
+
+    _(result).must_answer "method_name: :named_method\n"
   end
 
   it "lambda default reads its sibling parameters" do

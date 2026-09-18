@@ -414,7 +414,7 @@ describe "Set programs" do
   end
 
   it "exception ivar set by a custom initialize survives the raise" do
-    _(ze0(<<~'RUBY')).must_answer "[\"invalid email\", \"email\"]\n"
+    result = ze0(<<~'RUBY')
       class Detailed < StandardError
         def initialize(field)
           @field = field
@@ -428,6 +428,8 @@ describe "Set programs" do
         p [e.message, e.field]
       end
     RUBY
+
+    _(result).must_answer "[\"invalid email\", \"email\"]\n"
   end
 
   it "frozen instance variable set" do
@@ -543,7 +545,7 @@ describe "Set programs" do
   end
 
   it "issue scan block last match not set" do
-    _(ze0(<<~'RUBY')).must_answer "[\"1\", \"2\", \"3\"]\n"
+    result = ze0(<<~'RUBY')
       # String#scan with a block is supposed to set `$~` (and $1, $~.pre_match,
       # etc) to the current match on each iteration, the same way #sub/#gsub with
       # a block do. zeo leaves `$~` nil inside the scan block instead of updating
@@ -553,6 +555,8 @@ describe "Set programs" do
       s.scan(/\d/) { results << $~[0] }
       p results
     RUBY
+
+    _(result).must_answer "[\"1\", \"2\", \"3\"]\n"
   end
 
   it "ivar get set literal" do
@@ -609,10 +613,12 @@ describe "Set programs" do
   end
 
   it "marshal round trip set" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2]\n"
+    result = ze0(<<~'RUBY')
       require "set"
       p Marshal.load(Marshal.dump(Set[1, 2])).to_a.sort
     RUBY
+
+    _(result).must_answer "[1, 2]\n"
   end
 
   it "module class var reflection set" do
@@ -821,7 +827,7 @@ describe "Set programs" do
   end
 
   it "set backtrace accepts locations" do
-    _(ze0(<<~'RUBY')).must_answer "backtrace must be an Array of String or an Array of Thread::Backtrace::Location\n"
+    result = ze0(<<~'RUBY')
       # `Exception#set_backtrace`'s TypeError names what ruby 4 accepts: "an
       # Array of String or an Array of Thread::Backtrace::Location"; zeo's
       # message still offers "a single String" (an older contract). (Found by
@@ -832,10 +838,12 @@ describe "Set programs" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "backtrace must be an Array of String or an Array of Thread::Backtrace::Location\n"
   end
 
   it "set basic" do
-    _(ze0(<<~'RUBY')).must_answer "3\n3\nfalse\ntrue\nfalse\na b c \n4\ntrue\ntrue\n6\n3\n"
+    result = ze0(<<~'RUBY')
       # The bundled `set` library: construction from an array (with de-duplication of
       # equal scalar elements), iteration, membership, and mutation.
       require 'set'
@@ -864,6 +872,8 @@ describe "Set programs" do
       p total             # 6
       p n.size            # 3
     RUBY
+
+    _(result).must_answer "3\n3\nfalse\ntrue\nfalse\na b c \n4\ntrue\ntrue\n6\n3\n"
   end
 
   it "set block autosplat" do

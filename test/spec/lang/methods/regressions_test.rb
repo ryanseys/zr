@@ -813,7 +813,7 @@ describe "Methods: regressions" do
   end
 
   it "issue 266 def length inference" do
-    _(ze0(<<~'RUBY')).must_answer "0.0\n"
+    result = ze0(<<~'RUBY')
       # Issue #266 regression: defining `def length` on a class flipped
       # Spinel's inference for IntArray params on unrelated class methods to
       # poly. Cause was `infer_cls_meth_param_from_body` committing a param
@@ -878,6 +878,8 @@ describe "Methods: regressions" do
       prompt = make_ids("0 1 2")
       puts Net.new.backward(prompt, Mat.new(3, 4))
     RUBY
+
+    _(result).must_answer "0.0\n"
   end
 
   it "issue 2871" do
@@ -1117,7 +1119,7 @@ describe "Methods: regressions" do
   end
 
   it "issue 3143" do
-    _(ze0(<<~'RUBY')).must_answer "nil\n"
+    result = ze0(<<~'RUBY')
       class Crash
         attr_accessor :foo
         def initialize = @foo = nil
@@ -1127,6 +1129,8 @@ describe "Methods: regressions" do
 
       p Crash.new.foo
     RUBY
+
+    _(result).must_answer "nil\n"
   end
 
   it "issue 3144" do
@@ -1639,7 +1643,7 @@ describe "Methods: regressions" do
   end
 
   it "issue 3303 paren write poly shift" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       module Slap
         def self.parse(argv = ARGV) = Main.new.parse(argv)
 
@@ -1665,6 +1669,8 @@ describe "Methods: regressions" do
       Slap.parse(argv)
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3304 method reflection" do

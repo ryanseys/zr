@@ -850,12 +850,14 @@ describe "Enumerable: regressions" do
   end
 
   it "issue 2875" do
-    _(ze0(<<~'RUBY')).must_answer "\"MIVI\"\n"
+    result = ze0(<<~'RUBY')
       table = [[1000, "M"], [4, "IV"], [1, "I"]]
       out = ""
       table.each { |num, sym| out += sym }
       p out
     RUBY
+
+    _(result).must_answer "\"MIVI\"\n"
   end
 
   it "issue 2877" do
@@ -997,11 +999,13 @@ describe "Enumerable: regressions" do
   end
 
   it "issue 2885" do
-    _(ze0(<<~'RUBY')).must_answer "[6, 25]\n"
+    result = ze0(<<~'RUBY')
       def rect(width:, height:) = width * height
       configs = [{ width: 2, height: 3 }, { width: 5, height: 5 }]
       p configs.map { |c| rect(**c) }
     RUBY
+
+    _(result).must_answer "[6, 25]\n"
   end
 
   it "issue 2887" do
@@ -1279,10 +1283,12 @@ describe "Enumerable: regressions" do
   end
 
   it "issue 2932" do
-    _(ze0(<<~'RUBY')).must_answer "[2, 3, 5, 7, 11]\n"
+    result = ze0(<<~'RUBY')
       primes = (2..Float::INFINITY).lazy.select { |n| (2..Math.sqrt(n)).none? { |d| n % d == 0 } }
       p primes.first(5)
     RUBY
+
+    _(result).must_answer "[2, 3, 5, 7, 11]\n"
   end
 
   it "issue 2939" do
@@ -1646,9 +1652,11 @@ describe "Enumerable: regressions" do
   end
 
   it "issue 3171" do
-    _(ze0(<<~'RUBY')).must_answer "[[2, 3], [3, 4], [4, 5]]\n"
+    result = ze0(<<~'RUBY')
       p (2..10).lazy.each_cons(2).first(3)
     RUBY
+
+    _(result).must_answer "[[2, 3], [3, 4], [4, 5]]\n"
   end
 
   it "issue 3181" do
@@ -1672,10 +1680,12 @@ describe "Enumerable: regressions" do
   end
 
   it "issue 3184" do
-    _(ze0(<<~'RUBY')).must_answer "[(3/4), (2/3)]\n"
+    result = ze0(<<~'RUBY')
       fracs = [[6, 8], [10, 15]]
       p fracs.map { |n, d| g = n.gcd(d); Rational(n / g, d / g) }
     RUBY
+
+    _(result).must_answer "[(3/4), (2/3)]\n"
   end
 
   it "issue 3186" do
@@ -2101,12 +2111,14 @@ describe "Enumerable: regressions" do
   end
 
   it "issue 3323 lazy var each cons" do
-    _(ze0(<<~'RUBY')).must_answer "[[4, 5], [5, 6]]\n"
+    result = ze0(<<~'RUBY')
       # The same laziness as `issue_3313_lazy_each_cons`, with the lazy chain bound
       # to a local first -- the round trip through a variable keeps the Lazy.
       s = (1..Float::INFINITY).lazy.select { |x| x > 3 }
       p s.each_cons(2).first(2)
     RUBY
+
+    _(result).must_answer "[[4, 5], [5, 6]]\n"
   end
 
   it "issue 3324 lazy var each cons relazy" do

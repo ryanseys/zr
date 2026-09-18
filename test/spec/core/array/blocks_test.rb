@@ -477,7 +477,7 @@ describe "Array: blocks and yields" do
   end
 
   it "bsearch rejects a non numeric block result" do
-    _(ze0(<<~'RUBY')).must_answer "wrong argument type String (must be numeric, true, false or nil)\n"
+    result = ze0(<<~'RUBY')
       # `Array#bsearch`'s block must answer numeric, true, false or nil; any
       # other type is a TypeError naming the class. zeo treats a String result as
       # a truthy find-minimum hit and answers an element. (Found by the
@@ -488,6 +488,8 @@ describe "Array: blocks and yields" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "wrong argument type String (must be numeric, true, false or nil)\n"
   end
 
   it "bsearch without block" do

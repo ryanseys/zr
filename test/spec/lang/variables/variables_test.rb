@@ -34,7 +34,7 @@ describe "Variables programs" do
   end
 
   it "assignment rescue modifier" do
-    _(ze0(<<~'RUBY')).must_answer "fallback\n"
+    result = ze0(<<~'RUBY')
       class TopRisk
         def risky_top
           raise "bad"
@@ -43,6 +43,8 @@ describe "Variables programs" do
       x = TopRisk.new.risky_top rescue "fallback"
       puts x
     RUBY
+
+    _(result).must_answer "fallback\n"
   end
 
   it "backref globals are frame local" do
@@ -193,13 +195,15 @@ describe "Variables programs" do
   end
 
   it "case in hash pattern shorthand binds local named after key" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       h = { name: 1 }
       case h
       in { name: }
         puts name
       end
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "case when poly scrutinee bound to local" do
@@ -379,7 +383,7 @@ describe "Variables programs" do
   end
 
   it "compound assignment on a frozen array raises after the read" do
-    _(ze0(<<~'RUBY')).must_answer "can't modify frozen Array: [1]\n"
+    result = ze0(<<~'RUBY')
       # `d[0] += 1` desugars to a read (fine on a frozen array) then a `[]=`
       # (raises) -- real Ruby's own order.
 
@@ -391,6 +395,8 @@ describe "Variables programs" do
         puts e.send(:message)
       end
     RUBY
+
+    _(result).must_answer "can't modify frozen Array: [1]\n"
   end
 
   it "compound assignment on a plain non class constant dispatches correctly" do
@@ -816,17 +822,21 @@ describe "Variables programs" do
   end
 
   it "eval locals defined and read within one scope" do
-    _(ze0(<<~'RUBY')).must_answer "20\n"
+    result = ze0(<<~'RUBY')
       src = "a = 4; b = 5; a * b"; puts eval(src)
     RUBY
+
+    _(result).must_answer "20\n"
   end
 
   it "eval shares the enclosing local scope" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       x = 1
       eval("x = x + 1")
       puts x
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "fiber body captures and mutates enclosing locals" do
@@ -854,7 +864,7 @@ describe "Variables programs" do
   end
 
   it "fiber rebinding a captured local propagates to the enclosing scope" do
-    _(ze0(<<~'RUBY')).must_answer "new\n"
+    result = ze0(<<~'RUBY')
       # From the reference project's own regression corpus
       # (fiber_reassign_capture.rb): REBINDING (not just mutating) a captured
       # name inside the fiber must write through the shared cell.
@@ -867,6 +877,8 @@ describe "Variables programs" do
       f.resume
       puts s
     RUBY
+
+    _(result).must_answer "new\n"
   end
 
   it "freezing an array makes index assignment raise a catchable frozen error" do
@@ -989,7 +1001,7 @@ describe "Variables programs" do
   end
 
   it "gsub block form can capture and mutate an enclosing local" do
-    _(ze0(<<~'RUBY')).must_answer "3\n"
+    result = ze0(<<~'RUBY')
       # Exercises the same real-`Proc`/capture machinery every other escaping
       # block already uses (`emit_proc_value`) -- not a bespoke code path.
 
@@ -997,6 +1009,8 @@ describe "Variables programs" do
       "one two three".gsub(/\w+/) { |w| count += 1; w }
       puts count
     RUBY
+
+    _(result).must_answer "3\n"
   end
 
   it "gvar" do
@@ -1092,7 +1106,7 @@ describe "Variables programs" do
   end
 
   it "hash reassigning an existing key keeps its original insertion position" do
-    _(ze0(<<~'RUBY')).must_answer "{a: 99, b: 2, c: 3}\n"
+    result = ze0(<<~'RUBY')
       h = {}
       h[:a] = 1
       h[:b] = 2
@@ -1100,6 +1114,8 @@ describe "Variables programs" do
       h[:a] = 99
       puts h
     RUBY
+
+    _(result).must_answer "{a: 99, b: 2, c: 3}\n"
   end
 
   it "indexed assignment value" do
@@ -1173,7 +1189,7 @@ describe "Variables programs" do
   end
 
   it "issue 3316 tail index assign value" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       module Slap
         class Flag
           def initialize(kind)
@@ -1206,6 +1222,8 @@ describe "Variables programs" do
       raise "FAIL" unless values == [true, 1, "x"]
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "late ret through local chain" do
@@ -1419,7 +1437,7 @@ describe "Variables programs" do
   end
 
   it "massign pair of object and int" do
-    _(ze0(<<~'RUBY')).must_answer "1\n"
+    result = ze0(<<~'RUBY')
       # `path << [start, -1]` then `cell, _ = path[id]`. While the fixpoint runs,
       # `start` has no type yet and the literal reads as an int array (an UNKNOWN
       # element unifies away), so the container was narrowed to a table of int arrays
@@ -1454,6 +1472,8 @@ describe "Variables programs" do
       a.link(b)
       p bfs(a, b)
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "massign poly scalar target" do
@@ -1779,7 +1799,7 @@ describe "Variables programs" do
   end
 
   it "multi assignment into a frozen index target raises" do
-    _(ze0(<<~'RUBY')).must_answer "can't modify frozen Array: [1, 2]\n"
+    result = ze0(<<~'RUBY')
       f = [1, 2]
       f.freeze
       begin
@@ -1788,6 +1808,8 @@ describe "Variables programs" do
         puts e.send(:message)
       end
     RUBY
+
+    _(result).must_answer "can't modify frozen Array: [1, 2]\n"
   end
 
   it "multiple assignment used as an expression yields the raw rhs" do
@@ -1882,7 +1904,7 @@ describe "Variables programs" do
   end
 
   it "nested massign poly" do
-    _(ze0(<<~'RUBY')).must_answer "[1, 2, 3, 4]\n"
+    result = ze0(<<~'RUBY')
       # Nested multiple-assignment from a poly-typed RHS (an Integer|Array union, not
       # a statically-typed array), which destructures via sp_poly_massign_get.
       def maybe(f)
@@ -1893,6 +1915,8 @@ describe "Variables programs" do
       (a, (b, c)), d = x
       p [a, b, c, d]
     RUBY
+
+    _(result).must_answer "[1, 2, 3, 4]\n"
   end
 
   it "nonlocal return and localjump" do

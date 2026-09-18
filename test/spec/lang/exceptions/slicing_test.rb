@@ -1075,7 +1075,7 @@ describe "Exceptions: slicing" do
   end
 
   it "re raise preserves the exact same object not a copy" do
-    _(ze0(<<~'RUBY')).must_answer "tag: mutated\n"
+    result = ze0(<<~'RUBY')
       # Proves re-raise doesn't construct a fresh exception -- mutating an
       # ivar (via an `attr_accessor`-generated setter) INSIDE the inner
       # `rescue`, then bare `raise`-ing, must be visible to the OUTER
@@ -1105,6 +1105,8 @@ describe "Exceptions: slicing" do
         puts "tag: #{e.send(:tag)}"
       end
     RUBY
+
+    _(result).must_answer "tag: mutated\n"
   end
 
   it "reraise nested rescue" do
@@ -1209,7 +1211,7 @@ describe "Exceptions: slicing" do
   end
 
   it "three rescue clauses skips non matching ones in order" do
-    _(ze0(<<~'RUBY')).must_answer "range: oops\n"
+    result = ze0(<<~'RUBY')
       begin
         raise RangeError, "oops"
       rescue ArgumentError
@@ -1220,6 +1222,8 @@ describe "Exceptions: slicing" do
         puts "range: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "range: oops\n"
   end
 
   it "unknown keyword argument is an error" do

@@ -1126,7 +1126,7 @@ describe "String: dispatch" do
   end
 
   it "poly to i via str poly hash" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # `compile_poly_method_call` lacked a `to_i` arm: `(poly).to_i` fell
       # through to `emit_poly_dispatch` → `emit_poly_builtin_dispatch`,
       # which only handles `[]` / `length` / `size`. The dispatched
@@ -1147,6 +1147,8 @@ describe "String: dispatch" do
       c = C.new
       puts c.at("a")
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "poly to s into string slot" do

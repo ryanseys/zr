@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process programs" do
   it "armed gvl holder waiting on a child process does not stall its siblings" do
-    _(ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})).must_answer "\"done\\n\"\n"
+    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The process-family probe: the backtick child spins until main
       # creates its flag file, and main can only run if the thread parked
       # in read_to_end/wait(2) released the armed Gvl -- without the
@@ -19,6 +19,8 @@ describe "Process programs" do
       p t.value
       File.delete(flag)
     RUBY
+
+    _(result).must_answer "\"done\\n\"\n"
   end
 
   it "at exit status override" do
@@ -542,17 +544,19 @@ describe "Process programs" do
   end
 
   it "exit poly status" do
-    _(ze0(<<~'RUBY')).must_answer "before exit\n"
+    result = ze0(<<~'RUBY')
       # An `exit(status)` whose status expression is poly-typed (here a poly-hash
       # get) must unbox the value -- a bare (int)(sp_RbVal) cast is a cc error.
       h = { "status" => 0, "note" => "text" }
       puts "before exit"
       exit(h["status"])
     RUBY
+
+    _(result).must_answer "before exit\n"
   end
 
   it "explicit return inside a block exits the enclosing method" do
-    _(ze0(<<~'RUBY')).must_answer "4\n"
+    result = ze0(<<~'RUBY')
       # `c` is a `New`-assigned LOCAL, not a method parameter -- see
       # `an_escaping_block_can_mutate_an_ivar_via_self_capture`'s comment for
       # why (params are always statically `Poly`, a separate pre-existing
@@ -576,6 +580,8 @@ describe "Process programs" do
       end
       puts Finder.new.find_even
     RUBY
+
+    _(result).must_answer "4\n"
   end
 
   it "infinite recursion aborts" do
@@ -739,7 +745,7 @@ describe "Process programs" do
   end
 
   it "instance exec def singleton" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       # A `def` inside instance_exec defines a singleton method on the receiver
       # at runtime (CRuby), and zeo matches.
       class Box
@@ -752,10 +758,12 @@ describe "Process programs" do
       b.instance_exec { def greet; "hi"; end }
       puts b.greet
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "instance exec define method privacy" do
-    _(ze0(<<~'RUBY')).must_answer "rescued: undefined method 'define_method' for an instance of Box\n"
+    result = ze0(<<~'RUBY')
       # define_method inside instance_exec: CRuby raises NoMethodError (it is a
       # private method of Module, and the receiver is a plain instance).
       class Box
@@ -771,6 +779,8 @@ describe "Process programs" do
         puts "rescued: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "rescued: undefined method 'define_method' for an instance of Box\n"
   end
 
   it "instance exec dynamic ivar" do
@@ -1478,7 +1488,7 @@ describe "Process programs" do
   end
 
   it "issue 3207" do
-    _(ze0(<<~'RUBY')).must_answer "nil\n"
+    result = ze0(<<~'RUBY')
       class Crash
         attr_accessor :exit
         def fn
@@ -1489,6 +1499,8 @@ describe "Process programs" do
       Crash.new.fn
 
     RUBY
+
+    _(result).must_answer "nil\n"
   end
 
   it "issue dollar dollar pid missing" do
@@ -2157,7 +2169,7 @@ describe "Process programs" do
   end
 
   it "woken waiter is not a deadlock" do
-    _(ze0(<<~'RUBY')).must_answer "[19900, 400, 100, :signalled, \"fatal: No live threads left. Deadlock?\"]\n"
+    result = ze0(<<~'RUBY')
       # A wake is progress. The deadlock detector must not call a thread blocked
       # once its condition is already true.
       #
@@ -2240,5 +2252,7 @@ describe "Process programs" do
 
       p results
     RUBY
+
+    _(result).must_answer "[19900, 400, 100, :signalled, \"fatal: No live threads left. Deadlock?\"]\n"
   end
 end

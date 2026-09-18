@@ -86,13 +86,15 @@ describe "Process: raising and rescuing" do
   end
 
   it "failed exec names the program" do
-    _(ze0(<<~'RUBY')).must_answer "Errno::ENOENT: No such file or directory - /no/such/program-zeo\n"
+    result = ze0(<<~'RUBY')
       begin
         exec("/no/such/program-zeo")
       rescue SystemCallError => e
         puts "#{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "Errno::ENOENT: No such file or directory - /no/such/program-zeo\n"
   end
 
   it "instance exec no block error" do
@@ -183,7 +185,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "trap quotes the signal name" do
-    _(ze0(<<~'RUBY')).must_answer "unsupported signal 'SIGNOPE'\n"
+    result = ze0(<<~'RUBY')
       # `trap`'s unsupported-signal ArgumentError uses straight quotes in ruby 4
       # ("unsupported signal 'SIGNOPE'"); zeo still uses the old backtick form.
       # (Found by the 2026-08-24 probe sweep.)
@@ -193,6 +195,8 @@ describe "Process: raising and rescuing" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "unsupported signal 'SIGNOPE'\n"
   end
 
   it "uncaught exceptions still exit nonzero through the coroutine boundary" do

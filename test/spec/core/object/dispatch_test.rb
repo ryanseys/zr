@@ -417,7 +417,7 @@ describe "Object: dispatch" do
   end
 
   it "user defined dup override wins" do
-    _(ze0(<<~'RUBY')).must_answer "custom\n"
+    result = ze0(<<~'RUBY')
       # `dup`/`clone` are ordinary overridable Kernel methods in real Ruby --
       # the static arm must fall through to Path 1 dispatch when the
       # receiver's class defines its own.
@@ -430,5 +430,7 @@ describe "Object: dispatch" do
 
       puts W.new.dup
     RUBY
+
+    _(result).must_answer "custom\n"
   end
 end

@@ -271,7 +271,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "lv widen from callee arg slot" do
-    _(ze0(<<~'RUBY')).must_answer "\n"
+    result = ze0(<<~'RUBY')
       # Phase 3: LV back-propagation from callee arg slot.
       #
       # Body-derived widening of a callee's param (via
@@ -329,6 +329,8 @@ describe "Enumerable: searching and matching" do
 
       puts Form.run
     RUBY
+
+    _(result).must_answer "\n"
   end
 
   it "nested index write poly index" do

@@ -174,7 +174,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "default arg ivar module subclass" do
-    _(ze0(<<~'RUBY')).must_answer "v\n"
+    result = ze0(<<~'RUBY')
       # A default-argument @ivar read, where the method is mixed in via a module and
       # called on a subclass, requires the subclass struct to inherit the ivar field
       # (the parent only gained it from the transplanted module method).
@@ -195,6 +195,8 @@ describe "Object: inheritance and ancestors" do
       c.set_it
       puts c.get_it
     RUBY
+
+    _(result).must_answer "v\n"
   end
 
   it "dynamic is a" do
@@ -620,7 +622,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "own singleton method outranks an extended module" do
-    _(ze0(<<~'RUBY')).must_answer "from host\n"
+    result = ze0(<<~'RUBY')
       # CRuby ancestry: a receiver's own `def self.x` beats a module it extends.
 
       module Mixin
@@ -632,6 +634,8 @@ describe "Object: inheritance and ancestors" do
       Host.extend(Mixin)
       puts Host.label
     RUBY
+
+    _(result).must_answer "from host\n"
   end
 
   it "runtime include propagates to subclasses" do

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Ostruct programs" do
   it "alias reader bool and ostruct" do
-    _(ze0(<<~'RUBY')).must_answer "OK\n"
+    result = ze0(<<~'RUBY')
       require "ostruct"
       class Flag
         attr_reader :required
@@ -44,6 +44,8 @@ describe "Ostruct programs" do
       main.parse
       puts "OK"
     RUBY
+
+    _(result).must_answer "OK\n"
   end
 
   it "library only a method body requires loads lazily" do
@@ -92,7 +94,7 @@ describe "Ostruct programs" do
   end
 
   it "ostruct poly user name clash" do
-    _(ze0(<<~'RUBY')).must_answer "\"lee\"\n"
+    result = ze0(<<~'RUBY')
       # An OpenStruct member read through a poly value must work even when a user
       # class defines a method of the same name: the OpenStruct pre-arm keys on
       # cls_id and coexists with the user arms (#3264).
@@ -108,6 +110,8 @@ describe "Ostruct programs" do
       o = Main.new.parse({"name" => "lee"})
       p o.name
     RUBY
+
+    _(result).must_answer "\"lee\"\n"
   end
 
   it "yaml ruby object revival" do

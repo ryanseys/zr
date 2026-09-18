@@ -168,7 +168,7 @@ describe "Object: blocks and yields" do
   end
 
   it "escaping block can mutate an ivar via self capture" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       # Exercises the self:Rc<Self> migration + self-capture path: the block
       # is written inside `Box#run` (so `self`/`@sum` are in scope there) and
       # passed to a call on an EXPLICIT other receiver (`c`, a Collector
@@ -202,6 +202,8 @@ describe "Object: blocks and yields" do
       b.run
       puts b.total
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "for iterates any object answering each" do
@@ -475,7 +477,7 @@ describe "Object: blocks and yields" do
   end
 
   it "singleton method inner block yields to the methods own block" do
-    _(ze0(<<~'RUBY')).must_answer "60\n"
+    result = ze0(<<~'RUBY')
       # Inside a singleton method, an ORDINARY block's `yield` targets the
       # method's own (call-site) block -- the lexical-clone path composing over
       # the method-body lambda's call-site `__blk`.
@@ -488,6 +490,8 @@ describe "Object: blocks and yields" do
       end
       p obj.sum_pairs { |n| n * 10 }
     RUBY
+
+    _(result).must_answer "60\n"
   end
 
   it "singleton method object binds a named block param" do
@@ -510,13 +514,15 @@ describe "Object: blocks and yields" do
   end
 
   it "singleton method yields params and multiple values" do
-    _(ze0(<<~'RUBY')).must_answer "2 3 5\n"
+    result = ze0(<<~'RUBY')
       obj = Object.new
       def obj.combine(a, b)
         yield a, b, a + b
       end
       obj.combine(2, 3) { |x, y, s| puts "#{x} #{y} #{s}" }
     RUBY
+
+    _(result).must_answer "2 3 5\n"
   end
 
   it "tap then tail value" do

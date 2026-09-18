@@ -133,7 +133,7 @@ describe "Kernel programs" do
   end
 
   it "call site splat on an implicit self sibling call" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       class Adder
         def add3(a, b, c)
           a + b + c
@@ -144,6 +144,8 @@ describe "Kernel programs" do
       end
       puts Adder.new.run([1, 2, 3])
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "caller locations" do
@@ -637,9 +639,11 @@ describe "Kernel programs" do
   end
 
   it "eval while loop in the vm" do
-    _(ze0(<<~'RUBY')).must_answer "10\n"
+    result = ze0(<<~'RUBY')
       src = "s = 0; i = 1; while i <= 4; s = s + i; i = i + 1; end; s"; puts eval(src)
     RUBY
+
+    _(result).must_answer "10\n"
   end
 
   it "for loops over hashes and parenthesized collections" do
@@ -924,7 +928,7 @@ describe "Kernel programs" do
   end
 
   it "implicit self call dispatches to a sibling method" do
-    _(ze0(<<~'RUBY')).must_answer "hi from hello\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         def greet
           hello
@@ -937,6 +941,8 @@ describe "Kernel programs" do
 
       puts Greeter.new.greet
     RUBY
+
+    _(result).must_answer "hi from hello\n"
   end
 
   it "implicit self call in a class method resolves against the receiver" do
@@ -1554,7 +1560,7 @@ describe "Kernel programs" do
   end
 
   it "private method callable via implicit self and explicit self dot" do
-    _(ze0(<<~'RUBY')).must_answer "20\n"
+    result = ze0(<<~'RUBY')
       # Real Ruby (2.7+): a private method IS callable with an explicit
       # receiver as long as it's a literal `self` -- not just implicit-self
       # (no receiver at all).
@@ -1577,6 +1583,8 @@ describe "Kernel programs" do
 
       puts Box.new.run
     RUBY
+
+    _(result).must_answer "20\n"
   end
 
   it "proc compose requires a callable" do
@@ -2164,7 +2172,7 @@ describe "Kernel programs" do
   end
 
   it "super with no literal block forwards the callers block" do
-    _(ze0(<<~'RUBY')).must_answer "from-caller\n"
+    result = ze0(<<~'RUBY')
       class Parent
         def run
           yield
@@ -2177,10 +2185,12 @@ describe "Kernel programs" do
       end
       puts(Child.new.run { "from-caller" })
     RUBY
+
+    _(result).must_answer "from-caller\n"
   end
 
   it "top level def overrides a kernel function" do
-    _(ze0(<<~'RUBY')).must_answer "7\n"
+    result = ze0(<<~'RUBY')
       # Sibling/top-level resolution runs BEFORE the Kernel function set --
       # real Ruby's rule (a user `def rand` wins over Kernel#rand).
 
@@ -2189,6 +2199,8 @@ describe "Kernel programs" do
       end
       puts rand
     RUBY
+
+    _(result).must_answer "7\n"
   end
 
   it "try convert across types" do

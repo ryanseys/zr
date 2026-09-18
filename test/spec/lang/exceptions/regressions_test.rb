@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: regressions" do
   it "issue 2899" do
-    _(ze0(<<~'RUBY')).must_answer "caught\n"
+    result = ze0(<<~'RUBY')
       def show(u)
         label = (u.details || "~")
         puts label
@@ -13,6 +13,8 @@ describe "Exceptions: regressions" do
       end
       show(nil)
     RUBY
+
+    _(result).must_answer "caught\n"
   end
 
   it "issue 2900" do
@@ -89,10 +91,12 @@ describe "Exceptions: regressions" do
   end
 
   it "issue 2970" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       r = ([1, 2, 3].sample(random: Random.new(1)) rescue $!.class)
       p(r.nil? || [1, 2, 3].include?(r))
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "issue 2979" do
@@ -1340,7 +1344,7 @@ describe "Exceptions: regressions" do
   end
 
   it "issue 3152" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       require "stringio"
 
       5.times do
@@ -1357,6 +1361,8 @@ describe "Exceptions: regressions" do
 
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3188" do
@@ -1384,7 +1390,7 @@ describe "Exceptions: regressions" do
   end
 
   it "issue 3200" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       class Item
         attr_reader :values
         def initialize = @values = ["a"]
@@ -1397,10 +1403,12 @@ describe "Exceptions: regressions" do
       raise unless Item.new.label == "a"
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3204" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       class Crash
         attr_reader :ivar
         def fn(*opts, ivar: false)
@@ -1412,10 +1420,12 @@ describe "Exceptions: regressions" do
       raise if c.ivar
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3208" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       values = ["<url>"]
       result = [].tap do |words|
         words << "Usage:"
@@ -1424,10 +1434,12 @@ describe "Exceptions: regressions" do
       raise unless result == "Usage: <url>"
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3210" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       class Foo
         def initialize
           @key = :enabled
@@ -1440,10 +1452,12 @@ describe "Exceptions: regressions" do
       raise unless Crash.new.key == :url
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3212" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       def maybe_string(flag)
         flag ? " " : nil
       end
@@ -1455,10 +1469,12 @@ describe "Exceptions: regressions" do
       raise unless Crash.call(maybe_string(true)) == []
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3218" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       class Foo
         def initialize = @value = false
         def set(*names) = @value = true
@@ -1474,6 +1490,8 @@ describe "Exceptions: regressions" do
       raise unless App.fn { _1.set "foo" }
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "issue 3227 deep return" do

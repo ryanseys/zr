@@ -556,7 +556,7 @@ describe "Object: comparison and equality" do
   end
 
   it "issue method object equality" do
-    _(ze0(<<~'RUBY')).must_answer "false\n"
+    result = ze0(<<~'RUBY')
       # Method#== compares receiver IDENTITY (`equal?`) as well as the bound method
       # entry, so two Methods over two distinct String receivers are unequal even
       # though both call the same String#upcase.
@@ -564,6 +564,8 @@ describe "Object: comparison and equality" do
       m2 = "abc".method(:upcase)
       p m1 == m2
     RUBY
+
+    _(result).must_answer "false\n"
   end
 
   it "main object identity" do

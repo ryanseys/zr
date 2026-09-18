@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: control flow" do
   it "anon block forward" do
-    _(ze0(<<~'RUBY')).must_answer "1-top-level\n2-prefix\n  body\n3-class-method\n"
+    result = ze0(<<~'RUBY')
       # Anonymous `&` block forwarding (Ruby 3.1+).
       #
       # `def outer(&); inner(&); end` declares an unnamed block parameter
@@ -53,6 +53,8 @@ describe "Blocks: control flow" do
 
       Outer.new.kick { puts "3-class-method" }
     RUBY
+
+    _(result).must_answer "1-top-level\n2-prefix\n  body\n3-class-method\n"
   end
 
   it "block local shadow" do
@@ -101,7 +103,7 @@ describe "Blocks: control flow" do
   end
 
   it "block optional unused" do
-    _(ze0(<<~'RUBY')).must_answer "hi\ninternal\nforwarded\n  block received\n"
+    result = ze0(<<~'RUBY')
       class Greeter
         def greet(text = nil, &block)
           puts text || "anonymous"
@@ -121,6 +123,8 @@ describe "Blocks: control flow" do
       end
       forwarder { puts "  block received" }
     RUBY
+
+    _(result).must_answer "hi\ninternal\nforwarded\n  block received\n"
   end
 
   it "block param call block given" do
@@ -1383,13 +1387,15 @@ describe "Blocks: control flow" do
   end
 
   it "toplevel proc return" do
-    _(ze0(<<~'RUBY')).must_answer "before\n"
+    result = ze0(<<~'RUBY')
       puts "before"
       pr001 = proc { return 1 }
       r001 = (pr001.call rescue $!.class)
       p r001
       puts "after"
     RUBY
+
+    _(result).must_answer "before\n"
   end
 
   it "upto downto block" do

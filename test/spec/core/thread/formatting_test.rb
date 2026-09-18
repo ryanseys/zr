@@ -297,7 +297,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "thread alloc heavy workers" do
-    _(ze0(<<~'RUBY')).must_answer "588890\n"
+    result = ze0(<<~'RUBY')
       threads = []
       t = 0
       while t < 4
@@ -325,6 +325,8 @@ describe "Thread: formatting and inspection" do
       # first worker. The harness runs single-worker; the parallel behaviour is
       # exercised by SPINEL_WORKERS>=3 runs of this same program (issue repro).
     RUBY
+
+    _(result).must_answer "588890\n"
   end
 
   it "thread pass fairness" do
@@ -375,7 +377,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "thread preempt" do
-    _(ze0(<<~'RUBY')).must_answer "[300000, 300001, 300002, 300003, 300004, 300005, 300006, 300007]\n"
+    result = ze0(<<~'RUBY')
       # More CPU-bound threads than OS workers, each a bounded loop with no explicit
       # yield: under the parallel build the monitor must timeslice them (otherwise the
       # excess threads starve), and the bound keeps the program correct and
@@ -384,6 +386,8 @@ describe "Thread: formatting and inspection" do
       ts = 8.times.map { |i| Thread.new { s = 0; 300000.times { s += 1 }; s + i } }
       puts ts.map(&:value).inspect
     RUBY
+
+    _(result).must_answer "[300000, 300001, 300002, 300003, 300004, 300005, 300006, 300007]\n"
   end
 
   it "toplevel thread is the main thread" do

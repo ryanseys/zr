@@ -231,7 +231,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "main thread is a raise target" do
-    _(ze0(<<~'RUBY')).must_answer "main caught: to-main\n"
+    result = ze0(<<~'RUBY')
       # A sibling raising into MAIN: delivered at main's next checkpoint --
       # here, waking its sleep -- and rescuable like any other raise.
 
@@ -245,6 +245,8 @@ describe "Thread: raising and rescuing" do
       end
       t.join
     RUBY
+
+    _(result).must_answer "main caught: to-main\n"
   end
 
   it "mutex error semantics match cruby" do
@@ -331,7 +333,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "negative sleep is an argument error" do
-    _(ze0(<<~'RUBY')).must_answer "ArgumentError: time interval must not be negative\n"
+    result = ze0(<<~'RUBY')
       # `sleep(-1)` raises ArgumentError "time interval must not be negative";
       # zeo raises TypeError with a conversion message. (Found by the 2026-08-24
       # probe sweep.)
@@ -341,6 +343,8 @@ describe "Thread: raising and rescuing" do
         puts "#{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "ArgumentError: time interval must not be negative\n"
   end
 
   it "no method error propagates out of fibers and ractors" do
@@ -556,7 +560,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "retired scheduler knobs are silently ignored" do
-    _(ze0(<<~'RUBY', argv: ["--no-gvl"], env: {"ZEO_THREADS" => "not-a-number"})).must_answer "1\n"
+    result = ze0(<<~'RUBY', argv: ["--no-gvl"], env: {"ZEO_THREADS" => "not-a-number"})
       # `ZEO_THREADS`/`--no-gvl` configure nothing -- threads are always real OS
       # threads. A value, even a malformed one, is silently ignored rather than a
       # startup error, so existing scripts keep running.
@@ -565,6 +569,8 @@ describe "Thread: raising and rescuing" do
 
       puts 1
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "thread ensure inside block" do
@@ -627,7 +633,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "thread raise main" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # Thread#raise aimed at the MAIN thread from a sibling: the main thread is
       # a first-class interrupt target (delivered at its next interruption
       # checkpoint), and the rescue swallows it exactly as under CRuby. The
@@ -644,6 +650,8 @@ describe "Thread: raising and rescuing" do
       end
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "thread raise on current is synchronous" do

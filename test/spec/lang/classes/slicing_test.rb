@@ -595,7 +595,7 @@ describe "Classes: slicing" do
   end
 
   it "nested reopen resolves enclosing const" do
-    _(ze0(<<~'RUBY')).must_answer "helper\n"
+    result = ze0(<<~'RUBY')
       # A class first defined COMPACT (`class Outer::Widget`) and later reopened
       # NESTED (`module Outer; class Widget`) must resolve a bare constant against the
       # reopen's enclosing nesting (`Outer::Helper`), not just the compact def's own
@@ -619,6 +619,8 @@ describe "Classes: slicing" do
 
       puts Outer::Widget.new.hi
     RUBY
+
+    _(result).must_answer "helper\n"
   end
 
   it "poly first last n" do

@@ -806,7 +806,7 @@ describe "String: generated attribute methods" do
   end
 
   it "same named attr no widen" do
-    _(ze0(<<~'RUBY')).must_answer "104\n"
+    result = ze0(<<~'RUBY')
       # #684: a concretely-typed receiver's attr_reader must not widen to
       # poly just because an unrelated class shares the same attr name.
       class Bag
@@ -832,5 +832,7 @@ describe "String: generated attribute methods" do
       _w.payload = "hello"
       puts handle_wire(_w)
     RUBY
+
+    _(result).must_answer "104\n"
   end
 end

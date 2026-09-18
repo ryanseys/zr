@@ -54,13 +54,15 @@ describe "YAML: loading files" do
   end
 
   it "psych node tree emits yaml" do
-    _(ze0(<<~'RUBY')).must_answer "a: 1\n"
+    result = ze0(<<~'RUBY')
       require "psych"
 
       stream = Psych::Nodes::Stream.new
       stream.children << Psych.parse("a: 1\n")
       puts stream.yaml
     RUBY
+
+    _(result).must_answer "a: 1\n"
   end
 
   it "psych scalar node knows where it ends" do

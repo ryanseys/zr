@@ -51,7 +51,7 @@ describe "Continuation programs" do
   end
 
   it "callcc warns only while warnings are on" do
-    _(ze0(<<~'RUBY')).must_answer ":back\n", stderr: "shown\n"
+    result = ze0(<<~'RUBY')
       # The continuation extension warns that callcc is obsolete as it loads,
       # through rb_warn, which says nothing while $VERBOSE is nil. Kernel#warn
       # is silent then too.
@@ -63,6 +63,8 @@ describe "Continuation programs" do
       warn "shown"
 
     RUBY
+
+    _(result).must_answer ":back\n", stderr: "shown\n"
   end
 
   it "survives collections" do

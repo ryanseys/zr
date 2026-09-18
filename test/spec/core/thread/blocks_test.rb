@@ -141,7 +141,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber driven entirely inside a thread" do
-    _(ze0(<<~'RUBY')).must_answer "101\n"
+    result = ze0(<<~'RUBY')
       # The fiber table is per-OS-thread; a fiber created and resumed inside
       # one Thread works because both operations run on that same OS thread.
 
@@ -156,6 +156,8 @@ describe "Thread: blocks and yields" do
       end
       puts t.value
     RUBY
+
+    _(result).must_answer "101\n"
   end
 
   it "fiber nested block" do
@@ -490,13 +492,15 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber yield at the root raises a fiber error" do
-    _(ze0(<<~'RUBY')).must_answer "attempt to yield on a not resumed fiber\n"
+    result = ze0(<<~'RUBY')
       begin
         Fiber.yield(1)
       rescue FiberError => e
         puts e.send(:message)
       end
     RUBY
+
+    _(result).must_answer "attempt to yield on a not resumed fiber\n"
   end
 
   it "fiber yield from a deep method call stack" do
@@ -601,7 +605,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "proc concurrent call poly ret" do
-    _(ze0(<<~'RUBY')).must_answer "poly ret ok\n"
+    result = ze0(<<~'RUBY')
       # Concurrent Proc#call return values are not corrupted across threads. A
       # poly-returning proc stashes its boxed result in the _sp_proc_poly_ret slot
       # (and poly arguments ride _sp_proc_poly_args); those slots were
@@ -642,10 +646,12 @@ describe "Thread: blocks and yields" do
       threads.each { |th| total += th.value }
       puts total.zero? ? "poly ret ok" : "poly ret corrupted: #{total}"
     RUBY
+
+    _(result).must_answer "poly ret ok\n"
   end
 
   it "proc return fiber isolation" do
-    _(ze0(<<~'RUBY')).must_answer "[30, 10, 40, 20, 50]\n"
+    result = ze0(<<~'RUBY')
       # Proc-return home chains are per-fiber: interleaving non-local returns across
       # the main fiber and a Fiber must not corrupt either chain. Each `worker` call
       # is a self-contained non-local return; the fiber yields between them while the
@@ -666,6 +672,8 @@ describe "Thread: blocks and yields" do
       results << worker(5)
       p results
     RUBY
+
+    _(result).must_answer "[30, 10, 40, 20, 50]\n"
   end
 
   it "proc return home survives fiber suspension" do
@@ -1178,10 +1186,12 @@ describe "Thread: blocks and yields" do
   end
 
   it "thread value returns the block result and args bind to params" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       v = Thread.new(20, 22) { |a, b| a + b }.value
       puts v
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "thread yield handle and ensure" do

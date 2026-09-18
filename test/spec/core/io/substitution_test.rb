@@ -457,7 +457,7 @@ describe "IO: substitution" do
   end
 
   it "file write at tail position" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # Followup to #549. File.write recognized at expression level
       # (alongside binwrite). Statement-context calls to File.write
       # were already routed through compile_control_call_stmt and
@@ -475,6 +475,8 @@ describe "IO: substitution" do
       puts File.read("spinel_file_write_test.txt")
       File.delete("spinel_file_write_test.txt")
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "gets limit keeps a whole character" do
@@ -501,7 +503,7 @@ describe "IO: substitution" do
   end
 
   it "glob directory trailing slash" do
-    _(ze0(<<~'RUBY')).must_answer "[\"sub/\"]\n"
+    result = ze0(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |d|
@@ -509,6 +511,8 @@ describe "IO: substitution" do
         Dir.chdir(d) { p Dir.glob("**/").sort }
       end
     RUBY
+
+    _(result).must_answer "[\"sub/\"]\n"
   end
 
   it "i1006" do

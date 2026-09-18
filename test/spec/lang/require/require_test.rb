@@ -58,7 +58,7 @@ describe "Require programs" do
   end
 
   it "features" do
-    _(ze0(<<~'RUBY')).must_answer "0:10\n1:20\n2:30\n15\n12345\nhippo\nhi    |\n    hi|\n20\n"
+    result = ze0(<<~'RUBY')
       # Test various Ruby features
 
       # each_with_index
@@ -92,6 +92,8 @@ describe "Require programs" do
       $g = 20
       puts $g
     RUBY
+
+    _(result).must_answer "0:10\n1:20\n2:30\n15\n12345\nhippo\nhi    |\n    hi|\n20\n"
   end
 
   it "file reached through a symlink loads once" do

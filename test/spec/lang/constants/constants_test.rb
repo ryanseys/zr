@@ -2041,7 +2041,7 @@ describe "Constants programs" do
   end
 
   it "issue const defined two arg" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       # Module#const_defined? only supports the single-argument form -- passing the
       # second `inherit` boolean argument raises NoMethodError as if the method
       # didn't exist at all, instead of being accepted with its normal meaning
@@ -2053,10 +2053,12 @@ describe "Constants programs" do
       end
       p Foo.const_defined?(:X, false)
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "kwarg only toplevel leading optional" do
-    _(ze0(<<~'RUBY')).must_answer "a=nil k=1\n"
+    result = ze0(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
       # immunise this (#3525).
       def top(a = nil, k: :default)
@@ -2064,6 +2066,8 @@ describe "Constants programs" do
       end
       puts top(k: 1)
     RUBY
+
+    _(result).must_answer "a=nil k=1\n"
   end
 
   it "later constant reaches back" do
@@ -2207,12 +2211,14 @@ describe "Constants programs" do
   end
 
   it "namespaced constant read via double colon" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       class Foo
         BAR = 42
       end
       puts Foo::BAR
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "namespaces" do
@@ -2694,17 +2700,19 @@ describe "Constants programs" do
   end
 
   it "qualified constant writes target the named namespace" do
-    _(ze0(<<~'RUBY')).must_answer "99\n"
+    result = ze0(<<~'RUBY')
       module Cfg
       end
 
       Cfg::LIMIT = 99
       puts Cfg::LIMIT
     RUBY
+
+    _(result).must_answer "99\n"
   end
 
   it "qualified definition form does not see the namespace lexically" do
-    _(ze0(<<~'RUBY')).must_answer "NameError: uninitialized constant Store::Cart::DEFAULT\n"
+    result = ze0(<<~'RUBY')
       # `class Store::Cart`'s cref is just [Cart] -- real Ruby raises
       # NameError for `DEFAULT`, naming the cref head's qualified path.
 
@@ -2722,6 +2730,8 @@ describe "Constants programs" do
 
       puts Store::Cart.new.d
     RUBY
+
+    _(result).must_answer "NameError: uninitialized constant Store::Cart::DEFAULT\n"
   end
 
   it "qualified definition sees the scope it is written in" do
@@ -3166,10 +3176,12 @@ describe "Constants programs" do
   end
 
   it "top level constant read and write" do
-    _(ze0(<<~'RUBY')).must_answer "100\n"
+    result = ze0(<<~'RUBY')
       MAX = 100
       puts MAX
     RUBY
+
+    _(result).must_answer "100\n"
   end
 
   it "top level def defines and calls" do
@@ -3311,9 +3323,11 @@ describe "Constants programs" do
   end
 
   it "top level self is the main object" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       puts self.is_a?(Object)
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "toplevel def private on object" do

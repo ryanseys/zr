@@ -101,7 +101,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "call arg valueless" do
-    _(ze0(<<~'RUBY')).must_answer "raised\n"
+    result = ze0(<<~'RUBY')
       # An argument with no value -- an unresolved call, which lowers to a raise --
       # sitting in a non-final position beside another side-effecting argument. The
       # argument-sequencing pass has nothing to sequence it into: a valueless
@@ -119,6 +119,8 @@ describe "Exceptions: formatting and inspection" do
         puts "raised"
       end
     RUBY
+
+    _(result).must_answer "raised\n"
   end
 
   it "case when qualified exception" do
@@ -1143,7 +1145,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "nomethod scalar slot" do
-    _(ze0(<<~'RUBY')).must_answer "NoMethodError\n"
+    result = ze0(<<~'RUBY')
       # An unresolved method on a poly receiver whose call type is a concrete scalar
       # must yield that scalar (a raising comma-expr), not the sp_RbVal raise token,
       # so it fits a typed slot rather than failing the C compile (#2451). The
@@ -1167,6 +1169,8 @@ describe "Exceptions: formatting and inspection" do
         puts "NoMethodError"
       end
     RUBY
+
+    _(result).must_answer "NoMethodError\n"
   end
 
   it "raise with a bare class runs the classs own initialize" do
@@ -1226,7 +1230,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "rescue widens nil local to exception" do
-    _(ze0(<<~'RUBY')).must_answer "#<NotImplementedError: boom>\n"
+    result = ze0(<<~'RUBY')
       def f
         raised = nil
         begin
@@ -1239,6 +1243,8 @@ describe "Exceptions: formatting and inspection" do
 
       puts f.inspect
     RUBY
+
+    _(result).must_answer "#<NotImplementedError: boom>\n"
   end
 
   it "uncaught exception message" do
@@ -1292,7 +1298,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "void value in value position" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # A method that unconditionally raises has a C `void` return type. Using its
       # (never-produced) result in value position -- assigned to a local or passed
       # as an argument -- must still compile: the use is unreachable because the
@@ -1326,5 +1332,7 @@ describe "Exceptions: formatting and inspection" do
       end
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 end

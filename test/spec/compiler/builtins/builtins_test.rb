@@ -470,7 +470,7 @@ describe "Builtins programs" do
   end
 
   it "builtin method parameter names" do
-    _(ze0(<<~'RUBY')).must_answer "[[:rest]]\n"
+    result = ze0(<<~'RUBY')
       # `Method#parameters` on a BUILTIN row names the parameters ruby names, and
       # names nothing where ruby names nothing.
       #
@@ -523,6 +523,8 @@ describe "Builtins programs" do
       # `bundled_gems.rb` replaces it with a Ruby method named `name`.)
       p method(:load).parameters
     RUBY
+
+    _(result).must_answer "[[:rest]]\n"
   end
 
   it "builtin protected rows" do
@@ -637,7 +639,7 @@ describe "Builtins programs" do
   end
 
   it "builtin reopen with matching superclass clause" do
-    _(ze0(<<~'RUBY')).must_answer "HI!\n"
+    result = ze0(<<~'RUBY')
       # A builtin reopen may RESTATE the class's real superclass (`class String <
       # Object`); the methods attach exactly as a clauseless reopen (D3).
 
@@ -648,6 +650,8 @@ describe "Builtins programs" do
       end
       puts "hi".shout
     RUBY
+
+    _(result).must_answer "HI!\n"
   end
 
   it "builtin row claims the name" do

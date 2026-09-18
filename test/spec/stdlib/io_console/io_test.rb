@@ -286,12 +286,14 @@ describe "IO::console: reading and writing" do
   end
 
   it "io console respond to" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       # io/console's methods answer to reflection, not just to calls -- webrick and
       # friends feature-test with `respond_to?(:raw)` before touching the terminal.
       require "io/console"
       p STDIN.respond_to?(:raw)
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "io console size reads the environment" do

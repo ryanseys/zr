@@ -93,7 +93,7 @@ describe "JSON programs" do
   end
 
   it "issue 3342 threads with native packages" do
-    _(ze0(<<~'RUBY')).must_answer "[\"{\\\"a\\\":1}\"]\n"
+    result = ze0(<<~'RUBY')
       require "json"
       require "stringio"
 
@@ -106,16 +106,20 @@ describe "JSON programs" do
       th.join
       p results
     RUBY
+
+    _(result).must_answer "[\"{\\\"a\\\":1}\"]\n"
   end
 
   it "issue hash to json missing" do
-    _(ze0(<<~'RUBY')).must_answer "\"{\\\"a\\\":1}\"\n"
+    result = ze0(<<~'RUBY')
       # `require "json"` adds `#to_json` to the core classes, so a Hash serializes
       # through the method as well as through the explicit `JSON.generate` and
       # `JSON.dump` entry points.
       require "json"
       p({a: 1}.to_json)
     RUBY
+
+    _(result).must_answer "\"{\\\"a\\\":1}\"\n"
   end
 
   it "json additions and classes" do
@@ -264,7 +268,7 @@ describe "JSON programs" do
   end
 
   it "json generate cycle aborts" do
-    _(ze0(<<~'RUBY')).must_answer "JSON::NestingError\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -287,6 +291,8 @@ describe "JSON programs" do
         puts e.class
       end
     RUBY
+
+    _(result).must_answer "JSON::NestingError\n"
   end
 
   it "json generate nan infinity" do

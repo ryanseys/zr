@@ -646,7 +646,7 @@ describe "Classes programs" do
   end
 
   it "class def under runtime conditional" do
-    _(ze0(<<~'RUBY')).must_answer "native\n"
+    result = ze0(<<~'RUBY')
       # A class or module body guarded by a RUNTIME condition.
       #
       # Gems that support more than one Ruby implementation define whole classes
@@ -686,6 +686,8 @@ describe "Classes programs" do
 
       puts Backend.new.name
     RUBY
+
+    _(result).must_answer "native\n"
   end
 
   it "class defines its own new" do
@@ -937,7 +939,7 @@ describe "Classes programs" do
   end
 
   it "class new override supers into a runtime parent" do
-    _(ze0(<<~'RUBY')).must_answer "\"hi x!\"\n"
+    result = ze0(<<~'RUBY')
       # #192 feature (1): a `super` in an override installed via a `Class.new(Parent)`
       # block reaches the parent's method, when the parent is a runtime class. The
       # override forwards args and composes the parent's result.
@@ -954,6 +956,8 @@ describe "Classes programs" do
       end
       p sub.new.greet("x")
     RUBY
+
+    _(result).must_answer "\"hi x!\"\n"
   end
 
   it "class of primitive" do
@@ -1811,9 +1815,11 @@ describe "Classes programs" do
   end
 
   it "defined on a begin expression classifies as expression" do
-    _(ze0(<<~'RUBY')).must_answer "expression\n"
+    result = ze0(<<~'RUBY')
       puts defined?(begin; 1; end)
     RUBY
+
+    _(result).must_answer "expression\n"
   end
 
   it "definition hooks when compiled" do
@@ -2198,7 +2204,7 @@ describe "Classes programs" do
   end
 
   it "i1027" do
-    _(ze0(<<~'RUBY')).must_answer "[hello]\n"
+    result = ze0(<<~'RUBY')
       # Issue #1027: string interpolation of a method that returns sp_String *
       # (the mutable-string type backing `String.new` + `<<`) emitted the
       # pointer cast to long long with `%lld` instead of reading the string
@@ -2228,6 +2234,8 @@ describe "Classes programs" do
 
       puts "[#{M.make}]"
     RUBY
+
+    _(result).must_answer "[hello]\n"
   end
 
   it "i898" do

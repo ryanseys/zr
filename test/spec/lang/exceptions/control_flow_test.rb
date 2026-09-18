@@ -225,7 +225,7 @@ describe "Exceptions: control flow" do
   end
 
   it "break in begin still leaves a raise free to propagate" do
-    _(ze0(<<~'RUBY')).must_answer "caught: rethrow boom\n"
+    result = ze0(<<~'RUBY')
       # The loop-crossing settle only translates Break/Next/Redo; a re-raised
       # exception still `?`-propagates out to the outer handler (H2).
 
@@ -243,6 +243,8 @@ describe "Exceptions: control flow" do
         puts "caught: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "caught: rethrow boom\n"
   end
 
   it "break next from inside begin rescue nested in a real escaping block works" do
@@ -419,7 +421,7 @@ describe "Exceptions: control flow" do
   end
 
   it "exc stack window cleared" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       # The exception stack's mark window follows sp_exc_top up and down, and a slot
       # that leaves it kept its pointer. Pop below a used slot, collect (the object
       # is now unreferenced, so it is freed), then push back over it, and the window
@@ -461,6 +463,8 @@ describe "Exceptions: control flow" do
       end
       p total > 0
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "exception cause" do
@@ -818,7 +822,7 @@ describe "Exceptions: control flow" do
   end
 
   it "rescue naming an undefined constant compiles and never fires if no exception" do
-    _(ze0(<<~'RUBY')).must_answer "ok\n"
+    result = ze0(<<~'RUBY')
       # The `rescue` clause's class expression is only evaluated while matching
       # an actually-raised exception. A clause that never fires must not fail
       # the compile just because its class isn't defined.
@@ -830,6 +834,8 @@ describe "Exceptions: control flow" do
       end
       puts "ok"
     RUBY
+
+    _(result).must_answer "ok\n"
   end
 
   it "rescue return with ensure" do
@@ -999,7 +1005,7 @@ describe "Exceptions: control flow" do
   end
 
   it "retry and ensure combined inside an enclosing while loop" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       # The `begin`'s own `retry` restarts just its OWN body (not the `while`
       # loop), and `ensure` runs once per `while` ITERATION (twice total,
       # once per `i`) -- not once per `retry` attempt within an iteration.
@@ -1020,6 +1026,8 @@ describe "Exceptions: control flow" do
       end
       puts total_ensure
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "retry loop runs ensure exactly once not per attempt" do
@@ -1072,7 +1080,7 @@ describe "Exceptions: control flow" do
   end
 
   it "return from ensure overrides return from the begin body" do
-    _(ze0(<<~'RUBY')).must_answer "from ensure\n"
+    result = ze0(<<~'RUBY')
       # Real, tricky Ruby semantic: a `return` inside `ensure` wins over a
       # `return` already in flight from `begin`'s own body -- not just "ensure
       # runs afterward", it actually REPLACES the method's return value.
@@ -1092,6 +1100,8 @@ describe "Exceptions: control flow" do
       end
       puts M.new.m
     RUBY
+
+    _(result).must_answer "from ensure\n"
   end
 
   it "times loop containing begin rescue with no crossing control flow still works" do

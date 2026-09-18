@@ -58,7 +58,7 @@ describe "IO programs" do
   end
 
   it "armed gvl holder blocked on a pipe read does not stall its siblings" do
-    _(ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})).must_answer "\"hello\\n\"\n"
+    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The io-family without_gvl probe, in ZEO_GVL=1 fidelity mode: the
       # reader parks on an EMPTY pipe while main sleeps, so without the
       # release at the `with_file` seam the reader would block INSIDE the
@@ -72,6 +72,8 @@ describe "IO programs" do
       w.puts "hello"
       p reader.value
     RUBY
+
+    _(result).must_answer "\"hello\\n\"\n"
   end
 
   it "autoload feature composes dir and expand path" do
@@ -1343,7 +1345,7 @@ describe "IO programs" do
   end
 
   it "io copy stream poly union" do
-    _(ze0(<<~'RUBY')).must_answer "hello-sio hello-file\n"
+    result = ze0(<<~'RUBY')
       # IO.copy_stream / #rewind through a param that unions StringIO and File
       # dispatch on the runtime stream class (#3257). Uses temp files it creates.
       require 'stringio'
@@ -1366,6 +1368,8 @@ describe "IO programs" do
       File.delete(src_path)
       File.delete(dst_path)
     RUBY
+
+    _(result).must_answer "hello-sio hello-file\n"
   end
 
   it "io mode errors precede the syscall" do
@@ -1777,7 +1781,7 @@ describe "IO programs" do
   end
 
   it "print field and record separators" do
-    _(ze0(<<~'RUBY')).must_answer "a-b!\n"
+    result = ze0(<<~'RUBY')
       $, = "-"
       $\ = "!"
       print "a", "b"
@@ -1785,6 +1789,8 @@ describe "IO programs" do
       $\ = nil
       puts ""
     RUBY
+
+    _(result).must_answer "a-b!\n"
   end
 
   it "puts class value" do
@@ -2192,7 +2198,7 @@ describe "IO programs" do
   end
 
   it "stdout is discarded by exit bang" do
-    _(ze0(<<~'RUBY')).must_answer ""
+    result = ze0(<<~'RUBY')
       # `exit!` is CRuby's `_exit(2)`: no `at_exit` handler, and whatever stdio
       # still holds is DISCARDED. So this program prints NOTHING, where the same
       # text through `exit` prints all 300 bytes. A native `exit` runs the
@@ -2202,6 +2208,8 @@ describe "IO programs" do
       print "A" * 300
       exit!(0)
     RUBY
+
+    _(result).must_answer ""
   end
 
   it "stdout survives exit" do
@@ -2218,7 +2226,7 @@ describe "IO programs" do
   end
 
   it "thread file gets" do
-    _(ze0(<<~'RUBY')).must_answer "[\"line1\\n\", \"line2\\n\"]\n"
+    result = ze0(<<~'RUBY')
       File.write("tfg.tmp", "line1\nline2\n")
       f = File.open("tfg.tmp")
       t = Thread.new do
@@ -2230,10 +2238,12 @@ describe "IO programs" do
       f.close
       File.delete("tfg.tmp")
     RUBY
+
+    _(result).must_answer "[\"line1\\n\", \"line2\\n\"]\n"
   end
 
   it "user defined puts wins over the kernel function" do
-    _(ze0(<<~'RUBY')).must_answer "\"logged: hi\"\n"
+    result = ze0(<<~'RUBY')
       # A user-defined sibling `puts` WINS over the Kernel function (real Ruby's
       # rule).
 
@@ -2250,14 +2260,18 @@ describe "IO programs" do
       v = Logger.new.run
       p v
     RUBY
+
+    _(result).must_answer "\"logged: hi\"\n"
   end
 
   it "warn after stderr reopen" do
-    _(ze0(<<~'RUBY')).must_answer "survived\n"
+    result = ze0(<<~'RUBY')
       $stderr.reopen(IO::NULL)
       warn "w1"
       puts "survived"
     RUBY
+
+    _(result).must_answer "survived\n"
   end
 
   it "warn and stderr writes land on stderr not stdout" do

@@ -124,7 +124,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "class shift self methods can read and write class variables" do
-    _(ze0(<<~'RUBY')).must_answer "2\n"
+    result = ze0(<<~'RUBY')
       class Counter
         class << self
           def reset
@@ -143,6 +143,8 @@ describe "Variables: instance and class variables" do
       Counter.bump
       puts Counter.total
     RUBY
+
+    _(result).must_answer "2\n"
   end
 
   it "class variable is shared with a subclass that never declares its own" do
@@ -667,7 +669,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivars from a three level plain inheritance chain are all present on the leaf" do
-    _(ze0(<<~'RUBY')).must_answer "6\n"
+    result = ze0(<<~'RUBY')
       # A REAL bug found while adding this test: ivar-flattening originally
       # only scanned the MRO-winning materialized methods, missing any ivar
       # only ever touched through a `super`-reachable (but shadowed, not
@@ -699,10 +701,12 @@ describe "Variables: instance and class variables" do
       end
       puts C.new.total
     RUBY
+
+    _(result).must_answer "6\n"
   end
 
   it "ivars store real per instance state" do
-    _(ze0(<<~'RUBY')).must_answer "5\n"
+    result = ze0(<<~'RUBY')
       class Point
         def initialize(x)
           @x = x
@@ -715,6 +719,8 @@ describe "Variables: instance and class variables" do
 
       puts Point.new(5).x
     RUBY
+
+    _(result).must_answer "5\n"
   end
 
   it "module class variable is shared across every including class" do

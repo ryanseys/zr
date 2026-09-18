@@ -33,7 +33,7 @@ describe "Modules: visibility" do
   end
 
   it "issue module function dynamic class body" do
-    _(ze0(<<~'RUBY')).must_answer "\"helped\"\n"
+    result = ze0(<<~'RUBY')
       # The bare `module_function` directive (no args) is supposed to turn
       # subsequently defined methods into module functions, but this only takes
       # effect in a literal `module ... end` body -- inside a `Module.new { ... }`
@@ -47,10 +47,12 @@ describe "Modules: visibility" do
       end
       p m.helper
     RUBY
+
+    _(result).must_answer "\"helped\"\n"
   end
 
   it "module function can call another modules function" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       # Pre-existing gap found by 14.2's cross-package test: module-function
       # bodies live inside a generated `pub mod` (a real child module), so a
       # reference to a sibling top-level module didn't resolve. One file, no
@@ -68,6 +70,8 @@ describe "Modules: visibility" do
       end
       puts B.g
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "module function in reopened body" do
@@ -231,7 +235,7 @@ describe "Modules: visibility" do
   end
 
   it "module function is callable via its own def self" do
-    _(ze0(<<~'RUBY')).must_answer "12\n"
+    result = ze0(<<~'RUBY')
       module Utility
         def self.triple(x)
           x * 3
@@ -239,6 +243,8 @@ describe "Modules: visibility" do
       end
       puts Utility.triple(4)
     RUBY
+
+    _(result).must_answer "12\n"
   end
 
   it "module function namespace" do

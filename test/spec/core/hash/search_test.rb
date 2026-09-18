@@ -191,7 +191,7 @@ describe "Hash: searching and matching" do
   end
 
   it "hash param widen from callee slot" do
-    _(ze0(<<~'RUBY')).must_answer "4\n"
+    result = ze0(<<~'RUBY')
       # Hash-typed parameter back-propagation from callee slot:
       # `def outer(into); inner(into); end` where `inner` already
       # widened its `into` slot to a poly variant (via body
@@ -236,6 +236,8 @@ describe "Hash: searching and matching" do
 
       puts Form.run
     RUBY
+
+    _(result).must_answer "4\n"
   end
 
   it "hash to a entries" do

@@ -2520,7 +2520,7 @@ describe "Array: regressions" do
   end
 
   it "issue 3213" do
-    _(ze0(<<~'RUBY')).must_answer "[[1], [\"one\"]]\n"
+    result = ze0(<<~'RUBY')
       def crash
         numbers, strings = [], []
         numbers << 1
@@ -2529,6 +2529,8 @@ describe "Array: regressions" do
       end
       p crash
     RUBY
+
+    _(result).must_answer "[[1], [\"one\"]]\n"
   end
 
   it "issue 3227 captured shared" do

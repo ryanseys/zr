@@ -437,7 +437,7 @@ describe "Blocks: slicing" do
   end
 
   it "escaping block captures self" do
-    _(ze0(<<~'RUBY')).must_answer "hi\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -478,6 +478,8 @@ describe "Blocks: slicing" do
       f.fire
       puts f.first
     RUBY
+
+    _(result).must_answer "hi\n"
   end
 
   it "multi arg yield" do

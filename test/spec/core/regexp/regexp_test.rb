@@ -298,7 +298,7 @@ describe "Regexp programs" do
   end
 
   it "hash default proc gc scan" do
-    _(ze0(<<~'RUBY')).must_answer "\"missing!\"\n"
+    result = ze0(<<~'RUBY')
       # A StrPolyHash must keep the Proc stored in dproc_self alive. The hash is the
       # only owner after the local Proc is cleared; a forced collection must not turn
       # a later default lookup into a call through freed memory.
@@ -308,6 +308,8 @@ describe "Regexp programs" do
       GC.start
       p h["missing"]
     RUBY
+
+    _(result).must_answer "\"missing!\"\n"
   end
 
   it "interpolated regexp literal shares the enclosing scope" do
@@ -325,7 +327,7 @@ describe "Regexp programs" do
   end
 
   it "invalid interpolated pattern raises a catchable regexp error" do
-    _(ze0(<<~'RUBY')).must_answer "regexp error\n"
+    result = ze0(<<~'RUBY')
       # A STATIC (non-interpolated) invalid pattern is a real, uncatchable
       # `SyntaxError` at parse time in real Ruby -- zeo defers that
       # check to construction time uniformly (a documented, narrower-timing
@@ -341,6 +343,8 @@ describe "Regexp programs" do
         puts "regexp error"
       end
     RUBY
+
+    _(result).must_answer "regexp error\n"
   end
 
   it "matchdata constant" do
@@ -439,7 +443,7 @@ describe "Regexp programs" do
   end
 
   it "optional param default expr referencing an ivar is scanned" do
-    _(ze0(<<~'RUBY')).must_answer "hi World and World\n"
+    result = ze0(<<~'RUBY')
       # Before this fix, `analyze::collect_ivars`/`locals::track_extra`/
       # `hoisting`'s per-method scans never walked into a `Params::optional`/
       # `keywords` default expression -- an ivar referenced ONLY there (never
@@ -458,6 +462,8 @@ describe "Regexp programs" do
 
       puts Greeter.new.greet
     RUBY
+
+    _(result).must_answer "hi World and World\n"
   end
 
   it "poly recv runtime regex scan" do
@@ -2146,7 +2152,7 @@ describe "Regexp programs" do
   end
 
   it "regexp property error is one line" do
-    _(ze0(<<~'RUBY')).must_answer "invalid character property name {Nope}: /\\p{Nope}/\n"
+    result = ze0(<<~'RUBY')
       # An unknown character property raises RegexpError with ruby's one-line
       # message ("invalid character property name {Nope}: /\p{Nope}/"); zeo
       # leaks the regex engine's own multi-line rendering. The unclosed-paren
@@ -2158,6 +2164,8 @@ describe "Regexp programs" do
         puts e.message
       end
     RUBY
+
+    _(result).must_answer "invalid character property name {Nope}: /\\p{Nope}/\n"
   end
 
   it "regexp reflection" do
@@ -2319,7 +2327,7 @@ describe "Regexp programs" do
   end
 
   it "split with no match returns the whole string unsplit" do
-    _(ze0(<<~'RUBY')).must_answer "abc\n"
+    result = ze0(<<~'RUBY')
       # The empty-haystack-returns-an-empty-array case is exercised directly
       # at the `zeo_rt::regexp_split` unit-test level instead (see
       # `zeo-rt/src/regexp.rs`) -- `puts`-ing it here would conflate this
@@ -2334,6 +2342,8 @@ describe "Regexp programs" do
 
       puts "abc".split(/x/)
     RUBY
+
+    _(result).must_answer "abc\n"
   end
 
   it "string partition regex and puts" do

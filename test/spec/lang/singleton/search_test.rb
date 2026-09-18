@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: searching and matching" do
   it "extended mode ignores whitespace and comments" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       r = /
         \d+  # a number
         -
@@ -12,6 +12,8 @@ describe "Singleton: searching and matching" do
       /x
       puts r.match?("123-456")
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "extended module carries a runtime installed body" do

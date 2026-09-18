@@ -1047,12 +1047,14 @@ describe "Object: frozen literals" do
   end
 
   it "repeated freeze is a silent no op" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    result = ze0(<<~'RUBY')
       c = "hi"
       c.freeze
       c.freeze
       puts c.frozen?
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "self freeze inside a method freezes the receiver" do
@@ -1090,7 +1092,7 @@ describe "Object: frozen literals" do
   end
 
   it "user defined freeze override wins over the builtin" do
-    _(ze0(<<~'RUBY')).must_answer "custom\n"
+    result = ze0(<<~'RUBY')
       # `freeze`/`frozen?` are ordinary overridable Kernel methods in real
       # Ruby -- a class's own definition must win over the universal dispatch.
 
@@ -1101,6 +1103,8 @@ describe "Object: frozen literals" do
       end
       puts Custom.new.freeze
     RUBY
+
+    _(result).must_answer "custom\n"
   end
 
   it "user object freeze frozen and custom freeze returning self" do

@@ -271,7 +271,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "extend pulls in module instance methods as class methods" do
-    _(ze0(<<~'RUBY')).must_answer "42\n"
+    result = ze0(<<~'RUBY')
       module MathHelpers
         def double(x)
           x * 2
@@ -282,10 +282,12 @@ describe "Methods: inheritance and ancestors" do
       end
       puts Calc.double(21)
     RUBY
+
+    _(result).must_answer "42\n"
   end
 
   it "include method body locals" do
-    _(ze0(<<~'RUBY')).must_answer "11\n"
+    result = ze0(<<~'RUBY')
       # A module instance method with body locals, included into a user class.
       # `include` clones the method into a scope owned by the class, but that clone
       # shares the source's body AST and only registers the params -- the body locals
@@ -323,6 +325,8 @@ describe "Methods: inheritance and ancestors" do
 
       puts Runner.new.run(5).to_s
     RUBY
+
+    _(result).must_answer "11\n"
   end
 
   it "inherited class method keeps its own cvars" do
@@ -1008,7 +1012,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "subclass calls a non overridden inherited method" do
-    _(ze0(<<~'RUBY')).must_answer "generic\n"
+    result = ze0(<<~'RUBY')
       # Closes a real, pre-existing latent gap: a class's own LITERAL methods each
       # get a generated method, but `Dog.new.speak` with no override at all has
       # none to call -- generated structs do not inherit each other's methods. MRO
@@ -1024,6 +1028,8 @@ describe "Methods: inheritance and ancestors" do
       end
       puts Dog.new.speak
     RUBY
+
+    _(result).must_answer "generic\n"
   end
 
   it "super channels" do
@@ -1131,7 +1137,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super from an extended module method resolves the singleton chain" do
-    _(ze0(<<~'RUBY')).must_answer "base!\n"
+    result = ze0(<<~'RUBY')
       # `extend M` puts M in the receiver's SINGLETON-class chain -- a `super`
       # inside M's method used to panic the compiler ("not found in own
       # ancestors"); it now resolves that chain statically (most recent extend
@@ -1153,10 +1159,12 @@ describe "Methods: inheritance and ancestors" do
       end
       puts Host.greet
     RUBY
+
+    _(result).must_answer "base!\n"
   end
 
   it "super from an override reaches an included module method" do
-    _(ze0(<<~'RUBY')).must_answer "widget\n"
+    result = ze0(<<~'RUBY')
       module Tagged
         def tag
           "base(#{super})"
@@ -1170,6 +1178,8 @@ describe "Methods: inheritance and ancestors" do
       end
       puts Widget.new.tag
     RUBY
+
+    _(result).must_answer "widget\n"
   end
 
   it "super in a block" do

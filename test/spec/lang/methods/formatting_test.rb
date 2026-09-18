@@ -664,7 +664,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwarg back propagate callee type" do
-    _(ze0(<<~'RUBY')).must_answer "append|s|t|len=5\n"
+    result = ze0(<<~'RUBY')
       # #561 (Sam Ruby). Kwarg passthrough back-propagation: when
       # method outer forwards `inner(name: lvar)` and inner's
       # `name:` is typed (default value or body usage), outer's
@@ -692,10 +692,12 @@ describe "Methods: formatting and inspection" do
 
       puts Broadcasts.append(stream: "s", target: "t", html: "<div>")
     RUBY
+
+    _(result).must_answer "append|s|t|len=5\n"
   end
 
   it "kwarg only call leading optional" do
-    _(ze0(<<~'RUBY')).must_answer "a=nil k=1\n"
+    result = ze0(<<~'RUBY')
       # The whole-program shape: NO call site anywhere supplies the leading optional
       # positionally, so it stays poly, and the fallthrough handed it the keyword
       # hash -- which the declared keyword had already consumed, binding it twice
@@ -709,10 +711,12 @@ describe "Methods: formatting and inspection" do
       end
       puts A.f(k: 1)
     RUBY
+
+    _(result).must_answer "a=nil k=1\n"
   end
 
   it "kwarg only instance leading optional" do
-    _(ze0(<<~'RUBY')).must_answer "a=nil k=1\n"
+    result = ze0(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
       # immunise this (#3525).
       class B
@@ -722,10 +726,12 @@ describe "Methods: formatting and inspection" do
       end
       puts B.new.f(k: 1)
     RUBY
+
+    _(result).must_answer "a=nil k=1\n"
   end
 
   it "kwarg only two leading optionals" do
-    _(ze0(<<~'RUBY')).must_answer "a=nil b=nil k=1\n"
+    result = ze0(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
       # immunise this (#3525).
       class C
@@ -735,6 +741,8 @@ describe "Methods: formatting and inspection" do
       end
       puts C.f(k: 1)
     RUBY
+
+    _(result).must_answer "a=nil b=nil k=1\n"
   end
 
   it "kwarg with omitted leading optional" do
@@ -930,7 +938,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method added sees the superseded body" do
-    _(ze0(<<~'RUBY')).must_answer "  v -> 1\n  v -> 2\n2\n  name -> nil\n  name -> \"hand-written\"\n\"hand-written\"\n"
+    result = ze0(<<~'RUBY')
       # `def v; end; def v; end` fires `method_added(:v)` twice, and at the FIRST
       # firing ruby has only the first body installed. zeo runs the second.
       #
@@ -971,6 +979,8 @@ describe "Methods: formatting and inspection" do
       end
       p Attr.new.name
     RUBY
+
+    _(result).must_answer "  v -> 1\n  v -> 2\n2\n  name -> nil\n  name -> \"hand-written\"\n\"hand-written\"\n"
   end
 
   it "method added watermark" do
