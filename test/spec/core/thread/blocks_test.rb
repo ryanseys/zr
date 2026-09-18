@@ -472,7 +472,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber works inside a ractor" do
-    result = ze0(<<~'RUBY', path: "core/thread/a_fiber_works_inside_a_ractor.rb")
+    result = ze0(<<~'RUBY')
       # The fiber table is thread-pinned and a Ractor is its own OS thread --
       # create and drive entirely within it.
 
@@ -488,7 +488,7 @@ describe "Thread: blocks and yields" do
       puts r.value
     RUBY
 
-    _(result).must_answer "3\n", stderr: "core/thread/a_fiber_works_inside_a_ractor.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "3\n", stderr: "core/thread/blocks_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "fiber yield at the root raises a fiber error" do
@@ -862,7 +862,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "ractor block reading an enclosing ivar raises inside the ractor" do
-    result = ze0(<<~'RUBY', path: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb")
+    result = ze0(<<~'RUBY')
       # Ruby isolates the Proc and rebinds its `self` to the RACTOR, so `@n` is
       # an ivar of a shareable object -- `Ractor::IsolationError` in the ractor,
       # surfacing as `Ractor::RemoteError` at `#value`. zeo used to refuse to
@@ -880,13 +880,13 @@ describe "Thread: blocks and yields" do
       Holder.new.go
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/blocks_test.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors
     OUT
   end
 
   it "ractor new with proc arg" do
-    result = ze0(<<~'RUBY', path: "core/thread/ractor_new_with_proc_arg.rb")
+    result = ze0(<<~'RUBY')
       # `Ractor.new(&proc)` -- a dynamic proc converts like any `&` block
       # argument, and its isolability is decided at Ractor.new TIME with CRuby's
       # plain ArgumentError (only a literal block gets zeo's earlier static
@@ -939,7 +939,7 @@ describe "Thread: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/ractor_new_with_proc_arg.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/blocks_test.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       42
       15
       2

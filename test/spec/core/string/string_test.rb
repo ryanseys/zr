@@ -349,7 +349,7 @@ describe "String programs" do
   end
 
   it "gc stat string heap" do
-    result = ze0(<<~'RUBY', path: "core/string/gc_stat_string_heap.rb")
+    result = ze0(<<~'RUBY')
       # GC.stat surfaces the string heap (str_bytes / str_count). Spinel allocates
       # string data on a separate malloc'd heap (sp_str_heap) that is deliberately
       # excluded from the object-heap `bytes` figure (see sp_str_alloc), so a
@@ -367,7 +367,7 @@ describe "String programs" do
       puts "retained: " + arr.length.to_s
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/gc_stat_string_heap.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs \"str_count >= 1000: \" + (g[\"str_count\"] >= 1000 ? \"yes\" : \"no\")\n                                             ^^\n", status: 1
+    _(result).must_answer "", stderr: "core/string/string_test.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs \"str_count >= 1000: \" + (g[\"str_count\"] >= 1000 ? \"yes\" : \"no\")\n                                             ^^\n", status: 1
   end
 
   it "gc str arg rooted" do
@@ -864,7 +864,7 @@ describe "String programs" do
   end
 
   it "raise of a plain string is an implicit runtime error" do
-    result = ze0(<<~'RUBY', path: "core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb")
+    result = ze0(<<~'RUBY')
       class Risky
         def check
           raise "plain string error"
@@ -873,7 +873,7 @@ describe "String programs" do
       Risky.new.check
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb:3:in 'Risky#check': plain string error (RuntimeError)\n\tfrom core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb:6:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "core/string/string_test.rb:3:in 'Risky#check': plain string error (RuntimeError)\n\tfrom core/string/string_test.rb:6:in '<main>'\n", status: 1
   end
 
   it "ruby engine name" do

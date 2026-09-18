@@ -1232,7 +1232,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "open encoding option warns or raises" do
-    result = ze0(<<~'RUBY', path: "core/encoding/an_open_encoding_option_warns_or_raises.rb")
+    result = ze0(<<~'RUBY')
       # The two rules an open-time encoding argument follows, which are not the same
       # rule and are not derivable from each other.
       #
@@ -1302,7 +1302,7 @@ describe "Encoding: formatting and inspection" do
       puts "ran to the end"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/encoding/an_open_encoding_option_warns_or_raises.rb:33: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/an_open_encoding_option_warns_or_raises.rb:34: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/an_open_encoding_option_warns_or_raises.rb:35: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/an_open_encoding_option_warns_or_raises.rb:36: warning: Unsupported encoding NoSuchEnc ignored\n"
+    _(result).must_answer <<~'OUT', stderr: "core/encoding/formatting_test.rb:33: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/formatting_test.rb:34: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/formatting_test.rb:35: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/formatting_test.rb:36: warning: Unsupported encoding NoSuchEnc ignored\n"
       mode tail unknown	["UTF-8", nil]
       encoding: unknown	["UTF-8", nil]
       encoding: pair, internal unknown	["UTF-8", nil]

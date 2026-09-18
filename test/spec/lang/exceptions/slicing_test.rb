@@ -374,7 +374,7 @@ describe "Exceptions: slicing" do
   end
 
   it "error names the code it came from" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/an_error_names_the_code_it_came_from.rb")
+    result = ze0(<<~'RUBY')
       # detailed_message shows the line an error came from with a caret run
       # under the node that failed, as error_highlight spots it: a call's name
       # or arguments, a constant, an operator write, and for a wrong argument
@@ -437,19 +437,19 @@ describe "Exceptions: slicing" do
       --
       wrong number of arguments (given 1, expected 2) (ArgumentError)
       
-          caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:19
+          caller: lang/exceptions/slicing_test.rb:19
           | show { two(1) }
                    ^^^
-          callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:11
+          callee: lang/exceptions/slicing_test.rb:11
           | def two(a, b) = a
                 ^^^
       --
       missing keyword: :a (ArgumentError)
       
-          caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:20
+          caller: lang/exceptions/slicing_test.rb:20
           | show { kw }
                    ^^
-          callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:12
+          callee: lang/exceptions/slicing_test.rb:12
           | def kw(a:) = a
                 ^^
       --
@@ -485,10 +485,10 @@ describe "Exceptions: slicing" do
       --
       wrong number of arguments (given 0, expected 1) (ArgumentError)
       
-          caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:27
+          caller: lang/exceptions/slicing_test.rb:27
           | show { ->(a) {}.call }
                            ^^^^^
-          callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:27
+          callee: lang/exceptions/slicing_test.rb:27
           | show { ->(a) {}.call }
                    ^^
       --

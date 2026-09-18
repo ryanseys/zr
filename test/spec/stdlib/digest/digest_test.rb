@@ -82,7 +82,7 @@ describe "Digest programs" do
   end
 
   it "byte read keeps its bytes" do
-    result = ze0(<<~'RUBY', path: "stdlib/digest/a_byte_read_keeps_its_bytes.rb", files: fixtures("every_byte.bin"))
+    result = ze0(<<~'RUBY', files: fixtures("every_byte.bin"))
       # `readpartial`, `sysread`, `read(n, buf)` and `pread` answer BYTES.
       #
       # Each of them used to route the bytes through `String::from_utf8_lossy`,

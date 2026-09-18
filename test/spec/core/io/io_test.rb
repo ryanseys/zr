@@ -17,7 +17,7 @@ describe "IO programs" do
   end
 
   it "argf reads args" do
-    result = ze0(<<~'RUBY', path: "core/io/argf_reads_args.rb", argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
+    result = ze0(<<~'RUBY', argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
 
       # ARGF reads the files named in ARGV (here one file passed as an arg),
       # line by line; ARGF.filename names the current file.
@@ -459,7 +459,7 @@ describe "IO programs" do
   end
 
   it "dying program orders its output and its report" do
-    result = ze0(<<~'RUBY', path: "core/io/a_dying_program_orders_its_output_and_its_report.rb")
+    result = ze0(<<~'RUBY')
       # The report of an uncaught exception goes through the `$stderr` OBJECT, so
       # the order it lands in follows each stream's own buffer rather than any
       # flush of ze0's choosing.
@@ -484,7 +484,7 @@ describe "IO programs" do
       a line through puts
       a warning
       at_exit wrote this
-      core/io/a_dying_program_orders_its_output_and_its_report.rb:16:in '<main>': the program gave up (RuntimeError)
+      core/io/io_test.rb:16:in '<main>': the program gave up (RuntimeError)
     OUT
   end
 
@@ -504,7 +504,7 @@ describe "IO programs" do
   end
 
   it "eval file and line arguments" do
-    result = ze0(<<~'RUBY', path: "core/io/eval_file_and_line_arguments.rb")
+    result = ze0(<<~'RUBY')
       # `eval`'s 3rd and 4th arguments name the snippet, and a snippet is a real
       # scope: it gets a frame of its own, under the label of the BINDING it runs
       # in -- not the caller's -- and each statement stamps its own line, counted
@@ -554,12 +554,12 @@ describe "IO programs" do
       "fake.rb"
       100
       "fake.rb:10:in '<main>'"
-      ["f.rb:1:in '<main>'", "core/io/eval_file_and_line_arguments.rb:17:in 'Binding#eval'", "core/io/eval_file_and_line_arguments.rb:17:in '<main>'"]
-      ["(eval at core/io/eval_file_and_line_arguments.rb:18):1:in '<main>'", "core/io/eval_file_and_line_arguments.rb:18:in 'BasicObject#instance_eval'", "core/io/eval_file_and_line_arguments.rb:18:in '<main>'"]
-      ["(eval at core/io/eval_file_and_line_arguments.rb:19):1:in '<main>'", "core/io/eval_file_and_line_arguments.rb:19:in 'Module#class_eval'", "core/io/eval_file_and_line_arguments.rb:19:in '<main>'"]
+      ["f.rb:1:in '<main>'", "core/io/io_test.rb:17:in 'Binding#eval'", "core/io/io_test.rb:17:in '<main>'"]
+      ["(eval at core/io/io_test.rb:18):1:in '<main>'", "core/io/io_test.rb:18:in 'BasicObject#instance_eval'", "core/io/io_test.rb:18:in '<main>'"]
+      ["(eval at core/io/io_test.rb:19):1:in '<main>'", "core/io/io_test.rb:19:in 'Module#class_eval'", "core/io/io_test.rb:19:in '<main>'"]
       "multi.rb:7:in '<main>'"
-      ["f1.rb:1:in 'Object#outer'", "core/io/eval_file_and_line_arguments.rb:31:in 'Kernel#eval'"]
-      ["deffile.rb:4:in 'Object#m_in_eval'", "deffile.rb:6:in '<main>'", "core/io/eval_file_and_line_arguments.rb:40:in 'Kernel#eval'"]
+      ["f1.rb:1:in 'Object#outer'", "core/io/io_test.rb:31:in 'Kernel#eval'"]
+      ["deffile.rb:4:in 'Object#m_in_eval'", "deffile.rb:6:in '<main>'", "core/io/io_test.rb:40:in 'Kernel#eval'"]
     OUT
   end
 
@@ -595,7 +595,7 @@ describe "IO programs" do
   end
 
   it "file and line report the eval site" do
-    result = ze0(<<~'RUBY', path: "core/io/file_and_line_report_the_eval_site.rb")
+    result = ze0(<<~'RUBY')
       f = "__FILE__"
       p eval(f)
       l = "__LINE__"
@@ -603,7 +603,7 @@ describe "IO programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "(eval at core/io/file_and_line_report_the_eval_site.rb:2)"
+      "(eval at core/io/io_test.rb:2)"
       1
     OUT
   end
@@ -1220,12 +1220,12 @@ describe "IO programs" do
   end
 
   it "io buffer experimental warning" do
-    result = ze0(<<~'RUBY', path: "core/io/io_buffer_experimental_warning.rb")
+    result = ze0(<<~'RUBY')
       b = IO::Buffer.new(8)
       p b.size
     RUBY
 
-    _(result).must_answer "8\n", stderr: "core/io/io_buffer_experimental_warning.rb:1: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!\n"
+    _(result).must_answer "8\n", stderr: "core/io/io_test.rb:1: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!\n"
   end
 
   it "io buffered read position" do
@@ -1608,7 +1608,7 @@ describe "IO programs" do
   end
 
   it "moved stderr takes warnings and the report" do
-    result = ze0(<<~'RUBY', path: "core/io/a_moved_stderr_takes_warnings_and_the_report.rb")
+    result = ze0(<<~'RUBY')
       # Once $stderr names another stream, warnings, abort's message and the
       # report of an uncaught exception all go there.
       $stderr = $stdout
@@ -1626,7 +1626,7 @@ describe "IO programs" do
       w
       direct
       a
-      core/io/a_moved_stderr_takes_warnings_and_the_report.rb:10:in '<main>': boom (RuntimeError)
+      core/io/io_test.rb:10:in '<main>': boom (RuntimeError)
     OUT
   end
 
@@ -2089,7 +2089,7 @@ describe "IO programs" do
   end
 
   it "source file" do
-    result = ze0(<<~'RUBY', path: "core/io/source_file.rb")
+    result = ze0(<<~'RUBY')
       # SourceFileNode -- the `__FILE__` keyword.
       #
       # Spinel inlines `require`/`require_relative` at parse time, so call
@@ -2120,7 +2120,7 @@ describe "IO programs" do
 
       # String predicates dispatch via the string arm.
       puts __FILE__.end_with?(".rb")
-      puts __FILE__.include?("source_file")
+      puts __FILE__.include?("io_test")
 
       # Round-trip through a typed-String parameter at a method call site.
       def show(s)
@@ -2130,14 +2130,14 @@ describe "IO programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      core/io/source_file.rb
+      core/io/io_test.rb
       true
-      [core/io/source_file.rb]
-      got: core/io/source_file.rb
+      [core/io/io_test.rb]
+      got: core/io/io_test.rb
       true
       true
       true
-      param: core/io/source_file.rb
+      param: core/io/io_test.rb
     OUT
   end
 

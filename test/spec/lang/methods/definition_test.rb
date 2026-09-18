@@ -261,7 +261,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias frame names the method it was born as" do
-    result = ze0(<<~'RUBY', path: "lang/methods/an_alias_frame_names_the_method_it_was_born_as.rb")
+    result = ze0(<<~'RUBY')
       # The two halves of an alias's identity, which pull in opposite directions.
       #
       # A FRAME names the method it was BORN as: CRuby labels it from
@@ -338,7 +338,7 @@ describe "Methods: defining and naming methods" do
       [:real, :nick, 2]
       [:real, :nick2, 3]
       [:real, :nick]
-      lang/methods/an_alias_frame_names_the_method_it_was_born_as.rb:17:in 'Al#boom'
+      lang/methods/definition_test.rb:17:in 'Al#boom'
       ["Mixin#base", "Mixin#base"]
       [:orig, :orig, 1]
       [:orig, :by_method, 2]
@@ -869,7 +869,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias whose source resolves nowhere is a name error at program start" do
-    result = ze0(<<~'RUBY', path: "lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb")
+    result = ze0(<<~'RUBY')
       # `alias_method :foo, :nope_missing`: real Ruby raises NameError when the
       # class body EXECUTES (runtime, not compile time) -- mirrored by
       # `validate_aliases` at startup, with CRuby's message.
@@ -880,7 +880,7 @@ describe "Methods: defining and naming methods" do
       puts "unreached"
     RUBY
 
-    _(result).must_answer "", stderr: "lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:6:in 'Module#alias_method': undefined method 'nope_missing' for class 'Typo' (NameError)\n\n  alias_method :foo, :nope_missing\n  ^^^^^^^^^^^^\n\tfrom lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:6:in '<class:Typo>'\n\tfrom lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:5:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "lang/methods/definition_test.rb:6:in 'Module#alias_method': undefined method 'nope_missing' for class 'Typo' (NameError)\n\n  alias_method :foo, :nope_missing\n  ^^^^^^^^^^^^\n\tfrom lang/methods/definition_test.rb:6:in '<class:Typo>'\n\tfrom lang/methods/definition_test.rb:5:in '<main>'\n", status: 1
   end
 
   it "arg forwarding to rest callee" do

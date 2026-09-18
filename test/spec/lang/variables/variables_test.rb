@@ -400,7 +400,7 @@ describe "Variables programs" do
   end
 
   it "compound assignment on a plain non class constant dispatches correctly" do
-    result = ze0(<<~'RUBY', path: "lang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches_correctly.rb")
+    result = ze0(<<~'RUBY')
       # A real, previously-undetected bug, found alongside the `||=` fix
       # above: the compiler's call lowering treated ANY `HirNode::ClassRef`
       # receiver as a `ClassName.foo(...)` class-method call, UNCONDITIONALLY
@@ -420,7 +420,7 @@ describe "Variables programs" do
       puts MAX
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches_correctly.rb:14: warning: already initialized constant MAX\nlang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches_correctly.rb:13: warning: previous definition of MAX was here\nlang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches_correctly.rb:16: warning: already initialized constant MAX\nlang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches_correctly.rb:14: warning: previous definition of MAX was here\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/variables/variables_test.rb:14: warning: already initialized constant MAX\nlang/variables/variables_test.rb:13: warning: previous definition of MAX was here\nlang/variables/variables_test.rb:16: warning: already initialized constant MAX\nlang/variables/variables_test.rb:14: warning: previous definition of MAX was here\n"
       101
       51
     OUT
@@ -2368,7 +2368,7 @@ describe "Variables programs" do
   end
 
   it "or assignment writes only when it has to" do
-    result = ze0(<<~'RUBY', path: "lang/variables/an_or_assignment_writes_only_when_it_has_to.rb")
+    result = ze0(<<~'RUBY')
       # `x ||= v` is `x || (x = v)` and `x &&= v` is `x && (x = v)`: the write
       # happens only when the value is needed. A frozen receiver sees that --
       # memoizing into an ivar that is already set does not write -- and so does
@@ -2408,7 +2408,7 @@ describe "Variables programs" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/an_or_assignment_writes_only_when_it_has_to.rb:31: warning: already initialized constant K\nlang/variables/an_or_assignment_writes_only_when_it_has_to.rb:30: warning: previous definition of K was here\nlang/variables/an_or_assignment_writes_only_when_it_has_to.rb:36: warning: already initialized constant Holder::X\nlang/variables/an_or_assignment_writes_only_when_it_has_to.rb:33: warning: previous definition of X was here\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/variables/variables_test.rb:31: warning: already initialized constant K\nlang/variables/variables_test.rb:30: warning: previous definition of K was here\nlang/variables/variables_test.rb:36: warning: already initialized constant Holder::X\nlang/variables/variables_test.rb:33: warning: previous definition of X was here\n"
       1
       nil
       FrozenError
@@ -2429,7 +2429,7 @@ describe "Variables programs" do
   end
 
   it "other compound assignment operators still raise on an undefined constant" do
-    result = ze0(<<~'RUBY', path: "lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb")
+    result = ze0(<<~'RUBY')
       # Regression guard for the fix above: `||=`'s new leniency must NOT
       # leak into `+=`/`&&=` -- confirmed against real `ruby` that those
       # still raise on a genuinely undefined constant. An uncaught Ruby
@@ -2441,7 +2441,7 @@ describe "Variables programs" do
 
     RUBY
 
-    _(result).must_answer "", stderr: "lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:8:in '<main>': uninitialized constant UNDEF (NameError)\n", status: 1
+    _(result).must_answer "", stderr: "lang/variables/variables_test.rb:8:in '<main>': uninitialized constant UNDEF (NameError)\n", status: 1
   end
 
   it "output separator globals are honoured" do

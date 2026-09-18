@@ -1110,7 +1110,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited frame names the defining class" do
-    result = ze0(<<~'RUBY', path: "lang/classes/an_inherited_frame_names_the_defining_class.rb")
+    result = ze0(<<~'RUBY')
       # Ruby labels a backtrace frame with the class the `def` was WRITTEN in, not
       # the class of the receiver it was called on. An inherited method called on a
       # subclass still says `Base#boom`.
@@ -1176,9 +1176,9 @@ describe "Classes: inheritance and ancestors" do
       ["Base#where", "Base#where", "Base#where"]
       ["Mixed#mixed_where", "Mixed#mixed_where"]
       "Leaf#own_where"
-      lang/classes/an_inherited_frame_names_the_defining_class.rb:17:in 'Base#boom'
+      lang/classes/inheritance_test.rb:17:in 'Base#boom'
       "Config.direct"
-      lang/classes/an_inherited_frame_names_the_defining_class.rb:53:in 'Override#boom'
+      lang/classes/inheritance_test.rb:53:in 'Override#boom'
     OUT
   end
 

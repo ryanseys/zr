@@ -2376,7 +2376,7 @@ describe "Guards programs" do
   end
 
   it "run time compile handles aliases and guards" do
-    result = ze0(<<~'RUBY', path: "compiler/guards/a_run_time_compile_handles_aliases_and_guards.rb", files: fixtures("runtime_compiled/aliased_extend.rb", "runtime_compiled/guarded_toplevel.rb"))
+    result = ze0(<<~'RUBY', files: fixtures("runtime_compiled/aliased_extend.rb", "runtime_compiled/guarded_toplevel.rb"))
       # The RUN-TIME compiler on shapes real gems use. A `require` whose target only
       # the running program knows -- a computed feature name, or one reached through
       # a `$LOAD_PATH` the program just changed -- is compiled at run time by a
@@ -2508,7 +2508,7 @@ describe "Guards programs" do
   end
 
   it "scaffolded extension constant resolves but is a name error without require" do
-    result = ze0(<<~'RUBY', path: "compiler/guards/scaffolded_extension_constant_resolves_but_is_a_name_error_without_require.rb")
+    result = ze0(<<~'RUBY')
       # A scaffolded ext (json) is still require-gated: its constant is a
       # NameError until `require "json"` fires, exactly like the fully-built
       # ones -- scaffolding changes only what the METHODS do, not the gate.
@@ -2516,7 +2516,7 @@ describe "Guards programs" do
       puts JSON.generate([1])
     RUBY
 
-    _(result).must_answer "", stderr: "compiler/guards/scaffolded_extension_constant_resolves_but_is_a_name_error_without_require.rb:5:in '<main>': uninitialized constant JSON (NameError)\n\nputs JSON.generate([1])\n     ^^^^\n", status: 1
+    _(result).must_answer "", stderr: "compiler/guards/guards_test.rb:5:in '<main>': uninitialized constant JSON (NameError)\n\nputs JSON.generate([1])\n     ^^^^\n", status: 1
   end
 
   it "singleton class rescue guard" do

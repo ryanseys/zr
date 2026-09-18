@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "TracePoint programs" do
   it "attr reader call backtrace line" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/attr_reader_call_backtrace_line.rb")
+    result = ze0(<<~'RUBY')
       # CRuby compiles an `attr_*` accessor iseq-less, so it appears in no
       # backtrace. zeo's is frameless too -- but it still stamped its own line, and
       # a stamp with no frame of its own lands in the CALLER's and is never
@@ -54,17 +54,17 @@ describe "TracePoint programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["core/tracepoint/attr_reader_call_backtrace_line.rb:16:in 'Holder#boom'", "core/tracepoint/attr_reader_call_backtrace_line.rb:40:in '<main>'"]
-      ["core/tracepoint/attr_reader_call_backtrace_line.rb:22:in 'Holder#wboom'", "core/tracepoint/attr_reader_call_backtrace_line.rb:41:in '<main>'"]
-      ["core/tracepoint/attr_reader_call_backtrace_line.rb:28:in 'Holder#bboom'", "core/tracepoint/attr_reader_call_backtrace_line.rb:42:in '<main>'"]
-      ["core/tracepoint/attr_reader_call_backtrace_line.rb:34:in 'Holder#hand'", "core/tracepoint/attr_reader_call_backtrace_line.rb:43:in '<main>'"]
-      ["wrong number of arguments (given 1, expected 0)", "core/tracepoint/attr_reader_call_backtrace_line.rb:44:in '<main>'"]
-      ["core/tracepoint/attr_reader_call_backtrace_line.rb:46:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:16:in 'Holder#boom'", "core/tracepoint/tracepoint_test.rb:40:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:22:in 'Holder#wboom'", "core/tracepoint/tracepoint_test.rb:41:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:28:in 'Holder#bboom'", "core/tracepoint/tracepoint_test.rb:42:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:34:in 'Holder#hand'", "core/tracepoint/tracepoint_test.rb:43:in '<main>'"]
+      ["wrong number of arguments (given 1, expected 0)", "core/tracepoint/tracepoint_test.rb:44:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:46:in '<main>'"]
     OUT
   end
 
   it "backtrace frames match cruby across definition kinds" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb")
+    result = ze0(<<~'RUBY')
       # The comprehensive frame battery, all verbatim ruby 4.0.6 (invoked as
       # `-e`, the same label this harness compiles under): method labels
       # (Object#m / Foo#m / Foo.cm / M.modfun / M#mixed), lexical block
@@ -159,26 +159,26 @@ describe "TracePoint programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:12:in 'Object#plain'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:15:in 'Foo#m'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:16:in 'Foo.cm'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:21:in 'M.modfun'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:22:in 'M#mixed'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:28:in 'block in Object#with_block'
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:36:in 'block (2 levels) in Object#nested_blocks'
-      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:50:in 'Object#c_mid'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:51:in '<main>'"]
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:45:in 'Object#c_inner'
-      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:51:in '<main>'"]
-      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:50:in 'Object#c_mid'"]
+      core/tracepoint/tracepoint_test.rb:12:in 'Object#plain'
+      core/tracepoint/tracepoint_test.rb:15:in 'Foo#m'
+      core/tracepoint/tracepoint_test.rb:16:in 'Foo.cm'
+      core/tracepoint/tracepoint_test.rb:21:in 'M.modfun'
+      core/tracepoint/tracepoint_test.rb:22:in 'M#mixed'
+      core/tracepoint/tracepoint_test.rb:28:in 'block in Object#with_block'
+      core/tracepoint/tracepoint_test.rb:36:in 'block (2 levels) in Object#nested_blocks'
+      ["core/tracepoint/tracepoint_test.rb:50:in 'Object#c_mid'", "core/tracepoint/tracepoint_test.rb:51:in '<main>'"]
+      core/tracepoint/tracepoint_test.rb:45:in 'Object#c_inner'
+      ["core/tracepoint/tracepoint_test.rb:51:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:50:in 'Object#c_mid'"]
       nil
-      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:52:in 'Object#rr_inner'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:54:in 'Object#rr_outer'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:59:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:52:in 'Object#rr_inner'", "core/tracepoint/tracepoint_test.rb:54:in 'Object#rr_outer'", "core/tracepoint/tracepoint_test.rb:59:in '<main>'"]
       ["fake.rb:1:in 'x'", "fake.rb:2:in 'y'"]
       ["one_line"]
       nil
       nil
-      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:75:in 'block in <main>'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:74:in 'Object#proc_caller'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:77:in '<main>'"]
-      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:81:in 'Object#sent'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:83:in '<main>'"]
-      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:88:in '<main>': fm (ArgumentError)
+      ["core/tracepoint/tracepoint_test.rb:75:in 'block in <main>'", "core/tracepoint/tracepoint_test.rb:74:in 'Object#proc_caller'", "core/tracepoint/tracepoint_test.rb:77:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:81:in 'Object#sent'", "core/tracepoint/tracepoint_test.rb:83:in '<main>'"]
+      core/tracepoint/tracepoint_test.rb:88:in '<main>': fm (ArgumentError)
       
         raise ArgumentError, "fm"
               ^^^^^^^^^^^^^^^^^^^
@@ -186,7 +186,7 @@ describe "TracePoint programs" do
   end
 
   it "backtrace names the scope and the call line" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb", files: {"lib/backtrace_scopes.rb" => "# Required by `backtrace_names_the_scope_and_the_call_line.rb`. Its own\n# top level is a scope of its own -- ruby calls it `<top (required)>` --\n# even though zeo SPLICES this file into the requiring one.\nNESTED_BLOCKS = lambda do\n  [1].each do\n    raise \"raised two blocks deep at a required file's top level\"\n  end\nend\n\ndef a_method_here\n  raise \"raised in a method defined in a required file\"\nend\n\nclass Chained\n  def self.boom = raise(\"raised through a chained call\")\n  def self.itself_ = self\nend\n"})
+    result = ze0(<<~'RUBY', files: {"lib/backtrace_scopes.rb" => "# Required by `backtrace_names_the_scope_and_the_call_line.rb`. Its own\n# top level is a scope of its own -- ruby calls it `<top (required)>` --\n# even though zeo SPLICES this file into the requiring one.\nNESTED_BLOCKS = lambda do\n  [1].each do\n    raise \"raised two blocks deep at a required file's top level\"\n  end\nend\n\ndef a_method_here\n  raise \"raised in a method defined in a required file\"\nend\n\nclass Chained\n  def self.boom = raise(\"raised through a chained call\")\n  def self.itself_ = self\nend\n"})
       # Two questions a backtrace answers that zeo used to answer differently
       # from ruby, both about WHERE a frame is rather than what it does.
       #
@@ -238,28 +238,28 @@ describe "TracePoint programs" do
         lib/backtrace_scopes.rb:6:in 'block (2 levels) in <top (required)>'
         lib/backtrace_scopes.rb:5:in 'Array#each'
         lib/backtrace_scopes.rb:5:in 'block in <top (required)>'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:23:in 'block in <main>'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:23:in '<main>'
+        core/tracepoint/tracepoint_test.rb:23:in 'block in <main>'
+        core/tracepoint/tracepoint_test.rb:17:in 'Object#show'
+        core/tracepoint/tracepoint_test.rb:23:in '<main>'
       a method in a required file:
         lib/backtrace_scopes.rb:11:in 'Object#a_method_here'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:24:in 'block in <main>'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:24:in '<main>'
+        core/tracepoint/tracepoint_test.rb:24:in 'block in <main>'
+        core/tracepoint/tracepoint_test.rb:17:in 'Object#show'
+        core/tracepoint/tracepoint_test.rb:24:in '<main>'
       a chained call:
         lib/backtrace_scopes.rb:15:in 'Chained.boom'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:28:in 'block in <main>'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:26:in '<main>'
+        core/tracepoint/tracepoint_test.rb:28:in 'block in <main>'
+        core/tracepoint/tracepoint_test.rb:17:in 'Object#show'
+        core/tracepoint/tracepoint_test.rb:26:in '<main>'
       a call on a block's value:
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:34:in 'block in <main>'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:31:in '<main>'
+        core/tracepoint/tracepoint_test.rb:34:in 'block in <main>'
+        core/tracepoint/tracepoint_test.rb:17:in 'Object#show'
+        core/tracepoint/tracepoint_test.rb:31:in '<main>'
       a raise in the receiver of a chained call:
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:39:in 'Object#raises_while_evaluating'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:41:in 'block in <main>'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
-        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:40:in '<main>'
+        core/tracepoint/tracepoint_test.rb:39:in 'Object#raises_while_evaluating'
+        core/tracepoint/tracepoint_test.rb:41:in 'block in <main>'
+        core/tracepoint/tracepoint_test.rb:17:in 'Object#show'
+        core/tracepoint/tracepoint_test.rb:40:in '<main>'
     OUT
   end
 
@@ -294,7 +294,7 @@ describe "TracePoint programs" do
   end
 
   it "c call and set trace func fire around c methods" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/c_call_and_set_trace_func_fire_around_c_methods.rb")
+    result = ze0(<<~'RUBY')
       # TracePoint's :c_call and :c_return fire around each method CRuby
       # writes in C, where the program calls it: an operator, an accessor, a
       # method called with a block and the block's own calls.
@@ -355,18 +355,18 @@ describe "TracePoint programs" do
       [:c_call, :[], Hash, Hash, 22, nil]
       [:c_return, :[], Hash, Hash, 22, 1]
       [3, [2, 4], "A", [1, 3], 1]
-      ["line", "c_call_and_set_trace_func_fire_around_c_methods.rb", 34, nil, Binding, nil]
-      ["call", "c_call_and_set_trace_func_fire_around_c_methods.rb", 30, :origin, Binding, Point]
-      ["call", "c_call_and_set_trace_func_fire_around_c_methods.rb", 7, :initialize, Binding, Point]
-      ["return", "c_call_and_set_trace_func_fire_around_c_methods.rb", 7, :initialize, Binding, Point]
-      ["return", "c_call_and_set_trace_func_fire_around_c_methods.rb", 30, :origin, Binding, Point]
-      ["call", "c_call_and_set_trace_func_fire_around_c_methods.rb", 8, :moved, Binding, Point]
-      ["c-call", "c_call_and_set_trace_func_fire_around_c_methods.rb", 8, :x, NilClass, Point]
-      ["c-return", "c_call_and_set_trace_func_fire_around_c_methods.rb", 8, :x, NilClass, Point]
-      ["c-call", "c_call_and_set_trace_func_fire_around_c_methods.rb", 8, :+, NilClass, Integer]
-      ["c-return", "c_call_and_set_trace_func_fire_around_c_methods.rb", 8, :+, NilClass, Integer]
-      ["return", "c_call_and_set_trace_func_fire_around_c_methods.rb", 8, :moved, Binding, Point]
-      ["line", "c_call_and_set_trace_func_fire_around_c_methods.rb", 35, nil, Binding, nil]
+      ["line", "tracepoint_test.rb", 34, nil, Binding, nil]
+      ["call", "tracepoint_test.rb", 30, :origin, Binding, Point]
+      ["call", "tracepoint_test.rb", 7, :initialize, Binding, Point]
+      ["return", "tracepoint_test.rb", 7, :initialize, Binding, Point]
+      ["return", "tracepoint_test.rb", 30, :origin, Binding, Point]
+      ["call", "tracepoint_test.rb", 8, :moved, Binding, Point]
+      ["c-call", "tracepoint_test.rb", 8, :x, NilClass, Point]
+      ["c-return", "tracepoint_test.rb", 8, :x, NilClass, Point]
+      ["c-call", "tracepoint_test.rb", 8, :+, NilClass, Integer]
+      ["c-return", "tracepoint_test.rb", 8, :+, NilClass, Integer]
+      ["return", "tracepoint_test.rb", 8, :moved, Binding, Point]
+      ["line", "tracepoint_test.rb", 35, nil, Binding, nil]
     OUT
   end
 
@@ -394,7 +394,7 @@ describe "TracePoint programs" do
   end
 
   it "exception backtrace full message and inspect" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/exception_backtrace_full_message_and_inspect.rb")
+    result = ze0(<<~'RUBY')
       # backtrace carries the real stamped frames; full_message renders the
       # uncaught-report shape from them; inspect renders "#<Class: msg>" (or
       # the bare class name when the message is empty). Expected output is
@@ -412,9 +412,9 @@ describe "TracePoint programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:8:in '<main>'"]
       "#<ArgumentError: bad>"
-      core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>': bad (ArgumentError)
+      core/tracepoint/tracepoint_test.rb:8:in '<main>': bad (ArgumentError)
       
         raise ArgumentError, "bad"
               ^^^^^^^^^^^^^^^^^^^^
@@ -446,7 +446,7 @@ describe "TracePoint programs" do
   end
 
   it "frozen error backtrace extra frame" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/frozen_error_backtrace_extra_frame.rb")
+    result = ze0(<<~'RUBY')
       # CRuby answers `<<` and `[]=` on a String/Array/Hash with a SPECIALIZED VM
       # instruction (`opt_ltlt`, `opt_aset`), which pushes no control frame -- so a
       # raise from inside one names only the caller. The general fallback does frame,
@@ -507,19 +507,19 @@ describe "TracePoint programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["core/tracepoint/frozen_error_backtrace_extra_frame.rb:7:in '<main>'"]
-      ["core/tracepoint/frozen_error_backtrace_extra_frame.rb:13:in '<main>'"]
-      ["core/tracepoint/frozen_error_backtrace_extra_frame.rb:19:in '<main>'"]
-      ["core/tracepoint/frozen_error_backtrace_extra_frame.rb:25:in '<main>'"]
-      "core/tracepoint/frozen_error_backtrace_extra_frame.rb:32:in 'String#[]='"
-      "core/tracepoint/frozen_error_backtrace_extra_frame.rb:38:in 'String#concat'"
-      "core/tracepoint/frozen_error_backtrace_extra_frame.rb:44:in 'Array#sort!'"
-      "core/tracepoint/frozen_error_backtrace_extra_frame.rb:51:in 'Sink#<<'"
+      ["core/tracepoint/tracepoint_test.rb:7:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:13:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:19:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:25:in '<main>'"]
+      "core/tracepoint/tracepoint_test.rb:32:in 'String#[]='"
+      "core/tracepoint/tracepoint_test.rb:38:in 'String#concat'"
+      "core/tracepoint/tracepoint_test.rb:44:in 'Array#sort!'"
+      "core/tracepoint/tracepoint_test.rb:51:in 'Sink#<<'"
     OUT
   end
 
   it "kernel conversion backtrace frame" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/kernel_conversion_backtrace_frame.rb")
+    result = ze0(<<~'RUBY')
       # `Kernel#Integer` and its family are ordinary cfuncs in CRuby, so they push a
       # control frame and a raise from inside one names them. zeo's codegen calls
       # them through a fast path that never reaches the dispatch boundary where a
@@ -580,14 +580,14 @@ describe "TracePoint programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["core/tracepoint/kernel_conversion_backtrace_frame.rb:6:in 'Kernel#Integer'", "core/tracepoint/kernel_conversion_backtrace_frame.rb:6:in '<main>'"]
-      ["core/tracepoint/kernel_conversion_backtrace_frame.rb:12:in 'Kernel#Hash'", "core/tracepoint/kernel_conversion_backtrace_frame.rb:12:in '<main>'"]
-      "core/tracepoint/kernel_conversion_backtrace_frame.rb:18:in 'Kernel#Float'"
-      "core/tracepoint/kernel_conversion_backtrace_frame.rb:24:in 'Kernel#Rational'"
-      "core/tracepoint/kernel_conversion_backtrace_frame.rb:30:in 'Kernel#Integer'"
-      ["core/tracepoint/kernel_conversion_backtrace_frame.rb:38:in 'Kernel#Integer'", "core/tracepoint/kernel_conversion_backtrace_frame.rb:38:in '<main>'"]
-      "core/tracepoint/kernel_conversion_backtrace_frame.rb:44:in 'Kernel#Integer'"
-      ["core/tracepoint/kernel_conversion_backtrace_frame.rb:49:in 'Kernel#Integer'", "core/tracepoint/kernel_conversion_backtrace_frame.rb:49:in 'Object#wrapped'"]
+      ["core/tracepoint/tracepoint_test.rb:6:in 'Kernel#Integer'", "core/tracepoint/tracepoint_test.rb:6:in '<main>'"]
+      ["core/tracepoint/tracepoint_test.rb:12:in 'Kernel#Hash'", "core/tracepoint/tracepoint_test.rb:12:in '<main>'"]
+      "core/tracepoint/tracepoint_test.rb:18:in 'Kernel#Float'"
+      "core/tracepoint/tracepoint_test.rb:24:in 'Kernel#Rational'"
+      "core/tracepoint/tracepoint_test.rb:30:in 'Kernel#Integer'"
+      ["core/tracepoint/tracepoint_test.rb:38:in 'Kernel#Integer'", "core/tracepoint/tracepoint_test.rb:38:in '<main>'"]
+      "core/tracepoint/tracepoint_test.rb:44:in 'Kernel#Integer'"
+      ["core/tracepoint/tracepoint_test.rb:49:in 'Kernel#Integer'", "core/tracepoint/tracepoint_test.rb:49:in 'Object#wrapped'"]
       [nil, nil]
     OUT
   end

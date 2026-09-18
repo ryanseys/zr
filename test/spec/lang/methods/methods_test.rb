@@ -6,7 +6,7 @@ describe "Methods programs" do
   it "aliasing a genuinely undefined method is a runtime name error" do
     skip "ruby's did_you_mean writes 'Did you mean?  undef_method' between the message and the backtrace, " \
          "and a compiled program carries no did_you_mean"
-    result = ze0(<<~'RUBY', path: "lang/methods/aliasing_a_genuinely_undefined_method_is_a_runtime_name_error.rb")
+    result = ze0(<<~'RUBY')
       # An `alias`/`alias_method` whose source is defined neither in this body
       # nor anywhere in the ancestry COMPILES (the compiler can't distinguish a
       # typo from a runtime-table builtin source, `alias_method :dup!, :dup`)
@@ -20,7 +20,7 @@ describe "Methods programs" do
       end
     RUBY
 
-    _(result).must_answer "", stderr: "lang/methods/aliasing_a_genuinely_undefined_method_is_a_runtime_name_error.rb:10:in '<class:Foo>': undefined method 'undefined_method' for class 'Foo' (NameError)\n\tfrom lang/methods/aliasing_a_genuinely_undefined_method_is_a_runtime_name_error.rb:9:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "lang/methods/methods_test.rb:10:in '<class:Foo>': undefined method 'undefined_method' for class 'Foo' (NameError)\n\tfrom lang/methods/methods_test.rb:9:in '<main>'\n", status: 1
   end
 
   it "arg forwarding fixed callee" do
@@ -2988,7 +2988,7 @@ describe "Methods programs" do
   end
 
   it "method source location" do
-    result = ze0(<<~'RUBY', path: "lang/methods/method_source_location.rb")
+    result = ze0(<<~'RUBY')
       # `Method#source_location` / `UnboundMethod#source_location` -- `[file, line]`
       # for a method written in Ruby, `nil` for one defined natively. The line is the
       # `def` keyword's own, which is why the assertions below name it explicitly
@@ -3049,8 +3049,8 @@ describe "Methods programs" do
       6
       9
       13
-      "method_source_location.rb"
-      "method_source_location.rb"
+      "methods_test.rb"
+      "methods_test.rb"
       15
       15
       9
@@ -3721,7 +3721,7 @@ describe "Methods programs" do
   end
 
   it "redefinition warns under verbose" do
-    result = ze0(<<~'RUBY', path: "lang/methods/a_redefinition_warns_under_verbose.rb")
+    result = ze0(<<~'RUBY')
       # Under $VERBOSE true a definition over a method warns as
       # rb_method_entry_make does: not over an alias, an undef, a copy a
       # visibility verb made, or the same definition again.
@@ -3778,7 +3778,7 @@ describe "Methods programs" do
 
     RUBY
 
-    _(result).must_answer "", stderr: "lang/methods/a_redefinition_warns_under_verbose.rb:8: warning: method redefined; discarding old m\nlang/methods/a_redefinition_warns_under_verbose.rb:7: warning: previous definition of m was here\nlang/methods/a_redefinition_warns_under_verbose.rb:14: warning: method redefined; discarding old x\nlang/methods/a_redefinition_warns_under_verbose.rb:14: warning: method redefined; discarding old x=\nlang/methods/a_redefinition_warns_under_verbose.rb:16: warning: method redefined; discarding old d\nlang/methods/a_redefinition_warns_under_verbose.rb:15: warning: previous definition of d was here\nlang/methods/a_redefinition_warns_under_verbose.rb:17: warning: method redefined; discarding old d\nlang/methods/a_redefinition_warns_under_verbose.rb:16: warning: previous definition of d was here\nlang/methods/a_redefinition_warns_under_verbose.rb:25: warning: method redefined; discarding old s\nlang/methods/a_redefinition_warns_under_verbose.rb:24: warning: previous definition of s was here\nlang/methods/a_redefinition_warns_under_verbose.rb:29: warning: method redefined; discarding old p1\nlang/methods/a_redefinition_warns_under_verbose.rb:26: warning: previous definition of p1 was here\nlang/methods/a_redefinition_warns_under_verbose.rb:36: warning: method redefined; discarding old upcase\nlang/methods/a_redefinition_warns_under_verbose.rb:39: warning: method redefined; discarding old puts\nlang/methods/a_redefinition_warns_under_verbose.rb:52: warning: method redefined; discarding old q\nlang/methods/a_redefinition_warns_under_verbose.rb:51: warning: previous definition of q was here\nlang/methods/a_redefinition_warns_under_verbose.rb:53: warning: method redefined; discarding old a\n"
+    _(result).must_answer "", stderr: "lang/methods/methods_test.rb:8: warning: method redefined; discarding old m\nlang/methods/methods_test.rb:7: warning: previous definition of m was here\nlang/methods/methods_test.rb:14: warning: method redefined; discarding old x\nlang/methods/methods_test.rb:14: warning: method redefined; discarding old x=\nlang/methods/methods_test.rb:16: warning: method redefined; discarding old d\nlang/methods/methods_test.rb:15: warning: previous definition of d was here\nlang/methods/methods_test.rb:17: warning: method redefined; discarding old d\nlang/methods/methods_test.rb:16: warning: previous definition of d was here\nlang/methods/methods_test.rb:25: warning: method redefined; discarding old s\nlang/methods/methods_test.rb:24: warning: previous definition of s was here\nlang/methods/methods_test.rb:29: warning: method redefined; discarding old p1\nlang/methods/methods_test.rb:26: warning: previous definition of p1 was here\nlang/methods/methods_test.rb:36: warning: method redefined; discarding old upcase\nlang/methods/methods_test.rb:39: warning: method redefined; discarding old puts\nlang/methods/methods_test.rb:52: warning: method redefined; discarding old q\nlang/methods/methods_test.rb:51: warning: previous definition of q was here\nlang/methods/methods_test.rb:53: warning: method redefined; discarding old a\n"
   end
 
   it "repeated optional parameter default writes the name" do
@@ -3825,7 +3825,7 @@ describe "Methods programs" do
   end
 
   it "runtime defined method knows where it was written" do
-    result = ze0(<<~'RUBY', path: "lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb")
+    result = ze0(<<~'RUBY')
       # Every method of a RUNTIME-minted class answers `source_location`.
       #
       # `parameters` and `arity` were already right, because both are derived from
@@ -3899,21 +3899,21 @@ describe "Methods programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["K#m", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 20]]
-      ["K#dm", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 21]]
-      ["K2#n", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 28]]
-      ["D2#q", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 35]]
-      ["D2#initialize", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 36]]
-      ["S2#r", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 44]]
-      ["K3.cm", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 50]]
-      ["o.sing", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 56]]
+      ["K#m", ["lang/methods/methods_test.rb", 20]]
+      ["K#dm", ["lang/methods/methods_test.rb", 21]]
+      ["K2#n", ["lang/methods/methods_test.rb", 28]]
+      ["D2#q", ["lang/methods/methods_test.rb", 35]]
+      ["D2#initialize", ["lang/methods/methods_test.rb", 36]]
+      ["S2#r", ["lang/methods/methods_test.rb", 44]]
+      ["K3.cm", ["lang/methods/methods_test.rb", 50]]
+      ["o.sing", ["lang/methods/methods_test.rb", 56]]
       ["String#upcase", nil]
       ["Integer#+", nil]
       ["K#m params", [[:req, :a]]]
       ["K#dm params", [[:req, :b]]]
       ["D2#q arity", 1]
-      ["bound", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 20]]
-      ["unbound->bound", ["lang/methods/a_runtime_defined_method_knows_where_it_was_written.rb", 20]]
+      ["bound", ["lang/methods/methods_test.rb", 20]]
+      ["unbound->bound", ["lang/methods/methods_test.rb", 20]]
     OUT
   end
 

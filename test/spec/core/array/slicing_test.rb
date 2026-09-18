@@ -940,7 +940,7 @@ describe "Array: slicing" do
   end
 
   it "sp net poll grow" do
-    result = ze0(<<~'RUBY', path: "core/array/sp_net_poll_grow.rb")
+    result = ze0(<<~'RUBY')
       # The readiness set grows with the caller's connection count.
       #
       # It used to be a fixed 256-entry array whose overflow answered -1 -- and -1 is
@@ -980,7 +980,7 @@ describe "Array: slicing" do
       puts "after reset: #{Net.sp_net_poll_add(0, 1)}"
     RUBY
 
-    _(result).must_answer "", stderr: "core/array/sp_net_poll_grow.rb:11:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_reset, [],          :int\n  ^^^^^^^^\n\tfrom core/array/sp_net_poll_grow.rb:10:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "core/array/slicing_test.rb:11:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_reset, [],          :int\n  ^^^^^^^^\n\tfrom core/array/slicing_test.rb:10:in '<main>'\n", status: 1
   end
 
   it "stack operations take a count in the kernel" do

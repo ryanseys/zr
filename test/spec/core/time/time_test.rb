@@ -233,7 +233,7 @@ describe "Time programs" do
   end
 
   it "file the compiler never saw loads at run time" do
-    result = ze0(<<~'RUBY', path: "core/time/a_file_the_compiler_never_saw_loads_at_run_time.rb", files: {"a_file_the_compiler_never_saw_loads_at_run_time/boom.rb" => "raise ArgumentError, \"boom from the file\"\n", "a_file_the_compiler_never_saw_loads_at_run_time/cycle_a.rb" => "require \"cycle_b\"\nCYCLE_A = 1\n", "a_file_the_compiler_never_saw_loads_at_run_time/cycle_b.rb" => "require \"cycle_a\"\nCYCLE_B = 2\n", "a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb" => "$inner_runs = ($inner_runs || 0) + 1\n\nmodule RuntimeInner\n  def self.n = 7\n\n  def self.boom = raise(\"from inner\")\nend\n", "a_file_the_compiler_never_saw_loads_at_run_time/top.rb" => "require_relative \"deep/inner\"\nLOADED_TOP_FILE = __FILE__\n$top_runs = ($top_runs || 0) + 1\n\nmodule RuntimeTop\n  def self.hi = \"top \#{RuntimeInner.n}\"\nend\n\nclass Raiser\n  def boom = RuntimeInner.boom\nend\n"})
+    result = ze0(<<~'RUBY', files: {"a_file_the_compiler_never_saw_loads_at_run_time/boom.rb" => "raise ArgumentError, \"boom from the file\"\n", "a_file_the_compiler_never_saw_loads_at_run_time/cycle_a.rb" => "require \"cycle_b\"\nCYCLE_A = 1\n", "a_file_the_compiler_never_saw_loads_at_run_time/cycle_b.rb" => "require \"cycle_a\"\nCYCLE_B = 2\n", "a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb" => "$inner_runs = ($inner_runs || 0) + 1\n\nmodule RuntimeInner\n  def self.n = 7\n\n  def self.boom = raise(\"from inner\")\nend\n", "a_file_the_compiler_never_saw_loads_at_run_time/top.rb" => "require_relative \"deep/inner\"\nLOADED_TOP_FILE = __FILE__\n$top_runs = ($top_runs || 0) + 1\n\nmodule RuntimeTop\n  def self.hi = \"top \#{RuntimeInner.n}\"\nend\n\nclass Raiser\n  def boom = RuntimeInner.boom\nend\n"})
       # A file the compiler never saw is compiled and run where it is FOUND.
       #
       # Whole-program AOT resolves an ordinary `require` at compile time and
@@ -316,7 +316,7 @@ describe "Time programs" do
       from inner
       a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb:6:in 'RuntimeInner.boom'
       a_file_the_compiler_never_saw_loads_at_run_time/top.rb:10:in 'Raiser#boom'
-      core/time/a_file_the_compiler_never_saw_loads_at_run_time.rb:58:in '<main>'
+      core/time/time_test.rb:58:in '<main>'
     OUT
   end
 
@@ -1387,7 +1387,7 @@ describe "Time programs" do
   end
 
   it "time string reads its digits in base ten" do
-    result = ze0(<<~'RUBY', path: "core/time/a_time_string_reads_its_digits_in_base_ten.rb")
+    result = ze0(<<~'RUBY')
       # Time.new reads each part of a time string in base ten, so 08 and 09
       # are the eighth and ninth, and its helpers leave no backtrace row and
       # no private method a program can list.
@@ -1413,8 +1413,8 @@ describe "Time programs" do
       (2/25)
       [:_load, :inherited, :initialize]
       #<ArgumentError: two digits mday is expected after '-': -9 08:09:09>
-      core/time/a_time_string_reads_its_digits_in_base_ten.rb:11:in 'Time#initialize'
-      core/time/a_time_string_reads_its_digits_in_base_ten.rb:11:in '<main>'
+      core/time/time_test.rb:11:in 'Time#initialize'
+      core/time/time_test.rb:11:in '<main>'
     OUT
   end
 

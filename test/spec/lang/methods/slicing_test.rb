@@ -441,7 +441,7 @@ describe "Methods: slicing" do
   end
 
   it "keyword arguments" do
-    result = ze0(<<~'RUBY', path: "lang/methods/keyword_arguments.rb")
+    result = ze0(<<~'RUBY')
       # Keyword arguments and `**` double-splats: literal `k: v` pairs and `**hash`
       # expansions live in ONE ordered list, merged left-to-right with last-key-wins.
       # Because Ruby's Hash is insertion-ordered, the order the two are written in is
@@ -506,7 +506,7 @@ describe "Methods: slicing" do
       with_config { |n, cfg| p [n, cfg] }   # [1, {width: 80, height: 24}]
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/keyword_arguments.rb:24: warning: key :k is duplicated and overwritten on line 24\nlang/methods/keyword_arguments.rb:25: warning: key :k is duplicated and overwritten on line 25\nlang/methods/keyword_arguments.rb:31: warning: key :x is duplicated and overwritten on line 31\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/methods/slicing_test.rb:24: warning: key :k is duplicated and overwritten on line 24\nlang/methods/slicing_test.rb:25: warning: key :k is duplicated and overwritten on line 25\nlang/methods/slicing_test.rb:31: warning: key :x is duplicated and overwritten on line 31\n"
       {a: 1, b: 2, c: 3}
       {c: 3, a: 1, b: 2}
       {a: 1, b: 2, c: 3}
@@ -686,7 +686,7 @@ describe "Methods: slicing" do
   end
 
   it "kwargs double splat at a call site binds" do
-    result = ze0(<<~'RUBY', path: "lang/methods/kwargs_double_splat_at_a_call_site_binds.rb")
+    result = ze0(<<~'RUBY')
       # `**h` merges into the G2 trailing-kwargs Hash (literal pairs first,
       # splat entries after, same-key replacement -- `Hash#merge`'s rule).
 
@@ -700,7 +700,7 @@ describe "Methods: slicing" do
       puts Greeter.new.f(y: 5, **{x: 2, y: 9})
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/kwargs_double_splat_at_a_call_site_binds.rb:11: warning: key :y is duplicated and overwritten on line 11\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/methods/slicing_test.rb:11: warning: key :y is duplicated and overwritten on line 11\n"
       1/0
       2/9
     OUT

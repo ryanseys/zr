@@ -876,7 +876,7 @@ describe "Classes programs" do
   end
 
   it "class name already taken is a type error" do
-    result = ze0(<<~'RUBY', path: "lang/classes/a_class_name_already_taken_is_a_type_error.rb")
+    result = ze0(<<~'RUBY')
       # Ruby raises before anything is minted. (It also warns
       # `previous definition of TOP was here`, which zeo does not track --
       # hence the stdout-only check rather than a golden.)
@@ -892,7 +892,7 @@ describe "Classes programs" do
 
     _(result).must_answer <<~'OUT'
       TOP is not a class
-      lang/classes/a_class_name_already_taken_is_a_type_error.rb:5: previous definition of TOP was here
+      lang/classes/classes_test.rb:5: previous definition of TOP was here
     OUT
   end
 
@@ -1618,7 +1618,7 @@ describe "Classes programs" do
   end
 
   it "constructor pushes the frames ruby pushes" do
-    result = ze0(<<~'RUBY', path: "lang/classes/a_constructor_pushes_the_frames_ruby_pushes.rb")
+    result = ze0(<<~'RUBY')
       # `Foo.new` pushes NO backtrace frame of its own. zeo pushed `Class#new` for
       # every construction, so a raise from any `initialize` reported one frame ruby
       # does not have.
@@ -1694,31 +1694,31 @@ describe "Classes programs" do
 
     _(result).must_answer <<~'OUT'
       plain class:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:33:in 'block in <main>'
+        classes_test.rb:30:in 'P1#initialize'
+        classes_test.rb:33:in 'block in <main>'
       struct subclass:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:40:in 'S2#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:43:in 'block in <main>'
+        classes_test.rb:40:in 'S2#initialize'
+        classes_test.rb:43:in 'block in <main>'
       exception subclass:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:49:in 'E1#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:52:in 'block in <main>'
+        classes_test.rb:49:in 'E1#initialize'
+        classes_test.rb:52:in 'block in <main>'
       arity error, no initialize:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'BasicObject#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'block in <main>'
+        classes_test.rb:56:in 'BasicObject#initialize'
+        classes_test.rb:56:in 'block in <main>'
       Class.new minting:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'block (2 levels) in <main>'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#new'
+        classes_test.rb:59:in 'block (2 levels) in <main>'
+        classes_test.rb:59:in 'Class#initialize'
+        classes_test.rb:59:in 'Class#new'
       Module.new minting:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'block (2 levels) in <main>'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Module#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Class#new'
+        classes_test.rb:60:in 'block (2 levels) in <main>'
+        classes_test.rb:60:in 'Module#initialize'
+        classes_test.rb:60:in 'Class#new'
       subclass calling super:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:65:in 'P3#initialize'
+        classes_test.rb:30:in 'P1#initialize'
+        classes_test.rb:65:in 'P3#initialize'
       allocate then raise:
-        a_constructor_pushes_the_frames_ruby_pushes.rb:71:in 'block in <main>'
-        a_constructor_pushes_the_frames_ruby_pushes.rb:21:in 'Object#frames'
+        classes_test.rb:71:in 'block in <main>'
+        classes_test.rb:21:in 'Object#frames'
     OUT
   end
 
@@ -1850,7 +1850,7 @@ describe "Classes programs" do
   end
 
   it "definition hooks when compiled" do
-    result = ze0(<<~'RUBY', path: "lang/classes/definition_hooks_when_compiled.rb")
+    result = ze0(<<~'RUBY')
       # The same six hooks as `definition_hooks_at_runtime.rb`, but for definitions
       # written in a class body -- which zeo compiles into a method table rather than
       # running, so the report has to be put back at the definition's position.
@@ -1959,7 +1959,7 @@ describe "Classes programs" do
       MF s_added singleton_method_added
       MF added after_modfunc
       MF s_added after_modfunc
-      [["lang/classes/definition_hooks_when_compiled.rb", 72], ["lang/classes/definition_hooks_when_compiled.rb", 72]]
+      [["lang/classes/classes_test.rb", 72], ["lang/classes/classes_test.rb", 72]]
     OUT
   end
 
@@ -2433,7 +2433,7 @@ describe "Classes programs" do
   end
 
   it "issue class variable toplevel scope" do
-    result = ze0(<<~'RUBY', path: "lang/classes/issue_class_variable_toplevel_scope.rb")
+    result = ze0(<<~'RUBY')
       # A class variable (`@@cv`) assigned inside a `Class.new { ... }` block
       # should raise RuntimeError ("class variable access from toplevel"): class
       # variables resolve through the LEXICAL scope, and a `do...end` block (unlike
@@ -2446,7 +2446,7 @@ describe "Classes programs" do
       p klass.class_variables
     RUBY
 
-    _(result).must_answer "", stderr: "lang/classes/issue_class_variable_toplevel_scope.rb:8:in 'block in <main>': class variable access from toplevel (RuntimeError)\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in 'Class#initialize'\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in 'Class#new'\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "lang/classes/classes_test.rb:8:in 'block in <main>': class variable access from toplevel (RuntimeError)\n\tfrom lang/classes/classes_test.rb:7:in 'Class#initialize'\n\tfrom lang/classes/classes_test.rb:7:in 'Class#new'\n\tfrom lang/classes/classes_test.rb:7:in '<main>'\n", status: 1
   end
 
   it "masgn classvar target" do
@@ -3396,7 +3396,7 @@ describe "Classes programs" do
   end
 
   it "runtime class names its own frames" do
-    result = ze0(<<~'RUBY', path: "lang/classes/a_runtime_class_names_its_own_frames.rb")
+    result = ze0(<<~'RUBY')
       # A method of a RUNTIME-minted class names its frame after that class.
       #
       # A `def` inside such a body is lifted to a top-level method and installed on
@@ -3491,22 +3491,22 @@ describe "Classes programs" do
 
     _(result).must_answer <<~'OUT'
       constant-named:
-        a_runtime_class_names_its_own_frames.rb:23:in 'K#m'
+        classes_test.rb:23:in 'K#m'
       anonymous:
-        a_runtime_class_names_its_own_frames.rb:31:in 'm'
+        classes_test.rb:31:in 'm'
       subclass of a runtime class:
-        a_runtime_class_names_its_own_frames.rb:39:in 'Sub#n'
+        classes_test.rb:39:in 'Sub#n'
       runtime module method:
-        a_runtime_class_names_its_own_frames.rb:47:in 'M#mm'
+        classes_test.rb:47:in 'M#mm'
       nested under a runtime namespace:
-        a_runtime_class_names_its_own_frames.rb:59:in 'NS::Inner#deep'
+        classes_test.rb:59:in 'NS::Inner#deep'
       top-level def called from a runtime method:
-        a_runtime_class_names_its_own_frames.rb:68:in 'Object#helper'
-        a_runtime_class_names_its_own_frames.rb:72:in 'Caller#outer'
+        classes_test.rb:68:in 'Object#helper'
+        classes_test.rb:72:in 'Caller#outer'
       define_method block:
-        a_runtime_class_names_its_own_frames.rb:80:in 'block (2 levels) in <main>'
+        classes_test.rb:80:in 'block (2 levels) in <main>'
       ordinary compiled class:
-        a_runtime_class_names_its_own_frames.rb:87:in 'Plain#p1'
+        classes_test.rb:87:in 'Plain#p1'
     OUT
   end
 

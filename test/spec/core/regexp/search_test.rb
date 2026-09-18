@@ -1160,11 +1160,11 @@ describe "Regexp: searching and matching" do
   end
 
   it "match required one liner raises no matching pattern error on failure" do
-    result = ze0(<<~'RUBY', path: "core/regexp/match_required_one_liner_raises_no_matching_pattern_error_on_failure.rb")
+    result = ze0(<<~'RUBY')
       5 => String
     RUBY
 
-    _(result).must_answer "", stderr: "core/regexp/match_required_one_liner_raises_no_matching_pattern_error_on_failure.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
+    _(result).must_answer "", stderr: "core/regexp/search_test.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
   end
 
   it "match tilde pre post" do
@@ -1733,7 +1733,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "nested class leaves the outer state as onigmo does" do
-    result = ze0(<<~'RUBY', path: "core/regexp/a_nested_class_leaves_the_outer_state_as_onigmo_does.rb")
+    result = ze0(<<~'RUBY')
       # A nested character class leaves the outer class's state as Onigmo
       # leaves it: a value before it still pends, and a '-' after a leading
       # one is a plain character with no warning.
@@ -1751,7 +1751,7 @@ describe "Regexp: searching and matching" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/a_nested_class_leaves_the_outer_state_as_onigmo_does.rb:9: warning: character class has '-' without escape: /[a-b[x]-z]/\n"
+    _(result).must_answer <<~'OUT', stderr: "core/regexp/search_test.rb:9: warning: character class has '-' without escape: /[a-b[x]-z]/\n"
       ["[[[:alnum:]]-_.]", ["a", "b", "_", "-", ".", "x", "y", "z", "5"]]
       ["[a[x]-c]", ["a", "b", "x"]]
       ["[[x]a-c]", ["a", "b", "x"]]
@@ -1816,7 +1816,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "oniguruma backed semantics match the oracle" do
-    result = ze0(<<~'RUBY', path: "core/regexp/oniguruma_backed_semantics_match_the_oracle.rb")
+    result = ze0(<<~'RUBY')
       # ^/$ do not match at the phantom position after a final newline
       p("a\n".scan(/^/).size)
       p("a\nb\n".scan(/^/).size)
@@ -1835,7 +1835,7 @@ describe "Regexp: searching and matching" do
       p(Regexp.new("a***").match?("aaa"))
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/oniguruma_backed_semantics_match_the_oracle.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/\ncore/regexp/oniguruma_backed_semantics_match_the_oracle.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/\n"
+    _(result).must_answer <<~'OUT', stderr: "core/regexp/search_test.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/\ncore/regexp/search_test.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/\n"
       1
       2
       false

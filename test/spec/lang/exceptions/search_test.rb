@@ -31,7 +31,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "definition ruby raises on raises" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/a_definition_ruby_raises_on_raises.rb")
+    result = ze0(<<~'RUBY')
       # A `class Foo` after `module Foo`, and a reopen that names a different
       # superclass, are both TypeError in ruby -- a real exception at the definition,
       # not a broken program. zeo used to REFUSE these at compile time whenever no
@@ -81,7 +81,7 @@ describe "Exceptions: searching and matching" do
 
     _(result).must_answer <<~'OUT'
       Foo is not a class
-      lang/exceptions/a_definition_ruby_raises_on_raises.rb:17: previous definition of Foo was here
+      lang/exceptions/search_test.rb:17: previous definition of Foo was here
       1
       true
       false

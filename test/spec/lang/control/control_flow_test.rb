@@ -610,7 +610,7 @@ describe "Control: control flow" do
   end
 
   it "each loop binds its own stop" do
-    result = ze0(<<~'RUBY', path: "lang/control/each_loop_binds_its_own_stop.rb")
+    result = ze0(<<~'RUBY')
       # Every `loop` desugars to a `rescue StopIteration` whose binding must be
       # ITS OWN local. A single fixed name (`__loop_stop`) aliased every loop in
       # the program to one local -- a `Ractor.new { loop { ... } }` written inside
@@ -648,7 +648,7 @@ describe "Control: control flow" do
       puts local_variables.grep(/__loop/).length
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/control/each_loop_binds_its_own_stop.rb:13: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/control/control_flow_test.rb:13: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       3
       2
       [1, 2]

@@ -477,7 +477,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception full message without backtrace" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/exception_full_message_without_backtrace.rb")
+    result = ze0(<<~'RUBY')
       # `full_message` renders through CRuby's `rb_error_write0`: the head line, the
       # `from` trail, then the cause chain. An exception carrying NO backtrace hangs
       # the head off the CALLER's own position under the reporting method's name,
@@ -542,9 +542,9 @@ describe "Exceptions: formatting and inspection" do
 
     _(result).must_answer <<~'OUT'
       nil
-      "lang/exceptions/exception_full_message_without_backtrace.rb:7:in 'full_message': msg (StandardError)\n"
-      "lang/exceptions/exception_full_message_without_backtrace.rb:11:in 'full_message': unhandled exception\n"
-      "lang/exceptions/exception_full_message_without_backtrace.rb:12:in 'full_message': StandardError\n"
+      "lang/exceptions/formatting_test.rb:7:in 'full_message': msg (StandardError)\n"
+      "lang/exceptions/formatting_test.rb:11:in 'full_message': unhandled exception\n"
+      "lang/exceptions/formatting_test.rb:12:in 'full_message': StandardError\n"
       "StandardError"
       "\e[1;4munhandled exception\e[m"
       "a.rb:1:in 'x': msg (StandardError)\n\tfrom b.rb:2:in 'y'\n\tfrom c.rb:3:in 'z'\n"
@@ -570,8 +570,8 @@ describe "Exceptions: formatting and inspection" do
       "a.rb:1:in 'x': CUSTOM(true)\n"
       "a.rb:1:in 'x': line one (Wide)\nline two\n"
       "a.rb:1:in 'x': \e[1mline one (\e[1;4mWide\e[m\e[1m)\e[m\n\e[1mline two\e[m\n"
-      "lang/exceptions/exception_full_message_without_backtrace.rb:55:in '<main>': outer (RuntimeError)\nlang/exceptions/exception_full_message_without_backtrace.rb:53:in '<main>': inner (RuntimeError)\n"
-      "Traceback (most recent call last):\nlang/exceptions/exception_full_message_without_backtrace.rb:53:in '<main>': inner (RuntimeError)\nlang/exceptions/exception_full_message_without_backtrace.rb:55:in '<main>': outer (RuntimeError)\n"
+      "lang/exceptions/formatting_test.rb:55:in '<main>': outer (RuntimeError)\nlang/exceptions/formatting_test.rb:53:in '<main>': inner (RuntimeError)\n"
+      "Traceback (most recent call last):\nlang/exceptions/formatting_test.rb:53:in '<main>': inner (RuntimeError)\nlang/exceptions/formatting_test.rb:55:in '<main>': outer (RuntimeError)\n"
     OUT
   end
 
@@ -1280,7 +1280,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "uncaught exception message" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/uncaught_exception_message.rb")
+    result = ze0(<<~'RUBY')
       # An uncaught exception's tail format. In a --debug build the raising frame and
       # its callers are printed in front of it (#3974); an ordinary build has no frame
       # symbols, so the message alone is what it says.
@@ -1298,7 +1298,7 @@ describe "Exceptions: formatting and inspection" do
       boom(nil)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/uncaught_exception_message.rb:5:in 'Object#boom': undefined method 'length' for nil (NoMethodError)\n\n  v.length\n   ^^^^^^^\n\tfrom lang/exceptions/uncaught_exception_message.rb:15:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/formatting_test.rb:5:in 'Object#boom': undefined method 'length' for nil (NoMethodError)\n\n  v.length\n   ^^^^^^^\n\tfrom lang/exceptions/formatting_test.rb:15:in '<main>'\n", status: 1
       "undefined method 'length' for nil"
       "before"
     OUT

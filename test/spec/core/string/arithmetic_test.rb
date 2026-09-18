@@ -247,7 +247,7 @@ describe "String: arithmetic" do
   end
 
   it "string plus heap gc" do
-    result = ze0(<<~'RUBY', path: "core/string/string_plus_heap_gc.rb")
+    result = ze0(<<~'RUBY')
       # Regression for matz/spinel#1450. A `String#+` loop allocates only on the
       # string heap (no object-heap allocation), and before the fix the string heap
       # was swept only from sp_gc_collect, which fires on OBJECT-heap pressure
@@ -270,7 +270,7 @@ describe "String: arithmetic" do
       puts(after > before ? "collected" : "NO COLLECTION")
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/string_plus_heap_gc.rb:20:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs(after > before ? \"collected\" : \"NO COLLECTION\")\n           ^\n", status: 1
+    _(result).must_answer "", stderr: "core/string/arithmetic_test.rb:20:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs(after > before ? \"collected\" : \"NO COLLECTION\")\n           ^\n", status: 1
   end
 
   it "string sum bits" do

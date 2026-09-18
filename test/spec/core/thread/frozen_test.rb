@@ -79,7 +79,7 @@ describe "Thread: frozen literals" do
   end
 
   it "deeply frozen object crosses a ractor boundary by reference" do
-    result = ze0(<<~'RUBY', path: "core/thread/a_deeply_frozen_object_crosses_a_ractor_boundary_by_reference.rb")
+    result = ze0(<<~'RUBY')
       class Box
         def initialize(v)
           @v = v
@@ -99,7 +99,7 @@ describe "Thread: frozen literals" do
       puts sink.value + 1
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/a_deeply_frozen_object_crosses_a_ractor_boundary_by_reference.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/frozen_test.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       true
       42
     OUT
@@ -596,7 +596,7 @@ describe "Thread: frozen literals" do
   end
 
   it "ractors" do
-    result = ze0(<<~'RUBY', path: "core/thread/ractors.rb")
+    result = ze0(<<~'RUBY')
       # Ractor -- parallel execution with a frozen-or-copy message boundary
 
       # args cross the boundary and bind to block params
@@ -632,7 +632,7 @@ describe "Thread: frozen literals" do
       puts echo.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/ractors.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/frozen_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       42
       70
       true
@@ -646,7 +646,7 @@ describe "Thread: frozen literals" do
   end
 
   it "unfrozen object sent across a ractor boundary deep copies" do
-    result = ze0(<<~'RUBY', path: "core/thread/an_unfrozen_object_sent_across_a_ractor_boundary_deep_copies.rb")
+    result = ze0(<<~'RUBY')
       # CRuby's rule, now real here too: an unfrozen plain object crosses as
       # a deep copy (dup + ivar rewrite -- `ractor::cross_graph`), so the
       # receiver sees the value and later mutation of the source's graph
@@ -669,6 +669,6 @@ describe "Thread: frozen literals" do
       p [out, b.v]
     RUBY
 
-    _(result).must_answer "[\"payload-seen\", \"payload\"]\n", stderr: "core/thread/an_unfrozen_object_sent_across_a_ractor_boundary_deep_copies.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "[\"payload-seen\", \"payload\"]\n", stderr: "core/thread/frozen_test.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 end

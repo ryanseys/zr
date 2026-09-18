@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exception programs" do
   it "backtrace locations are the raise rows" do
-    result = ze0(<<~'RUBY', path: "core/exception/backtrace_locations_are_the_raise_rows.rb")
+    result = ze0(<<~'RUBY')
       # The rows the raise saw, as Location objects: nil before a raise, and
       # unchanged when set_backtrace replaces the strings.
       def inner = raise("x")
@@ -42,9 +42,9 @@ describe "Exception programs" do
       3
       "Object#inner"
       "inner"
-      "core/exception/backtrace_locations_are_the_raise_rows.rb"
-      "core/exception/backtrace_locations_are_the_raise_rows.rb:3:in 'Object#inner'"
-      "\"core/exception/backtrace_locations_are_the_raise_rows.rb:3:in 'Object#inner'\""
+      "core/exception/exception_test.rb"
+      "core/exception/exception_test.rb:3:in 'Object#inner'"
+      "\"core/exception/exception_test.rb:3:in 'Object#inner'\""
       true
       true
       nil
@@ -103,7 +103,7 @@ describe "Exception programs" do
   end
 
   it "set backtrace takes locations" do
-    result = ze0(<<~'RUBY', path: "core/exception/set_backtrace_takes_locations.rb")
+    result = ze0(<<~'RUBY')
       # set_backtrace with an Array of Locations sets backtrace_locations as
       # well as the strings, and a raise keeps them; an eval SyntaxError holds
       # the locations of the eval.
@@ -121,14 +121,14 @@ describe "Exception programs" do
     _(result).must_answer <<~'OUT'
       true
       false
-      ["core/exception/set_backtrace_takes_locations.rb:4:in '<main>'"]
-      ["core/exception/set_backtrace_takes_locations.rb:4:in '<main>'"]
+      ["core/exception/exception_test.rb:4:in '<main>'"]
+      ["core/exception/exception_test.rb:4:in '<main>'"]
       #<TypeError: backtrace must be an Array of String or an Array of Thread::Backtrace::Location>
       ["a"]
       nil
       ["x"]
       nil
-      ["core/exception/set_backtrace_takes_locations.rb:4:in '<main>'"]
+      ["core/exception/exception_test.rb:4:in '<main>'"]
       ["Kernel#eval", "<main>"]
     OUT
   end

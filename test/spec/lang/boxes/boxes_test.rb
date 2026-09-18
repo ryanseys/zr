@@ -587,7 +587,7 @@ describe "Boxes programs" do
   end
 
   it "box snippet names itself in a backtrace" do
-    result = ze0(<<~'RUBY', path: "lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb", env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A box's snippet names itself differently from every other eval, in three
@@ -614,7 +614,7 @@ describe "Boxes programs" do
       p b.eval(src)
     RUBY
 
-    _(result).must_answer "", stderr: "eval:1:in '<compiled>': uninitialized constant K (NameError)\n\tfrom lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb:24:in 'Ruby::Box#eval'\n\tfrom lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb:24:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "eval:1:in '<compiled>': uninitialized constant K (NameError)\n\tfrom lang/boxes/boxes_test.rb:24:in 'Ruby::Box#eval'\n\tfrom lang/boxes/boxes_test.rb:24:in '<main>'\n", status: 1
   end
 
   it "box unbox local assign cond" do

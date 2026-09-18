@@ -829,7 +829,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "param body hash inference" do
-    result = ze0(<<~'RUBY', path: "core/hash/param_body_hash_inference.rb")
+    result = ze0(<<~'RUBY')
       # #542. Method param defaulted to int when no caller passed a
       # concretely-typed argument. The body's `row["id"]` then emitted
       # the literal 0 with a "cannot resolve" warning and the method
@@ -904,7 +904,7 @@ describe "Hash: formatting and inspection" do
       grab(b.contents)
     RUBY
 
-    _(result).must_answer "", stderr: "core/hash/param_body_hash_inference.rb:43:in 'Object#consume': undefined method '[]' for nil (NoMethodError)\n\n  puts \"id=\" + row[\"id\"].to_s\n                  ^^^^^^\n\tfrom core/hash/param_body_hash_inference.rb:51:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "core/hash/formatting_test.rb:43:in 'Object#consume': undefined method '[]' for nil (NoMethodError)\n\n  puts \"id=\" + row[\"id\"].to_s\n                  ^^^^^^\n\tfrom core/hash/formatting_test.rb:51:in '<main>'\n", status: 1
   end
 
   it "raising hash reaches the caller" do

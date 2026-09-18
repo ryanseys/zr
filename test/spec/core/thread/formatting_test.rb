@@ -249,7 +249,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "shows the frames it is in" do
-    result = ze0(<<~'RUBY', path: "core/thread/a_thread_shows_the_frames_it_is_in.rb")
+    result = ze0(<<~'RUBY')
       # `Thread#backtrace`: the frames another thread stands in, innermost
       # first, and nil once the thread has ended. A start past the outermost
       # frame is nil as well, as `caller` answers.
@@ -283,12 +283,12 @@ describe "Thread: formatting and inspection" do
 
     _(result).must_answer <<~'OUT'
       Array
-      ["a_thread_shows_the_frames_it_is_in.rb:L:in 'Kernel#sleep'", "a_thread_shows_the_frames_it_is_in.rb:L:in 'Object#inner'", "a_thread_shows_the_frames_it_is_in.rb:L:in 'Object#outer'", "a_thread_shows_the_frames_it_is_in.rb:L:in 'block in <main>'"]
+      ["formatting_test.rb:L:in 'Kernel#sleep'", "formatting_test.rb:L:in 'Object#inner'", "formatting_test.rb:L:in 'Object#outer'", "formatting_test.rb:L:in 'block in <main>'"]
       true
       2
       nil
       [Array, Thread::Backtrace::Location, true, "Kernel#sleep"]
-      ["a_thread_shows_the_frames_it_is_in.rb:L:in 'Kernel#sleep'", "a_thread_shows_the_frames_it_is_in.rb:L:in 'Object#inner'", "a_thread_shows_the_frames_it_is_in.rb:L:in 'Object#outer'", "a_thread_shows_the_frames_it_is_in.rb:L:in 'block in <main>'"]
+      ["formatting_test.rb:L:in 'Kernel#sleep'", "formatting_test.rb:L:in 'Object#inner'", "formatting_test.rb:L:in 'Object#outer'", "formatting_test.rb:L:in 'block in <main>'"]
       Array
       Array
       nil

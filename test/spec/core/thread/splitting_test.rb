@@ -768,7 +768,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "threads" do
-    result = ze0(<<~'RUBY', path: "core/thread/threads.rb")
+    result = ze0(<<~'RUBY')
       # Thread / Mutex / Queue -- green-thread concurrency
 
       # join-synchronized ordering
@@ -841,7 +841,7 @@ describe "Thread: splitting and joining" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/thread/threads.rb:14 run> terminated with exception (report_on_exception is true):\ncore/thread/threads.rb:14:in 'block in <main>': thread boom (RuntimeError)\n"
+    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/thread/splitting_test.rb:14 run> terminated with exception (report_on_exception is true):\ncore/thread/splitting_test.rb:14:in 'block in <main>': thread boom (RuntimeError)\n"
       in thread
       after join
       42

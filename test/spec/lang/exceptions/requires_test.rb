@@ -124,7 +124,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require gated extension constant is a name error without its require" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb")
+    result = ze0(<<~'RUBY')
       # The ext require-gate: a require-gated builtin's constant
       # (`Base64`, gated by `"base64"`) is INVISIBLE until `require "base64"`
       # activates it -- referencing it un-required raises `NameError:
@@ -136,7 +136,7 @@ describe "Exceptions: loading files" do
       puts Base64.strict_encode64("hi")
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb:9:in '<main>': uninitialized constant Base64 (NameError)\n\nputs Base64.strict_encode64(\"hi\")\n     ^^^^^^\n", status: 1
+    _(result).must_answer "", stderr: "lang/exceptions/requires_test.rb:9:in '<main>': uninitialized constant Base64 (NameError)\n\nputs Base64.strict_encode64(\"hi\")\n     ^^^^^^\n", status: 1
   end
 
   it "require gated extension name error is rescuable" do
@@ -193,7 +193,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require that raises is rescuable" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/a_require_that_raises_is_rescuable.rb", files: fixtures("raising_feature/ok.rb", "raising_feature/r7.rb", "raising_feature/r1.rb", "raising_feature/r2.rb", "raising_feature/r3.rb", "raising_feature/r4.rb", "raising_feature/r5.rb", "raising_feature/r6.rb", "raising_feature/r8.rb"))
+    result = ze0(<<~'RUBY', files: fixtures("raising_feature/ok.rb", "raising_feature/r7.rb", "raising_feature/r1.rb", "raising_feature/r2.rb", "raising_feature/r3.rb", "raising_feature/r4.rb", "raising_feature/r5.rb", "raising_feature/r6.rb", "raising_feature/r8.rb"))
       # A `require` zeo resolves at COMPILE time is spliced in place, and the
       # spliced body has to land INSIDE the `begin` that wrote the require. CRuby
       # runs the required file during the `require` call, so a raise from the

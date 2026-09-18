@@ -645,7 +645,7 @@ describe "Set programs" do
   end
 
   it "module const set" do
-    result = ze0(<<~'RUBY', path: "stdlib/set/module_const_set.rb")
+    result = ze0(<<~'RUBY')
       # Module#const_set with a literal name re-assigns the constant (#2675). A
       # constant is a compile-time C global, so an existing one can be stored into;
       # a name the program never writes has no storage, and the global's type is
@@ -665,7 +665,7 @@ describe "Set programs" do
       p Box::X
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "stdlib/set/module_const_set.rb:6: warning: already initialized constant Box::X\nstdlib/set/module_const_set.rb:5: warning: previous definition of X was here\nstdlib/set/module_const_set.rb:8: warning: already initialized constant Box::S\nstdlib/set/module_const_set.rb:5: warning: previous definition of S was here\nstdlib/set/module_const_set.rb:10: warning: already initialized constant Box::F\nstdlib/set/module_const_set.rb:5: warning: previous definition of F was here\nstdlib/set/module_const_set.rb:13: warning: already initialized constant Y\nstdlib/set/module_const_set.rb:12: warning: previous definition of Y was here\nstdlib/set/module_const_set.rb:16: warning: already initialized constant Box::X\nstdlib/set/module_const_set.rb:6: warning: previous definition of X was here\n"
+    _(result).must_answer <<~'OUT', stderr: "stdlib/set/set_test.rb:6: warning: already initialized constant Box::X\nstdlib/set/set_test.rb:5: warning: previous definition of X was here\nstdlib/set/set_test.rb:8: warning: already initialized constant Box::S\nstdlib/set/set_test.rb:5: warning: previous definition of S was here\nstdlib/set/set_test.rb:10: warning: already initialized constant Box::F\nstdlib/set/set_test.rb:5: warning: previous definition of F was here\nstdlib/set/set_test.rb:13: warning: already initialized constant Y\nstdlib/set/set_test.rb:12: warning: previous definition of Y was here\nstdlib/set/set_test.rb:16: warning: already initialized constant Box::X\nstdlib/set/set_test.rb:6: warning: previous definition of X was here\n"
       99
       99
       "zz"

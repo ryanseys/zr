@@ -6,7 +6,7 @@ describe "Rspec programs" do
   it "reports a failure" do
     skip "rspec renders a failing example by extracting its source with ripper, which ze0 declines"
 
-    result = ze0(<<~'RUBY', path: "stdlib/rspec/rspec_reports_a_failure.rb")
+    result = ze0(<<~'RUBY')
 
       # XFAIL: rspec renders a failing or pending example by extracting the source
       # snippet for the line that raised, and `RSpec::Support::Source#ast` does that

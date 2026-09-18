@@ -530,7 +530,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "default encodings are settable" do
-    result = ze0(<<~'RUBY', path: "core/encoding/the_default_encodings_are_settable.rb")
+    result = ze0(<<~'RUBY')
       # Encoding.default_external= and default_internal= set what a stream that
       # names no encoding reads and converts to, what "external", "filesystem"
       # and "internal" name, and what a bare String#encode converts to.
@@ -599,7 +599,7 @@ describe "Encoding: packing and unpacking" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/encoding/the_default_encodings_are_settable.rb:53: warning: setting Encoding.default_external\ncore/encoding/the_default_encodings_are_settable.rb:54: warning: setting Encoding.default_internal\ncore/encoding/the_default_encodings_are_settable.rb:55: warning: setting Encoding.default_external\ncore/encoding/the_default_encodings_are_settable.rb:56: warning: setting Encoding.default_internal\ncore/encoding/the_default_encodings_are_settable.rb:61: warning: setting Encoding.default_internal\ncore/encoding/the_default_encodings_are_settable.rb:64: warning: setting Encoding.default_internal\n"
+    _(result).must_answer <<~'OUT', stderr: "core/encoding/packing_test.rb:53: warning: setting Encoding.default_external\ncore/encoding/packing_test.rb:54: warning: setting Encoding.default_internal\ncore/encoding/packing_test.rb:55: warning: setting Encoding.default_external\ncore/encoding/packing_test.rb:56: warning: setting Encoding.default_internal\ncore/encoding/packing_test.rb:61: warning: setting Encoding.default_internal\ncore/encoding/packing_test.rb:64: warning: setting Encoding.default_internal\n"
       #<Encoding:UTF-8>
       nil
       "ISO-8859-1"

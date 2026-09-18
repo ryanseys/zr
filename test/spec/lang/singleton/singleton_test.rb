@@ -1569,7 +1569,7 @@ describe "Singleton programs" do
   end
 
   it "singleton body frame is spelled singleton class" do
-    result = ze0(<<~'RUBY', path: "lang/singleton/a_singleton_body_frame_is_spelled_singleton_class.rb")
+    result = ze0(<<~'RUBY')
       # Ruby labels the backtrace frame of a `class << self` body `singleton class`
       # -- a fixed spelling, not a class name. zeo homes such a body on a surrogate
       # class under the reserved name `#<Class:self>`, and printed THAT: an internal
@@ -1601,9 +1601,9 @@ describe "Singleton programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      lang/singleton/a_singleton_body_frame_is_spelled_singleton_class.rb:7:in 'block (2 levels) in singleton class'
+      lang/singleton/singleton_test.rb:7:in 'block (2 levels) in singleton class'
       boom
-      lang/singleton/a_singleton_body_frame_is_spelled_singleton_class.rb:21:in 'Config.direct'
+      lang/singleton/singleton_test.rb:21:in 'Config.direct'
     OUT
   end
 
@@ -1916,7 +1916,7 @@ describe "Singleton programs" do
   end
 
   it "singleton body statement runs in its own frame" do
-    result = ze0(<<~'RUBY', path: "lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb")
+    result = ze0(<<~'RUBY')
       # Ruby gives a `class << self` body a backtrace frame of its own, labelled
       # `singleton class`, with the enclosing `<class:Config>` frame beneath it.
       #
@@ -2038,21 +2038,21 @@ describe "Singleton programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:40:in 'singleton class'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:39:in '<class:Config>'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:35:in '<main>'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:50:in 'block in singleton class'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:50:in 'Array#each'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:50:in 'singleton class'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:49:in '<class:Boom>'
+      lang/singleton/singleton_test.rb:40:in 'singleton class'
+      lang/singleton/singleton_test.rb:39:in '<class:Config>'
+      lang/singleton/singleton_test.rb:35:in '<main>'
+      lang/singleton/singleton_test.rb:50:in 'block in singleton class'
+      lang/singleton/singleton_test.rb:50:in 'Array#each'
+      lang/singleton/singleton_test.rb:50:in 'singleton class'
+      lang/singleton/singleton_test.rb:49:in '<class:Boom>'
       [1, 3]
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:73:in 'Array#fetch'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:73:in 'singleton class'
+      lang/singleton/singleton_test.rb:73:in 'Array#fetch'
+      lang/singleton/singleton_test.rb:73:in 'singleton class'
       at 2
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:88:in 'singleton class'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:85:in '<class:Walked>'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:101:in 'singleton class'
-      lang/singleton/a_singleton_body_statement_runs_in_its_own_frame.rb:100:in 'Late.install'
+      lang/singleton/singleton_test.rb:88:in 'singleton class'
+      lang/singleton/singleton_test.rb:85:in '<class:Walked>'
+      lang/singleton/singleton_test.rb:101:in 'singleton class'
+      lang/singleton/singleton_test.rb:100:in 'Late.install'
       :from_singleton
     OUT
   end

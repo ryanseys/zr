@@ -443,7 +443,7 @@ describe "Object: slicing" do
   end
 
   it "parse warning duplicate key" do
-    result = ze0(<<~'RUBY', path: "core/object/parse_warning_duplicate_key.rb")
+    result = ze0(<<~'RUBY')
       # Ruby warns at PARSE time when a literal hash key is written twice: the
       # second value wins silently, so the warning is the only sign. It names the
       # line the surviving value is on, which is not always the line of the key it
@@ -489,7 +489,7 @@ describe "Object: slicing" do
       p({ n => :first, 2 => :second })
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/object/parse_warning_duplicate_key.rb:11: warning: key :k is duplicated and overwritten on line 11\ncore/object/parse_warning_duplicate_key.rb:12: warning: key \"s\" is duplicated and overwritten on line 12\ncore/object/parse_warning_duplicate_key.rb:13: warning: key 1 is duplicated and overwritten on line 13\ncore/object/parse_warning_duplicate_key.rb:17: warning: key :dup is duplicated and overwritten on line 19\ncore/object/parse_warning_duplicate_key.rb:24: warning: key :a is duplicated and overwritten on line 24\ncore/object/parse_warning_duplicate_key.rb:27: warning: key :x is duplicated and overwritten on line 27\ncore/object/parse_warning_duplicate_key.rb:28: warning: key :y is duplicated and overwritten on line 28\ncore/object/parse_warning_duplicate_key.rb:31: warning: key :m is duplicated and overwritten on line 31\ncore/object/parse_warning_duplicate_key.rb:33: warning: key :b is duplicated and overwritten on line 33\ncore/object/parse_warning_duplicate_key.rb:36: warning: key :t is duplicated and overwritten on line 36\ncore/object/parse_warning_duplicate_key.rb:36: warning: key :t is duplicated and overwritten on line 36\n"
+    _(result).must_answer <<~'OUT', stderr: "core/object/slicing_test.rb:11: warning: key :k is duplicated and overwritten on line 11\ncore/object/slicing_test.rb:12: warning: key \"s\" is duplicated and overwritten on line 12\ncore/object/slicing_test.rb:13: warning: key 1 is duplicated and overwritten on line 13\ncore/object/slicing_test.rb:17: warning: key :dup is duplicated and overwritten on line 19\ncore/object/slicing_test.rb:24: warning: key :a is duplicated and overwritten on line 24\ncore/object/slicing_test.rb:27: warning: key :x is duplicated and overwritten on line 27\ncore/object/slicing_test.rb:28: warning: key :y is duplicated and overwritten on line 28\ncore/object/slicing_test.rb:31: warning: key :m is duplicated and overwritten on line 31\ncore/object/slicing_test.rb:33: warning: key :b is duplicated and overwritten on line 33\ncore/object/slicing_test.rb:36: warning: key :t is duplicated and overwritten on line 36\ncore/object/slicing_test.rb:36: warning: key :t is duplicated and overwritten on line 36\n"
       {k: 2}
       {"s" => 2}
       {1 => :b}

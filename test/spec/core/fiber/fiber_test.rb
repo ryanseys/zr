@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fiber programs" do
   it "fiber inspects with its block and status" do
-    result = ze0(<<~'RUBY', path: "core/fiber/a_fiber_inspects_with_its_block_and_status.rb")
+    result = ze0(<<~'RUBY')
       # Fiber#inspect names the block's file and line and the fiber's status,
       # as fiber_to_s writes it. A fiber that resumed another is suspended by
       # resuming it; a thread's own fiber has no block.
@@ -29,11 +29,11 @@ describe "Fiber programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      #<Fiber:X core/fiber/a_fiber_inspects_with_its_block_and_status.rb:8 (created)>
+      #<Fiber:X core/fiber/fiber_test.rb:8 (created)>
       #<Fiber:X (suspended by resuming)>
-      #<Fiber:X core/fiber/a_fiber_inspects_with_its_block_and_status.rb:8 (suspended by resuming)>
-      #<Fiber:X core/fiber/a_fiber_inspects_with_its_block_and_status.rb:9 (suspended)>
-      #<Fiber:X core/fiber/a_fiber_inspects_with_its_block_and_status.rb:8 (terminated)>
+      #<Fiber:X core/fiber/fiber_test.rb:8 (suspended by resuming)>
+      #<Fiber:X core/fiber/fiber_test.rb:9 (suspended)>
+      #<Fiber:X core/fiber/fiber_test.rb:8 (terminated)>
       true
       #<Fiber:X(&:itself) (created)>
       false
@@ -361,7 +361,7 @@ describe "Fiber programs" do
   end
 
   it "set scheduler checks and closes the scheduler" do
-    result = ze0(<<~'RUBY', path: "core/fiber/set_scheduler_checks_and_closes_the_scheduler.rb")
+    result = ze0(<<~'RUBY')
       # Fiber.set_scheduler checks the hooks a scheduler needs and warns of
       # fiber_interrupt; Fiber.schedule runs the fiber hook, a sleep in it
       # reaches kernel_sleep, and setting nil closes the scheduler.
@@ -391,7 +391,7 @@ describe "Fiber programs" do
       p((Fiber.schedule {} rescue $!))
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/fiber/set_scheduler_checks_and_closes_the_scheduler.rb:16: warning: Scheduler should implement #fiber_interrupt\n"
+    _(result).must_answer <<~'OUT', stderr: "core/fiber/fiber_test.rb:16: warning: Scheduler should implement #fiber_interrupt\n"
       true
       [:sleep]
       :close

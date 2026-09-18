@@ -791,7 +791,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "param include body widen" do
-    result = ze0(<<~'RUBY', path: "lang/modules/param_include_body_widen.rb")
+    result = ze0(<<~'RUBY')
       # #558 (rubys / Sam Ruby). Sibling of #552 for `.include?`,
       # the other "ambiguous receiver" method that exists on
       # String / Array / Hash / Range but NOT on Integer.
@@ -826,7 +826,7 @@ describe "Modules: inheritance and ancestors" do
       puts consume(b.v)
     RUBY
 
-    _(result).must_answer "", stderr: "lang/modules/param_include_body_widen.rb:16:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)\n\n  coll.include?(:x)\n      ^^^^^^^^^\n\tfrom lang/modules/param_include_body_widen.rb:24:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "lang/modules/inheritance_test.rb:16:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)\n\n  coll.include?(:x)\n      ^^^^^^^^^\n\tfrom lang/modules/inheritance_test.rb:24:in '<main>'\n", status: 1
   end
 
   it "subclass inherits module parent" do

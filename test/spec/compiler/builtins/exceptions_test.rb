@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: raising and rescuing" do
   it "builtin frames in a backtrace" do
-    result = ze0(<<~'RUBY', path: "compiler/builtins/builtin_frames_in_a_backtrace.rb")
+    result = ze0(<<~'RUBY')
       # Ruby's backtrace names the C frames a raise passed through. A raise from
       # inside a block given to `Kernel#then` shows ruby's
       # `from ...:in 'Kernel#then'` line between the block and its caller; zeo's
@@ -37,10 +37,10 @@ describe "Builtins: raising and rescuing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      compiler/builtins/builtin_frames_in_a_backtrace.rb:N:in 'Object#inner'
-      compiler/builtins/builtin_frames_in_a_backtrace.rb:N:in 'block in <main>'
-      compiler/builtins/builtin_frames_in_a_backtrace.rb:N:in 'Kernel#then'
-      compiler/builtins/builtin_frames_in_a_backtrace.rb:N:in '<main>'
+      compiler/builtins/exceptions_test.rb:N:in 'Object#inner'
+      compiler/builtins/exceptions_test.rb:N:in 'block in <main>'
+      compiler/builtins/exceptions_test.rb:N:in 'Kernel#then'
+      compiler/builtins/exceptions_test.rb:N:in '<main>'
       "Object#direct"
       "block in <main>"
       "block in <main>"
@@ -364,7 +364,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "frozen error raised inside a thread surfaces at join" do
-    result = ze0(<<~'RUBY', path: "compiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb")
+    result = ze0(<<~'RUBY')
       a = [1]
       a.freeze
       t = Thread.new { a[0] = 9 }
@@ -375,7 +375,7 @@ describe "Builtins: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer "at join: can't modify frozen Array: [1]\n", stderr: "#<Thread:0xADDR compiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3 run> terminated with exception (report_on_exception is true):\ncompiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)\n"
+    _(result).must_answer "at join: can't modify frozen Array: [1]\n", stderr: "#<Thread:0xADDR compiler/builtins/exceptions_test.rb:3 run> terminated with exception (report_on_exception is true):\ncompiler/builtins/exceptions_test.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)\n"
   end
 
   it "kernel raise is a real dispatch row reachable through send" do

@@ -701,7 +701,7 @@ describe "Programs programs" do
   end
 
   it "i1021" do
-    result = ze0(<<~'RUBY', path: "lang/programs/i1021.rb")
+    result = ze0(<<~'RUBY')
       s = GC.stat
       puts s.key?("bytes")
       puts s.key?("old_bytes")
@@ -716,7 +716,7 @@ describe "Programs programs" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/programs/i1021.rb:7:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs s[\"bytes\"] >= 0\n                ^^\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: "lang/programs/programs_test.rb:7:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs s[\"bytes\"] >= 0\n                ^^\n", status: 1
       false
       false
       false

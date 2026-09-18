@@ -372,7 +372,7 @@ describe "Units programs" do
   end
 
   it "runtime unit may yield from a singleton body" do
-    result = ze0(<<~'RUBY', path: "compiler/units/a_runtime_unit_may_yield_from_a_singleton_body.rb", files: fixtures("singleton_yield/singleton_yield_target.rb"))
+    result = ze0(<<~'RUBY', files: fixtures("singleton_yield/singleton_yield_target.rb"))
       DIR = File.expand_path("../../fixtures/singleton_yield", __dir__)
       $LOAD_PATH.unshift(DIR)
 

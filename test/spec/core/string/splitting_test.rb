@@ -142,7 +142,7 @@ describe "String: splitting and joining" do
   end
 
   it "reopen split superclass dispatch" do
-    result = ze0(<<~'RUBY', path: "core/string/reopen_split_superclass_dispatch.rb")
+    result = ze0(<<~'RUBY')
       # Imported from the spinel corpus at c55d9bdb.
       # A class opened BARE and reopened with a superclass is ruby's own
       # `TypeError: superclass mismatch for class Sub` -- a real bare `class Sub`
@@ -183,7 +183,7 @@ describe "String: splitting and joining" do
       puts Child.new.run
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/reopen_split_superclass_dispatch.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)\n\tfrom core/string/reopen_split_superclass_dispatch.rb:7:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "core/string/splitting_test.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)\n\tfrom core/string/splitting_test.rb:7:in '<main>'\n", status: 1
   end
 
   it "split default separator global" do

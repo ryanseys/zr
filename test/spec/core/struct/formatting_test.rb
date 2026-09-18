@@ -378,7 +378,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "struct accessor is an entry of the kernels" do
-    result = ze0(<<~'RUBY', path: "core/struct/a_struct_accessor_is_an_entry_of_the_kernels.rb")
+    result = ze0(<<~'RUBY')
       # A Struct member's reader and writer are entries of the kernel's, with
       # no frame of their own: the arity error is the caller's, a trace sees
       # a C call, the writer's one parameter is `_`, and an allocated struct
@@ -419,9 +419,9 @@ describe "Struct: formatting and inspection" do
 
     _(result).must_answer <<~'OUT'
       wrong number of arguments (given 1, expected 0)
-      core/struct/a_struct_accessor_is_an_entry_of_the_kernels.rb:7:in '<main>'
+      core/struct/formatting_test.rb:7:in '<main>'
       wrong number of arguments (given 2, expected 1)
-      core/struct/a_struct_accessor_is_an_entry_of_the_kernels.rb:8:in '<main>'
+      core/struct/formatting_test.rb:8:in '<main>'
       wrong number of arguments (given 1, expected 0)
       FrozenError
       can't modify frozen S: #<struct S a=1, b=2>

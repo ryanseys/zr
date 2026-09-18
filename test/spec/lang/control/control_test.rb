@@ -278,7 +278,7 @@ describe "Control programs" do
   end
 
   it "bare regexp condition matches the last read line" do
-    result = ze0(<<~'RUBY', path: "lang/control/a_bare_regexp_condition_matches_the_last_read_line.rb")
+    result = ze0(<<~'RUBY')
       # A regexp literal written where a condition goes is not the object: ruby
       # rewrites it into a match against `$_`, the last line `gets` read, and the
       # condition is the match POSITION or nil. `~re` is the same operator spelled
@@ -321,7 +321,7 @@ describe "Control programs" do
       p(~/4/)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:12: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:14: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:15: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:17: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:20: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:31: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:33: warning: regex literal in condition\nlang/control/a_bare_regexp_condition_matches_the_last_read_line.rb:36: warning: regex literal in condition\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/control/control_test.rb:12: warning: regex literal in condition\nlang/control/control_test.rb:14: warning: regex literal in condition\nlang/control/control_test.rb:15: warning: regex literal in condition\nlang/control/control_test.rb:17: warning: regex literal in condition\nlang/control/control_test.rb:20: warning: regex literal in condition\nlang/control/control_test.rb:31: warning: regex literal in condition\nlang/control/control_test.rb:33: warning: regex literal in condition\nlang/control/control_test.rb:36: warning: regex literal in condition\n"
       :yes
       0
       :yes

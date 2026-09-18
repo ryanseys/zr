@@ -552,7 +552,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "require io console winsize" do
-    result = ze0(<<~'RUBY', path: "stdlib/io_console/require_io_console_winsize.rb")
+    result = ze0(<<~'RUBY')
       # require-gate: `require "io/console"` enables the IO console surface
       # (IO#winsize). Without the require, winsize is unresolved under
       # SPINEL_REQUIRE_GATE (matching CRuby's NoMethodError); with it, the
@@ -566,6 +566,6 @@ describe "IO::console: reading and writing" do
       p STDOUT.winsize
     RUBY
 
-    _(result).must_answer "", stderr: "stdlib/io_console/require_io_console_winsize.rb:11:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)\n\tfrom stdlib/io_console/require_io_console_winsize.rb:11:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "stdlib/io_console/io_test.rb:11:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)\n\tfrom stdlib/io_console/io_test.rb:11:in '<main>'\n", status: 1
   end
 end

@@ -55,7 +55,7 @@ describe "Thread programs" do
   end
 
   it "bundle misc c 09" do
-    result = ze0(<<~'RUBY', path: "core/thread/bundle_misc_c_09.rb")
+    result = ze0(<<~'RUBY')
       # Bundled tests:
       #   - fiber_storage_basic
       #   - fiber_storage_current_alias
@@ -130,7 +130,7 @@ describe "Thread programs" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/bundle_misc_c_09.rb:30:in 'Object#t_fiber_storage_current_alias': undefined method '[]=' for an instance of Fiber (NoMethodError)\n\n  Fiber.current[:via_current] = 100\n               ^^^^^^^^^^^^^^^^\n\tfrom core/thread/bundle_misc_c_09.rb:36:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: "core/thread/thread_test.rb:30:in 'Object#t_fiber_storage_current_alias': undefined method '[]=' for an instance of Fiber (NoMethodError)\n\n  Fiber.current[:via_current] = 100\n               ^^^^^^^^^^^^^^^^\n\tfrom core/thread/thread_test.rb:36:in '<main>'\n", status: 1
       42
       43
       nil_ok
@@ -1005,7 +1005,7 @@ describe "Thread programs" do
   end
 
   it "gc first thread threshold" do
-    result = ze0(<<~'RUBY', path: "core/thread/gc_first_thread_threshold.rb")
+    result = ze0(<<~'RUBY')
       # Creating the first Thread sizes the object-heap collection budget for the
       # worker pool. It used to MULTIPLY the current threshold by the pool size --
       # and the pool is min(cores, SPINEL_WORKERS), not the thread count the program
@@ -1052,7 +1052,7 @@ describe "Thread programs" do
       p keep[0].length
     RUBY
 
-    _(result).must_answer "", stderr: "core/thread/gc_first_thread_threshold.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)\n\np after >= before\n        ^^\n", status: 1
+    _(result).must_answer "", stderr: "core/thread/thread_test.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)\n\np after >= before\n        ^^\n", status: 1
   end
 
   it "i1007" do
@@ -1466,7 +1466,7 @@ describe "Thread programs" do
   end
 
   it "ractor experimental warning" do
-    result = ze0(<<~'RUBY', path: "core/thread/ractor_experimental_warning.rb")
+    result = ze0(<<~'RUBY')
       # The Ractor API is experimental, and Ruby says so once -- at the FIRST
       # `Ractor.new`, naming that line, and never again however many Ractors follow.
       # It is an ordinary categorised warning, so `Warning[:experimental] = false`
@@ -1494,7 +1494,7 @@ describe "Thread programs" do
       puts Ractor.new { 4 }.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/ractor_experimental_warning.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/thread_test.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       before
       1
       2
@@ -1506,7 +1506,7 @@ describe "Thread programs" do
   end
 
   it "ractor message passing send and receive" do
-    result = ze0(<<~'RUBY', path: "core/thread/ractor_message_passing_send_and_receive.rb")
+    result = ze0(<<~'RUBY')
       worker = Ractor.new do
         msg = Ractor.receive
         msg * 10
@@ -1515,11 +1515,11 @@ describe "Thread programs" do
       puts worker.value
     RUBY
 
-    _(result).must_answer "70\n", stderr: "core/thread/ractor_message_passing_send_and_receive.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "70\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "ractor messages are received in fifo order" do
-    result = ze0(<<~'RUBY', path: "core/thread/ractor_messages_are_received_in_fifo_order.rb")
+    result = ze0(<<~'RUBY')
       r = Ractor.new do
         a = Ractor.receive
         b = Ractor.receive
@@ -1532,29 +1532,29 @@ describe "Thread programs" do
       puts r.value
     RUBY
 
-    _(result).must_answer "123\n", stderr: "core/thread/ractor_messages_are_received_in_fifo_order.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "123\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "ractor runs in parallel and returns its value" do
-    result = ze0(<<~'RUBY', path: "core/thread/ractor_runs_in_parallel_and_returns_its_value.rb")
+    result = ze0(<<~'RUBY')
       r = Ractor.new(20, 22) do |a, b|
         a + b
       end
       puts r.value
     RUBY
 
-    _(result).must_answer "42\n", stderr: "core/thread/ractor_runs_in_parallel_and_returns_its_value.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "42\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "several ractors run in parallel and all values collect" do
-    result = ze0(<<~'RUBY', path: "core/thread/several_ractors_run_in_parallel_and_all_values_collect.rb")
+    result = ze0(<<~'RUBY')
       r1 = Ractor.new(1) { |n| n * 10 }
       r2 = Ractor.new(2) { |n| n * 10 }
       r3 = Ractor.new(3) { |n| n * 10 }
       puts r1.value + r2.value + r3.value
     RUBY
 
-    _(result).must_answer "60\n", stderr: "core/thread/several_ractors_run_in_parallel_and_all_values_collect.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "60\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "sleep forever parks until interrupted" do

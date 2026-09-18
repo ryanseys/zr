@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: formatting and inspection" do
   it "argf walk reads every named file" do
-    result = ze0(<<~'RUBY', path: "core/io/an_argf_walk_reads_every_named_file.rb", argv: ["core/io/argf_walk/a.txt", "core/io/argf_walk/b.txt"], files: {"argf_walk/a.txt" => "one\ntwo\n", "argf_walk/b.txt" => "three\n"})
+    result = ze0(<<~'RUBY', argv: ["core/io/argf_walk/a.txt", "core/io/argf_walk/b.txt"], files: {"argf_walk/a.txt" => "one\ntwo\n", "argf_walk/b.txt" => "three\n"})
 
       # ARGF is one stream over the files ARGV names: each opens as the walk
       # reaches it, the line numbers run on across the whole set, and ARGV
@@ -481,7 +481,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "kernel gets reads the files argv names" do
-    result = ze0(<<~'RUBY', path: "core/io/kernel_gets_reads_the_files_argv_names.rb", argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
+    result = ze0(<<~'RUBY', argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
 
       # A bare `gets` reads ARGF, not standard input: the files ARGV names,
       # one after another, with $. counting the lines across all of them.

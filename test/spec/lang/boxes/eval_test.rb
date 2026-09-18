@@ -91,7 +91,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box literal eval is spliced" do
-    result = ze0(<<~'RUBY', path: "lang/boxes/a_box_literal_eval_is_spliced.rb", env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -105,7 +105,7 @@ describe "Boxes: evaluating a string" do
 
     _(result).must_answer <<~'OUT'
       "eval"
-      ["eval:1:in '<compiled>'", "lang/boxes/a_box_literal_eval_is_spliced.rb:6:in 'Ruby::Box#eval'"]
+      ["eval:1:in '<compiled>'", "lang/boxes/eval_test.rb:6:in 'Ruby::Box#eval'"]
     OUT
   end
 
@@ -127,7 +127,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "spliced box eval names its own file" do
-    result = ze0(<<~'RUBY', path: "lang/boxes/a_spliced_box_eval_names_its_own_file.rb", env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A literal `box.eval` is SPLICED at compile time, and the snippet is a
@@ -157,7 +157,7 @@ describe "Boxes: evaluating a string" do
       "eval/x"
       2
       ["eval", 1]
-      "a_spliced_box_eval_names_its_own_file.rb"
+      "eval_test.rb"
     OUT
   end
 

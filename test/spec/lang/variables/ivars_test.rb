@@ -569,7 +569,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivar read of a ractor from another ractor raises isolation error" do
-    result = ze0(<<~'RUBY', path: "lang/variables/an_ivar_read_of_a_ractor_from_another_ractor_raises_isolation_error.rb")
+    result = ze0(<<~'RUBY')
       # Reading an instance variable of a Ractor from a non-main ractor is an
       # IsolationError, and the raise must leave `@peek` with no value at
       # all: the read is a call the runtime checks like any other.
@@ -588,7 +588,7 @@ describe "Variables: instance and class variables" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/an_ivar_read_of_a_ractor_from_another_ractor_raises_isolation_error.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/variables/ivars_test.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       [Ractor::IsolationError, "can not access instance variables of shareable objects from non-main Ractors"]
     OUT
   end

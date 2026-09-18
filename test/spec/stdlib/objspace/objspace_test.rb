@@ -148,7 +148,7 @@ describe "Objspace programs" do
   end
 
   it "objspace traces allocations" do
-    result = ze0(<<~'RUBY', path: "stdlib/objspace/objspace_traces_allocations.rb")
+    result = ze0(<<~'RUBY')
       # ObjectSpace.trace_object_allocations records where each object was made:
       # the file and line of the Ruby code, and the C method it was made in, if
       # any. An object made while tracing is off has no record.
@@ -188,10 +188,10 @@ describe "Objspace programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["stdlib/objspace/objspace_traces_allocations.rb", 11, nil, nil, Integer]
-      ["stdlib/objspace/objspace_traces_allocations.rb", 7, "String", :*, Integer]
-      ["stdlib/objspace/objspace_traces_allocations.rb", 13, "Array", :map, Integer]
-      ["stdlib/objspace/objspace_traces_allocations.rb", 13, "Integer", :to_s, Integer]
+      ["stdlib/objspace/objspace_test.rb", 11, nil, nil, Integer]
+      ["stdlib/objspace/objspace_test.rb", 7, "String", :*, Integer]
+      ["stdlib/objspace/objspace_test.rb", 13, "Array", :map, Integer]
+      ["stdlib/objspace/objspace_test.rb", 13, "Integer", :to_s, Integer]
       nil
       nil
       nil

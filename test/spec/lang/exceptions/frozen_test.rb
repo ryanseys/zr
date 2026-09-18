@@ -411,7 +411,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "make shareable deep freezes a nested object graph that then crosses" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/make_shareable_deep_freezes_a_nested_object_graph_that_then_crosses.rb")
+    result = ze0(<<~'RUBY')
       # The plan's own listed scenario: object -> array -> object, every node
       # frozen by one make_shareable, the whole graph then crossing a Ractor
       # boundary by reference and dispatching on the far side.
@@ -437,7 +437,7 @@ describe "Exceptions: frozen literals" do
       puts sink.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/make_shareable_deep_freezes_a_nested_object_graph_that_then_crosses.rb:18: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/frozen_test.rb:18: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       true
       true
       true

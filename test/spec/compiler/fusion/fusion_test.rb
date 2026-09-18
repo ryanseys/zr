@@ -1545,7 +1545,7 @@ describe "Fusion programs" do
   end
 
   it "issue 3330 unresolved at typed slots" do
-    result = ze0(<<~'RUBY', path: "compiler/fusion/issue_3330_unresolved_at_typed_slots.rb")
+    result = ze0(<<~'RUBY')
       # `include`/`extend`/`prepend` are ordinary method calls, so an unresolved
       # target is a RUNTIME NameError raised from the class body -- on the directive's
       # own line, with the enclosing bodies below it -- not a compile-time rejection.
@@ -1568,7 +1568,7 @@ describe "Fusion programs" do
       puts "ok"
     RUBY
 
-    _(result).must_answer "", stderr: "compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)\n\n  extend FFI\n         ^^^\n\tfrom compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:4:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "compiler/fusion/fusion_test.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)\n\n  extend FFI\n         ^^^\n\tfrom compiler/fusion/fusion_test.rb:4:in '<main>'\n", status: 1
   end
 
   it "ivar int table narrowing" do
@@ -2921,7 +2921,7 @@ describe "Fusion programs" do
   end
 
   it "string split inline arg gc root" do
-    result = ze0(<<~'RUBY', path: "compiler/fusion/string_split_inline_arg_gc_root.rb")
+    result = ze0(<<~'RUBY')
       # Inline split arguments must stay valid across compiled split calls with
       # GC-managed pressure nearby. The pressure loop grows retained int arrays so
       # runtime allocation and collection paths are exercised before each split.
@@ -3001,7 +3001,7 @@ describe "Fusion programs" do
       puts(ok ? "ok" : "bad")
     RUBY
 
-    _(result).must_answer "", stderr: "compiler/fusion/string_split_inline_arg_gc_root.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)\n\n  while GC.stat[\"bytes\"] <= GC.stat[\"threshold\"] && keep.length < 64\n                         ^^\n\tfrom compiler/fusion/string_split_inline_arg_gc_root.rb:43:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "compiler/fusion/fusion_test.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)\n\n  while GC.stat[\"bytes\"] <= GC.stat[\"threshold\"] && keep.length < 64\n                         ^^\n\tfrom compiler/fusion/fusion_test.rb:43:in '<main>'\n", status: 1
   end
 
   it "typed array include cross type" do

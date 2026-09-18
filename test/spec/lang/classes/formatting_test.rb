@@ -986,7 +986,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "compiled class allocates directly" do
-    result = ze0(<<~'RUBY', path: "lang/classes/a_compiled_class_allocates_directly.rb")
+    result = ze0(<<~'RUBY')
       # `Foo.new` on a plain compiled class allocates without dispatching for
       # `new` at all: the runtime's `new` is served by the CONSTRUCTOR, not by a
       # class-method row, so the call site's cache could only ever remember the
@@ -1035,7 +1035,7 @@ describe "Classes: formatting and inspection" do
       "own new [1]"
       NoInit
       wrong number of arguments (given 1, expected 0)
-      boom @ lang/classes/a_compiled_class_allocates_directly.rb:35:in 'Raiser#initialize'
+      boom @ lang/classes/formatting_test.rb:35:in 'Raiser#initialize'
     OUT
   end
 

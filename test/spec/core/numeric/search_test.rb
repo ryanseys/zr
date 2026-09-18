@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: searching and matching" do
   it "bignum index answers nil instead of raising" do
-    result = ze0(<<~'RUBY', path: "core/numeric/a_bignum_index_answers_nil_instead_of_raising.rb")
+    result = ze0(<<~'RUBY')
       # `[1, 2][1..2**70]` and `"ab"[1..2**70]` answer `nil` where ruby raises
       # `RangeError: bignum too big to convert into 'long'`.
       #
@@ -44,7 +44,7 @@ describe "Numeric: searching and matching" do
       p [1, 2].values_at(B)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/numeric/a_bignum_index_answers_nil_instead_of_raising.rb:34:in '<main>': bignum too big to convert into 'long' (RangeError)\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: "core/numeric/search_test.rb:34:in '<main>': bignum too big to convert into 'long' (RangeError)\n", status: 1
       [:ary, RangeError, "bignum too big to convert into 'long'"]
       [:str, RangeError, "bignum too big to convert into 'long'"]
     OUT

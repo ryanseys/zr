@@ -200,7 +200,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "one threads bad dispatch no longer kills the other threads" do
-    result = ze0(<<~'RUBY', path: "core/process/one_threads_bad_dispatch_no_longer_kills_the_other_threads.rb")
+    result = ze0(<<~'RUBY')
       # A failing thread surfaces its error at its OWN join; the healthy worker
       # completes normally, unaffected.
 
@@ -216,7 +216,7 @@ describe "Process: threads, fibers and ractors" do
       puts worker.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/process/one_threads_bad_dispatch_no_longer_kills_the_other_threads.rb:7 run> terminated with exception (report_on_exception is true):\ncore/process/one_threads_bad_dispatch_no_longer_kills_the_other_threads.rb:7:in 'block in <main>': undefined method 'missing_in_thread' for an instance of Plain (NoMethodError)\n\nbad = Thread.new { Plain.new.send(:missing_in_thread) }\n                            ^^^^^\n"
+    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/process/threads_test.rb:7 run> terminated with exception (report_on_exception is true):\ncore/process/threads_test.rb:7:in 'block in <main>': undefined method 'missing_in_thread' for an instance of Plain (NoMethodError)\n\nbad = Thread.new { Plain.new.send(:missing_in_thread) }\n                            ^^^^^\n"
       joined the failure
       42
     OUT

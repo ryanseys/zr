@@ -49,7 +49,7 @@ describe "Require: constants" do
   end
 
   it "autoload is defined before it loads" do
-    result = ze0(<<~'RUBY', path: "lang/require/an_autoload_is_defined_before_it_loads.rb", files: fixtures("autoload_target/autoload_deep.rb", "autoload_target/autoload_gadget.rb", "autoload_target/autoload_quiet.rb", "autoload_target/autoload_thing.rb", "autoload_target/autoload_widget.rb"))
+    result = ze0(<<~'RUBY', files: fixtures("autoload_target/autoload_deep.rb", "autoload_target/autoload_gadget.rb", "autoload_target/autoload_quiet.rb", "autoload_target/autoload_thing.rb", "autoload_target/autoload_widget.rb"))
       # `defined?` and `const_defined?` announce an `autoload`ed constant the moment
       # the `autoload` is written -- and a NESTED ask loads the file to answer.
       #
@@ -161,7 +161,7 @@ describe "Require: constants" do
   end
 
   it "autoload runs when its constant is read" do
-    result = ze0(<<~'RUBY', path: "lang/require/an_autoload_runs_when_its_constant_is_read.rb", files: fixtures("autoload_target/autoload_deep.rb", "autoload_target/autoload_gadget.rb", "autoload_target/autoload_quiet.rb", "autoload_target/autoload_thing.rb", "autoload_target/autoload_widget.rb"))
+    result = ze0(<<~'RUBY', files: fixtures("autoload_target/autoload_deep.rb", "autoload_target/autoload_gadget.rb", "autoload_target/autoload_quiet.rb", "autoload_target/autoload_thing.rb", "autoload_target/autoload_widget.rb"))
       # Reading a constant is what RUNS its `autoload`.
       #
       # zeo recorded the target and never ran it, except for the one internal case

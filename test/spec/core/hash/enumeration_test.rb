@@ -489,7 +489,7 @@ describe "Hash: enumeration" do
   end
 
   it "hash each with object" do
-    result = ze0(<<~'RUBY', path: "core/hash/hash_each_with_object.rb")
+    result = ze0(<<~'RUBY')
       # Hash#each_with_object — iterates k,v pairs and threads `memo`
       # through the block. The destructured form `|(k,v), memo|` matches
       # the MultiTargetNode containing the two names; the flat 3-param
@@ -508,7 +508,7 @@ describe "Hash: enumeration" do
       puts result2.inspect
     RUBY
 
-    _(result).must_answer "[10, 20, 30]\n", stderr: "core/hash/hash_each_with_object.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)\n\nresult2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }\n                                                     ^^\n\tfrom core/hash/hash_each_with_object.rb:15:in 'Hash#each'\n\tfrom core/hash/hash_each_with_object.rb:15:in 'Enumerable#each_with_object'\n\tfrom core/hash/hash_each_with_object.rb:15:in '<main>'\n", status: 1
+    _(result).must_answer "[10, 20, 30]\n", stderr: "core/hash/enumeration_test.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)\n\nresult2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }\n                                                     ^^\n\tfrom core/hash/enumeration_test.rb:15:in 'Hash#each'\n\tfrom core/hash/enumeration_test.rb:15:in 'Enumerable#each_with_object'\n\tfrom core/hash/enumeration_test.rb:15:in '<main>'\n", status: 1
   end
 
   it "hash empty literal and map" do
@@ -824,7 +824,7 @@ describe "Hash: enumeration" do
   end
 
   it "hash sort pairs" do
-    result = ze0(<<~'RUBY', path: "core/hash/hash_sort_pairs.rb")
+    result = ze0(<<~'RUBY')
       # Hash#sort returns the entries as an array of [key, value] pairs ordered by
       # Array#<=> (key first, then value). Each receiver goes through a monomorphic
       # method parameter so the runtime path is exercised, not constant-folded.
@@ -849,7 +849,7 @@ describe "Hash: enumeration" do
       p ps.last[0]
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/hash/hash_sort_pairs.rb:16: warning: key 10 is duplicated and overwritten on line 16\n"
+    _(result).must_answer <<~'OUT', stderr: "core/hash/enumeration_test.rb:16: warning: key 10 is duplicated and overwritten on line 16\n"
       [[:a, 1], [:b, 2], [:c, 3]]
       [["a", 3], ["c", 2], ["d", 1]]
       [[1, "z"], [2, "y"], [3, "x"]]

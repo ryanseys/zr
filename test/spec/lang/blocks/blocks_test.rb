@@ -1387,7 +1387,7 @@ describe "Blocks programs" do
   end
 
   it "derived proc identity" do
-    result = ze0(<<~'RUBY', path: "lang/blocks/derived_proc_identity.rb")
+    result = ze0(<<~'RUBY')
       # Two kinds of proc that are DERIVED from something else keep a trace of what
       # they came from, and zeo's do not.
       #
@@ -1430,7 +1430,7 @@ describe "Blocks programs" do
       nil
       "OK"
       31
-      #<Proc:0xADDR derived_proc_identity.rb:31>
+      #<Proc:0xADDR blocks_test.rb:31>
     OUT
   end
 
@@ -3000,13 +3000,13 @@ describe "Blocks programs" do
   end
 
   it "proc ruby2 keywords warning" do
-    result = ze0(<<~'RUBY', path: "lang/blocks/proc_ruby2_keywords_warning.rb")
+    result = ze0(<<~'RUBY')
       pr = proc { |x| x }
       pr.ruby2_keywords
       p :done
     RUBY
 
-    _(result).must_answer ":done\n", stderr: "lang/blocks/proc_ruby2_keywords_warning.rb:2: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
+    _(result).must_answer ":done\n", stderr: "lang/blocks/blocks_test.rb:2: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
   end
 
   it "procs own block param receives the call site block" do

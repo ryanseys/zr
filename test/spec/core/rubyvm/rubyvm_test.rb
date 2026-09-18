@@ -137,7 +137,7 @@ describe "RubyVM programs" do
   end
 
   it "eval syntax error carries prisms report" do
-    result = ze0(<<~'RUBY', path: "core/rubyvm/an_eval_syntax_error_carries_prisms_report.rb")
+    result = ze0(<<~'RUBY')
       # A snippet that does not parse raises a `SyntaxError` whose message is the
       # program's to read, so it is prism's whole report -- header, the offending
       # line with its context, and one caret row per diagnostic -- exactly as
@@ -168,7 +168,7 @@ describe "RubyVM programs" do
       end
     RUBY
 
-    _(result).must_answer "----- \"1 +\"\nF.rb:7: syntax errors found\n> 7 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"foo(\"\nF.rb:7: syntax error found\n> 7 | foo(\n    |     ^ unexpected end-of-input; expected a `)` to close the arguments\n----- \"  x ]\"\nF.rb:7: syntax errors found\n> 7 |   x ]\n    |     ^ unexpected ']', ignoring it\n    |     ^ unexpected ']', expecting end-of-input\n----- \"a = 1\\na = 1\\nb +\"\nF.rb:6: syntax errors found\n  4 | a = 1\n  5 | a = 1\n> 6 | b +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n1 +\"\nF.rb:123: syntax errors found\n  121 | \n  122 | \n> 123 | 1 +\n      |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n      |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"x = 'ありがとう' +\\n\"\nF.rb:3: syntax errors found\n> 3 | x = 'ありがとう' +\n    |              ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |              ^ unexpected end-of-input; expected an expression after the operator\n----- \"1 +\"\n(eval at core/rubyvm/an_eval_syntax_error_carries_prisms_report.rb:7):1: syntax errors found\n> 1 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\nSyntaxError\n"
+    _(result).must_answer "----- \"1 +\"\nF.rb:7: syntax errors found\n> 7 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"foo(\"\nF.rb:7: syntax error found\n> 7 | foo(\n    |     ^ unexpected end-of-input; expected a `)` to close the arguments\n----- \"  x ]\"\nF.rb:7: syntax errors found\n> 7 |   x ]\n    |     ^ unexpected ']', ignoring it\n    |     ^ unexpected ']', expecting end-of-input\n----- \"a = 1\\na = 1\\nb +\"\nF.rb:6: syntax errors found\n  4 | a = 1\n  5 | a = 1\n> 6 | b +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n1 +\"\nF.rb:123: syntax errors found\n  121 | \n  122 | \n> 123 | 1 +\n      |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n      |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"x = 'ありがとう' +\\n\"\nF.rb:3: syntax errors found\n> 3 | x = 'ありがとう' +\n    |              ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |              ^ unexpected end-of-input; expected an expression after the operator\n----- \"1 +\"\n(eval at core/rubyvm/rubyvm_test.rb:7):1: syntax errors found\n> 1 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\nSyntaxError\n"
   end
 
   it "iseq compiles a string and evals it" do
@@ -924,7 +924,7 @@ describe "RubyVM programs" do
   end
 
   it "rubyvm iseq of answers for a ruby callable" do
-    result = ze0(<<~'RUBY', path: "core/rubyvm/rubyvm_iseq_of_answers_for_a_ruby_callable.rb")
+    result = ze0(<<~'RUBY')
       # `RubyVM::InstructionSequence.of` answers a real handle for a callable
       # written in Ruby and `nil` for a C-defined one. It used to answer `nil` for
       # EVERYTHING, which is the one row of the YARV surface that was quietly wrong
@@ -957,7 +957,7 @@ describe "RubyVM programs" do
       i = RubyVM::InstructionSequence.of(PR)
       try("proc lineno")   { i.first_lineno }
       try("proc path")     { File.basename(i.path) }
-      try("proc absolute") { i.absolute_path.end_with?("rubyvm_iseq_of_answers_for_a_ruby_callable.rb") }
+      try("proc absolute") { i.absolute_path.end_with?("rubyvm_test.rb") }
 
       m = RubyVM::InstructionSequence.of(method(:ruby_method))
       try("m label")       { m.label }
@@ -975,12 +975,12 @@ describe "RubyVM programs" do
       a c row: NilClass
       nil arg: NilClass
       proc lineno: 18
-      proc path: "rubyvm_iseq_of_answers_for_a_ruby_callable.rb"
+      proc path: "rubyvm_test.rb"
       proc absolute: true
       m label: "ruby_method"
       m base_label: "ruby_method"
       m lineno: 17
-      m path: "rubyvm_iseq_of_answers_for_a_ruby_callable.rb"
+      m path: "rubyvm_test.rb"
     OUT
   end
 end

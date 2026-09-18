@@ -216,7 +216,7 @@ describe "Misc programs" do
   end
 
   it "sp net poll persistent" do
-    result = ze0(<<~'RUBY', path: "lang/misc/sp_net_poll_persistent.rb")
+    result = ze0(<<~'RUBY')
       # Persistent registration: register once per connection, then read only what
       # fired. The older reset/add/run/ready contract rebuilds the set every tick, so
       # a caller with N parked fds does O(N) work per tick however few are ready;
@@ -273,11 +273,11 @@ describe "Misc programs" do
       puts "registered: #{Net.sp_net_poll_registered}"
     RUBY
 
-    _(result).must_answer "", stderr: "lang/misc/sp_net_poll_persistent.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_register,   [:int, :int], :int\n  ^^^^^^^^\n\tfrom lang/misc/sp_net_poll_persistent.rb:9:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "lang/misc/misc_test.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_register,   [:int, :int], :int\n  ^^^^^^^^\n\tfrom lang/misc/misc_test.rb:9:in '<main>'\n", status: 1
   end
 
   it "sp net write partial" do
-    result = ze0(<<~'RUBY', path: "lang/misc/sp_net_write_partial.rb")
+    result = ze0(<<~'RUBY')
       # Non-blocking write: hand back what the socket took, leave the policy for the
       # rest to the caller. sp_net_write_str / _bytes keep writing until everything
       # is gone, so one peer that cannot keep up delays delivery to every other one,
@@ -347,6 +347,6 @@ describe "Misc programs" do
       File.unlink(path)
     RUBY
 
-    _(result).must_answer "", stderr: "lang/misc/sp_net_write_partial.rb:9:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_unix_listen,   [:str, :int],        :int\n  ^^^^^^^^\n\tfrom lang/misc/sp_net_write_partial.rb:8:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: "lang/misc/misc_test.rb:9:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_unix_listen,   [:str, :int],        :int\n  ^^^^^^^^\n\tfrom lang/misc/misc_test.rb:8:in '<main>'\n", status: 1
   end
 end

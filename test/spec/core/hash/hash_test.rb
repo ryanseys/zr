@@ -1654,7 +1654,7 @@ describe "Hash programs" do
   end
 
   it "kernel hash frozen conformance" do
-    result = ze0(<<~'RUBY', path: "core/hash/kernel_hash_frozen_conformance.rb")
+    result = ze0(<<~'RUBY')
 
       # Hash#all?/any?/none?/one? with a CLASS pattern is a kind-of test over the
       # [key, value] pairs; comparing the pair to the class value by equality
@@ -1707,7 +1707,7 @@ describe "Hash programs" do
       p Hash(nil)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/hash/kernel_hash_frozen_conformance.rb:14: warning: block supersedes default value argument\n"
+    _(result).must_answer <<~'OUT', stderr: "core/hash/hash_test.rb:14: warning: block supersedes default value argument\n"
       true
       true
       false

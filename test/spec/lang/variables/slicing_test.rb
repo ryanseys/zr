@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables: slicing" do
   it "assignment in condition warning" do
-    result = ze0(<<~'RUBY', path: "lang/variables/assignment_in_condition_warning.rb")
+    result = ze0(<<~'RUBY')
       # Ruby warns when a conditional's test is an assignment of a LITERAL --
       # `warning: found '= literal' in conditional, should be ==` -- the classic
       # `if x = 1` typo. zeo emits nothing.
@@ -42,7 +42,7 @@ describe "Variables: slicing" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/assignment_in_condition_warning.rb:15: warning: found '= literal' in conditional, should be ==\nlang/variables/assignment_in_condition_warning.rb:19: warning: found '= literal' in conditional, should be ==\nlang/variables/assignment_in_condition_warning.rb:23: warning: found '= literal' in conditional, should be ==\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/variables/slicing_test.rb:15: warning: found '= literal' in conditional, should be ==\nlang/variables/slicing_test.rb:19: warning: found '= literal' in conditional, should be ==\nlang/variables/slicing_test.rb:23: warning: found '= literal' in conditional, should be ==\n"
       literal assign taken
       unless:
       idiom ok: value

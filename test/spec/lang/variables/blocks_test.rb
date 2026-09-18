@@ -306,7 +306,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "ractor block capturing an outer local is rejected where ruby rejects it" do
-    result = ze0(<<~'RUBY', path: "lang/variables/a_ractor_block_capturing_an_outer_local_is_rejected_where_ruby_rejects_it.rb")
+    result = ze0(<<~'RUBY')
       # CRuby's `ArgumentError`, raised by `Ractor.new` itself and catchable
       # there -- not the compile error zeo used to report. The verdict rides on
       # the Proc value (`RProc::with_outer_capture`), so a literal block and a
@@ -321,7 +321,7 @@ describe "Variables: blocks and yields" do
       puts "still running"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/a_ractor_block_capturing_an_outer_local_is_rejected_where_ruby_rejects_it.rb:8: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/variables/blocks_test.rb:8: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
       raised: ArgumentError: can not isolate a Proc because it accesses outer variables (x).
       still running
     OUT

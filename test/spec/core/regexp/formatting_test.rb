@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Regexp: formatting and inspection" do
   it "bare property escape warns" do
-    result = ze0(<<~'RUBY', path: "core/regexp/a_bare_property_escape_warns.rb")
+    result = ze0(<<~'RUBY')
       def t(label)
         r = begin
           yield.inspect
@@ -19,7 +19,7 @@ describe "Regexp: formatting and inspection" do
       t("pL")     { Regexp.new("\\pL").match("pL")[0] }
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/a_bare_property_escape_warns.rb:11: warning: invalid Unicode Property \\p: /\\p/\ncore/regexp/a_bare_property_escape_warns.rb:12: warning: invalid Unicode Property \\p: /\\pL/\n"
+    _(result).must_answer <<~'OUT', stderr: "core/regexp/formatting_test.rb:11: warning: invalid Unicode Property \\p: /\\p/\ncore/regexp/formatting_test.rb:12: warning: invalid Unicode Property \\p: /\\pL/\n"
       bs-K | 0
       bare-p | "p"
       pL | "pL"

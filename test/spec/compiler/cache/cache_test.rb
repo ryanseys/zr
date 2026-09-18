@@ -144,7 +144,7 @@ describe "Cache programs" do
   end
 
   it "raise names the snippet and the eval site" do
-    result = ze0(<<~'RUBY', path: "compiler/cache/a_raise_names_the_snippet_and_the_eval_site.rb")
+    result = ze0(<<~'RUBY')
       src = "raise 'boom'"
       begin
         eval(src)
@@ -154,13 +154,13 @@ describe "Cache programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      (eval at compiler/cache/a_raise_names_the_snippet_and_the_eval_site.rb:3):1:in '<main>'
-      compiler/cache/a_raise_names_the_snippet_and_the_eval_site.rb:3:in 'Kernel#eval'
+      (eval at compiler/cache/cache_test.rb:3):1:in '<main>'
+      compiler/cache/cache_test.rb:3:in 'Kernel#eval'
     OUT
   end
 
   it "snippet reaches its callers block" do
-    result = ze0(<<~'RUBY', path: "compiler/cache/a_snippet_reaches_its_callers_block.rb")
+    result = ze0(<<~'RUBY')
       # `yield`, `block_given?` and a bare `super` written at a snippet's own
       # level belong to the method the `eval` was called from -- CRuby reads them
       # off the caller's control frame. zeo publishes the home from every scope
@@ -267,9 +267,9 @@ describe "Cache programs" do
       nil
       "yield"
       LocalJumpError: no block given (yield)
-      SyntaxError: (eval at compiler/cache/a_snippet_reaches_its_callers_block.rb:74):1: Invalid yield
-      ["(eval at compiler/cache/a_snippet_reaches_its_callers_block.rb:74)"]
-      class body: (eval at compiler/cache/a_snippet_reaches_its_callers_block.rb:81):1: Invalid yield
+      SyntaxError: (eval at compiler/cache/cache_test.rb:74):1: Invalid yield
+      ["(eval at compiler/cache/cache_test.rb:74)"]
+      class body: (eval at compiler/cache/cache_test.rb:81):1: Invalid yield
       nil
     OUT
   end

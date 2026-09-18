@@ -1219,7 +1219,7 @@ describe "Regexp: encodings" do
   end
 
   it "regexp over utf16 and utf32 text reads wide characters" do
-    result = ze0(<<~'RUBY', path: "core/regexp/a_regexp_over_utf16_and_utf32_text_reads_wide_characters.rb")
+    result = ze0(<<~'RUBY')
       # A Regexp written in UTF-16 or UTF-32 reads text of that encoding a
       # character at a time: two or four bytes, a surrogate pair as one
       # character, a newline as the character U+000A, and Unicode's classes,
@@ -1267,7 +1267,7 @@ describe "Regexp: encodings" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/a_regexp_over_utf16_and_utf32_text_reads_wide_characters.rb:29: warning: character class has duplicated range: /\\x5b\\x00\\x61\\x00\\x61\\x00\\x5d\\x00\\x5d\\x00/\ncore/regexp/a_regexp_over_utf16_and_utf32_text_reads_wide_characters.rb:29: warning: regular expression has ']' without escape: /\\x5b\\x00\\x61\\x00\\x61\\x00\\x5d\\x00\\x5d\\x00/\ncore/regexp/a_regexp_over_utf16_and_utf32_text_reads_wide_characters.rb:30: warning: regular expression has redundant nested repeat operator '*': /\\x00\\x00\\x00\\x78\\x00\\x00\\x00\\x2a\\x00\\x00\\x00\\x2a/\n"
+    _(result).must_answer <<~'OUT', stderr: "core/regexp/encoding_test.rb:29: warning: character class has duplicated range: /\\x5b\\x00\\x61\\x00\\x61\\x00\\x5d\\x00\\x5d\\x00/\ncore/regexp/encoding_test.rb:29: warning: regular expression has ']' without escape: /\\x5b\\x00\\x61\\x00\\x61\\x00\\x5d\\x00\\x5d\\x00/\ncore/regexp/encoding_test.rb:30: warning: regular expression has redundant nested repeat operator '*': /\\x00\\x00\\x00\\x78\\x00\\x00\\x00\\x2a\\x00\\x00\\x00\\x2a/\n"
       "UTF-16LE"
       [8, 18]
       ["e", "世界"]
@@ -1370,7 +1370,7 @@ describe "Regexp: encodings" do
   end
 
   it "subject of another encoding compiles the pattern again" do
-    result = ze0(<<~'RUBY', path: "core/regexp/a_subject_of_another_encoding_compiles_the_pattern_again.rb")
+    result = ze0(<<~'RUBY')
       # A pattern that fixed no encoding reads a subject of another encoding
       # by compiling its source again under the subject's (rb_reg_prepare_re):
       # the escapes decode as that encoding's characters, a byte no character
@@ -1416,7 +1416,7 @@ describe "Regexp: encodings" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "--\ncore/regexp/a_subject_of_another_encoding_compiles_the_pattern_again.rb:8: warning: historical binary regexp match /.../n against UTF-8 string\n"
+    _(result).must_answer <<~'OUT', stderr: "--\ncore/regexp/encoding_test.rb:8: warning: historical binary regexp match /.../n against UTF-8 string\n"
       [#<Encoding:US-ASCII>, false]
       nil
       [[255], 0]

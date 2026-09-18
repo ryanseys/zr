@@ -101,7 +101,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "file open is ios own row" do
-    result = ze0(<<~'RUBY', path: "compiler/builtins/file_open_is_ios_own_row.rb")
+    result = ze0(<<~'RUBY')
       # `open`, `new`, `for_fd` and `sysopen` are IO's rows, and File INHERITS them.
       #
       # CRuby defines all four on IO's singleton class alone (`io.c`'s `Init_IO`; the
@@ -174,7 +174,7 @@ describe "Builtins: reading and writing" do
       puts "ran to the end"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "compiler/builtins/file_open_is_ios_own_row.rb:65: warning: File::new() does not take block; use File::open() instead\n"
+    _(result).must_answer <<~'OUT', stderr: "compiler/builtins/io_test.rb:65: warning: File::new() does not take block; use File::open() instead\n"
       IO.open owner	"#<Class:IO>"
       File.open owner	"#<Class:IO>"
       IO.new owner	"#<Class:IO>"

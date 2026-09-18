@@ -240,7 +240,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "struct constructor frame names the subclass" do
-    result = ze0(<<~'RUBY', path: "core/struct/a_struct_constructor_frame_names_the_subclass.rb")
+    result = ze0(<<~'RUBY')
       # A `Data` subclass's constructor reports the two frames ruby reports, and its
       # `Struct` twin still reports its one.
       #
@@ -355,25 +355,25 @@ describe "Struct: inheritance and ancestors" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'
-      a_struct_constructor_frame_names_the_subclass.rb:37:in 'D.new'
-      a_struct_constructor_frame_names_the_subclass.rb:46:in 'S2#initialize'
-      a_struct_constructor_frame_names_the_subclass.rb:50:in '<main>'
+      inheritance_test.rb:32:in 'D2#initialize'
+      inheritance_test.rb:37:in 'D.new'
+      inheritance_test.rb:46:in 'S2#initialize'
+      inheritance_test.rb:50:in '<main>'
       Data sub-subclass:
-        a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'
-        a_struct_constructor_frame_names_the_subclass.rb:67:in 'D3#initialize'
+        inheritance_test.rb:32:in 'D2#initialize'
+        inheritance_test.rb:67:in 'D3#initialize'
       Data direct, arity error:
-        a_struct_constructor_frame_names_the_subclass.rb:75:in 'DD.new'
-        a_struct_constructor_frame_names_the_subclass.rb:75:in 'block in <main>'
+        inheritance_test.rb:75:in 'DD.new'
+        inheritance_test.rb:75:in 'block in <main>'
       named runtime class:
-        a_struct_constructor_frame_names_the_subclass.rb:81:in 'Named#boom'
+        inheritance_test.rb:81:in 'Named#boom'
       anonymous runtime class:
-        a_struct_constructor_frame_names_the_subclass.rb:88:in 'boom'
+        inheritance_test.rb:88:in 'boom'
       subclass of a runtime class:
-        a_struct_constructor_frame_names_the_subclass.rb:96:in 'NamedSub#other'
+        inheritance_test.rb:96:in 'NamedSub#other'
       top-level def called from a runtime method:
-        a_struct_constructor_frame_names_the_subclass.rb:104:in 'Object#top_level_helper'
-        a_struct_constructor_frame_names_the_subclass.rb:108:in 'Leaky#outer'
+        inheritance_test.rb:104:in 'Object#top_level_helper'
+        inheritance_test.rb:108:in 'Leaky#outer'
     OUT
   end
 

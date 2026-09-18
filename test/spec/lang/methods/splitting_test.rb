@@ -290,7 +290,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "kwargs and double splats preserve source order" do
-    result = ze0(<<~'RUBY', path: "lang/methods/kwargs_and_double_splats_preserve_source_order.rb")
+    result = ze0(<<~'RUBY')
       # The KwArg merge: `Call`/`HashLit`/`Yield` carry ONE ordered list of
       # literal pairs and `**h` double-splats. Ruby's Hash is insertion-ordered
       # and the merge is left-to-right last-wins, so the interleaving is
@@ -317,7 +317,7 @@ describe "Methods: splitting and joining" do
       p capture(**HasToHash.new, w: 1)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/kwargs_and_double_splats_preserve_source_order.rb:12: warning: key :x is duplicated and overwritten on line 12\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/methods/splitting_test.rb:12: warning: key :x is duplicated and overwritten on line 12\n"
       {a: 1, b: 2, c: 3}
       {c: 3, a: 1, b: 2}
       {x: 1, y: 2}
@@ -433,7 +433,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "ruby2 keywords forwarding" do
-    result = ze0(<<~'RUBY', path: "lang/methods/ruby2_keywords_forwarding.rb")
+    result = ze0(<<~'RUBY')
       # The keyword/positional split rides on the trailing hash's OWN mark
       # (`RHashData::kw_marked`, CRuby's `rb_keyword_given_p`), and a splat CLEARS
       # it: `def forward(*args) = sink(*args)` hands `sink` a positional Hash, not
@@ -495,7 +495,7 @@ describe "Methods: splitting and joining" do
       p pr.ruby2_keywords.equal?(pr)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/ruby2_keywords_forwarding.rb:59: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
+    _(result).must_answer <<~'OUT', stderr: "lang/methods/splitting_test.rb:59: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
       [9, [], 3, {}]
       [9, [{k: 3}], 2, {}]
       [9, [{k: 3}], 2, {}]

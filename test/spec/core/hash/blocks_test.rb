@@ -262,7 +262,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "fetch block supersedes default" do
-    result = ze0(<<~'RUBY', path: "core/hash/fetch_block_supersedes_default.rb")
+    result = ze0(<<~'RUBY')
       # CRuby warns "block supersedes default value argument" wherever a `fetch`-like
       # takes BOTH a positional default and a block, and the block is the one that
       # wins. Six sites carry the same wording (`Hash#fetch`, `Array#fetch`,
@@ -300,7 +300,7 @@ describe "Hash: blocks and yields" do
       $VERBOSE = false
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/hash/fetch_block_supersedes_default.rb:8: warning: block supersedes default value argument\ncore/hash/fetch_block_supersedes_default.rb:9: warning: block supersedes default value argument\ncore/hash/fetch_block_supersedes_default.rb:10: warning: block supersedes default value argument\ncore/hash/fetch_block_supersedes_default.rb:11: warning: block supersedes default value argument\ncore/hash/fetch_block_supersedes_default.rb:12: warning: block supersedes default value argument\ncore/hash/fetch_block_supersedes_default.rb:15: warning: block supersedes default value argument\ncore/hash/fetch_block_supersedes_default.rb:16: warning: block supersedes default value argument\n"
+    _(result).must_answer <<~'OUT', stderr: "core/hash/blocks_test.rb:8: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:9: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:10: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:11: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:12: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:15: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:16: warning: block supersedes default value argument\n"
       [:blk, 9]
       [:blk, :z]
       "blk ZEO_NO_SUCH_VAR"

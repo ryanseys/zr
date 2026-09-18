@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process: raising and rescuing" do
   it "at exit handler raise reports" do
-    result = ze0(<<~'RUBY', path: "core/process/at_exit_handler_raise_reports.rb")
+    result = ze0(<<~'RUBY')
       # An exception inside an at_exit handler is reported immediately, and the
       # remaining handlers still run (CRuby's rule; the status becomes 1).
       at_exit { puts "h-after" }
@@ -13,7 +13,7 @@ describe "Process: raising and rescuing" do
       puts "body"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/process/at_exit_handler_raise_reports.rb:4:in 'block in <main>': handler boom (RuntimeError)\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: "core/process/exceptions_test.rb:4:in 'block in <main>': handler boom (RuntimeError)\n", status: 1
       body
       h-before
       h-after
@@ -21,7 +21,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "at exit handler that raises sets status 1" do
-    result = ze0(<<~'RUBY', path: "core/process/an_at_exit_handler_that_raises_sets_status_1.rb")
+    result = ze0(<<~'RUBY')
       # The handler's error is reported, the next handler still runs, and the
       # program ends with status 1.
       at_exit { puts :second }
@@ -30,14 +30,14 @@ describe "Process: raising and rescuing" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/process/an_at_exit_handler_that_raises_sets_status_1.rb:4:in 'block in <main>': x (RuntimeError)\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: "core/process/exceptions_test.rb:4:in 'block in <main>': x (RuntimeError)\n", status: 1
       1
       second
     OUT
   end
 
   it "class bodies execute at their document position and rerun per reopen" do
-    result = ze0(<<~'RUBY', path: "core/process/class_bodies_execute_at_their_document_position_and_rerun_per_reopen.rb")
+    result = ze0(<<~'RUBY')
       # Real Ruby runs a class/module body WHERE IT APPEARS, interleaved
       # with surrounding top-level code, re-executing each reopen's body at
       # its own site; a rescued raise inside a module body shows the
@@ -79,8 +79,8 @@ describe "Process: raising and rescuing" do
       outer start
       inner body
       outer end
-      rescued: core/process/class_bodies_execute_at_their_document_position_and_rerun_per_reopen.rb:25:in '<module:M>'
-      from: core/process/class_bodies_execute_at_their_document_position_and_rerun_per_reopen.rb:23:in '<main>'
+      rescued: core/process/exceptions_test.rb:25:in '<module:M>'
+      from: core/process/exceptions_test.rb:23:in '<main>'
       top3
     OUT
   end
@@ -202,18 +202,18 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught exceptions still exit nonzero through the coroutine boundary" do
-    result = ze0(<<~'RUBY', path: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb")
+    result = ze0(<<~'RUBY')
       # The top-level uncaught-raise contract (message on stderr, exit 1) must
       # survive the main body's Result crossing back to the OS main thread.
 
       raise "through the boundary"
     RUBY
 
-    _(result).must_answer "", stderr: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb:4:in '<main>': through the boundary (RuntimeError)\n", status: 1
+    _(result).must_answer "", stderr: "core/process/exceptions_test.rb:4:in '<main>': through the boundary (RuntimeError)\n", status: 1
   end
 
   it "uncaught interrupt is reported and ends by sigint" do
-    result = ze0(<<~'RUBY', path: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb")
+    result = ze0(<<~'RUBY')
       # Interrupt, unlike the other signals, is reported before the process
       # ends by SIGINT.
       at_exit { puts :handler }
@@ -221,25 +221,25 @@ describe "Process: raising and rescuing" do
 
     RUBY
 
-    _(result).must_answer "handler\n", stderr: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb:4:in '<main>': Interrupt (Interrupt)\n", status: nil, signal: 2
+    _(result).must_answer "handler\n", stderr: "core/process/exceptions_test.rb:4:in '<main>': Interrupt (Interrupt)\n", status: nil, signal: 2
   end
 
   it "uncaught no method error exits via the ordinary top level handler" do
-    result = ze0(<<~'RUBY', path: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb")
+    result = ze0(<<~'RUBY')
       class Plain
       end
       Plain.new.send(:missing)
     RUBY
 
-    _(result).must_answer "", stderr: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)\n\nPlain.new.send(:missing)\n         ^^^^^\n", status: 1
+    _(result).must_answer "", stderr: "core/process/exceptions_test.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)\n\nPlain.new.send(:missing)\n         ^^^^^\n", status: 1
   end
 
   it "uncaught raise with no rescue anywhere exits with the message" do
-    result = ze0(<<~'RUBY', path: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb")
+    result = ze0(<<~'RUBY')
       raise "boom"
     RUBY
 
-    _(result).must_answer "", stderr: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb:1:in '<main>': boom (RuntimeError)\n", status: 1
+    _(result).must_answer "", stderr: "core/process/exceptions_test.rb:1:in '<main>': boom (RuntimeError)\n", status: 1
   end
 
   it "uncaught signal exception ends by its signal" do
@@ -258,7 +258,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "unrescued definition raise aborts where ruby aborts" do
-    result = ze0(<<~'RUBY', path: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb")
+    result = ze0(<<~'RUBY')
       # The other half of `a_definition_ruby_raises_on_raises`: with nothing to
       # catch it, the program runs up to the definition and then dies exactly where
       # ruby dies -- same message, same backtrace line, same exit status. The
@@ -276,6 +276,6 @@ describe "Process: raising and rescuing" do
       puts "after"
     RUBY
 
-    _(result).must_answer "before\n", stderr: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)\n", status: 1
+    _(result).must_answer "before\n", stderr: "core/process/exceptions_test.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)\n", status: 1
   end
 end
