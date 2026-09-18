@@ -114,6 +114,11 @@ Backtraces name the walk's own files rather than the string's line.
 - A WASI module holds the whole front end where a binary holds a
   cached object, so a wasm program that evals is about 90 MB and takes
   about three minutes to build.
+- An engine compiles a module whole before it runs a line of it, so
+  that 90 MB costs about 2.1 GB of the host's memory at instantiation
+  -- measured on `e2e/lang/eval/eval_in_a_binary.rb` under wasmtime.
+  The program's own memory is a fraction of it. `wasmtime compile`
+  ahead of time moves the cost out of the run.
 - A binary that carries the compiler names the absolute paths of the
   gem's `rt/ext`, `vendor/lib` and `vendor/ext/*/lib`. A computed
   `require` in such a binary works only while that version of the gem

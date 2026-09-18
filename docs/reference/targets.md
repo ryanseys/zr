@@ -27,10 +27,17 @@ cannot link a binary, `ze0 build` without `--emit` exits with status 3.
 |---|---|---|---|
 | Linker | ze0's own (`Obj::MachO::Executable`) | `cc -static` | none: one module |
 | `Fiber`, `Thread`, `Ractor` | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
-| `eval` of a string | yes | no: a static binary cannot load code | no |
+| `eval` of a string | yes | yes | yes, by walking the tree |
 | FFI (`ffi`, `fiddle`) | yes | no | no |
 | Preemption | a timer thread | a timer thread | a count at each safe point |
 | Answer held to | what ruby recorded | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
+
+A darwin or linux program that evals writes the machine code it
+compiles into itself. A module's code is fixed when the engine
+instantiates it, and WASI hands a guest no way to make a second one, so
+a wasm program carries the same front end and walks the tree it builds.
+It refuses a few forms by name where it stands, which
+`docs/explanation/eval-in-a-compiled-program.md` lists.
 
 ## Runtime layers
 

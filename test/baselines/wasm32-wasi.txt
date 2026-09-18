@@ -13,11 +13,11 @@ e2e/core/process/signal_trap.rb	kill has no wasm form
 e2e/core/fiber/fiber_resume.rb	can't allocate fiber stack: Function not implemented
 e2e/core/thread/threads_join.rb	can't allocate fiber stack: Function not implemented
 
-# A program that evals walks the tree (lib/ze0/eval/walk.rb), which two
-# of these five now run through. What is left is not the eval road.
-e2e/lang/require/require_a_bundled_library.rb	the module traps out of bounds while reporting an error it raises at boot
+# A program that evals walks the tree (lib/ze0/eval/walk.rb). Three of
+# the five that do now answer what ruby answers, and what stops these
+# two is not the eval road.
 e2e/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
-e2e/stdlib/rubygems/require_rubygems.rb	the build fails: no data named zr_road_unit_120
+e2e/stdlib/rubygems/require_rubygems.rb	rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory
 
 # A 32-bit module wants more memory than the bound allows, to build or to run.
 e2e/stdlib/bundler/bundler_resolves_a_gemfile.rb	the build holds more than 2048 MB

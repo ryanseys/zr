@@ -37,6 +37,7 @@ module Ze0
     #   needs:     what this machine must have, or the program skips
     #   only:      the platforms that run it
     #   build_mb:  a memory bound for the build, above the usual one
+    #   run_mb:    a memory bound for the run, above the usual one
     #   skip:      why it does not run at all, in words
     #
     # It lives here rather than in the test file because `rake record`
@@ -44,16 +45,18 @@ module Ze0
     # ze0, or the answer is not an answer to the same question.
     HOW = {
       "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZEO_AOT_SMOKE" => "on" } },
-"stdlib/bundler/require_bundler" => { build_mb: 3072 },
-# A wasm module that evals holds the whole front end, since there is
-# no second object to link it in as: the emitter peaks near 4.5 GB
-# writing one. A native binary reads the road off the cache and
-# stays far under these.
-"core/io/file_io_roundtrip" => { build_mb: 5120 },
-"lang/eval/eval_in_a_binary" => { build_mb: 3584 },
-"lang/require/require_a_bundled_library" => { build_mb: 5120 },
-"stdlib/ffi/ffi_libc_call" => { build_mb: 5120 },
-"stdlib/rubygems/require_rubygems" => { build_mb: 5120 },
+      "stdlib/bundler/require_bundler" => { build_mb: 3072 },
+      # A wasm module that evals carries the whole front end inside
+      # itself, since there is no second object to link a road in as.
+      # That is about 90 MB of module, which costs near 3 GB to emit
+      # and, because an engine compiles a module whole before it runs a
+      # line of it, near 2.1 GB to instantiate. The same programs built
+      # native read the road off the cache and stay far under both.
+      "core/io/file_io_roundtrip" => { build_mb: 4096, run_mb: 3072 },
+      "lang/eval/eval_in_a_binary" => { build_mb: 3584, run_mb: 3072 },
+      "lang/require/require_a_bundled_library" => { build_mb: 4096, run_mb: 3072 },
+      "stdlib/ffi/ffi_libc_call" => { build_mb: 4096, run_mb: 3072 },
+      "stdlib/rubygems/require_rubygems" => { build_mb: 4096, run_mb: 3072 },
       "stdlib/openssl/openssl_digest" => { needs: ["libssl"] },
       "stdlib/testing/a_minitest_suite_runs" => { argv: %w[--seed 42] },
       "stdlib/testing/a_test_unit_suite_runs" => {
@@ -159,10 +162,11 @@ module Ze0
       # The binary's answer, scrubbed as the recording was, held to
       # ruby's part by part so a failure names which part parted.
       def answer(rb, bin, how, recorded, runner)
+        megabytes = [how[:run_mb] || 0, Harness::Child::RUN_MB].max
         stdin = how[:stdin] && File.binread(File.join(File.dirname(rb), how[:stdin]))
         argv, env = runner.run(bin, Array(how[:argv]), how.fetch(:env, {}))
-        out = bounded(argv, stdin, Harness::Child::RUN_MB, env)
-        flunk "the program #{why(out, Harness::Child::RUN_MB)}" unless out.code.is_a?(Integer)
+        out = bounded(argv, stdin, megabytes, env)
+        flunk "the program #{why(out, megabytes)}" unless out.code.is_a?(Integer)
 
         got = Harness::Normalize.answer(out, rb, cwd)
         want = Harness::Normalize.answer(recorded, rb, cwd)
