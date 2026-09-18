@@ -187,7 +187,9 @@ module Ze0
 
         # zr_require's kinds; the eval road's own load is hidden from the
         # program.
-        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, eval_road: 3, computed: 4 }.freeze
+        # `declared` is an autoload alone: the feature is held already, so
+        # the name is declared and no row waits for a file.
+        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, eval_road: 3, computed: 4, declared: 5 }.freeze
 
         # A require of a file the program holds runs that file's toplevel,
         # once unless it is a load; a relative name with no file is a
@@ -214,7 +216,7 @@ module Ze0
           recv = @f.fetch("i64", @rec, value_offset(base))
           feature = @f.fetch("i64", @rec, value_offset(base + 1))
           fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)
-          kind = REQUIRE_KINDS.fetch(node.unit ? :require : :computed)
+          kind = REQUIRE_KINDS.fetch(node.declared ? :declared : node.unit ? :require : :computed)
           result = checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind), path))
           release(base)
           result

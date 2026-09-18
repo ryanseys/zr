@@ -441,6 +441,26 @@ machine def zr_const_row_in(klass, id, skip_object)
   0
 end
 
+# The same walk a read makes, which passes over a name an autoload
+# declared and no file will define and goes on to the next ancestor.
+# rb_const_search_from does it with its `am` guard: it runs the autoload
+# once, finds the row undefined still, and breaks to the next link of
+# the chain. `rb_const_defined_0` does not -- it stops at that row and
+# answers false -- so a read and `const_defined?` part company here.
+sig [Value, Word, Bool] => Ptr
+machine def zr_const_row_read_in(klass, id, skip_object)
+  while klass != QNIL
+    unless skip_object && klass == zr_global(G_OBJECT)
+      e = zr_const_row(klass, id)
+      if e != 0 && !zr_const_declared_only(e)
+        return e
+      end
+    end
+    klass = RClass.superclass(klass)
+  end
+  0
+end
+
 sig [Value, Word] => Value
 machine def zr_uninitialized_constant(scope, id)
   home = scope == QNIL ? zr_global(G_OBJECT) : scope
@@ -497,13 +517,13 @@ machine def zr_const_row_under(cref, id)
   while RCref.next(c) != QNIL
     if RCref.eval(c) == 0
       e = zr_const_row(zr_cref_klass(c), id)
-      if e != 0
+      if e != 0 && !zr_const_declared_only(e)
         return e
       end
     end
     c = RCref.next(c)
   end
-  e = zr_const_row_in(zr_cref_klass(cref), id, false)
+  e = zr_const_row_read_in(zr_cref_klass(cref), id, false)
   if e == 0
     b = zr_box_current()
     if b != QNIL
@@ -543,8 +563,33 @@ machine def zr_const_lookup_at(scope, id)
   zr_const_value(e)
 end
 
+# Whether row `e` is a name an autoload declared and no file has
+# defined. An autoload still waiting for its file holds QUNDEF too, and
+# that one counts as defined, so the row table decides: a row that names
+# this entry means a file is still to come.
+sig [Ptr] => Bool
+machine def zr_const_declared_only(e)
+  if CEntry.value(e) != QUNDEF
+    return false
+  end
+  rows = zr_global(G_AUTOLOADS)
+  if zr_special_p(rows)
+    return true
+  end
+  i = 0
+  while i < RArray.len(rows)
+    if zr_const_row(zr_ary_at(rows, i), zr_sym2id(zr_ary_at(rows, i + 1))) == e
+      return false
+    end
+    i += AUTOLOAD_ROW
+  end
+  true
+end
+
 # `defined?` of a constant: true when a row exists, an autoload's
-# included, with nothing loaded.
+# included, with nothing loaded. A name an autoload declared and no file
+# will define is not one: it stands in `constants` and hides a name
+# further out, and `defined?` answers nil for it, as ruby's does.
 sig [Value, Word] => Value
 machine def zr_const_defined(cref, id)
   zr_bool(zr_const_row_under(cref, id) != 0)
@@ -556,7 +601,7 @@ machine def zr_const_defined_at(scope, id)
     return Machine.value(QFALSE)
   end
   e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-  zr_bool(e != 0 && CEntry.private(e) == 0)
+  zr_bool(e != 0 && CEntry.private(e) == 0 && !zr_const_declared_only(e))
 end
 
 # `private constant Foo::BAR referenced`.
@@ -669,10 +714,10 @@ machine def zr_const_get_at(scope, id)
   end
   gone = Machine.slot(16)
   while true
-    e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
+    e = zr_const_row_read_in(scope, id, scope != zr_global(G_OBJECT))
     if e == 0 && zr_class_of(scope) == zr_global(G_BOX)
       # `box::Name`: the box's own, else what the runtime itself holds.
-      e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+      e = zr_const_row_read_in(zr_global(G_OBJECT), id, false)
     end
     if e == 0
       return zr_uninitialized_constant(scope, id)
@@ -893,7 +938,7 @@ machine def zr_const_row_segment(recv, id, inherit, later)
   e = if inherit == QFALSE || inherit == QNIL
         zr_const_row(recv, id)
       elsif later == QTRUE
-        zr_const_row_in(recv, id, recv != zr_global(G_OBJECT))
+        zr_const_row_read_in(recv, id, recv != zr_global(G_OBJECT))
       else
         zr_const_row_for(recv, id, true)
       end
@@ -938,7 +983,40 @@ machine def zr_mod_const_defined_m(recv, name, inherit, later)
   slot = Machine.slot(8)
   r = zr_const_name_id(recv, name, slot)
   return r if r == QUNDEF
-  zr_bool(zr_const_row_segment(recv, Machine.load64(slot, 0), inherit, later) != 0)
+  id = Machine.load64(slot, 0)
+  # `rb_const_defined_0` stops at a row an autoload declared and no file
+  # will define: it answers false there rather than reading on, so the
+  # name hides one of its own further out.
+  e = zr_const_row_segment_defined(recv, id, inherit, later)
+  zr_bool(e != 0 && !zr_const_declared_only(e))
+end
+
+# The walk `const_defined?` makes, which stops at the first row it
+# finds, declared or not.
+sig [Value, Word, Value, Value] => Ptr
+machine def zr_const_row_segment_defined(recv, id, inherit, later)
+  depth = Machine.static(:const_reflective, 8)
+  Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
+  e = if inherit == QFALSE || inherit == QNIL
+        zr_const_row(recv, id)
+      elsif later == QTRUE
+        zr_const_row_in(recv, id, recv != zr_global(G_OBJECT))
+      else
+        zr_const_row_defined_for(recv, id)
+      end
+  Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
+  e
+end
+
+# `rb_const_defined_0`s own two steps: the module chain, then Object
+# where the receiver is a module.
+sig [Value, Word] => Ptr
+machine def zr_const_row_defined_for(mod, id)
+  e = zr_const_row_in(mod, id, false)
+  if e == 0 && zr_type(mod) == T_MODULE
+    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+  end
+  e
 end
 
 # `remove_const(name)`: the module's own row goes, and its value
@@ -984,9 +1062,9 @@ end
 sig [Value, Word, Bool] => Ptr
 machine def zr_const_row_for(mod, id, inherit)
   if inherit
-    e = zr_const_row_in(mod, id, false)
+    e = zr_const_row_read_in(mod, id, false)
     if e == 0 && zr_type(mod) == T_MODULE
-      e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+      e = zr_const_row_read_in(zr_global(G_OBJECT), id, false)
     end
     return e
   end
@@ -1096,6 +1174,12 @@ G_AUTOLOADS = 38
 # class, as CRuby's rb_f_autoload does.
 AUTOLOAD_ROW = 6
 AUTOLOAD_REQUIRE = 4
+# A feature a require of would read no file, because the program holds
+# it already or a require read it before. ruby keeps no row for one --
+# `autoload?` answers nil -- and declares the name all the same, so the
+# constant stands undefined here and shadows one of the same name
+# further out.
+AUTOLOAD_DECLARED = 5
 
 sig [Value, Word, Value, Ptr, Value, Word, Value] => Value
 machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
@@ -1121,22 +1205,33 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if kind == 0 && zr_hidden_now()
     kind = 3
   end
+  # A require read this file already, so a require of it now would read
+  # none: ruby keeps no row for that, and declares the name alone. The
+  # compiler settles the same question for a feature the runtime holds,
+  # which stands in no table a program can read.
+  if kind != AUTOLOAD_DECLARED && zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString.ptr(path), RString.len(path))
+    kind = AUTOLOAD_DECLARED
+  end
   # The name is declared and the row stands before the hook runs: a
   # const_added hook that raises raises out of the autoload, which stays
   # registered, as ruby's does.
   if zr_const_write(mod, id, Machine.value(QUNDEF)) == 0
     return Machine.value(QUNDEF)
   end
-  zr_autoload_push(rows, mod, id, feature, fn, kind, path)
+  if kind != AUTOLOAD_DECLARED
+    zr_autoload_push(rows, mod, id, feature, fn, kind, path)
+  end
   r = zr_const_announce(mod, id)
   return r if r == QUNDEF
   Machine.value(QNIL)
 end
 
 # `autoload(name, feature)` with a feature the program computed, already
-# a String; `name` is a Symbol or a String.
-sig [Value, Value, Value, Value] => Value
-machine def zr_autoload_computed(mod, name, feature, cref)
+# a String; `name` is a Symbol or a String. `loaded` is true where a
+# require of the feature would read no file, which declares the name and
+# keeps no row.
+sig [Value, Value, Value, Value, Value] => Value
+machine def zr_autoload_computed(mod, name, feature, cref, loaded)
   slot = Machine.slot(8)
   r = zr_name_id(name, slot)
   return r if r == QUNDEF
@@ -1153,7 +1248,7 @@ machine def zr_autoload_computed(mod, name, feature, cref)
   if RString.len(feature) == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
   end
-  zr_autoload(mod, id, feature, Machine.ptr(0), cref, AUTOLOAD_REQUIRE, feature)
+  zr_autoload(mod, id, feature, Machine.ptr(0), cref, loaded == QTRUE ? AUTOLOAD_DECLARED : AUTOLOAD_REQUIRE, feature)
 end
 
 sig [Value, Value, Word, Value, Ptr, Word, Value] => Void

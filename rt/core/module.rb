@@ -123,7 +123,8 @@ class Module
   # A literal feature is resolved when the program is compiled; a
   # computed one is required when the constant is first read.
   def autoload(name, feature)
-    Primitive.zr_autoload_computed(self, autoload_name(name), File.path(feature), nil)
+    path = File.path(feature)
+    Primitive.zr_autoload_computed(self, autoload_name(name), path, nil, Kernel.loaded_feature?(path))
   end
 
   # A constant name as rb_to_id takes one: a Symbol, or a String or what
@@ -244,7 +245,9 @@ end
 module Kernel
   # On the class the call stands in, as rb_f_autoload registers.
   def autoload(name, feature)
-    Primitive.zr_autoload_computed(Kernel, Module.instance_method(:autoload_name).bind_call(Kernel, name), File.path(feature), Primitive.zr_eval_cref)
+    path = File.path(feature)
+    Primitive.zr_autoload_computed(Kernel, Module.instance_method(:autoload_name).bind_call(Kernel, name), path,
+                                   Primitive.zr_eval_cref, Kernel.loaded_feature?(path))
   end
   def autoload?(name, inherit = true) = Object.autoload?(name)
   private :autoload, :autoload?

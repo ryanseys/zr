@@ -130,6 +130,23 @@ module Kernel
     Primitive.zr_load_names(2).split("\n").include?(feature.sub(/\.(?:rb|so|bundle)\z/, ""))
   end
 
+  # Whether a require of `feature` would read no file, because the
+  # runtime holds it already or a require read it before. `autoload`
+  # asks: ruby keeps no row for such a feature and declares the name
+  # alone, and a name no file answers is not loaded, so it keeps its row
+  # and raises where the constant is read.
+  def self.loaded_feature?(feature)
+    Primitive.attr! :hidden
+    return true if preloaded?(feature)
+
+    path = begin
+      feature_path(feature)
+    rescue LoadError
+      nil
+    end
+    !path.nil? && $LOADED_FEATURES.include?(path)
+  end
+
   # A require (kind 0), require_relative (1) or load (2) of the file at
   # `path`, which `feature` named: its compiled toplevel when the program
   # was compiled with the file, or the file compiled now. A feature ruby

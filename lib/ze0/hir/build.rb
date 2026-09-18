@@ -1892,16 +1892,19 @@ module Ze0
         line = node.location.start_line
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
-        # A feature the program already holds registers nothing, as it
-        # does in ruby: `require` would answer false and read no file, so
-        # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`,
-        # and a constant that feature does not define stays undefined.
+        # A feature the program already holds keeps no row, as in ruby:
+        # `require` would answer false and read no file, so
+        # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`.
+        # The name is still declared, and that is visible on any module
+        # but Object -- `M.constants` names it, and the constant stands
+        # undefined there rather than reading one further out.
         #
-        # Without this the loader believes a file must be found while the
-        # program runs, which is the one thing that needs the compiler,
-        # so `autoload :Set, "set"` used to add the whole of it -- 44 MB
-        # -- to a binary for a declaration that does nothing at all.
-        return nothing(node, line) if preloaded?(feature)
+        # No row also means the loader never believes a file must be
+        # found while the program runs, which is the one thing that needs
+        # the compiler: `autoload :Set, "set"` would otherwise add the
+        # whole of it -- 44 MB -- for a declaration that reads nothing.
+        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, feature, nil, line,
+                            true) if preloaded?(feature)
 
         path = @loader.resolve(:require, feature, @file)
         # An autoload the gem prelude's boot does not read leaves its file

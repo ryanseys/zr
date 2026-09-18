@@ -285,11 +285,13 @@ module Ze0
         d zr_warn_reassigned_constant Void klass:Value id:Word e:Ptr
         d zr_buf_previous_definition Void b:Ptr e:Ptr id:Word
         d zr_const_row_in Ptr klass:Value id:Word skip_object:Bool
+        d zr_const_row_read_in Ptr klass:Value id:Word skip_object:Bool
         d zr_uninitialized_constant Value scope:Value id:Word
         d zr_const_get Value cref:Value id:Word
         d zr_const_row_under Ptr cref:Value id:Word
         d zr_const_lookup Value cref:Value id:Word
         d zr_const_lookup_at Value scope:Value id:Word
+        d zr_const_declared_only Bool e:Ptr
         d zr_const_defined Value cref:Value id:Word
         d zr_const_defined_at Value scope:Value id:Word
         d zr_private_constant Value scope:Value id:Word
@@ -312,6 +314,8 @@ module Ze0
         d zr_mod_const_get_m Value recv:Value name:Value inherit:Value later:Value
         d zr_mod_const_source_location_m Value recv:Value name:Value inherit:Value later:Value
         d zr_mod_const_defined_m Value recv:Value name:Value inherit:Value later:Value
+        d zr_const_row_segment_defined Ptr recv:Value id:Word inherit:Value later:Value
+        d zr_const_row_defined_for Ptr mod:Value id:Word
         d zr_mod_remove_const Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_row_for Ptr mod:Value id:Word inherit:Bool
         d zr_mod_const_set Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -321,7 +325,7 @@ module Ze0
         d zr_mod_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_remove Void klass:Value id:Word
         d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word path:Value
-        d zr_autoload_computed Value mod:Value name:Value feature:Value cref:Value
+        d zr_autoload_computed Value mod:Value name:Value feature:Value cref:Value loaded:Value
         d zr_autoload_push Void rows:Value mod:Value id:Word feature:Value fn:Ptr kind:Word path:Value
         d zr_autoload_require Value feature:Value
         d zr_autoload_row Word mod:Value id:Word
@@ -2125,6 +2129,7 @@ module Ze0
         c G_AUTOLOADS 38
         c AUTOLOAD_ROW 6
         c AUTOLOAD_REQUIRE 4
+        c AUTOLOAD_DECLARED 5
         c CONT_SIDE_BYTES 1048576
         c CONT_CAPTURE 1
         c CONT_RESTORE 2
