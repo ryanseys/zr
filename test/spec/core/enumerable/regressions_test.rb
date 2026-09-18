@@ -880,7 +880,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2869" do
+  it "Random.urandom draws from a stream that advances between calls" do
     result = ze0(<<~'RUBY')
       # Random.urandom draws from a persistent advancing stream (re-seeding per call
       # gave the same byte within a second, so a zero byte never appeared).
@@ -894,7 +894,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2873" do
+  it "Hash#map hands the block a key and a value, or the pair as one array" do
     result = ze0(<<~'RUBY')
       def render(v)
         return v.to_s unless v.is_a?(Hash)
@@ -915,7 +915,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2875" do
+  it "each over an array of pairs splits each pair into two block parameters" do
     result = ze0(<<~'RUBY')
       table = [[1000, "M"], [4, "IV"], [1, "I"]]
       out = ""
@@ -926,7 +926,7 @@ describe "Enumerable: regressions" do
     _(result).must_answer "\"MIVI\"\n"
   end
 
-  it "issue 2877" do
+  it "a breadth-first search keeps its visited nodes in a Set" do
     result = ze0(<<~'RUBY')
       # A BFS keeping a visited Set compiled: `node == goal` (node poly, from
       # queue.shift) no longer widens Set#=='s `other` param to Symbol via the
@@ -974,7 +974,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2878" do
+  it "drop, reject and select on an each_with_index enumerator answer with the pairs" do
     result = ze0(<<~'RUBY')
       # Chaining #drop / #reject onto an each_with_index Enumerator: materialize the
       # pairs and apply the array operation.
@@ -993,7 +993,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2879" do
+  it "a constant bound to an empty Hash takes writes and keeps them" do
     result = ze0(<<~'RUBY')
       TBL = {}
       "abc".each_char.with_index { |ch, i| TBL[ch] = i }
@@ -1031,7 +1031,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2881" do
+  it "reduce keeps a Complex accumulator while folding an array of Complex" do
     result = ze0(<<~'RUBY')
       # reduce with a Complex initial accumulator, folding over a poly array: the
       # block's `acc + z` (z a Complex read out of the poly array, hence poly) keeps
@@ -1050,7 +1050,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2882" do
+  it "Complex#real and #imaginary answer through a map over a mixed array" do
     result = ze0(<<~'RUBY')
       p [Complex(1, 2), Complex(3, 4)].map { |z| z.real }
       p [Complex(1, 2), Complex(3.5, 4)].map { |z| z.imaginary }
@@ -1064,7 +1064,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2885" do
+  it "a Hash splatted with ** fills the method's keyword parameters" do
     result = ze0(<<~'RUBY')
       def rect(width:, height:) = width * height
       configs = [{ width: 2, height: 3 }, { width: 5, height: 5 }]
@@ -1074,7 +1074,7 @@ describe "Enumerable: regressions" do
     _(result).must_answer "[6, 25]\n"
   end
 
-  it "issue 2887" do
+  it "sum and map over a range subscript a nested array twice by the same index" do
     result = ze0(<<~'RUBY')
       # Iterating a Range twice with a nested-index block (a poly-valued grid read):
       # the sum-with-block and map-with-block forms both type correctly (Refs #2913).
@@ -1091,7 +1091,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2892" do
+  it "bsearch finds the first element the block accepts" do
     result = ze0(<<~'RUBY')
       def ins(arr, v) = arr.insert(0, v)
       s = []
@@ -1112,7 +1112,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2897" do
+  it "Kernel#rand answers a non-negative Integer for a large bound" do
     result = ze0(<<~'RUBY')
       [[1000000, :a], [500000, :b]].each do |odds, name|
         r = rand(odds)
@@ -1132,7 +1132,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2901" do
+  it "each_line and each_char with no block chain into an eager block method" do
     result = ze0(<<~'RUBY')
       # each_char/each_line (blockless) followed by an eager block method desugars to
       # chars/lines, so the block param types as String -- a multiple assignment from
@@ -1151,7 +1151,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2903" do
+  it "reduce keeps a Symbol accumulator read back out of a nested Hash" do
     result = ze0(<<~'RUBY')
       # reduce with a Symbol accumulator whose block value is read from a nested Hash
       # (poly): the poly block value coerces back to the sp_sym accumulator slot.
@@ -1166,7 +1166,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2904" do
+  it "find and detect answer nil when the block accepts nothing" do
     result = ze0(<<~'RUBY')
       p [[1, 2], [3, 4]].map { |row| row.find { |n| n > 2 } }
       p [["a", "bb"], ["ccc"]].map { |row| row.find { |s| s.length > 1 } }
@@ -1180,7 +1180,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2905" do
+  it "map(&:reverse) reverses an array element and a string element alike" do
     result = ze0(<<~'RUBY')
       p [[1, 2], [3, 4]].map(&:reverse)
       p ["ab", "cd"].map(&:reverse)
@@ -1194,7 +1194,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2909" do
+  it "a two-parameter block splits each pair, whatever the pair holds" do
     result = ze0(<<~'RUBY')
       pairs = [["ab", "cd"]]
       pairs.each { |a, b| p a.chars; p b.chars }
@@ -1208,7 +1208,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2915" do
+  it "each_cons(2) hands its window to a two-parameter block" do
     result = ze0(<<~'RUBY')
       # each_cons(2).map { |a, b| ... } over an Int array: the flat multi-param window
       # binding boxes each scalar element when the param is poly-typed, instead of
@@ -1228,7 +1228,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2921" do
+  it "transpose after map(&:reverse) turns rows into reversed columns" do
     result = ze0(<<~'RUBY')
       p [[1, 2, 3], [4, 5, 6]].map(&:reverse).transpose
       p [[1, 2], [3, 4]].transpose
@@ -1244,7 +1244,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2923" do
+  it "a multiple assignment from a method's array return feeds a slice" do
     result = ze0(<<~'RUBY')
       def ms(nums)
         [nums[0], 0, nums.length]
@@ -1267,7 +1267,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2927" do
+  it "each_with_object and flat_map round-trip a query string" do
     result = ze0(<<~'RUBY')
       def parse(qs)
         qs.split("&").each_with_object({}) do |pair, params|
@@ -1291,7 +1291,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2928" do
+  it "map(&:sort) sorts each row of a nested array" do
     result = ze0(<<~'RUBY')
       p [[3, 1, 2], [6, 4, 5]].map(&:sort)
       p({ a: [3, 1], b: [2, 4] }.map { |k, v| v.sort })
@@ -1305,7 +1305,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2929" do
+  it "a String destructured out of a pair keeps its String methods" do
     result = ze0(<<~'RUBY')
       # The chars/split result of a String destructured from a pair, captured (map /
       # returned): the auto-splat must unbox the poly element into the String param's
@@ -1325,7 +1325,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2930" do
+  it "reject, select, filter and each_index work on an array that arrived as a block parameter" do
     result = ze0(<<~'RUBY')
       # reject / select / filter / each_index on an Array that is a block param of an
       # outer map (a poly value only known to be an array at runtime).
@@ -1348,7 +1348,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2932" do
+  it "a lazy prime sieve over an endless range answers its first five" do
     result = ze0(<<~'RUBY')
       primes = (2..Float::INFINITY).lazy.select { |n| (2..Math.sqrt(n)).none? { |d| n % d == 0 } }
       p primes.first(5)
@@ -1357,7 +1357,7 @@ describe "Enumerable: regressions" do
     _(result).must_answer "[2, 3, 5, 7, 11]\n"
   end
 
-  it "issue 2939" do
+  it "reduce takes its operator as a Symbol read from a variable" do
     result = ze0(<<~'RUBY')
       # Array#reduce with a non-constant Symbol operator (a |sym| block param):
       # fold through a runtime operator dispatch, yielding a boxed poly.
@@ -1381,7 +1381,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2951" do
+  it "reduce folds booleans with &, | and ^" do
     result = ze0(<<~'RUBY')
       bits = [true, false, true]
       p bits.reduce(:&)
@@ -1400,7 +1400,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2993" do
+  it "lazy uniq, chunk_while and with_index answer without forcing the source" do
     result = ze0(<<~'RUBY')
       p([1, 1, 2, 3, 3].lazy.uniq.to_a)
       p([1, 2, 4, 5, 7].lazy.chunk_while { |a, b| b - a == 1 }.to_a)
@@ -1420,7 +1420,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2994" do
+  it "first on an enumerator takes one element, or the first n" do
     result = ze0(<<~'RUBY')
       p([1, 2, 3].each.first)
       p([1, 2, 3].each.first(2))
@@ -1440,7 +1440,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2995" do
+  it "compact and zip work on an enumerator" do
     result = ze0(<<~'RUBY')
       p([1, nil, 2, nil].each.compact)
       p([1, 2, 3].each.zip([4, 5, 6]))
@@ -1452,7 +1452,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 2996" do
+  it "a lazy chain over an empty array answers empty" do
     result = ze0(<<~'RUBY')
       p([].lazy.map { |x| x * 2 }.to_a)
       p([].lazy.to_a)
@@ -1474,7 +1474,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3007" do
+  it "to_s on a nested array is its inspect" do
     result = ze0(<<~'RUBY')
       [[:x, :y]].each { |e| p e.to_s }
       x = [[:x, :y]]
@@ -1493,7 +1493,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3012" do
+  it "a lazy chain bound to a local stays lazy" do
     result = ze0(<<~'RUBY')
       b = [10, 20, 30].lazy.map { |x| x + 1 }
       p(b.first(2))
@@ -1513,7 +1513,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3100" do
+  it "merge with a conflict block folds a list of hashes down to one" do
     result = ze0(<<~'RUBY')
       p [{ a: 1 }, { b: 2 }, { a: 3 }].reduce({}) { |acc, hh| acc.merge(hh) { |_k, o, n| o + n } }
       p [{ a: 1 }, { a: 2 }].reduce({}) { |acc, hh| acc.merge(hh) { |k, o, n| "#{k}:#{o + n}" } }
@@ -1545,7 +1545,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3103" do
+  it "a String range iterates through succ" do
     result = ze0(<<~'RUBY')
       r = []
       ("a".."c").each { |x| r << x }
@@ -1576,7 +1576,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3125" do
+  it "reduce takes gcd and lcm as the folding operator" do
     result = ze0(<<~'RUBY')
       p [12, 18, 24].reduce(:gcd)
       p [2, 3, 4].reduce(:lcm)
@@ -1592,7 +1592,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3127" do
+  it "lazy compact and zip answer what their eager forms answer" do
     result = ze0(<<~'RUBY')
       p([1, nil, 2].lazy.compact.to_a)
       p([1, 2, 3].lazy.zip([4, 5, 6]).to_a)
@@ -1606,7 +1606,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3128" do
+  it "a lazy select or reject over an empty array answers empty" do
     result = ze0(<<~'RUBY')
       p([].lazy.select { |x| true }.first(2))
       p([].lazy.reject { |x| false }.to_a)
@@ -1620,7 +1620,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3142" do
+  it "next, return and break after an unless guard leave the block where they stand" do
     result = ze0(<<~'RUBY')
       def crash(*values)
         result = []
@@ -1663,7 +1663,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3151" do
+  it "a joined string survives a collection between the store and the read" do
     result = ze0(<<~'RUBY')
       # Two GC bugs behind a StringIO/wrap program:
       #  1. a no-separator join emitted a bare "" separator with no 0xff marker, so
@@ -1697,7 +1697,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3160" do
+  it "each_index and each_with_index answer through an outer map" do
     result = ze0(<<~'RUBY')
       p [[1, 2]].map { |row| row.each_index.map { |c| c } }
       # wrong value (no error):
@@ -1717,7 +1717,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3171" do
+  it "a lazy each_cons over a range answers its first windows" do
     result = ze0(<<~'RUBY')
       p (2..10).lazy.each_cons(2).first(3)
     RUBY
@@ -1725,7 +1725,7 @@ describe "Enumerable: regressions" do
     _(result).must_answer "[[2, 3], [3, 4], [4, 5]]\n"
   end
 
-  it "issue 3181" do
+  it "reduce with an Integer seed over floats answers a Float" do
     result = ze0(<<~'RUBY')
       p [1.0, 2.0].reduce(0, :+)
       p [1.0, 2.0, 3.0].reduce(1, :*)
@@ -1745,7 +1745,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3184" do
+  it "map over pairs builds a Rational out of each" do
     result = ze0(<<~'RUBY')
       fracs = [[6, 8], [10, 15]]
       p fracs.map { |n, d| g = n.gcd(d); Rational(n / g, d / g) }
@@ -1754,7 +1754,7 @@ describe "Enumerable: regressions" do
     _(result).must_answer "[(3/4), (2/3)]\n"
   end
 
-  it "issue 3186" do
+  it "inject with a Rational seed folds parsed fractions" do
     result = ze0(<<~'RUBY')
       def to_frac(str)
         num, den = str.split("/").map(&:to_i)
@@ -1772,7 +1772,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3199" do
+  it "each(&:clear) empties every element, array or hash" do
     result = ze0(<<~'RUBY')
       items = [[1], {a: 1}]
       items.each(&:clear)
@@ -1795,7 +1795,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3220" do
+  it "reduce with a zero seed keeps the element's type, Rational or Float" do
     result = ze0(<<~'RUBY')
       p([Rational(1, 2), Rational(1, 4)].reduce(0, :+))
       p([2, -3].inject(0) { |a, c| a + Rational(1, 2) })
@@ -1815,7 +1815,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3222" do
+  it "ljust, rjust and center work on a string read out of a container" do
     result = ze0(<<~'RUBY')
       s = [["a", "b"]][0][0]
       p(s.ljust(3))
@@ -1845,7 +1845,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3225" do
+  it "chunk groups neighbouring elements by the block's value" do
     result = ze0(<<~'RUBY')
       p (1..8).chunk { |x| x.even? }.to_a
       p (1..5).chunk { |x| x % 3 }.to_a
@@ -1859,7 +1859,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3227 container" do
+  it "a string stored in a container is the same object, so a later append shows through" do
     result = ze0(<<~'RUBY')
       # Shared-mutable strings, phase 3: a container-stored string shares its
       # sp_String handle, so later in-place mutation is visible through the
@@ -1934,7 +1934,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3227 corners" do
+  it "bytesplice and append_as_bytes reach the string through every binding that holds it" do
     result = ze0(<<~'RUBY')
       # The last three corner cases (P6): bytesplice/append_as_bytes share,
       # poly-container iteration mutates string elements via runtime dispatch,
@@ -1963,7 +1963,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3227 iteration var" do
+  it "a block parameter holds the element itself, so an in-place mutator reaches the container" do
     result = ze0(<<~'RUBY')
       # Iteration-variable mutation (P6): the block binding holds the element
       # handle, so in-place mutators reach the container's elements.
@@ -1988,7 +1988,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3228" do
+  it "slice_when and chunk_while cut a range where the block says" do
     result = ze0(<<~'RUBY')
       p((1..10).slice_when { |i, j| j.even? }.to_a)
       p((1..8).chunk_while { |i, j| j == i + 1 }.map { |r| r.sum })
@@ -2008,7 +2008,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3235" do
+  it "rounding a small negative float answers positive zero" do
     result = ze0(<<~'RUBY')
       p((-0.0001).round(2))
       p((-0.0).round(3))
@@ -2032,7 +2032,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3238" do
+  it "zip, map and inject fold a float array down to a Float" do
     result = ze0(<<~'RUBY')
       a = [3.0, 4.0]
       p a.zip(a).map { |x, y| x * y }.inject(0, :+)
@@ -2051,7 +2051,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3243" do
+  it "the each_with_index terminals work on a parameter defaulted to an empty array" do
     result = ze0(<<~'RUBY')
       # each_with_index terminals over a union-typed (defaulted `= []`) receiver.
       def safe?(placement = [])
@@ -2079,7 +2079,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3263" do
+  it "a global array keeps what a method pushed onto it" do
     result = ze0(<<~'RUBY')
       $clients = []
       def add(x) = $clients << x
@@ -2101,7 +2101,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3313 lazy each cons" do
+  it "Lazy#each_cons yields its windows on demand, so an endless source is workable" do
     result = ze0(<<~'RUBY')
       # `Enumerator::Lazy#each_cons` is itself lazy: it yields windows on demand
       # rather than materializing the source, so an infinite range is workable and
@@ -2121,9 +2121,9 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3318 lazy each cons chain" do
+  it "Lazy#each_cons stays lazy through map and through a second lazy" do
     result = ze0(<<~'RUBY')
-      # The same laziness as `issue_3313_lazy_each_cons`, through a longer chain
+      # The same laziness, through a longer chain
       # (`each_cons(2).map { }.first(3)` and a re-`lazy`-ed select).
       r = (1..Float::INFINITY).lazy.each_cons(2).map { |a, b| a + b }.first(3)
       p r
@@ -2141,7 +2141,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3319 comparable mixed sort" do
+  it "Comparable sorts a mixed array of subclasses through the one <=> they share" do
     result = ze0(<<~'RUBY')
       class Shape
         include Comparable
@@ -2176,9 +2176,9 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "issue 3323 lazy var each cons" do
+  it "a lazy chain bound to a local is still lazy when each_cons reads it back" do
     result = ze0(<<~'RUBY')
-      # The same laziness as `issue_3313_lazy_each_cons`, with the lazy chain bound
+      # The same laziness, with the lazy chain bound
       # to a local first -- the round trip through a variable keeps the Lazy.
       s = (1..Float::INFINITY).lazy.select { |x| x > 3 }
       p s.each_cons(2).first(2)
@@ -2187,9 +2187,9 @@ describe "Enumerable: regressions" do
     _(result).must_answer "[[4, 5], [5, 6]]\n"
   end
 
-  it "issue 3324 lazy var each cons relazy" do
+  it "an endless prime sieve stays lazy through a local and a second lazy" do
     result = ze0(<<~'RUBY')
-      # `issue_3323_lazy_var_each_cons` re-`lazy`-ed after the variable round trip.
+      # The local round trip again, re-`lazy`-ed afterwards.
       # The source is an infinite prime sieve with an inner scan, so any lost
       # laziness here is unbounded work.
       s = (2..Float::INFINITY).lazy.select { |n| (2...n).none? { |d| n % d == 0 } }
