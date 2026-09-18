@@ -359,32 +359,6 @@ describe "Numeric: comparison and equality" do
     OUT
   end
 
-  it "comparison operators" do
-    result = ze0(<<~'RUBY')
-      puts 5 < 3
-      puts 5 > 3
-      puts 5 == 5
-      puts 5 != 3
-      puts 5 <= 5
-      puts 5 >= 6
-      puts(1 <=> 2)
-      puts(2 <=> 2)
-      puts(3 <=> 2)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      false
-      true
-      true
-      true
-      true
-      false
-      -1
-      0
-      1
-    OUT
-  end
-
   it "comparison operators return real booleans" do
     result = ze0(<<~'RUBY')
       puts 5 < 3

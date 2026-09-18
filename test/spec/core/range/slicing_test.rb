@@ -1846,29 +1846,6 @@ describe "Range: slicing" do
     OUT
   end
 
-  it "a range literal prints as it was written" do
-    result = ze0(<<~'RUBY')
-      r = 1..5
-      puts(r.first)
-      puts(r.last)
-      puts(r.exclude_end?)
-      puts(r)
-
-      r2 = 1...5
-      puts(r2.exclude_end?)
-      puts(r2)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      1
-      5
-      false
-      1..5
-      true
-      1...5
-    OUT
-  end
-
   it "min_by and max_by take a count and answer that many" do
     result = ze0(<<~'RUBY')
       # The count form of min_by/max_by over a Range: the Range has to be

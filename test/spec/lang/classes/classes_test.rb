@@ -1797,28 +1797,6 @@ describe "Classes programs" do
     OUT
   end
 
-  it "defined classification" do
-    result = ze0(<<~'RUBY')
-      x = 5
-      puts(defined?(x))
-      puts(defined?(1 + 1))
-
-      class Foo
-        def check
-          @bar = 1
-          puts(defined?(@bar))
-        end
-      end
-      Foo.new.check
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      local-variable
-      method
-      instance-variable
-    OUT
-  end
-
   it "defined classifies syntactic form" do
     result = ze0(<<~'RUBY')
       x = 5

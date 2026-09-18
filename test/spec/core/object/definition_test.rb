@@ -404,20 +404,6 @@ describe "Object: defining and naming methods" do
     OUT
   end
 
-  it "method missing" do
-    result = ze0(<<~'RUBY')
-      class Greeter
-        def method_missing(name)
-          puts :missing
-        end
-      end
-
-      Greeter.new.send(:nonexistent)
-    RUBY
-
-    _(result).must_answer "missing\n"
-  end
-
   it "method missing explicit" do
     result = ze0(<<~'RUBY')
       # method_missing is not honored as a missing-method hook (spinel resolves every

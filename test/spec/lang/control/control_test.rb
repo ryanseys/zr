@@ -2257,15 +2257,6 @@ describe "Control programs" do
     _(result).must_answer "big\n"
   end
 
-  it "ternary 2" do
-    result = ze0(<<~'RUBY')
-      n = 7
-      puts(n > 5 ? :big : :small)
-    RUBY
-
-    _(result).must_answer "big\n"
-  end
-
   it "then block always breaks" do
     result = ze0(<<~'RUBY')
       # A `then` block whose body always `break`s completes normally nowhere, so it

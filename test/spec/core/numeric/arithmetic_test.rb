@@ -3,14 +3,6 @@
 require "spec_helper"
 
 describe "Numeric: arithmetic" do
-  it "arith" do
-    result = ze0(<<~'RUBY')
-      puts 1 + 1
-    RUBY
-
-    _(result).must_answer "2\n"
-  end
-
   it "arith adds integer literals" do
     result = ze0(<<~'RUBY')
       puts 1 + 1

@@ -938,33 +938,6 @@ describe "Hash programs" do
     _(result).must_answer "3\n"
   end
 
-  it "hash literal" do
-    result = ze0(<<~'RUBY')
-      h = { a: 1, b: 2 }
-      puts(h[:a])
-      puts(h[:b])
-      puts(h[:missing])
-      h[:c] = 3
-      puts(h[:c])
-      h[:a] = 10
-      puts(h[:a])
-      puts(h.length)
-      puts(h.size)
-      puts(h)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      1
-      2
-
-      3
-      10
-      3
-      3
-      {a: 10, b: 2, c: 3}
-    OUT
-  end
-
   it "hash literal indexing and mutation" do
     result = ze0(<<~'RUBY')
       h = { a: 1, b: 2 }

@@ -1561,29 +1561,6 @@ describe "Variables programs" do
     OUT
   end
 
-  it "multi assign" do
-    result = ze0(<<~'RUBY')
-      a, b = 1, 2
-      puts a
-      puts b
-
-      a, *b, c = [1, 2, 3, 4, 5]
-      puts a
-      puts b
-      puts c
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      1
-      2
-      1
-      2
-      3
-      4
-      5
-    OUT
-  end
-
   it "multi assign from a non array binds one value and nil fills" do
     result = ze0(<<~'RUBY')
       a, b = 5

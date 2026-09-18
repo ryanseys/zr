@@ -855,30 +855,6 @@ describe "Classes: inheritance and ancestors" do
     OUT
   end
 
-  it "inheritance" do
-    result = ze0(<<~'RUBY')
-      class Animal
-        def speak
-          puts :generic
-        end
-      end
-
-      class Dog < Animal
-        def speak
-          super
-          puts :woof
-        end
-      end
-
-      Dog.new.speak
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      generic
-      woof
-    OUT
-  end
-
   it "inheritance super chain" do
     result = ze0(<<~'RUBY')
       class Animal

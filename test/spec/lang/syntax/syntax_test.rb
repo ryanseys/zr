@@ -1906,21 +1906,6 @@ describe "Syntax programs" do
     OUT
   end
 
-  it "unary operators 2" do
-    result = ze0(<<~'RUBY')
-      x = 5
-      puts(-x)
-      puts(+x)
-      puts(~x)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      -5
-      5
-      -6
-    OUT
-  end
-
   it "user bang value object" do
     result = ze0(<<~'RUBY')
       # A user-defined #! on an object with ivars: the receiver is passed the way

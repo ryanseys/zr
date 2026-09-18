@@ -3049,19 +3049,6 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "unless" do
-    result = ze0(<<~'RUBY')
-      n = 5
-      unless n < 0
-        puts :non_negative
-      else
-        puts :negative
-      end
-    RUBY
-
-    _(result).must_answer "non_negative\n"
-  end
-
   it "unless with else" do
     result = ze0(<<~'RUBY')
       n = 5
