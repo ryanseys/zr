@@ -448,7 +448,7 @@ describe "Classes programs" do
     OUT
   end
 
-  it "class body built at runtime is still a class body" do
+  it "a class body built at run time reads and writes its own constants" do
     result = ze0(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
       # lay out, so zeo builds it with `Class.new(parent) { ... }`. A block is not a
@@ -484,6 +484,48 @@ describe "Classes programs" do
       p Adapter.stopping?
       p callback
       p [Adapter.new.kind, Adapter.superclass]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      :OUTER_UNTOUCHED
+      [:abstract, AbstractAdapter]
+    OUT
+  end
+
+  it "the body's local never reaches the enclosing scope, and its class variable is real storage" do
+    result = ze0(<<~'RUBY')
+      # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
+      # lay out, so zeo builds it with `Class.new(parent) { ... }`. A block is not a
+      # class body in two ways ruby cares about, and both used to leak:
+      #
+      #   * a block SHARES the enclosing local scope, where a class body has its own;
+      #   * a block opens no cref, so `@@v` in one raised "class variable access from
+      #     toplevel".
+      #
+      # sidekiq's ActiveJob adapter is built exactly this way and hits both at once.
+
+      class AbstractAdapter
+        def kind = :abstract
+      end
+
+      parent = AbstractAdapter
+      callback = :OUTER_UNTOUCHED
+
+      class Adapter < parent
+        @@stopping = false
+
+        # A body local, read from two nested blocks. Sharing the enclosing scope
+        # would have clobbered the `callback` above.
+        callback = -> { @@stopping = true }
+
+        [1].each { |_| [2].each { |_| callback.call } }
+
+        def self.stopping? = @@stopping
+
+        def self.stop! = @@stopping = true
+      end
 
       # The body's local never reached the enclosing scope.
       p defined?(callback)
@@ -599,9 +641,6 @@ describe "Classes programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      :OUTER_UNTOUCHED
-      [:abstract, AbstractAdapter]
       "local-variable"
       [:blk, :callback, :m, :o, :o2, :o3, :parent, :w]
       false

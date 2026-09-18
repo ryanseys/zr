@@ -2123,7 +2123,7 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "nonlocal return through frames" do
+  it "a return inside a block exits the method the block was written in" do
     result = ze0(<<~'RUBY')
       # A `return` inside a block exits the method the BLOCK was written in, however
       # many frames it has to unwind through. Every method it passes on the way is
@@ -2136,6 +2136,15 @@ describe "Control: control flow" do
       def c1; one { |x| return x }; :no; end
       p c1
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "a return travels out through two nested blocks and an explicit &b" do
+    result = ze0(<<~'RUBY')
       # Through two nested blocks and an explicit `&b`.
       def two(&b)
         [1, 2].each { |x| [3, 4].each { |y| b.call(x * y) } }
@@ -2144,6 +2153,15 @@ describe "Control: control flow" do
       def c2; two { |v| return v }; :no; end
       p c2
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "a return travels out through an Enumerator and through a lazy chain" do
+    result = ze0(<<~'RUBY')
       # Through an Enumerator, and through a lazy chain.
       def three
         Enumerator.new { |y| y << 1; y << 2 }.each { |v| yield v }
@@ -2152,6 +2170,15 @@ describe "Control: control flow" do
       def c3; three { |v| return v }; :no; end
       p c3
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "a return travels out of a block a builtin yielded to" do
+    result = ze0(<<~'RUBY')
       def lazily
         [1, 2, 3].lazy.map { |x| x * 2 }.each { |v| yield v }
         :fell
@@ -2159,6 +2186,15 @@ describe "Control: control flow" do
       def c4; lazily { |v| return v }; :no; end
       p c4
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+    OUT
+  end
+
+  it "a return passes a relay whose begin has an ensure but no return of its own" do
+    result = ze0(<<~'RUBY')
       # Through a relay that has a `begin`/`ensure` -- no `return` of its own, so it
       # has nothing to catch.
       def ensured
@@ -2172,6 +2208,15 @@ describe "Control: control flow" do
       def c5; ensured { |v| return v }; :no; end
       p c5
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      9
+    OUT
+  end
+
+  it "a return passes several relays and still reaches its home" do
+    result = ze0(<<~'RUBY')
       def rescued
         yield 8
       rescue StandardError
@@ -2182,6 +2227,15 @@ describe "Control: control flow" do
       def c6; rescued { |v| return v }; :no; end
       p c6
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      8
+    OUT
+  end
+
+  it "a relay's own return inside a begin returns the relay, not the home method" do
+    result = ze0(<<~'RUBY')
       # Through a relay that has a `return` of its own INSIDE the begin: it really
       # does catch, and must still tell the two apart.
       def both
@@ -2196,6 +2250,16 @@ describe "Control: control flow" do
       p c7
       p both { :ignored }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      :inner
+    OUT
+  end
+
+  it "a return travels out through several frames" do
+    result = ze0(<<~'RUBY')
       # Through several frames, and through `__send__`.
       def deep3(&b) = deep2(&b)
       def deep2(&b) = deep1(&b)
@@ -2206,6 +2270,15 @@ describe "Control: control flow" do
       def c8; deep3 { |v| return v }; :no; end
       p c8
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "a return travels out through __send__" do
+    result = ze0(<<~'RUBY')
       class Relay
         def go(&b)
           begin
@@ -2220,6 +2293,15 @@ describe "Control: control flow" do
       def c9; Relay.new.go { |v| return v }; :no; end
       p c9
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :through_send
+    OUT
+  end
+
+  it "a return whose home has already unwound raises LocalJumpError" do
+    result = ze0(<<~'RUBY')
       # A `return` whose home has already unwound is a LocalJumpError, not a jump
       # into a dead frame.
       def escapee = proc { return :gone }
@@ -2229,6 +2311,15 @@ describe "Control: control flow" do
         p [:local_jump, e.reason]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:local_jump, :return]
+    OUT
+  end
+
+  it "a lambda's return is its own and never leaves the caller" do
+    result = ze0(<<~'RUBY')
       # A lambda's `return` is its own, and never leaves the caller.
       def lam
         l = lambda { return :from_lambda }
@@ -2238,17 +2329,6 @@ describe "Control: control flow" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1
-      3
-      1
-      2
-      9
-      8
-      7
-      :inner
-      1
-      :through_send
-      [:local_jump, :return]
       [:from_lambda, :after]
     OUT
   end

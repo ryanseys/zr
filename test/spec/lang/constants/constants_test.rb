@@ -2561,7 +2561,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "nesting and assignment" do
+  it "a nested class names itself by its whole path, and its constants resolve in it" do
     result = ze0(<<~'RUBY')
       module Store
         LIMIT = 3
@@ -2617,6 +2617,67 @@ describe "Constants programs" do
       p Store::Item.name
       p Store::Format::SEP
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Store
+      Store::Item
+      "item"
+      3
+      "Store::Item"
+      ", "
+    OUT
+  end
+
+  it "an instance of a nested class answers the methods and constants of its namespace" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
+
       item = Store::Item.new("pen", 10)
       p item.name
       p item.kind
@@ -2625,6 +2686,68 @@ describe "Constants programs" do
       p Store::Discounted.new("hat", 20).price
       p Store::Discounted.superclass
       p Store::Format.join(["a", "b"])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "pen"
+      ["item", 3]
+      pen@10
+      8
+      10
+      Store::Item
+      "a, b"
+    OUT
+  end
+
+  it "a multiple assignment binds each target, splat and nesting included" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
 
       a, b = 1, 2
       p [a, b]
@@ -2652,11 +2775,134 @@ describe "Constants programs" do
       arr[0], arr[1] = 7, 8
       p arr
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      [2, 1]
+      [3, 4]
+      [5, nil]
+      [1, [2, 3, 4]]
+      [[1, 2], 3]
+      [1, 2, 3, 4]
+      9
+      [1, 2]
+      [3, 4]
+      [5, 6]
+      [7, 8]
+    OUT
+  end
+
+  it "a parallel assignment of two locals binds both" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
+
       def two
         [1, 2]
       end
       m, n = two
       p [m, n]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+    OUT
+  end
+
+  it "a constant holding a Regexp is used as one wherever it is read" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
 
       word = /\A[a-z]+\z/
       p word
@@ -2667,11 +2913,129 @@ describe "Constants programs" do
       p "x1y2".gsub(/\d/) { |digit| "<#{digit}>" }
       p word.source
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      /\A[a-z]+\z/
+      true
+      false
+      true
+      ["a", "b", "c"]
+      "x<1>y<2>"
+      "\\A[a-z]+\\z"
+    OUT
+  end
+
+  it "a constant Hash accumulates through the methods that write it" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
+
       counts = {}
       counts["k"] ||= 1
       counts["k"] ||= 2
       counts["k"] += 10
       p counts
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      {"k" => 11}
+    OUT
+  end
+
+  it "a constant holding an object shares that object with every reader" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
 
       class Holder
         def initialize
@@ -2696,40 +3060,6 @@ describe "Constants programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Store
-      Store::Item
-      "item"
-      3
-      "Store::Item"
-      ", "
-      "pen"
-      ["item", 3]
-      pen@10
-      8
-      10
-      Store::Item
-      "a, b"
-      [1, 2]
-      [2, 1]
-      [3, 4]
-      [5, nil]
-      [1, [2, 3, 4]]
-      [[1, 2], 3]
-      [1, 2, 3, 4]
-      9
-      [1, 2]
-      [3, 4]
-      [5, 6]
-      [7, 8]
-      [1, 2]
-      /\A[a-z]+\z/
-      true
-      false
-      true
-      ["a", "b", "c"]
-      "x<1>y<2>"
-      "\\A[a-z]+\\z"
-      {"k" => 11}
       "first"
       "first!"
     OUT

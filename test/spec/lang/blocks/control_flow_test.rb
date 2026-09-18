@@ -744,7 +744,7 @@ describe "Blocks: control flow" do
     OUT
   end
 
-  it "proc nonlocal return" do
+  it "a non-lambda proc's return returns from the method that made the proc" do
     result = ze0(<<~'RUBY')
       # A non-lambda proc's `return` returns from the method that created the proc
       # (CRuby non-local return); a lambda's `return` is local to the lambda.
@@ -754,12 +754,30 @@ describe "Blocks: control flow" do
       end
       p m
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      30
+    OUT
+  end
+
+  it "a lambda's return answers the lambda, and the method carries on" do
+    result = ze0(<<~'RUBY')
       def lam
         -> { return 30 }.call
         40
       end
       p lam
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      40
+    OUT
+  end
+
+  it "a non-local return abandons the rest of the method" do
+    result = ze0(<<~'RUBY')
       # the non-local return aborts the rest of the method
       def compute
         r = proc { return 7 }.call
@@ -767,6 +785,15 @@ describe "Blocks: control flow" do
       end
       p compute
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+    OUT
+  end
+
+  it "a non-local return carries a heap value home" do
+    result = ze0(<<~'RUBY')
       # heap (string) return value
       def smethod
         proc { return "early" }.call
@@ -774,6 +801,15 @@ describe "Blocks: control flow" do
       end
       p smethod
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "early"
+    OUT
+  end
+
+  it "a bare return in a proc answers nil" do
+    result = ze0(<<~'RUBY')
       # bare return yields nil
       def bare
         proc { return }.call
@@ -781,6 +817,15 @@ describe "Blocks: control flow" do
       end
       p bare.inspect
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "nil"
+    OUT
+  end
+
+  it "a conditional return in a proc returns non-locally only where the guard holds" do
+    result = ze0(<<~'RUBY')
       # conditional: returns non-locally only when the guard holds
       def cond(x)
         proc { return "yes" if x > 0 }.call
@@ -789,6 +834,16 @@ describe "Blocks: control flow" do
       p cond(5)
       p cond(-1)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "yes"
+      "no"
+    OUT
+  end
+
+  it "a proc built by Proc.new returns non-locally the same way" do
+    result = ze0(<<~'RUBY')
       # Proc.new form
       def pnew
         Proc.new { return 99 }.call
@@ -796,6 +851,15 @@ describe "Blocks: control flow" do
       end
       p pnew
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      99
+    OUT
+  end
+
+  it "each recursive invocation owns its own proc-return frame" do
+    result = ze0(<<~'RUBY')
       # Recursion: each invocation owns its own proc-return frame, so the return
       # targets the correct method instance.
       def countdown(n, acc)
@@ -804,6 +868,15 @@ describe "Blocks: control flow" do
       end
       p countdown(5, 0)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      15
+    OUT
+  end
+
+  it "an inner returning-proc method unwinds only itself" do
+    result = ze0(<<~'RUBY')
       # Nested returning-proc methods: inner's return unwinds only inner.
       def inner
         proc { return "inner-ret" }.call
@@ -816,6 +889,15 @@ describe "Blocks: control flow" do
       end
       p outer
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "outer:inner-ret"
+    OUT
+  end
+
+  it "a multi-value return out of a proc answers an array" do
+    result = ze0(<<~'RUBY')
       # Multi-value return becomes an array.
       def mv
         proc { return 1, 2, 3 }.call
@@ -823,6 +905,15 @@ describe "Blocks: control flow" do
       end
       p mv
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2, 3]
+    OUT
+  end
+
+  it "many sequential calls each pop their own frame, returning or falling through" do
+    result = ze0(<<~'RUBY')
       # Many sequential calls: each non-local return (and each fall-through) pops its
       # frame, so the bounded frame stack never overflows.
       def doubled(x)
@@ -838,6 +929,16 @@ describe "Blocks: control flow" do
       p td
       p ts
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      249500
+      25250
+    OUT
+  end
+
+  it "a returning proc that does not return answers its tail" do
+    result = ze0(<<~'RUBY')
       # Fall-through value: a returning proc that does NOT return still yields its tail
       # expression (the `.call` result is the method's value). Mixed return/tail types
       # unify to a poly home; same-type stays scalar.
@@ -847,12 +948,32 @@ describe "Blocks: control flow" do
       p tail_or_ret(5)
       p tail_or_ret(-1)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "tail"
+      99
+    OUT
+  end
+
+  it "the same fall-through answers an Integer tail" do
+    result = ze0(<<~'RUBY')
       def tail_int(n)
         proc { return 5 if n < 0; 10 }.call
       end
       p tail_int(1)
       p tail_int(-1)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      5
+    OUT
+  end
+
+  it "a return inside an inlined iteration block returns from the enclosing method" do
+    result = ze0(<<~'RUBY')
       # A `return` inside an inlined iteration block is non-local: it returns from the
       # home method, not just the block, so the trailing statement is skipped.
       def first_even_times_ten
@@ -861,42 +982,105 @@ describe "Blocks: control flow" do
       end
       p first_even_times_ten
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      20
+    OUT
+  end
+
+  it "an inlined block that fires no return answers its tail" do
+    result = ze0(<<~'RUBY')
       # Inlined block that falls through (no return fires) -- its tail is the value.
       def all_fall_through
         proc { [1, 2, 3].each { |x| x * 10 }; :fell }.call
       end
       p all_fall_through
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :fell
+    OUT
+  end
+
+  it "a block-body local survives beside a non-local return from the block" do
+    result = ze0(<<~'RUBY')
       # Block-body local plus a non-local return from inside the block.
       def block_local_return
         proc { [1, 2, 3].each { |x| y = x * 10; return y if x == 2 }; :fell }.call
       end
       p block_local_return
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      20
+    OUT
+  end
+
+  it "each_with_index inside a returning proc returns non-locally" do
+    result = ze0(<<~'RUBY')
       # each_with_index inside a returning proc.
       def index_of_twenty
         proc { [10, 20, 30].each_with_index { |v, i| return i if v == 20 }; -1 }.call
       end
       p index_of_twenty
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "map inside a proc collects, with no return to fire" do
+    result = ze0(<<~'RUBY')
       # map (a collecting block) inside a proc, no return.
       def doubled_array
         proc { [1, 2, 3].map { |x| x * 2 } }.call
       end
       p doubled_array
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [2, 4, 6]
+    OUT
+  end
+
+  it "nested inlined blocks carry a non-local return out through both" do
+    result = ze0(<<~'RUBY')
       # Nested inlined blocks (block within block) with a non-local return.
       def nested_blocks_return
         proc { [1, 2].each { |a| [3, 4].each { |b| return a * b if a == 2 && b == 4 } }; 0 }.call
       end
       p nested_blocks_return
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      8
+    OUT
+  end
+
+  it "sibling inlined blocks that reuse a parameter name share one declaration" do
+    result = ze0(<<~'RUBY')
       # Sibling inlined blocks reusing a param name share one declaration.
       def sibling_param_reuse
         proc { [1, 2].each { |x| return x if x == 2 }; [3, 4].each { |x| return x }; 0 }.call
       end
       p sibling_param_reuse
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+    OUT
+  end
+
+  it "deep recursion through a returning-proc method grows the frame stack and unwinds it" do
+    result = ze0(<<~'RUBY')
       # Deep recursion through a returning-proc method: the frame stack grows past the
       # old fixed cap (256) rather than raising SystemStackError.
       def countdown_to_zero(n)
@@ -905,6 +1089,15 @@ describe "Blocks: control flow" do
       end
       p countdown_to_zero(2000)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+    OUT
+  end
+
+  it "a fiber whose body holds an inlined block keeps that block's own locals" do
+    result = ze0(<<~'RUBY')
       # A fiber whose body contains an inlined block: the block params/locals are
       # collected for the fiber function (parallels the proc collection fix).
       fib = Fiber.new do
@@ -916,31 +1109,6 @@ describe "Blocks: control flow" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      30
-      40
-      7
-      "early"
-      "nil"
-      "yes"
-      "no"
-      99
-      15
-      "outer:inner-ret"
-      [1, 2, 3]
-      249500
-      25250
-      "tail"
-      99
-      10
-      5
-      20
-      :fell
-      20
-      1
-      [2, 4, 6]
-      8
-      2
-      0
       6
     OUT
   end
