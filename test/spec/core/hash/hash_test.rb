@@ -524,7 +524,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash and builtin types" do
+  it "a Hash takes an Array as a key, and is_a? answers for every builtin" do
     result = ze0(<<~'RUBY')
       h = {}
       h[:a] = 1
@@ -591,7 +591,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash class bracket constructor" do
+  it "Hash[] builds from a flat list, an array of pairs or another Hash" do
     result = ze0(<<~'RUBY')
       p Hash[]
       p Hash[1, 2, 3, 4]
@@ -607,7 +607,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash clear" do
+  it "clear empties a Hash of any key and value type, and it takes writes again" do
     result = ze0(<<~'RUBY')
       h1 = { a: 1, b: 2, c: 3 }
       h1.clear
@@ -670,7 +670,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash compound assign more" do
+  it "an operator assignment through [] reads, applies and writes back" do
     result = ze0(<<~'RUBY')
       # Hash#[] op= for string-valued and poly-valued typed hashes.
 
@@ -703,7 +703,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash ctor merge clone transform" do
+  it "the Hash constructor, a multi-argument merge, and the transform methods" do
     result = ze0(<<~'RUBY')
       # The Hash[] constructor, multi-argument merge/merge!, Array#clone's frozen
       # flag, inline Hash.new(default) arguments, Array#slice!(i)/(range),
@@ -757,7 +757,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash default" do
+  it "Hash.new takes a default value that is not stored, or a block that may store one" do
     result = ze0(<<~'RUBY')
       # `Hash.new` accepts a per-instance default that a missing key falls back to.
 
@@ -793,7 +793,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash fetch keyerror" do
+  it "fetch raises KeyError with no default, and answers the default with one" do
     result = ze0(<<~'RUBY')
       # Issue #914: Hash#fetch without a default raises KeyError on
       # a missing key, not 0.
@@ -828,7 +828,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash insert during each raises" do
+  it "adding a key during each raises, where writing an existing one does not" do
     result = ze0(<<~'RUBY')
       # Ruby forbids adding a new key to a Hash while iterating it: RuntimeError
       # "can't add a new key into hash during iteration". zeo's Hash#each takes no
@@ -854,7 +854,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash invert" do
+  it "invert swaps every key with its value" do
     result = ze0(<<~'RUBY')
       # Hash#invert — swap keys and values.
       # str_int_hash → poly_poly_hash, str_str_hash → str_str_hash,
@@ -882,7 +882,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash itself enum nil" do
+  it "itself answers the receiver" do
     result = ze0(<<~'RUBY')
       h = { a: 1 }
       p h.itself
@@ -899,7 +899,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash key via intermediate local" do
+  it "a key computed through an intermediate local keeps the value's type" do
     result = ze0(<<~'RUBY')
       # Sibling to #443. `h[pp[1..]] = ap` where pp/ap are intermediate
       # locals (themselves split-result elements) had the hash inferred
@@ -938,7 +938,7 @@ describe "Hash programs" do
     _(result).must_answer "3\n"
   end
 
-  it "hash literal indexing and mutation" do
+  it "a literal reads by key, takes new keys and reports its size" do
     result = ze0(<<~'RUBY')
       h = { a: 1, b: 2 }
       puts(h[:a])
@@ -965,7 +965,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash merge bang" do
+  it "merge! and update write into the receiver and answer it" do
     result = ze0(<<~'RUBY')
       # In-place Hash#merge! / #update mutate the receiver and return it.
       # Per-variant helpers keep each receiver's concrete hash type (a single shared
@@ -1026,7 +1026,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash merge except splat" do
+  it "merge and except take their arguments splatted from an array" do
     result = ze0(<<~'RUBY')
       hs001 = [{ b: 2 }]
       p({ a: 1 }.merge(*hs001))
@@ -1044,7 +1044,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash merge splat" do
+  it "merge! and update take several hashes splatted from an array" do
     result = ze0(<<~'RUBY')
       hs = [{ b: 2 }]
       h = { a: 1 }
@@ -1074,7 +1074,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash merge variants" do
+  it "merge answers a Hash whatever the key and value types are, and the argument wins" do
     result = ze0(<<~'RUBY')
       # Hash#merge on poly_poly, int_int, and int_str hash variants (str-keyed already
       # worked). Frozen-constant receivers infer as poly_poly; ints exercise int-keyed
@@ -1111,7 +1111,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash mixed key writes" do
+  it "a Hash of one key type takes a key of another" do
     result = ze0(<<~'RUBY')
       h1 = { a: 1 }
       h1["x"] = 9
@@ -1194,7 +1194,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash new param default" do
+  it "a parameter defaulted to Hash.new gets a fresh Hash each call" do
     result = ze0(<<~'RUBY')
       def f001(n001, memo001 = Hash.new)
         memo001[n001] = n001
@@ -1218,7 +1218,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash projection and inplace methods" do
+  it "values_at, assoc, compact, shift, select! and the subset operators" do
     result = ze0(<<~'RUBY')
       h = { a: 1, b: 2, c: 3 }
       p h.values_at(:a, :c)
@@ -1246,7 +1246,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash shorthand" do
+  it "the { x:, y: } shorthand takes each value from the local of that name" do
     result = ze0(<<~'RUBY')
       # Hash shorthand `{ x:, y: }` (Ruby 3.1+): an AssocNode whose value is
       # implicit. Prism wraps the implicit value in a PM_IMPLICIT_NODE that
@@ -1297,7 +1297,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash temp gc root" do
+  it "a Hash literal survives the allocations between building it and using it" do
     result = ze0(<<~'RUBY')
       # #689: Hash temporaries created from `{}` literals must be GC-rooted
       # before subsequent allocations, otherwise GC may reclaim them mid-
@@ -1330,7 +1330,7 @@ describe "Hash programs" do
     _(result).must_answer "ok\n"
   end
 
-  it "hash transform group" do
+  it "flat_map, filter_map, partition and group_by build from the key and value pairs" do
     result = ze0(<<~'RUBY')
       # Hash#flat_map / #filter_map / #partition / #group_by build collections from
       # the |key, value| pairs: flat_map concatenates the per-entry arrays,
@@ -1369,7 +1369,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash transform keys bang" do
+  it "transform_keys! and transform_values! write back into the receiver" do
     result = ze0(<<~'RUBY')
       # Hash#transform_keys! / transform_values! on a direct literal (KieranP #2355)
       p({ a: 1, b: 2 }.transform_keys!(&:to_s))       # key type sym -> str
@@ -1390,7 +1390,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash values at fetch values" do
+  it "values_at answers nil for a missing key where fetch_values raises" do
     result = ze0(<<~'RUBY')
       # Hash#values_at / #fetch_values on typed hashes. Each key is looked up
       # and the values collected into an array; values_at yields nil for a
@@ -1428,7 +1428,7 @@ describe "Hash programs" do
     OUT
   end
 
-  it "hash variant returns" do
+  it "compact, flatten, each_with_object and chunk through a method's return" do
     result = ze0(<<~'RUBY')
       # Hash methods flowing through user-method returns: compact, flatten,
       # each_with_index, each_with_object with an empty {} seed, Hash[pairs]
