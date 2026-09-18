@@ -122,7 +122,7 @@ describe "JSON programs" do
     _(result).must_answer "\"{\\\"a\\\":1}\"\n"
   end
 
-  it "json additions and classes" do
+  it "json/add revives a class innermost first, and load turns create_additions on where parse leaves it off" do
     result = ze0(<<~'RUBY')
       # `json/add/*` teaches a core class to serialize itself, and `create_additions`
       # is what reads it back: a parsed object naming a class under `JSON.create_id`
@@ -251,7 +251,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json big integers stay exact" do
+  it "parse keeps an integer beyond f64 exact" do
     result = ze0(<<~'RUBY')
       # `JSON.parse` keeps an integer beyond f64 EXACT (a Bignum); zeo's
       # serde_json path converts it to Float and silently loses precision --
@@ -267,7 +267,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json generate cycle aborts" do
+  it "generate on a self-referential array raises JSON::NestingError" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -295,7 +295,7 @@ describe "JSON programs" do
     _(result).must_answer "JSON::NestingError\n"
   end
 
-  it "json generate nan infinity" do
+  it "generate refuses NaN and Infinity unless allow_nan: says otherwise" do
     result = ze0(<<~'RUBY')
       require "json"
 
@@ -319,7 +319,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json generate rejects bad encoding" do
+  it "generate refuses a string that is not valid UTF-8" do
     result = ze0(<<~'RUBY')
       # JSON.generate refuses what is not valid UTF-8: an invalid-UTF-8 string
       # raises JSON::GeneratorError ("source sequence is illegal/malformed
@@ -345,7 +345,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json generator options" do
+  it "indent, space, ascii_only, script_safe and max_nesting each change what generate writes" do
     result = ze0(<<~'RUBY')
       # JSON.generate's option surface is ignored wholesale: indent/object_nl/
       # array_nl/space (so pretty_generate != generate with those opts),
@@ -378,7 +378,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json load dump surface" do
+  it "dump takes a depth limit and an IO, and load takes nil, a proc and allow_nan:" do
     result = ze0(<<~'RUBY')
       # JSON.dump/load surface: dump with a LIMIT raises ArgumentError beyond
       # it; dump to an IO WRITES to it (zeo returns "" and writes nothing --
@@ -415,7 +415,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json nesting error family" do
+  it "input nested too deep raises JSON::NestingError, and max_nesting: bounds the parse" do
     result = ze0(<<~'RUBY')
       # JSON's depth control: too-deep input raises JSON::NestingError (a
       # distinct class rescue code depends on), and `max_nesting:` bounds the
@@ -442,7 +442,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json parse and generate match ruby" do
+  it "generate, parse and pretty_generate answer what ruby's json answers" do
     result = ze0(<<~'RUBY')
       require "json"
       puts JSON.generate({"a" => 1, "b" => [2, 3.5, nil, true]})
@@ -462,7 +462,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json parse freeze" do
+  it "parse with freeze: true freezes the containers, the strings and the keys" do
     result = ze0(<<~'RUBY')
       require "json"
 
@@ -481,7 +481,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json parse temp source" do
+  it "a document handed straight to parse stays rooted for the whole walk" do
     result = ze0(<<~'RUBY')
       # The parser walks its input in place while allocating every container and
       # string it builds, so a document handed straight in -- `JSON.parse
@@ -530,7 +530,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json parser edge cases" do
+  it "every hostile document answers a value or raises something a program can rescue" do
     result = ze0(<<~'RUBY')
       # Every hostile shape the JSON parser has to survive, as ANSWERS rather than
       # as a promise. The point of the file is that none of these ends the process:
@@ -783,7 +783,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json parser lenient rows" do
+  it "-0 parses as Integer, and a trailing comma and a trailing comment are accepted" do
     result = ze0(<<~'RUBY')
       # Three parser rows where ruby's json is LOOSER or differently typed
       # than zeo's serde path: `-0` parses as INTEGER 0 (zeo: Float -0.0),
@@ -807,7 +807,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json parser stress" do
+  it "tens of thousands of generated documents each answer or raise, and none ends the process" do
     result = ze0(<<~'RUBY')
       # The GENERATED half of the parser's safety net: tens of thousands of
       # inputs nobody wrote by hand, checked for the one property that matters at
@@ -965,7 +965,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json roundtrip" do
+  it "a generate and parse round trip holds, and symbolize_names: keys the result by symbol" do
     result = ze0(<<~'RUBY')
       # The json extension links into the binary: generation and parsing both run
       # native code the link line has to carry.
@@ -991,7 +991,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "json to json" do
+  it "requiring json gives every object to_json, not only the JSON.generate entry point" do
     result = ze0(<<~'RUBY')
       # `require "json"` gives every object a `#to_json`, not just the explicit
       # `JSON.generate`/`JSON.dump` entry points.
