@@ -993,7 +993,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string clamp ranges" do
+  it "clamp takes two bounds or a range, and refuses an exclusive or a reversed one" do
     result = ze0(<<~'RUBY')
       p("z".clamp(.."c"))
       p("a".clamp("b"..))
@@ -1015,7 +1015,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string embedded nul compare" do
+  it "a NUL is an ordinary byte, so two strings differing after one compare, sort and key apart" do
     result = ze0(<<~'RUBY')
       # A NUL is an ordinary byte in a Ruby String, and the representation records
       # the real length -- but comparison went through strcmp, which stops at the
@@ -1088,7 +1088,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string equal identity" do
+  it "equal? is pointer identity, so each literal occurrence is its own object" do
     result = ze0(<<~'RUBY')
       # String#equal? is pointer identity; each literal occurrence is a distinct
       # object (matching plain CRuby), while aliases and self-comparison hold.
@@ -1129,7 +1129,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string freeze identity" do
+  it "freeze marks in place and answers the same object" do
     result = ze0(<<~'RUBY')
       # String#freeze marks in place and returns the SAME object:
       # s.freeze.equal?(s) is true and s.frozen? flips. equal? on two string
@@ -1151,7 +1151,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string identity tap then" do
+  it "itself, tap and then each answer the receiver" do
     result = ze0(<<~'RUBY')
       s = "hello"
       puts s.itself.equal?(s)
@@ -1166,7 +1166,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string nil float batch" do
+  it "bytesplice, append_as_bytes and crypt answer, beside Float#=== and nil's boolean operators" do
     result = ze0(<<~'RUBY')
       # String#bytesplice with Range / #append_as_bytes / #crypt,
       # Float#=== against non-float operands, and nil & / | / ^ boolean ops
@@ -1233,7 +1233,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string pattern joins with its receiver" do
+  it "a String argument at a search or a substitution joins with the receiver's encoding, or raises" do
     result = ze0(<<~'RUBY')
       # A String argument at a search or a substitution site must join with
       # the receiver -- CRuby's rb_enc_check, the same test `+` makes. Without
@@ -1307,7 +1307,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string shl identity" do
+  it "<< answers the receiver itself, so the expression value and a later read are one object" do
     result = ze0(<<~'RUBY')
       # String#<< returns the receiver itself (identity), not a copy (KieranP #2307).
       # The mutable-buffer receiver appends in place; the expression value and a
@@ -1334,7 +1334,7 @@ describe "String programs" do
     OUT
   end
 
-  it "string to c" do
+  it "to_c reads the leading substring it can into a Complex" do
     result = ze0(<<~'RUBY')
       # String#to_c: lenient leading-substring parse into a Complex.
 

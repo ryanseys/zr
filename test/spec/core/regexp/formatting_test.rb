@@ -394,7 +394,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp capture ceiling" do
+  it "a pattern wider than the match registers hold is refused rather than truncated" do
     result = ze0(<<~'RUBY')
       # A pattern wider than the match registers hold is refused rather than
       # truncated. It used to compile and lose everything past the thirty-first
@@ -454,7 +454,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp class open bracket" do
+  it "a [ inside a character class opens a POSIX bracket or a nested class, never itself" do
     result = ze0(<<~'RUBY')
       # A '[' inside a character class never stands for itself in CRuby: it opens a
       # POSIX bracket, a collating element, an equivalence class, or a class nested
@@ -506,7 +506,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp group name validation" do
+  it "a group name that is not a name raises RegexpError" do
     result = ze0(<<~'RUBY')
       def t(label)
         r = begin
@@ -547,7 +547,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp new options arg" do
+  it "Regexp.new's second argument is option bits, nil or false for none, anything else truthy for /i" do
     result = ze0(<<~'RUBY')
       # Regexp.new's second argument is an Integer of option bits, or nil/false for
       # none, or anything else truthy for IGNORECASE -- a choice CRuby makes from the
@@ -607,7 +607,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp new options string" do
+  it "Regexp.new takes its options as a string of flag letters, and refuses an unknown one" do
     result = ze0(<<~'RUBY')
       def show(o)
         r = Regexp.new("a", o)
@@ -663,7 +663,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp octal escape is not a backreference" do
+  it "an octal escape is the byte it names, not a backreference" do
     result = ze0(<<~'RUBY')
       # A Ruby octal escape `\033` is the ESC byte, not a group-0 backreference;
       # it must compile and match rather than raising "Invalid back reference".
@@ -676,7 +676,7 @@ describe "Regexp: formatting and inspection" do
     _(result).must_answer "aredb\n1\n"
   end
 
-  it "regexp onig" do
+  it "^ and $ are line anchors, and a trailing newline opens no line after it" do
     result = ze0(<<~'RUBY')
       # Ruby-specific regex semantics backed by the real Oniguruma engine.
 
@@ -710,7 +710,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp render source variable" do
+  it "source, inspect, to_s and options answer through a variable and inside a container" do
     result = ze0(<<~'RUBY')
       # Regexp values render: #source/#inspect/#to_s/#options work through a
       # variable (the literal-resolution arm read node attributes the variable
@@ -752,7 +752,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "regexp unsupported escapes" do
+  it "the escapes onig adds beyond ruby's documented set each answer or raise" do
     result = ze0(<<~'RUBY')
       def t(label)
         r = begin

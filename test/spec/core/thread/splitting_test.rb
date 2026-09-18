@@ -414,7 +414,7 @@ describe "Thread: splitting and joining" do
     _(result).must_answer "42\nfalse\n"
   end
 
-  it "thread condvar" do
+  it "ConditionVariable#wait releases the mutex and parks until a signal wakes it" do
     result = ze0(<<~'RUBY')
       # ConditionVariable on the cooperative scheduler: #wait releases the mutex and
       # parks until #signal/#broadcast wakes the waiter, which re-acquires the mutex.
@@ -463,7 +463,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread extended" do
+  it "Thread.current, .main and .pass answer, and a thread carries its own locals and status" do
     result = ze0(<<~'RUBY')
       # Thread.current / .main / .pass
       p Thread.current.class
@@ -521,7 +521,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread join and value via dynamic dispatch" do
+  it "join and value dispatch on threads read out of an Array" do
     result = ze0(<<~'RUBY')
       # The threads live in an Array, so `join`/`value` dispatch dynamically
       # (the runtime Thread table), not the static codegen fast path.
@@ -534,7 +534,7 @@ describe "Thread: splitting and joining" do
     _(result).must_answer "[0, 10, 20]\n"
   end
 
-  it "thread local" do
+  it "Thread#[] and #[]= give each thread storage of its own" do
     result = ze0(<<~'RUBY')
       # Thread-local storage (Thread#[] / #[]= / #key?, symbol keys), #status, and
       # Thread.main on the cooperative scheduler. Each thread has its own storage.
@@ -578,7 +578,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread mutex" do
+  it "synchronize wraps the block in lock and unlock, and the lock predicates answer" do
     result = ze0(<<~'RUBY')
       # Mutex on the cooperative scheduler: #synchronize wraps the block in lock/unlock,
       # and lock/unlock/locked?/owned?/try_lock behave as in CRuby.
@@ -622,7 +622,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread name" do
+  it "a thread's name is nil until #name= sets it" do
     result = ze0(<<~'RUBY')
       # Thread#name / #name= name a thread; the default is nil.
       t = Thread.new { 1 }
@@ -645,7 +645,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread queue" do
+  it "a blocking pop parks until a push hands it a value, and close drains the poppers with nil" do
     result = ze0(<<~'RUBY')
       # Queue producer/consumer on the cooperative scheduler (Phase 0). A blocking
       # #pop parks the caller until a #push hands it a value; #close drains remaining
@@ -698,7 +698,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread sized queue" do
+  it "a push blocks at the queue's capacity until a pop frees a slot" do
     result = ze0(<<~'RUBY')
       # SizedQueue on the cooperative scheduler: #push blocks when the queue is at its
       # capacity until a #pop frees a slot. FIFO values are deterministic; thread
@@ -738,7 +738,7 @@ describe "Thread: splitting and joining" do
     OUT
   end
 
-  it "thread value through container" do
+  it "value and join dispatch on a thread carried in a container rather than answering nil" do
     result = ze0(<<~'RUBY')
       # A Thread (modelled as a single-threaded Fiber) carried through a container:
       # #value/#join must dispatch on the boxed Fiber, not degrade to nil (#1261).
