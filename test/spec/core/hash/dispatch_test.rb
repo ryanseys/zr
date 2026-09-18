@@ -93,7 +93,7 @@ describe "Hash: dispatch" do
     OUT
   end
 
-  it "hash dispatch missing cells" do
+  it "merge with a keyword, dup and fetch each resolve on the hash variant that carries them" do
     result = ze0(<<~'RUBY')
       # #551. Three additional Hash dispatch cells the prior #510 /
       # #546 work hadn't covered: sym_poly_hash#merge(kwarg) /
@@ -133,7 +133,7 @@ describe "Hash: dispatch" do
     OUT
   end
 
-  it "hash float value preserved" do
+  it "a Float value survives a read by key, with its fractional part" do
     result = ze0(<<~'RUBY')
       # Float values stored in a Hash must survive a read by key. Before, a
       # float-valued hash literal had no dedicated typed variant and fell
@@ -174,7 +174,7 @@ describe "Hash: dispatch" do
     OUT
   end
 
-  it "hash merge boxed argument" do
+  it "merge reads the argument as the variant it really is, not as the receiver's layout" do
     result = ze0(<<~'RUBY')
       # `{ sym: v }.merge(opts)` where opts only reads poly: the argument holds
       # whichever hash variant the value really is, so casting it to the receiver's
@@ -221,7 +221,7 @@ describe "Hash: dispatch" do
     OUT
   end
 
-  it "hash poly key tag check" do
+  it "a lookup whose key arrives boxed checks the tag before it reads the union" do
     result = ze0(<<~'RUBY')
       # A hash lookup whose key arrives boxed must check the tag before reading the
       # union member: the same call site reached with a String and with a Float read
@@ -269,7 +269,7 @@ describe "Hash: dispatch" do
     OUT
   end
 
-  it "hash poly value local" do
+  it "a value read out of a mixed hash into a local keeps its own runtime type" do
     result = ze0(<<~'RUBY')
       h = {"int" => -9}
       h["array"] = [1, 2]

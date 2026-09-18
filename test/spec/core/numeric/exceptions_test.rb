@@ -733,7 +733,7 @@ describe "Numeric: raising and rescuing" do
     _(result).must_answer "Math::DomainError: boom\nMath::DomainError\n"
   end
 
-  it "numeric and collection error protocol edges" do
+  it "Float#% by zero raises ZeroDivisionError, and a negative count raises for the receiver" do
     result = ze0(<<~'RUBY')
       # Float#% by zero raises ZeroDivisionError (not NaN); a negative first/last
       # count raises ArgumentError with the receiver-specific message.
@@ -763,7 +763,7 @@ describe "Numeric: raising and rescuing" do
     OUT
   end
 
-  it "numeric collection error edges" do
+  it "the modulo, divmod and negative-count edges raise with CRuby's own messages" do
     result = ze0(<<~'RUBY')
       # CRuby error-protocol edges for numeric and collection operations.
       def caught
@@ -811,7 +811,7 @@ describe "Numeric: raising and rescuing" do
     OUT
   end
 
-  it "numeric convert exception false" do
+  it "Complex() and its siblings answer nil under exception: false" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Complex() with exception: false raises instead of answering nil.
@@ -842,7 +842,7 @@ describe "Numeric: raising and rescuing" do
     OUT
   end
 
-  it "numeric ctor exception kwarg" do
+  it "an exception: keyword stays a keyword and never counts as the second component" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Complex() with an exception: keyword mis-routes the keyword into the
@@ -874,7 +874,7 @@ describe "Numeric: raising and rescuing" do
     OUT
   end
 
-  it "numeric tower exactness" do
+  it "size, rationalize and the Rational and Complex constructors all answer exactly" do
     result = ze0(<<~'RUBY')
       p 42.size
       p (2**64).size

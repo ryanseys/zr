@@ -439,7 +439,7 @@ describe "Kernel: formatting and inspection" do
     OUT
   end
 
-  it "kernel breadth matches the oracle" do
+  it "puts, p, print, format and printf all write and answer what the oracle writes and answers" do
     result = ze0(<<~'RUBY')
       puts [1, [2, nil]], "x"
       puts
@@ -488,7 +488,7 @@ describe "Kernel: formatting and inspection" do
     OUT
   end
 
-  it "kernel caller wired" do
+  it "caller answers an Array and honours its start and length window" do
     result = ze0(<<~'RUBY')
       # Kernel#caller resolves to an Array (the call stack); frame *content* is
       # method-granularity and only populated in --debug builds (release returns
@@ -511,7 +511,7 @@ describe "Kernel: formatting and inspection" do
     OUT
   end
 
-  it "kernel conversion protocols" do
+  it "the Kernel conversions do not consult to_int, to_str or to_ary" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Kernel conversions do not consult the to_int/to_str/to_ary protocol
@@ -544,7 +544,7 @@ describe "Kernel: formatting and inspection" do
     OUT
   end
 
-  it "kernel module receiver" do
+  it "Kernel as an explicit receiver means what the bare call means, the frame-sensitive rows included" do
     result = ze0(<<~'RUBY')
       # Kernel's module functions answer to the module as an explicit receiver, and
       # mean exactly what the bare call means. `Kernel.exit` is how a CLI library
@@ -665,7 +665,7 @@ describe "Kernel: formatting and inspection" do
     OUT
   end
 
-  it "kernel scope intrinsics" do
+  it "block_given?, binding and local_variables answer through send with a literal symbol" do
     result = ze0(<<~'RUBY')
       # Four `Kernel` functions cannot be reached through `send`, `method` or
       # `respond_to?` -- but every probe here uses a LITERAL symbol, so all of them

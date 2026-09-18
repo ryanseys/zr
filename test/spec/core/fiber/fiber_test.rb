@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Fiber programs" do
-  it "fiber inspects with its block and status" do
+  it "inspect names the block's file and line and the fiber's status" do
     result = ze0(<<~'RUBY')
       # Fiber#inspect names the block's file and line and the fiber's status,
       # as fiber_to_s writes it. A fiber that resumed another is suspended by
@@ -41,7 +41,7 @@ describe "Fiber programs" do
     OUT
   end
 
-  it "fiber kills raises and stays on its thread" do
+  it "kill unwinds through ensure, raise carries in, and a resumed or cross-thread resume says so" do
     result = ze0(<<~'RUBY')
       # A fiber and a thread as CRuby has them: kill unwinds a fiber through
       # its ensure, raise carries an exception into it, a fiber resumed twice
@@ -106,7 +106,7 @@ describe "Fiber programs" do
     OUT
   end
 
-  it "fiber scheduler reads and writes through its buffer hooks" do
+  it "a non-blocking fiber's reads and writes reach the scheduler's io_read and io_write with a buffer" do
     result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A non-blocking fiber's reads and writes reach its scheduler's io_read,
       # io_write, io_pread and io_pwrite with an IO::Buffer, in the sizes io.c
@@ -174,7 +174,7 @@ describe "Fiber programs" do
     OUT
   end
 
-  it "fiber scheduler takes every blocking operation" do
+  it "a scheduler takes sleep, a pipe, a Mutex, a Queue, a wait, a timeout and a resolve" do
     result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A thread with a fiber scheduler hands each blocking operation of its
       # non-blocking fibers to the scheduler: sleep, a pipe read and write, a
@@ -229,7 +229,7 @@ describe "Fiber programs" do
     OUT
   end
 
-  it "fiber subclass makes its fiber through super" do
+  it "allocate makes a fiber that refuses to run, and a subclass makes its fiber through super" do
     result = ze0(<<~'RUBY')
       # Fiber.new is Class#new: allocate makes a fiber that refuses to run, and
       # initialize checks the storage, then the block, then whether the fiber
