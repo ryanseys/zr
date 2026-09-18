@@ -57,6 +57,15 @@ class ReaderConformanceTest < Minitest::Test
                  Ze0::Fixtures.fixture("raising_feature/r1.rb")
   end
 
+  # `fixtures(...)` is the whole `files:` hash for fixtures a program
+  # reaches through `../../fixtures/`, so the name is written once.
+  def test_fixtures_keys_each_name_the_way_a_program_reaches_it
+    got = Ze0::Fixtures.fixtures("raising_feature/r1.rb", "raising_feature/r2.rb")
+
+    assert_equal ["../../fixtures/raising_feature/r1.rb", "../../fixtures/raising_feature/r2.rb"], got.keys
+    assert_equal Ze0::Fixtures.fixture("raising_feature/r1.rb"), got.values.first
+  end
+
   def test_a_missing_fixture_says_so_rather_than_reading_nothing
     e = assert_raises(ArgumentError) { Ze0::Fixtures.fixture("no/such/thing.rb") }
     assert_match(/no fixture at test\/fixtures/, e.message)

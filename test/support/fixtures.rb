@@ -28,5 +28,18 @@ module Ze0
 
       File.binread(path)
     end
+
+    # The `files:` hash for fixtures a program reaches through
+    # `../../fixtures/`, which is where they land when the program's own
+    # path is `<suite>/<area>/<name>.rb` -- two directories down from the
+    # one it runs in.
+    #
+    #   files: fixtures("raising_feature/r1.rb", "raising_feature/r2.rb")
+    #
+    # Spelling the key and the fixture separately said the same name
+    # twice and put the pair on one 783-column line.
+    def fixtures(*names)
+      names.to_h { |name| ["../../fixtures/#{name}", fixture(name)] }
+    end
   end
 end
