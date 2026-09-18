@@ -1670,7 +1670,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "process clock constants" do
+  it "CLOCK_MONOTONIC and CLOCK_REALTIME are Integers a clock_gettime call takes" do
     result = ze0(<<~'RUBY')
       # Process::CLOCK_MONOTONIC / CLOCK_REALTIME are Integer values, usable
       # beyond a direct clock_gettime argument.
@@ -1690,7 +1690,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "process identity and clocks" do
+  it "pid and clock_gettime are asserted as facts about their values, never as the values" do
     result = ze0(<<~'RUBY')
       # `Process` identity and clocks -- asserted as FACTS about the values, never
       # the values themselves (a pid isn't reproducible).
@@ -1715,7 +1715,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "process pid" do
+  it "pid is above zero and ppid is not below it" do
     result = ze0(<<~'RUBY')
       # Issue #893: Process.pid / Process.ppid dispatched via getpid /
       # getppid. Values vary by run; test the type. ppid is 0 on
@@ -1727,7 +1727,7 @@ describe "Process programs" do
     _(result).must_answer "true\ntrue\n"
   end
 
-  it "process spawn" do
+  it "spawn answers a pid, and waitpid2 answers the Process::Status that describes how it ended" do
     result = ze0(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
@@ -1856,7 +1856,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "process spawn exec" do
+  it "spawn takes a command, arguments, a shell line, an environment and an exec replacement" do
     result = ze0(<<~'RUBY')
       # Process.spawn / Process.exec: spawn starts a child WITHOUT waiting (answering
       # a reapable pid), exec replaces the current image. Output is written from exit
@@ -1914,7 +1914,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "process wait family" do
+  it "wait, waitpid, wait2, waitall and detach each report a child's end their own way" do
     result = ze0(<<~'RUBY')
       # Process.wait / waitpid / wait2 / waitpid2 / waitall / detach / last_status,
       # plus the $? Process::Status they publish and the Errno::ECHILD raised when no
@@ -1971,7 +1971,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "process waiter" do
+  it "Process.detach answers a Process::Waiter, which is a Thread that knows the pid" do
     result = ze0(<<~'RUBY')
       # Process::Waiter -- Process.detach's answer: a REAL thread retagged to the
       # subclass, with #pid as its one own method and #value joining the reaper.

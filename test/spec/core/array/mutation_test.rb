@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: changing in place" do
-  it "array clear expr" do
+  it "clear answers the emptied array in expression position, whatever its element kind" do
     result = ze0(<<~'RUBY')
       # Array#clear in expression position was only implemented for
       # poly_array; on a typed array (`[1,2,3].clear`) it fell through to the
@@ -47,7 +47,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array conformance batch" do
+  it "rfind, fetch_values, try_convert, deconstruct and the prepend and append aliases answer" do
     result = ze0(<<~'RUBY')
       # Array conformance: rfind, fetch_values (+IndexError), Array.try_convert,
       # empty-literal sample, deconstruct/to_ary identity, prepend/append aliases.
@@ -89,7 +89,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array insert eql uniq spaceship edges" do
+  it "eql? and uniq are class-strict, and an array compares 0 with itself without deadlock" do
     result = ze0(<<~'RUBY')
       # insert past the end pads with nil; eql?/uniq are class-strict (1 != 1.0);
       # <=> of an array with itself (incl. a cycle) is 0 without deadlock.
@@ -121,7 +121,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array insert no values" do
+  it "insert with no values leaves the array alone, whatever its element kind" do
     result = ze0(<<~'RUBY')
       p [1, 2, 3].insert(1)
       w = [1, 2, 3].insert(1); p w
@@ -142,7 +142,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array insert pads nil" do
+  it "insert past the end pads the gap with nil" do
     result = ze0(<<~'RUBY')
       # Array#insert beyond the length pads with nils like CRuby, on typed
       # int/str arrays (nil sentinel / NULL) and poly arrays.
@@ -168,7 +168,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array local append prepend widen" do
+  it "append and prepend widen the local when the value its element kind cannot hold arrives" do
     result = ze0(<<~'RUBY')
       # Array#append / #prepend are exact aliases for #push / #unshift. Pushing or
       # prepending a value a typed-array local cannot hold (e.g. nil onto an int
@@ -214,7 +214,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array mutator capture widens" do
+  it "capturing a self-returning mutator that widens reads the receiver at its new layout" do
     result = ze0(<<~'RUBY')
       # Capturing a self-returning Array mutator that widens the element type
       # (#3523): the receiver widened to a poly array and the capture kept the
@@ -262,7 +262,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array rotate bang kinds" do
+  it "rotate! turns every element kind, wrapping counts and the empty and single-element edges" do
     result = ze0(<<~'RUBY')
       # rotate! over every element kind, including the wrap-around counts and the
       # empty / single-element edges: the block-move form has to agree with the
@@ -318,7 +318,7 @@ describe "Array: changing in place" do
     OUT
   end
 
-  it "array select bang" do
+  it "select!, filter!, keep_if, reject! and delete_if filter in place and answer the receiver" do
     result = ze0(<<~'RUBY')
       # Array#select! / #filter! / #keep_if / #reject! / #delete_if filter the
       # array in place and return the receiver. Elements keep their type.

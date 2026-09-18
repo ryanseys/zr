@@ -421,7 +421,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string each char returns self" do
+  it "each_char with a block answers the receiver, and yields whole code points" do
     result = ze0(<<~'RUBY')
       # Issue #866: String#each_char with a block returns the receiver
       # (not nil and not 0).
@@ -448,7 +448,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string each line enum" do
+  it "a blockless each_line is an Enumerator that to_a, first, take and next all read" do
     result = ze0(<<~'RUBY')
       # Blockless String#each_line returns an Enumerator over the lines, mirroring the
       # blockless each_char enumerator.
@@ -478,7 +478,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string each line expr" do
+  it "each_line answers the receiver in expression position as well as in statement" do
     result = ze0(<<~'RUBY')
       # String#each_line with a block returns the receiver (self), per CRuby.
       # The statement form already worked; the expression form (capturing the
@@ -530,7 +530,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string each line keeps newline" do
+  it "each_line yields each line with its newline, the last one only if the source had it" do
     result = ze0(<<~'RUBY')
       # String#each_line yields each line WITH its trailing newline
       # (CRuby behaviour). Last line keeps no newline only when the
@@ -559,7 +559,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string each line separator" do
+  it "each_line takes a separator and yields the pieces with it still attached" do
     result = ze0(<<~'RUBY')
       z001 = []; "1-2-3".each_line("-") { |l001| z001 << l001 }; p z001
       p("1-2-3".each_line("-").to_a)
@@ -573,7 +573,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string lines paragraph mode" do
+  it "lines with an empty separator splits into paragraphs, keeping the blank line with the one before" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # String#lines in paragraph mode (a "" separator) does not split on the
@@ -605,7 +605,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string split block" do
+  it "split with a block yields each piece, and the method still answers its own value" do
     result = ze0(<<~'RUBY')
       # String#split with a block yields each substring (rather than ignoring the
       # block and returning the array). Spinel previously never ran the block. The
@@ -645,7 +645,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string split capture" do
+  it "split by a pattern with capture groups splices the captures between the pieces" do
     result = ze0(<<~'RUBY')
       # Issue #856: split with a regex that has capture groups splices
       # the matched groups into the result between segments.
@@ -664,7 +664,7 @@ describe "String: splitting and joining" do
     OUT
   end
 
-  it "string upto" do
+  it "upto walks the succ sequence to its argument inclusive" do
     result = ze0(<<~'RUBY')
       # String#upto walks successive strings (the same succ-based sequence a
       # String range produces) from the receiver to the argument inclusive,

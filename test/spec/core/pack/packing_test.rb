@@ -40,7 +40,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack and unpack roundtrip core directives" do
+  it "every core directive round-trips, and the result's encoding follows what was written" do
     result = ze0(<<~'RUBY')
       # Array#pack / String#unpack across the integer, string, base64, hex,
       # BER and UTF-8 directives. Verified against ruby 4.0.6.
@@ -87,7 +87,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack bit strings and padding" do
+  it "B, b, x, X and @ write bits and move the cursor, and the result carries an encoding" do
     result = ze0(<<~'RUBY')
       # `Array#pack`'s bit-string and position directives, and the encoding the
       # result carries. `unpack` had all of these; `pack` was missing `B`, `b` and
@@ -159,7 +159,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack covers every directive" do
+  it "p and P write a machine pointer and keep the string it points at reachable" do
     result = ze0(<<~'RUBY')
       # `p` and `P` write a MACHINE POINTER, so the packed string has to keep the
       # strings it points at reachable: CRuby hangs them off the result in a hidden
@@ -236,7 +236,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack endian modifiers" do
+  it "<, >, ! and _ modify the directive before them rather than being read as one" do
     result = ze0(<<~'RUBY')
       # Array#pack / String#unpack: honor the '<' (little-endian), '>'
       # (big-endian), '!' and '_' (native size) directive modifiers.
@@ -335,7 +335,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack float directives" do
+  it "the float directives write IEEE-754 in the width and byte order they name" do
     result = ze0(<<~'RUBY')
       # Array#pack on a Float array and the float/double directives (#pack_unpack_directives):
       # D/d/F/f native, E/e little-endian, G/g big-endian. Previously a TY_FLOAT_ARRAY
@@ -436,7 +436,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack integer directive coerces a float" do
+  it "an integer directive truncates a Float toward zero and refuses NaN and Infinity" do
     result = ze0(<<~'RUBY')
       # An integer pack directive truncates a Float toward zero (CRuby coerces
       # through an exact Integer, so a value past the i64 range wraps modulo
@@ -462,7 +462,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack more directives" do
+  it "the native-size, quoted-printable and uuencode directives each round-trip" do
     result = ze0(<<~'RUBY')
       # Array#pack / String#unpack: float, native-size, quoted-printable, uuencode.
 
@@ -507,7 +507,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack unpack" do
+  it "a template is directive letters with an optional count, and unpack reverses pack" do
     result = ze0(<<~'RUBY')
       # `Array#pack` serializes elements into a byte string by a TEMPLATE of
       # directive letters; `String#unpack` reverses it. Each directive optionally
@@ -576,7 +576,7 @@ describe "Pack: packing and unpacking" do
     OUT
   end
 
-  it "pack unpack move" do
+  it "X, @ and a count move unpack's cursor, and moving past the start raises" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # String#unpack does not support the X (back up) directive.
