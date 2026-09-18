@@ -172,4 +172,28 @@ end
     failures = runs.reject { |run| run.passed? || run.tests.nil? }.map { |run| "#{run.file}\n#{run.output.lines.last(30).join}" }
     assert_empty failures.first(3)
   end
+
+  # `Prism.lex_compat` reaches `Prism::Translation::Ripper::Lexer::State`,
+  # which `prism/translation.rb` autoloads. That one file was not
+  # vendored, so the compiler's prism raised a NameError where ruby's
+  # answers tokens -- and syntax_suggest, which ruby's report for a file
+  # that does not parse goes through, lexes with exactly that call.
+  def test_lex_compat_answers_the_tokens_the_gems_prism_answers
+    source = File.read(File.join(ROOT, "lib/ze0/clock.rb"))
+    tokens = lexed(source, "ze0/prism")
+
+    assert_operator tokens.lines.size, :>, 50
+    assert_equal lexed(source, "prism"), tokens
+  end
+
+  private
+
+  # What a fresh ruby that loaded `feature` lexes `source` into.
+  def lexed(source, feature)
+    program = "require #{feature.inspect}\nputs Prism.lex_compat(ARGV[0]).value.map(&:inspect)\n"
+    said = IO.popen(Ze0::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", program, source],
+                    unsetenv_others: true, err: %i[child out], &:read)
+    assert_predicate $?, :success?, "the child did not lex with #{feature}: #{said}"
+    said
+  end
 end
