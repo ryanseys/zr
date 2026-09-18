@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: searching and matching" do
-  it "array assoc rassoc" do
+  it "assoc and rassoc match each pair's first or second slot, and a self-referential array terminates" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -75,7 +75,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array breadth matches the oracle" do
+  it "set ops, mutators, the sort family, flatten, join, fetch and the in-place filters all answer" do
     result = ze0(<<~'RUBY')
       # The Array Tier A surface: set ops, mutators, sort family, flatten/
       # compact/uniq, join/to_h, fetch/dig/zip/rotate/values_at, and the
@@ -190,7 +190,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array grep" do
+  it "grep and grep_v collect by pattern ===, taking a Range, a Class or a Regexp" do
     result = ze0(<<~'RUBY')
       # Array#grep(pattern) / #grep_v(pattern) without a block: collect the
       # elements matching (or not matching) the pattern via `pattern ===`.
@@ -218,7 +218,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array grep empty literal" do
+  it "grep and grep_v on an empty literal match nothing" do
     result = ze0(<<~'RUBY')
       # Array#grep / #grep_v on an empty array literal match nothing and return an
       # empty array (the bare literal has no element type to dispatch from).
@@ -236,7 +236,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index and write" do
+  it "a[i] &&= v writes only where the slot is already truthy, whatever the element kind" do
     result = ze0(<<~'RUBY')
       # arr[i] &&= v across array element kinds (IndexAndWriteNode, statement + expr).
       # &&= writes only when the slot is already truthy/present. Per-type helpers keep
@@ -275,7 +275,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index block" do
+  it "index with a block finds the first element the block accepts, like find_index" do
     result = ze0(<<~'RUBY')
       # Array#index { |x| cond } finds the first index whose element satisfies the
       # block (an alias for #find_index in this form); returns nil on no match.
@@ -310,7 +310,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index error" do
+  it "an out-of-range negative write raises IndexError, and a write past the end grows the array" do
     result = ze0(<<~'RUBY')
       a = [1, 2, 3]
       begin
@@ -330,7 +330,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index gap" do
+  it "a write past the end fills the gap with nil on a poly array too" do
     result = ze0(<<~'RUBY')
       # An index write past the end grows the array, filling the gap with nil, the
       # way every typed array already did. The poly array silently dropped the write.
@@ -367,7 +367,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index op write poly rhs" do
+  it "a[i] += with a right-hand side only known at run time keeps the slot's element kind" do
     result = ze0(<<~'RUBY')
       # Compound index assignment on a typed array with a poly right-hand side:
       # `float_array[i] += b[0]` where b is a heterogeneous (poly) array. The
@@ -450,7 +450,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index or write" do
+  it "a[i] ||= v writes only where the slot is nil, so a stored 0 is kept" do
     result = ze0(<<~'RUBY')
       # arr[i] ||= v across array element kinds (IndexOrWriteNode, statement + expr).
       # Each receiver is routed through a per-type helper so its concrete array type
@@ -507,7 +507,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index range variable" do
+  it "[] takes a Range held in a variable, endless, beginless or out of range" do
     result = ze0(<<~'RUBY')
       # Array#[] with a Range held in a variable/parameter (not a literal RangeNode)
       # routes to the slice path instead of the scalar integer-index accessor, which
@@ -562,7 +562,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array index type errors" do
+  it "an index that is not an Integer raises TypeError from values_at, at, [], fetch and first" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Array#[]= on a frozen array raises TypeError for the bad index before
@@ -629,7 +629,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array inplace and universal object methods" do
+  it "compact!, rotate! and a pattern match answer beside the Symbol and String predicates" do
     result = ze0(<<~'RUBY')
       p [1, nil, 2, nil].compact!
       p [1, 2].compact!
@@ -653,7 +653,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array literal implicit hash" do
+  it "a brace-less hash as an array literal's last element is one ordinary Hash element" do
     result = ze0(<<~'RUBY')
       # A brace-less hash as the last element of an ARRAY literal. Ruby collapses it
       # into one ordinary Hash element, the same value the braced form builds --
@@ -707,7 +707,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array member empty var" do
+  it "member? answers on an empty array held in a variable, not only on the literal" do
     result = ze0(<<~'RUBY')
       # Array#member? (an alias of include?) works on an empty array held in a
       # variable, not only on the empty literal.
@@ -728,7 +728,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array negative index too small" do
+  it "the IndexError for a too-small negative index names the minimum the array allows" do
     result = ze0(<<~'RUBY')
       # Issue #839: an extreme negative index on []= raises IndexError
       # per MRI. Spinel previously silently no-op'd when the index after
@@ -763,7 +763,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array negative size validation" do
+  it "take and drop refuse a negative count, and insert refuses an index below the minimum" do
     result = ze0(<<~'RUBY')
       # Array size/index operations validate their argument: a negative count to
       # take/drop raises ArgumentError, and an out-of-range negative insert index
@@ -808,7 +808,7 @@ describe "Array: searching and matching" do
     OUT
   end
 
-  it "array values at float index" do
+  it "values_at truncates a Float index toward zero" do
     result = ze0(<<~'RUBY')
       p([1, 2].values_at(1.5))
       p([1, 2, 3].values_at(0.9))

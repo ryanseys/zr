@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array programs" do
-  it "array and hash try convert" do
+  it "Array.try_convert and Hash.try_convert answer nil for what they cannot convert" do
     result = ze0(<<~'RUBY')
       p Array.try_convert([1, 2])
       p Array.try_convert("no")
@@ -19,7 +19,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array delete returns matched element" do
+  it "delete returns the element it found by ==, not the argument it was given" do
     result = ze0(<<~'RUBY')
       class Always
         def ==(o) = true
@@ -43,7 +43,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array fill offset check" do
+  it "fill reads start and length as offsets and raises TypeError on anything else" do
     result = ze0(<<~'RUBY')
       # fill(value, start[, length]): start and length are offsets, and a value with
       # no integer conversion is CRuby's TypeError. They went into the offset slot
@@ -66,7 +66,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array fill widen" do
+  it "fill with a value the element kind cannot hold widens the array" do
     result = ze0(<<~'RUBY')
       # Array#fill whose value another element kind cannot hold must widen the array,
       # not store the value's raw bits (an int array filled with :a held garbage).
@@ -96,7 +96,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array frozen mutate raises" do
+  it "every in-place mutator raises FrozenError on a frozen integer, float or string array" do
     result = ze0(<<~'RUBY')
       # Array mutating methods on frozen arrays must raise FrozenError.
       # IntArray#pop/#shift already had the guard; FloatArray, StrArray,
@@ -160,7 +160,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array frozen mutation raises" do
+  it "the FrozenError a mutator raises names the frozen array in its message" do
     result = ze0(<<~'RUBY')
       # Every mutating Array method raises FrozenError on a frozen receiver.
 
@@ -191,7 +191,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array gap is nil" do
+  it "a write past the end fills the gap with nil, not the element kind's zero" do
     result = ze0(<<~'RUBY')
       # `a[n] = v` past the end fills the gap with nil, not the element type's zero
       # value (#3836).
@@ -223,7 +223,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array include calls element equality" do
+  it "include? and index call the element's own ==, so an exception from it escapes" do
     result = ze0(<<~'RUBY')
       class Boom
         def ==(o) = raise("cmp")
@@ -248,7 +248,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array join nested" do
+  it "join flattens a nested array under the same separator" do
     result = ze0(<<~'RUBY')
       # Array#join flattens nested arrays recursively with the same separator.
       p [1, [2, 3], 4].join("-")
@@ -267,7 +267,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array join poly separator" do
+  it "join takes a separator that is only known to be an object at run time" do
     result = ze0(<<~'RUBY')
       # Array#join's separator must be a const char*; when the separator widens to
       # poly (an ivar/reader unified to poly across the program), it has to be
@@ -296,7 +296,7 @@ describe "Array programs" do
     _(result).must_answer "MyApp : Dash\n"
   end
 
-  it "array join recursive and delete block" do
+  it "join reaches three levels down, and delete's not-found block supplies the answer" do
     result = ze0(<<~'RUBY')
       # join flattens nested arrays under the same separator; delete's not-found
       # block supplies the answer.
@@ -317,7 +317,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array literal indexing and mutation" do
+  it "indexing reads from either end, answers nil past the end, and a splat widens the literal" do
     result = ze0(<<~'RUBY')
       a = [1, 2, 3]
       puts(a[0])
@@ -350,7 +350,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array mul negative raises" do
+  it "* by a negative count raises ArgumentError" do
     result = ze0(<<~'RUBY')
       # Array#* with a negative count raises ArgumentError (was: silently []).
       w = %w[a] * 0
@@ -368,7 +368,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array new bare receiver" do
+  it "Array.new with no argument is an empty, unfrozen array that shift and pop still answer" do
     result = ze0(<<~'RUBY')
       p Array.new.frozen?
       p Array.new.class
@@ -398,7 +398,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array new container default" do
+  it "Array.new(n, []) stores one shared container in every slot" do
     result = ze0(<<~'RUBY')
       # Array.new(n, <empty container literal>) fills every slot with ONE
       # shared container object (CRuby aliasing: mutating a[0] shows in a[1]).
@@ -420,7 +420,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array optional and variadic arities" do
+  it "last, rindex, sample, fill and the set-op siblings take their optional and variadic forms" do
     result = ze0(<<~'RUBY')
       # The builtin tables used to hardcode a single arity and reject the
       # optional-`n` and variadic forms Ruby accepts: `last(n)`, `sample(n)`,
@@ -468,7 +468,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array product multi arg" do
+  it "product takes two or more arrays and builds the n-way Cartesian product" do
     result = ze0(<<~'RUBY')
       # Array#product with two or more array arguments builds the n-way Cartesian
       # product (one element from each input, in order). Previously only the single
@@ -498,7 +498,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array setop assign" do
+  it "|=, &= and -= desugar to the binary operator and keep the array's element kind" do
     result = ze0(<<~'RUBY')
       # Array set-operation op-assign: `a |= b` (union), `a &= b` (intersection),
       # `a -= b` (difference) desugar to `a = a OP b`, mirroring the already-working
@@ -564,7 +564,7 @@ describe "Array programs" do
     OUT
   end
 
-  it "array to h pairs" do
+  it "to_h builds a hash from [key, value] pairs whatever kind each pair is" do
     result = ze0(<<~'RUBY')
       # Array#to_h (pair form) builds a hash from [key, value] sub-arrays. Each pair
       # may itself be a homogeneous typed array (IntArray for [1, 2], StrArray for
