@@ -165,6 +165,32 @@ module Ze0
         Require.new(:eval_road, "ze0/eval", EVAL_ROAD, loader.hidden(EVAL_ROAD), 0)
       end
 
+      # A program that names one of these compiles ruby while it runs.
+      # The block forms do not: only a string argument needs a compiler.
+      EVAL_FORMS = %i[class_eval module_eval instance_eval].freeze
+
+      # The sends that call the method a leading Symbol names, and the
+      # fetches that hand it back to be called later.
+      SENDS = %i[send __send__ public_send].freeze
+      FETCHES = %i[method public_method instance_method].freeze
+
+      # Whether a call of `name` with `argc` arguments compiles ruby that
+      # runs in the frame the call stands in. `named` is the Symbol the
+      # first argument holds where it is a literal one, so a send or a
+      # fetch is read through to the method it names.
+      #
+      # Two questions have this one answer. A program that holds such a
+      # call carries the compiler; and the method such a call stands in
+      # arms the catch for a `return` the source writes, since that
+      # return belongs to the method rather than to the eval.
+      def self.eval_call?(name, named: nil, argc: 0)
+        return eval_call?(named, argc: argc - 1) if named && SENDS.include?(name)
+        # The call comes later, with arguments this site cannot see.
+        return named == :eval || EVAL_FORMS.include?(named) if named && FETCHES.include?(name)
+
+        name == :eval || (EVAL_FORMS.include?(name) && argc.positive?)
+      end
+
       # The files a program reaches through require, require_relative
       # and load, each parsed and built once. A require searches the
       # roots: the -I roots, and the directories a file adds to
@@ -243,10 +269,6 @@ module Ze0
           @back_refs[new_name] = old_name
         end
 
-        # A program that names one of these compiles ruby while it runs.
-        # The block forms do not: only a string argument needs a compiler.
-        EVAL_FORMS = %i[class_eval module_eval instance_eval].freeze
-
         def evals? = @evals
 
         def deferred?(feature) = @deferred.include?(feature)
@@ -296,11 +318,6 @@ module Ze0
           @hiding = false
         end
 
-        # The sends that call the method a leading Symbol names, and the
-        # fetches that hand it back to be called later.
-        SENDS = %i[send __send__ public_send].freeze
-        FETCHES = %i[method public_method instance_method].freeze
-
         # A require, require_relative or load that reaches Kernel's as a
         # send: its name is computed, so the file it finds may be one the
         # program was not compiled with, and the compiler comes along to
@@ -323,14 +340,14 @@ module Ze0
         def evals!(name, args, kernel: true)
           @evals = true if name == :autoload
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
+          @evals = true if Build.eval_call?(name, named: named, argc: args.size)
           if named && SENDS.include?(name)
             name, args = named, args.drop(1)
           elsif named && FETCHES.include?(name)
-            # The call comes later, with arguments this site cannot see.
-            @evals = true if named == :eval || EVAL_FORMS.include?(named) || (kernel && LOADS.include?(named))
+            @evals = true if kernel && LOADS.include?(named)
             return
           end
-          @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?) || (kernel && LOADS.include?(name))
+          @evals = true if kernel && LOADS.include?(name)
           @evals = true if ruby_command?(name, args)
         end
 
@@ -1347,12 +1364,24 @@ module Ze0
       # Whether an eval stands anywhere in this body, blocks included
       # but nested defs left to themselves. A `return` an eval writes
       # belongs to the method the eval sits in, so that method arms the
-      # catch for a signal that carries no home.
+      # catch for a signal that carries no home. Every spelling of eval
+      # counts, since ruby gives them all that return: `instance_eval`,
+      # `class_eval` and `module_eval` of a string, and a `send` or a
+      # `method` that reaches one of them by name.
       def evals?(node)
         return false if node.nil? || node.is_a?(Prism::DefNode)
-        return true if node.is_a?(Prism::CallNode) && node.name == :eval
+        return true if node.is_a?(Prism::CallNode) && eval_call?(node)
 
         node.child_nodes.any? { |child| evals?(child) }
+      end
+
+      # `Build.eval_call?` asked of a prism call, whose arguments are
+      # still nodes: a leading Symbol literal is the name a send calls or
+      # a fetch hands on.
+      def eval_call?(node)
+        args = node.arguments&.arguments || []
+        named = args.first.unescaped.to_sym if args.first.is_a?(Prism::SymbolNode)
+        Build.eval_call?(node.name, named: named, argc: args.size)
       end
 
       # The definee a body runs under: one step down the lexical path,

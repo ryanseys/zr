@@ -1663,6 +1663,48 @@ describe "Eval programs" do
     OUT
   end
 
+  it "a return an eval writes leaves the method the eval stands in, whichever form the eval took" do
+    result = ze0(<<~'RUBY')
+      # A `return` written inside an eval'd string belongs to the method the eval
+      # sits in, not to the eval. The method arms a catch for a return signal that
+      # carries no home of its own, and it must arm it for every spelling of eval,
+      # not only for a call written `eval`.
+
+      class Widget; end
+
+      def literal;      eval("return 1");                :fell_through; end
+      def instance;     instance_eval("return 2");       :fell_through; end
+      def on_a_number;  1.instance_eval("return 3");     :fell_through; end
+      def klass;        Widget.class_eval("return 4");   :fell_through; end
+      def mod;          Widget.module_eval("return 5");  :fell_through; end
+      def sent;         send(:eval, "return 6");         :fell_through; end
+      def sent_twice;   __send__(:eval, "return 7");     :fell_through; end
+      def fetched;      method(:eval).call("return 8");  :fell_through; end
+      def bound;        binding.eval("return 9");        :fell_through; end
+
+      p [literal, instance, on_a_number, klass, mod, sent, sent_twice, fetched, bound]
+    RUBY
+
+    _(result).must_answer "[1, 2, 3, 4, 5, 6, 7, 8, 9]\n"
+  end
+
+  it "a def written inside an eval keeps its own return" do
+    result = ze0(<<~'RUBY')
+      # The catch belongs to the method the eval stands in. A `def` the eval writes
+      # is a method of its own, so its `return` leaves it and no more: `outer` runs
+      # on to its last statement.
+
+      def outer
+        instance_eval("def inner; return :inner; end")
+        [inner, :outer]
+      end
+
+      p outer
+    RUBY
+
+    _(result).must_answer "[:inner, :outer]\n"
+  end
+
   it "send, public_send and method all reach eval, and the string still compiles where it runs" do
     result = ze0(<<~'RUBY')
       p send(:eval, "1 + 1")
