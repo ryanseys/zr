@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Exceptions: regressions" do
-  it "issue 2899" do
+  it "a def-level rescue catches the NoMethodError an || guard raised" do
     result = ze0(<<~'RUBY')
       def show(u)
         label = (u.details || "~")
@@ -17,7 +17,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "caught\n"
   end
 
-  it "issue 2900" do
+  it "a begin/rescue answers with the rescue clause's value when it fires" do
     result = ze0(<<~'RUBY')
       class Resp
         def code = 200
@@ -46,7 +46,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2963" do
+  it "Complex arithmetic raises TypeError on a non-numeric operand" do
     result = ze0(<<~'RUBY')
       p((Complex(2, 3) + "x" rescue $!.class))
       p((Complex(2, 3) - nil rescue $!.class))
@@ -62,7 +62,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2964" do
+  it "Complex#coerce, #fdiv and #quo raise TypeError on a non-numeric argument" do
     result = ze0(<<~'RUBY')
       p((Complex(2, 3).coerce("x") rescue $!.class))
       p((Complex(2, 3).fdiv("x") rescue $!.class))
@@ -76,7 +76,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2965" do
+  it "a zero Complex raised to a negative power raises ZeroDivisionError" do
     result = ze0(<<~'RUBY')
       p((Complex(0, 0) ** -1 rescue $!.class))
       p((Complex(0, 0) ** -2 rescue $!.class))
@@ -90,7 +90,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2970" do
+  it "Array#sample takes the generator to draw from as random:" do
     result = ze0(<<~'RUBY')
       r = ([1, 2, 3].sample(random: Random.new(1)) rescue $!.class)
       p(r.nil? || [1, 2, 3].include?(r))
@@ -99,7 +99,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "true\n"
   end
 
-  it "issue 2979" do
+  it "Array#transpose raises IndexError on rows of unequal length" do
     result = ze0(<<~'RUBY')
       r = ([[1, 2], [3]].transpose rescue $!.class); p r
       p([[1, 2], [3, 4]].transpose)
@@ -115,7 +115,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2983" do
+  it "Array#dig raises TypeError when it reaches a value it cannot dig into" do
     result = ze0(<<~'RUBY')
       def cls; begin; yield; rescue => e; e.class; end; end
       p(cls { [1, [2]].dig(1, 0, 3) })
@@ -134,7 +134,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2984" do
+  it "Array#<=> orders two arrays element by element" do
     result = ze0(<<~'RUBY')
       r = ([] <=> [] rescue $!.class); p r
       p([1, 2] <=> [1, 2])
@@ -150,7 +150,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 2990" do
+  it "raise with cause: nil cuts the implicit chain, and an explicit cause keeps it" do
     result = ze0(<<~'RUBY')
       def m
         raise "inner"
@@ -201,7 +201,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3000" do
+  it "ENV lookups raise TypeError for a key that is not a string" do
     result = ze0(<<~'RUBY')
       ENV['ZZ_A'] = 'zzv'
       def cls; begin; yield; rescue => e; e.class; end; end
@@ -227,7 +227,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3001" do
+  it "a frozen Hash raises FrozenError on delete, clear, merge! and replace" do
     result = ze0(<<~'RUBY')
       h = {a: 1, b: 2}.freeze
       p (h.delete(:a) rescue $!.class); p h
@@ -249,7 +249,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3002" do
+  it "FrozenError#receiver is the object that refused the write" do
     result = ze0(<<~'RUBY')
       a = [1, 2].freeze
       r = begin; a << 3; rescue FrozenError => e; e.receiver.equal?(a); end
@@ -272,7 +272,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3003" do
+  it "a frozen String raises FrozenError on every method that writes in place" do
     result = ze0(<<~'RUBY')
       s = "abc".freeze
       p (s.upcase! rescue $!.class); p s
@@ -299,7 +299,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3004" do
+  it "a raised exception is not frozen" do
     result = ze0(<<~'RUBY')
       begin
         raise "x"
@@ -324,7 +324,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3008" do
+  it "Float#divmod raises FloatDomainError for infinity and NaN" do
     result = ze0(<<~'RUBY')
       def t
         yield
@@ -349,7 +349,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3011" do
+  it "Float#numerator and #denominator answer for infinity and NaN" do
     result = ze0(<<~'RUBY')
       r1 = (Float::INFINITY.numerator rescue $!.class); p r1
       r2 = (Float::INFINITY.denominator rescue $!.class); p r2
@@ -377,7 +377,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3013" do
+  it "instance_of? asks for the exact class where is_a? walks the ancestry" do
     result = ze0(<<~'RUBY')
       p ArgumentError.new.instance_of?(StandardError)
       p ArgumentError.new.instance_of?(ArgumentError)
@@ -405,7 +405,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3020" do
+  it "remove_instance_variable answers with the value it removed and raises NameError for a name that was never set" do
     result = ze0(<<~'RUBY')
       class Box
         def initialize; @v = 1; @s = "hi"; end
@@ -430,7 +430,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3021" do
+  it "nil.clone refuses a freeze: keyword, and a rescue modifier answers in its place" do
     result = ze0(<<~'RUBY')
       r = (nil.clone(freeze: false) rescue $!.class); p r
       r2 = (nil.clone(freeze: false) rescue :err); p r2
@@ -446,7 +446,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3024" do
+  it "LocalJumpError from a proc's break carries the reason and the value" do
     result = ze0(<<~'RUBY')
       r = begin; pr = proc { break 5 }; pr.call; rescue LocalJumpError => e; e.exit_value; end
       p r
@@ -463,7 +463,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3024b" do
+  it "LocalJumpError#exit_value holds what the break or return tried to answer with" do
     result = ze0(<<~'RUBY')
       begin; proc { break 7 }.call; rescue LocalJumpError => e001; p e001.exit_value; end
       def make001; proc { return 10 }; end
@@ -477,7 +477,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3027" do
+  it "ENV.fetch raises KeyError carrying the name it looked for" do
     result = ze0(<<~'RUBY')
       begin
         ENV.fetch("SPINEL_NO_SUCH_VAR_XYZ")
@@ -495,7 +495,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3028" do
+  it "Hash#fetch raises KeyError carrying the key, whatever type the key is" do
     result = ze0(<<~'RUBY')
       begin
         {}.fetch(:sym)
@@ -529,7 +529,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3030" do
+  it "an exception built by hand carries no key or receiver until it is given one" do
     result = ze0(<<~'RUBY')
       p((KeyError.new("m").key rescue $!.class))
       p((KeyError.new("m").receiver rescue $!.class))
@@ -554,7 +554,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3031" do
+  it "KeyError descends from IndexError where ArgumentError and TypeError descend from StandardError" do
     result = ze0(<<~'RUBY')
       begin
         raise ArgumentError, "x"
@@ -582,7 +582,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3032" do
+  it "rescue matches by ancestry, so StandardError lets an Interrupt through" do
     result = ze0(<<~'RUBY')
       begin
         raise Interrupt
@@ -618,7 +618,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3033" do
+  it "Object#clone takes freeze:, and nil refuses it" do
     result = ze0(<<~'RUBY')
       x = nil
       r = begin; x.clone(freeze: false); rescue => e; e.class; end
@@ -643,7 +643,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3034" do
+  it "NameError from a missing constant carries the name and the receiver" do
     result = ze0(<<~'RUBY')
       begin
         Object.const_get(:Nope)
@@ -667,7 +667,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3035" do
+  it "the top level's class is Object, and a missing constant on it raises NameError" do
     result = ze0(<<~'RUBY')
       p self.class
       begin
@@ -688,7 +688,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3036" do
+  it "NameError#receiver is the object the name was looked up on" do
     result = ze0(<<~'RUBY')
       r001 = (NameError.new("m", :n).receiver rescue $!.class)
       p r001
@@ -706,7 +706,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3037" do
+  it "a bareword that is neither local nor method raises NameError naming it" do
     result = ze0(<<~'RUBY')
       begin
         undefined_bareword_thing
@@ -737,7 +737,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3039" do
+  it "Interrupt#signo is 2 however the exception was raised" do
     result = ze0(<<~'RUBY')
       begin
         raise Interrupt
@@ -761,7 +761,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3047b" do
+  it "Rational#round takes the rounding rule as half:" do
     result = ze0(<<~'RUBY')
       r = (Rational(1,2).round(half: :up) rescue $!.class); p r
       r2 = (Rational(5,2).round(0, half: :up) rescue $!.class); p r2
@@ -777,7 +777,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3049" do
+  it "Kernel#rand raises FloatDomainError for infinity and for NaN" do
     result = ze0(<<~'RUBY')
       inf = 1.0 / 0.0
       nan = 0.0 / 0.0
@@ -809,7 +809,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3049b" do
+  it "Random#rand raises Errno::EDOM for infinity and for NaN" do
     result = ze0(<<~'RUBY')
       r = Random.new(5)
       p((r.rand(Float::INFINITY) rescue $!.class))
@@ -830,7 +830,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3050" do
+  it "Random#bytes raises ArgumentError for a negative size" do
     result = ze0(<<~'RUBY')
       r = Random.new(42)
       puts r.bytes(0).bytesize
@@ -855,7 +855,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3059" do
+  it "instance_variable_set creates an ivar the class never wrote" do
     result = ze0(<<~'RUBY')
       class Obj9
         def initialize; @x = 7; end
@@ -888,7 +888,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3060" do
+  it "a begin/rescue used as an expression answers with the clause that ran" do
     result = ze0(<<~'RUBY')
       v = (begin; nil.foo; rescue NoMethodError; true; end); p v
       w = (begin; nil.foo; rescue NoMethodError; $!.class; end); p w
@@ -904,7 +904,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3065" do
+  it "an endless range has no maximum and a beginless range no minimum" do
     result = ze0(<<~'RUBY')
       def t
         yield
@@ -928,7 +928,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3066" do
+  it "iterating a beginless range raises TypeError naming NilClass" do
     result = ze0(<<~'RUBY')
       begin
         (..5).each { |x| x }
@@ -953,7 +953,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3068" do
+  it "NoMethodError#receiver is the object the call was made on" do
     result = ze0(<<~'RUBY')
       begin
         "s".no_such
@@ -979,7 +979,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3071" do
+  it "Set.new refuses an argument it cannot enumerate" do
     result = ze0(<<~'RUBY')
       require "set"
 
@@ -997,7 +997,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3072" do
+  it "the Set operators refuse an argument they cannot enumerate" do
     result = ze0(<<~'RUBY')
       require "set"
 
@@ -1021,7 +1021,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3073" do
+  it "SignalException takes a signal number, not a signal name" do
     result = ze0(<<~'RUBY')
       e = SignalException.new(9, "custom")
       p e.message
@@ -1041,7 +1041,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3074" do
+  it "raise SignalException with a name resolves the name to a number" do
     result = ze0(<<~'RUBY')
       begin
         raise SignalException, "INT"
@@ -1069,7 +1069,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3076" do
+  it "Signal.signame takes a number and raises TypeError for anything else" do
     result = ze0(<<~'RUBY')
       p((Signal.signame(nil) rescue $!.class))
       p((Signal.signame(true) rescue $!.class))
@@ -1087,7 +1087,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3077" do
+  it "abort writes its message to stderr and raises SystemExit with status 1" do
     result = ze0(<<~'RUBY')
       begin
         abort("bye now")
@@ -1114,7 +1114,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3087" do
+  it "an uncaught throw raises UncaughtThrowError carrying the tag and the value" do
     result = ze0(<<~'RUBY')
       p(begin; throw :nope, 42; rescue => e; e.class; end)
       v = begin; throw :y; rescue UncaughtThrowError => e; e.tag; end
@@ -1130,7 +1130,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3088" do
+  it "UncaughtThrowError.new wants both a tag and a value" do
     result = ze0(<<~'RUBY')
       r0 = begin; UncaughtThrowError.new; rescue => e; e.class; end
       p r0
@@ -1146,7 +1146,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3096" do
+  it "StopIteration descends from IndexError" do
     result = ze0(<<~'RUBY')
       e001 = [1].each; e001.next
       ex001 = (begin; e001.next; rescue StopIteration => z001; z001; end)
@@ -1168,7 +1168,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3097" do
+  it "Symbol#to_proc passes the arguments after the receiver through to the method" do
     result = ze0(<<~'RUBY')
       r1 = (:pow.to_proc.call(2, 3) rescue $!.class); p r1
       s = :+; r2 = (s.to_proc.call(4, 5) rescue $!.class); p r2
@@ -1190,7 +1190,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3098" do
+  it "exception equality compares the stored message, which an UncaughtThrowError has none of" do
     result = ze0(<<~'RUBY')
       a001 = (throw :x rescue $!); b001 = (throw :y rescue $!); p(a001 == b001)
       c001 = (raise "x" rescue $!); d001 = (raise "y" rescue $!); p(c001 == d001)
@@ -1204,7 +1204,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3120" do
+  it "KeyError carries its receiver, and StopIteration the result the loop stopped on" do
     result = ze0(<<~'RUBY')
       e = begin; {5 => 0}.fetch(9); rescue KeyError => x; x; end
       p e.key
@@ -1228,7 +1228,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3121" do
+  it "NameError#name is the bareword that could not be resolved" do
     result = ze0(<<~'RUBY')
       def undef_ref_m005; some_undefined_local_x005; end
       n = begin; undef_ref_m005; rescue => e; e.name; end
@@ -1243,7 +1243,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3147" do
+  it "a method that scans nil raises NoMethodError rather than failing to compile" do
     result = ze0(<<~'RUBY')
       # nil.scan through a helper must compile (it emitted invalid C: an sp_RbVal
       # element assigned into a const char* block-param slot) and raise NoMethodError
@@ -1270,7 +1270,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3148" do
+  it "== evaluates its left operand before its right" do
     result = ze0(<<~'RUBY')
       # Left-to-right operand evaluation for ==: the left operand's side effect must
       # be visible to the right (Ruby order), not reordered by C's unsequenced
@@ -1313,7 +1313,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3150" do
+  it "raise and fail inside a block stop it before the statement that follows" do
     result = ze0(<<~'RUBY')
       def str(*flags)
         out = []
@@ -1343,7 +1343,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3152" do
+  it "two StringIO buffers filled the same way hold the same string" do
     result = ze0(<<~'RUBY')
       require "stringio"
 
@@ -1365,7 +1365,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3188" do
+  it "Comparable gives a subclass its operators through the <=> it inherits" do
     result = ze0(<<~'RUBY')
       class Shape
         include Comparable
@@ -1389,7 +1389,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3200" do
+  it "tap hands the block the receiver and answers with the receiver" do
     result = ze0(<<~'RUBY')
       class Item
         attr_reader :values
@@ -1407,7 +1407,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3204" do
+  it "a keyword argument keeps its default when only positional arguments arrive" do
     result = ze0(<<~'RUBY')
       class Crash
         attr_reader :ivar
@@ -1424,7 +1424,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3208" do
+  it "push with a splat inside tap appends to the tapped array" do
     result = ze0(<<~'RUBY')
       values = ["<url>"]
       result = [].tap do |words|
@@ -1438,7 +1438,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3210" do
+  it "an ivar read with ||= sees the receiver's own slot, not another class's" do
     result = ze0(<<~'RUBY')
       class Foo
         def initialize
@@ -1456,7 +1456,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3212" do
+  it "String#split on a blank string answers an empty array" do
     result = ze0(<<~'RUBY')
       def maybe_string(flag)
         flag ? " " : nil
@@ -1473,7 +1473,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3218" do
+  it "a block passed on with a bare & reaches the object the constructor yielded" do
     result = ze0(<<~'RUBY')
       class Foo
         def initialize = @value = false
@@ -1494,7 +1494,7 @@ describe "Exceptions: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3227 deep return" do
+  it "a string a method both keeps and returns is one object in both places" do
     result = ze0(<<~'RUBY')
       # Deep-return sharing (P6): a method that keeps its shared string AND
       # returns it -- the caller's binding is the same object.
@@ -1539,7 +1539,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3229" do
+  it "an endless range's enumerator keeps counting, and rewind starts it again" do
     result = ze0(<<~'RUBY')
       p((1..).each.next)
       e = (1..).each
@@ -1576,7 +1576,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3249" do
+  it "Method and UnboundMethod inspect with the owner and the parameter names" do
     result = ze0(<<~'RUBY')
       def dbl(n) = n * 2
       def add(a, b) = a + b
@@ -1626,7 +1626,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3258" do
+  it "is_a? takes a namespaced constant and a root-scoped one" do
     result = ze0(<<~'RUBY')
       module Outer; class Thing; end; end
       r1 = (5.is_a?(::Integer) rescue "raise:#{$!.class}")
@@ -1649,7 +1649,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3295" do
+  it "a local first assigned inside an if that never runs reads as nil" do
     result = ze0(<<~'RUBY')
       def value(assign)
         param = "x" if assign
@@ -1672,7 +1672,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3314 clear direct receiver" do
+  it "String#clear empties the receiver and answers with it" do
     result = ze0(<<~'RUBY')
       r001 = ((+"abc").clear rescue $!.class); p r001
       a001 = +"abc"; v001 = a001.clear; p v001
@@ -1688,7 +1688,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "issue 3341 poly uniq" do
+  it "Array#uniq sees the duplicate in an array assembled from a splat and a concatenation" do
     result = ze0(<<~'RUBY')
       class Flag
         attr_reader :switches, :help
