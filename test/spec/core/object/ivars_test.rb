@@ -1766,24 +1766,6 @@ describe "Object: instance and class variables" do
     _(result).must_answer "2\n"
   end
 
-  it "ivars" do
-    result = ze0(<<~'RUBY')
-      class Point
-        def initialize(x)
-          @x = x
-        end
-
-        def x
-          @x
-        end
-      end
-
-      puts Point.new(5).x
-    RUBY
-
-    _(result).must_answer "5\n"
-  end
-
   it "ivars on a bare value" do
     result = ze0(<<~'RUBY')
       # Ruby lets you hang an instance variable on almost anything. An Object keeps

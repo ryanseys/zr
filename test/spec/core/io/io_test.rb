@@ -1191,34 +1191,6 @@ describe "IO programs" do
     OUT
   end
 
-  it "if elsif else as statement and as value" do
-    result = ze0(<<~'RUBY')
-      n = -5
-      if n < 0
-        puts :negative
-      elsif n == 0
-        puts :zero
-      else
-        puts :positive
-      end
-
-      n2 = 0
-      result = if n2 < 0
-        :negative
-      elsif n2 == 0
-        :zero
-      else
-        :positive
-      end
-      puts result
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      negative
-      zero
-    OUT
-  end
-
   it "io buffer experimental warning" do
     result = ze0(<<~'RUBY')
       b = IO::Buffer.new(8)

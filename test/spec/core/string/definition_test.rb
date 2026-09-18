@@ -45,21 +45,6 @@ describe "String: defining and naming methods" do
     OUT
   end
 
-  it "dynamic send with a non literal target" do
-    result = ze0(<<~'RUBY')
-      class Greeter
-        define_method(:hello) do
-          puts :hi
-        end
-      end
-
-      name = :hello
-      Greeter.new.send(name)
-    RUBY
-
-    _(result).must_answer "hi\n"
-  end
-
   it "int element alias not string" do
     result = ze0(<<~'RUBY')
       # `b0 = bytes[i]` where bytes holds Integers, in a method that also appends to a

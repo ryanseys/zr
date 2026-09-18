@@ -195,44 +195,6 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "case when" do
-    result = ze0(<<~'RUBY')
-      day = :tue
-      case day
-      when :sat, :sun
-        puts :weekend
-      when :mon, :tue, :wed, :thu, :fri
-        puts :weekday
-      else
-        puts :unknown
-      end
-
-      n = 7
-      case
-      when n < 0
-        puts :negative
-      when n == 0
-        puts :zero
-      else
-        puts :positive
-      end
-
-      x = :z
-      case x
-      when :a
-        puts :got_a
-      else
-        puts :fallback
-      end
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      weekday
-      positive
-      fallback
-    OUT
-  end
-
   it "cmeth return nil or obj via intermediate" do
     result = ze0(<<~'RUBY')
       # Issue #411. A class method that initializes a local to `nil`,

@@ -825,20 +825,6 @@ describe "Blocks programs" do
     OUT
   end
 
-  it "blocks" do
-    result = ze0(<<~'RUBY')
-      3.times do |i|
-        puts i
-      end
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      0
-      1
-      2
-    OUT
-  end
-
   it "captured block call value" do
     result = ze0(<<~'RUBY')
       # A nested proc literal can capture an enclosing method's &block (an

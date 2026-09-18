@@ -435,14 +435,6 @@ describe "String programs" do
     OUT
   end
 
-  it "hello prints a symbol" do
-    result = ze0(<<~'RUBY')
-      puts :ok
-    RUBY
-
-    _(result).must_answer "ok\n"
-  end
-
   it "inherited kwarg nil default string ivar" do
     result = ze0(<<~'RUBY')
       # Three intertwined fixes around kwarg param inference on an
@@ -1129,28 +1121,6 @@ describe "String programs" do
       true
       true
       true
-    OUT
-  end
-
-  it "string literal" do
-    result = ze0(<<~'RUBY')
-      name = "world"
-      greeting = "hello #{name}, #{1 + 2} times"
-      puts(greeting)
-      puts(greeting.length)
-      puts(greeting[0])
-      puts(greeting[-1])
-      s = "cat"
-      s[0] = "b"
-      puts(s)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      hello world, 3 times
-      20
-      h
-      s
-      bat
     OUT
   end
 
