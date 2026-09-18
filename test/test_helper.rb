@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
-require "minitest/reporters"
 require_relative "../lib/ze0/target"
 require_relative "support/fork_pool"
 require "tmpdir"
@@ -18,18 +17,19 @@ require "fileutils"
 Minitest.parallel_executor = Ze0::Test::ForkPool.new
 Minitest::Test.parallelize_me!
 
-# How far along, and how much longer. A tier runs for minutes, and a
-# line of dots says neither. CI writes the JUnit file as well, which is
-# what renders a failure in the web view, and `rake <tier>:slow` asks
-# for the times instead of the bar.
-Minitest::Reporters.use!(
-  if ENV["SLOW"]
-    [Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false)]
-  else
-    [Minitest::Reporters::ProgressReporter.new,
+# Minitest's own report, and nothing over it. A progress bar stood here
+# and was worse than the dots: it printed the time the whole run had
+# been going beside each failure, so a check that answers in a tenth of
+# a second read as `(57.20s)` for having failed late in a tier. `SLOW`
+# asks for the times, and CI writes the JUnit file a failure renders
+# from in the web view.
+if ENV["SLOW"] || ENV["CI"]
+  require "minitest/reporters"
+  Minitest::Reporters.use!(
+    [*(Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false) if ENV["SLOW"]),
      *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
-  end
-)
+  )
+end
 
 ROOT = File.expand_path("..", __dir__)
 
