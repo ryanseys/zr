@@ -603,7 +603,7 @@ describe "Regexp programs" do
   end
 
   it "regex" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "regex.rb")
       # Regex coverage — issue #61's five stages plus literal-form
       # tests. Was six tests; class names didn't collide and the only
       # top-level `def` (regex_local_var's `find`) is unique within this
@@ -848,7 +848,7 @@ describe "Regexp programs" do
   end
 
   it "regexp" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "regexp.rb")
       puts "hello world" =~ /world/
       puts "hello world" =~ /xyz/
       puts "hello".match?(/l+/)

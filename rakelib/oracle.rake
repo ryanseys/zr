@@ -64,6 +64,8 @@ module Oracle
       File.write(rb, example.source)
       kwargs.fetch(:files, {}).each do |name, bytes|
         beside = File.expand_path(name, File.dirname(rb))
+        raise ArgumentError, "the fixture #{name.inspect} lands on the program itself" if beside == rb
+
         FileUtils.mkdir_p(File.dirname(beside))
         bytes.is_a?(Hash) ? File.symlink(bytes.fetch(:symlink), beside) : File.binwrite(beside, bytes)
       end

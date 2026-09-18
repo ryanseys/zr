@@ -16,6 +16,8 @@ module Ze0
   # records the answer. Nothing compiles, nothing runs, and a guard that
   # asks about the machine is answered here rather than by the compiler.
   module Reader
+    ROOT = File.expand_path("../..", __dir__)
+
     # `given` is what the spec file wrote; `kwargs` is that with the
     # defaults the DSL would have filled in. A tool that rewrites a spec
     # reasons about `given` -- it is the only place an explicit `path:`
@@ -30,7 +32,10 @@ module Ze0
 
       attr_reader :seen
 
-      def initialize = @seen = []
+      def initialize(spec_file = nil)
+        @seen = []
+        @spec_file = spec_file
+      end
 
       def describe(name, &block)
         @about = name
@@ -56,7 +61,7 @@ module Ze0
         @current.given = given
         # The default the DSL would have filled in, filled in here, so
         # that what reads the example sees the path the run would use.
-        @current.kwargs = { path: Reader.path_for(@current.name) }.merge(given)
+        @current.kwargs = { path: Reader.path_for(@spec_file) }.merge(given)
         Recorder.new(@current, :result)
       end
 
@@ -109,15 +114,33 @@ module Ze0
     module_function
 
     # The name a program answers to when its example does not name one:
-    # the example's own sentence, so a backtrace reads as the example
-    # reads. `Ze0::Spec::DSL#default_path` is the other caller, and the
-    # two must agree or a program's own path differs between the run and
-    # the oracle.
-    def path_for(sentence) = "#{sentence.gsub(/[^\w]+/, "_")}.rb"
+    # the spec file's own path under `test/spec`, so an example in
+    # `core/fiber/fiber_test.rb` writes its program as
+    # `core/fiber/fiber_test.rb` and a backtrace names the file the
+    # example is written in.
+    #
+    # The `_test` stays on purpose. `core/fiber/fiber.rb` reads better
+    # but collides: `stdlib/etc/etc_test.rb` hands its programs an
+    # `etc.rb` of their own, `files:` is written after the program, and
+    # the fixture would land on top of it. `Spec.build_and_run` refuses
+    # that collision now, and this name does not walk into it.
+    #
+    # It was the example's sentence, slugified, and that coupled two
+    # things that have no business being coupled: a sentence could hold
+    # no apostrophe, comma or `#`, because it had to survive being made
+    # into a filename. It is the file now, so a sentence is free to be a
+    # sentence, and renaming one cannot move a program.
+    #
+    # `Ze0::Spec::DSL#default_path` is the other caller, and the two must
+    # agree or a program's own path differs between the run and the
+    # oracle. `reader_conformance_test.rb` holds them together.
+    def path_for(spec_file)
+      File.expand_path(spec_file, ROOT).delete_prefix("#{ROOT}/test/spec/")
+    end
 
     # Every example a spec file holds.
     def read(path)
-      box = Sandbox.new
+      box = Sandbox.new(path)
       box.instance_eval(File.read(path).sub(/^require "spec_helper"$/, ""), path)
       box.seen
     end

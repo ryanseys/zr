@@ -35,9 +35,20 @@ class ReaderConformanceTest < Minitest::Test
   # `Ze0::Spec::DSL#default_path` delegates to `Reader.path_for`, and a
   # program whose path differed between the run and the oracle would be
   # asked a different question than it answers.
-  def test_a_program_answers_to_one_name_on_both_roads
-    assert_equal "a_b_c.rb", Ze0::Reader.path_for("a b c")
-    assert_includes Ze0::Spec::DSL.instance_method(:default_path).source_location.first, "spec.rb"
+  def test_a_program_is_named_for_the_file_its_example_lives_in
+    assert_equal "core/fiber/fiber_test.rb", Ze0::Reader.path_for("test/spec/core/fiber/fiber_test.rb")
+    assert_equal "core/fiber/fiber_test.rb",
+                 Ze0::Reader.path_for(File.join(Ze0::Reader::ROOT, "test/spec/core/fiber/fiber_test.rb"))
+  end
+
+  # The point of naming a program for its file rather than for its
+  # example: a sentence can then be a sentence. Rewriting one must not
+  # move the program it introduces.
+  def test_renaming_an_example_cannot_move_its_program
+    one = Ze0::Reader.path_for("test/spec/core/hash/hash_test.rb")
+
+    assert_equal one, Ze0::Reader.path_for("test/spec/core/hash/hash_test.rb")
+    assert_equal "core/hash/hash_test.rb", one
   end
 
   # The reader's `DEFAULTS` is what it subtracts to leave `given` holding

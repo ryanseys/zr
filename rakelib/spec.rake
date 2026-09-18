@@ -2,11 +2,11 @@
 
 # The net a spec rewrite works over.
 #
-#   rake spec:fingerprint                      # a digest per example
 #   rake 'spec:verify[HEAD]'                   # what moved since a revision
 #   rake 'spec:verify[HEAD --renames]'         # ... allowing descriptions to change
+#   rake spec:fingerprint                      # a digest per example, to diff yourself
 #   rake spec:check                            # the formatting conventions
-#   rake spec:audit                            # what is still to clean up
+#   rake spec:tidy                             # fix what check reports that is safe to fix
 #
 # `test/spec` was converted from a flat corpus of standalone programs, and
 # the conversion left machine-generated shapes behind: slugged
@@ -27,8 +27,6 @@
 # it proves meaning is preserved, not that the file is unchanged. Pair it
 # with `rake oracle`, which asks ruby the same question the spec asks.
 
-require "digest"
-
 module SpecNet
   ROOT = File.expand_path("..", __dir__)
 
@@ -36,6 +34,10 @@ module SpecNet
   # `test/support/spec.rb`, which loads the whole compiler; a tool that
   # compiles nothing answers them itself, the way `rake oracle` does.
   def self.stub!
+    # Here rather than at the top of the file: a require in `rakelib/`
+    # runs for `rake -T` and for every test run, which is what cbf8afe5
+    # was about.
+    require "digest"
     require_relative "../test/support/reader"
     return if defined?(Ze0::Spec.platform)
 
@@ -235,5 +237,76 @@ namespace :spec do
     end
     puts format("%d file(s) tidied, %d blank line(s) emptied", changed, lines)
     puts "now run: rake 'oracle[<path>]' -- the program text changed, so ruby is the judge"
+  end
+end
+
+# Splitting an example that holds several.
+#
+# 95 examples carry `# === <name> ===` banners marking 457 tests that
+# were separate programs before the corpus conversion bundled them. One
+# `must_answer` covers all of them, so a failure anywhere is one diff of
+# several hundred lines and the example's name -- `bundle class 07` --
+# says nothing about any of it.
+#
+# A section is only safe to lift out if it does not depend on the ones
+# before it, and that is not a thing to decide by reading. Each `t_<name>`
+# is called immediately after it is defined, so a section's output is a
+# contiguous slice of the bundle's: run the sections separately, and if
+# their answers joined are the bundle's answer, they did not interact.
+# If they did, the join differs and the bundle is left alone.
+module SpecSplit
+  BANNER = /^# === (.+) ===$/
+  MANIFEST = /\A# Bundled tests:\n(?:#(?:   .*)?\n)*/
+
+  module_function
+
+  # `[preamble, [[name, body], ...]]`, or nil when there are no banners.
+  def sections(source)
+    return nil unless source&.match?(BANNER)
+
+    head, *rest = source.split(BANNER)
+    return nil if rest.empty?
+
+    [head.sub(MANIFEST, "").strip, rest.each_slice(2).map { |name, body| [name.strip, body.to_s] }]
+  end
+
+  # What ruby says for one candidate program, through the oracle's own
+  # machinery so the scrub and the environment are the same.
+  def ask(example, source)
+    probe = example.dup
+    probe.source = source
+    Oracle.ask(probe)
+  end
+end
+
+namespace :spec do
+  desc "Which bundled examples can be split, and into what: rake 'spec:split[test/spec/core/hash]'"
+  task :split, [:path] do |_, args|
+    SpecNet.stub!
+    argv = args[:path].to_s.split
+    argv = ["test/spec"] if argv.empty?
+
+    splittable = 0
+    coupled = 0
+    gained = 0
+    argv.flat_map { |p| SpecNet.files(p) }.each do |file|
+      Ze0::Reader.read(file).each do |e|
+        head, parts = SpecSplit.sections(e.source)
+        next unless parts
+
+        answers = parts.map { |_, body| SpecSplit.ask(e, "#{head}\n\n#{body}") }
+        joined = answers.map { |a| a&.stdout.to_s }.join
+        if answers.any?(&:nil?) || joined != e.want[:stdout].to_s
+          coupled += 1
+          warn "#{SpecNet.rel(file)}: #{e.name}: sections interact, left whole"
+          next
+        end
+
+        splittable += 1
+        gained += parts.size - 1
+        puts format("%-52s %-22s %d section(s)", SpecNet.rel(file), e.name, parts.size)
+      end
+    end
+    puts format("%d example(s) split cleanly into %d, %d left whole", splittable, splittable + gained, coupled)
   end
 end

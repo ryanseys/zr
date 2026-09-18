@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Syslog programs" do
   it "syslog" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "syslog.rb")
       # syslog -- the system logger. One process-wide connection with CRuby's
       # lifecycle: closed accessors answer nil, a second open refuses, the mask
       # resets per open, and a message makes the trip as sprintf-then-"%s".

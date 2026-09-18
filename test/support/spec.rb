@@ -127,6 +127,12 @@ module Ze0
         File.write(rb, source)
         files.each do |name, bytes|
           beside = File.expand_path(name, File.dirname(rb))
+          # A fixture that lands on the program would overwrite it --
+          # `files:` is written after the source -- and the example would
+          # quietly run the fixture instead, answering something that
+          # looks like an answer. Name the program with `path:` instead.
+          raise ArgumentError, "the fixture #{name.inspect} lands on the program itself" if beside == rb
+
           FileUtils.mkdir_p(File.dirname(beside))
           # `{ symlink: "lib" }` is a link, not a file: a program that
           # asks whether two paths reach one file needs one.
@@ -245,10 +251,11 @@ module Ze0
       end
 
       # The name the program answers to when an example does not name
-      # one: its own, so a backtrace reads as the example reads.
-      # Minitest numbers the method it defines for an `it`; the number
-      # is not part of the sentence and is not part of the name.
-      def default_path = Reader.path_for(name.sub(/\Atest_\d+_/, ""))
+      # one: the spec file's own, so a backtrace says where the example
+      # lives. `it` defines a method, and the method knows which file it
+      # was written in -- which is the one thing here that does not
+      # change when the sentence does.
+      def default_path = Reader.path_for(method(name).source_location.first)
 
       # The sentence a refusal names, with the file and line taken off,
       # so the census counts gaps and not places.

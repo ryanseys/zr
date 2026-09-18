@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: frozen literals" do
   it "ensure" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "ensure.rb")
       # frozen_string_literal: true
 
       # `ensure` runs its clause on the way out however the body leaves: a

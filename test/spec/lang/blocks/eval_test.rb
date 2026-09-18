@@ -324,7 +324,7 @@ describe "Blocks: evaluating a string" do
       p pb.local_variables
       p pb.local_variable_get(:a)
       p pb.receiver.class
-      p pb.source_location.first.end_with?("proc_binding.rb")
+      p pb.source_location.first.end_with?("eval_test.rb")
       p pb.frozen?
 
       puts "-- one environment, distinct objects --"

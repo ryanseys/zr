@@ -10,7 +10,7 @@ describe "Kernel: formatting and inspection" do
       # message.
       def show
         loc, = caller_locations(1, 1)
-        [loc.class.to_s, loc.path.end_with?("caller_locations_objects.rb"), loc.lineno,
+        [loc.class.to_s, loc.path.end_with?("formatting_test.rb"), loc.lineno,
          loc.label, loc.base_label]
       end
 

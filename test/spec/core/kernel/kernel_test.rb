@@ -1052,7 +1052,7 @@ describe "Kernel programs" do
       p b.receiver.equal?(self)
       p b.inspect.start_with?("#<Binding:0x")
       p b.to_s == b.inspect
-      p b.source_location.first.end_with?("kernel_binding.rb")
+      p b.source_location.first.end_with?("kernel_test.rb")
       p b.source_location.last
 
       puts "-- the frame's own locals --"

@@ -49,9 +49,28 @@ end
 | `path:` | the name the program answers to, when its own output carries it |
 
 `path:` matters only for a program whose answer names its source — a
-backtrace, or `__FILE__`. Everything else takes the default, which is the
-example's own sentence with every run of non-word characters turned into
-`_` (`Ze0::Reader.path_for`).
+backtrace, or `__FILE__` — **and** wants a name other than the default.
+The default is the spec file's own path under `test/spec`: an example in
+`test/spec/core/fiber/fiber_test.rb` writes its program as
+`core/fiber/fiber_test.rb`, so a backtrace names the file the example is
+written in (`Ze0::Reader.path_for`).
+
+It used to be the example's sentence, slugified, which is why no
+description in this suite holds an apostrophe, a comma or a `#` — a
+sentence had to survive being turned into a filename. It does not any
+more, so write the sentence you mean, and know that renaming an example
+cannot move the program it introduces.
+
+Spell `path:` out when the program is *about* its own path — the
+`ze0/...` examples, a program given an absolute name, one that asks what
+`/` or `/a b/c` expands to.
+
+The `_test` in the derived name stays on purpose. `core/fiber/fiber.rb`
+reads better but collides: `stdlib/etc/etc_test.rb` hands its programs an
+`etc.rb` of their own, `files:` is written after the program, and the
+fixture would land on top of it — the example would then run the fixture
+and answer something that looks like an answer. That collision is refused
+now rather than silently taken.
 
 Two things about those keywords are easy to get wrong:
 
@@ -105,7 +124,9 @@ $ rake 'spec:check[test/spec/core/string]'   # line length, heredoc tags, traili
 
 A program is `<<~'RUBY'` and an answer is `<<~'OUT'`, both with the tag
 quoted — an unquoted tag makes `#{}` inside a Ruby program interpolate
-before ze0 ever sees it.
+before ze0 ever sees it. Use `<<~'PROGRAM'` for a program that opens a
+`RUBY` heredoc of its own, since a `<<~` terminator may be indented and
+the inner one would otherwise end the outer.
 
 ## Run it
 

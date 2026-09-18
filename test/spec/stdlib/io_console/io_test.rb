@@ -108,7 +108,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "io console" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "io_console.rb")
       # `io/console` -- terminal modes, echo control, and the cursor escapes. CRuby
       # ships it as a require-gated extension; zeo's rows hang unconditionally off
       # the IO table, so the require is ceremony (`docs/EXTENSIONS.md`).
