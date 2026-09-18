@@ -496,7 +496,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 2967" do
+  it "Dir#seek answers the Dir, and #fileno an Integer" do
     result = ze0(<<~'RUBY')
       d = "/tmp/sp_dir_2967_#{Process.pid}"
       Dir.mkdir(d) unless Dir.exist?(d)
@@ -513,7 +513,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 2968" do
+  it "Dir#pos= answers the position it was given" do
     result = ze0(<<~'RUBY')
       d = "/tmp/sp_dir_2968_#{Process.pid}"
       Dir.mkdir(d) unless Dir.exist?(d)
@@ -526,7 +526,7 @@ describe "IO: regressions" do
     _(result).must_answer "0\n"
   end
 
-  it "issue 2985" do
+  it "File.birthtime answers a Time" do
     result = ze0(<<~'RUBY')
       path = "/tmp/spinel_issue_2985.txt"
       File.write(path, "hello")
@@ -542,7 +542,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 2986" do
+  it "lstat reports the link itself where stat follows it" do
     result = ze0(<<~'RUBY')
       p001 = "sp_issue_2986.tmp"
       File.write(p001, "xyz")
@@ -569,7 +569,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 2988" do
+  it "File.absolute_path? is true only for a path that starts at the root" do
     result = ze0(<<~'RUBY')
       p File.absolute_path?("/a/b")
       p File.absolute_path?("a/b")
@@ -583,7 +583,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 2997" do
+  it "the FileTest predicates answer for a file just written" do
     result = ze0(<<~'RUBY')
       f = "/tmp/sp_ft_2997_#{Process.pid}"
       File.write(f, "hi")
@@ -608,7 +608,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3005" do
+  it "the File predicates, symlink, link, utime and umask over one file" do
     result = ze0(<<~'RUBY')
       dir = "/tmp/sp_issue_3005_#{Process.pid}"
       Dir.mkdir(dir) unless File.directory?(dir)
@@ -673,7 +673,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3038" do
+  it "the IO tail: readbyte, ungetbyte, pread, pwrite, advise and each_codepoint" do
     result = ze0(<<~'RUBY')
       pth = "sp_issue_3038.tmp"
       File.write(pth, "hi\n")
@@ -713,7 +713,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3041" do
+  it "IO#stat answers a File::Stat with the file's size" do
     result = ze0(<<~'RUBY')
       p001 = "/tmp/sp_io_stat_repro.txt"
       File.write(p001, "hello world\n")
@@ -735,7 +735,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3104" do
+  it "IO#chown with nil for both owner and group leaves the file alone" do
     result = ze0(<<~'RUBY')
       path = "/tmp/spinel_issue_3104.txt"
       File.write(path, "x")
@@ -746,7 +746,7 @@ describe "IO: regressions" do
     _(result).must_answer "0\n"
   end
 
-  it "issue 3113" do
+  it "warn writes each of its arguments to $stderr on its own line" do
     result = ze0(<<~'RUBY')
       require "stringio"
       out = StringIO.new
@@ -760,7 +760,7 @@ describe "IO: regressions" do
     _(result).must_answer "\"x\\ny\\nz\\n\"\n"
   end
 
-  it "issue 3118" do
+  it "File.mkfifo creates a named pipe that File.exist? finds" do
     result = ze0(<<~'RUBY')
       p001 = "/tmp/sp_mkfifo_3118_#{Process.pid}"
       File.delete(p001) if File.exist?(p001)
@@ -780,7 +780,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3130" do
+  it "IO#fcntl answers the flags the descriptor holds" do
     result = ze0(<<~'RUBY')
       p001 = "sp_io_3130.tmp"
       File.write(p001, "hi")
@@ -791,7 +791,7 @@ describe "IO: regressions" do
     _(result).must_answer "1\n"
   end
 
-  it "issue 3131" do
+  it "binmode, autoclose=, pread with a buffer and reopen on an open File" do
     result = ze0(<<~'RUBY')
       p001 = "sp_io_3131.tmp"
       File.write(p001, "hi")
@@ -811,7 +811,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3216" do
+  it "IO.copy_stream copies from the source's current position and answers the count" do
     result = ze0(<<~'RUBY')
       require 'stringio'
 
@@ -841,7 +841,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3217" do
+  it "IO.copy_stream copies between a StringIO and a File either way" do
     result = ze0(<<~'RUBY')
       require 'stringio'
       io = StringIO.new("hello world")
@@ -865,7 +865,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3250" do
+  it "Dir#inspect names the path it was opened on" do
     result = ze0(<<~'RUBY')
       p(Dir.new(".").inspect)
       p(Dir.new(".").to_path)
@@ -880,7 +880,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3262" do
+  it "extname, basename and dirname take a path that may be nil" do
     result = ze0(<<~'RUBY')
       def content_type(path)
         File.extname(path)
@@ -902,7 +902,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3284 loadpath preamble" do
+  it "$LOAD_PATH is already an array when the program's first statement runs" do
     result = ze0(<<~'RUBY')
       # `$LOAD_PATH` is still nil when the program's first statement runs: zeo's
       # preamble initializes it after user code rather than before it, so `unshift`
@@ -917,7 +917,7 @@ describe "IO: regressions" do
     _(result).must_answer "1\n"
   end
 
-  it "issue 3321 dir reopen" do
+  it "a reopened Dir takes a constant and a singleton method" do
     result = ze0(<<~'RUBY')
       class Dir
         VERSION = '1.0.0'
@@ -937,7 +937,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3335 frozen io outbuf" do
+  it "read and pread answer the bytes even when the output buffer is frozen" do
     result = ze0(<<~'RUBY')
       path = "/tmp/sp_frozen_outbuf.txt"
       File.write(path, "hello world")
@@ -952,7 +952,7 @@ describe "IO: regressions" do
     OUT
   end
 
-  it "issue 3336 io outbuf filled" do
+  it "sysread and readpartial fill the buffer they are given and answer it" do
     result = ze0(<<~'RUBY')
       # A read given an explicit output-buffer argument returns the data but leaves
       # the supplied buffer empty. ruby fills that buffer in place and returns the
