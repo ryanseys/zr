@@ -165,6 +165,7 @@ module SpecStyle
   def faults(path)
     out = []
     inside = nil
+    sentences = Hash.new { |h, k| h[k] = [] }
     File.readlines(path).each_with_index do |line, i|
       n = i + 1
       out << [n, "trailing whitespace"] if line.rstrip != line.chomp
@@ -178,6 +179,13 @@ module SpecStyle
         next
       end
       inside = line[/(?:\bze0\(|\bmust_answer )<<[-~]'?([A-Z_]+)/, 1]
+
+      # Collected here rather than in a pass of its own so that an `it`
+      # written *inside* a program under test -- an rspec suite has
+      # them -- is not mistaken for one of this file's.
+      if (name = line[/\A\s*it ("(?:[^"\\]|\\.)*") do\n?\z/, 1])
+        sentences[name] << n
+      end
 
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
       # Only a heredoc this file opens as an argument to the DSL. A
@@ -193,6 +201,13 @@ module SpecStyle
         out << [n, "heredoc <<~#{tag}: quote the tag, or #\{\} in the program runs"] if quote.empty?
       end
     end
+    # Two examples in one file with the same sentence. Minitest takes
+    # them both -- it numbers the methods it defines -- so nothing
+    # fails, and a failure report then names a sentence that matches two
+    # examples. A campaign that rewrites thousands of descriptions walks
+    # into this, which is why it is checked rather than trusted.
+    sentences.reject { |_, lines| lines.one? }
+             .each { |name, lines| lines.drop(1).each { |n| out << [n, "#{name} is also line #{lines.first}"] } }
     out
   end
 end
