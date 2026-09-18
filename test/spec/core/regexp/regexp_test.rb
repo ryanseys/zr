@@ -911,13 +911,27 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "=~, match, named captures, flags, scan, split, gsub and case/when all answer at once" do
+  it "=~ answers the index it matched at, and match? answers whether it matched" do
     result = ze0(<<~'RUBY', path: "regexp.rb")
       puts "hello world" =~ /world/
       puts "hello world" =~ /xyz/
       puts "hello".match?(/l+/)
       puts(/l+/.match?("hello"))
       puts("hello" !~ /xyz/)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+
+      true
+      true
+      true
+    OUT
+  end
+
+  it "match answers a MatchData whose [] reads the whole match and each group" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
 
       m = "hello world".match(/(\w+) (\w+)/)
       puts m[0]
@@ -928,6 +942,27 @@ describe "Regexp programs" do
       puts m.to_a
       puts m.captures
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hello world
+      hello
+      world
+
+
+      hello world
+      hello
+      world
+      hello
+      world
+    OUT
+  end
+
+  it "a named capture reads by name, as a Symbol or a String" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
       named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
       puts named[:first]
       puts named["last"]
@@ -935,35 +970,248 @@ describe "Regexp programs" do
       puts h["first"]
       puts h["last"]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      John
+      Smith
+      John
+      Smith
+    OUT
+  end
+
+  it "the /i flag matches without regard to case" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
       puts "HELLO".match?(/hello/i)
       puts "HELLO".match?(/hello/)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      false
+    OUT
+  end
+
+  it "the /m and ^ anchors read a multiline subject" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
 
       puts("line1\nline2" =~ /^line2/)
       multiline_str = "abc\ndef"
       puts(multiline_str =~ /c.d/)
       puts(multiline_str =~ /c.d/m)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+
+      2
+    OUT
+  end
+
+  it "to_s carries the flags inline, and inspect carries them after the slashes" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
       r = /abc/x
       puts r.to_s
       puts(/abc/mi.inspect)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      (?x-mi:abc)
+      /abc/mi
+    OUT
+  end
+
+  it "scan answers every match, and each group when the pattern has them" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
       puts "one two three".scan(/\w+/)
       puts "a1b2c3".scan(/([a-z])(\d)/)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      one
+      two
+      three
+      a
+      1
+      b
+      2
+      c
+      3
+    OUT
+  end
+
+  it "split cuts on the pattern and keeps an empty field between two separators" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
       puts "a,b,,c".split(/,/)
       puts ",a,b".split(/,/)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      a
+      b
+
+      c
+
+      a
+      b
+    OUT
+  end
+
+  it "gsub and sub replace by pattern, by group reference and with a block" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
 
       puts "hello world".gsub(/o/, "0")
       puts "hello world".sub(/o/, "0")
       puts "John Smith".gsub(/(\w+) (\w+)/, '\2 \1')
       puts "hello".gsub(/l/) { |match| "[#{match}]" }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hell0 w0rld
+      hell0 world
+      Smith John
+      he[l][l]o
+    OUT
+  end
+
+  it "a block given to scan runs once per match" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
       count = 0
       "one two three".gsub(/\w+/) { |w| count += 1; w }
       puts count
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "=== matches, which is what case/when asks" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
+      count = 0
+      "one two three".gsub(/\w+/) { |w| count += 1; w }
+
       puts(/foo/ === "foobar")
       puts(/foo/ === "baz")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      false
+    OUT
+  end
+
+  it "a case over several patterns picks the first that matches" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
+      count = 0
+      "one two three".gsub(/\w+/) { |w| count += 1; w }
+
 
       class Classifier
         def classify(x)
@@ -995,18 +1243,248 @@ describe "Regexp programs" do
       puts classifier.classify_in("123")
       puts classifier.classify_in("abc")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      number
+      lower
+      other
+      number
+      lower
+    OUT
+  end
+
+  it "an interpolated pattern matches what its parts spell" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
+      count = 0
+      "one two three".gsub(/\w+/) { |w| count += 1; w }
+
+
+      class Classifier
+        def classify(x)
+          case x
+          when /^\d+$/
+            "number"
+          when /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+
+        def classify_in(x)
+          case x
+          in /^\d+$/
+            "number"
+          in /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+      end
+      classifier = Classifier.new
+
       word = "wor"
       interpolated = /#{word}ld/
       puts interpolated.match?("world")
       puts interpolated.source
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      world
+    OUT
+  end
+
+  it "the %r spelling matches the same as the slash one" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
+      count = 0
+      "one two three".gsub(/\w+/) { |w| count += 1; w }
+
+
+      class Classifier
+        def classify(x)
+          case x
+          when /^\d+$/
+            "number"
+          when /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+
+        def classify_in(x)
+          case x
+          in /^\d+$/
+            "number"
+          in /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+      end
+      classifier = Classifier.new
+
+      word = "wor"
+      interpolated = /#{word}ld/
+
       percent = %r{foo/bar}
       puts percent.match?("xxfoo/barxx")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+    OUT
+  end
+
+  it "Regexp.new and Regexp.union each answer a Regexp" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
+      count = 0
+      "one two three".gsub(/\w+/) { |w| count += 1; w }
+
+
+      class Classifier
+        def classify(x)
+          case x
+          when /^\d+$/
+            "number"
+          when /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+
+        def classify_in(x)
+          case x
+          in /^\d+$/
+            "number"
+          in /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+      end
+      classifier = Classifier.new
+
+      word = "wor"
+      interpolated = /#{word}ld/
+
+      percent = %r{foo/bar}
 
       r2 = /abc/
       puts r2.is_a?(Regexp)
       puts r2.is_a?(Object)
       puts m.is_a?(MatchData)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+    OUT
+  end
+
+  it "a pattern that will not compile raises RegexpError" do
+    result = ze0(<<~'RUBY', path: "regexp.rb")
+
+      m = "hello world".match(/(\w+) (\w+)/)
+
+      named = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
+      h = named.named_captures
+
+
+      multiline_str = "abc\ndef"
+
+      r = /abc/x
+
+
+
+
+      count = 0
+      "one two three".gsub(/\w+/) { |w| count += 1; w }
+
+
+      class Classifier
+        def classify(x)
+          case x
+          when /^\d+$/
+            "number"
+          when /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+
+        def classify_in(x)
+          case x
+          in /^\d+$/
+            "number"
+          in /^[a-z]+$/
+            "lower"
+          else
+            "other"
+          end
+        end
+      end
+      classifier = Classifier.new
+
+      word = "wor"
+      interpolated = /#{word}ld/
+
+      percent = %r{foo/bar}
+
+      r2 = /abc/
 
       bad = "("
       begin
@@ -1018,66 +1496,6 @@ describe "Regexp programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      6
-
-      true
-      true
-      true
-      hello world
-      hello
-      world
-
-
-      hello world
-      hello
-      world
-      hello
-      world
-      John
-      Smith
-      John
-      Smith
-      true
-      false
-      6
-
-      2
-      (?x-mi:abc)
-      /abc/mi
-      one
-      two
-      three
-      a
-      1
-      b
-      2
-      c
-      3
-      a
-      b
-
-      c
-
-      a
-      b
-      hell0 w0rld
-      hell0 world
-      Smith John
-      he[l][l]o
-      3
-      true
-      false
-      number
-      lower
-      other
-      number
-      lower
-      true
-      world
-      true
-      true
-      true
-      true
       regexp error
     OUT
   end

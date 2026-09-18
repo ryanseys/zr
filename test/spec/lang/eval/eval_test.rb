@@ -1946,8 +1946,42 @@ describe "Eval programs" do
     OUT
   end
 
-  it "instance eval trampoline" do
+  it "instance_eval with an arity-0 block runs the block against the receiver" do
     result = ze0(<<~'RUBY')
+      # Inline-at-call-site arity-0 instance-eval trampoline.
+      #
+      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
+      # so AOT compilation needs static type information to resolve method
+      # dispatch inside the block. Spinel's compromise: detect the exact
+      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
+      # time, and inline the block body at the call site with `self`
+      # rebound to the receiver. Receiverless calls inside the spliced
+      # body dispatch to the receiver's class via static type inference
+      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
+      #
+      # Anything other than the arity-0 single-statement shape falls
+      # through to the previous silent no-op — by design.
+
+      # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
+      #    the Builder instance, so `add(10)` resolves as Builder#add.
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(&block)
+          instance_eval(&block)
+        end
+      end
+
       # Inline-at-call-site arity-0 instance-eval trampoline.
       #
       # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
@@ -1990,6 +2024,76 @@ describe "Eval programs" do
       end
       puts b.total              #=> 42
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "each receiverless call in the block reaches the receiver" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site arity-0 instance-eval trampoline.
+      #
+      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
+      # so AOT compilation needs static type information to resolve method
+      # dispatch inside the block. Spinel's compromise: detect the exact
+      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
+      # time, and inline the block body at the call site with `self`
+      # rebound to the receiver. Receiverless calls inside the spliced
+      # body dispatch to the receiver's class via static type inference
+      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
+      #
+      # Anything other than the arity-0 single-statement shape falls
+      # through to the previous silent no-op — by design.
+
+      # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
+      #    the Builder instance, so `add(10)` resolves as Builder#add.
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(&block)
+          instance_eval(&block)
+        end
+      end
+
+      b = Builder.new
+      b.configure do
+        add(10)
+        add(20)
+        add(12)
+      end
+
+      # 2. Multiple statements inside the block — each receiverless call
+      #    dispatches against the rebound class, including reads.
+      class Counter
+        def initialize
+          @n = 0
+        end
+
+        def bump
+          @n = @n + 1
+        end
+
+        def get
+          @n
+        end
+
+        def with(&block)
+          instance_eval(&block)
+        end
+      end
+
       # 2. Multiple statements inside the block — each receiverless call
       #    dispatches against the rebound class, including reads.
       class Counter
@@ -2018,6 +2122,83 @@ describe "Eval programs" do
       end
       puts c.get                #=> 3
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "nested trampolines compose, inner receiver inside outer" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site arity-0 instance-eval trampoline.
+      #
+      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
+      # so AOT compilation needs static type information to resolve method
+      # dispatch inside the block. Spinel's compromise: detect the exact
+      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
+      # time, and inline the block body at the call site with `self`
+      # rebound to the receiver. Receiverless calls inside the spliced
+      # body dispatch to the receiver's class via static type inference
+      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
+      #
+      # Anything other than the arity-0 single-statement shape falls
+      # through to the previous silent no-op — by design.
+
+      # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
+      #    the Builder instance, so `add(10)` resolves as Builder#add.
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(&block)
+          instance_eval(&block)
+        end
+      end
+
+      b = Builder.new
+      b.configure do
+        add(10)
+        add(20)
+        add(12)
+      end
+
+      # 2. Multiple statements inside the block — each receiverless call
+      #    dispatches against the rebound class, including reads.
+      class Counter
+        def initialize
+          @n = 0
+        end
+
+        def bump
+          @n = @n + 1
+        end
+
+        def get
+          @n
+        end
+
+        def with(&block)
+          instance_eval(&block)
+        end
+      end
+
+      c = Counter.new
+      c.with do
+        bump
+        bump
+        bump
+      end
+
       # 3. Nested trampolines compose: an outer Builder#configure block
       #    contains an inner Counter#with block. The splicer save/restores
       #    @instance_eval_self_var / @instance_eval_self_type, so the
@@ -2034,6 +2215,99 @@ describe "Eval programs" do
       end
       puts b2.total             #=> 42
       puts c2.get               #=> 2
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      2
+    OUT
+  end
+
+  it "an ivar read and written inside the block belongs to the receiver" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site arity-0 instance-eval trampoline.
+      #
+      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
+      # so AOT compilation needs static type information to resolve method
+      # dispatch inside the block. Spinel's compromise: detect the exact
+      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
+      # time, and inline the block body at the call site with `self`
+      # rebound to the receiver. Receiverless calls inside the spliced
+      # body dispatch to the receiver's class via static type inference
+      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
+      #
+      # Anything other than the arity-0 single-statement shape falls
+      # through to the previous silent no-op — by design.
+
+      # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
+      #    the Builder instance, so `add(10)` resolves as Builder#add.
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(&block)
+          instance_eval(&block)
+        end
+      end
+
+      b = Builder.new
+      b.configure do
+        add(10)
+        add(20)
+        add(12)
+      end
+
+      # 2. Multiple statements inside the block — each receiverless call
+      #    dispatches against the rebound class, including reads.
+      class Counter
+        def initialize
+          @n = 0
+        end
+
+        def bump
+          @n = @n + 1
+        end
+
+        def get
+          @n
+        end
+
+        def with(&block)
+          instance_eval(&block)
+        end
+      end
+
+      c = Counter.new
+      c.with do
+        bump
+        bump
+        bump
+      end
+
+      # 3. Nested trampolines compose: an outer Builder#configure block
+      #    contains an inner Counter#with block. The splicer save/restores
+      #    @instance_eval_self_var / @instance_eval_self_type, so the
+      #    outer self is restored after the inner block returns.
+      b2 = Builder.new
+      c2 = Counter.new
+      b2.configure do
+        add(7)
+        c2.with do
+          bump
+          bump
+        end
+        add(35)
+      end
 
       # 4. Ivar read/write inside the block body. The block body splices
       #    into the call site with `self` rebound, so `@n = ...` must
@@ -2052,15 +2326,118 @@ describe "Eval programs" do
       end
       puts c3.get               #=> 8
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      8
+    OUT
+  end
+
+  it "the program runs to the end after the trampolines" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site arity-0 instance-eval trampoline.
+      #
+      # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
+      # so AOT compilation needs static type information to resolve method
+      # dispatch inside the block. Spinel's compromise: detect the exact
+      # DSL trampoline shape `def m(&b); instance_eval(&b); end` at compile
+      # time, and inline the block body at the call site with `self`
+      # rebound to the receiver. Receiverless calls inside the spliced
+      # body dispatch to the receiver's class via static type inference
+      # (the new `@instance_eval_self_var` / `@instance_eval_self_type`).
+      #
+      # Anything other than the arity-0 single-statement shape falls
+      # through to the previous silent no-op — by design.
+
+      # 1. Basic trampoline: `recv.configure { add 10 }` rebinds self to
+      #    the Builder instance, so `add(10)` resolves as Builder#add.
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(&block)
+          instance_eval(&block)
+        end
+      end
+
+      b = Builder.new
+      b.configure do
+        add(10)
+        add(20)
+        add(12)
+      end
+
+      # 2. Multiple statements inside the block — each receiverless call
+      #    dispatches against the rebound class, including reads.
+      class Counter
+        def initialize
+          @n = 0
+        end
+
+        def bump
+          @n = @n + 1
+        end
+
+        def get
+          @n
+        end
+
+        def with(&block)
+          instance_eval(&block)
+        end
+      end
+
+      c = Counter.new
+      c.with do
+        bump
+        bump
+        bump
+      end
+
+      # 3. Nested trampolines compose: an outer Builder#configure block
+      #    contains an inner Counter#with block. The splicer save/restores
+      #    @instance_eval_self_var / @instance_eval_self_type, so the
+      #    outer self is restored after the inner block returns.
+      b2 = Builder.new
+      c2 = Counter.new
+      b2.configure do
+        add(7)
+        c2.with do
+          bump
+          bump
+        end
+        add(35)
+      end
+
+      # 4. Ivar read/write inside the block body. The block body splices
+      #    into the call site with `self` rebound, so `@n = ...` must
+      #    write the rebound receiver's `iv_n`, not the outer scope's
+      #    self. Without @self_override routing, the ivar would resolve
+      #    to a toplevel static-global slot -- broken silently because no
+      #    prior trampoline test exercises direct ivar access inside the
+      #    spliced block (existing tests only call methods like `bump`).
+      #    Counter is reused here (two instances above) so value-type
+      #    promotion stays disabled; the direct-ivar path needs heap
+      #    receivers.
+      c3 = Counter.new
+      c3.with do
+        @n = @n + 5
+        @n = @n + 3
+      end
+
       puts "done"
     RUBY
 
     _(result).must_answer <<~'OUT'
-      42
-      3
-      42
-      2
-      8
       done
     OUT
   end

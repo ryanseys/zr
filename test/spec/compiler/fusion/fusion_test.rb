@@ -3164,8 +3164,26 @@ describe "Fusion programs" do
     OUT
   end
 
-  it "typed slot takes the object that converts to it" do
+  it "chomp, delete, squeeze and count take a separator that answers to_str" do
     result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
       class Sep
         def to_str
           "-"
@@ -3235,132 +3253,6 @@ describe "Fusion programs" do
       p err { Regexp.escape(1) }
       p err { String.new(1) }
 
-      a = [1, 2, 3]
-      p [a.slice!(Idx.new, Idx.new), a]
-      p 8[Idx.new]
-      p 1 << Idx.new
-      p 8 >> Idx.new
-      p Time.at(Idx.new).to_i
-      p Time.utc(2000, Idx.new, Idx.new).month
-      p Time.local(2000, Idx.new, Idx.new).day
-      p Random.new(1).rand(Idx.new).class
-      p Random.rand(Idx.new).class
-      p [1, 2].each_slice(Idx.new).to_a
-      p [[1, 2], 3].dig(Idx.new)
-      m = /(a)(b)/.match("ab")
-      p [m.begin(Idx.new), m.end(Idx.new), m.offset(Idx.new), m.byteoffset(Idx.new), m.values_at(Idx.new)]
-      p /a/.match?("ba", Idx.new)
-      p err { [1, 2].cycle("x") { } }
-      p err { Random.rand("x") }
-      p err { a.slice!("x", 1) }
-      p err { 8["x"] }
-      p err { [1, 2].each_slice("x") { }; :no }
-      p err { Time.at([1]) }
-      p err { File.utime("x", "x", "nope") }
-      p err { 1.0.quo("x") }
-      p err { Math.sqrt("x") }
-      p err { Math.sqrt(nil) }
-      p err { Math.sqrt(Sep.new) }
-
-      h = { 1 => 2 }
-      p h.dig("a")
-      p h.dig(1.0)
-      p h.fetch("a", 9)
-      p h.except("a")
-      p h.slice("a", 1)
-      p h.values_at("a", 1)
-      p h.has_value?("x")
-      p h.has_value?(2.0)
-      p h.assoc("a")
-      p err { h.fetch("a") }
-      p err { h.fetch_values(1, :b) }
-      sh = { "a" => 1 }
-      p sh.assoc(2)
-      p sh.dig(:a)
-      p [1, 2].count("x")
-      p [1, 2].all?("x")
-      p [].all?("x")
-      p [1, 2].any?("x")
-      p [1, 2].none?("x")
-      p [1, 2].one?("x")
-      p [1, 2].delete("x")
-      p [1, 2].delete("x") { :none }
-      p ["a"].delete(1)
-      p [1, 2].index("x")
-      p [1, 2].rindex(:y)
-      p (1..2).include?("x")
-      p (1..2) === "x"
-      p (1..2).member?(nil)
-      p (1..2).eql?("x")
-      p (1..2).count("x")
-      p [1, 2.0].count(2)
-      p [1, 2].count(1.0)
-
-      p [1, 2].count(2**100)
-
-      class Pair
-        def to_ary
-          [1, 2]
-        end
-      end
-
-      class Tbl
-        def to_hash
-          { "b" => 2 }
-        end
-      end
-
-      class Inert
-      end
-      p [3, 4].zip(Pair.new)
-      p [3, 4].product(Pair.new)
-      p({ "a" => 1 }.merge(Tbl.new))
-      p err { [1].zip(5) }
-      p err { [1].zip(nil) }
-      p err { [1].zip(Inert.new) }
-      p err { [1].product("x") }
-      p err { { "a" => 1 }.merge(5) }
-      p err { { "a" => 1 }.merge(Inert.new) }
-      p({ "a" => 1 }[Sep.new])
-
-      def trace(label, value)
-        puts label
-        value
-      end
-      p trace("recv", [1]).product(trace("arg", [2]))
-
-      path = "/tmp/spinel_typed_slot_conversion.txt"
-      File.write(path, "x")
-      p File.utime(nil, nil, path)
-      File.delete(path)
-      p Time.utc(2000, 5, nil)
-      p Time.utc(2000, 5, 6, nil, nil, nil).min
-      p err { Random.rand(nil) }
-      p err { 1.0.quo(nil) }
-      p err { 1.0.quo(:s) }
-      p err { 7.0.fdiv(Sep.new) }
-      p err { 7.fdiv("x") }
-      p "a1b2c".split(/\d/) { |x| p x }
-      p err { "a b".split(true) }
-
-      calls = 0
-      mk = -> { calls += 1; "k" }
-      p [h.fetch(mk.call, 0), h.dig(mk.call), h.values_at(mk.call), calls]
-
-      p err { sleep(true) }
-      p err { sleep(:s) }
-      p err { File.utime(false, false, "/nonexistent") }
-
-      p Regexp.escape(:"a.b")
-
-      class Needle
-        def to_str
-          puts "to_str asked"
-          "b"
-        end
-      end
-      misses = { "k" => "abcb" }
-      p err { misses["zz"].rindex(Needle.new) }
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -3397,6 +3289,77 @@ describe "Fusion programs" do
       [TypeError, "no implicit conversion of Integer into String"]
       [TypeError, "no implicit conversion of Integer into String"]
       [TypeError, "no implicit conversion of Integer into String"]
+    OUT
+  end
+
+  it "slice! and the index rows take an index that answers to_int" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      p [a.slice!(Idx.new, Idx.new), a]
+      p 8[Idx.new]
+      p 1 << Idx.new
+      p 8 >> Idx.new
+      p Time.at(Idx.new).to_i
+      p Time.utc(2000, Idx.new, Idx.new).month
+      p Time.local(2000, Idx.new, Idx.new).day
+      p Random.new(1).rand(Idx.new).class
+      p Random.rand(Idx.new).class
+      p [1, 2].each_slice(Idx.new).to_a
+      p [[1, 2], 3].dig(Idx.new)
+      m = /(a)(b)/.match("ab")
+      p [m.begin(Idx.new), m.end(Idx.new), m.offset(Idx.new), m.byteoffset(Idx.new), m.values_at(Idx.new)]
+      p /a/.match?("ba", Idx.new)
+      p err { [1, 2].cycle("x") { } }
+      p err { Random.rand("x") }
+      p err { a.slice!("x", 1) }
+      p err { 8["x"] }
+      p err { [1, 2].each_slice("x") { }; :no }
+      p err { Time.at([1]) }
+      p err { File.utime("x", "x", "nope") }
+      p err { 1.0.quo("x") }
+      p err { Math.sqrt("x") }
+      p err { Math.sqrt(nil) }
+      p err { Math.sqrt(Sep.new) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [[2], [1, 3]]
       0
       2
@@ -3421,6 +3384,87 @@ describe "Fusion programs" do
       [TypeError, "can't convert String into Float"]
       [TypeError, "can't convert nil into Float"]
       [TypeError, "can't convert Sep into Float"]
+    OUT
+  end
+
+  it "dig and fetch take a key that answers to_str" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      p h.dig("a")
+      p h.dig(1.0)
+      p h.fetch("a", 9)
+      p h.except("a")
+      p h.slice("a", 1)
+      p h.values_at("a", 1)
+      p h.has_value?("x")
+      p h.has_value?(2.0)
+      p h.assoc("a")
+      p err { h.fetch("a") }
+      p err { h.fetch_values(1, :b) }
+      sh = { "a" => 1 }
+      p sh.assoc(2)
+      p sh.dig(:a)
+      p [1, 2].count("x")
+      p [1, 2].all?("x")
+      p [].all?("x")
+      p [1, 2].any?("x")
+      p [1, 2].none?("x")
+      p [1, 2].one?("x")
+      p [1, 2].delete("x")
+      p [1, 2].delete("x") { :none }
+      p ["a"].delete(1)
+      p [1, 2].index("x")
+      p [1, 2].rindex(:y)
+      p (1..2).include?("x")
+      p (1..2) === "x"
+      p (1..2).member?(nil)
+      p (1..2).eql?("x")
+      p (1..2).count("x")
+      p [1, 2.0].count(2)
+      p [1, 2].count(1.0)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       nil
       nil
       9
@@ -3452,7 +3496,147 @@ describe "Fusion programs" do
       0
       1
       1
+    OUT
+  end
+
+  it "count takes a bignum argument and finds none of it" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+      p [1, 2].count(2**100)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       0
+    OUT
+  end
+
+  it "zip and product take an argument that answers to_ary" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+      p [3, 4].zip(Pair.new)
+      p [3, 4].product(Pair.new)
+      p({ "a" => 1 }.merge(Tbl.new))
+      p err { [1].zip(5) }
+      p err { [1].zip(nil) }
+      p err { [1].zip(Inert.new) }
+      p err { [1].product("x") }
+      p err { { "a" => 1 }.merge(5) }
+      p err { { "a" => 1 }.merge(Inert.new) }
+      p({ "a" => 1 }[Sep.new])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [[3, 1], [4, 2]]
       [[3, 1], [3, 2], [4, 1], [4, 2]]
       {"a" => 1, "b" => 2}
@@ -3463,9 +3647,166 @@ describe "Fusion programs" do
       [TypeError, "no implicit conversion of Integer into Hash"]
       [TypeError, "no implicit conversion of Inert into Hash"]
       nil
+    OUT
+  end
+
+  it "the receiver converts before the argument does" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+
+      def trace(label, value)
+        puts label
+        value
+      end
+      p trace("recv", [1]).product(trace("arg", [2]))
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       recv
       arg
       [[1, 2]]
+    OUT
+  end
+
+  it "File.utime takes nil for a time, and refuses a value it cannot convert" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+
+      def trace(label, value)
+        puts label
+        value
+      end
+
+      path = "/tmp/spinel_typed_slot_conversion.txt"
+      File.write(path, "x")
+      p File.utime(nil, nil, path)
+      File.delete(path)
+      p Time.utc(2000, 5, nil)
+      p Time.utc(2000, 5, 6, nil, nil, nil).min
+      p err { Random.rand(nil) }
+      p err { 1.0.quo(nil) }
+      p err { 1.0.quo(:s) }
+      p err { 7.0.fdiv(Sep.new) }
+      p err { 7.fdiv("x") }
+      p "a1b2c".split(/\d/) { |x| p x }
+      p err { "a b".split(true) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       1
       2000-05-01 00:00:00 UTC
       0
@@ -3479,11 +3820,341 @@ describe "Fusion programs" do
       "c"
       "a1b2c"
       [TypeError, "wrong argument type true (expected Regexp)"]
+    OUT
+  end
+
+  it "fetch, dig and values_at each ask their key once" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+
+      def trace(label, value)
+        puts label
+        value
+      end
+
+      path = "/tmp/spinel_typed_slot_conversion.txt"
+      File.write(path, "x")
+      File.delete(path)
+
+      calls = 0
+      mk = -> { calls += 1; "k" }
+      p [h.fetch(mk.call, 0), h.dig(mk.call), h.values_at(mk.call), calls]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [0, nil, [nil], 3]
+    OUT
+  end
+
+  it "sleep refuses a value it cannot convert into a time interval" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+
+      def trace(label, value)
+        puts label
+        value
+      end
+
+      path = "/tmp/spinel_typed_slot_conversion.txt"
+      File.write(path, "x")
+      File.delete(path)
+
+      calls = 0
+      mk = -> { calls += 1; "k" }
+
+      p err { sleep(true) }
+      p err { sleep(:s) }
+      p err { File.utime(false, false, "/nonexistent") }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [TypeError, "can't convert TrueClass into time interval"]
       [TypeError, "can't convert Symbol into time interval"]
       [TypeError, "can't convert FalseClass into time"]
+    OUT
+  end
+
+  it "Regexp.escape takes a Symbol" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+
+      def trace(label, value)
+        puts label
+        value
+      end
+
+      path = "/tmp/spinel_typed_slot_conversion.txt"
+      File.write(path, "x")
+      File.delete(path)
+
+      calls = 0
+      mk = -> { calls += 1; "k" }
+
+
+      p Regexp.escape(:"a.b")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       "a\\.b"
+    OUT
+  end
+
+  it "a to_str that answers nil reaches the row's own refusal" do
+    result = ze0(<<~'RUBY')
+      class Sep
+        def to_str
+          "-"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      def err
+        yield
+      rescue StandardError => e
+        [e.class, e.message]
+      end
+
+      s = String.new("a-b")
+      class Fmt
+        def to_str
+          "a"
+        end
+      end
+      ENV["SPINEL_SLOT"] = "v"
+      class Key
+        def to_str
+          "SPINEL_SLOT"
+        end
+      end
+      class Cmd
+        def to_str
+          "true"
+        end
+      end
+
+      a = [1, 2, 3]
+      m = /(a)(b)/.match("ab")
+
+      h = { 1 => 2 }
+      sh = { "a" => 1 }
+
+
+      class Pair
+        def to_ary
+          [1, 2]
+        end
+      end
+
+      class Tbl
+        def to_hash
+          { "b" => 2 }
+        end
+      end
+
+      class Inert
+      end
+
+      def trace(label, value)
+        puts label
+        value
+      end
+
+      path = "/tmp/spinel_typed_slot_conversion.txt"
+      File.write(path, "x")
+      File.delete(path)
+
+      calls = 0
+      mk = -> { calls += 1; "k" }
+
+
+
+      class Needle
+        def to_str
+          puts "to_str asked"
+          "b"
+        end
+      end
+      misses = { "k" => "abcb" }
+      p err { misses["zz"].rindex(Needle.new) }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [NoMethodError, "undefined method 'rindex' for nil"]
     OUT
   end

@@ -307,8 +307,37 @@ describe "Date programs" do
     OUT
   end
 
-  it "module subclass" do
+  it "a class that inherits from Module is a factory whose instances are real modules" do
     result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -342,9 +371,99 @@ describe "Date programs" do
       p [m.class, m.is_a?(Module), m.is_a?(LazilyDefineAttributes), m.instance_of?(LazilyDefineAttributes)]
       p Module === m
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [LazilyDefineAttributes, true, true, true]
+      true
+    OUT
+  end
+
+  it "a user instance method runs against the minted module, and its ivars persist" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
       # A user instance method runs against it, and ivars persist across calls --
       # `initialize` wrote `@attributes`, `attributes` reads it back.
       p m.attributes
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:a, :b]
+    OUT
+  end
+
+  it "including a minted module runs the user included hook" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
 
       # `include`ing one runs the user `included` hook, because the value really is
       # a module: `Module#include` reaches it unchanged.
@@ -355,13 +474,191 @@ describe "Date programs" do
       p Host.instance_variable_get(:@lazy)
       p Host.ancestors.include?(Module)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:x]
+      false
+    OUT
+  end
+
+  it "reflection on the factory itself answers Module" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
       # Reflection on the factory itself.
       p LazilyDefineAttributes.superclass
       p LazilyDefineAttributes.instance_of?(Class)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Module
+      true
+    OUT
+  end
+
+  it "an ivar set from outside reaches the store the method bodies use" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
       # Ivars set from OUTSIDE reach the same store the method bodies use.
       m.instance_variable_set(:@extra, 9)
       p [m.instance_variable_get(:@extra), m.instance_variables.sort]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [9, [:@attributes, :@extra]]
+    OUT
+  end
+
+  it "a self.new override may answer something that is not a module" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
 
       # The Rails shape itself: a `self.new` override that can answer a NON-module,
       # and a subclass that inherits `initialize`.
@@ -385,14 +682,259 @@ describe "Date programs" do
       # `new` returning something that is not an instance of the class at all.
       p DeprecatedConstantProxy.new(nil)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+    OUT
+  end
+
+  it "a proxy built that way reports its own class and its target" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
       pr = DeprecatedConstantProxy.new("OLD", "NEW")
       p [pr.class, pr.inspect, pr.target, pr.is_a?(Module)]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [DeprecatedConstantProxy, "DeprecatedConstantProxy(OLD -> NEW)", "NEW", true]
+    OUT
+  end
+
+  it "a subclass of the proxy is still a Module" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
 
       class Sub < DeprecatedConstantProxy
       end
 
       s = Sub.new("A", "B")
       p [s.class, s.target, s.is_a?(DeprecatedConstantProxy), s.is_a?(Module)]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Sub, "B", true, true]
+    OUT
+  end
+
+  it "a factory that writes no initialize takes no arguments" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
 
       # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
       # own must not run in its place.
@@ -401,6 +943,110 @@ describe "Date programs" do
 
       b = Bare.new
       p [b.class, b.is_a?(Module)]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Bare, true]
+    OUT
+  end
+
+  it "a class that inherits from ObjectSpace::WeakMap is a real weak map" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
 
       # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
       # constructor already builds `WeakMap::new(class)` from the receiver, so a
@@ -419,11 +1065,245 @@ describe "Date programs" do
       ws = WeakSet.new
       p [ws.class, ws.is_a?(ObjectSpace::WeakMap), WeakSet.superclass]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [WeakSet, true, ObjectSpace::WeakMap]
+    OUT
+  end
+
+  it "the weak map's own rows answer through the subclass" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
       one = "one"
       two = "two"
       ws << one
       ws << two
       p [ws.to_a.map(&:itself).sort, ws.size, ws[one]]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [["one", "two"], 2, true]
+    OUT
+  end
+
+  it "a class that inherits from DateTime carries its own ivars" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
 
       # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
       # payload root: the rows already allocate through the RECEIVER
@@ -445,9 +1325,277 @@ describe "Date programs" do
       dt = DateTimeWithOffset.jd(2460000)
       p [dt.class, dt.is_a?(DateTime), dt.is_a?(Date), dt.year, dt.month, dt.day]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [DateTimeWithOffset, true, true, 2023, 2, 24]
+    OUT
+  end
+
+  it "a Date subclass with no ivar storage of its own still holds one" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
       # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
       # the identity-keyed side table and reads back from it.
       p dt.set_timezone_offset("+09:00").timezone_offset
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "+09:00"
+    OUT
+  end
+
+  it "every inherited constructor tags with the receiver, new included" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
+      # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
+      # the identity-keyed side table and reads back from it.
+
+      # Every inherited constructor tags with the receiver, `new` included --
+      # `Date.new` IS `Date.civil`, a class-method constructor.
+      class MyDate < Date
+      end
 
       # Every inherited constructor tags with the receiver, `new` included --
       # `Date.new` IS `Date.civil`, a class-method constructor.
@@ -458,8 +1606,299 @@ describe "Date programs" do
       p [DateTimeWithOffset.new(2024, 5, 6).class, DateTimeWithOffset.superclass]
       p MyDate.civil(2001, 2, 3).to_s
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [MyDate, MyDate, MyDate]
+      [DateTimeWithOffset, DateTime]
+      "2001-02-03"
+    OUT
+  end
+
+  it "Date and DateTime themselves are untouched by the subclass" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
+      # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
+      # the identity-keyed side table and reads back from it.
+
+      # Every inherited constructor tags with the receiver, `new` included --
+      # `Date.new` IS `Date.civil`, a class-method constructor.
+      class MyDate < Date
+      end
+
+
       # The roots themselves are untouched.
       p [Date.today.class, DateTime.jd(2460000).class, Date.civil(2001, 2, 3).to_s]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Date, DateTime, "2001-02-03"]
+    OUT
+  end
+
+  it "a class that inherits from Proc is a real Proc, not a payload wrapper" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
+      # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
+      # the identity-keyed side table and reads back from it.
+
+      # Every inherited constructor tags with the receiver, `new` included --
+      # `Date.new` IS `Date.civil`, a class-method constructor.
+      class MyDate < Date
+      end
+
+
+      # The roots themselves are untouched.
+
+      # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on
+      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # The class rides in the proc itself instead. declarative's
+      # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
+      # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
+      class Tagged < ::Proc
+      end
 
       # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
       # every call-site fast path, `&blk` conversion and `to_proc` matches on
@@ -474,9 +1913,321 @@ describe "Date programs" do
       p [t.class, t.is_a?(Proc), t.is_a?(Tagged), Tagged.superclass]
       p [t.call(21), t.(21), t[21], t.arity, t.lambda?]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Tagged, true, true, Proc]
+      [42, 42, 42, 1, false]
+    OUT
+  end
+
+  it "the Proc subclass answers map and the other rows that take a block" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
+      # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
+      # the identity-keyed side table and reads back from it.
+
+      # Every inherited constructor tags with the receiver, `new` included --
+      # `Date.new` IS `Date.civil`, a class-method constructor.
+      class MyDate < Date
+      end
+
+
+      # The roots themselves are untouched.
+
+      # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on
+      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # The class rides in the proc itself instead. declarative's
+      # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
+      # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
+      class Tagged < ::Proc
+      end
+
+      t = Tagged.new { |x| x * 2 }
+
       # It is a real Proc everywhere a Proc is expected -- including as a block, which
       # is where a wrapper object would have failed.
       p [1, 2, 3].map(&t)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [2, 4, 6]
+    OUT
+  end
+
+  it "the Proc subclass passes as a block with &" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
+      # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
+      # the identity-keyed side table and reads back from it.
+
+      # Every inherited constructor tags with the receiver, `new` included --
+      # `Date.new` IS `Date.civil`, a class-method constructor.
+      class MyDate < Date
+      end
+
+
+      # The roots themselves are untouched.
+
+      # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on
+      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # The class rides in the proc itself instead. declarative's
+      # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
+      # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
+      class Tagged < ::Proc
+      end
+
+      t = Tagged.new { |x| x * 2 }
+
+      # It is a real Proc everywhere a Proc is expected -- including as a block, which
+      # is where a wrapper object would have failed.
+
+      def takes_block(&b)
+        b.class
+      end
 
       def takes_block(&b)
         b.class
@@ -484,35 +2235,171 @@ describe "Date programs" do
 
       p takes_block(&t)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Tagged
+    OUT
+  end
+
+  it "Proc itself is untouched by the subclass" do
+    result = ze0(<<~'RUBY')
+      # `class X < Module` -- a module FACTORY, whose instances are real modules.
+      #
+      # This is NOT the value-subclass payload shape and must not become it: a
+      # wrapper holding a module is not a module, so it would fail `include`,
+      # `Module#===`, constant lookup and `ancestors`. Instead `X.new` mints a real
+      # runtime module id and tags it as belonging to X, so only the question "what
+      # is your class?" changes answer.
+      #
+      # 22 of the gem corpus's `Module` rows come from ONE file --
+      # `activesupport/lib/active_support/deprecation/proxy_wrappers.rb` -- which
+      # gates actioncable, actionmailer, actionview, activejob, activemodel,
+      # activerecord, activestorage and the rest of the Rails stack.
+
+      class LazilyDefineAttributes < Module
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def included(base)
+          base.instance_variable_set(:@lazy, @attributes)
+        end
+
+        def attributes
+          @attributes
+        end
+      end
+
+      m = LazilyDefineAttributes.new([:a, :b])
+
+      # Its class is the subclass, and it is a module all the same.
+
+      # A user instance method runs against it, and ivars persist across calls --
+      # `initialize` wrote `@attributes`, `attributes` reads it back.
+
+      # `include`ing one runs the user `included` hook, because the value really is
+      # a module: `Module#include` reaches it unchanged.
+      class Host
+        include LazilyDefineAttributes.new([:x])
+      end
+
+
+      # Reflection on the factory itself.
+
+      # Ivars set from OUTSIDE reach the same store the method bodies use.
+      m.instance_variable_set(:@extra, 9)
+
+      # The Rails shape itself: a `self.new` override that can answer a NON-module,
+      # and a subclass that inherits `initialize`.
+      class DeprecatedConstantProxy < Module
+        def self.new(*args, **options, &block)
+          object = args.first
+          return object unless object
+          super
+        end
+
+        def initialize(old_const, new_const)
+          @old_const = old_const
+          @new_const = new_const
+        end
+
+        def inspect = "DeprecatedConstantProxy(#{@old_const} -> #{@new_const})"
+
+        def target = @new_const
+      end
+
+      # `new` returning something that is not an instance of the class at all.
+
+      pr = DeprecatedConstantProxy.new("OLD", "NEW")
+
+      class Sub < DeprecatedConstantProxy
+      end
+
+      s = Sub.new("A", "B")
+
+      # A factory that defines no `initialize` at all takes no arguments -- `Module`'s
+      # own must not run in its place.
+      class Bare < Module
+      end
+
+      b = Bare.new
+
+      # `ObjectSpace::WeakMap` is the third native shape, and the cleanest: its
+      # constructor already builds `WeakMap::new(class)` from the receiver, so a
+      # subclass instance IS the native type -- no payload wrapper, no re-tagging.
+      # activesupport's `DescendantsTracker::WeakSet` is the case, and it gates
+      # eleven Rails gems on its own.
+      class WeakSet < ObjectSpace::WeakMap
+        alias_method :to_a, :keys
+
+        def <<(object)
+          self[object] = true
+          self
+        end
+      end
+
+      ws = WeakSet.new
+
+      one = "one"
+      two = "two"
+      ws << one
+      ws << two
+
+      # `Date`/`DateTime` are the fourth native shape, and the mirror image of a
+      # payload root: the rows already allocate through the RECEIVER
+      # (`RDate::new(jdn, class_of(recv))`, exactly as the equivalent CRuby function
+      # threads `klass`), and an `RDate` carries its class id directly -- so there is
+      # nothing to wrap and nothing to re-tag. tzinfo's `DateTimeWithOffset` is the
+      # case, and activesupport reaches the ledger through it.
+      require "date"
+
+      class DateTimeWithOffset < DateTime
+        attr_accessor :timezone_offset
+
+        def set_timezone_offset(o)
+          @timezone_offset = o
+          self
+        end
+      end
+
+      dt = DateTimeWithOffset.jd(2460000)
+
+      # `RDate` carries no ivar storage of its own, so `@timezone_offset` lands in
+      # the identity-keyed side table and reads back from it.
+
+      # Every inherited constructor tags with the receiver, `new` included --
+      # `Date.new` IS `Date.civil`, a class-method constructor.
+      class MyDate < Date
+      end
+
+
+      # The roots themselves are untouched.
+
+      # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on
+      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # The class rides in the proc itself instead. declarative's
+      # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
+      # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
+      class Tagged < ::Proc
+      end
+
+      t = Tagged.new { |x| x * 2 }
+
+      # It is a real Proc everywhere a Proc is expected -- including as a block, which
+      # is where a wrapper object would have failed.
+
+      def takes_block(&b)
+        b.class
+      end
+
+
       # ...and the base class is untouched.
       p [Proc.new { 1 }.class, t.curry.class]
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [LazilyDefineAttributes, true, true, true]
-      true
-      [:a, :b]
-      [:x]
-      false
-      Module
-      true
-      [9, [:@attributes, :@extra]]
-      nil
-      [DeprecatedConstantProxy, "DeprecatedConstantProxy(OLD -> NEW)", "NEW", true]
-      [Sub, "B", true, true]
-      [Bare, true]
-      [WeakSet, true, ObjectSpace::WeakMap]
-      [["one", "two"], 2, true]
-      [DateTimeWithOffset, true, true, 2023, 2, 24]
-      "+09:00"
-      [MyDate, MyDate, MyDate]
-      [DateTimeWithOffset, DateTime]
-      "2001-02-03"
-      [Date, DateTime, "2001-02-03"]
-      [Tagged, true, true, Proc]
-      [42, 42, 42, 1, false]
-      [2, 4, 6]
-      Tagged
       [Proc, Proc]
     OUT
   end

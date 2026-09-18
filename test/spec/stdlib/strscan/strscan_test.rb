@@ -175,8 +175,33 @@ describe "StringScanner programs" do
     OUT
   end
 
-  it "reopened builtin ivars" do
+  it "an ivar in a method of a reopened builtin belongs to that object" do
     result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -209,7 +234,86 @@ describe "StringScanner programs" do
       p sc.scan(/hello/)
       p sc.rest
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :first
+      "hello"
+      " world"
+    OUT
+  end
+
+  it "a fresh instance of the reopened builtin starts with the ivar unset" do
+    result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
+      sc = StringScanner.new("hello world")
+      sc.tag = :first
+      # The native behaviour is untouched.
+
       p StringScanner.new("x").tag
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+    OUT
+  end
+
+  it "reflection reaches the same storage the method bodies use" do
+    result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
+      sc = StringScanner.new("hello world")
+      sc.tag = :first
+      # The native behaviour is untouched.
+
 
       # Reflection reaches the same storage.
       p sc.instance_variables
@@ -218,6 +322,66 @@ describe "StringScanner programs" do
       p sc.tag
       p sc.remove_instance_variable(:@tag)
       p sc.instance_variables
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:@tag]
+      :first
+      :second
+      :second
+      []
+    OUT
+  end
+
+  it "a class object carries its own ivars, keyed by the class" do
+    result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
+      sc = StringScanner.new("hello world")
+      sc.tag = :first
+      # The native behaviour is untouched.
+
+
+      # Reflection reaches the same storage.
+      sc.instance_variable_set(:@tag, :second)
+
+      # A CLASS object: `civars`, keyed `(class_id, name)`.
+      class Class
+        def parent_name=(v)
+          @parent_name = v
+        end
+
+        def parent_name
+          @parent_name
+        end
+      end
+
+      class Widget; end
+      class Gadget; end
 
       # A CLASS object: `civars`, keyed `(class_id, name)`.
       class Class
@@ -236,6 +400,76 @@ describe "StringScanner programs" do
       Widget.parent_name = "Assembly"
       p Widget.parent_name
       p Gadget.parent_name
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "Assembly"
+      nil
+    OUT
+  end
+
+  it "a bare heap value carries an ivar in the identity-keyed side table" do
+    result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
+      sc = StringScanner.new("hello world")
+      sc.tag = :first
+      # The native behaviour is untouched.
+
+
+      # Reflection reaches the same storage.
+      sc.instance_variable_set(:@tag, :second)
+
+      # A CLASS object: `civars`, keyed `(class_id, name)`.
+      class Class
+        def parent_name=(v)
+          @parent_name = v
+        end
+
+        def parent_name
+          @parent_name
+        end
+      end
+
+      class Widget; end
+      class Gadget; end
+
+      Widget.parent_name = "Assembly"
+
+      # A bare heap value: `value_ivars`' identity-keyed side table.
+      class Array
+        def label=(v)
+          @label = v
+        end
+
+        def label
+          @label
+        end
+      end
 
       # A bare heap value: `value_ivars`' identity-keyed side table.
       class Array
@@ -256,6 +490,92 @@ describe "StringScanner programs" do
       p ys.label
       p xs
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "counted"
+      nil
+      [1, 2, 3]
+    OUT
+  end
+
+  it "two values of one class keep their ivars apart" do
+    result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
+      sc = StringScanner.new("hello world")
+      sc.tag = :first
+      # The native behaviour is untouched.
+
+
+      # Reflection reaches the same storage.
+      sc.instance_variable_set(:@tag, :second)
+
+      # A CLASS object: `civars`, keyed `(class_id, name)`.
+      class Class
+        def parent_name=(v)
+          @parent_name = v
+        end
+
+        def parent_name
+          @parent_name
+        end
+      end
+
+      class Widget; end
+      class Gadget; end
+
+      Widget.parent_name = "Assembly"
+
+      # A bare heap value: `value_ivars`' identity-keyed side table.
+      class Array
+        def label=(v)
+          @label = v
+        end
+
+        def label
+          @label
+        end
+      end
+
+      xs = [1, 2, 3]
+      ys = [1, 2, 3]
+      xs.label = "counted"
+      # Identity, not equality -- `ys == xs` yet carries nothing.
+
+      class String
+        def note=(v)
+          @note = v
+        end
+
+        def note
+          @note
+        end
+      end
+
       class String
         def note=(v)
           @note = v
@@ -271,6 +591,103 @@ describe "StringScanner programs" do
       p s.note
       p s.upcase
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      9
+      "HI"
+    OUT
+  end
+
+  it "a method defined on the reopened builtin reaches the same storage" do
+    result = ze0(<<~'RUBY')
+      # An `@ivar` in a method of a reopened builtin.
+      #
+      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # It never needed one: `emit_builtin_method_fn` already marks these bodies'
+      # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
+      # the receiver. All three tiers appear below.
+      #
+      # The gems: strscan's own truffleruby shim keeps `@string`/`@pos` on
+      # StringScanner, google-apis-generator and importmap-rails keep `@parent_name`
+      # on Class, ffi keeps `@fixed` on VariadicInvoker, socksify `@socks_peer` on
+      # TCPSocket.
+
+      require "strscan"
+
+      # An Object-payload builtin: the `RObj`'s own name-keyed map.
+      class StringScanner
+        def tag=(v)
+          @tag = v
+        end
+
+        def tag
+          @tag
+        end
+      end
+
+      sc = StringScanner.new("hello world")
+      sc.tag = :first
+      # The native behaviour is untouched.
+
+
+      # Reflection reaches the same storage.
+      sc.instance_variable_set(:@tag, :second)
+
+      # A CLASS object: `civars`, keyed `(class_id, name)`.
+      class Class
+        def parent_name=(v)
+          @parent_name = v
+        end
+
+        def parent_name
+          @parent_name
+        end
+      end
+
+      class Widget; end
+      class Gadget; end
+
+      Widget.parent_name = "Assembly"
+
+      # A bare heap value: `value_ivars`' identity-keyed side table.
+      class Array
+        def label=(v)
+          @label = v
+        end
+
+        def label
+          @label
+        end
+      end
+
+      xs = [1, 2, 3]
+      ys = [1, 2, 3]
+      xs.label = "counted"
+      # Identity, not equality -- `ys == xs` yet carries nothing.
+
+      class String
+        def note=(v)
+          @note = v
+        end
+
+        def note
+          @note
+        end
+      end
+
+      s = +"hi"
+      s.note = 9
+
+      # Reaching the same storage through a method defined on the reopened builtin
+      # rather than at the call site, so the read and the write cross a call boundary.
+      class Array
+        def bump
+          @label = "#{@label}!"
+          self
+        end
+      end
+
       # Reaching the same storage through a method defined on the reopened builtin
       # rather than at the call site, so the read and the write cross a call boundary.
       class Array
@@ -284,22 +701,6 @@ describe "StringScanner programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      :first
-      "hello"
-      " world"
-      nil
-      [:@tag]
-      :first
-      :second
-      :second
-      []
-      "Assembly"
-      nil
-      "counted"
-      nil
-      [1, 2, 3]
-      9
-      "HI"
       "counted!"
     OUT
   end
