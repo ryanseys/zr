@@ -60,7 +60,7 @@ describe "FFI: arithmetic" do
     OUT
   end
 
-  it "ffi attach function calls c via extern" do
+  it "attach_function emits an extern C wrapper, and the scalar marshaling matches CRuby with the gem" do
     result = ze0(<<~'RUBY')
       # The real `ffi` gem API, AOT-compiled: `require "ffi"` is a native
       # no-op, `extend FFI::Library` marks the module, and `attach_function` (plain
@@ -93,7 +93,7 @@ describe "FFI: arithmetic" do
     OUT
   end
 
-  it "ffi int arg bigint" do
+  it "an :int argument computed by repeated multiplication still marshals as a plain C int" do
     result = ze0(<<~'RUBY')
       # An FFI :int argument fed by an integer computed through repeated
       # multiplication (a value a widening analysis could have promoted) still
@@ -129,7 +129,7 @@ describe "FFI: arithmetic" do
     _(result).must_answer "40\n"
   end
 
-  it "ffi libc" do
+  it "a program that attaches libc functions runs the same under CRuby with the gem and under zeo" do
     result = ze0(<<~'RUBY')
       # Real `ffi` gem API, AOT-compiled (#204): `attach_function` emits a
       # compile-time `extern "C"` + `#[link]`; the program runs identically under
@@ -161,7 +161,7 @@ describe "FFI: arithmetic" do
     OUT
   end
 
-  it "ffi memory pointer reads writes and arithmetic" do
+  it "MemoryPointer reads, writes, pointer arithmetic, typed arrays, and an out-of-bounds IndexError" do
     result = ze0(<<~'RUBY')
       # FFI `FFI::MemoryPointer`: an owned heap buffer with typed
       # read/write accessors, pointer arithmetic, typed arrays, `from_string`, and
@@ -203,7 +203,7 @@ describe "FFI: arithmetic" do
     OUT
   end
 
-  it "ffi pointer round trips through c" do
+  it "a MemoryPointer passes to C as its raw address, and a char * return comes back as an FFI::Pointer" do
     result = ze0(<<~'RUBY')
       # FFI `:pointer` marshaling: a `MemoryPointer` passed to a C
       # function as its raw address, and a C `char *` return wrapped back as an
@@ -231,7 +231,7 @@ describe "FFI: arithmetic" do
     OUT
   end
 
-  it "ffi ptr array" do
+  it "an array literal of :pointer returns infers as pointers, not as an int array" do
     result = ze0(<<~'RUBY')
       # #492 (ported to the real ffi gem API). An array literal whose elements are
       # FFI :pointer returns (e.g. `[LibC.malloc(...)]`) must infer as an array of
@@ -262,7 +262,7 @@ describe "FFI: arithmetic" do
     _(result).must_answer "2\n"
   end
 
-  it "ffi struct fields round trip" do
+  it "layout declares the C fields, [] and []= read and write them, and C fills the struct through its pointer" do
     result = ze0(<<~'RUBY')
       # FFI::Struct through the real ffi gem API (ported from spinel's ffi_struct
       # DSL): `layout` declares the C fields, `[]`/`[]=` read and write them, and a

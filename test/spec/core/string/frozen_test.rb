@@ -788,7 +788,7 @@ describe "String: frozen literals" do
     ERR
   end
 
-  it "string arg conformance" do
+  it "five String rows answer only where CRuby answers, and raise where it raises" do
     result = ze0(<<~'RUBY')
       # Five String surfaces that answered where CRuby refuses, or refused where
       # CRuby answers.
@@ -851,7 +851,7 @@ describe "String: frozen literals" do
     OUT
   end
 
-  it "string clone frozen" do
+  it "clone keeps the frozen state, and dup always answers an unfrozen string" do
     result = ze0(<<~'RUBY')
       # String#clone preserves the frozen state; String#dup always returns unfrozen.
       def id(x) = x
@@ -895,7 +895,7 @@ describe "String: frozen literals" do
     OUT
   end
 
-  it "string conformance batch" do
+  it "to_f reads underscores, clear answers a value, byteslice answers nil past the end, === refuses a non-String" do
     result = ze0(<<~'RUBY')
       # String conformance: to_f underscores, -@ frozen, clear as a value,
       # byteslice OOB->nil / boundary / Range, === with a non-String arg.
@@ -936,7 +936,7 @@ describe "String: frozen literals" do
     OUT
   end
 
-  it "string dedup frozen self" do
+  it "-@ on a string already frozen answers the receiver itself" do
     result = ze0(<<~'RUBY')
       # String#-@ on an already-frozen string returns the receiver itself (#2630).
       a = "abc".freeze
@@ -948,7 +948,7 @@ describe "String: frozen literals" do
     _(result).must_answer "true\ntrue\n"
   end
 
-  it "string dedup intern" do
+  it "-@ interns by content, so two dedups of equal contents answer one object" do
     result = ze0(<<~'RUBY')
       # String#-@ / #dedup interns by content: two dedups of equal contents return
       # the same immortal frozen object (#2462).
@@ -972,7 +972,7 @@ describe "String: frozen literals" do
     OUT
   end
 
-  it "string frozen mutation raises" do
+  it "insert, prepend and << on a frozen literal raise FrozenError, and String.new stays mutable" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
       # Issue #886: Mutating methods on a frozen string literal raise
@@ -1012,7 +1012,7 @@ describe "String: frozen literals" do
     OUT
   end
 
-  it "string param mutate byref" do
+  it "a parameter appended to with << lands the append in the caller's variable" do
     result = ze0(<<~'RUBY')
       # A string param mutated via `<<` is a byref out-param: the append lands in
       # the caller's variable, like CRuby's shared-object semantics (the classic

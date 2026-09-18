@@ -382,7 +382,7 @@ describe "Control: control flow" do
     _(result).must_answer "negative\nzero\n"
   end
 
-  it "control" do
+  it "__LINE__, defined?, the if and unless modifiers, and a ternary chain all answer" do
     result = ze0(<<~'RUBY')
       # Test control flow additions
 
@@ -420,7 +420,7 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "control flow break in case in loop" do
+  it "break inside a case inside a loop leaves the loop" do
     result = ze0(<<~'RUBY')
       out = []
       i = 0
@@ -441,7 +441,7 @@ describe "Control: control flow" do
     _(result).must_answer "[0, 1, 2]\n"
   end
 
-  it "control flow loop cond method arg" do
+  it "a method call used as an argument in a while condition runs on every iteration" do
     result = ze0(<<~'RUBY')
       # A method call used as an ARGUMENT inside a while condition must be
       # re-evaluated every iteration, not hoisted into a temp before the loop.
@@ -472,7 +472,7 @@ describe "Control: control flow" do
     _(result).must_answer "3\n"
   end
 
-  it "control flow next in case in loop" do
+  it "next inside a case inside a while skips to the following iteration" do
     result = ze0(<<~'RUBY')
       out = []
       i = 0
@@ -490,7 +490,7 @@ describe "Control: control flow" do
     _(result).must_answer "[1, 2, 4, 5, 7, 8]\n"
   end
 
-  it "control flow until cond method arg" do
+  it "a method call used as an argument in an until condition runs on every iteration" do
     result = ze0(<<~'RUBY')
       # Same re-evaluation requirement for an until condition argument.
       class Gen
@@ -520,7 +520,7 @@ describe "Control: control flow" do
     _(result).must_answer "3\n"
   end
 
-  it "control flow until modifier method" do
+  it "an until modifier re-reads the method in its condition on each pass" do
     result = ze0(<<~'RUBY')
       class Box
         def initialize
@@ -544,7 +544,7 @@ describe "Control: control flow" do
     _(result).must_answer "4\n"
   end
 
-  it "control flow while modifier method" do
+  it "a while modifier re-reads the method in its condition on each pass" do
     result = ze0(<<~'RUBY')
       class Counter
         def initialize

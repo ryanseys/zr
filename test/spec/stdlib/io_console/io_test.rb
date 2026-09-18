@@ -107,7 +107,7 @@ describe "IO::console: reading and writing" do
     OUT
   end
 
-  it "io console" do
+  it "terminal modes, echo control and the cursor escapes answer, and a pipe raises ENOTTY" do
     result = ze0(<<~'RUBY', path: "io_console.rb")
       # `io/console` -- terminal modes, echo control, and the cursor escapes. CRuby
       # ships it as a require-gated extension; zeo's rows hang unconditionally off
@@ -209,7 +209,7 @@ describe "IO::console: reading and writing" do
     OUT
   end
 
-  it "io console refuses a bad argument" do
+  it "raw! with a non-numeric min:, an unknown keyword or a stray positional raises instead of ending the process" do
     result = ze0(<<~'RUBY')
       # The `io/console` argument guards, all of them io-console's own.
       #
@@ -285,7 +285,7 @@ describe "IO::console: reading and writing" do
     OUT
   end
 
-  it "io console respond to" do
+  it "the io/console methods answer respond_to?, not only a call" do
     result = ze0(<<~'RUBY')
       # io/console's methods answer to reflection, not just to calls -- webrick and
       # friends feature-test with `respond_to?(:raw)` before touching the terminal.
@@ -296,7 +296,7 @@ describe "IO::console: reading and writing" do
     _(result).must_answer "true\n"
   end
 
-  it "io console size reads the environment" do
+  it "io/console/size is its own require, and IO.console_size reads the environment" do
     result = ze0(<<~'RUBY')
       # `require "io/console/size"` is its own require in ruby -- `io/console`
       # alone does NOT define `IO.console_size` -- and it was a LoadError here, so
@@ -343,7 +343,7 @@ describe "IO::console: reading and writing" do
     OUT
   end
 
-  it "io refuses a hostile argument" do
+  it "a Symbol timeout, a huge read, a zero-capacity ioctl buffer and an i64 overflow all raise, not abort" do
     result = ze0(<<~'RUBY')
       # Every one of these ended a zeo process instead of raising.
       #
@@ -425,7 +425,7 @@ describe "IO::console: reading and writing" do
     OUT
   end
 
-  it "io tty asks the descriptor" do
+  it "tty? is isatty on the handle's descriptor, not a test of which standard stream it is" do
     result = ze0(<<~'RUBY')
       # `IO#tty?` is `isatty(2)` on the handle's descriptor, not a test of which
       # standard stream this is.
@@ -469,7 +469,7 @@ describe "IO::console: reading and writing" do
     OUT
   end
 
-  it "io tty winsize poly handle" do
+  it "tty? and winsize reach the IO arm through a handle the program carries as poly" do
     result = ze0(<<~'RUBY')
       # IO#tty? and IO#winsize on a poly-carried handle.
       #
