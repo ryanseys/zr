@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "fixtures"
+
 module Ze0
   # Reads a spec file without compiling anything.
   #
@@ -22,6 +24,10 @@ module Ze0
 
     # The world a spec file is loaded into.
     class Sandbox
+      # The same helper the real DSL has, so a spec file that reads a
+      # fixture reads the same bytes on both roads.
+      include Fixtures
+
       attr_reader :seen
 
       def initialize = @seen = []

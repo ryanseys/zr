@@ -47,6 +47,21 @@ class ReaderConformanceTest < Minitest::Test
     assert_equal defaults(Ze0::Spec::DSL, :ze0), Ze0::Reader::Sandbox::DEFAULTS
   end
 
+  # A spec reads a fixture through `fixture(...)`, and both roads must
+  # hand it the same bytes -- the run writes them beside the program,
+  # the oracle writes them beside its copy.
+  def test_both_roads_read_a_fixture_the_same_way
+    assert_includes Ze0::Spec::DSL.ancestors, Ze0::Fixtures
+    assert_includes Ze0::Reader::Sandbox.ancestors, Ze0::Fixtures
+    assert_equal File.binread("#{Ze0::Fixtures::ROOT}/raising_feature/r1.rb"),
+                 Ze0::Fixtures.fixture("raising_feature/r1.rb")
+  end
+
+  def test_a_missing_fixture_says_so_rather_than_reading_nothing
+    e = assert_raises(ArgumentError) { Ze0::Fixtures.fixture("no/such/thing.rb") }
+    assert_match(/no fixture at test\/fixtures/, e.message)
+  end
+
   private
 
   def keywords(mod, name)

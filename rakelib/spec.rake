@@ -148,8 +148,14 @@ module SpecStyle
   COLUMNS = 120
 
   # A program is `RUBY`, an answer is `OUT`, and a platform's answer is
-  # its own name. Anything else is a one-off from the old corpus.
-  TAGS = %w[RUBY OUT LINUX WASI].freeze
+  # its own name.
+  #
+  # `PROGRAM` is the other spelling of a program, and it is not a stray:
+  # a `<<~` terminator may be indented, so a program that contains its
+  # own `eval <<~RUBY ... RUBY` would end the outer heredoc early. Eight
+  # examples need it -- see `core/object/formatting_test.rb`, where the
+  # program defines a method through `eval`.
+  TAGS = %w[RUBY PROGRAM OUT LINUX WASI].freeze
 
   module_function
 
@@ -160,7 +166,12 @@ module SpecStyle
       n = i + 1
       out << [n, "trailing whitespace"] if line.rstrip != line.chomp
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
-      line.scan(/<<([-~])('?)([A-Z_]+)\2/) do |squiggly, quote, tag|
+      # Only a heredoc this file opens as an argument to the DSL. A
+      # program under test may open one of its own -- `eval(<<~SRC)`, a
+      # Gemfile, a PEM -- and an expected answer may quote the text of
+      # one, as the Ripper and AST examples do. Neither is this file's
+      # shape to hold.
+      line.scan(/(?:\bze0\(|\bmust_answer )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
         out << [n, "heredoc <<#{squiggly}#{tag}: use <<~"] if squiggly != "~"
         out << [n, "heredoc #{tag}: not one of #{TAGS.join(", ")}"] unless TAGS.include?(tag)
         # A Ruby program in an interpolating heredoc has live `#{}` in
@@ -182,5 +193,35 @@ namespace :spec do
     faults.each { |line| warn line }
     puts format("%d file(s) checked, %d fault(s)", files.size, faults.size)
     exit(faults.empty? ? 0 : 1)
+  end
+end
+
+namespace :spec do
+  desc "Fix what spec:check reports that is safe to fix: rake 'spec:tidy[test/spec/core/string]'"
+  task :tidy, [:path] do |_, args|
+    argv = args[:path].to_s.split
+    argv = ["test/spec"] if argv.empty?
+    changed = 0
+    lines = 0
+    argv.flat_map { |p| SpecNet.files(p) }.each do |file|
+      was = File.read(file)
+      # Only whitespace-only lines. A line with content and trailing
+      # space may be inside a string the program prints, where the space
+      # is the answer; a line that is nothing but space is a blank line
+      # wherever it sits, and `<<~` already ignores it when it works out
+      # how far to dedent.
+      now = was.gsub(/^[ \t]+$/, "")
+      # A comment line with nothing after the `#` but space. In a
+      # program that space is invisible; the oracle is what says so,
+      # since in an answer it could be the answer.
+      now = now.gsub(/^([ \t]*#)[ \t]+$/, '\\1')
+      next if now == was
+
+      File.write(file, now)
+      changed += 1
+      lines += was.lines.count { |l| l.match?(/^[ \t]+$/) }
+    end
+    puts format("%d file(s) tidied, %d blank line(s) emptied", changed, lines)
+    puts "now run: rake 'oracle[<path>]' -- the program text changed, so ruby is the judge"
   end
 end

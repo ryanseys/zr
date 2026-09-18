@@ -4,6 +4,7 @@ require "fileutils"
 require "minitest"
 require "tmpdir"
 require_relative "harness/answer"
+require_relative "fixtures"
 require_relative "reader"
 require_relative "harness/child"
 require_relative "harness/runner"
@@ -224,6 +225,8 @@ module Ze0
     # What a spec example says: `ze0 "puts 1"` answers a Result, or
     # skips when ze0 refused the program or could not build it.
     module DSL
+      include Fixtures
+
       ROOT = File.expand_path("../..", __dir__)
 
       # `ruby:` names flags for the oracle alone, which ze0 has no use
