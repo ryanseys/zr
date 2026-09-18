@@ -4,6 +4,7 @@
 #
 #   rake 'spec:verify[HEAD]'                   # what moved since a revision
 #   rake 'spec:verify[HEAD --renames]'         # ... allowing descriptions to change
+#   rake 'spec:verify[HEAD~3 test/spec/core]'  # ... over one area
 #   rake spec:fingerprint                      # a digest per example, to diff yourself
 #   rake spec:check                            # the formatting conventions
 #   rake spec:tidy                             # fix what check reports that is safe to fix
@@ -61,12 +62,21 @@ module SpecNet
   # moved from an inline literal to a file on disk comes back tagged
   # ASCII-8BIT rather than UTF-8, and both roads write it with
   # `File.binwrite`, so the tag is not something any run can see.
-  def examples(path, renames: false)
+  #
+  # `as:` is where the file BELONGS, which is not where its bytes are
+  # when an older revision has been written to a temporary file. The
+  # default `path:` comes from the spec file's own location, so reading
+  # the old side out of `/tmp` would report a moved path for every
+  # example in the suite and never report clean.
+  def examples(path, renames: false, as: path)
     Ze0::Reader.read(path).map do |e|
       parts = { "describe" => e.about, "program" => e.source&.b,
                 "keywords" => bytes(e.given), "answer" => bytes(e.want) }
-      parts = { "sentence" => e.name, "path" => e.kwargs[:path] }.merge(parts) unless renames
-      [rel(path), e.name, Digest::SHA256.hexdigest(Marshal.dump(parts.values)), e, parts]
+      unless renames
+        written = e.given[:path] || Ze0::Reader.path_for(as)
+        parts = { "sentence" => e.name, "path" => written }.merge(parts)
+      end
+      [rel(as), e.name, Digest::SHA256.hexdigest(Marshal.dump(parts.values)), e, parts]
     end
   end
 
@@ -121,7 +131,7 @@ namespace :spec do
 
         before = File.join(work, "before.rb")
         File.write(before, was)
-        old = SpecNet.examples(before, renames: renames)
+        old = SpecNet.examples(before, renames: renames, as: file)
         new = SpecNet.examples(file, renames: renames)
         checked += new.size
 
