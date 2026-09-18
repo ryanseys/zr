@@ -166,7 +166,7 @@ describe "Methods: formatting and inspection" do
     OUT
   end
 
-  it "explicit receiver visibility" do
+  it "a private method answers a receiverless call and self as receiver, and refuses another" do
     result = ze0(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
@@ -211,6 +211,56 @@ describe "Methods: formatting and inspection" do
       try("R.new.respond_to?(:helper)") { R.new.respond_to?(:helper) }
       try("R.new.respond_to?(:helper, true)") { R.new.respond_to?(:helper, true) }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      R.new.on_self => :helped
+      R.new.bare => :helped
+      R.new.through_local !! NoMethodError: private method 'helper' called for an instance of R
+      R.new.on_other(R.new) !! NoMethodError: private method 'helper' called for an instance of R
+      R.new.helper !! NoMethodError: private method 'helper' called for an instance of R
+      R.new.send(:helper) => :helped
+      R.new.__send__(:helper) => :helped
+      R.new.public_send(:helper) !! NoMethodError: private method 'helper' called for an instance of R
+      R.new.respond_to?(:helper) => false
+      R.new.respond_to?(:helper, true) => true
+    OUT
+  end
+
+  it "a protected method is reachable where the caller's self is of the same class" do
+    result = ze0(<<~'RUBY')
+      # Ruby decides visibility from the SHAPE of the call, not from the value the
+      # receiver holds. `vm_call_method` runs no check at all for an implicit
+      # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
+      # other explicit receiver is checked.
+      #
+      # zeo enforced that only where the receiver's class was known at compile time.
+      # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
+      # answered nil, and a private method reached through a local that merely HELD
+      # self went through.
+
+      def try(label)
+        v = yield
+        puts "#{label} => #{v.inspect}"
+      rescue NoMethodError => e
+        puts "#{label} !! #{e.class}: #{e.message}"
+      end
+
+      class R
+        def on_self = self.helper
+        def bare = helper
+
+        # A local holding `self` is an ordinary explicit receiver. Only the `self`
+        # KEYWORD is exempt, which is why this one raises and `on_self` does not.
+        def through_local
+          me = self
+          me.helper
+        end
+
+        def on_other(o) = o.helper
+        private def helper = :helped
+      end
+
       # `protected` is the receiver-sensitive one: reachable when the CALLER's self
       # is a kind of the method's owner, whoever the receiver is.
       class Money
@@ -230,6 +280,53 @@ describe "Methods: formatting and inspection" do
       try("Money.new.send(:amount)") { Money.new.send(:amount) }
       try("Money.new.public_send(:amount)") { Money.new.public_send(:amount) }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Money.new > Money.new => false
+      Money.new > Cash.new => false
+      Cash.new > Money.new => false
+      Outsider.new.peek(Money.new) !! NoMethodError: protected method 'amount' called for an instance of Money
+      Money.new.amount !! NoMethodError: protected method 'amount' called for an instance of Money
+      Money.new.send(:amount) => 7
+      Money.new.public_send(:amount) !! NoMethodError: protected method 'amount' called for an instance of Money
+    OUT
+  end
+
+  it "Kernel's private methods refuse an explicit receiver, as the user's do" do
+    result = ze0(<<~'RUBY')
+      # Ruby decides visibility from the SHAPE of the call, not from the value the
+      # receiver holds. `vm_call_method` runs no check at all for an implicit
+      # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
+      # other explicit receiver is checked.
+      #
+      # zeo enforced that only where the receiver's class was known at compile time.
+      # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
+      # answered nil, and a private method reached through a local that merely HELD
+      # self went through.
+
+      def try(label)
+        v = yield
+        puts "#{label} => #{v.inspect}"
+      rescue NoMethodError => e
+        puts "#{label} !! #{e.class}: #{e.message}"
+      end
+
+      class R
+        def on_self = self.helper
+        def bare = helper
+
+        # A local holding `self` is an ordinary explicit receiver. Only the `self`
+        # KEYWORD is exempt, which is why this one raises and `on_self` does not.
+        def through_local
+          me = self
+          me.helper
+        end
+
+        def on_other(o) = o.helper
+        private def helper = :helped
+      end
+
       # The builtin rows answer the same way -- Kernel's methods are private, on
       # every receiver, whatever its class.
       try("1.puts") { 1.puts("x") }
@@ -242,6 +339,55 @@ describe "Methods: formatting and inspection" do
       try("RuntimeError.new.initialize") { RuntimeError.new.initialize }
       try("3.7.require") { 3.7.require("set") }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1.puts !! NoMethodError: private method 'puts' called for an instance of Integer
+      'ab'.puts !! NoMethodError: private method 'puts' called for an instance of String
+      nil.puts !! NoMethodError: private method 'puts' called for nil
+      [].raise !! NoMethodError: private method 'raise' called for an instance of Array
+      'ab'.initialize !! NoMethodError: private method 'initialize' called for an instance of String
+      [].initialize !! NoMethodError: private method 'initialize' called for an instance of Array
+      Object.new.initialize !! NoMethodError: private method 'initialize' called for an instance of Object
+      RuntimeError.new.initialize !! NoMethodError: private method 'initialize' called for an instance of RuntimeError
+      3.7.require !! NoMethodError: private method 'require' called for an instance of Float
+    OUT
+  end
+
+  it "a class answers respond_to? for the class methods it provides" do
+    result = ze0(<<~'RUBY')
+      # Ruby decides visibility from the SHAPE of the call, not from the value the
+      # receiver holds. `vm_call_method` runs no check at all for an implicit
+      # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
+      # other explicit receiver is checked.
+      #
+      # zeo enforced that only where the receiver's class was known at compile time.
+      # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
+      # answered nil, and a private method reached through a local that merely HELD
+      # self went through.
+
+      def try(label)
+        v = yield
+        puts "#{label} => #{v.inspect}"
+      rescue NoMethodError => e
+        puts "#{label} !! #{e.class}: #{e.message}"
+      end
+
+      class R
+        def on_self = self.helper
+        def bare = helper
+
+        # A local holding `self` is an ordinary explicit receiver. Only the `self`
+        # KEYWORD is exempt, which is why this one raises and `on_self` does not.
+        def through_local
+          me = self
+          me.helper
+        end
+
+        def on_other(o) = o.helper
+        private def helper = :helped
+      end
+
       # A class method the class actually provides is the one that answers, so a
       # same-named private Kernel method further down cannot reach past it. `open`
       # is the case that matters: `File.open` is File's own public singleton method,
@@ -249,6 +395,49 @@ describe "Methods: formatting and inspection" do
       try("File.respond_to?(:open)") { File.respond_to?(:open) }
       try("String.name") { String.name }
       try("Integer.instance_methods.class") { Integer.instance_methods.class }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      File.respond_to?(:open) => true
+      String.name => "String"
+      Integer.instance_methods.class => Array
+    OUT
+  end
+
+  it "a private class method is checked the same way a private instance method is" do
+    result = ze0(<<~'RUBY')
+      # Ruby decides visibility from the SHAPE of the call, not from the value the
+      # receiver holds. `vm_call_method` runs no check at all for an implicit
+      # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
+      # other explicit receiver is checked.
+      #
+      # zeo enforced that only where the receiver's class was known at compile time.
+      # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
+      # answered nil, and a private method reached through a local that merely HELD
+      # self went through.
+
+      def try(label)
+        v = yield
+        puts "#{label} => #{v.inspect}"
+      rescue NoMethodError => e
+        puts "#{label} !! #{e.class}: #{e.message}"
+      end
+
+      class R
+        def on_self = self.helper
+        def bare = helper
+
+        # A local holding `self` is an ordinary explicit receiver. Only the `self`
+        # KEYWORD is exempt, which is why this one raises and `on_self` does not.
+        def through_local
+          me = self
+          me.helper
+        end
+
+        def on_other(o) = o.helper
+        private def helper = :helped
+      end
 
       # A private CLASS method is checked the same way.
       class Factory
@@ -259,6 +448,49 @@ describe "Methods: formatting and inspection" do
       try("Factory.make_via_self") { Factory.make_via_self }
       try("Factory.build") { Factory.build }
       try("Factory.send(:build)") { Factory.send(:build) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Factory.make_via_self => :built
+      Factory.build !! NoMethodError: private method 'build' called for class Factory
+      Factory.send(:build) => :built
+    OUT
+  end
+
+  it "visibility changed after the fact is read at the call, not at the compile" do
+    result = ze0(<<~'RUBY')
+      # Ruby decides visibility from the SHAPE of the call, not from the value the
+      # receiver holds. `vm_call_method` runs no check at all for an implicit
+      # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
+      # other explicit receiver is checked.
+      #
+      # zeo enforced that only where the receiver's class was known at compile time.
+      # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
+      # answered nil, and a private method reached through a local that merely HELD
+      # self went through.
+
+      def try(label)
+        v = yield
+        puts "#{label} => #{v.inspect}"
+      rescue NoMethodError => e
+        puts "#{label} !! #{e.class}: #{e.message}"
+      end
+
+      class R
+        def on_self = self.helper
+        def bare = helper
+
+        # A local holding `self` is an ordinary explicit receiver. Only the `self`
+        # KEYWORD is exempt, which is why this one raises and `on_self` does not.
+        def through_local
+          me = self
+          me.helper
+        end
+
+        def on_other(o) = o.helper
+        private def helper = :helped
+      end
 
       # Visibility changed after the fact is a RUNTIME property, so a site that
       # dispatches dynamically has to see the change. (A site whose receiver class is
@@ -273,38 +505,6 @@ describe "Methods: formatting and inspection" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      R.new.on_self => :helped
-      R.new.bare => :helped
-      R.new.through_local !! NoMethodError: private method 'helper' called for an instance of R
-      R.new.on_other(R.new) !! NoMethodError: private method 'helper' called for an instance of R
-      R.new.helper !! NoMethodError: private method 'helper' called for an instance of R
-      R.new.send(:helper) => :helped
-      R.new.__send__(:helper) => :helped
-      R.new.public_send(:helper) !! NoMethodError: private method 'helper' called for an instance of R
-      R.new.respond_to?(:helper) => false
-      R.new.respond_to?(:helper, true) => true
-      Money.new > Money.new => false
-      Money.new > Cash.new => false
-      Cash.new > Money.new => false
-      Outsider.new.peek(Money.new) !! NoMethodError: protected method 'amount' called for an instance of Money
-      Money.new.amount !! NoMethodError: protected method 'amount' called for an instance of Money
-      Money.new.send(:amount) => 7
-      Money.new.public_send(:amount) !! NoMethodError: protected method 'amount' called for an instance of Money
-      1.puts !! NoMethodError: private method 'puts' called for an instance of Integer
-      'ab'.puts !! NoMethodError: private method 'puts' called for an instance of String
-      nil.puts !! NoMethodError: private method 'puts' called for nil
-      [].raise !! NoMethodError: private method 'raise' called for an instance of Array
-      'ab'.initialize !! NoMethodError: private method 'initialize' called for an instance of String
-      [].initialize !! NoMethodError: private method 'initialize' called for an instance of Array
-      Object.new.initialize !! NoMethodError: private method 'initialize' called for an instance of Object
-      RuntimeError.new.initialize !! NoMethodError: private method 'initialize' called for an instance of RuntimeError
-      3.7.require !! NoMethodError: private method 'require' called for an instance of Float
-      File.respond_to?(:open) => true
-      String.name => "String"
-      Integer.instance_methods.class => Array
-      Factory.make_via_self => :built
-      Factory.build !! NoMethodError: private method 'build' called for class Factory
-      Factory.send(:build) => :built
       Late#open_now before => :open
       Late#open_now after !! NoMethodError: private method 'open_now' called for an instance of Late
     OUT
@@ -1937,7 +2137,7 @@ describe "Methods: formatting and inspection" do
     OUT
   end
 
-  it "redefinition window ignores a visibility mark" do
+  it "a private mark made before a reopen is enforced in the redefinition window" do
     result = ze0(<<~'RUBY')
       # A `private` mark made before a reopen is enforced in the REDEFINITION
       # WINDOW, and the reopen clears it -- both channels.
@@ -1975,6 +2175,16 @@ describe "Methods: formatting and inspection" do
       end
       p V.new.v
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["NoMethodError", "v1"]
+      "v2"
+    OUT
+  end
+
+  it "a class method's private mark is enforced in its own window the same way" do
+    result = ze0(<<~'RUBY')
       class CV
         def self.v = "cv1"
         private_class_method :v
@@ -1985,6 +2195,16 @@ describe "Methods: formatting and inspection" do
       end
       p CV.v
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["NoMethodError", "cv1"]
+      "cv2"
+    OUT
+  end
+
+  it "a protected mark before a reopen behaves as the private one does" do
+    result = ze0(<<~'RUBY')
       # The sweep. Each shape below is one a fix could plausibly get wrong.
 
       # `protected` is the third mark, and it rides the same two bits.
@@ -1998,6 +2218,16 @@ describe "Methods: formatting and inspection" do
       end
       p [PR.protected_instance_methods(false), PR.new.m]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[:m], "NoMethodError"]
+      [[], "pr2"]
+    OUT
+  end
+
+  it "a bare private running as the default before a reopen marks the same window" do
+    result = ze0(<<~'RUBY')
       # The running DEFAULT, rather than a named mark: a bare `private` before the
       # `def` stamps the body the same way.
       class BD
@@ -2010,6 +2240,16 @@ describe "Methods: formatting and inspection" do
       end
       p [BD.private_instance_methods(false), BD.new.m]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[:m], "NoMethodError"]
+      [[], "bd2"]
+    OUT
+  end
+
+  it "three bodies for one name: a middle install clears the mark and re-marks it" do
+    result = ze0(<<~'RUBY')
       # Three bodies, so a MIDDLE install has to clear and re-mark.
       class TH
         def m = "t1"
@@ -2026,6 +2266,17 @@ describe "Methods: formatting and inspection" do
       end
       p [(TH.new.m rescue $!.class.to_s), TH.new.send(:m)]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["NoMethodError", "t1"]
+      "t2"
+      ["NoMethodError", "t3"]
+    OUT
+  end
+
+  it "public first and private last leaves the later window private" do
+    result = ze0(<<~'RUBY')
       # The reverse order: public first, private last. The static row says private,
       # so the WINDOW is what a fix has to keep public.
       class RV
@@ -2037,6 +2288,16 @@ describe "Methods: formatting and inspection" do
       end
       p [(RV.new.m rescue $!.class.to_s), RV.new.send(:m)]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "rv1"
+      ["NoMethodError", "rv2"]
+    OUT
+  end
+
+  it "a mark in a later body naming an earlier body's method reaches that method" do
+    result = ze0(<<~'RUBY')
       # A mark written in a LATER body, naming a method an EARLIER body defined --
       # the deferred `MethodVisibility` path rather than the in-place retag.
       class LT
@@ -2048,6 +2309,16 @@ describe "Methods: formatting and inspection" do
       end
       p [(LT.new.m rescue $!.class.to_s), LT.new.send(:m)]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "lt1"
+      ["NoMethodError", "lt1"]
+    OUT
+  end
+
+  it "a method with no redefinition at all keeps the ordinary static path" do
+    result = ze0(<<~'RUBY')
       # A method with no redefinition at all keeps the ordinary static path.
       class ST
         def a = "a"
@@ -2058,21 +2329,6 @@ describe "Methods: formatting and inspection" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["NoMethodError", "v1"]
-      "v2"
-      ["NoMethodError", "cv1"]
-      "cv2"
-      [[:m], "NoMethodError"]
-      [[], "pr2"]
-      [[:m], "NoMethodError"]
-      [[], "bd2"]
-      ["NoMethodError", "t1"]
-      "t2"
-      ["NoMethodError", "t3"]
-      "rv1"
-      ["NoMethodError", "rv2"]
-      "lt1"
-      ["NoMethodError", "lt1"]
       ["a", "NoMethodError", [:b]]
     OUT
   end
@@ -2299,7 +2555,7 @@ describe "Methods: formatting and inspection" do
     OUT
   end
 
-  it "universal def answers the same on every receiver" do
+  it "a universal def answers the same on every receiver, counting its ivar per receiver" do
     result = ze0(<<~'RUBY')
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
@@ -2396,29 +2652,6 @@ describe "Methods: formatting and inspection" do
         puts "#{name}\tprivate?\t#{r.respond_to?(:a_private_helper).inspect}"
       end
 
-      # The two paths must also agree about REFLECTION, which is what a gem reads.
-      puts "owner via Plain\t#{Plain.instance_method(:reads_a_constant).owner}"
-      puts "owner via String\t#{String.instance_method(:reads_a_constant).owner}"
-      puts "owner via OwnCopy\t#{OwnCopy.instance_method(:reads_a_constant).owner}"
-      puts "Plain defines?\t#{Plain.instance_methods(false).include?(:reads_a_constant)}"
-      puts "Object defines?\t#{Object.private_instance_methods(false).include?(:reads_a_constant)}"
-
-      # An ivar written through a shared body has to land on the RECEIVER, not
-      # anywhere shared. Two objects of one class must not see each other's.
-      a = Plain.new
-      b = Plain.new
-      a.send(:touches_an_ivar)
-      a.send(:touches_an_ivar)
-      b.send(:touches_an_ivar)
-      puts "separate ivars\t#{[a.instance_variable_get(:@counter), b.instance_variable_get(:@counter)].inspect}"
-
-      # And a class that already had the ivar keeps its own value.
-      w = WithIvar.new
-      w.send(:touches_an_ivar)
-      puts "pre-set ivar\t#{w.instance_variable_get(:@counter)}"
-
-      # `super` from a universal def, where the receiver's class DOES define it.
-      puts "override wins\t#{Overrides.new.goes_to_super.inspect}"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -2464,13 +2697,404 @@ describe "Methods: formatting and inspection" do
       OwnCopy	private	"private reached"
       OwnCopy	super	"no super: super: no superclass met"
       OwnCopy	private?	false
+    OUT
+  end
+
+  it "the two paths agree about reflection, which is what a gem reads" do
+    result = ze0(<<~'RUBY')
+      # A top-level `def` reaches every object, and it must answer the same five
+      # questions wherever it is called from.
+      #
+      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
+      # onto every user class -- 22,393 extra bodies on a program that requires
+      # rubygems, which is 78 MB of the binary. A builtin receiver already skips
+      # the copy and dispatches to the shared body (`analyze::mro` exempts it), so
+      # the two paths are live side by side RIGHT NOW.
+      #
+      # That makes this a decisive experiment rather than a guess: if a builtin
+      # receiver -- which uses the shared body -- answers exactly what a user class
+      # answers -- which uses its own copy -- then dropping the copy changes
+      # nothing. Every row below is printed for both kinds for that reason.
+      #
+      # The five questions are the ones a shared body could get wrong, because each
+      # is compiled from something the body would no longer own: an ivar slot, the
+      # caller's class, the constant cref, the method owner, and where `super`
+      # goes.
+
+      TOP_LEVEL_CONST = "top"
+
+      def touches_an_ivar
+        @counter = (@counter || 0) + 1
+        [@counter, instance_variable_get(:@counter), instance_variables]
+      end
+
+      def reads_a_constant
+        TOP_LEVEL_CONST
+      end
+
+      def reports_its_owner
+        method(__method__).owner
+      end
+
+      def calls_a_private_sibling
+        a_private_helper
+      end
+
+      # Every top-level `def` is already a PRIVATE instance method of Object, which
+      # is why each row below reaches it through `send` rather than a dot.
+      def a_private_helper
+        "private reached"
+      end
+
+      def goes_to_super
+        super
+      rescue NoMethodError => e
+        "no super: #{e.message[0, 24]}"
+      end
+
+      class Plain; end
+
+      class WithIvar
+        def initialize = (@counter = 100)
+      end
+
+      class Overrides
+        def goes_to_super = "overridden"
+      end
+
+      # A class that DEFINES the same name is not sharing anything, and must keep
+      # its own body.
+      class OwnCopy
+        def reads_a_constant = "mine"
+      end
+
+      RECEIVERS = {
+        # Builtin receivers: the shared-body path today.
+        "String" => -> { +"s" },
+        "Array" => -> { [1] },
+        "Hash" => -> { {} },
+        # User classes: the materialized-copy path today.
+        "Plain" => -> { Plain.new },
+        "WithIvar" => -> { WithIvar.new },
+        "OwnCopy" => -> { OwnCopy.new },
+      }.freeze
+
+      def show(label, receiver)
+        yield receiver
+      rescue StandardError => e
+        "#{e.class}: #{e.message[0, 40]}"
+      end
+
+      # The two paths must also agree about REFLECTION, which is what a gem reads.
+      puts "owner via Plain\t#{Plain.instance_method(:reads_a_constant).owner}"
+      puts "owner via String\t#{String.instance_method(:reads_a_constant).owner}"
+      puts "owner via OwnCopy\t#{OwnCopy.instance_method(:reads_a_constant).owner}"
+      puts "Plain defines?\t#{Plain.instance_methods(false).include?(:reads_a_constant)}"
+      puts "Object defines?\t#{Object.private_instance_methods(false).include?(:reads_a_constant)}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       owner via Plain	Object
       owner via String	Object
       owner via OwnCopy	OwnCopy
       Plain defines?	false
       Object defines?	true
+    OUT
+  end
+
+  it "an ivar written through a shared body lands on the receiver" do
+    result = ze0(<<~'RUBY')
+      # A top-level `def` reaches every object, and it must answer the same five
+      # questions wherever it is called from.
+      #
+      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
+      # onto every user class -- 22,393 extra bodies on a program that requires
+      # rubygems, which is 78 MB of the binary. A builtin receiver already skips
+      # the copy and dispatches to the shared body (`analyze::mro` exempts it), so
+      # the two paths are live side by side RIGHT NOW.
+      #
+      # That makes this a decisive experiment rather than a guess: if a builtin
+      # receiver -- which uses the shared body -- answers exactly what a user class
+      # answers -- which uses its own copy -- then dropping the copy changes
+      # nothing. Every row below is printed for both kinds for that reason.
+      #
+      # The five questions are the ones a shared body could get wrong, because each
+      # is compiled from something the body would no longer own: an ivar slot, the
+      # caller's class, the constant cref, the method owner, and where `super`
+      # goes.
+
+      TOP_LEVEL_CONST = "top"
+
+      def touches_an_ivar
+        @counter = (@counter || 0) + 1
+        [@counter, instance_variable_get(:@counter), instance_variables]
+      end
+
+      def reads_a_constant
+        TOP_LEVEL_CONST
+      end
+
+      def reports_its_owner
+        method(__method__).owner
+      end
+
+      def calls_a_private_sibling
+        a_private_helper
+      end
+
+      # Every top-level `def` is already a PRIVATE instance method of Object, which
+      # is why each row below reaches it through `send` rather than a dot.
+      def a_private_helper
+        "private reached"
+      end
+
+      def goes_to_super
+        super
+      rescue NoMethodError => e
+        "no super: #{e.message[0, 24]}"
+      end
+
+      class Plain; end
+
+      class WithIvar
+        def initialize = (@counter = 100)
+      end
+
+      class Overrides
+        def goes_to_super = "overridden"
+      end
+
+      # A class that DEFINES the same name is not sharing anything, and must keep
+      # its own body.
+      class OwnCopy
+        def reads_a_constant = "mine"
+      end
+
+      RECEIVERS = {
+        # Builtin receivers: the shared-body path today.
+        "String" => -> { +"s" },
+        "Array" => -> { [1] },
+        "Hash" => -> { {} },
+        # User classes: the materialized-copy path today.
+        "Plain" => -> { Plain.new },
+        "WithIvar" => -> { WithIvar.new },
+        "OwnCopy" => -> { OwnCopy.new },
+      }.freeze
+
+      def show(label, receiver)
+        yield receiver
+      rescue StandardError => e
+        "#{e.class}: #{e.message[0, 40]}"
+      end
+
+      # An ivar written through a shared body has to land on the RECEIVER, not
+      # anywhere shared. Two objects of one class must not see each other's.
+      a = Plain.new
+      b = Plain.new
+      a.send(:touches_an_ivar)
+      a.send(:touches_an_ivar)
+      b.send(:touches_an_ivar)
+      puts "separate ivars\t#{[a.instance_variable_get(:@counter), b.instance_variable_get(:@counter)].inspect}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       separate ivars	[2, 1]
+    OUT
+  end
+
+  it "a class that already held the ivar keeps its own value" do
+    result = ze0(<<~'RUBY')
+      # A top-level `def` reaches every object, and it must answer the same five
+      # questions wherever it is called from.
+      #
+      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
+      # onto every user class -- 22,393 extra bodies on a program that requires
+      # rubygems, which is 78 MB of the binary. A builtin receiver already skips
+      # the copy and dispatches to the shared body (`analyze::mro` exempts it), so
+      # the two paths are live side by side RIGHT NOW.
+      #
+      # That makes this a decisive experiment rather than a guess: if a builtin
+      # receiver -- which uses the shared body -- answers exactly what a user class
+      # answers -- which uses its own copy -- then dropping the copy changes
+      # nothing. Every row below is printed for both kinds for that reason.
+      #
+      # The five questions are the ones a shared body could get wrong, because each
+      # is compiled from something the body would no longer own: an ivar slot, the
+      # caller's class, the constant cref, the method owner, and where `super`
+      # goes.
+
+      TOP_LEVEL_CONST = "top"
+
+      def touches_an_ivar
+        @counter = (@counter || 0) + 1
+        [@counter, instance_variable_get(:@counter), instance_variables]
+      end
+
+      def reads_a_constant
+        TOP_LEVEL_CONST
+      end
+
+      def reports_its_owner
+        method(__method__).owner
+      end
+
+      def calls_a_private_sibling
+        a_private_helper
+      end
+
+      # Every top-level `def` is already a PRIVATE instance method of Object, which
+      # is why each row below reaches it through `send` rather than a dot.
+      def a_private_helper
+        "private reached"
+      end
+
+      def goes_to_super
+        super
+      rescue NoMethodError => e
+        "no super: #{e.message[0, 24]}"
+      end
+
+      class Plain; end
+
+      class WithIvar
+        def initialize = (@counter = 100)
+      end
+
+      class Overrides
+        def goes_to_super = "overridden"
+      end
+
+      # A class that DEFINES the same name is not sharing anything, and must keep
+      # its own body.
+      class OwnCopy
+        def reads_a_constant = "mine"
+      end
+
+      RECEIVERS = {
+        # Builtin receivers: the shared-body path today.
+        "String" => -> { +"s" },
+        "Array" => -> { [1] },
+        "Hash" => -> { {} },
+        # User classes: the materialized-copy path today.
+        "Plain" => -> { Plain.new },
+        "WithIvar" => -> { WithIvar.new },
+        "OwnCopy" => -> { OwnCopy.new },
+      }.freeze
+
+      def show(label, receiver)
+        yield receiver
+      rescue StandardError => e
+        "#{e.class}: #{e.message[0, 40]}"
+      end
+
+      # And a class that already had the ivar keeps its own value.
+      w = WithIvar.new
+      w.send(:touches_an_ivar)
+      puts "pre-set ivar\t#{w.instance_variable_get(:@counter)}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       pre-set ivar	101
+    OUT
+  end
+
+  it "super from a universal def reaches the receiver's own override" do
+    result = ze0(<<~'RUBY')
+      # A top-level `def` reaches every object, and it must answer the same five
+      # questions wherever it is called from.
+      #
+      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
+      # onto every user class -- 22,393 extra bodies on a program that requires
+      # rubygems, which is 78 MB of the binary. A builtin receiver already skips
+      # the copy and dispatches to the shared body (`analyze::mro` exempts it), so
+      # the two paths are live side by side RIGHT NOW.
+      #
+      # That makes this a decisive experiment rather than a guess: if a builtin
+      # receiver -- which uses the shared body -- answers exactly what a user class
+      # answers -- which uses its own copy -- then dropping the copy changes
+      # nothing. Every row below is printed for both kinds for that reason.
+      #
+      # The five questions are the ones a shared body could get wrong, because each
+      # is compiled from something the body would no longer own: an ivar slot, the
+      # caller's class, the constant cref, the method owner, and where `super`
+      # goes.
+
+      TOP_LEVEL_CONST = "top"
+
+      def touches_an_ivar
+        @counter = (@counter || 0) + 1
+        [@counter, instance_variable_get(:@counter), instance_variables]
+      end
+
+      def reads_a_constant
+        TOP_LEVEL_CONST
+      end
+
+      def reports_its_owner
+        method(__method__).owner
+      end
+
+      def calls_a_private_sibling
+        a_private_helper
+      end
+
+      # Every top-level `def` is already a PRIVATE instance method of Object, which
+      # is why each row below reaches it through `send` rather than a dot.
+      def a_private_helper
+        "private reached"
+      end
+
+      def goes_to_super
+        super
+      rescue NoMethodError => e
+        "no super: #{e.message[0, 24]}"
+      end
+
+      class Plain; end
+
+      class WithIvar
+        def initialize = (@counter = 100)
+      end
+
+      class Overrides
+        def goes_to_super = "overridden"
+      end
+
+      # A class that DEFINES the same name is not sharing anything, and must keep
+      # its own body.
+      class OwnCopy
+        def reads_a_constant = "mine"
+      end
+
+      RECEIVERS = {
+        # Builtin receivers: the shared-body path today.
+        "String" => -> { +"s" },
+        "Array" => -> { [1] },
+        "Hash" => -> { {} },
+        # User classes: the materialized-copy path today.
+        "Plain" => -> { Plain.new },
+        "WithIvar" => -> { WithIvar.new },
+        "OwnCopy" => -> { OwnCopy.new },
+      }.freeze
+
+      def show(label, receiver)
+        yield receiver
+      rescue StandardError => e
+        "#{e.class}: #{e.message[0, 40]}"
+      end
+
+      # `super` from a universal def, where the receiver's class DOES define it.
+      puts "override wins\t#{Overrides.new.goes_to_super.inspect}"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       override wins	"overridden"
     OUT
   end

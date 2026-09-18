@@ -78,7 +78,7 @@ describe "Methods: frozen literals" do
     OUT
   end
 
-  it "class method redefinition timeline" do
+  it "a class method reopened across class bodies answers each body's own version" do
     result = ze0(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
@@ -105,6 +105,32 @@ describe "Methods: frozen literals" do
       end
       p C.t
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == a reopen across class bodies
+      "t1"
+      "t2"
+    OUT
+  end
+
+  it "module_function reaches the same timeline" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
+
       puts "== module_function reaches it the same way"
       module F
         module_function
@@ -116,6 +142,32 @@ describe "Methods: frozen literals" do
         def g = "g2"
       end
       p F.g
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == module_function reaches it the same way
+      "g1"
+      "g2"
+    OUT
+  end
+
+  it "three bodies each answer in their own window" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
 
       puts "== three bodies, and every window sees its own"
       class Three
@@ -131,6 +183,31 @@ describe "Methods: frozen literals" do
       end
       p [a, b, Three.v]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == three bodies, and every window sees its own
+      [1, 2, 3]
+    OUT
+  end
+
+  it "two definitions in one body with a statement between them each hold their window" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
+
       puts "== two definitions in ONE body with a statement between"
       class Between
         def self.w = "first"
@@ -138,6 +215,31 @@ describe "Methods: frozen literals" do
         def self.w = "second"
       end
       p [Between::SEEN, Between.w]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == two definitions in ONE body with a statement between
+      ["first", "second"]
+    OUT
+  end
+
+  it "the class-method and instance-method channels do not interfere" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
 
       puts "== the two channels do not interfere"
       class Both
@@ -151,6 +253,32 @@ describe "Methods: frozen literals" do
       end
       p [Both.n, Both.new.n]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == the two channels do not interfere
+      ["cls1", "inst1"]
+      ["cls2", "inst2"]
+    OUT
+  end
+
+  it "a redefined class method keeps its arguments, its block and its defaults" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
+
       puts "== a redefined class method keeps its arguments, block and keywords"
       class Args
         def self.k(a, b = 2, *rest, c:, d: 4, &blk) = "1:#{a},#{b},#{rest},#{c},#{d},#{blk&.call}"
@@ -160,6 +288,32 @@ describe "Methods: frozen literals" do
         def self.k(a, b = 2, *rest, c:, d: 4, &blk) = "2:#{a},#{b},#{rest},#{c},#{d},#{blk&.call}"
       end
       p Args.k(1, 9, 8, c: 3, d: 7) { "blk" }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == a redefined class method keeps its arguments, block and keywords
+      "1:1,2,[],3,4,blk"
+      "2:1,9,[8],3,7,blk"
+    OUT
+  end
+
+  it "self is the class in every body, so class-level ivars carry across them" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
 
       puts "== self is the CLASS in every body: class-level ivars and cvars"
       class SelfIsClass
@@ -172,6 +326,32 @@ describe "Methods: frozen literals" do
         def self.s = "2:#{@tag}/#{@@shared}"
       end
       p SelfIsClass.s
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == self is the CLASS in every body: class-level ivars and cvars
+      "1:ivar/cvar"
+      "2:ivar/cvar"
+    OUT
+  end
+
+  it "super from a redefined class method reaches the parent's" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
 
       puts "== super from a redefined class method"
       class SuperBase
@@ -186,6 +366,32 @@ describe "Methods: frozen literals" do
       end
       p SuperSub.s
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == super from a redefined class method
+      "1(base)"
+      "2(base)"
+    OUT
+  end
+
+  it "a subclass sees the timeline of the parent's class method" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
+
       puts "== a subclass sees the timeline of the parent's class method"
       class PBase
         def self.p1 = "p1"
@@ -197,6 +403,31 @@ describe "Methods: frozen literals" do
       end
       p [before, PSub.p1]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == a subclass sees the timeline of the parent's class method
+      ["p1", "p2"]
+    OUT
+  end
+
+  it "a module's own def self.x follows the same timeline" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
+
       puts "== a module's own def self.x"
       module ModSelf
         def self.m = "m1"
@@ -206,6 +437,32 @@ describe "Methods: frozen literals" do
         def self.m = "m2"
       end
       p ModSelf.m
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == a module's own def self.x
+      "m1"
+      "m2"
+    OUT
+  end
+
+  it "reflection names the owner, and the last body's report is the one that stands" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
 
       puts "== reflection names the owner, and the last body's report"
       # `#arity`/`#parameters` in the WINDOW report the FINAL body on both channels
@@ -220,6 +477,32 @@ describe "Methods: frozen literals" do
       end
       p [Reflect.method(:r).owner.to_s, Reflect.method(:r).arity, Reflect.r("!")]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == reflection names the owner, and the last body's report
+      ["#<Class:Reflect>", "r1"]
+      ["#<Class:Reflect>", 1, "r2!"]
+    OUT
+  end
+
+  it "singleton_method_added reports each definition where it is written" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
+
       puts "== singleton_method_added reports each definition where it stands"
       class Hooked
         def self.singleton_method_added(n)
@@ -233,6 +516,32 @@ describe "Methods: frozen literals" do
         def self.a = "a2"
       end
       p [Hooked.instance_variable_get(:@seen), Hooked.a]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      == singleton_method_added reports each definition where it stands
+      [:a]
+      [[:a, :a], "a2"]
+    OUT
+  end
+
+  it "a redefinition clears the private mark, as ruby does" do
+    result = ze0(<<~'RUBY')
+      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
+      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
+      # runtime overlay instead: the first body installs at boot, and each later one
+      # re-installs at its own document position.
+      #
+      # The instance channel had that; the class-method channel did not -- `redefs`
+      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
+      # the program's first line. The two channels are separate maps and separate
+      # hooks, which is what this file sweeps.
+      #
+      # No call-site change was needed: a class-method send is already dynamic (it
+      # has an explicit receiver), and the overlay outranks the frozen row. What was
+      # missing was the install.
 
       puts "== a redefinition clears the private mark, as ruby does"
       # Only the SECOND half is asserted here: a `private_class_method` mark made
@@ -249,39 +558,6 @@ describe "Methods: frozen literals" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      == a reopen across class bodies
-      "t1"
-      "t2"
-      == module_function reaches it the same way
-      "g1"
-      "g2"
-      == three bodies, and every window sees its own
-      [1, 2, 3]
-      == two definitions in ONE body with a statement between
-      ["first", "second"]
-      == the two channels do not interfere
-      ["cls1", "inst1"]
-      ["cls2", "inst2"]
-      == a redefined class method keeps its arguments, block and keywords
-      "1:1,2,[],3,4,blk"
-      "2:1,9,[8],3,7,blk"
-      == self is the CLASS in every body: class-level ivars and cvars
-      "1:ivar/cvar"
-      "2:ivar/cvar"
-      == super from a redefined class method
-      "1(base)"
-      "2(base)"
-      == a subclass sees the timeline of the parent's class method
-      ["p1", "p2"]
-      == a module's own def self.x
-      "m1"
-      "m2"
-      == reflection names the owner, and the last body's report
-      ["#<Class:Reflect>", "r1"]
-      ["#<Class:Reflect>", 1, "r2!"]
-      == singleton_method_added reports each definition where it stands
-      [:a]
-      [[:a, :a], "a2"]
       == a redefinition clears the private mark, as ruby does
       "v2"
     OUT

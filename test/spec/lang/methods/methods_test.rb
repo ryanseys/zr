@@ -3566,7 +3566,7 @@ describe "Methods programs" do
     OUT
   end
 
-  it "parameters" do
+  it "optional, rest, keyword and block parameters bind in every combination" do
     result = ze0(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
@@ -3631,55 +3631,6 @@ describe "Methods programs" do
       p everything(1, 2, 3, 4, 5, k: 6)
       p everything(1, 2, 3, k: 6, j: 7, extra: 8) { }
 
-      p method(:opt).parameters
-      p method(:everything).parameters
-      p method(:opt).arity
-      p method(:everything).arity
-
-      p [1, 2, 3].map { |x, y = 10| [x, y] }
-      p [[1, 2], [3, 4]].map { |a, *r| [a, r] }
-
-      double = ->(x) { x * 2 }
-      p double.call(5)
-      p double.(6)
-      p double[7]
-      p double.lambda?
-      p double.arity
-      p double.parameters
-      p [1, 2, 3].map(&double)
-      p ["a", "b"].map(&:upcase)
-
-      add = ->(a, b = 1) { a + b }
-      p add.call(2)
-      p add.call(2, 3)
-      p add.arity
-
-      # A `->` closes over a name the same way a block does: one shared cell,
-      # not a copy taken where the lambda was written.
-      tally = 0
-      count = ->(n) { tally += n }
-      count.call(3)
-      count.call(4)
-      p tally
-
-      pr = proc { |a, b = 1| [a, b] }
-      p pr.call(7)
-      p pr.arity
-      p lambda { |a, b = 1| }.arity
-      p proc { |a, *r| }.arity
-
-      puts Box.new(1)
-      puts Box.new(2, label: "two")
-      p Box.new(3).with(4, 5, a: 6)
-      Box.new([7, 8], label: "n").each_pair { |v, l| puts "#{l}:#{v}" }
-
-      # `_1`/`_2` and `it` are that many required positionals, under the names
-      # ruby gives them, so they answer a block's ordinary arity.
-      p [1, 2].map { _1 * 2 }
-      p({ "a" => 1 }.map { _1 + _2.to_s })
-      p [1, 2].map { it * 2 }
-      p proc { _1 + _2 }.arity
-      p proc { it }.arity
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -3698,12 +3649,195 @@ describe "Methods programs" do
       8
       [1, 2, [3, 4], 5, 6, 9, {}, true]
       [1, 2, [], 3, 6, 7, {extra: 8}, false]
+    OUT
+  end
+
+  it "Method#parameters names each parameter's kind and name" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      p method(:opt).parameters
+      p method(:everything).parameters
+      p method(:opt).arity
+      p method(:everything).arity
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [[:req, :a], [:opt, :b], [:opt, :c]]
       [[:req, :a], [:opt, :b], [:rest, :m], [:req, :z], [:keyreq, :k], [:key, :j], [:keyrest, :o], [:block, :blk]]
       -2
       -4
+    OUT
+  end
+
+  it "a block parameter takes a default, and destructures what it is given" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      p [1, 2, 3].map { |x, y = 10| [x, y] }
+      p [[1, 2], [3, 4]].map { |a, *r| [a, r] }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [[1, 10], [2, 10], [3, 10]]
       [[1, [2]], [3, [4]]]
+    OUT
+  end
+
+  it "a lambda binds its parameters and reports its arity and its parameters" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      double = ->(x) { x * 2 }
+      p double.call(5)
+      p double.(6)
+      p double[7]
+      p double.lambda?
+      p double.arity
+      p double.parameters
+      p [1, 2, 3].map(&double)
+      p ["a", "b"].map(&:upcase)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       10
       12
       14
@@ -3712,19 +3846,325 @@ describe "Methods programs" do
       [[:req, :x]]
       [2, 4, 6]
       ["A", "B"]
+    OUT
+  end
+
+  it "a curried lambda binds one argument at a time" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      add = ->(a, b = 1) { a + b }
+      p add.call(2)
+      p add.call(2, 3)
+      p add.arity
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       3
       5
       -2
+    OUT
+  end
+
+  it "a -> closes over a name the way a block does, sharing one cell" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      # A `->` closes over a name the same way a block does: one shared cell,
+      # not a copy taken where the lambda was written.
+      tally = 0
+      count = ->(n) { tally += n }
+      count.call(3)
+      count.call(4)
+      p tally
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       7
+    OUT
+  end
+
+  it "a proc fills a missing parameter with nil and drops a surplus argument" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      pr = proc { |a, b = 1| [a, b] }
+      p pr.call(7)
+      p pr.arity
+      p lambda { |a, b = 1| }.arity
+      p proc { |a, *r| }.arity
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [7, 1]
       1
       -2
       -2
+    OUT
+  end
+
+  it "a class's methods take the same parameter shapes, defaults and splats included" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      puts Box.new(1)
+      puts Box.new(2, label: "two")
+      p Box.new(3).with(4, 5, a: 6)
+      Box.new([7, 8], label: "n").each_pair { |v, l| puts "#{l}:#{v}" }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       box=1
       two=2
       [3, [4, 5], {a: 6}]
       n:7
       n:8
+    OUT
+  end
+
+  it "_1, _2 and it are that many required positionals, under their own names" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      # `_1`/`_2` and `it` are that many required positionals, under the names
+      # ruby gives them, so they answer a block's ordinary arity.
+      p [1, 2].map { _1 * 2 }
+      p({ "a" => 1 }.map { _1 + _2.to_s })
+      p [1, 2].map { it * 2 }
+      p proc { _1 + _2 }.arity
+      p proc { it }.arity
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [2, 4]
       ["a1"]
       [2, 4]
