@@ -533,7 +533,7 @@ describe "Classes: formatting and inspection" do
     _(result).must_answer "\"P(7)\"\n"
   end
 
-  it "classes and modules" do
+  it "a class carries constants, ivars, inheritance and a module it mixes in" do
     result = ze0(<<~'RUBY', path: "ze0/classes_and_modules.rb")
       class Animal
         LEGS = 4

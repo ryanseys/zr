@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Base64 programs" do
-  it "base64 demo" do
+  it "encode64 wraps at sixty characters, strict_encode64 does not, and every decoder is the inverse" do
     result = ze0(<<~'RUBY')
       require "base64"
 

@@ -306,7 +306,7 @@ describe "String: control flow" do
     OUT
   end
 
-  it "string oct parse" do
+  it "oct is a lenient base-8 parse: whitespace, a sign, a base prefix and underscore separators" do
     result = ze0(<<~'RUBY')
       # String#oct is a lenient Integer(str, 8)-style parse: leading whitespace, an
       # optional sign, an optional base prefix (0x/0b/0o/0d or a leading 0 = octal),

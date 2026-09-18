@@ -320,7 +320,7 @@ describe "Struct: frozen literals" do
     OUT
   end
 
-  it "struct compiled class" do
+  it "a literal member list compiles to a real class, and the whole protocol still answers" do
     result = ze0(<<~'RUBY')
       # A `NAME = Struct.new(:a, :b)` with a literal member list compiles to a real
       # class whose members are slots rather than an overlay minted at runtime. What

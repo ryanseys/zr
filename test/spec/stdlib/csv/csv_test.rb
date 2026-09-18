@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "CSV programs" do
-  it "csv shift nonlocal" do
+  it "shift returns non-locally out of a block yielded deep inside the parser" do
     result = ze0(<<~'RUBY')
       # `CSV#shift` is `parser.parse { |row| return row }` -- a non-local return out
       # of a block yielded from deep inside the parser, past frames that catch a

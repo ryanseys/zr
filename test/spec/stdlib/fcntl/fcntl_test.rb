@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Fcntl programs" do
-  it "fcntl constants" do
+  it "Fcntl is a constant table, and the POSIX-fixed values and relationships hold" do
     result = ze0(<<~'RUBY')
       # `require "fcntl"` -- the Fcntl module is a constant table and nothing else;
       # the operations that use these are `IO#fcntl`, which is IO's.

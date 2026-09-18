@@ -31,7 +31,7 @@ describe "Literals programs" do
     OUT
   end
 
-  it "literals" do
+  it "an interpolated pattern, a bignum and the exact numeric towers are built at run time" do
     result = ze0(<<~'RUBY', path: "ze0/literals.rb")
       # frozen_string_literal: true
 

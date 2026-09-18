@@ -1601,7 +1601,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "constants" do
+  it "a module constant, a top-level one and a nested lookup each resolve" do
     result = ze0(<<~'RUBY')
       # Test module constants and top-level constants
 

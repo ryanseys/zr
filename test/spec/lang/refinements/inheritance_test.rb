@@ -575,7 +575,7 @@ describe "Refinements: inheritance and ancestors" do
     OUT
   end
 
-  it "refinements" do
+  it "everything lexically after the using sees the refinement, and dispatch is otherwise ordinary" do
     result = ze0(<<~'RUBY')
       # Refinements (`Module#refine` / `Kernel#using`), every line oracle-checked
       # against ruby 4.0.6 -- several are not what the documentation leads you to

@@ -708,7 +708,7 @@ describe "Control programs" do
     _(result).must_answer "5\n42\n"
   end
 
-  it "control flow" do
+  it "if, elsif, case, while, until, the modifiers and a rescue all take the branch they should" do
     result = ze0(<<~'RUBY', path: "ze0/control_flow.rb")
       def grade(n)
         if n >= 90

@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Etc programs" do
-  it "etc" do
+  it "the user and group databases, sysconf, uname and the processor count all answer their contract" do
     result = ze0(<<~'RUBY')
       # Etc: the system user/group databases, sysconf/confstr, uname, and processor
       # count -- CRuby's native `ext/etc` over libc. Host-specific values (the real

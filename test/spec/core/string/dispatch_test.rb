@@ -1361,7 +1361,7 @@ describe "String: dispatch" do
     OUT
   end
 
-  it "string new poly arg" do
+  it "String.new takes an argument read boxed out of a nested array, and refuses nil" do
     result = ze0(<<~'RUBY')
       # String.new(x) where x is a poly value -- an element read out of a nested
       # array, rather than a flat array, a local, or a literal -- previously failed
