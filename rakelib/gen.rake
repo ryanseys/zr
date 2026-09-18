@@ -15,8 +15,6 @@
 # The bigger tables have a file of their own: `rakelib/cjk.rake`,
 # `nkf.rake`, `onig.rake`, `zlib.rake` and `prism.rake`.
 
-require_relative "../lib/ze0/prism"
-
 module Gen
   # The CRuby revision the sources are read at. ruby 4.0.6.
   REVISION = "03b6d3f8898a28604fe6cb00eae3226b821168f4"
@@ -298,68 +296,74 @@ module Gen
     SOURCES = %w[ast dir gc numeric io marshal pack trace_point warning array hash kernel pathname_builtin ractor
                  symbol timev thread_sync nilclass prelude].freeze
 
+    module_function
+
     # The defs of one file, with the class and module names around each.
-    class Defs < Prism::Visitor
-      attr_reader :rows
+    # Built on the first call, so that loading this file does not load
+    # the prism port: `rake -T` would pay a quarter of a second for a
+    # task nobody is running.
+    def defs_class
+      require_relative "../lib/ze0/prism"
+      @defs_class ||= Class.new(Prism::Visitor) do
+        attr_reader :rows
 
-      def initialize(path)
-        super()
-        @path = path
-        @scope = []
-        @singleton = false
-        @rows = {}
-      end
+        def initialize(path)
+          super()
+          @path = path
+          @scope = []
+          @singleton = false
+          @rows = {}
+        end
 
-      def visit_class_node(node) = within(node.constant_path.slice) { super }
+        def visit_class_node(node) = within(node.constant_path.slice) { super }
 
-      # A def inside `with_jit` stands only while a JIT runs; without one
-      # the method stays C's.
-      def visit_call_node(node)
-        super unless node.name == :with_jit && node.receiver.nil?
-      end
+        # A def inside `with_jit` stands only while a JIT runs; without one
+        # the method stays C's.
+        def visit_call_node(node)
+          super unless node.name == :with_jit && node.receiver.nil?
+        end
 
-      def visit_module_node(node) = within(node.constant_path.slice) { super }
+        def visit_module_node(node) = within(node.constant_path.slice) { super }
 
-      def visit_singleton_class_node(node)
-        was = @singleton
-        @singleton = node.expression.is_a?(Prism::SelfNode)
-        super
-      ensure
-        @singleton = was
-      end
+        def visit_singleton_class_node(node)
+          was = @singleton
+          @singleton = node.expression.is_a?(Prism::SelfNode)
+          super
+        ensure
+          @singleton = was
+        end
 
-      def visit_def_node(node)
-        owner = @scope.join("::")
-        owner = "Object" if owner.empty?
-        singleton = @singleton || node.receiver.is_a?(Prism::SelfNode)
-        key = "#{owner}#{singleton ? "." : "#"}#{node.name}"
-        @rows[key] ||= [@path, call_line(node), node.location.end_line]
-      end
+        def visit_def_node(node)
+          owner = @scope.join("::")
+          owner = "Object" if owner.empty?
+          singleton = @singleton || node.receiver.is_a?(Prism::SelfNode)
+          key = "#{owner}#{singleton ? "." : "#"}#{node.name}"
+          @rows[key] ||= [@path, call_line(node), node.location.end_line]
+        end
 
-      private
+        private
 
-      # The def's own line, but for a method split on
-      # `Primitive.mandatory_only?`, whose sequence starts at that test.
-      def call_line(node)
-        first = node.body.is_a?(Prism::StatementsNode) ? node.body.body.first : nil
-        split = first.is_a?(Prism::IfNode) && first.predicate.slice == "Primitive.mandatory_only?"
-        split ? first.location.start_line : node.location.start_line
-      end
+        # The def's own line, but for a method split on
+        # `Primitive.mandatory_only?`, whose sequence starts at that test.
+        def call_line(node)
+          first = node.body.is_a?(Prism::StatementsNode) ? node.body.body.first : nil
+          split = first.is_a?(Prism::IfNode) && first.predicate.slice == "Primitive.mandatory_only?"
+          split ? first.location.start_line : node.location.start_line
+        end
 
-      def within(name)
-        @scope.push(name)
-        yield
-      ensure
-        @scope.pop
+        def within(name)
+          @scope.push(name)
+          yield
+        ensure
+          @scope.pop
+        end
       end
     end
-
-    module_function
 
     def write(io)
       rows = {}
       SOURCES.each do |name|
-        defs = Defs.new("<internal:#{name}>")
+        defs = defs_class.new("<internal:#{name}>")
         Prism.parse(Gen.cruby("#{name}.rb")).value.accept(defs)
         rows.merge!(defs.rows) { |_key, first, _later| first }
       end

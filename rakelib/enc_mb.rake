@@ -13,8 +13,6 @@
 # sequence, and a sample of longer ones, must be valid where
 # String#valid_encoding? says so.
 
-require_relative "../lib/ze0/zr"
-
 module Gen
   module EncMb
     OUT = File.expand_path("../rt/kernel/enc_mb.rb", __dir__)
@@ -57,6 +55,7 @@ module Gen
     def def_name(enc) = "zr_enc_mb_#{enc.name.downcase.tr('-', '_')}"
 
     def write
+      require_relative "../lib/ze0/zr"
       abort "ruby 4.0.6 records these tables; this is #{RUBY_VERSION}" unless RUBY_VERSION == "4.0.6"
 
       Ze0::Zr.require_onig
