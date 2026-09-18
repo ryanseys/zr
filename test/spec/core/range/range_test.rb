@@ -3,14 +3,8 @@
 require "spec_helper"
 
 describe "Range programs" do
-  it "bundle misc c 31" do
+  it "str rindex optional narrow" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - str_rindex_optional_narrow
-      #   - string_new_array_literal
-      #   - string_split_with_limit
-
-      # === str_rindex_optional_narrow ===
       def t_str_rindex_optional_narrow
         # Issue #645: `slash = p.rindex("/")` followed by a nil-check
         # ternary used to leak sp_RbVal into sp_str_sub_range_r (which
@@ -50,8 +44,19 @@ describe "Range programs" do
         puts "/foo".rindex("/")
       end
       t_str_rindex_optional_narrow
+    RUBY
 
-      # === string_new_array_literal ===
+    _(result).must_answer <<~'OUT'
+      def
+      no_slash_here
+      5
+      d
+      0
+    OUT
+  end
+
+  it "string new array literal" do
+    result = ze0(<<~'RUBY')
       def t_string_new_array_literal
         # #519. `[String.new]` (and `[s]` where `s = String.new`) used to
         # infer as `int_array`, then codegen emitted
@@ -78,8 +83,17 @@ describe "Range programs" do
         puts mixed.length
       end
       t_string_new_array_literal
+    RUBY
 
-      # === string_split_with_limit ===
+    _(result).must_answer <<~'OUT'
+      1
+      1
+      2
+    OUT
+  end
+
+  it "string split with limit" do
+    result = ze0(<<~'RUBY')
       def t_string_split_with_limit
         # String#split with a positive `limit` argument caps the result at
         # `limit` elements; the last element keeps the unsplit remainder.
@@ -93,18 +107,9 @@ describe "Range programs" do
         p "a,b,c".split(",", -1) == ["a", "b", "c"]         # negative limit -> full split
       end
       t_string_split_with_limit
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      def
-      no_slash_here
-      5
-      d
-      0
-      1
-      1
-      2
       true
       true
       true

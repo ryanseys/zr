@@ -137,14 +137,8 @@ describe "Thread programs" do
     OUT
   end
 
-  it "bundle misc c 10" do
+  it "fiber storage inherits" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - fiber_storage_inherits
-      #   - fiber_storage_persists
-      #   - fiber_storage_siblings
-
-      # === fiber_storage_inherits ===
       def t_fiber_storage_inherits
         # Parent fiber's storage is snapshot-copied into a child fiber at
         # Fiber.new time. Subsequent writes on either side are independent
@@ -164,8 +158,17 @@ describe "Thread programs" do
         puts Fiber[:user]
       end
       t_fiber_storage_inherits
+    RUBY
 
-      # === fiber_storage_persists ===
+    _(result).must_answer <<~'OUT'
+      alice
+      bob
+      alice
+    OUT
+  end
+
+  it "fiber storage persists" do
+    result = ze0(<<~'RUBY')
       def t_fiber_storage_persists
         # Storage values persist across yield/resume cycles within the same
         # fiber. Mirrors the existing fiber_ivar_persists_across_yield test
@@ -185,8 +188,15 @@ describe "Thread programs" do
         f.resume   # bumps to 3, prints 3
       end
       t_fiber_storage_persists
+    RUBY
 
-      # === fiber_storage_siblings ===
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "fiber storage siblings" do
+    result = ze0(<<~'RUBY')
       def t_fiber_storage_siblings
         # Sibling fibers have independent storage. A write in one does not
         # affect the other even if they share a parent.
@@ -211,14 +221,9 @@ describe "Thread programs" do
         puts Fiber[:tag]
       end
       t_fiber_storage_siblings
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      alice
-      bob
-      alice
-      3
       a
       parent
       b

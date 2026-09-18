@@ -559,7 +559,7 @@ describe "Range: slicing" do
     OUT
   end
 
-  it "range" do
+  it "Basic Range methods" do
     result = ze0(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
@@ -569,7 +569,7 @@ describe "Range: slicing" do
       # names use per-section prefixes where the original tests reused
       # generic names like `r`, `sum`, `i`.
 
-      # === Basic Range methods ===
+
       r0 = (1..10)
       puts r0.first             # 1
       puts r0.last              # 10
@@ -586,8 +586,31 @@ describe "Range: slicing" do
       end
       puts total                # 55
       puts "done"
+    RUBY
 
-      # === cover? / min / max / count ===
+    _(result).must_answer <<~'OUT'
+      1
+      10
+      true
+      false
+      10
+      55
+      55
+      done
+    OUT
+  end
+
+  it "cover? / min / max / count" do
+    result = ze0(<<~'RUBY')
+      # Range methods — first / last / include? / to_a / each, cover? /
+      # min / max / count, Range#map, inclusive-vs-exclusive distinction,
+      # step without block param. Was five separate tests; merged here.
+      # No class collisions. The only top-level def (`classify` in the
+      # inclusive/exclusive section) is unique within the file. Local
+      # names use per-section prefixes where the original tests reused
+      # generic names like `r`, `sum`, `i`.
+
+
       puts (1..10).cover?(5)
       puts (1..10).cover?(1)
       puts (1..10).cover?(10)
@@ -612,16 +635,73 @@ describe "Range: slicing" do
       puts (1...10).count
       puts (1...1).count
       puts (-5...5).count
+    RUBY
 
-      # === Range#map ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      false
+      false
+      true
+      true
+      false
+      1
+      10
+      -5
+      5
+      100
+      200
+      10
+      1
+      11
+      101
+      9
+      0
+      10
+    OUT
+  end
+
+  it "Range#map" do
+    result = ze0(<<~'RUBY')
+      # Range methods — first / last / include? / to_a / each, cover? /
+      # min / max / count, Range#map, inclusive-vs-exclusive distinction,
+      # step without block param. Was five separate tests; merged here.
+      # No class collisions. The only top-level def (`classify` in the
+      # inclusive/exclusive section) is unique within the file. Local
+      # names use per-section prefixes where the original tests reused
+      # generic names like `r`, `sum`, `i`.
+
+
       puts (0..3).map { |i| i * 10 }.length      # 4
       puts (0..3).map { |i| i * 10 }[2]          # 20
       puts (0...3).map { |i| i }.length          # 3
       puts (0...3).map { |i| i }[2]              # 2
       puts ((1..3).map { |i| "x#{i}" }.join(","))   # x1,x2,x3
       puts ((0...3).map { |i| i * 0.5 }.length)     # 3
+    RUBY
 
-      # === Inclusive vs exclusive (slicing / for-in / Range#to_a / case-when) ===
+    _(result).must_answer <<~'OUT'
+      4
+      20
+      3
+      2
+      x1,x2,x3
+      3
+    OUT
+  end
+
+  it "Inclusive vs exclusive (slicing / for-in / Range#to a / case-when)" do
+    result = ze0(<<~'RUBY')
+      # Range methods — first / last / include? / to_a / each, cover? /
+      # min / max / count, Range#map, inclusive-vs-exclusive distinction,
+      # step without block param. Was five separate tests; merged here.
+      # No class collisions. The only top-level def (`classify` in the
+      # inclusive/exclusive section) is unique within the file. Local
+      # names use per-section prefixes where the original tests reused
+      # generic names like `r`, `sum`, `i`.
+
+
       ia = [10, 20, 30, 40, 50]
       puts ia[1..3].length      # 3 (inclusive)
       puts ia[1...3].length     # 2 (exclusive)
@@ -668,67 +748,9 @@ describe "Range: slicing" do
       puts classify(10)
       puts classify(99)
       puts classify(100)
-
-      # === Range#=== (case-when membership) ===
-      puts (1..10) === 5      # true
-      puts (1..10) === 1      # true
-      puts (1..10) === 10     # true
-      puts (1..10) === 0      # false
-      puts (1..10) === 11     # false
-
-      # === step without block param ===
-      # `Integer#step` with a do-block that omits its parameter used a
-      # synthesized `_i` index that wasn't declared. Two paramless `step`
-      # blocks in the same function also redefined it.
-      sum_step = 0
-      1.step(10, 1) do
-        sum_step += 1
-      end
-      1.step(5, 1) do
-        sum_step += 10
-      end
-      1.step(5, 1) do
-        sum_step += 100
-      end
-      puts sum_step
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1
-      10
-      true
-      false
-      10
-      55
-      55
-      done
-      true
-      true
-      true
-      false
-      false
-      true
-      true
-      false
-      1
-      10
-      -5
-      5
-      100
-      200
-      10
-      1
-      11
-      101
-      9
-      0
-      10
-      4
-      20
-      3
-      2
-      x1,x2,x3
-      3
       3
       2
       20
@@ -749,11 +771,64 @@ describe "Range: slicing" do
       medium
       medium
       large
+    OUT
+  end
+
+  it "Range#=== (case-when membership)" do
+    result = ze0(<<~'RUBY')
+      # Range methods — first / last / include? / to_a / each, cover? /
+      # min / max / count, Range#map, inclusive-vs-exclusive distinction,
+      # step without block param. Was five separate tests; merged here.
+      # No class collisions. The only top-level def (`classify` in the
+      # inclusive/exclusive section) is unique within the file. Local
+      # names use per-section prefixes where the original tests reused
+      # generic names like `r`, `sum`, `i`.
+
+
+      puts (1..10) === 5      # true
+      puts (1..10) === 1      # true
+      puts (1..10) === 10     # true
+      puts (1..10) === 0      # false
+      puts (1..10) === 11     # false
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       true
       true
       true
       false
       false
+    OUT
+  end
+
+  it "step without block param" do
+    result = ze0(<<~'RUBY')
+      # Range methods — first / last / include? / to_a / each, cover? /
+      # min / max / count, Range#map, inclusive-vs-exclusive distinction,
+      # step without block param. Was five separate tests; merged here.
+      # No class collisions. The only top-level def (`classify` in the
+      # inclusive/exclusive section) is unique within the file. Local
+      # names use per-section prefixes where the original tests reused
+      # generic names like `r`, `sum`, `i`.
+
+
+      # `Integer#step` with a do-block that omits its parameter used a
+      # synthesized `_i` index that wasn't declared. Two paramless `step`
+      # blocks in the same function also redefined it.
+      sum_step = 0
+      1.step(10, 1) do
+        sum_step += 1
+      end
+      1.step(5, 1) do
+        sum_step += 10
+      end
+      1.step(5, 1) do
+        sum_step += 100
+      end
+      puts sum_step
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       560
     OUT
   end

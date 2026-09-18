@@ -183,13 +183,13 @@ describe "Require programs" do
     _(result).must_answer "1\n"
   end
 
-  it "lrama features" do
+  it "Part 1" do
     result = ze0(<<~'RUBY')
       # lrama-required features. Combines what was previously split across
       # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
       # of the same coverage matrix).
 
-      # === Part 1 ===
+
 
       # private (should be ignored)
       class Foo
@@ -238,8 +238,32 @@ describe "Require programs" do
       puts Float::INFINITY > 999999  # true
 
       puts "done"
+    RUBY
 
-      # === Part 2 ===
+    _(result).must_answer <<~'OUT'
+      public
+      medium
+      5
+      42
+      42
+      3
+      3
+      1
+      4
+      3
+      1
+      true
+      done
+    OUT
+  end
+
+  it "Part 2" do
+    result = ze0(<<~'RUBY')
+      # lrama-required features. Combines what was previously split across
+      # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
+      # of the same coverage matrix).
+
+
 
       # A9: Hash#merge (sp_StrIntHash)
       mrg1 = {"a" => 1, "b" => 2}
@@ -304,8 +328,37 @@ describe "Require programs" do
       puts w2 >= w1   # true
 
       puts "done"
+    RUBY
 
-      # === Part 3 ===
+    _(result).must_answer <<~'OUT'
+      1
+      3
+      4
+      10
+      3
+      hello
+      2
+      1
+      0
+      before
+      after
+      true
+      true
+      true
+      false
+      true
+      true
+      done
+    OUT
+  end
+
+  it "Part 3" do
+    result = ze0(<<~'RUBY')
+      # lrama-required features. Combines what was previously split across
+      # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
+      # of the same coverage matrix).
+
+
 
       # A10: Hash#transform_values (sp_StrIntHash)
       tv = {"a" => 1, "b" => 2, "c" => 3}
@@ -330,37 +383,6 @@ describe "Require programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      public
-      medium
-      5
-      42
-      42
-      3
-      3
-      1
-      4
-      3
-      1
-      true
-      done
-      1
-      3
-      4
-      10
-      3
-      hello
-      2
-      1
-      0
-      before
-      after
-      true
-      true
-      true
-      false
-      true
-      true
-      done
       10
       20
       30

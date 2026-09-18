@@ -3,19 +3,8 @@
 require "spec_helper"
 
 describe "Pattern programs" do
-  it "bundle misc c 35" do
+  it "array mul string" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_mul_string
-      #   - for_multi_var
-      #   - symbol_inspect_spl_marker
-      #   - split_no_arg_ws
-      #   - scalar_zero_truthiness
-      #   - reduce_sym_op
-      #   - array_of_hash_lit
-      #   - integer_div
-
-      # === array_mul_string ===
       def t_array_mul_string
         # `Array * sep` (String arg) is equivalent to Array#join(sep) and
         # returns a string. Previously spinel routed it through the int-repeat
@@ -26,8 +15,18 @@ describe "Pattern programs" do
         puts (["a", "b", "c"] * "-")
       end
       t_array_mul_string
+    RUBY
 
-      # === for_multi_var ===
+    _(result).must_answer <<~'OUT'
+      1,2,3
+      "1,2,3"
+      123
+      a-b-c
+    OUT
+  end
+
+  it "for multi var" do
+    result = ze0(<<~'RUBY')
       def t_for_multi_var
         # `for a, b in coll` destructures each element into multiple LVs.
         for a, b in [[1, 2], [3, 4]]
@@ -39,8 +38,18 @@ describe "Pattern programs" do
         end
       end
       t_for_multi_var
+    RUBY
 
-      # === symbol_inspect_spl_marker ===
+    _(result).must_answer <<~'OUT'
+      1, 2
+      3, 4
+      1,2,3
+      4,5,6
+    OUT
+  end
+
+  it "symbol inspect spl marker" do
+    result = ze0(<<~'RUBY')
       def t_symbol_inspect_spl_marker
         # Symbol#inspect literal prefix must use SPL marker so sp_str_byte_len's
         # s[-1] marker check is well-defined (avoids -O2 __builtin_trap).
@@ -52,8 +61,17 @@ describe "Pattern programs" do
         puts "done"
       end
       t_symbol_inspect_spl_marker
+    RUBY
 
-      # === split_no_arg_ws ===
+    _(result).must_answer <<~'OUT'
+      :hello
+      :world
+      done
+    OUT
+  end
+
+  it "split no arg ws" do
+    result = ze0(<<~'RUBY')
       def t_split_no_arg_ws
         # #507. `s.split` (no arg) used to emit `sp_str_split(s, 0)` and
         # segfault at strlen(NULL) -- new sp_str_split_ws helper matches
@@ -66,8 +84,20 @@ describe "Pattern programs" do
         p "a,b,c".split(",")        # non-whitespace sep (regression guard)
       end
       t_split_no_arg_ws
+    RUBY
 
-      # === scalar_zero_truthiness ===
+    _(result).must_answer <<~'OUT'
+      ["1", "2", "3"]
+      ["leading", "trailing"]
+      ["a", "b", "c"]
+      []
+      ["abc"]
+      ["a", "b", "c"]
+    OUT
+  end
+
+  it "scalar zero truthiness" do
+    result = ze0(<<~'RUBY')
       def t_scalar_zero_truthiness
         idx = 0
         if idx
@@ -88,8 +118,17 @@ describe "Pattern programs" do
         puts width
       end
       t_scalar_zero_truthiness
+    RUBY
 
-      # === reduce_sym_op ===
+    _(result).must_answer <<~'OUT'
+      local zero truthy
+      hash zero truthy
+      0
+    OUT
+  end
+
+  it "reduce sym op" do
+    result = ze0(<<~'RUBY')
       def t_reduce_sym_op
         # #506. `[1,2,3,4].reduce(:*)` previously fell through unresolved
         # on int_array. Codegen now folds the symbol-arg form inline for
@@ -105,8 +144,23 @@ describe "Pattern programs" do
         p [].reduce(:+)              # nil (empty seedless fold, matching CRuby)
       end
       t_reduce_sym_op
+    RUBY
 
-      # === array_of_hash_lit ===
+    _(result).must_answer <<~'OUT'
+      24
+      10
+      7
+      2
+      8
+      7
+      6
+      42
+      nil
+    OUT
+  end
+
+  it "array of hash lit" do
+    result = ze0(<<~'RUBY')
       def t_array_of_hash_lit
         # Issue #402: array literal of hash literals (`[{n: 3}, {n: 1}]`)
         # was typed as `sp_IntArray *` (the bottom default), but the
@@ -122,8 +176,19 @@ describe "Pattern programs" do
         puts mixed.length        # 2
       end
       t_array_of_hash_lit
+    RUBY
 
-      # === integer_div ===
+    _(result).must_answer <<~'OUT'
+      3
+      3
+      1
+      2
+      2
+    OUT
+  end
+
+  it "integer div" do
+    result = ze0(<<~'RUBY')
       def t_integer_div
         # basic
         puts 7.div(2)
@@ -151,40 +216,6 @@ describe "Pattern programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1,2,3
-      "1,2,3"
-      123
-      a-b-c
-      1, 2
-      3, 4
-      1,2,3
-      4,5,6
-      :hello
-      :world
-      done
-      ["1", "2", "3"]
-      ["leading", "trailing"]
-      ["a", "b", "c"]
-      []
-      ["abc"]
-      ["a", "b", "c"]
-      local zero truthy
-      hash zero truthy
-      0
-      24
-      10
-      7
-      2
-      8
-      7
-      6
-      42
-      nil
-      3
-      3
-      1
-      2
-      2
       3
       2
       2

@@ -3,17 +3,8 @@
 require "spec_helper"
 
 describe "IO: regressions" do
-  it "bundle file a" do
+  it "file binread directory error" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - file_binread_directory_error
-      #   - file_class_methods_int_recv
-      #   - file_directory_predicates
-      #   - file_read_directory_error
-      #   - file_write_binary_string
-      #   - file_write_directory_error
-
-      # === file_binread_directory_error ===
       def t_file_binread_directory_error
         begin
           File.binread(".")
@@ -32,8 +23,18 @@ describe "IO: regressions" do
         end
       end
       t_file_binread_directory_error
+    RUBY
 
-      # === file_class_methods_int_recv ===
+    _(result).must_answer <<~'OUT'
+      Errno::EISDIR
+      true
+      Errno::EISDIR
+      true
+    OUT
+  end
+
+  it "file class methods int recv" do
+    result = ze0(<<~'RUBY')
       def t_file_class_methods_int_recv
         # `File.readable?` and `File.binwrite` — class-method stubs in
         # the `rcname == "File"` dispatch block, plus `IntArray#pack("C*")`
@@ -61,8 +62,17 @@ describe "IO: regressions" do
         puts File.exist?(path)
       end
       t_file_class_methods_int_recv
+    RUBY
 
-      # === file_directory_predicates ===
+    _(result).must_answer <<~'OUT'
+      true
+      Hi!
+      false
+    OUT
+  end
+
+  it "file directory predicates" do
+    result = ze0(<<~'RUBY')
       def t_file_directory_predicates
         path = "spinel_file_predicate_test.txt"
         File.write(path, "x")
@@ -78,8 +88,21 @@ describe "IO: regressions" do
         File.delete(path)
       end
       t_file_directory_predicates
+    RUBY
 
-      # === file_read_directory_error ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      false
+      true
+      false
+      false
+      false
+    OUT
+  end
+
+  it "file read directory error" do
+    result = ze0(<<~'RUBY')
       def t_file_read_directory_error
         begin
           File.read(".")
@@ -90,8 +113,16 @@ describe "IO: regressions" do
         end
       end
       t_file_read_directory_error
+    RUBY
 
-      # === file_write_binary_string ===
+    _(result).must_answer <<~'OUT'
+      Errno::EISDIR
+      true
+    OUT
+  end
+
+  it "file write binary string" do
+    result = ze0(<<~'RUBY')
       def t_file_write_binary_string
         path = "spinel_file_write_binary_string.bin"
 
@@ -111,8 +142,19 @@ describe "IO: regressions" do
         File.delete(path) if File.exist?(path)
       end
       t_file_write_binary_string
+    RUBY
 
-      # === file_write_directory_error ===
+    _(result).must_answer <<~'OUT'
+      3
+      65
+      0
+      66
+      true
+    OUT
+  end
+
+  it "file write directory error" do
+    result = ze0(<<~'RUBY')
       def t_file_write_directory_error
         begin
           File.write(".", "hello")
@@ -123,49 +165,16 @@ describe "IO: regressions" do
         end
       end
       t_file_write_directory_error
-
     RUBY
 
     _(result).must_answer <<~'OUT'
       Errno::EISDIR
       true
-      Errno::EISDIR
-      true
-      true
-      Hi!
-      false
-      true
-      true
-      false
-      true
-      false
-      false
-      false
-      Errno::EISDIR
-      true
-      3
-      65
-      0
-      66
-      true
-      Errno::EISDIR
-      true
     OUT
   end
 
-  it "bundle io sys" do
+  it "file binread" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - file_binread
-      #   - fileio
-      #   - fileopen
-      #   - fileops
-      #   - system
-      #   - system_expr
-      #   - process_clock_gettime
-      #   - time
-
-      # === file_binread ===
       def t_file_binread
         # `File.binread(path).bytes` — sp_str_bytes uses null-termination
         # and stops at the first 0x00 byte, so for binary data (e.g. .nes
@@ -206,8 +215,24 @@ describe "IO: regressions" do
         File.delete(path) if File.exist?(path)
       end
       t_file_binread
+    RUBY
 
-      # === fileio ===
+    _(result).must_answer <<~'OUT'
+      8
+      65
+      66
+      0
+      67
+      68
+      0
+      69
+      70
+      AB
+    OUT
+  end
+
+  it "fileio" do
+    result = ze0(<<~'RUBY')
       def t_fileio
         # Test basic File I/O.
         # Uses cwd-relative paths so the harness (which runs each test from
@@ -233,8 +258,20 @@ describe "IO: regressions" do
         puts "done"
       end
       t_fileio
+    RUBY
 
-      # === fileopen ===
+    _(result).must_answer <<~'OUT'
+      Hello from Spinel!
+      Line 2
+      true
+      false
+      false
+      done
+    OUT
+  end
+
+  it "fileopen" do
+    result = ze0(<<~'RUBY')
       def t_fileopen
         # Test File.open with block.
         # Uses a cwd-relative path for the same reason as test/fileio.rb.
@@ -261,8 +298,18 @@ describe "IO: regressions" do
         puts "done"
       end
       t_fileopen
+    RUBY
 
-      # === fileops ===
+    _(result).must_answer <<~'OUT'
+      line 1
+      line 2
+      line 3
+      done
+    OUT
+  end
+
+  it "fileops" do
+    result = ze0(<<~'RUBY')
       def t_fileops
         puts File.join("home", "user")      # home/user
         puts File.basename("/path/to/file") # file
@@ -276,8 +323,24 @@ describe "IO: regressions" do
         puts "done"
       end
       t_fileops
+    RUBY
 
-      # === system ===
+    _(result).must_answer <<~'OUT'
+      home/user
+      file
+      true
+      false
+      5
+      10
+      hello
+      97
+      43
+      done
+    OUT
+  end
+
+  it "system" do
+    result = ze0(<<~'RUBY')
       def t_system
         # Test system features needed for ccm
 
@@ -305,8 +368,20 @@ describe "IO: regressions" do
         puts "done"
       end
       t_system
+    RUBY
 
-      # === system_expr ===
+    _(result).must_answer <<~'OUT'
+      hello_from_system
+      true
+      true
+      backtick_test
+      trap set
+      done
+    OUT
+  end
+
+  it "system expr" do
+    result = ze0(<<~'RUBY')
       def t_system_expr
         ok = system("echo hello_from_expr")
         puts ok
@@ -316,8 +391,19 @@ describe "IO: regressions" do
         puts($? == 0)
       end
       t_system_expr
+    RUBY
 
-      # === process_clock_gettime ===
+    _(result).must_answer <<~'OUT'
+      hello_from_expr
+      true
+      true
+      false
+      false
+    OUT
+  end
+
+  it "process clock gettime" do
+    result = ze0(<<~'RUBY')
       def t_process_clock_gettime
         # Process.clock_gettime(Process::CLOCK_MONOTONIC) returns a Float.
         # We can't assert an exact value, but we can verify the call lowers
@@ -334,8 +420,15 @@ describe "IO: regressions" do
         end
       end
       t_process_clock_gettime
+    RUBY
 
-      # === time ===
+    _(result).must_answer <<~'OUT'
+      monotonic
+    OUT
+  end
+
+  it "time" do
+    result = ze0(<<~'RUBY')
       def t_time
         t = Time.now
         puts t.to_f - t.to_i > 0.0
@@ -377,52 +470,9 @@ describe "IO: regressions" do
         puts "done"
       end
       t_time
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      8
-      65
-      66
-      0
-      67
-      68
-      0
-      69
-      70
-      AB
-      Hello from Spinel!
-      Line 2
-      true
-      false
-      false
-      done
-      line 1
-      line 2
-      line 3
-      done
-      home/user
-      file
-      true
-      false
-      5
-      10
-      hello
-      97
-      43
-      done
-      hello_from_system
-      true
-      true
-      backtick_test
-      trap set
-      done
-      hello_from_expr
-      true
-      true
-      false
-      false
-      monotonic
       true
       true
       true

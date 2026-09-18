@@ -60,13 +60,8 @@ describe "Classes: dispatch" do
     OUT
   end
 
-  it "bundle poly b1" do
+  it "poly array clear expr" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_array_clear_expr
-      #   - poly_array_eq_all_nil_literal
-
-      # === poly_array_clear_expr ===
       def t_poly_array_clear_expr
         # `Array#clear` in *expression* position on a poly_array. The
         # stmt-form was already supported; the expr-form fell through
@@ -90,8 +85,17 @@ describe "Classes: dispatch" do
         puts a.length    # 1
       end
       t_poly_array_clear_expr
+    RUBY
 
-      # === poly_array_eq_all_nil_literal ===
+    _(result).must_answer <<~'OUT'
+      0
+      0
+      1
+    OUT
+  end
+
+  it "poly array eq all nil literal" do
+    result = ze0(<<~'RUBY')
       def t_poly_array_eq_all_nil_literal
         # `<poly_array> == [nil, nil, ...]` shape. The RHS array literal
         # would otherwise lower to int_array of zeros and fall through to
@@ -105,13 +109,9 @@ describe "Classes: dispatch" do
         p Array.new(3) != [nil, nil, nil]   # false
       end
       t_poly_array_eq_all_nil_literal
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      0
-      0
-      1
       true
       true
       true

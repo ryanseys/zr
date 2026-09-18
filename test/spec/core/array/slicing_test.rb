@@ -312,7 +312,7 @@ describe "Array: slicing" do
     OUT
   end
 
-  it "empty array param" do
+  it "Top-level def, [] passed directly at call site" do
     result = ze0(<<~'RUBY')
       # Empty `[]` literal as parameter — deferred element-type resolution
       # must converge across caller / param / body. Issues #58 (top-level
@@ -320,7 +320,7 @@ describe "Array: slicing" do
       # tests; class names don't collide so the merge is straight
       # concatenation with shared helpers.
 
-      # === Top-level def, [] passed directly at call site ===
+
       def push_floats(buf)
         buf.push(1.5)
         buf.push(2.5)
@@ -329,8 +329,23 @@ describe "Array: slicing" do
       result_pf = push_floats([])
       puts result_pf[0]   # 1.5
       puts result_pf[1]   # 2.5
+    RUBY
 
-      # === Top-level def, [] stored in local first ===
+    _(result).must_answer <<~'OUT'
+      1.5
+      2.5
+    OUT
+  end
+
+  it "Top-level def, [] stored in local first" do
+    result = ze0(<<~'RUBY')
+      # Empty `[]` literal as parameter — deferred element-type resolution
+      # must converge across caller / param / body. Issues #58 (top-level
+      # def + instance method) and #84 (inherited dispatch). Was four
+      # tests; class names don't collide so the merge is straight
+      # concatenation with shared helpers.
+
+
       def collect_names(buf)
         buf.push("alpha")
         buf.push("beta")
@@ -340,8 +355,24 @@ describe "Array: slicing" do
       puts names[0]       # alpha
       puts names[1]       # beta
       puts names.length   # 2
+    RUBY
 
-      # === Instance method receiving [] — same deferred path ===
+    _(result).must_answer <<~'OUT'
+      alpha
+      beta
+      2
+    OUT
+  end
+
+  it "Instance method receiving [] — same deferred path" do
+    result = ze0(<<~'RUBY')
+      # Empty `[]` literal as parameter — deferred element-type resolution
+      # must converge across caller / param / body. Issues #58 (top-level
+      # def + instance method) and #84 (inherited dispatch). Was four
+      # tests; class names don't collide so the merge is straight
+      # concatenation with shared helpers.
+
+
       class Recorder
         def record(buf, name)
           buf.push(name)
@@ -411,11 +442,6 @@ describe "Array: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1.5
-      2.5
-      alpha
-      beta
-      2
       4
       go
       go!

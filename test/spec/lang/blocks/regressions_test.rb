@@ -3,14 +3,8 @@
 require "spec_helper"
 
 describe "Blocks: regressions" do
-  it "bundle misc c 17" do
+  it "io call in proc body" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - io_call_in_proc_body
-      #   - local_hash_cross_type_widen
-      #   - map_block_string_new
-
-      # === io_call_in_proc_body ===
       def t_io_call_in_proc_body
         # `puts` / `print` / `printf` reached in expression context — the
         # last statement of a `proc { ... }` body. The expression-context
@@ -49,8 +43,17 @@ describe "Blocks: regressions" do
         ].each { |p| p.call }
       end
       t_io_call_in_proc_body
+    RUBY
 
-      # === local_hash_cross_type_widen ===
+    _(result).must_answer <<~'OUT'
+      a
+      b
+      c=3
+    OUT
+  end
+
+  it "local hash cross type widen" do
+    result = ze0(<<~'RUBY')
       def t_local_hash_cross_type_widen
         # Cross-type `[]=` write on a non-empty hash literal should widen the
         # LV's hash type so the store accepts the new value via boxing.
@@ -101,8 +104,27 @@ describe "Blocks: regressions" do
         puts q["b"]            # "2"
       end
       t_local_hash_cross_type_widen
+    RUBY
 
-      # === map_block_string_new ===
+    _(result).must_answer <<~'OUT'
+      2
+      1
+      42
+      3
+      10
+      thirty
+      3
+      1
+      three
+      3
+      two
+      2
+      2
+    OUT
+  end
+
+  it "map block string new" do
+    result = ze0(<<~'RUBY')
       def t_map_block_string_new
         # #522. Sibling to #519. The literal-array path `[String.new]` was
         # fixed in #519 to infer as `mutable_str_ptr_array` (a sp_PtrArray
@@ -128,26 +150,9 @@ describe "Blocks: regressions" do
         puts result2.length
       end
       t_map_block_string_new
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      a
-      b
-      c=3
-      2
-      1
-      42
-      3
-      10
-      thirty
-      3
-      1
-      three
-      3
-      two
-      2
-      2
       3
       3
     OUT

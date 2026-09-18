@@ -3,13 +3,8 @@
 require "spec_helper"
 
 describe "Classes: regressions" do
-  it "bundle class 01" do
+  it "array each with object" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_each_with_object
-      #   - array_plus
-
-      # === array_each_with_object ===
       # Array#each_with_object on poly_array and ptr_array used to silently
       # miss the type-check; the loop body never ran. Both shapes covered.
 
@@ -27,8 +22,16 @@ describe "Classes: regressions" do
       m = 0
       [T_array_each_with_object_Bar.new(1), T_array_each_with_object_Bar.new(2)].each_with_object("") {|_e, _a| m += 1 }
       puts m
+    RUBY
 
-      # === array_plus ===
+    _(result).must_answer <<~'OUT'
+      2
+      2
+    OUT
+  end
+
+  it "array plus" do
+    result = ze0(<<~'RUBY')
       # Array#+ used to fall through on poly_array / ptr_array — the result
       # temp held its default 0 because the dispatcher's type-list omitted
       # those shapes.
@@ -47,24 +50,16 @@ describe "Classes: regressions" do
       c = [T_array_plus_Bar.new(1)]
       d = [T_array_plus_Bar.new(2)]
       puts (c + d).length
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2
-      2
       4
       2
     OUT
   end
 
-  it "bundle class 03" do
+  it "chained or assign collection poly array" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - chained_or_assign_collection_poly_array
-      #   - chained_or_assign_collection_str_keys
-
-      # === chained_or_assign_collection_poly_array ===
       # `(arr[idx] ||= []) << v` — chained `||=` over a poly_array
       # element. Pre-fix the IndexOrWriteNode expression-form returned
       # the int default for non-hash receivers, so the chain receiver
@@ -90,8 +85,17 @@ describe "Classes: regressions" do
       puts c.count(0)   # 2
       puts c.count(1)   # 1
       puts c.count(2)   # 0
+    RUBY
 
-      # === chained_or_assign_collection_str_keys ===
+    _(result).must_answer <<~'OUT'
+      2
+      1
+      0
+    OUT
+  end
+
+  it "chained or assign collection str keys" do
+    result = ze0(<<~'RUBY')
       # Same chained-`||=` lowering, but for `str_poly_hash` instead of
       # `sym_poly_hash`. Exercises the `const char *` key path (vs the
       # `sp_sym` integer key path) of the typed-poly-hash branch added
@@ -116,29 +120,17 @@ describe "Classes: regressions" do
       puts c.count("init")     # 1
       puts c.count("foo")      # 2
       puts c.count("bar")      # 1
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2
-      1
-      0
       1
       2
       1
     OUT
   end
 
-  it "bundle class 05" do
+  it "cvar op write" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - cvar_op_write
-      #   - def_aset_mixed_ivar_widen
-      #   - default_argv_narrows_from_string_call_site
-      #   - default_nil_param_with_hash_lookup
-      #   - default_nil_param_with_sym_hash_lookup
-
-      # === cvar_op_write ===
       # Issue #398: `@@x op= rhs` was rejected as unsupported syntax
       # (`ClassVariableOperatorWriteNode` had no parser/codegen handling).
       # `@@x = @@x op rhs` worked. Same gap for `||=` / `&&=`. Adds the
@@ -185,8 +177,23 @@ describe "Classes: regressions" do
 
       T_cvar_op_write_Counter.zero_flag  # @@flag is truthy (1), so &&= writes 7
       T_cvar_op_write_Counter.report     # 12, 130, 7
+    RUBY
 
-      # === def_aset_mixed_ivar_widen ===
+    _(result).must_answer <<~'OUT'
+      3
+      130
+      1
+      12
+      130
+      1
+      12
+      130
+      7
+    OUT
+  end
+
+  it "def aset mixed ivar widen" do
+    result = ze0(<<~'RUBY')
       # `def []=(name, value)` whose body dispatches on `name` and writes
       # `value` into ivars of differing types (`@id = value` and
       # `@name = value`, with `@id: mrb_int` and `@name: const char *`).
@@ -229,8 +236,16 @@ describe "Classes: regressions" do
       f[:name] = "hello"
       puts f.id
       puts f.name
+    RUBY
 
-      # === default_argv_narrows_from_string_call_site ===
+    _(result).must_answer <<~'OUT'
+      42
+      hello
+    OUT
+  end
+
+  it "default argv narrows from string call site" do
+    result = ze0(<<~'RUBY')
       # `def initialize(conf = ARGV)` typed `conf` as the specialised
       # `argv` scalar (because `infer_type(ARGV) == "argv"`). A caller
       # that passes a single string then unified the call-site `string`
@@ -263,8 +278,15 @@ describe "Classes: regressions" do
       end
 
       T_default_argv_narrows_from_string_call_site_Entry.new("hello").show     # 5
+    RUBY
 
-      # === default_nil_param_with_hash_lookup ===
+    _(result).must_answer <<~'OUT'
+      5
+    OUT
+  end
+
+  it "default nil param with hash lookup" do
+    result = ze0(<<~'RUBY')
       # #482. `def m(other = nil)` whose body uses `other[key]` (Hash
       # receiver index read) failed C compile when the lookup result
       # landed in a concretely-typed pointer field. With no caller
@@ -296,8 +318,15 @@ describe "Classes: regressions" do
       b = T_default_nil_param_with_hash_lookup_Box.new
       b.s = "hello"
       puts b.s
+    RUBY
 
-      # === default_nil_param_with_sym_hash_lookup ===
+    _(result).must_answer <<~'OUT'
+      hello
+    OUT
+  end
+
+  it "default nil param with sym hash lookup" do
+    result = ze0(<<~'RUBY')
       # Sym-keyed sibling of #482. Same shape — nil-default param +
       # body uses param as Hash receiver — but with a SymbolNode key
       # instead of a StringNode key. The widening pass now distinguishes
@@ -317,37 +346,15 @@ describe "Classes: regressions" do
       b = T_default_nil_param_with_sym_hash_lookup_Box.new
       b.s = "hello"
       puts b.s
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      130
-      1
-      12
-      130
-      1
-      12
-      130
-      7
-      42
-      hello
-      5
-      hello
       hello
     OUT
   end
 
-  it "bundle class 06" do
+  it "each block cmeth widen" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - each_block_cmeth_widen
-      #   - each_poly_recv_block_auto_splat
-      #   - empty_hash_ivar_string_value
-      #   - ensure_raise_overrides_body_raise
-      #   - ensure_runs_on_raise
-
-      # === each_block_cmeth_widen ===
       # Issue #424. `T_each_block_cmeth_widen_Json.escape(k)` inside `h.each |k, v|` couldn't
       # pick up k's narrowed string type from the hash variant -- the
       # cmeth param `s` stayed at the int default and the C compile
@@ -387,8 +394,16 @@ describe "Classes: regressions" do
 
       puts T_each_block_cmeth_widen_Json.from_str_hash({"a" => "b"})
       puts T_each_block_cmeth_widen_Json.from_str_hash({"x" => "y"})
+    RUBY
 
-      # === each_poly_recv_block_auto_splat ===
+    _(result).must_answer <<~'OUT'
+      {"a":"b"}
+      {"x":"y"}
+    OUT
+  end
+
+  it "each poly recv block auto splat" do
+    result = ze0(<<~'RUBY')
       # `arr.each {|a, b| ... }` over a poly receiver (an sp_RbVal that
       # carries an array of arrays at runtime) should auto-splat each
       # element across the block params, matching CRuby's
@@ -432,8 +447,16 @@ describe "Classes: regressions" do
       d.push_poly(1, [100, "x"])  # b is a string, exercising the poly_array branch
       d.push_poly(1, [5,   "y"])
       puts d.each_pair(1)         # 100 + 0 + 5 + 0 = 105 (string `to_i` of "x" / "y" = 0)
+    RUBY
 
-      # === empty_hash_ivar_string_value ===
+    _(result).must_answer <<~'OUT'
+      37
+      105
+    OUT
+  end
+
+  it "empty hash ivar string value" do
+    result = ze0(<<~'RUBY')
       # Issue #64: an ivar initialized as `{}` defaulted to `str_int_hash`,
       # and a later `@h[k] = "string"` write fed `const char *` into
       # `sp_StrIntHash_set` (which expects `mrb_int`). Three pieces of the
@@ -485,8 +508,18 @@ describe "Classes: regressions" do
       # pre-existing -Walloc-size-larger-than warning in the runtime
       # `sp_SymIntHash_grow` (unrelated to this issue), so it isn't part
       # of the make-test surface here.
+    RUBY
 
-      # === ensure_raise_overrides_body_raise ===
+    _(result).must_answer <<~'OUT'
+      body
+
+      seven
+      forty-two
+    OUT
+  end
+
+  it "ensure raise overrides body raise" do
+    result = ze0(<<~'RUBY')
       # Ruby semantics: when both the body and the ensure clause raise,
       # the ensure-raise wins — the original body exception is replaced
       # by the ensure exception as it propagates.
@@ -506,8 +539,15 @@ describe "Classes: regressions" do
       rescue => e
         puts e
       end
+    RUBY
 
-      # === ensure_runs_on_raise ===
+    _(result).must_answer <<~'OUT'
+      from-ensure
+    OUT
+  end
+
+  it "ensure runs on raise" do
+    result = ze0(<<~'RUBY')
       # When the body of a `begin..ensure..end` raises, the ensure
       # clause must still run before the exception keeps propagating.
       # Previously the generated T_ensure_runs_on_raise_C had no setjmp around the body, so
@@ -540,32 +580,17 @@ describe "Classes: regressions" do
       end
 
       T_ensure_runs_on_raise_C.new.report
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      {"a":"b"}
-      {"x":"y"}
-      37
-      105
-      body
-
-      seven
-      forty-two
-      from-ensure
       boom
       1
       yes
     OUT
   end
 
-  it "bundle class 07" do
+  it "ensure runs on raise nested" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - ensure_runs_on_raise_nested
-      #   - ensure_runs_on_return_from_rescue
-
-      # === ensure_runs_on_raise_nested ===
       # Nested `begin..ensure..end` with raise — both ensures must run
       # (inner first, then outer) before the exception reaches the
       # enclosing rescue.
@@ -604,8 +629,18 @@ describe "Classes: regressions" do
       end
 
       T_ensure_runs_on_raise_nested_T.new.report
+    RUBY
 
-      # === ensure_runs_on_return_from_rescue ===
+    _(result).must_answer <<~'OUT'
+      inner-boom
+      yes
+      yes
+      io
+    OUT
+  end
+
+  it "ensure runs on return from rescue" do
+    result = ze0(<<~'RUBY')
       # `begin..rescue..ensure..end` — when the rescue body exits via
       # `return`, the ensure clause must still run before the function
       # returns.
@@ -632,27 +667,16 @@ describe "Classes: regressions" do
       end
 
       T_ensure_runs_on_return_from_rescue_C.new.report
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      inner-boom
-      yes
-      yes
-      io
       99
       yes
     OUT
   end
 
-  it "bundle class 08" do
+  it "ensure runs on return nested" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - ensure_runs_on_return_nested
-      #   - enumerable
-      #   - exceptions
-
-      # === ensure_runs_on_return_nested ===
       # Nested `begin..ensure..end` — a `return` inside the inner begin
       # must replay the inner ensure first, then the outer ensure, then
       # return. Both writebacks must take effect, in order.
@@ -690,8 +714,17 @@ describe "Classes: regressions" do
       end
 
       T_ensure_runs_on_return_nested_T.new.report
+    RUBY
 
-      # === enumerable ===
+    _(result).must_answer <<~'OUT'
+      inner=10
+      outer=2
+      log=io
+    OUT
+  end
+
+  it "enumerable" do
+    result = ze0(<<~'RUBY')
       class T_enumerable_NumberList
         include Enumerable
         def initialize
@@ -711,8 +744,16 @@ describe "Classes: regressions" do
       end
       puts total  # 15
       puts "done"
+    RUBY
 
-      # === exceptions ===
+    _(result).must_answer <<~'OUT'
+      15
+      done
+    OUT
+  end
+
+  it "exceptions" do
+    result = ze0(<<~'RUBY')
       # Test exception classes
 
       class T_exceptions_AppError < RuntimeError
@@ -747,15 +788,9 @@ describe "Classes: regressions" do
       end
 
       puts "done"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      inner=10
-      outer=2
-      log=io
-      15
-      done
       item not found
       something went wrong
       generic error
@@ -763,7 +798,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle class 09" do
+  it "fiber ivar persists across yield" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -779,7 +814,7 @@ describe "Classes: regressions" do
       #   - forward_call_class_method_inherited_init
       #   - forward_call_class_method_inherited_init_int_array
 
-      # === fiber_ivar_persists_across_yield ===
+
       class T_fiber_ivar_persists_across_yield_Counter
         def initialize
           @n = 0
@@ -802,8 +837,32 @@ describe "Classes: regressions" do
       puts c.step
       puts c.step
       puts c.step
+    RUBY
 
-      # === fiber_yield_across_method_call ===
+    _(result).must_answer <<~'OUT'
+      10
+      110
+      1110
+    OUT
+  end
+
+  it "fiber yield across method call" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      #
+      # An Outer and its inherited Sub hold each other through the forwarded class-method init.
+      # At exit: cycle leak: 2 objects (T_forward_call_class_method_inherited_init_Outer x1, T_forward_call_class_method_inherited_init_Sub x1)
+      # Bundled tests:
+      #   - fiber_ivar_persists_across_yield
+      #   - fiber_yield_across_method_call
+      #   - file_write_poly_arg
+      #   - forward_call_class_method_inherited_init
+      #   - forward_call_class_method_inherited_init_int_array
+
+
       class T_fiber_yield_across_method_call_Stepper
         def initialize
           @count = 0
@@ -832,8 +891,32 @@ describe "Classes: regressions" do
       puts s.step
       puts s.step
       puts s.step
+    RUBY
 
-      # === file_write_poly_arg ===
+    _(result).must_answer <<~'OUT'
+      2
+      4
+      6
+    OUT
+  end
+
+  it "file write poly arg" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      #
+      # An Outer and its inherited Sub hold each other through the forwarded class-method init.
+      # At exit: cycle leak: 2 objects (T_forward_call_class_method_inherited_init_Outer x1, T_forward_call_class_method_inherited_init_Sub x1)
+      # Bundled tests:
+      #   - fiber_ivar_persists_across_yield
+      #   - fiber_yield_across_method_call
+      #   - file_write_poly_arg
+      #   - forward_call_class_method_inherited_init
+      #   - forward_call_class_method_inherited_init_int_array
+
+
       # Issue #643: `File.write(path, value)` where `value`'s static
       # type is poly (cross-class union widened the return slot of the
       # producer to sp_RbVal) used to emit `sp_file_write(lv_path,
@@ -870,8 +953,30 @@ describe "Classes: regressions" do
       File.write(path, results[0])
       puts File.read(path)
       File.delete(path)
+    RUBY
 
-      # === forward_call_class_method_inherited_init ===
+    _(result).must_answer <<~'OUT'
+      result-42
+    OUT
+  end
+
+  it "forward call class method inherited init" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      #
+      # An Outer and its inherited Sub hold each other through the forwarded class-method init.
+      # At exit: cycle leak: 2 objects (T_forward_call_class_method_inherited_init_Outer x1, T_forward_call_class_method_inherited_init_Sub x1)
+      # Bundled tests:
+      #   - fiber_ivar_persists_across_yield
+      #   - fiber_yield_across_method_call
+      #   - file_write_poly_arg
+      #   - forward_call_class_method_inherited_init
+      #   - forward_call_class_method_inherited_init_int_array
+
+
       # Forward-ref `Class.new(arg)` whose Class is a subclass with its
       # own `def initialize(_arg); super; end`. Pre-fix codegen widened
       # the child's #initialize ptype from the call site but never
@@ -908,8 +1013,30 @@ describe "Classes: regressions" do
 
       o = T_forward_call_class_method_inherited_init_Outer.new
       puts o.report
+    RUBY
 
-      # === forward_call_class_method_inherited_init_int_array ===
+    _(result).must_answer <<~'OUT'
+      outer
+    OUT
+  end
+
+  it "forward call class method inherited init int array" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      #
+      # An Outer and its inherited Sub hold each other through the forwarded class-method init.
+      # At exit: cycle leak: 2 objects (T_forward_call_class_method_inherited_init_Outer x1, T_forward_call_class_method_inherited_init_Sub x1)
+      # Bundled tests:
+      #   - fiber_ivar_persists_across_yield
+      #   - fiber_yield_across_method_call
+      #   - file_write_poly_arg
+      #   - forward_call_class_method_inherited_init
+      #   - forward_call_class_method_inherited_init_int_array
+
+
       # Inherited-init forward-ref with an IntArray param flowing through
       # the super call. The parent's `arr` param must end up
       # `sp_IntArray *` (not the default `mrb_int`) so the body's
@@ -942,32 +1069,15 @@ describe "Classes: regressions" do
 
       d = T_forward_call_class_method_inherited_init_int_array_Driver.new
       puts d.report
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      10
-      110
-      1110
-      2
-      4
-      6
-      result-42
-      outer
       4
     OUT
   end
 
-  it "bundle class 10" do
+  it "forward call class method inherited init obj" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - forward_call_class_method_inherited_init_obj
-      #   - forward_call_class_method_int_array
-      #   - forward_call_class_method_nested
-      #   - forward_call_class_method_obj
-      #   - forward_call_param_type_int_array
-
-      # === forward_call_class_method_inherited_init_obj ===
       # Inherited-init forward-ref where the param type is itself an
       # obj_X user class. Verifies the type flows through both the
       # `Class.new(@h)` constructor branch and the bare `super` of the
@@ -1009,8 +1119,15 @@ describe "Classes: regressions" do
 
       o = T_forward_call_class_method_inherited_init_obj_Outer.new
       puts o.report
+    RUBY
 
-      # === forward_call_class_method_int_array ===
+    _(result).must_answer <<~'OUT'
+      h:alpha
+    OUT
+  end
+
+  it "forward call class method int array" do
+    result = ze0(<<~'RUBY')
       # `Class.new(int_array_arg)` where the callee class is defined later
       # than the call site. Pre-fix codegen left T_forward_call_class_method_int_array_Target's `arr` param at
       # the default `mrb_int`; the int→class fallback then emitted the
@@ -1037,8 +1154,15 @@ describe "Classes: regressions" do
       c = T_forward_call_class_method_int_array_Caller.new
       c.make_target
       puts c.length
+    RUBY
 
-      # === forward_call_class_method_nested ===
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "forward call class method nested" do
+    result = ze0(<<~'RUBY')
       # Nested forward-ref: `T_forward_call_class_method_nested_Outer.new(T_forward_call_class_method_nested_Inner.new)` where both T_forward_call_class_method_nested_Outer and
       # T_forward_call_class_method_nested_Inner are defined later than the construction site. The T_forward_call_class_method_nested_Inner.new
       # nested arg type must propagate to T_forward_call_class_method_nested_Outer.initialize's param so the
@@ -1074,8 +1198,15 @@ describe "Classes: regressions" do
       d = T_forward_call_class_method_nested_Driver.new
       d.boot
       puts d.reach
+    RUBY
 
-      # === forward_call_class_method_obj ===
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "forward call class method obj" do
+    result = ze0(<<~'RUBY')
       # `Class.new(obj_X)` shape: caller passes a user-class instance to a
       # forward-defined Class.new. Mirrors the optcarrot
       # `PPU.new(@conf, @cpu, @video.palette)` site where the callee's
@@ -1112,8 +1243,15 @@ describe "Classes: regressions" do
       c = T_forward_call_class_method_obj_Caller.new
       c.make
       puts c.show
+    RUBY
 
-      # === forward_call_param_type_int_array ===
+    _(result).must_answer <<~'OUT'
+      h:alpha
+    OUT
+  end
+
+  it "forward call param type int array" do
+    result = ze0(<<~'RUBY')
       # File-order caller-first / callee-second: a T_forward_call_param_type_int_array_Caller class invokes a
       # method on a yet-untyped ivar (because the callee class is defined
       # later in the source). Pre-fix codegen left the callee's params at
@@ -1148,28 +1286,15 @@ describe "Classes: regressions" do
       c = T_forward_call_param_type_int_array_Caller.new(t)
       c.go
       puts t.info
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      h:alpha
-      3
-      42
-      h:alpha
       len=3 flag=false
     OUT
   end
 
-  it "bundle class 11" do
+  it "forward call param type obj" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - forward_call_param_type_obj
-      #   - gc_save_double_in_new
-      #   - gc_scan_skip_inherited_ivar
-      #   - hash_each_param_narrow
-      #   - hash_fetch_hash_default
-
-      # === forward_call_param_type_obj ===
       # Forward-call with a user-class-typed arg flowing through the
       # caller's ivar to the callee's parameter slot. Mirrors optcarrot's
       # `@ppu.nametables = @mirroring` shape — the callee accepts an
@@ -1208,8 +1333,15 @@ describe "Classes: regressions" do
       c = T_forward_call_param_type_obj_Caller.new(t)
       c.go
       puts t.held_label
+    RUBY
 
-      # === gc_save_double_in_new ===
+    _(result).must_answer <<~'OUT'
+      h:alpha
+    OUT
+  end
+
+  it "gc save double in new" do
+    result = ze0(<<~'RUBY')
       class T_gc_save_double_in_new_GcSaveDoubleInNew
         def initialize(path)
           data = [1, 2, 3]
@@ -1223,8 +1355,15 @@ describe "Classes: regressions" do
 
       o = T_gc_save_double_in_new_GcSaveDoubleInNew.new("a")
       puts o.step
+    RUBY
 
-      # === gc_scan_skip_inherited_ivar ===
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "gc scan skip inherited ivar" do
+    result = ze0(<<~'RUBY')
       # When parent and child both record the same ivar name, the struct
       # field is contributed once by `emit_parent_fields`. `emit_class_struct`
       # already skips child-side redeclaration, so child's own gc_scan walk
@@ -1279,8 +1418,16 @@ describe "Classes: regressions" do
 
       puts junk.length
       puts "ok"
+    RUBY
 
-      # === hash_each_param_narrow ===
+    _(result).must_answer <<~'OUT'
+      5000
+      ok
+    OUT
+  end
+
+  it "hash each param narrow" do
+    result = ze0(<<~'RUBY')
       # Issue #408. Regression guard for the hash-each body-walker
       # narrow path (9ca01d7 + analyze-side port in 02003ad).
       #
@@ -1327,8 +1474,16 @@ describe "Classes: regressions" do
 
       puts T_hash_each_param_narrow_Encoder.from_str_hash({"name" => "alice", "city" => "NYC"})
       puts T_hash_each_param_narrow_Encoder.from_int_hash({"a" => 1, "b" => 2, "c" => 3})
+    RUBY
 
-      # === hash_fetch_hash_default ===
+    _(result).must_answer <<~'OUT'
+      {"name":"alice","city":"NYC"}
+      {"a":1,"b":2,"c":3}
+    OUT
+  end
+
+  it "hash fetch hash default" do
+    result = ze0(<<~'RUBY')
       # `Hash#fetch(key, {})` on an int-leaf hash. Sequel to #454 which
       # closed the string-default case via sp_int_to_s conversion. The
       # hash-default case can't unify the two ternary arms to a single
@@ -1352,31 +1507,16 @@ describe "Classes: regressions" do
       puts v1.is_a?(Integer) ? v1 : "non-int"
       # Miss path returns the empty hash (boxed)
       puts v2.is_a?(Hash) ? "hash" : "non-hash"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      h:alpha
-      3
-      5000
-      ok
-      {"name":"alice","city":"NYC"}
-      {"a":1,"b":2,"c":3}
       7
       hash
     OUT
   end
 
-  it "bundle class 12" do
+  it "hash fetch hash default narrowing" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - hash_fetch_hash_default_narrowing
-      #   - hash_fetch_string_default_on_int_leaf
-      #   - heterogeneous_dispatch_int_return_narrow
-      #   - if_static_false_skips_dead_branch_compile
-      #   - imeth_name_collision_recv_aware
-
-      # === hash_fetch_hash_default_narrowing ===
       # Sequel to hash_fetch_hash_default: when `params.fetch "k", {}`
       # is followed by `is_a?(Hash)` narrowing into an if-expression
       # whose else arm returns an empty hash, the receiving local was
@@ -1403,8 +1543,16 @@ describe "Classes: regressions" do
 
       puts T_hash_fetch_hash_default_narrowing_ArticleParams.from_raw({ "x" => 1 })
       puts T_hash_fetch_hash_default_narrowing_ArticleParams.from_raw({ "y" => 2 })
+    RUBY
 
-      # === hash_fetch_string_default_on_int_leaf ===
+    _(result).must_answer <<~'OUT'
+      got-hash
+      got-hash
+    OUT
+  end
+
+  it "hash fetch string default on int leaf" do
+    result = ze0(<<~'RUBY')
       # #454: `params.fetch "k", ""` on a Hash[String, Int] (or
       # Hash[Symbol, Int]) emitted a type-mismatched ternary
       # (`has_key ? get_int : char_star_default`) and failed C compile
@@ -1445,8 +1593,20 @@ describe "Classes: regressions" do
       end
       puts T_hash_fetch_string_default_on_int_leaf_Q.lookup({ "x" => 7 })
       puts T_hash_fetch_string_default_on_int_leaf_Q.lookup({ "other" => 1 })
+    RUBY
 
-      # === heterogeneous_dispatch_int_return_narrow ===
+    _(result).must_answer <<~'OUT'
+      42
+
+      99
+
+      7
+      0
+    OUT
+  end
+
+  it "heterogeneous dispatch int return narrow" do
+    result = ze0(<<~'RUBY')
       # Approach-2 narrowing: when `<poly>[k]` chases an `arr[i]` whose
       # `arr` is a poly_array with observed elements that all return int
       # from `[]` (IntArray + Method-objects), narrow the outer dispatch
@@ -1493,8 +1653,16 @@ describe "Classes: regressions" do
       end
 
       T_heterogeneous_dispatch_int_return_narrow_Box.new.run
+    RUBY
 
-      # === if_static_false_skips_dead_branch_compile ===
+    _(result).must_answer <<~'OUT'
+      21
+      1
+    OUT
+  end
+
+  it "if static false skips dead branch compile" do
+    result = ze0(<<~'RUBY')
       # `compile_cond_expr` already returns the literal "FALSE" for a
       # predicate whose static type is `nil` (e.g. an attr-style read
       # of an ivar only ever assigned `nil`). The if/unless emit then
@@ -1545,8 +1713,17 @@ describe "Classes: regressions" do
 
       T_if_static_false_skips_dead_branch_compile_Profiler.new.run
       T_if_static_false_skips_dead_branch_compile_Either.new.run
+    RUBY
 
-      # === imeth_name_collision_recv_aware ===
+    _(result).must_answer <<~'OUT'
+      ran
+      quiet
+      done
+    OUT
+  end
+
+  it "imeth name collision recv aware" do
+    result = ze0(<<~'RUBY')
       # Issue #429. Two unrelated classes each defining `def get(k)`
       # with different return types caused the analyzer's int-recv
       # cross-class widening to pick the first match -- so a local
@@ -1602,35 +1779,16 @@ describe "Classes: regressions" do
       c = T_imeth_name_collision_recv_aware_IntClient.new
       r = c.get("/foo")
       puts r.status
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      got-hash
-      got-hash
-      42
-
-      99
-
-      7
-      0
-      21
-      1
-      ran
-      quiet
-      done
       got-x
       4
     OUT
   end
 
-  it "bundle class 13" do
+  it "imeth override widen to poly" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - imeth_override_widen_to_poly
-      #   - implicit_self_param_poly
-
-      # === imeth_override_widen_to_poly ===
       # #567 (Sam Ruby). Sibling of #563. When an override widens a
       # value param to sp_RbVal (poly) because its call sites pass
       # mixed types, but the parent's same param stays scalar, the C
@@ -1667,8 +1825,15 @@ describe "Classes: regressions" do
       a[:title] = "Other"
       a.fill
       puts a.title.inspect
+    RUBY
 
-      # === implicit_self_param_poly ===
+    _(result).must_answer <<~'OUT'
+      "Hello"
+    OUT
+  end
+
+  it "implicit self param poly" do
+    result = ze0(<<~'RUBY')
       class T_implicit_self_param_poly_TokenSink
         def initialize
           @value = ""
@@ -1686,23 +1851,15 @@ describe "Classes: regressions" do
       end
 
       T_implicit_self_param_poly_TokenSink.new.run
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "Hello"
       done
     OUT
   end
 
-  it "bundle class 14" do
+  it "inherit" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - inherit
-      #   - inherited_cmeth_self_returning_local
-      #   - inherited_cmethod_subclass_dispatch
-
-      # === inherit ===
       # Test inheritance and super
 
       class T_inherit_Animal
@@ -1755,8 +1912,21 @@ describe "Classes: regressions" do
       puts cat.name       # Whiskers (inherited)
       puts cat.speak      # Meow! (overridden)
       puts cat.describe   # Whiskers (inherited)
+    RUBY
 
-      # === inherited_cmeth_self_returning_local ===
+    _(result).must_answer <<~'OUT'
+      Rex
+      Labrador
+      Woof!
+      Rex
+      Whiskers
+      Meow!
+      Whiskers
+    OUT
+  end
+
+  it "inherited cmeth self returning local" do
+    result = ze0(<<~'RUBY')
       # Inherited class method whose body holds a local typed by a
       # method that each subclass overrides. The local's C type
       # needs to specialize per-subclass.
@@ -1805,8 +1975,16 @@ describe "Classes: regressions" do
       puts a.title
       c = T_inherited_cmeth_self_returning_local_Comment.find(9)
       puts c.body
+    RUBY
 
-      # === inherited_cmethod_subclass_dispatch ===
+    _(result).must_answer <<~'OUT'
+      art-7
+      comment-9
+    OUT
+  end
+
+  it "inherited cmethod subclass dispatch" do
+    result = ze0(<<~'RUBY')
       # #523. Sibling to #516. When a subclass inherits a class method
       # whose body calls another class method (`self.last` calls bare
       # `all`), spinel correctly monomorphized the call (`sp_Sub_cls_all`
@@ -1858,33 +2036,15 @@ describe "Classes: regressions" do
       else
         puts "nil"
       end
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Rex
-      Labrador
-      Woof!
-      Rex
-      Whiskers
-      Meow!
-      Whiskers
-      art-7
-      comment-9
       got object
     OUT
   end
 
-  it "bundle class 15" do
+  it "inherited method param widen" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - inherited_method_param_widen
-      #   - init_locals
-      #   - initialize_param_poly_call_sites
-      #   - initialize_param_through_call
-      #   - initialize_void_wrapper_gc_save
-
-      # === inherited_method_param_widen ===
       # Issue #286: a parent class's instance method param needs to widen
       # from subclass call sites too, not just from same-class call sites.
       # Previously scan_new_calls's bare-call branch only checked
@@ -1934,8 +2094,15 @@ describe "Classes: regressions" do
       end
 
       T_inherited_method_param_widen_T2.new.test_it
+    RUBY
 
-      # === init_locals ===
+    _(result).must_answer <<~'OUT'
+      ok
+    OUT
+  end
+
+  it "init locals" do
+    result = ze0(<<~'RUBY')
       # Regression test for issue #17: locals inside `initialize` were not
       # declared in the generated `_new` constructor (and `_initialize`
       # helper for value-type classes), so cc rejected the body with
@@ -1979,8 +2146,17 @@ describe "Classes: regressions" do
 
       c = T_init_locals_Compound.new(3, 4)
       puts c.result         # 11
+    RUBY
 
-      # === initialize_param_poly_call_sites ===
+    _(result).must_answer <<~'OUT'
+      1
+      10
+      11
+    OUT
+  end
+
+  it "initialize param poly call sites" do
+    result = ze0(<<~'RUBY')
       # Regression test: when an `initialize` parameter is widened to "poly"
       # by conflicting Foo.new(...) call sites, the param type must stay poly
       # end-to-end. The extended merge logic explicitly returns existing_pt
@@ -2001,8 +2177,16 @@ describe "Classes: regressions" do
 
       T_initialize_param_poly_call_sites_Box.new("hello").show
       T_initialize_param_poly_call_sites_Box.new(42).show
+    RUBY
 
-      # === initialize_param_through_call ===
+    _(result).must_answer <<~'OUT'
+      hello
+      42
+    OUT
+  end
+
+  it "initialize param through call" do
+    result = ze0(<<~'RUBY')
       # Regression test: an initialize parameter that is never written to an
       # ivar must still pick up its type from `Foo.new(...)` call sites.
       #
@@ -2018,8 +2202,15 @@ describe "Classes: regressions" do
       end
 
       T_initialize_param_through_call_Greeter.new("hello")
+    RUBY
 
-      # === initialize_void_wrapper_gc_save ===
+    _(result).must_answer <<~'OUT'
+      hello
+    OUT
+  end
+
+  it "initialize void wrapper gc save" do
+    result = ze0(<<~'RUBY')
       # Issue #314 follow-up: the synthesized void
       # `sp_<C>_initialize` super-chain wrapper inherits @in_gc_scope
       # from the prior `sp_<C>_new` constructor emit. When that left
@@ -2060,29 +2251,15 @@ describe "Classes: regressions" do
       # the void wrapper is only emitted for heap classes.
       all = [T_initialize_void_wrapper_gc_save_Child.new, T_initialize_void_wrapper_gc_save_Child.new]
       puts all.length          # 2
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ok
-      1
-      10
-      11
-      hello
-      42
-      hello
       2
     OUT
   end
 
-  it "bundle class 18" do
+  it "intarray slice assign from intarray ptr array first" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - intarray_slice_assign_from_intarray_ptr_array_first
-      #   - introspect
-      #   - isa_hash_narrow_typed_param
-
-      # === intarray_slice_assign_from_intarray_ptr_array_first ===
       # `arr[start, len] = src` slice-assign where `src` came from
       # `<X>_ptr_array.first` (or `.last`). Spinel's compile_bracket_assign
       # already had a same-prefix slice-assign path for `int_array[i, n] =
@@ -2108,8 +2285,15 @@ describe "Classes: regressions" do
       end
 
       T_intarray_slice_assign_from_intarray_ptr_array_first_C.new.show
+    RUBY
 
-      # === introspect ===
+    _(result).must_answer <<~'OUT'
+      0 0 0 0 0 0 1 2 3 4 5 6 7 0 0 8 9 10 11 12 13 14 15 0 
+    OUT
+  end
+
+  it "introspect" do
+    result = ze0(<<~'RUBY')
       # Test respond_to?, is_a?, class name, to_s
 
       class T_introspect_Animal
@@ -2145,8 +2329,25 @@ describe "Classes: regressions" do
       puts 0.zero?           # true
       puts 5.positive?       # true
       puts (-3).negative?    # true
+    RUBY
 
-      # === isa_hash_narrow_typed_param ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+      false
+      true
+      false
+      false
+      true
+      true
+      true
+    OUT
+  end
+
+  it "isa hash narrow typed param" do
+    result = ze0(<<~'RUBY')
       # `is_a?(Hash)`-narrowed poly value passed to a typed-Hash param
       # slot should unbox via `(sp_<Variant> *).v.p`, matching the
       # obj-narrow arm at #448. Pre-fix compile_typed_call_args's
@@ -2177,19 +2378,15 @@ describe "Classes: regressions" do
 
       b = T_isa_hash_narrow_typed_param_Bag.new
       puts b.visit({ "inner" => { "k" => "tokyo" } })
-
     RUBY
 
-    _(result).must_answer "0 0 0 0 0 0 1 2 3 4 5 6 7 0 0 8 9 10 11 12 13 14 15 0 \ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\ntokyo\n"
+    _(result).must_answer <<~'OUT'
+      tokyo
+    OUT
   end
 
-  it "bundle class 19" do
+  it "issue176 empty hash default" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - issue176_empty_hash_default
-      #   - issue204_user_find_fetch
-
-      # === issue176_empty_hash_default ===
       # Issue #176: empty-Hash default parameter `def m(h = {})` used to
       # silently corrupt the caller-supplied Hash because unify_call_types
       # widened the param type to "poly" and the poly dispatch tree had no
@@ -2224,8 +2421,17 @@ describe "Classes: regressions" do
       end
 
       puts T_issue176_empty_hash_default_C.new({"v" => 7}).v
+    RUBY
 
-      # === issue204_user_find_fetch ===
+    _(result).must_answer <<~'OUT'
+      42
+      alice
+      7
+    OUT
+  end
+
+  it "issue204 user find fetch" do
+    result = ze0(<<~'RUBY')
       # Issue #204: user-defined `find` / `fetch` were overridden by the
       # method-name dispatch's "int" fallback even when the receiver
       # wasn't a built-in collection. The body's actual return type
@@ -2251,13 +2457,9 @@ describe "Classes: regressions" do
 
       # Built-in collection dispatch still works (regression check).
       puts ["x", "y", "z"].find { |v| v == "y" }   # y
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      42
-      alice
-      7
       row-42
       fetched-99
       alpha
@@ -2266,14 +2468,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle class 20" do
+  it "issue207 factory pattern" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - issue207_factory_pattern
-      #   - issue207_full_repro
-      #   - issue208_inherited_class_method
-
-      # === issue207_factory_pattern ===
       # Issue #207: factory class method (`def self.from_raw`) using
       # implicit `new`, calling a setter on the new instance whose value
       # came from a poly-hash-returning fetch. Several composing gaps:
@@ -2309,8 +2505,15 @@ describe "Classes: regressions" do
       p = T_issue207_factory_pattern_P.new({title: "hello", count: 42})
       t = T_issue207_factory_pattern_T.from_raw(p)
       puts t.title
+    RUBY
 
-      # === issue207_full_repro ===
+    _(result).must_answer <<~'OUT'
+      hello
+    OUT
+  end
+
+  it "issue207 full repro" do
+    result = ze0(<<~'RUBY')
       # Issue #207: full Sam Ruby repro — Rails-style ActiveRecord
       # T_issue207_full_repro_Parameters wrapper with symbolize_keys recursion plus a typed
       # Params factory using fetch.
@@ -2363,8 +2566,15 @@ describe "Classes: regressions" do
       p = T_issue207_full_repro_Parameters.new({title: "hello"})
       ap = T_issue207_full_repro_ArticleParams.from_raw(p)
       puts ap.title
+    RUBY
 
-      # === issue208_inherited_class_method ===
+    _(result).must_answer <<~'OUT'
+      hello
+    OUT
+  end
+
+  it "issue208 inherited class method" do
+    result = ze0(<<~'RUBY')
       # Issue #208: a class method (`def self.<name>`) defined on the
       # parent class must dispatch when called via the subclass. Spinel
       # previously emitted "cannot resolve call to '<method>' on
@@ -2389,12 +2599,9 @@ describe "Classes: regressions" do
 
       # Direct call on the defining class still works
       puts T_issue208_inherited_class_method_Base.all.size                   # 3
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      hello
-      hello
       3
       3
       3
@@ -2402,16 +2609,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle class 21" do
+  it "issue219 aref chain" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - issue219_aref_chain
-      #   - issue235_chain_tail_widening
-      #   - ivar_and_write_basic
-      #   - ivar_c_keyword
-      #   - ivar_float_array
-
-      # === issue219_aref_chain ===
       # Issue #219: chained calls on a user-defined `[]` operator's
       # result silently lost their coercion (`.to_i` / `.length`) because
       # infer_type's `mname == "[]"` branch handled built-in collection
@@ -2448,8 +2647,19 @@ describe "Classes: regressions" do
       end
       ib = T_issue219_aref_chain_IntBag.new({n: 42})
       puts ib[:n].to_s                # "42"
+    RUBY
 
-      # === issue235_chain_tail_widening ===
+    _(result).must_answer <<~'OUT'
+      42
+      43
+      2
+      43
+      42
+    OUT
+  end
+
+  it "issue235 chain tail widening" do
+    result = ze0(<<~'RUBY')
       # Issue #235 follow-up to #234: chained `@a = @b = expr` only widened
       # the chain *head*. The tail (and intermediate participants in
       # longer chains) relied on scan_ivars's dual-definite-literal gate,
@@ -2498,8 +2708,19 @@ describe "Classes: regressions" do
       # reset_three sets @c, calling show wouldn't read it (no accessor),
       # but the struct emit needs to type-check.
       puts "ok"
+    RUBY
 
-      # === ivar_and_write_basic ===
+    _(result).must_answer <<~'OUT'
+      42
+      42
+      2
+      2
+      ok
+    OUT
+  end
+
+  it "ivar and write basic" do
+    result = ze0(<<~'RUBY')
       class T_ivar_and_write_basic_T
         def initialize
           @ready = false
@@ -2534,8 +2755,19 @@ describe "Classes: regressions" do
       puts t.state
       t.maybe_inc
       puts t.state
+    RUBY
 
-      # === ivar_c_keyword ===
+    _(result).must_answer <<~'OUT'
+      ready=false count=0
+      ready=false count=0
+      ready=true count=0
+      ready=true count=1
+      ready=true count=2
+    OUT
+  end
+
+  it "ivar c keyword" do
+    result = ze0(<<~'RUBY')
       # Test: ivar naming remains safe for C keywords and iv_ prefix collisions.
 
       class T_ivar_c_keyword_KeywordIvar
@@ -2550,8 +2782,15 @@ describe "Classes: regressions" do
       end
 
       puts T_ivar_c_keyword_KeywordIvar.new.value
+    RUBY
 
-      # === ivar_float_array ===
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "ivar float array" do
+    result = ze0(<<~'RUBY')
       # Regression: instance variables initialized via Array.new(n, FILL) must be
       # typed by inspecting the fill argument, not always returned as "int_array".
       #
@@ -2611,26 +2850,9 @@ describe "Classes: regressions" do
       puts m.marks[1].id  # 42  (Array.new(n, obj) shares the same obj)
       puts m.marks[2].id  # 42
       puts m.marks.length # 3
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      42
-      43
-      2
-      43
-      42
-      42
-      42
-      2
-      2
-      ok
-      ready=false count=0
-      ready=false count=0
-      ready=true count=0
-      ready=true count=1
-      ready=true count=2
-      42
       0.5
       0.5
       0.5
@@ -2645,16 +2867,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle class 22" do
+  it "ivar hash aset param widen" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - ivar_hash_aset_param_widen
-      #   - ivar_lazy_init_push_via_getter
-      #   - ivar_op_assign_bitwise_and_shift
-      #   - ivar_or_write_basic
-      #   - ivar_same_shape_string_new_no_widen
-
-      # === ivar_hash_aset_param_widen ===
       # #488. A class method writing a param into a typed ivar hash —
       # `@data[key] = value` where @data is pinned to e.g. str_str_hash
       # by another method — left the writer's `key` and `value` params
@@ -2692,8 +2906,16 @@ describe "Classes: regressions" do
       b.populate({ "x" => "hello" })
       puts "ok"
       puts b.fetch("x")
+    RUBY
 
-      # === ivar_lazy_init_push_via_getter ===
+    _(result).must_answer <<~'OUT'
+      ok
+      hello
+    OUT
+  end
+
+  it "ivar lazy init push via getter" do
+    result = ze0(<<~'RUBY')
       # Issue #430. `@ivar = [] if @ivar.nil?` plus push-through-getter:
       # the ivar stayed inferred as IntArray (from the empty `[]`
       # literal) even when pushes through a getter method handed in
@@ -2748,8 +2970,18 @@ describe "Classes: regressions" do
       es = T_ivar_lazy_init_push_via_getter_ErrorsSelf.new
       es.add("x")
       puts es.list[0]
+    RUBY
 
-      # === ivar_op_assign_bitwise_and_shift ===
+    _(result).must_answer <<~'OUT'
+      2
+      a
+      b
+      x
+    OUT
+  end
+
+  it "ivar op assign bitwise and shift" do
+    result = ze0(<<~'RUBY')
       # Statement-form `@x OP= v` for the bitwise / shift / multiplicative
       # operators. The pre-fix codegen only handled `+=` and `-=`; every
       # other op-assign was silently dropped, so `@a &= 0x80` left @a
@@ -2772,8 +3004,20 @@ describe "Classes: regressions" do
       c = T_ivar_op_assign_bitwise_and_shift_C.new; c.m_lsh; puts "lsh: #{c.a}"
       c = T_ivar_op_assign_bitwise_and_shift_C.new; c.m_rsh; puts "rsh: #{c.a}"
       c = T_ivar_op_assign_bitwise_and_shift_C.new; c.m_mul; puts "mul: #{c.a}"
+    RUBY
 
-      # === ivar_or_write_basic ===
+    _(result).must_answer <<~'OUT'
+      amp: 128
+      or: 255
+      xor: 0
+      lsh: 510
+      rsh: 127
+      mul: 510
+    OUT
+  end
+
+  it "ivar or write basic" do
+    result = ze0(<<~'RUBY')
       class T_ivar_or_write_basic_T
         def initialize
           @str = nil
@@ -2831,8 +3075,23 @@ describe "Classes: regressions" do
       puts u.value
       puts u.value
       puts u.value
+    RUBY
 
-      # === ivar_same_shape_string_new_no_widen ===
+    _(result).must_answer <<~'OUT'
+      nil-before
+      hello
+      hello
+      hello
+      hello
+      hits=1
+      42
+      42
+      42
+    OUT
+  end
+
+  it "ivar same shape string new no widen" do
+    result = ze0(<<~'RUBY')
       # Two `String.new` writes to the same ivar should keep the slot at
       # `sp_String *`, not widen to `sp_RbVal`. Pre-fix scan_ivars used
       # `infer_ivar_init_type` which returned `obj_String` for the first
@@ -2864,46 +3123,16 @@ describe "Classes: regressions" do
       t.reset
       t.append("world")
       puts t.body
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ok
-      hello
-      2
-      a
-      b
-      x
-      amp: 128
-      or: 255
-      xor: 0
-      lsh: 510
-      rsh: 127
-      mul: 510
-      nil-before
-      hello
-      hello
-      hello
-      hello
-      hits=1
-      42
-      42
-      42
       hello
       world
     OUT
   end
 
-  it "bundle class 23" do
+  it "ivar writer heterogeneity" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - ivar_writer_heterogeneity
-      #   - kernel_module_function_call
-      #   - known_constants
-      #   - kwarg_default_empty_hash_kind
-      #   - kwargs_into_default_hash_param
-
-      # === ivar_writer_heterogeneity ===
       # Issue #247: when two writers in different methods of the same class
       # disagree on the value type, spinel used to narrow the slot to
       # whichever writer's update_ivar_type call ran last — and the loser's
@@ -2938,8 +3167,16 @@ describe "Classes: regressions" do
 
       d = T_ivar_writer_heterogeneity_D.new({v: 7})
       puts d.v
+    RUBY
 
-      # === kernel_module_function_call ===
+    _(result).must_answer <<~'OUT'
+      string
+      7
+    OUT
+  end
+
+  it "kernel module function call" do
+    result = ze0(<<~'RUBY')
       # Issue #428. `Kernel.<m>` cmeth-style calls (the disambiguator
       # users reach for when a `def self.<m>` shadows a Kernel
       # module-function) emitted `0` instead of dispatching. Bare
@@ -2965,8 +3202,15 @@ describe "Classes: regressions" do
 
       T_kernel_module_function_call_Sched.nap(0)
       puts "ok"
+    RUBY
 
-      # === known_constants ===
+    _(result).must_answer <<~'OUT'
+      ok
+    OUT
+  end
+
+  it "known constants" do
+    result = ze0(<<~'RUBY')
       # Issue #75: the codegen now rejects an unknown constant reference
       # with a "uninitialized constant <Name>" error instead of either
       # leaking the bare identifier into the C output (`p Foo`) or
@@ -2992,8 +3236,18 @@ describe "Classes: regressions" do
 
       # ARGV / STDOUT pass through.
       puts ARGV.length           # 0
+    RUBY
 
-      # === kwarg_default_empty_hash_kind ===
+    _(result).must_answer <<~'OUT'
+      7
+      42
+      4
+      0
+    OUT
+  end
+
+  it "kwarg default empty hash kind" do
+    result = ze0(<<~'RUBY')
       # #486. Class method with a kwarg `set_cookies: {}` whose
       # param is body-widened (via other call sites passing a
       # sym-keyed hash) to sp_SymStrHash *. A bare call site that
@@ -3023,8 +3277,15 @@ describe "Classes: regressions" do
       end
 
       puts T_kwarg_default_empty_hash_kind_W.write(1, 404).to_s
+    RUBY
 
-      # === kwargs_into_default_hash_param ===
+    _(result).must_answer <<~'OUT'
+      0
+    OUT
+  end
+
+  it "kwargs into default hash param" do
+    result = ze0(<<~'RUBY')
       # When a method's only positional has a default hash literal
       # (`attrs = {}`), call sites that pass kwargs whose names DON'T
       # match the param name should bundle the kwargs into that hash
@@ -3082,18 +3343,9 @@ describe "Classes: regressions" do
       b4 = T_kwargs_into_default_hash_param_Bag.create(id: 99, name: "gamma")
       puts b4.id     # 99
       puts b4.name   # gamma
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      string
-      7
-      ok
-      7
-      42
-      4
-      0
-      0
       7
       alpha
       2
@@ -3108,14 +3360,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle class a" do
+  it "alias method" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - alias_method
-      #   - and_node_poly_operand
-      #   - array_3d_nested
-
-      # === alias_method ===
       # AliasMethodNode -- `alias greet hello` inside a class body.
       #
       # CRuby snapshots the method at alias time -- if `hello` is later
@@ -3144,8 +3390,19 @@ describe "Classes: regressions" do
       puts c.value   # 42
       puts c.get     # 42
       puts c.read    # 42
+    RUBY
 
-      # === and_node_poly_operand ===
+    _(result).must_answer <<~'OUT'
+      hi from hello
+      hi from hello
+      42
+      42
+      42
+    OUT
+  end
+
+  it "and node poly operand" do
+    result = ze0(<<~'RUBY')
       # `a && b` codegen used to lower to raw C `a && b` regardless of
       # operand type. When either operand is `sp_RbVal` (poly), C rejects
       # `&&` between a struct and an int. Wrap poly operands with
@@ -3170,8 +3427,15 @@ describe "Classes: regressions" do
 
       h = T_and_node_poly_operand_Holder.new
       puts h.chain    # 1
+    RUBY
 
-      # === array_3d_nested ===
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "array 3d nested" do
+    result = ze0(<<~'RUBY')
       # Deep-nested array literals (3D and beyond). Spinel doesn't
       # have a typed `<X>_ptr_array_ptr_array` slot — the second-level
       # `[[1,2,3],[4,5,6]]` infers as `int_array_ptr_array` and the
@@ -3220,16 +3484,9 @@ describe "Classes: regressions" do
       puts h4.read(0, 1, 0, 1)   # 6
       puts h4.read(1, 0, 1, 0)   # 11
       puts h4.read(1, 1, 1, 1)   # 16
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      hi from hello
-      hi from hello
-      42
-      42
-      42
-      1
       1
       5
       9
@@ -3241,14 +3498,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 04" do
+  it "instance eval return value" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - instance_eval_return_value
-      #   - map_array_block_result
-      #   - map_block_returns_nested_array
-
-      # === instance_eval_return_value ===
       # instance_eval as an expression: the block's last expression is the
       # call's value (CRuby semantics). Void-bodied blocks (assignment-only)
       # fall through to a truthy receiver so `if obj.instance_eval { @f = 1 }`
@@ -3305,8 +3556,20 @@ describe "Classes: regressions" do
       end
 
       puts "done"
+    RUBY
 
-      # === map_array_block_result ===
+    _(result).must_answer <<~'OUT'
+      3
+      true
+      6
+      hello
+      truthy
+      done
+    OUT
+  end
+
+  it "map array block result" do
+    result = ze0(<<~'RUBY')
       # `arr.map { array_block }` — outer recv is a typed Array, block
       # returns a typed array (`(0..i).to_a` here is int_array). Without
       # the fix, two issues conspire:
@@ -3336,8 +3599,16 @@ describe "Classes: regressions" do
       end
 
       T_map_array_block_result_C.new.show
+    RUBY
 
-      # === map_block_returns_nested_array ===
+    _(result).must_answer <<~'OUT'
+      0 1 
+      0 1 2 3 4 5 6 
+    OUT
+  end
+
+  it "map block returns nested array" do
+    result = ze0(<<~'RUBY')
       # `Range#map` / `int_array.map` whose block returns an array
       # (1D, 2D, 3D nested) used to silently degrade — the codegen
       # returned `0` for non-int/string/float block returns at the
@@ -3391,19 +3662,21 @@ describe "Classes: regressions" do
       puts m3.read(0, 1, 1)   # 111
       puts m3.read(1, 2, 0)   # 22
       puts m3.read(1, 2, 1)   # 122
-
     RUBY
 
-    _(result).must_answer "3\ntrue\n6\nhello\ntruthy\ndone\n0 1 \n0 1 2 3 4 5 6 \n0\n12\n23\n10\n111\n22\n122\n"
+    _(result).must_answer <<~'OUT'
+      0
+      12
+      23
+      10
+      111
+      22
+      122
+    OUT
   end
 
-  it "bundle classd 05" do
+  it "map empty block" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - map_empty_block
-      #   - map_range_recv_array_block
-
-      # === map_empty_block ===
       # Issue #210 follow-up: an empty `map {}` block must still produce
       # an array of the same length as the receiver. Each map dispatch
       # (Range#, N.times#, int_array#, str_array#, poly_array#) used to
@@ -3430,8 +3703,20 @@ describe "Classes: regressions" do
         def initialize(v); @v = v; end
       end
       puts [T_map_empty_block_Box.new(1), T_map_empty_block_Box.new(2), T_map_empty_block_Box.new(3)].map {}.length  # 3
+    RUBY
 
-      # === map_range_recv_array_block ===
+    _(result).must_answer <<~'OUT'
+      3
+      4
+      3
+      4
+      3
+      3
+    OUT
+  end
+
+  it "map range recv array block" do
+    result = ze0(<<~'RUBY')
       # `infer_method_name_type` for `map` used to fall through to
       # `infer_type(recv)` when the block returned a non-trivial shape
       # (an array literal). For a Range recv that yielded `range`,
@@ -3463,16 +3748,9 @@ describe "Classes: regressions" do
       # Expected:
       #   0 / 0 / 1 / 10 / 2 / 20 (each row's elements)
       #   10 / 20 / 30 (flat)
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      4
-      3
-      4
-      3
-      3
       0
       0
       1
@@ -3485,12 +3763,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 08" do
+  it "method name collision imeth" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - method_name_collision_imeth
-
-      # === method_name_collision_imeth ===
       # Issue #407 (imeth follow-up): user-defined instance methods
       # named `hash`, `to_i`, `to_s`, `length`, `size`, `count` were
       # pre-empted by the hardcoded name -> int / string arms in
@@ -3530,7 +3804,6 @@ describe "Classes: regressions" do
       puts i.to_i
       puts i.to_s
       puts i.length
-
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -3541,16 +3814,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 09" do
+  it "method name collision multi class" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - method_name_collision_multi_class
-      #   - method_named_log_no_math_collision
-      #   - method_param_unify_to_poly
-      #   - method_redefinition_warning
-      #   - multi_arg_block_call
-
-      # === method_name_collision_multi_class ===
       # Issue #407 case 2/3. Multiple unrelated classes define the
       # same method name; cross-class poly-recv widening picks the
       # correct param types via arity match.
@@ -3604,8 +3869,17 @@ describe "Classes: regressions" do
 
       db = T_method_name_collision_multi_class_SQLite.new("conn-1")
       puts db.handle
+    RUBY
 
-      # === method_named_log_no_math_collision ===
+    _(result).must_answer <<~'OUT'
+      i-/:ok
+      u-/:ok
+      conn-1
+    OUT
+  end
+
+  it "method named log no math collision" do
+    result = ze0(<<~'RUBY')
       # Method names that collide with Math module functions (log, sin,
       # cos, sqrt, exp, atan2, hypot, ...) should not be misinferred as
       # float-returning. Previously, infer_math_and_misc_type blindly
@@ -3636,8 +3910,18 @@ describe "Classes: regressions" do
 
       # Also verify Math.log still works
       puts Math.log(1.0).to_i.to_s
+    RUBY
 
-      # === method_param_unify_to_poly ===
+    _(result).must_answer <<~'OUT'
+      first
+      second
+      2
+      0
+    OUT
+  end
+
+  it "method param unify to poly" do
+    result = ze0(<<~'RUBY')
       # Disagreeing call-site types for the same parameter need to widen
       # to `poly`. Pre-fix, `scan_new_calls` (obj-recv) and
       # `scan_cls_method_calls` (self-call inside the same class) both
@@ -3678,8 +3962,16 @@ describe "Classes: regressions" do
       cpu = T_method_param_unify_to_poly_CPU.new
       puts cpu.boot
       puts T_method_param_unify_to_poly_User.new(cpu).reset
+    RUBY
 
-      # === method_redefinition_warning ===
+    _(result).must_answer <<~'OUT'
+      3
+      30
+    OUT
+  end
+
+  it "method redefinition warning" do
+    result = ze0(<<~'RUBY')
       # Issue #667: spinel is an AOT compiler with static dispatch; method
       # redefinition is a documented subset limitation. The analyzer detects
       # the case in append_cls_meth and emits a stderr warning, then follows
@@ -3705,8 +3997,16 @@ describe "Classes: regressions" do
       end
 
       puts f.test
+    RUBY
 
-      # === multi_arg_block_call ===
+    _(result).must_answer <<~'OUT'
+      original
+      redefined
+    OUT
+  end
+
+  it "multi arg block call" do
+    result = ze0(<<~'RUBY')
       # Multi-argument `block.call(a, b, ...)` on the proc-object path.
       #
       # Pre-fix, `compile_proc_literal` hardcoded the lambda's signature
@@ -3763,21 +4063,9 @@ describe "Classes: regressions" do
       end
 
       T_multi_arg_block_call_Drop.new.go { puts "called" }
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      i-/:ok
-      u-/:ok
-      conn-1
-      first
-      second
-      2
-      0
-      3
-      30
-      original
-      redefined
       30
       6
       100
@@ -3786,13 +4074,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 10" do
+  it "multi assign ivar" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - multi_assign_ivar
-      #   - multi_write_const
-
-      # === multi_assign_ivar ===
       class T_multi_assign_ivar_A
         attr_reader :x
         def initialize; @x = 11; end
@@ -3826,8 +4109,15 @@ describe "Classes: regressions" do
 
       h = T_multi_assign_ivar_Holder.new
       h.show
+    RUBY
 
-      # === multi_write_const ===
+    _(result).must_answer <<~'OUT'
+      a.x=11 b.y=22 c.z=33
+    OUT
+  end
+
+  it "multi write const" do
+    result = ze0(<<~'RUBY')
       # Multi-write to constants — `A, B, T_multi_write_const_C = expr` — used to silently
       # drop the targets because the parser emitted ConstantTargetNode as
       # `UnknownNode_43` and the codegen had no MultiWriteNode branch in
@@ -3864,11 +4154,9 @@ describe "Classes: regressions" do
       P, Q = [1, 2].map { |n| n * 10 }
       puts P
       puts Q
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      a.x=11 b.y=22 c.z=33
       10
       20
       30
@@ -3881,14 +4169,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 11" do
+  it "multi write from poly recv" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - multi_write_from_poly_recv
-      #   - multi_write_ivar
-      #   - multi_write_ivar_widening
-
-      # === multi_write_from_poly_recv ===
       # Multi-write `a, b = rhs` where rhs's static type is `poly` (an
       # sp_RbVal that carries a poly_array at runtime).  Pre-fix:
       # `multi_write_target_type` fell through to the default `int` for
@@ -3923,8 +4205,15 @@ describe "Classes: regressions" do
       c.setup
       # bank=1 / idx=0 yields a 1-element list (one push at this slot).
       puts c.name_lut_size(1, 0)
+    RUBY
 
-      # === multi_write_ivar ===
+    _(result).must_answer <<~'OUT'
+      1
+    OUT
+  end
+
+  it "multi write ivar" do
+    result = ze0(<<~'RUBY')
       # `@a, @b = expr1, expr2` (multi-write to ivars) was not picked up by
       # `scan_ivars`, so the ivars were never registered and the struct
       # came out missing them. The emit-time path in compile_stmt already
@@ -3959,8 +4248,17 @@ describe "Classes: regressions" do
       puts h.a
       puts h.b
       puts h.has_obj
+    RUBY
 
-      # === multi_write_ivar_widening ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      15
+    OUT
+  end
+
+  it "multi write ivar widening" do
+    result = ze0(<<~'RUBY')
       class T_multi_write_ivar_widening_Pair
         def initialize(a, b)
           @x, @y = [a, b]
@@ -3971,29 +4269,16 @@ describe "Classes: regressions" do
       p = T_multi_write_ivar_widening_Pair.new("hello", "world")
       puts p.x
       puts p.y
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1
-      1
-      2
-      15
       hello
       world
     OUT
   end
 
-  it "bundle classd 12" do
+  it "multi write map block" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - multi_write_map_block
-      #   - multi_write_setter
-      #   - multi_write_typed_array_dispatch
-      #   - mutable_str_into_poly_slot
-      #   - nested_class_in_class
-
-      # === multi_write_map_block ===
       # `A, B = arr.map { block }` is destructuring assignment where
       # each LHS target receives one element of the mapped array.
       # Two related codegen pieces need to land together:
@@ -4025,8 +4310,21 @@ describe "Classes: regressions" do
       puts T_multi_write_map_block_C::Q.length   # 5
       puts T_multi_write_map_block_C::Q[3]       # 3
       puts T_multi_write_map_block_C::Q[4]       # 4
+    RUBY
 
-      # === multi_write_setter ===
+    _(result).must_answer <<~'OUT'
+      3
+      0
+      1
+      2
+      5
+      3
+      4
+    OUT
+  end
+
+  it "multi write setter" do
+    result = ze0(<<~'RUBY')
       # `a, b, c.x = expr` where one target is a setter call (`c.x =`)
       # parses to a CallTargetNode in the targets list. Without parser
       # support for CallTargetNode the setter target was silently dropped.
@@ -4055,8 +4353,17 @@ describe "Classes: regressions" do
       h = T_multi_write_setter_Holder.new
       h.fill
       h.show
+    RUBY
 
-      # === multi_write_typed_array_dispatch ===
+    _(result).must_answer <<~'OUT'
+      11
+      22
+      33
+    OUT
+  end
+
+  it "multi write typed array dispatch" do
+    result = ze0(<<~'RUBY')
       # Regression: `a, b = self.method(...)` where `method` returns a typed
       # array other than int_array. compile_multi_write previously emitted
       # `sp_IntArray *tmp = call(); sp_IntArray_get(tmp, k)` for every
@@ -4101,8 +4408,17 @@ describe "Classes: regressions" do
       puts n.go_mats     # 33
       puts n.go_floats   # 4.0
       puts n.go_strs     # "ab"
+    RUBY
 
-      # === mutable_str_into_poly_slot ===
+    _(result).must_answer <<~'OUT'
+      33
+      4.0
+      ab
+    OUT
+  end
+
+  it "mutable str into poly slot" do
+    result = ze0(<<~'RUBY')
       # #541. A view function returning sp_String * boxed into a
       # `body` slot that had been widened to poly (other classes wrote
       # ints/etc. to the same-named slot) emitted
@@ -4156,8 +4472,17 @@ describe "Classes: regressions" do
       r2 = T_mutable_str_into_poly_slot_Resp.new
       r2.body = T_mutable_str_into_poly_slot_View.index
       puts r2.body.inspect
+    RUBY
 
-      # === nested_class_in_class ===
+    _(result).must_answer <<~'OUT'
+      "<h1>title</h1><p>body</p>"
+      42
+      "<h1>title</h1><p>body</p>"
+    OUT
+  end
+
+  it "nested class in class" do
+    result = ze0(<<~'RUBY')
       # Nested class definition inside another class.
       # Spinel has no namespace table; bare class names must be unique, so
       # `class T_nested_class_in_class_A; class B; ... end; end` registers `B` at top level the same
@@ -4196,42 +4521,17 @@ describe "Classes: regressions" do
       end
 
       puts T_nested_class_in_class_Outer::Mid::Inner.new.hello
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      0
-      1
-      2
-      5
-      3
-      4
-      11
-      22
-      33
-      33
-      4.0
-      ab
-      "<h1>title</h1><p>body</p>"
-      42
-      "<h1>title</h1><p>body</p>"
       7
       42
       hi
     OUT
   end
 
-  it "bundle classd 13" do
+  it "nested proc interp capture" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - nested_proc_interp_capture
-      #   - new_kwarg_bundle
-      #   - nil_ivar_no_predicate_stays_scalar
-      #   - nil_scalar_ivar_widen
-      #   - no_attr_write_shortcut_complex
-
-      # === nested_proc_interp_capture ===
       # Nested blocks that capture a variable through string interpolation
       # inside a block that itself captures the same variable.
       #
@@ -4281,8 +4581,18 @@ describe "Classes: regressions" do
         i += 1
         d.add { puts "third #{i}" }
       end
+    RUBY
 
-      # === new_kwarg_bundle ===
+    _(result).must_answer <<~'OUT'
+      mid
+      third 3
+      second 3
+      first 3
+    OUT
+  end
+
+  it "new kwarg bundle" do
+    result = ze0(<<~'RUBY')
       # #530. `Class.new(kw: val)` (Symbol-keyed kwargs) where the
       # class's initialize takes a single positional `attrs` param.
       # CRuby binds `attrs = {kw: val}` (the kwargs become a positional
@@ -4329,8 +4639,19 @@ describe "Classes: regressions" do
       m = T_new_kwarg_bundle_Mixed.new(name: "abc", count: 42)
       puts m.s
       puts m.n.inspect
+    RUBY
 
-      # === nil_ivar_no_predicate_stays_scalar ===
+    _(result).must_answer <<~'OUT'
+      Hello
+      World
+      Second
+      abc
+      42
+    OUT
+  end
+
+  it "nil ivar no predicate stays scalar" do
+    result = ze0(<<~'RUBY')
       # #497. Regression guard for the optcarrot APU::Pulse shape that
       # motivated reverting #495: an ivar initialized to `nil` and later
       # used purely as int arithmetic (no `.nil?` read anywhere on it)
@@ -4376,8 +4697,16 @@ describe "Classes: regressions" do
       a.step!
       a.step!
       puts a.report
+    RUBY
 
-      # === nil_scalar_ivar_widen ===
+    _(result).must_answer <<~'OUT'
+      0,8
+      2,24
+    OUT
+  end
+
+  it "nil scalar ivar widen" do
+    result = ze0(<<~'RUBY')
       class T_nil_scalar_ivar_widen_HitState
         def initialize
           @material_index = nil
@@ -4434,8 +4763,20 @@ describe "Classes: regressions" do
       puts param_reset.label
       param_reset.set(nil)
       puts param_reset.label
+    RUBY
 
-      # === no_attr_write_shortcut_complex ===
+    _(result).must_answer <<~'OUT'
+      miss
+      hit
+      hit
+      miss
+      hit
+      miss
+    OUT
+  end
+
+  it "no attr write shortcut complex" do
+    result = ze0(<<~'RUBY')
       # `def x=(v); @x = v * 2; end` looks like an attr_writer at first glance
       # (single InstanceVariableWriteNode body) but the assignment value is a
       # computation, not a bare param reference — `is_simple_writer_method`
@@ -4469,40 +4810,17 @@ describe "Classes: regressions" do
       puts c.get_doubled    # -14
 
       puts "done"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      mid
-      third 3
-      second 3
-      first 3
-      Hello
-      World
-      Second
-      abc
-      42
-      0,8
-      2,24
-      miss
-      hit
-      hit
-      miss
-      hit
-      miss
       10
       -14
       done
     OUT
   end
 
-  it "bundle classd 14" do
+  it "no attr write shortcut multi" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - no_attr_write_shortcut_multi
-      #   - obj_array
-
-      # === no_attr_write_shortcut_multi ===
       # `obj.x = v` must dispatch to `def x=(v)` when x= is not a registered
       # attr_writer. A multi-statement body never matched the auto-attr_writer
       # pattern (which requires a single `InstanceVariableWriteNode` body), so
@@ -4541,8 +4859,18 @@ describe "Classes: regressions" do
       puts c.real           # 5  (overwritten by the side effect)
 
       puts "done"
+    RUBY
 
-      # === obj_array ===
+    _(result).must_answer <<~'OUT'
+      7
+      set:hello
+      5
+      done
+    OUT
+  end
+
+  it "obj array" do
+    result = ze0(<<~'RUBY')
       class T_obj_array_Point
         attr_accessor :x
         attr_accessor :y
@@ -4569,14 +4897,9 @@ describe "Classes: regressions" do
       more.each { |p|
         puts p.x + p.y
       }
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      7
-      set:hello
-      5
-      done
       1,2
       3,4
       5,6
@@ -4586,16 +4909,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 17" do
+  it "poly aref shift via block param" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_aref_shift_via_block_param
-      #   - poly_array_literal_callnode_typed_elem
-      #   - poly_array_slot_literal
-      #   - poly_array_slot_sized_default
-      #   - poly_dispatch_args_ret
-
-      # === poly_aref_shift_via_block_param ===
       # `<poly>[idx]` flowing into an int operator (`>>` / `<<` / ...)
       # inside an `.each {|a| ... }` block must unbox the sp_RbVal result
       # of `a[idx]` before the T_poly_aref_shift_via_block_param_C operator.
@@ -4629,8 +4944,16 @@ describe "Classes: regressions" do
       end
 
       T_poly_aref_shift_via_block_param_C.new.run(0, 0, 0xff)
+    RUBY
 
-      # === poly_array_literal_callnode_typed_elem ===
+    _(result).must_answer <<~'OUT'
+      3
+      3
+    OUT
+  end
+
+  it "poly array literal callnode typed elem" do
+    result = ze0(<<~'RUBY')
       # `[A, B]` outer literal where A and B are non-ArrayNode expressions
       # returning a typed `<X>_ptr_array` (e.g. `(0..N).map { ... }`).
       # Without the fix, compile_array_literal's poly_array branch hits
@@ -4668,8 +4991,23 @@ describe "Classes: regressions" do
       puts c.get(1, 0, 0)      # 0
       puts c.get(1, 2, 1)      # 201
       puts c.get(1, 3, 2)      # 302
+    RUBY
 
-      # === poly_array_slot_literal ===
+    _(result).must_answer <<~'OUT'
+      2
+      4
+      3
+      0
+      11
+      32
+      0
+      201
+      302
+    OUT
+  end
+
+  it "poly array slot literal" do
+    result = ze0(<<~'RUBY')
       # `@arr = [a, b]` going into a poly_array slot used to compile the
       # rhs via `compile_array_literal`, which infers a typed storage
       # (ptr_array of one class for homogeneous obj literals, etc.) and
@@ -4711,8 +5049,15 @@ describe "Classes: regressions" do
       end
 
       puts T_poly_array_slot_literal_Holder.new.count    # 2
+    RUBY
 
-      # === poly_array_slot_sized_default ===
+    _(result).must_answer <<~'OUT'
+      2
+    OUT
+  end
+
+  it "poly array slot sized default" do
+    result = ze0(<<~'RUBY')
       # `@arr = [nil] * N` going into a poly_array slot used to lower
       # the rhs via the default `*` codegen, which produces an sp_IntArray.
       # The slot is `sp_PolyArray *` (widened by writer-scan via
@@ -4746,8 +5091,15 @@ describe "Classes: regressions" do
       end
 
       puts T_poly_array_slot_sized_default_Holder.new.count   # 3
+    RUBY
 
-      # === poly_dispatch_args_ret ===
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "poly dispatch args ret" do
+    result = ze0(<<~'RUBY')
       # Regression test for polymorphic return flow:
       # a method returning different class instances from branches.
 
@@ -4793,23 +5145,9 @@ describe "Classes: regressions" do
 
       ret1 = b.make_with_return(1)
       puts ret1.read(41)
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      3
-      2
-      4
-      3
-      0
-      11
-      32
-      0
-      201
-      302
-      2
-      3
       42
       43
       42
@@ -4817,13 +5155,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 18" do
+  it "poly dispatch arity padding" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_dispatch_arity_padding
-      #   - poly_dispatch_arity_truncate
-
-      # === poly_dispatch_arity_padding ===
       # Poly dispatch over user classes whose `m` definitions have
       # different arities — T_poly_dispatch_arity_padding_Switch#toggle takes 0 args; T_poly_dispatch_arity_padding_Knob#toggle takes
       # one positional default. Without per-arm padding, the C compiler
@@ -4860,8 +5193,16 @@ describe "Classes: regressions" do
       b.items[1].toggle
       puts b.items[0].v   # 0
       puts b.items[1].v   # 0
+    RUBY
 
-      # === poly_dispatch_arity_truncate ===
+    _(result).must_answer <<~'OUT'
+      0
+      0
+    OUT
+  end
+
+  it "poly dispatch arity truncate" do
+    result = ze0(<<~'RUBY')
       # Poly-dispatch arms must match each candidate method's *fixed* C
       # arity. The padding side (target takes more params than the call
       # supplied — defaults fill the extras) was already in place. The
@@ -4907,24 +5248,15 @@ describe "Classes: regressions" do
       b = T_poly_dispatch_arity_truncate_Box.new
       b.call_write(7, 5)
       puts b.poly.v   # 12  (T_poly_dispatch_arity_truncate_Heater: addr + data)
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      0
-      0
       12
     OUT
   end
 
-  it "bundle classd 19" do
+  it "poly hash literal from ivar" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_hash_literal_from_ivar
-      #   - poly_int_arith_auto_unify
-      #   - poly_int_bit_index
-
-      # === poly_hash_literal_from_ivar ===
       # Issue #287: a method that returns `{ key: @x, ... }` had its
       # inferred return type frozen at the first scan, before #247 widened
       # the ivar slot to poly via a sibling-writer disagreement. The hash
@@ -4972,8 +5304,19 @@ describe "Classes: regressions" do
       puts d.attrs.size           # 2
       puts d.attrs.has_key?(:a)   # true
       puts d.attrs.has_key?(:c)   # false
+    RUBY
 
-      # === poly_int_arith_auto_unify ===
+    _(result).must_answer <<~'OUT'
+      1
+      true
+      2
+      true
+      false
+    OUT
+  end
+
+  it "poly int arith auto unify" do
+    result = ze0(<<~'RUBY')
       # Auto-unify int receiver + poly argument in arithmetic. Common
       # case: `addr + arr[i][j]` where the inner dispatch is a
       # heterogeneous user-class+IntArray array — both arms genuinely
@@ -5000,8 +5343,18 @@ describe "Classes: regressions" do
       puts(addr - arr[0][2])  # 7 - 21  = -14
       puts(addr * arr[1][1])  # 7 * 200 = 1400
       puts(arr[1][2] / 3)     # 300 / 3 = 100  (recv-poly + arg-int already worked via sp_poly_div, included for coverage)
+    RUBY
 
-      # === poly_int_bit_index ===
+    _(result).must_answer <<~'OUT'
+      107
+      -14
+      1400
+      100
+    OUT
+  end
+
+  it "poly int bit index" do
+    result = ze0(<<~'RUBY')
       # `Integer#[N]` (bit-extraction) where the receiver was typed
       # poly via cascading inference. Used to fall through to the
       # SP_TAG_OBJ array dispatch in `emit_poly_builtin_dispatch`'s
@@ -5052,19 +5405,9 @@ describe "Classes: regressions" do
       # branch-cycle counting collapses.
       puts h.same_page?(h.x, h.x | 0x100)   # false (bit 8 differs)
       puts h.same_page?(h.x, h.x | 0x10)    # true (bit 8 same — both 0)
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1
-      true
-      2
-      true
-      false
-      107
-      -14
-      1400
-      100
       0
       0
       1
@@ -5082,14 +5425,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 26" do
+  it "poly nil return dispatch" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_nil_return_dispatch
-      #   - poly_proc_call
-      #   - poly_recv_bracket_assign
-
-      # === poly_nil_return_dispatch ===
       # Regression: a subclass override whose static return type is `nil`
       # must still be called when dispatched through a poly receiver.
       # Previously `box_value_to_poly("nil", call_expr)` dropped `call_expr`
@@ -5123,8 +5460,16 @@ describe "Classes: regressions" do
       h.set(T_poly_nil_return_dispatch_Sub.new)
       result = h.call_hook("ok")
       puts result == nil
+    RUBY
 
-      # === poly_proc_call ===
+    _(result).must_answer <<~'OUT'
+      subclass-ran: ok
+      true
+    OUT
+  end
+
+  it "poly proc call" do
+    result = ze0(<<~'RUBY')
       # poly_proc_call.rb — verify that .call on a Proc stored in an
       # ivar actually invokes the proc body.  Before the fix the dispatch
       # body was empty (two separate missing code paths).
@@ -5153,8 +5498,18 @@ describe "Classes: regressions" do
       T_poly_proc_call_Runner.new(f.wrap { puts "one" }).run
       T_poly_proc_call_Runner.new(f.wrap { puts "two" }).run
       puts "end"
+    RUBY
 
-      # === poly_recv_bracket_assign ===
+    _(result).must_answer <<~'OUT'
+      start
+      one
+      two
+      end
+    OUT
+  end
+
+  it "poly recv bracket assign" do
+    result = ze0(<<~'RUBY')
       # `compile_bracket_assign` had no `rt == "poly"` branch. When an
       # ivar slot widens to plain `poly` (sp_RbVal — wider than
       # poly_array, set by `finalize_ivar_heterogeneity` because of
@@ -5186,30 +5541,15 @@ describe "Classes: regressions" do
       c = T_poly_recv_bracket_assign_C.new
       c.init_arr(3)
       puts c.at(0)              # post-write: 100 (master: 0 — write dropped)
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      subclass-ran: ok
-      true
-      start
-      one
-      two
-      end
       100
     OUT
   end
 
-  it "bundle classd 27" do
+  it "poly recv dispatch includes subclasses" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_recv_dispatch_includes_subclasses
-      #   - poly_recv_dispatch_narrow
-      #   - poly_recv_each
-      #   - poly_recv_ivar_narrow_drops_unrelated
-      #   - poly_recv_setter_widens_ivar
-
-      # === poly_recv_dispatch_includes_subclasses ===
       # Polymorphic-receiver dispatch must include subclass arms when the
       # ivar's observed types narrow to a base class but the runtime value
       # may be a subclass instance written via a typed setter. Without this
@@ -5246,8 +5586,16 @@ describe "Classes: regressions" do
       p.run(result)
       puts result[:base]   # "" (base override not invoked)
       puts result[:sub]    # "UPPER" (subclass override invoked)
+    RUBY
 
-      # === poly_recv_dispatch_narrow ===
+    _(result).must_answer <<~'OUT'
+
+      UPPER
+    OUT
+  end
+
+  it "poly recv dispatch narrow" do
+    result = ze0(<<~'RUBY')
       # #513. When `obj.run(arg)` virtual-dispatched through an
       # unpinned receiver slot, the generated cls_id switch
       # enumerated EVERY class that defines `run`, not just classes
@@ -5305,8 +5653,17 @@ describe "Classes: regressions" do
       puts T_poly_recv_dispatch_narrow_Holder.new(T_poly_recv_dispatch_narrow_WorkerA.new).use("x")
       puts T_poly_recv_dispatch_narrow_Holder.new(T_poly_recv_dispatch_narrow_WorkerB.new).use("y")
       puts T_poly_recv_dispatch_narrow_Server.new.run(80)
+    RUBY
 
-      # === poly_recv_each ===
+    _(result).must_answer <<~'OUT'
+      x!
+      y?
+      81
+    OUT
+  end
+
+  it "poly recv each" do
+    result = ze0(<<~'RUBY')
       # `<poly>.each` runtime dispatch on cls_id. The compile_each_block
       # handler previously bailed when the receiver type was `poly` (no
       # matching `if rt == "..."` branch), so a method body that ends in
@@ -5342,8 +5699,21 @@ describe "Classes: regressions" do
       puts "---"
       c.store_poly_array
       c.visit
+    RUBY
 
-      # === poly_recv_ivar_narrow_drops_unrelated ===
+    _(result).must_answer <<~'OUT'
+      10
+      20
+      30
+      ---
+      a
+      b
+      c
+    OUT
+  end
+
+  it "poly recv ivar narrow drops unrelated" do
+    result = ze0(<<~'RUBY')
       # Poly-recv user-class dispatch on an ivar previously dragged in
       # arms for any class that happened to share the method name, even
       # when that class was never assigned to the ivar (never even
@@ -5400,8 +5770,16 @@ describe "Classes: regressions" do
       puts File.read("spinel_poly_recv_ivar_narrow_b.txt")
       File.delete("spinel_poly_recv_ivar_narrow_a.txt")
       File.delete("spinel_poly_recv_ivar_narrow_b.txt")
+    RUBY
 
-      # === poly_recv_setter_widens_ivar ===
+    _(result).must_answer <<~'OUT'
+      a
+      b!
+    OUT
+  end
+
+  it "poly recv setter widens ivar" do
+    result = ze0(<<~'RUBY')
       # #579 (Sam Ruby). `recv.attr = val` where `recv` is statically
       # poly (typed sp_RbVal because it came from `case ... when X
       # then T_poly_recv_setter_widens_ivar_A.new; when Y then T_poly_recv_setter_widens_ivar_B.new`) lowers to a cls_id-switch
@@ -5442,35 +5820,15 @@ describe "Classes: regressions" do
       merged = { "name" => "foo" }
       receiver.data = merged
       puts receiver.data["name"]
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-
-      UPPER
-      x!
-      y?
-      81
-      10
-      20
-      30
-      ---
-      a
-      b
-      c
-      a
-      b!
       foo
     OUT
   end
 
-  it "bundle classd 28" do
+  it "poly return to str unbox" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_return_to_str_unbox
-      #   - poly_shl_array_push_dispatch
-
-      # === poly_return_to_str_unbox ===
       # Issue #655: A function whose RBS declares `-> String` but
       # whose body returns a poly (sp_RbVal) ternary tripped the
       # `incompatible types when returning sp_RbVal from a function
@@ -5508,8 +5866,19 @@ describe "Classes: regressions" do
       puts c.get("missing")
       puts c.get("a").length
       puts c.get("missing").length
+    RUBY
 
-      # === poly_shl_array_push_dispatch ===
+    _(result).must_answer <<~'OUT'
+      alpha
+      beta
+
+      5
+      0
+    OUT
+  end
+
+  it "poly shl array push dispatch" do
+    result = ze0(<<~'RUBY')
       # `<<` on a poly recv used to always lower to sp_poly_shl, which
       # was Integer-bit-shift only. An IntArray boxed into a poly slot
       # (e.g. an ivar that the type-inference passes widened to poly
@@ -5545,15 +5914,9 @@ describe "Classes: regressions" do
       # Bit-shift on genuine Integer recv still works (the fall-through).
       x = 1
       puts x << 3           # 8
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      alpha
-      beta
-
-      5
-      0
       5
       10
       99
@@ -5562,13 +5925,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 32" do
+  it "proc array push" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - proc_array_push
-      #   - proc_body_nested_block
-
-      # === proc_array_push ===
       # Ensure that pushing a Proc into an ivar array (int_array default
       # from []) promotes the array to poly_array so .each { |b| b.call }
       # actually dispatches the proc. Without the fix, .call on the
@@ -5595,8 +5953,18 @@ describe "Classes: regressions" do
       puts "before"
       r.call_all
       puts "after"
+    RUBY
 
-      # === proc_body_nested_block ===
+    _(result).must_answer <<~'OUT'
+      before
+      first
+      second
+      after
+    OUT
+  end
+
+  it "proc body nested block" do
+    result = ze0(<<~'RUBY')
       class T_proc_body_nested_block_Defer
         def initialize
           @blocks = []
@@ -5626,28 +5994,17 @@ describe "Classes: regressions" do
         d.add { puts "second" }
         puts "mid"
       end
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      before
-      first
-      second
-      after
       mid
       first
       second
     OUT
   end
 
-  it "bundle classd 33" do
+  it "proc hash value" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - proc_hash_value
-      #   - ptr_array_delete_at
-      #   - reopen_class
-
-      # === proc_hash_value ===
       # Issue #65: an ivar initialized as `{}` and later assigned `&block`
       # captured procs lowered the slot to str_int_hash, then fed
       # `sp_Proc *` into `sp_StrIntHash_set` (which expects mrb_int).
@@ -5675,8 +6032,15 @@ describe "Classes: regressions" do
       r = T_proc_hash_value_Registry.new
       r.define_builtin("x") { 1 }
       puts "ok"
+    RUBY
 
-      # === ptr_array_delete_at ===
+    _(result).must_answer <<~'OUT'
+      ok
+    OUT
+  end
+
+  it "ptr array delete at" do
+    result = ze0(<<~'RUBY')
       # Regression: `Array#delete_at(i)` on an array of user-class
       # instances. Pre-fix the codegen had the dispatch arm only for
       # IntArray / StrArray; PtrArray<UserClass> hit the unresolved-call
@@ -5723,8 +6087,25 @@ describe "Classes: regressions" do
       end
       puts a.length.to_s     # 0
       puts a.empty? ? "empty" : "not-empty"
+    RUBY
 
-      # === reopen_class ===
+    _(result).must_answer <<~'OUT'
+      3
+      b
+      2
+      a
+      c
+      c
+      1
+      nil
+      1
+      0
+      empty
+    OUT
+  end
+
+  it "reopen class" do
+    result = ze0(<<~'RUBY')
       # Test: reopening a user-defined class merges into the existing one
       # instead of producing duplicate C struct/constructor definitions.
 
@@ -5758,22 +6139,9 @@ describe "Classes: regressions" do
       end
 
       puts "ok"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ok
-      3
-      b
-      2
-      a
-      c
-      c
-      1
-      nil
-      1
-      0
-      empty
       (3,4)
       3
       4
@@ -5782,14 +6150,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 35" do
+  it "runtime widen int to poly array" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - runtime_widen_int_to_poly_array
-      #   - sample_user_method
-      #   - scan_ivars_inherited_slot
-
-      # === runtime_widen_int_to_poly_array ===
       # `compile_bracket_assign`'s `rt == "poly"` branch dispatches
       # `@arr[i] = v` by runtime cls_id, but when the slot's runtime
       # storage is IntArray and the rhs carries a non-int payload (a
@@ -5817,8 +6179,17 @@ describe "Classes: regressions" do
       puts c.at(0)               # 10 (preserved as int)
       puts c.at(1)               # "string!" (recovered via widen)
       puts c.at(2)               # 30
+    RUBY
 
-      # === sample_user_method ===
+    _(result).must_answer <<~'OUT'
+      10
+      string!
+      30
+    OUT
+  end
+
+  it "sample user method" do
+    result = ze0(<<~'RUBY')
       # `infer_method_name_type` had a name-based shortcut for `sample`
       # that returned the Array#sample default of int regardless of recv.
       # A user-defined `sample` on an obj receiver inferred as int even
@@ -5839,8 +6210,15 @@ describe "Classes: regressions" do
 
       b = T_sample_user_method_Box.new("ok")
       puts b.sample    # ok
+    RUBY
 
-      # === scan_ivars_inherited_slot ===
+    _(result).must_answer <<~'OUT'
+      ok
+    OUT
+  end
+
+  it "scan ivars inherited slot" do
+    result = ze0(<<~'RUBY')
       # When a child class first writes to an ivar that already lives on
       # a parent, scan_ivars used to register the ivar on the child too.
       # update_ivar_type then recursed up to the parent and widened
@@ -5873,25 +6251,15 @@ describe "Classes: regressions" do
       end
 
       puts T_scan_ivars_inherited_slot_Child.new.read     # 42
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      10
-      string!
-      30
-      ok
       42
     OUT
   end
 
-  it "bundle classd 36" do
+  it "scan new calls class scope" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - scan_new_calls_class_scope
-      #   - self_class_subclass_dispatch
-
-      # === scan_new_calls_class_scope ===
       # `scan_new_calls` walks the AST looking for `Foo.new(args)` and
       # propagates each arg's inferred type into Foo's initialize param-
       # type table. The arg inference uses `infer_type`, which for an
@@ -5927,8 +6295,15 @@ describe "Classes: regressions" do
 
       c = T_scan_new_calls_class_scope_C.new
       puts c.b.a.n   # 7
+    RUBY
 
-      # === self_class_subclass_dispatch ===
+    _(result).must_answer <<~'OUT'
+      7
+    OUT
+  end
+
+  it "self class subclass dispatch" do
+    result = ze0(<<~'RUBY')
       # Issue #422. `self.class.<cmeth>` inside a parent-defined
       # instance method must dispatch to the subclass override at
       # runtime, not to the parent's cmeth. Pre-fix the codegen
@@ -5983,11 +6358,9 @@ describe "Classes: regressions" do
       puts T_self_class_subclass_dispatch_Child.new.describe
       puts T_self_class_subclass_dispatch_GrandChild.new.describe
       puts T_self_class_subclass_dispatch_Sibling.new.describe
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      7
       BASE
       CHILD
       GRANDCHILD
@@ -5995,13 +6368,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 38" do
+  it "send" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - send
-      #   - send_double_underscore
-
-      # === send ===
       # Test send(:literal_symbol)
       # Note: send rewrite requires Ruby parser (spinel_parse.rb)
       x = [1,2,3]
@@ -6017,8 +6385,16 @@ describe "Classes: regressions" do
       end
       a = T_send_Adder.new(10)
       puts a.add(5)
+    RUBY
 
-      # === send_double_underscore ===
+    _(result).must_answer <<~'OUT'
+      3
+      15
+    OUT
+  end
+
+  it "send double underscore" do
+    result = ze0(<<~'RUBY')
       # .__send__(:sym, args) and .__send__("sym", args) statically rewrite
       # to .sym(args) at parse time, identical to .send. CRuby exposes
       # __send__ as the overrides-resistant alias of send; Spinel does not
@@ -6046,12 +6422,9 @@ describe "Classes: regressions" do
       puts c.__send__("hello")        # hi
 
       puts "done"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      15
       30
       hi
       7
@@ -6060,13 +6433,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 39" do
+  it "send literal string" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - send_literal_string
-      #   - send_literal_symbol
-
-      # === send_literal_string ===
       # .send("sym", args) plain string literal rewrites to .sym(args) at
       # parse time, identical to the :symbol form. Interpolated strings and
       # variable args still fall through to runtime dispatch.
@@ -6086,8 +6454,17 @@ describe "Classes: regressions" do
       puts c.send("hello")           # hi
 
       puts "done"
+    RUBY
 
-      # === send_literal_symbol ===
+    _(result).must_answer <<~'OUT'
+      5
+      hi
+      done
+    OUT
+  end
+
+  it "send literal symbol" do
+    result = ze0(<<~'RUBY')
       # .send(:sym, args) statically rewrites to .sym(args) at parse time.
       # Non-literal symbol args (variable, interpolation) leave the call
       # alone -- those require runtime dispatch which Spinel doesn't model.
@@ -6137,13 +6514,9 @@ describe "Classes: regressions" do
       puts arr[2]                    # 30
 
       puts "done"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      5
-      hi
-      done
       7
       42
       hi
@@ -6159,14 +6532,14 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 43" do
+  it "str setbyte frozen literal" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
       # Bundled tests:
       #   - str_setbyte_frozen_literal
       #   - strip_nullable_int_cast
 
-      # === str_setbyte_frozen_literal ===
+
       # Spinel adopts `# frozen_string_literal: true` semantics
       # globally — every string literal is frozen, mutation requires
       # a heap-allocated buffer (`.dup`, `+`, etc.). setbyte on a
@@ -6219,8 +6592,26 @@ describe "Classes: regressions" do
       b = T_str_setbyte_frozen_literal_Buf.new
       b.hit
       puts b.s   # Cbc
+    RUBY
 
-      # === strip_nullable_int_cast ===
+    _(result).must_answer <<~'OUT'
+      literal: can't modify frozen String: "abc"
+      lv-literal: can't modify frozen String: "abc"
+      Cbc
+      Zy
+      Cb
+      Cbc
+    OUT
+  end
+
+  it "strip nullable int cast" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+      # Bundled tests:
+      #   - str_setbyte_frozen_literal
+      #   - strip_nullable_int_cast
+
+
       # `compile_typed_call_args` casts an int arg to an object-pointer
       # parameter via `(sp_<base> *)<expr>`. The base name was derived
       # from the raw param-type string. When the param type is nullable
@@ -6245,27 +6636,15 @@ describe "Classes: regressions" do
       c.take(nil)
       c.take(c.get_int)
       puts "ok"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      literal: can't modify frozen String: "abc"
-      lv-literal: can't modify frozen String: "abc"
-      Cbc
-      Zy
-      Cb
-      Cbc
       ok
     OUT
   end
 
-  it "bundle classd 45" do
+  it "subclass inherited attr reader" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - subclass_inherited_attr_reader
-      #   - subclass_override_param_propagate
-
-      # === subclass_inherited_attr_reader ===
       # #508. Bare `attr_reader_name` and `self.attr_reader_name`
       # inside a subclass instance method failed to resolve when the
       # reader was declared via `attr_accessor` / `attr_reader` on the
@@ -6317,8 +6696,18 @@ describe "Classes: regressions" do
       end
 
       puts T_subclass_inherited_attr_reader_Leaf.new.show
+    RUBY
 
-      # === subclass_override_param_propagate ===
+    _(result).must_answer <<~'OUT'
+      html
+      html-self
+      base_tag
+      html/base_tag
+    OUT
+  end
+
+  it "subclass override param propagate" do
+    result = ze0(<<~'RUBY')
       # #516. When a parent-class instance method calls another method
       # via implicit-self dispatch and a subclass overrides that
       # method, the parent's typed call-site arg didn't propagate to
@@ -6375,27 +6764,17 @@ describe "Classes: regressions" do
 
       puts T_subclass_override_param_propagate_Mid.new.kick({name: "m"})
       puts T_subclass_override_param_propagate_Leaf.new.kick({name: "l"})
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      html
-      html-self
-      base_tag
-      html/base_tag
       42
       mid:m
       leaf:l
     OUT
   end
 
-  it "bundle classd 46" do
+  it "super arg cross class cast" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - super_arg_cross_class_cast
-      #   - super_forwarding
-
-      # === super_arg_cross_class_cast ===
       # Two subclasses each call `super` from `initialize` forwarding a
       # differently-typed arg. The parent's param-type inference picks one
       # concrete C type, so the other subclass's super-forwarded arg ends
@@ -6435,8 +6814,16 @@ describe "Classes: regressions" do
 
       n = T_super_arg_cross_class_cast_IntBox.new(7)
       puts n.doubled
+    RUBY
 
-      # === super_forwarding ===
+    _(result).must_answer <<~'OUT'
+      5
+      14
+    OUT
+  end
+
+  it "super forwarding" do
+    result = ze0(<<~'RUBY')
       # Bare `super` (no args, no parens) inside a constructor parses as
       # `ForwardingSuperNode`, not `SuperNode`. Without the
       # ForwardingSuperNode case, the call to the parent's `initialize`
@@ -6462,25 +6849,17 @@ describe "Classes: regressions" do
       puts c.x   # 3
       puts c.y   # 30
       puts c.z   # 4
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      5
-      14
       3
       30
       4
     OUT
   end
 
-  it "bundle classd 48" do
+  it "super with block" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - super_with_block
-      #   - sym_keyed_hash_ivar_value
-
-      # === super_with_block ===
       # Issue #665: `super { ... }` from a child method passes a literal block
       # to the parent. Pre-fix the parser dropped ForwardingSuperNode's block
       # field and compile_super_expr emitted `sp_Parent_test((sp_Parent*)self)`
@@ -6502,8 +6881,15 @@ describe "Classes: regressions" do
       end
 
       T_super_with_block_Child.new.test
+    RUBY
 
-      # === sym_keyed_hash_ivar_value ===
+    _(result).must_answer <<~'OUT'
+      from child
+    OUT
+  end
+
+  it "sym keyed hash ivar value" do
+    result = ze0(<<~'RUBY')
       # Issue #415. A `{ sym_key: <ivar-or-param> }` hash literal whose
       # values are NOT string literals -- ivars, params, method-call
       # results -- compiled to a C reference of `sp_SymStrHash *` without
@@ -6560,11 +6946,9 @@ describe "Classes: regressions" do
       b = T_sym_keyed_hash_ivar_value_Bar.new
       puts b.to_h[:body]              # lorem
       puts b.to_h[:len]               # 5
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      from child
       hello
       world
       lorem
@@ -6572,16 +6956,8 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "bundle classd 49" do
+  it "symbol ivar reassign" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - symbol_ivar_reassign
-      #   - unbox_poly_index_in_dispatch
-      #   - uncalled_method_dce
-      #   - undef
-      #   - uninit_attr_accessor_reads_as_nil
-
-      # === symbol_ivar_reassign ===
       # Reassigning an instance variable to a different symbol used to demote
       # its type to `poly` because `infer_ivar_init_type` reported `:foo` as
       # `string` while `infer_type` reported it as `symbol`. The mismatch
@@ -6607,8 +6983,16 @@ describe "Classes: regressions" do
       puts c.show
       c.reset
       puts c.show
+    RUBY
 
-      # === unbox_poly_index_in_dispatch ===
+    _(result).must_answer <<~'OUT'
+      foo
+      bar
+    OUT
+  end
+
+  it "unbox poly index in dispatch" do
+    result = ze0(<<~'RUBY')
       # `emit_poly_builtin_dispatch` referenced `arg_types` out of scope.
       # Without the fix, `(poly_recv)[poly_idx]` produced
       # `sp_PolyArray_get(arr, sp_RbVal_idx)` — passing sp_RbVal where
@@ -6629,8 +7013,15 @@ describe "Classes: regressions" do
       end
 
       puts T_unbox_poly_index_in_dispatch_C.new.at("i").to_s    # use .to_s (handled separately) instead of .to_i
+    RUBY
 
-      # === uncalled_method_dce ===
+    _(result).must_answer <<~'OUT'
+      300
+    OUT
+  end
+
+  it "uncalled method dce" do
+    result = ze0(<<~'RUBY')
       # Issue #393. An uncalled `def f(x); @typed = x; end` whose param
       # defaulted to `mrb_int` (no caller pinned the type) tripped a T_uncalled_method_dce_C
       # type mismatch against a narrower ivar slot like `const char *`.
@@ -6655,8 +7046,15 @@ describe "Classes: regressions" do
 
       c = T_uncalled_method_dce_C.new
       puts "ok"
+    RUBY
 
-      # === undef ===
+    _(result).must_answer <<~'OUT'
+      ok
+    OUT
+  end
+
+  it "undef" do
+    result = ze0(<<~'RUBY')
       # UndefNode -- `undef foo` inside a class body.
       #
       # CRuby raises NoMethodError if the undef'd method is called. In
@@ -6690,8 +7088,16 @@ describe "Classes: regressions" do
       end
 
       puts T_undef_D.new.baz # baz
+    RUBY
 
-      # === uninit_attr_accessor_reads_as_nil ===
+    _(result).must_answer <<~'OUT'
+      bar
+      baz
+    OUT
+  end
+
+  it "uninit attr accessor reads as nil" do
+    result = ze0(<<~'RUBY')
       # `attr_accessor :foo` with no `initialize`-time assignment must
       # read as nil before any write. Pre-fix spinel registered the
       # slot as the "int" placeholder, so the unset read returned 0
@@ -6726,32 +7132,17 @@ describe "Classes: regressions" do
 
       box = T_uninit_attr_accessor_reads_as_nil_Box.new
       puts "tag=[#{box.tag}]"
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      foo
-      bar
-      300
-      ok
-      bar
-      baz
       []
       [0]
       tag=[]
     OUT
   end
 
-  it "bundle classd 50" do
+  it "user cmp int ivars" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - user_cmp_int_ivars
-      #   - user_method_named_like_mutator
-      #   - value_type_constructor_arg_gc_root
-      #   - value_type_ctor_gc_save
-      #   - value_type_ivar_gc_scan
-
-      # === user_cmp_int_ivars ===
       # Issue #399: a user-defined `def <=>(other)` whose body calls
       # `<=>` on Integer ivars (`@n <=> other.n`) lowered to a recursive
       # call to the user's own `<=>` method (passing the int receivers
@@ -6784,8 +7175,17 @@ describe "Classes: regressions" do
       # Standalone `==` falls back to identity, which doesn't help here;
       # the issue is just the recursion inside `<=>`. Spinel's Comparable
       # include path is a separate feature.
+    RUBY
 
-      # === user_method_named_like_mutator ===
+    _(result).must_answer <<~'OUT'
+      -1
+      1
+      0
+    OUT
+  end
+
+  it "user method named like mutator" do
+    result = ze0(<<~'RUBY')
       # compile_body_return treats certain method names (`update`, `clear`,
       # `concat`, `delete`, `each`, `pop`, `push`, `merge!`, ...) as
       # statement-only because Hash and Array mutators are conventionally
@@ -6816,8 +7216,16 @@ describe "Classes: regressions" do
 
       puts T_user_method_named_like_mutator_C.new.f(7)
       puts T_user_method_named_like_mutator_D.new.run(T_user_method_named_like_mutator_C.new)
+    RUBY
 
-      # === value_type_constructor_arg_gc_root ===
+    _(result).must_answer <<~'OUT'
+      8
+      30
+    OUT
+  end
+
+  it "value type constructor arg gc root" do
+    result = ze0(<<~'RUBY')
       class T_value_type_constructor_arg_gc_root_NameTag
         attr_reader :present, :text
 
@@ -6858,8 +7266,15 @@ describe "Classes: regressions" do
       end
 
       puts wrapper.tag.text
+    RUBY
 
-      # === value_type_ctor_gc_save ===
+    _(result).must_answer <<~'OUT'
+      label1999
+    OUT
+  end
+
+  it "value type ctor gc save" do
+    result = ze0(<<~'RUBY')
       # A value-type constructor body that introduces a GC-managed local
       # (here `arr`, an int_array) needs `SP_GC_SAVE()` paired with the
       # `SP_GC_ROOT(lv_arr)` that `declare_method_locals` emits.
@@ -6906,8 +7321,17 @@ describe "Classes: regressions" do
         i = i + 1
       end
       puts sum                       # 200 * (i + (i+1)) summed = sum of (2i+1) for i=0..199 = 200*200 = 40000
+    RUBY
 
-      # === value_type_ivar_gc_scan ===
+    _(result).must_answer <<~'OUT'
+      3
+      7
+      40000
+    OUT
+  end
+
+  it "value type ivar gc scan" do
+    result = ze0(<<~'RUBY')
       class T_value_type_ivar_gc_scan_NameTag
         attr_reader :text
 
@@ -6943,33 +7367,15 @@ describe "Classes: regressions" do
       end
 
       puts wrappers[1999].tag.text
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      -1
-      1
-      0
-      8
-      30
-      label1999
-      3
-      7
-      40000
       label1999
     OUT
   end
 
-  it "bundle classd 51" do
+  it "value type recycled field clear" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - value_type_recycled_field_clear
-      #   - volatile_discarded_at_call
-      #   - while_cond_side_effect
-      #   - while_condition_recomputed
-      #   - widen_int_obj_to_poly
-
-      # === value_type_recycled_field_clear ===
       class T_value_type_recycled_field_clear_NameTag
         attr_reader :text
 
@@ -7008,8 +7414,15 @@ describe "Classes: regressions" do
       end
 
       puts holder.tag.text
+    RUBY
 
-      # === volatile_discarded_at_call ===
+    _(result).must_answer <<~'OUT'
+      new2999
+    OUT
+  end
+
+  it "volatile discarded at call" do
+    result = ze0(<<~'RUBY')
       # #487. Top-level begin/rescue sets @needs_setjmp = 1, which emits
       # every main() local as `volatile T *`. Passing such a local to a
       # function expecting plain `T *` triggers gcc's
@@ -7031,8 +7444,15 @@ describe "Classes: regressions" do
       rescue
         puts "rescued"
       end
+    RUBY
 
-      # === while_cond_side_effect ===
+    _(result).must_answer <<~'OUT'
+      v
+    OUT
+  end
+
+  it "while cond side effect" do
+    result = ze0(<<~'RUBY')
       # #500. `while (n = gets.to_i) > 0` looped forever because codegen
       # emitted `_t1 = sp_gets(); SP_GC_ROOT(_t1);` BEFORE the while line,
       # so every iteration re-read the same captured first line. Fix:
@@ -7064,8 +7484,15 @@ describe "Classes: regressions" do
         count += 1
       end
       puts count
+    RUBY
 
-      # === while_condition_recomputed ===
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "while condition recomputed" do
+    result = ze0(<<~'RUBY')
       # A while condition that depends on a mutated receiver must be evaluated on
       # every iteration.
 
@@ -7121,8 +7548,22 @@ describe "Classes: regressions" do
       drain = T_while_condition_recomputed_IvarDrain.new
       puts drain.drain
       puts drain.remaining
+    RUBY
 
-      # === widen_int_obj_to_poly ===
+    _(result).must_answer <<~'OUT'
+      6
+      0
+      15
+      0
+      789
+      0
+      60
+      0
+    OUT
+  end
+
+  it "widen int obj to poly" do
+    result = ze0(<<~'RUBY')
       # When an ivar's first observed write is a definite int / nil
       # literal and a later write assigns an obj-typed value, the slot
       # was overwritten with the obj type — silently casting the prior
@@ -7152,21 +7593,9 @@ describe "Classes: regressions" do
 
       # poly recv → T_widen_int_obj_to_poly_Box#n via cls_id == T_widen_int_obj_to_poly_Box dispatch
       puts T_widen_int_obj_to_poly_Holder.new.poly.n      # 5
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      new2999
-      v
-      3
-      6
-      0
-      15
-      0
-      789
-      0
-      60
-      0
       5
     OUT
   end

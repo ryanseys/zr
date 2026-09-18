@@ -602,8 +602,8 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regex" do
-    result = ze0(<<~'RUBY', path: "regex.rb")
+  it "Stage 1: UTF-8 source byte-length" do
+    result = ze0(<<~'RUBY')
       # Regex coverage — issue #61's five stages plus literal-form
       # tests. Was six tests; class names didn't collide and the only
       # top-level `def` (regex_local_var's `find`) is unique within this
@@ -612,7 +612,7 @@ describe "Regexp programs" do
       # so spinel's local-type inference doesn't unify them across the
       # script and widen to poly.
 
-      # === Stage 1: UTF-8 source byte-length ===
+
       # A regex source containing multi-byte UTF-8 chars must reach the
       # runtime with the correct byte length. This section just verifies
       # the binary runs past regex init.
@@ -620,8 +620,24 @@ describe "Regexp programs" do
       re_s1b = /\A→\z/
       re_s1c = /[αβγ]/
       puts "ok"
+    RUBY
 
-      # === Stage 2: UTF-8 character class ===
+    _(result).must_answer <<~'OUT'
+      ok
+    OUT
+  end
+
+  it "Stage 2: UTF-8 character class" do
+    result = ze0(<<~'RUBY')
+      # Regex coverage — issue #61's five stages plus literal-form
+      # tests. Was six tests; class names didn't collide and the only
+      # top-level `def` (regex_local_var's `find`) is unique within this
+      # file. Local-name collisions (`re`, `re2` reused across files for
+      # different regex literals) are dodged with per-section prefixes
+      # so spinel's local-type inference doesn't unify them across the
+      # script and widen to poly.
+
+
       puts(("₁" =~ /[₀-₉]/) ? "ok1" : "fail1")
       puts(("α" =~ /[α-ω]/) ? "ok2" : "fail2")
       puts(("abc₁def" =~ /[₀₁₂₃₄₅₆₇₈₉]+/) ? "ok3" : "fail3")
@@ -640,8 +656,35 @@ describe "Regexp programs" do
       else
         puts "ok11"
       end
+    RUBY
 
-      # === Stage 3: regex via constant ===
+    _(result).must_answer <<~'OUT'
+      ok1
+      ok2
+      ok3
+      ok4
+      ok5
+      ok6
+      ok7
+      ok8
+      ok9
+      ok10
+      11
+      ok11
+    OUT
+  end
+
+  it "Stage 3: regex via constant" do
+    result = ze0(<<~'RUBY')
+      # Regex coverage — issue #61's five stages plus literal-form
+      # tests. Was six tests; class names didn't collide and the only
+      # top-level `def` (regex_local_var's `find`) is unique within this
+      # file. Local-name collisions (`re`, `re2` reused across files for
+      # different regex literals) are dodged with per-section prefixes
+      # so spinel's local-type inference doesn't unify them across the
+      # script and widen to poly.
+
+
       RX = /[₀₁₂₃₄₅₆₇₈₉ₐₑₒₓₔ]+/
       puts RX.match?("₁₂")
       puts RX.match?("abc")
@@ -657,8 +700,28 @@ describe "Regexp programs" do
       end
       m_s3 = RX.match("₁₂")
       puts m_s3 ? "match ok" : "match fail"
+    RUBY
 
-      # === Stage 4: regex via local variable ===
+    _(result).must_answer <<~'OUT'
+      true
+      false
+      lhs match
+      rhs match
+      match ok
+    OUT
+  end
+
+  it "Stage 4: regex via local variable" do
+    result = ze0(<<~'RUBY')
+      # Regex coverage — issue #61's five stages plus literal-form
+      # tests. Was six tests; class names didn't collide and the only
+      # top-level `def` (regex_local_var's `find`) is unique within this
+      # file. Local-name collisions (`re`, `re2` reused across files for
+      # different regex literals) are dodged with per-section prefixes
+      # so spinel's local-type inference doesn't unify them across the
+      # script and widen to poly.
+
+
       re_lv = /[₀₁₂₃₄₅₆₇₈₉]+/
       puts re_lv.match?("₁₂")
       puts re_lv.match?("abc")
@@ -685,8 +748,30 @@ describe "Regexp programs" do
       re2_lv = /a/
       re2_lv = "not a regex"
       puts re2_lv
+    RUBY
 
-      # === Stage 5: UTF-8 quantifier ===
+    _(result).must_answer <<~'OUT'
+      true
+      false
+      lhs match
+      rhs match
+      true
+      false
+      not a regex
+    OUT
+  end
+
+  it "Stage 5: UTF-8 quantifier" do
+    result = ze0(<<~'RUBY')
+      # Regex coverage — issue #61's five stages plus literal-form
+      # tests. Was six tests; class names didn't collide and the only
+      # top-level `def` (regex_local_var's `find`) is unique within this
+      # file. Local-name collisions (`re`, `re2` reused across files for
+      # different regex literals) are dodged with per-section prefixes
+      # so spinel's local-type inference doesn't unify them across the
+      # script and widen to poly.
+
+
       puts "abc₁₂def".gsub(/[₀-₉]+/, "N")
       puts "abc₁₂₃def".gsub(/[₀-₉]+/, "N")
       puts "₁abc₂₃def₄₅₆".scan(/[₀-₉]+/).length
@@ -695,8 +780,31 @@ describe "Regexp programs" do
       puts "a₁b₂c".scan(/[a-z₀-₉]+/).length
       puts "₁₂₃".scan(/[₀-₉]/).length
       puts "αβ".match?(/[α-ω]+/) ? "ok7" : "fail7"
+    RUBY
 
-      # === Multi-line / escape patterns ===
+    _(result).must_answer <<~'OUT'
+      abcNdef
+      abcNdef
+      3
+      ok2
+      ok3
+      1
+      3
+      ok7
+    OUT
+  end
+
+  it "Multi-line / escape patterns" do
+    result = ze0(<<~'RUBY')
+      # Regex coverage — issue #61's five stages plus literal-form
+      # tests. Was six tests; class names didn't collide and the only
+      # top-level `def` (regex_local_var's `find`) is unique within this
+      # file. Local-name collisions (`re`, `re2` reused across files for
+      # different regex literals) are dodged with per-section prefixes
+      # so spinel's local-type inference doesn't unify them across the
+      # script and widen to poly.
+
+
       re_ml1 = /
         bar
       /x
@@ -766,39 +874,6 @@ describe "Regexp programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ok
-      ok1
-      ok2
-      ok3
-      ok4
-      ok5
-      ok6
-      ok7
-      ok8
-      ok9
-      ok10
-      11
-      ok11
-      true
-      false
-      lhs match
-      rhs match
-      match ok
-      true
-      false
-      lhs match
-      rhs match
-      true
-      false
-      not a regex
-      abcNdef
-      abcNdef
-      3
-      ok2
-      ok3
-      1
-      3
-      ok7
       ok1
       ok2
       ok3

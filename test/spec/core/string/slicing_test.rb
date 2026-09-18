@@ -988,7 +988,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "ptr array" do
+  it "Section 1: ptr array map" do
     result = ze0(<<~'RUBY')
       # Pointer-array (`<obj>_ptr_array`) coverage — typed-obj `[]` map,
       # value-class instances in array literals (and via `push`/`<<`),
@@ -997,7 +997,7 @@ describe "String: slicing" do
       # across the two value-class sections — kept once) and Bag (two
       # unrelated shapes — section 1's Bag renamed to MapBag).
 
-      # === Section 1: ptr_array map ===
+
       # `compile_map_expr` had no `ptr_array` recv branch — `.map { ... }`
       # on a typed `obj_X[]` ivar/local fell through to the trailing
       # `"0"` placeholder.
@@ -1027,8 +1027,28 @@ describe "String: slicing" do
       puts mnames.length   # 3
       puts mnames[0]       # v=1
       puts mnames[2]       # v=3
+    RUBY
 
-      # === Section 2 + 3: value-class instances in ptr_array (literal + push) ===
+    _(result).must_answer <<~'OUT'
+      3
+      2
+      6
+      3
+      v=1
+      v=3
+    OUT
+  end
+
+  it "Section 2 + 3: value-class instances in ptr array (literal + push)" do
+    result = ze0(<<~'RUBY')
+      # Pointer-array (`<obj>_ptr_array`) coverage — typed-obj `[]` map,
+      # value-class instances in array literals (and via `push`/`<<`),
+      # and slot widening from `[nil] * N` writes. Was four tests; the
+      # only class-name collisions were Foo (same definition reused
+      # across the two value-class sections — kept once) and Bag (two
+      # unrelated shapes — section 1's Bag renamed to MapBag).
+
+
       # A class with no attr_writers / no mutating methods would normally
       # be value-type'd, but its instances landing in an array literal or
       # being push'd into one must demote it to a heap-allocated obj so
@@ -1058,8 +1078,33 @@ describe "String: slicing" do
       fsh << Foo.new(30)
       puts fsh.length
       fsh.each { |f| puts f.x }
+    RUBY
 
-      # === Section 4: ptr_array slot widening from [nil] * N ===
+    _(result).must_answer <<~'OUT'
+      3
+      1
+      2
+      3
+      2
+      1
+      2
+      3
+      10
+      20
+      30
+    OUT
+  end
+
+  it "Section 4: ptr array slot widening from [nil] * N" do
+    result = ze0(<<~'RUBY')
+      # Pointer-array (`<obj>_ptr_array`) coverage — typed-obj `[]` map,
+      # value-class instances in array literals (and via `push`/`<<`),
+      # and slot widening from `[nil] * N` writes. Was four tests; the
+      # only class-name collisions were Foo (same definition reused
+      # across the two value-class sections — kept once) and Bag (two
+      # unrelated shapes — section 1's Bag renamed to MapBag).
+
+
       # `@arr = [nil] * N` followed by `@arr[i] = obj` widens the slot
       # to `<obj>_ptr_array`. Without the widening, the slot stays at
       # the default IntArray and the object pointer write is truncated.
@@ -1100,23 +1145,6 @@ describe "String: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      2
-      6
-      3
-      v=1
-      v=3
-      3
-      1
-      2
-      3
-      2
-      1
-      2
-      3
-      10
-      20
-      30
       a
       b
       d

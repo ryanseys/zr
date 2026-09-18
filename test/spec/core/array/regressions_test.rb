@@ -148,20 +148,8 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "bundle array a" do
+  it "array2" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array2
-      #   - array3
-      #   - array_difference_dups
-      #   - array_fill
-      #   - array_lit
-      #   - array_lit_unbox_poly
-      #   - array_mul
-      #   - array_new_block
-      #   - array_of_array
-
-      # === array2 ===
       def t_array2
         # Test additional Array methods
 
@@ -220,8 +208,25 @@ describe "Array: regressions" do
         puts nums.length  # 10
       end
       t_array2
+    RUBY
 
-      # === array3 ===
+    _(result).must_answer <<~'OUT'
+      5
+      55
+      10
+      1
+      10
+      1
+      1
+      10
+      true
+      false
+      10
+    OUT
+  end
+
+  it "array3" do
+    result = ze0(<<~'RUBY')
       def t_array3
         # Test additional array methods
 
@@ -253,8 +258,24 @@ describe "Array: regressions" do
         puts "done"
       end
       t_array3
+    RUBY
 
-      # === array_difference_dups ===
+    _(result).must_answer <<~'OUT'
+      4
+      8
+      1
+      8
+      8
+      7
+      1
+      2
+      4
+      done
+    OUT
+  end
+
+  it "array difference dups" do
+    result = ze0(<<~'RUBY')
       def t_array_difference_dups
         # Array#- / Array#difference must preserve LHS duplicates that
         # aren't in the RHS. CRuby semantics:
@@ -280,8 +301,24 @@ describe "Array: regressions" do
         puts ["a", "a", "b"].difference(["b"]).inspect
       end
       t_array_difference_dups
+    RUBY
 
-      # === array_fill ===
+    _(result).must_answer <<~'OUT'
+      [1, 1, 2]
+      [2, 3]
+      [2, 2]
+      [1, 2, 1, 1]
+      ["a", "a", "b"]
+      ["a", "b", "a", "a"]
+      [1.0, 1.0, 2.0]
+      [1.5, 1.5]
+      [1, 1, 2]
+      ["a", "a"]
+    OUT
+  end
+
+  it "array fill" do
+    result = ze0(<<~'RUBY')
       def t_array_fill
         # Array#fill: 1-arg, 2-arg, 3-arg forms.
         # Previously the 2-/3-arg forms silently ignored start/length and
@@ -343,8 +380,37 @@ describe "Array: regressions" do
         puts g[2]       # 3
       end
       t_array_fill
+    RUBY
 
-      # === array_lit ===
+    _(result).must_answer <<~'OUT'
+      9
+      9
+      1
+      2
+      9
+      9
+      1
+      0
+      0
+      5
+      1
+      3
+      7
+      7
+      7
+      3
+      9
+      9
+      3
+      3
+      9
+      9
+      3
+    OUT
+  end
+
+  it "array lit" do
+    result = ze0(<<~'RUBY')
       def t_array_lit
         # Test array literals as IntArray/StrArray
 
@@ -413,8 +479,36 @@ describe "Array: regressions" do
         puts "done"
       end
       t_array_lit
+    RUBY
 
-      # === array_lit_unbox_poly ===
+    _(result).must_answer <<~'OUT'
+      5
+      5
+      5
+      1
+      21
+      1
+      8
+      6
+      5
+      3
+      3
+      3
+      3
+      hello
+      hello, world, foo
+      1
+      1
+      42
+      21
+      3
+      13
+      done
+    OUT
+  end
+
+  it "array lit unbox poly" do
+    result = ze0(<<~'RUBY')
       def t_array_lit_unbox_poly
         # `compile_array_literal`'s int-array fallback pushed elements
         # verbatim, including poly-typed ones. When a local was widened to
@@ -441,8 +535,16 @@ describe "Array: regressions" do
         puts arr[0]              # 7
       end
       t_array_lit_unbox_poly
+    RUBY
 
-      # === array_mul ===
+    _(result).must_answer <<~'OUT'
+      1
+      7
+    OUT
+  end
+
+  it "array mul" do
+    result = ze0(<<~'RUBY')
       def t_array_mul
         # Array#* (repeat). Works uniformly across every typed array kind
         # is_array_type() recognises (int / float / str / sym / poly).
@@ -495,8 +597,34 @@ describe "Array: regressions" do
         puts "done"
       end
       t_array_mul
+    RUBY
 
-      # === array_new_block ===
+    _(result).must_answer <<~'OUT'
+      9
+      1
+      1
+      3
+      0
+      2
+      4
+      1.5
+      2.5
+      6
+      a
+      b
+      4
+      x
+      y
+      6
+      5
+      0
+      0
+      done
+    OUT
+  end
+
+  it "array new block" do
+    result = ze0(<<~'RUBY')
       def t_array_new_block
         # Array.new(N) { |i| ... }: block form with index parameter.
         # Previously returned an empty IntArray (the block was ignored).
@@ -520,8 +648,23 @@ describe "Array: regressions" do
         puts c.length      # 0
       end
       t_array_new_block
+    RUBY
 
-      # === array_of_array ===
+    _(result).must_answer <<~'OUT'
+      5
+      0
+      4
+      8
+      20
+      3
+      42
+      42
+      0
+    OUT
+  end
+
+  it "array of array" do
+    result = ze0(<<~'RUBY')
       def t_array_of_array
         # Array of arrays (2-level nesting)
         a = [[1, 2], [3, 4], [5, 6]]
@@ -549,27 +692,24 @@ describe "Array: regressions" do
         }
       end
       t_array_of_array
-
     RUBY
 
-    _(result).must_answer "5\n55\n10\n1\n10\n1\n1\n10\ntrue\nfalse\n10\n4\n8\n1\n8\n8\n7\n1\n2\n4\ndone\n[1, 1, 2]\n[2, 3]\n[2, 2]\n[1, 2, 1, 1]\n[\"a\", \"a\", \"b\"]\n[\"a\", \"b\", \"a\", \"a\"]\n[1.0, 1.0, 2.0]\n[1.5, 1.5]\n[1, 1, 2]\n[\"a\", \"a\"]\n9\n9\n1\n2\n9\n9\n1\n0\n0\n5\n1\n3\n7\n7\n7\n3\n9\n9\n3\n3\n9\n9\n3\n5\n5\n5\n1\n21\n1\n8\n6\n5\n3\n3\n3\n3\nhello\nhello, world, foo\n1\n1\n42\n21\n3\n13\ndone\n1\n7\n9\n1\n1\n3\n0\n2\n4\n1.5\n2.5\n6\na\nb\n4\nx\ny\n6\n5\n0\n0\ndone\n5\n0\n4\n8\n20\n3\n42\n42\n0\n3\n3\n7\n11\nhello world\nfoo bar\n3\n10 20 \n30 40 \n50 60 \n"
+    _(result).must_answer <<~'OUT'
+      3
+      3
+      7
+      11
+      hello world
+      foo bar
+      3
+      10 20 
+      30 40 
+      50 60 
+    OUT
   end
 
-  it "bundle array b" do
+  it "array ptr array inspect" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_ptr_array_inspect
-      #   - array_push
-      #   - array_range
-      #   - array_replace
-      #   - array_reverse_bang
-      #   - array_set_ops
-      #   - array_shovel
-      #   - array_shuffle_sym_poly
-      #   - array_slice_assign
-      #   - array_sort_bang
-
-      # === array_ptr_array_inspect ===
       def t_array_ptr_array_inspect
         # Issue #169: p / inspect on nested arrays whose element type is one
         # of the four built-in T_array shapes (int/str/float/sym).
@@ -589,8 +729,24 @@ describe "Array: regressions" do
         p [[:foo]]
       end
       t_array_ptr_array_inspect
+    RUBY
 
-      # === array_push ===
+    _(result).must_answer <<~'OUT'
+      [[1, 2], [3, 4]]
+      [[1, 2, 3], [4, 5, 6]]
+      [[10]]
+      [[1, 3], [2, 4]]
+      [["a", "b"], ["c", "d"]]
+      [["hello", "world"]]
+      [[1.5, 2.5], [3.5, 4.5]]
+      [[0.1]]
+      [[:a, :b], [:c, :d]]
+      [[:foo]]
+    OUT
+  end
+
+  it "array push" do
+    result = ze0(<<~'RUBY')
       def t_array_push
         # Array#push across typed-array variants.
         # Previously push only dispatched for IntArray and StrArray; FloatArray
@@ -648,8 +804,33 @@ describe "Array: regressions" do
         puts syms2[1]             # q
       end
       t_array_push
+    RUBY
 
-      # === array_range ===
+    _(result).must_answer <<~'OUT'
+      5
+      4
+      5
+      4
+      3.5
+      4.25
+      4
+      c
+      d
+      3
+      z
+      3
+      30
+      2
+      2.5
+      2
+      y
+      2
+      q
+    OUT
+  end
+
+  it "array range" do
+    result = ze0(<<~'RUBY')
       def t_array_range
         # IntArray slicing: a[range] and a[start, len].
         # Previously a[1..2] failed with `incompatible type for argument 2 of
@@ -697,8 +878,33 @@ describe "Array: regressions" do
         puts a[1..3].sum   # 90
       end
       t_array_range
+    RUBY
 
-      # === array_replace ===
+    _(result).must_answer <<~'OUT'
+      3
+      20
+      30
+      40
+      2
+      20
+      30
+      2
+      40
+      50
+      3
+      30
+      50
+      3
+      30
+      50
+      10
+      50
+      90
+    OUT
+  end
+
+  it "array replace" do
+    result = ze0(<<~'RUBY')
       def t_array_replace
         # Array#replace: mutating in-place copy from another array.
         # Previously a silent no-op for arrays; only String/MutableString worked.
@@ -736,8 +942,26 @@ describe "Array: regressions" do
         puts ms          # world
       end
       t_array_replace
+    RUBY
 
-      # === array_reverse_bang ===
+    _(result).must_answer <<~'OUT'
+      3
+      10
+      30
+      9
+      900
+      2
+      x
+      y
+      2
+      7.5
+      8.5
+      world
+    OUT
+  end
+
+  it "array reverse bang" do
+    result = ze0(<<~'RUBY')
       def t_array_reverse_bang
         # Array#reverse! across typed-array variants.
         # Previously only IntArray dispatched; SymArray, StrArray, FloatArray
@@ -773,8 +997,34 @@ describe "Array: regressions" do
         puts empty.length          # 0
       end
       t_array_reverse_bang
+    RUBY
 
-      # === array_set_ops ===
+    _(result).must_answer <<~'OUT'
+      5
+      4
+      3
+      2
+      1
+      4.25
+      3.5
+      2.5
+      1.5
+      gamma
+      beta
+      alpha
+      d
+      c
+      b
+      a
+      20
+      10
+      42
+      0
+    OUT
+  end
+
+  it "array set ops" do
+    result = ze0(<<~'RUBY')
       def t_array_set_ops
         # Array#&, Array#-, Array#| all dispatch to typed-array intersect /
         # difference / union helpers. Each operator's per-shape coverage
@@ -811,8 +1061,32 @@ describe "Array: regressions" do
         puts ([1, 2] | [2, 3] | [3, 4]).inspect
       end
       t_array_set_ops
+    RUBY
 
-      # === array_shovel ===
+    _(result).must_answer <<~'OUT'
+      [3, 4]
+      ["b", "c"]
+      [2.0, 3.0]
+      [:b, :c]
+      [3, 4]
+      [3, 4]
+      [1, 3]
+      ["a", "c"]
+      [1.0, 3.0]
+      [:a, :c]
+      [1, 3]
+      [1, 3, 5]
+      [1, 2, 3, 4, 5]
+      ["a", "b", "c"]
+      [1.0, 2.0, 3.0]
+      [:a, :b, :c]
+      [1, 2, 3, 4]
+      [1, 2, 3, 4]
+    OUT
+  end
+
+  it "array shovel" do
+    result = ze0(<<~'RUBY')
       def t_array_shovel
         # `arr << x` used in expression context (not a top-level statement)
         # fell through to a literal C `<<` (bit shift). The stmt-level path
@@ -849,8 +1123,24 @@ describe "Array: regressions" do
         puts syms[2]        # z
       end
       t_array_shovel
+    RUBY
 
-      # === array_shuffle_sym_poly ===
+    _(result).must_answer <<~'OUT'
+      3
+      1
+      2
+      3
+      3
+      3.5
+      3
+      c
+      3
+      z
+    OUT
+  end
+
+  it "array shuffle sym poly" do
+    result = ze0(<<~'RUBY')
       def t_array_shuffle_sym_poly
         # Array#shuffle / Array#shuffle! used to skip sym_array and poly_array.
         # For sym_array the dispatcher silently fell through (bin output empty);
@@ -865,8 +1155,16 @@ describe "Array: regressions" do
         puts pa.length
       end
       t_array_shuffle_sym_poly
+    RUBY
 
-      # === array_slice_assign ===
+    _(result).must_answer <<~'OUT'
+      4
+      4
+    OUT
+  end
+
+  it "array slice assign" do
+    result = ze0(<<~'RUBY')
       def t_array_slice_assign
         # `arr[i, n] = src` (Array#[]= with three args) replaces n
         # elements of `arr` starting at index i with the elements of
@@ -892,8 +1190,17 @@ describe "Array: regressions" do
         p s
       end
       t_array_slice_assign
+    RUBY
 
-      # === array_sort_bang ===
+    _(result).must_answer <<~'OUT'
+      [0, 0, 10, 20, 30, 40, 50, 60, 70, 80]
+      [0.0, 3.5, 4.5, 0.0]
+      ["a", "b", "c", ""]
+    OUT
+  end
+
+  it "array sort bang" do
+    result = ze0(<<~'RUBY')
       def t_array_sort_bang
         # Array#sort! across typed-array variants.
         # Previously only IntArray and SymArray dispatched; StrArray and
@@ -925,123 +1232,9 @@ describe "Array: regressions" do
         puts empty.length           # 0
       end
       t_array_sort_bang
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [[1, 2], [3, 4]]
-      [[1, 2, 3], [4, 5, 6]]
-      [[10]]
-      [[1, 3], [2, 4]]
-      [["a", "b"], ["c", "d"]]
-      [["hello", "world"]]
-      [[1.5, 2.5], [3.5, 4.5]]
-      [[0.1]]
-      [[:a, :b], [:c, :d]]
-      [[:foo]]
-      5
-      4
-      5
-      4
-      3.5
-      4.25
-      4
-      c
-      d
-      3
-      z
-      3
-      30
-      2
-      2.5
-      2
-      y
-      2
-      q
-      3
-      20
-      30
-      40
-      2
-      20
-      30
-      2
-      40
-      50
-      3
-      30
-      50
-      3
-      30
-      50
-      10
-      50
-      90
-      3
-      10
-      30
-      9
-      900
-      2
-      x
-      y
-      2
-      7.5
-      8.5
-      world
-      5
-      4
-      3
-      2
-      1
-      4.25
-      3.5
-      2.5
-      1.5
-      gamma
-      beta
-      alpha
-      d
-      c
-      b
-      a
-      20
-      10
-      42
-      0
-      [3, 4]
-      ["b", "c"]
-      [2.0, 3.0]
-      [:b, :c]
-      [3, 4]
-      [3, 4]
-      [1, 3]
-      ["a", "c"]
-      [1.0, 3.0]
-      [:a, :c]
-      [1, 3]
-      [1, 3, 5]
-      [1, 2, 3, 4, 5]
-      ["a", "b", "c"]
-      [1.0, 2.0, 3.0]
-      [:a, :b, :c]
-      [1, 2, 3, 4]
-      [1, 2, 3, 4]
-      3
-      1
-      2
-      3
-      3
-      3.5
-      3
-      c
-      3
-      z
-      4
-      4
-      [0, 0, 10, 20, 30, 40, 50, 60, 70, 80]
-      [0.0, 3.5, 4.5, 0.0]
-      ["a", "b", "c", ""]
       1
       1
       2
@@ -1068,16 +1261,8 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "bundle array c" do
+  it "array splat range" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_splat_range
-      #   - array_take_drop_while
-      #   - array_tally_sym
-      #   - array_transpose
-      #   - empty_poly_array_reassignment
-
-      # === array_splat_range ===
       def t_array_splat_range
         # `[*0..n]` and `[*arr]` are array literals with a SplatNode element.
         # Without SplatNode handling in compile_array_literal, the splat was
@@ -1104,8 +1289,24 @@ describe "Array: regressions" do
         puts c[2]
       end
       t_array_splat_range
+    RUBY
 
-      # === array_take_drop_while ===
+    _(result).must_answer <<~'OUT'
+      6
+      0
+      3
+      5
+      4
+      0
+      3
+      3
+      10
+      30
+    OUT
+  end
+
+  it "array take drop while" do
+    result = ze0(<<~'RUBY')
       def t_array_take_drop_while
         # Array#take_while and Array#drop_while for int_array (the common case).
         # take_while collects elements from the front while the block stays
@@ -1138,8 +1339,26 @@ describe "Array: regressions" do
         puts [:a, :b, :c, :d].drop_while { |s| s != :c }.inspect
       end
       t_array_take_drop_while
+    RUBY
 
-      # === array_tally_sym ===
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      [1, 2, 3]
+      []
+      []
+      [3, 1]
+      []
+      [5, 6, 7]
+      []
+      7
+      3
+      [:a, :b]
+      [:c, :d]
+    OUT
+  end
+
+  it "array tally sym" do
+    result = ze0(<<~'RUBY')
       def t_array_tally_sym
         # Array#tally for sym_array. str_array#tally already shipped — this
         # extends it to symbol arrays via a sp_SymArray_tally runtime helper
@@ -1167,8 +1386,24 @@ describe "Array: regressions" do
         puts [:a, :b, :c].tally.has_key?(:z)
       end
       t_array_tally_sym
+    RUBY
 
-      # === array_transpose ===
+    _(result).must_answer <<~'OUT'
+      3
+      2
+      1
+      1
+      4
+      3
+      1
+      1
+      true
+      false
+    OUT
+  end
+
+  it "array transpose" do
+    result = ze0(<<~'RUBY')
       def t_array_transpose
         # Issue #156: transpose for nested int arrays.
         # Inspect of nested arrays still prints "#<Object>" (separate issue),
@@ -1202,55 +1437,9 @@ describe "Array: regressions" do
         puts t3[2][0]
       end
       t_array_transpose
-
-      # === empty_poly_array_reassignment ===
-      def t_empty_poly_array_reassignment
-        items = [0, ""]
-        items = []
-        items.push(1)
-        items.push("x")
-
-        puts items.length
-        puts items[0]
-        puts items[1]
-      end
-      t_empty_poly_array_reassignment
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      6
-      0
-      3
-      5
-      4
-      0
-      3
-      3
-      10
-      30
-      [1, 2]
-      [1, 2, 3]
-      []
-      []
-      [3, 1]
-      []
-      [5, 6, 7]
-      []
-      7
-      3
-      [:a, :b]
-      [:c, :d]
-      3
-      2
-      1
-      1
-      4
-      3
-      1
-      1
-      true
-      false
       2
       1
       3
@@ -1267,22 +1456,33 @@ describe "Array: regressions" do
       7
       8
       9
+    OUT
+  end
+
+  it "empty poly array reassignment" do
+    result = ze0(<<~'RUBY')
+      def t_empty_poly_array_reassignment
+        items = [0, ""]
+        items = []
+        items.push(1)
+        items.push("x")
+
+        puts items.length
+        puts items[0]
+        puts items[1]
+      end
+      t_empty_poly_array_reassignment
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       2
       1
       x
     OUT
   end
 
-  it "bundle array d" do
+  it "array minmax" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_minmax
-      #   - array_dig
-      #   - array_difference
-      #   - array_intersection
-      #   - array_union
-
-      # === array_minmax ===
       def t_array_minmax
         p [3,1,4,1,5,9,2,6].minmax
         p [3,1,2].minmax
@@ -1291,8 +1491,17 @@ describe "Array: regressions" do
         p [1.5, 0.5, 2.5].minmax
       end
       t_array_minmax
+    RUBY
 
-      # === array_dig ===
+    _(result).must_answer <<~'OUT'
+      [1, 9]
+      [1, 3]
+      [0.5, 2.5]
+    OUT
+  end
+
+  it "array dig" do
+    result = ze0(<<~'RUBY')
       def t_array_dig
         a = [10, 20, 30]
         # In-bounds — first / middle / last.
@@ -1309,8 +1518,19 @@ describe "Array: regressions" do
         # a separate scope (would widen the result type to poly).
       end
       t_array_dig
+    RUBY
 
-      # === array_difference ===
+    _(result).must_answer <<~'OUT'
+      10
+      20
+      30
+      30
+      10
+    OUT
+  end
+
+  it "array difference" do
+    result = ze0(<<~'RUBY')
       def t_array_difference
         # Array#difference for typed arrays (int/sym/str/float).
         # Mirrors Array#intersection (c31b618) and Array#union — keep only
@@ -1342,8 +1562,31 @@ describe "Array: regressions" do
         puts [:a, :a, :b].difference([:a]).inspect
       end
       t_array_difference
+    RUBY
 
-      # === array_intersection ===
+    _(result).must_answer <<~'OUT'
+      [1, 3]
+      [1, 2, 3]
+      []
+      []
+      [1, 2]
+      [2, 3]
+      []
+      ["a", "c"]
+      ["x", "y"]
+      []
+      ["b"]
+      [1.0, 3.0]
+      [1.5, 2.5]
+      [2.0]
+      [:a, :c]
+      [:x, :y]
+      [:b]
+    OUT
+  end
+
+  it "array intersection" do
+    result = ze0(<<~'RUBY')
       def t_array_intersection
         # int_array
         a = [1, 2, 3, 4]
@@ -1422,8 +1665,38 @@ describe "Array: regressions" do
         puts [:a, :a, :b].intersection([:a]).inspect
       end
       t_array_intersection
+    RUBY
 
-      # === array_union ===
+    _(result).must_answer <<~'OUT'
+      [3, 4]
+      []
+      [1, 2, 3]
+      [1, 2]
+      []
+      []
+      []
+      [42]
+      []
+      ["c", "d"]
+      []
+      ["x", "y"]
+      []
+      ["a", "b"]
+      []
+      [2.0, 3.0]
+      []
+      [1.5, 2.5]
+      [1.0]
+      []
+      [:c, :d]
+      []
+      [:x, :y]
+      [:a]
+    OUT
+  end
+
+  it "array union" do
+    result = ze0(<<~'RUBY')
       def t_array_union
         # Array#union for typed arrays (int/sym/str/float).
         # Mirrors Array#intersection (c31b618). Returns a new array with all
@@ -1455,59 +1728,9 @@ describe "Array: regressions" do
         puts [:a, :a, :b].union([:b, :c]).inspect
       end
       t_array_union
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [1, 9]
-      [1, 3]
-      [0.5, 2.5]
-      10
-      20
-      30
-      30
-      10
-      [1, 3]
-      [1, 2, 3]
-      []
-      []
-      [1, 2]
-      [2, 3]
-      []
-      ["a", "c"]
-      ["x", "y"]
-      []
-      ["b"]
-      [1.0, 3.0]
-      [1.5, 2.5]
-      [2.0]
-      [:a, :c]
-      [:x, :y]
-      [:b]
-      [3, 4]
-      []
-      [1, 2, 3]
-      [1, 2]
-      []
-      []
-      []
-      [42]
-      []
-      ["c", "d"]
-      []
-      ["x", "y"]
-      []
-      ["a", "b"]
-      []
-      [2.0, 3.0]
-      []
-      [1.5, 2.5]
-      [1.0]
-      []
-      [:c, :d]
-      []
-      [:x, :y]
-      [:a]
       [1, 2, 3, 4, 5]
       [1, 2, 3, 4]
       [1, 2, 3]
@@ -1528,19 +1751,8 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "bundle array e" do
+  it "array at append string chomp bang" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_at_append_string_chomp_bang
-      #   - array_eq_int_vs_sym_literal
-      #   - array_index_nil_for_not_found
-      #   - array_keyed_hash_int_array_eql
-      #   - array_literal_all_nil_first_is_nil
-      #   - array_new_n_fills_nil
-      #   - array_new_nil_fill
-      #   - array_sum_init
-
-      # === array_at_append_string_chomp_bang ===
       def t_array_at_append_string_chomp_bang
         # Method aliases / shapes from #619 puzzles 8 / 9 / 10:
         #   Array#at(n)      -> Array#[n]
@@ -1557,8 +1769,17 @@ describe "Array: regressions" do
         p(s.to_s == "ab")
       end
       t_array_at_append_string_chomp_bang
+    RUBY
 
-      # === array_eq_int_vs_sym_literal ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+    OUT
+  end
+
+  it "array eq int vs sym literal" do
+    result = ze0(<<~'RUBY')
       def t_array_eq_int_vs_sym_literal
         # `[0,0,0] == %i[a a a]` must answer FALSE -- CRuby compares element
         # classes too, so int 0 != sym :a even when their encoded ids match.
@@ -1595,8 +1816,21 @@ describe "Array: regressions" do
         p a == [:foo]                            # true
       end
       t_array_eq_int_vs_sym_literal
+    RUBY
 
-      # === array_index_nil_for_not_found ===
+    _(result).must_answer <<~'OUT'
+      true
+      false
+      true
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "array index nil for not found" do
+    result = ze0(<<~'RUBY')
       def t_array_index_nil_for_not_found
         # `Array#index(x)` / `#find_index(x)` / `#rindex(x)` return
         # Integer | nil in CRuby (nil when not found). spinel previously
@@ -1629,8 +1863,23 @@ describe "Array: regressions" do
         puts strs.rindex("zeta").inspect  # nil
       end
       t_array_index_nil_for_not_found
+    RUBY
 
-      # === array_keyed_hash_int_array_eql ===
+    _(result).must_answer <<~'OUT'
+      1
+      nil
+      true
+      false
+      2
+      1
+      nil
+      0
+      nil
+    OUT
+  end
+
+  it "array keyed hash int array eql" do
+    result = ze0(<<~'RUBY')
       def t_array_keyed_hash_int_array_eql
         # Array-keyed Hash. `entries[[a, b]] ||= ...` was broken because
         # spinel's PolyPolyHash defaulted to pointer-identity comparison
@@ -1663,8 +1912,20 @@ describe "Array: regressions" do
         puts mixed.length         # 2
       end
       t_array_keyed_hash_int_array_eql
+    RUBY
 
-      # === array_literal_all_nil_first_is_nil ===
+    _(result).must_answer <<~'OUT'
+      a
+      b
+      2
+      int-key
+      arr-key
+      2
+    OUT
+  end
+
+  it "array literal all nil first is nil" do
+    result = ze0(<<~'RUBY')
       def t_array_literal_all_nil_first_is_nil
         # `[nil, nil, ...].first` / `.last` returns nil. Pre-fix the
         # array-literal lowering pushed each NilNode as `sp_IntArray_push(_t, 0)`
@@ -1680,8 +1941,18 @@ describe "Array: regressions" do
         p [nil, nil, nil].last.nil?      # true
       end
       t_array_literal_all_nil_first_is_nil
+    RUBY
 
-      # === array_new_n_fills_nil ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "array new n fills nil" do
+    result = ze0(<<~'RUBY')
       def t_array_new_n_fills_nil
         # `Array.new(n)` (single arg, no fill value, no block) is CRuby
         # shorthand for `Array.new(n, nil)`: an array of n nils, NOT an
@@ -1695,8 +1966,19 @@ describe "Array: regressions" do
         puts Array.new(5).length         # 5
       end
       t_array_new_n_fills_nil
+    RUBY
 
-      # === array_new_nil_fill ===
+    _(result).must_answer <<~'OUT'
+      3
+      [nil, nil, nil]
+      true
+      0
+      5
+    OUT
+  end
+
+  it "array new nil fill" do
+    result = ze0(<<~'RUBY')
       def t_array_new_nil_fill
         # `Array.new(n, nil)` -- the fill value is the nil singleton, so
         # MRI fills each slot with `nil` and `.inspect` prints
@@ -1714,8 +1996,19 @@ describe "Array: regressions" do
         puts ary.length
       end
       t_array_new_nil_fill
+    RUBY
 
-      # === array_sum_init ===
+    _(result).must_answer <<~'OUT'
+      [nil, nil, nil]
+      true
+      true
+      true
+      3
+    OUT
+  end
+
+  it "array sum init" do
+    result = ze0(<<~'RUBY')
       def t_array_sum_init
         # Array#sum's init argument was silently dropped on the IntArray /
         # FloatArray dispatch paths -- spinel emitted sp_IntArray_sum(rc)
@@ -1779,49 +2072,9 @@ describe "Array: regressions" do
         puts "done"
       end
       t_array_sum_init
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      true
-      true
-      true
-      false
-      true
-      true
-      true
-      true
-      true
-      1
-      nil
-      true
-      false
-      2
-      1
-      nil
-      0
-      nil
-      a
-      b
-      2
-      int-key
-      arr-key
-      2
-      true
-      true
-      true
-      true
-      3
-      [nil, nil, nil]
-      true
-      0
-      5
-      [nil, nil, nil]
-      true
-      true
-      true
-      3
       16
       6
       7
@@ -1843,16 +2096,8 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "bundle array f" do
+  it "array group by poly each chain" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - array_group_by_poly_each_chain
-      #   - array_of_hash_aset_sym
-      #   - array_partition_gc
-      #   - array_plus_cross_type
-      #   - array_push_mixed_types
-
-      # === array_group_by_poly_each_chain ===
       def t_array_group_by_poly_each_chain
         # Array#group_by + Hash#each chain on a poly_array of sym_poly_hashes.
         # spinel fuses `<arr>.group_by(blk).each |k, rows|` into a single emit
@@ -1882,8 +2127,16 @@ describe "Array: regressions" do
         end
       end
       t_array_group_by_poly_each_chain
+    RUBY
 
-      # === array_of_hash_aset_sym ===
+    _(result).must_answer <<~'OUT'
+      ginza: 4.5
+      shibuya: 4.0
+    OUT
+  end
+
+  it "array of hash aset sym" do
+    result = ze0(<<~'RUBY')
       def t_array_of_hash_aset_sym
         # Chained `[]=` / `[]op=` on a poly_array element that is a
         # boxed SymIntHash: `arr[i][:k] = v` and `arr[i][:k] += v`.
@@ -1931,8 +2184,20 @@ describe "Array: regressions" do
         puts arr4[1][:x].to_s
       end
       t_array_of_hash_aset_sym
+    RUBY
 
-      # === array_partition_gc ===
+    _(result).must_answer <<~'OUT'
+      99
+      101
+      101
+      103
+      0
+      10
+    OUT
+  end
+
+  it "array partition gc" do
+    result = ze0(<<~'RUBY')
       def t_array_partition_gc
         # Regression: Array#partition (block form) returns a tuple holding two
         # inner arrays. The tuple's sp_gc_alloc was emitted with scan=NULL, so
@@ -1956,8 +2221,17 @@ describe "Array: regressions" do
         puts "done"
       end
       t_array_partition_gc
+    RUBY
 
-      # === array_plus_cross_type ===
+    _(result).must_answer <<~'OUT'
+      3
+      3
+      done
+    OUT
+  end
+
+  it "array plus cross type" do
+    result = ze0(<<~'RUBY')
       def t_array_plus_cross_type
         # Issue #662: Array#+ concatenating arrays of different element
         # types. Previously the codegen assumed both operands had the same
@@ -1987,8 +2261,22 @@ describe "Array: regressions" do
         puts "done"
       end
       t_array_plus_cross_type
+    RUBY
 
-      # === array_push_mixed_types ===
+    _(result).must_answer <<~'OUT'
+      6
+      1
+      x
+      ok
+      4
+      1.5
+      10
+      done
+    OUT
+  end
+
+  it "array push mixed types" do
+    result = ze0(<<~'RUBY')
       def t_array_push_mixed_types
         # Issue #663: Array#<< with heterogeneous element types on an
         # initially-empty array. Previously the type inference latched
@@ -2013,29 +2301,9 @@ describe "Array: regressions" do
         puts "ok"
       end
       t_array_push_mixed_types
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ginza: 4.5
-      shibuya: 4.0
-      99
-      101
-      101
-      103
-      0
-      10
-      3
-      3
-      done
-      6
-      1
-      x
-      ok
-      4
-      1.5
-      10
-      done
       3
       1
       string
@@ -2044,17 +2312,8 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "bundle int array" do
+  it "int array each with index" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - int_array_each_with_index
-      #   - int_array_each_with_object
-      #   - int_array_reduce
-      #   - int_array_reject
-      #   - int_array_select
-      #   - int_array_zip
-
-      # === int_array_each_with_index ===
       def t_int_array_each_with_index
         # Array#each_with_index on an int_array. The element block param must
         # shadow an outer same-named local of a different C type, and the
@@ -2072,8 +2331,17 @@ describe "Array: regressions" do
         puts n   # 3
       end
       t_int_array_each_with_index
+    RUBY
 
-      # === int_array_each_with_object ===
+    _(result).must_answer <<~'OUT'
+      hi
+      ho
+      3
+    OUT
+  end
+
+  it "int array each with object" do
+    result = ze0(<<~'RUBY')
       def t_int_array_each_with_object
         # Array#each_with_object on an int_array. The element block param
         # must shadow an outer same-named local of a different C type, and
@@ -2093,8 +2361,17 @@ describe "Array: regressions" do
         puts n   # 3
       end
       t_int_array_each_with_object
+    RUBY
 
-      # === int_array_reduce ===
+    _(result).must_answer <<~'OUT'
+      hi
+      ho
+      3
+    OUT
+  end
+
+  it "int array reduce" do
+    result = ze0(<<~'RUBY')
       def t_int_array_reduce
         # Array#inject and Array#reduce share compile_reduce_block but have
         # distinct dispatch entries. Cover both so a divergence at either
@@ -2112,8 +2389,17 @@ describe "Array: regressions" do
         puts sum_reduce   # 15
       end
       t_int_array_reduce
+    RUBY
 
-      # === int_array_reject ===
+    _(result).must_answer <<~'OUT'
+      hi
+      15
+      15
+    OUT
+  end
+
+  it "int array reject" do
+    result = ze0(<<~'RUBY')
       def t_int_array_reject
         # Array#reject on an int_array. The block param must shadow an outer
         # same-named local of a different C type. Body uses a constant
@@ -2132,8 +2418,20 @@ describe "Array: regressions" do
         puts all[2]       # 30
       end
       t_int_array_reject
+    RUBY
 
-      # === int_array_select ===
+    _(result).must_answer <<~'OUT'
+      hi
+      0
+      3
+      10
+      20
+      30
+    OUT
+  end
+
+  it "int array select" do
+    result = ze0(<<~'RUBY')
       def t_int_array_select
         # Array#select on an int_array. The block param must shadow an outer
         # same-named local of a different C type. Body uses a constant
@@ -2152,8 +2450,20 @@ describe "Array: regressions" do
         puts none.length  # 0
       end
       t_int_array_select
+    RUBY
 
-      # === int_array_zip ===
+    _(result).must_answer <<~'OUT'
+      hi
+      3
+      10
+      20
+      30
+      0
+    OUT
+  end
+
+  it "int array zip" do
+    result = ze0(<<~'RUBY')
       def t_int_array_zip
         # Array#zip with a block on int_arrays. Both block params must shadow
         # outer same-named locals of a different C type. Body uses a counter
@@ -2170,38 +2480,16 @@ describe "Array: regressions" do
         puts n   # 3
       end
       t_int_array_zip
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      hi
-      ho
-      3
-      hi
-      ho
-      3
-      hi
-      15
-      15
-      hi
-      0
-      3
-      10
-      20
-      30
-      hi
-      3
-      10
-      20
-      30
-      0
       ha
       hb
       3
     OUT
   end
 
-  it "bundle tiny array" do
+  it "array bsearch" do
     result = ze0(<<~'RUBY')
       # Bundled tiny tests (auto-grouped by bundler):
       #   - array_bsearch
@@ -2217,7 +2505,7 @@ describe "Array: regressions" do
       #   - int_array_reduce_init_sym
       #   - poly_array_zip
 
-      # === array_bsearch ===
+
       def t_array_bsearch
       # Array#bsearch (find-minimum mode) on a sorted typed array: returns the
       # first element for which the block is truthy, or nil when none is.
@@ -2229,8 +2517,35 @@ describe "Array: regressions" do
       p ["a", "b", "c", "d"].bsearch { |s| s >= "z" }
       end
       t_array_bsearch
+    RUBY
 
-      # === array_each_index ===
+    _(result).must_answer <<~'OUT'
+      5
+      nil
+      1
+      8
+      "c"
+      nil
+    OUT
+  end
+
+  it "array each index" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_each_index
       # Array#each_index { |i| } yields each index (0..length-1). Works on
       # any typed array; only the index is bound, no element.
@@ -2242,8 +2557,38 @@ describe "Array: regressions" do
       puts "done"
       end
       t_array_each_index
+    RUBY
 
-      # === array_find_index_block ===
+    _(result).must_answer <<~'OUT'
+      0
+      1
+      2
+      ---
+      idx 0
+      idx 1
+      idx 2
+      ---
+      done
+    OUT
+  end
+
+  it "array find index block" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_find_index_block
       # Issue #864: Enumerable#find_index with block returns the index
       # of the first element where the block is truthy, nil otherwise.
@@ -2252,8 +2597,31 @@ describe "Array: regressions" do
       puts [1, 2, 3].find_index { |x| x > 10 }.inspect
       end
       t_array_find_index_block
+    RUBY
 
-      # === array_group_by_standalone ===
+    _(result).must_answer <<~'OUT'
+      2
+      nil
+    OUT
+  end
+
+  it "array group by standalone" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_group_by_standalone
       # Array#group_by — standalone (no fused .each) returns a hash
       # keyed by the block result with arrays of matching elements.
@@ -2263,8 +2631,31 @@ describe "Array: regressions" do
       puts ["apple","ant","bee","cat","cow"].group_by { |s| s[0] }.inspect
       end
       t_array_group_by_standalone
+    RUBY
 
-      # === array_join_poly ===
+    _(result).must_answer <<~'OUT'
+      {1 => [1, 4], 2 => [2, 5], 0 => [3, 6]}
+      {"a" => ["apple", "ant"], "b" => ["bee"], "c" => ["cat", "cow"]}
+    OUT
+  end
+
+  it "array join poly" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_join_poly
       # Array#join on a mixed-element (poly) array: each element is to_s'd and
       # joined with the separator. Homogeneous int_array/str_array have their
@@ -2275,8 +2666,33 @@ describe "Array: regressions" do
       puts "done"
       end
       t_array_join_poly
+    RUBY
 
-      # === array_member_alias ===
+    _(result).must_answer <<~'OUT'
+      1,x,y
+      1xy
+      10-y
+      done
+    OUT
+  end
+
+  it "array member alias" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_member_alias
       # Enumerable#member? is the documented alias of #include?. Both
       # need dispatching on typed arrays so the alias doesn't fall
@@ -2287,8 +2703,33 @@ describe "Array: regressions" do
       puts ["a","b"].member?("z")
       end
       t_array_member_alias
+    RUBY
 
-      # === array_product_mixed ===
+    _(result).must_answer <<~'OUT'
+      true
+      false
+      true
+      false
+    OUT
+  end
+
+  it "array product mixed" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_product_mixed
       # Array#product with a single array argument of a different element type
       # yields a poly_array of [recv_elem, arg_elem] pairs. Two int arrays keep
@@ -2300,8 +2741,34 @@ describe "Array: regressions" do
       p [1.5, 2.5].product([1, 2])
       end
       t_array_product_mixed
+    RUBY
 
-      # === array_repeated_combination ===
+    _(result).must_answer <<~'OUT'
+      [[1, "a"], [1, "b"], [2, "a"], [2, "b"]]
+      [[1, "x"], [2, "x"], [3, "x"]]
+      [["a", 1], ["a", 2], ["b", 1], ["b", 2]]
+      [[1, 3], [1, 4], [2, 3], [2, 4]]
+      [[1.5, 1], [1.5, 2], [2.5, 1], [2.5, 2]]
+    OUT
+  end
+
+  it "array repeated combination" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_array_repeated_combination
       # Array#repeated_combination(k) on an int array: k-element combinations
       # allowing repeats, materialised as an array of arrays via .to_a.
@@ -2311,8 +2778,33 @@ describe "Array: regressions" do
       p [1, 2, 3].repeated_combination(1).to_a
       end
       t_array_repeated_combination
+    RUBY
 
-      # === int_array_fetch ===
+    _(result).must_answer <<~'OUT'
+      [[1, 1], [1, 2], [2, 2]]
+      [[1, 1], [1, 2], [1, 3], [2, 2], [2, 3], [3, 3]]
+      [[1, 1, 1], [1, 1, 2], [1, 2, 2], [2, 2, 2]]
+      [[1], [2], [3]]
+    OUT
+  end
+
+  it "int array fetch" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_int_array_fetch
       a = [10, 20, 30]
       p a.fetch(0)
@@ -2323,8 +2815,34 @@ describe "Array: regressions" do
       p s.fetch(1)
       end
       t_int_array_fetch
+    RUBY
 
-      # === int_array_one_arg ===
+    _(result).must_answer <<~'OUT'
+      10
+      30
+      99
+      20
+      :y
+    OUT
+  end
+
+  it "int array one arg" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_int_array_one_arg
       # Enumerable#one?(x) — true iff exactly one element equals x.
       # The block form was already supported; the no-block / arg-form
@@ -2336,8 +2854,34 @@ describe "Array: regressions" do
       puts [5].one?(5)
       end
       t_int_array_one_arg
+    RUBY
 
-      # === int_array_reduce_init_sym ===
+    _(result).must_answer <<~'OUT'
+      true
+      false
+      false
+      false
+      true
+    OUT
+  end
+
+  it "int array reduce init sym" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_int_array_reduce_init_sym
       # Enumerable#reduce(init, :op) — explicit init plus a symbol
       # operator. Single-arg sym form was already wired; the 2-arg form
@@ -2349,8 +2893,34 @@ describe "Array: regressions" do
       puts [].reduce(7, :+)
       end
       t_int_array_reduce_init_sym
+    RUBY
 
-      # === poly_array_zip ===
+    _(result).must_answer <<~'OUT'
+      10
+      24
+      20
+      2400
+      7
+    OUT
+  end
+
+  it "poly array zip" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - array_bsearch
+      #   - array_each_index
+      #   - array_find_index_block
+      #   - array_group_by_standalone
+      #   - array_join_poly
+      #   - array_member_alias
+      #   - array_product_mixed
+      #   - array_repeated_combination
+      #   - int_array_fetch
+      #   - int_array_one_arg
+      #   - int_array_reduce_init_sym
+      #   - poly_array_zip
+
+
       def t_poly_array_zip
       # Array#zip on heterogeneous (poly_array) receivers — result is a
       # poly_array_ptr_array (array of poly_array pairs). The result type
@@ -2362,61 +2932,9 @@ describe "Array: regressions" do
       puts [1, "a", :s].zip([2, "b", :t]).inspect
       end
       t_poly_array_zip
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      5
-      nil
-      1
-      8
-      "c"
-      nil
-      0
-      1
-      2
-      ---
-      idx 0
-      idx 1
-      idx 2
-      ---
-      done
-      2
-      nil
-      {1 => [1, 4], 2 => [2, 5], 0 => [3, 6]}
-      {"a" => ["apple", "ant"], "b" => ["bee"], "c" => ["cat", "cow"]}
-      1,x,y
-      1xy
-      10-y
-      done
-      true
-      false
-      true
-      false
-      [[1, "a"], [1, "b"], [2, "a"], [2, "b"]]
-      [[1, "x"], [2, "x"], [3, "x"]]
-      [["a", 1], ["a", 2], ["b", 1], ["b", 2]]
-      [[1, 3], [1, 4], [2, 3], [2, 4]]
-      [[1.5, 1], [1.5, 2], [2.5, 1], [2.5, 2]]
-      [[1, 1], [1, 2], [2, 2]]
-      [[1, 1], [1, 2], [1, 3], [2, 2], [2, 3], [3, 3]]
-      [[1, 1, 1], [1, 1, 2], [1, 2, 2], [2, 2, 2]]
-      [[1], [2], [3]]
-      10
-      30
-      99
-      20
-      :y
-      true
-      false
-      false
-      false
-      true
-      10
-      24
-      20
-      2400
-      7
       [[1, 2], ["a", "b"]]
       [[1, 2], ["a", "b"], [:s, :t]]
     OUT

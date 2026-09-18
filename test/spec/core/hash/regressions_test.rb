@@ -3,18 +3,8 @@
 require "spec_helper"
 
 describe "Hash: regressions" do
-  it "bundle hash" do
+  it "empty hash promote" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - empty_hash_promote
-      #   - hash
-      #   - hash_delete_order
-      #   - hash_keys_each
-      #   - hash_transform_keys
-      #   - hash_transform_values
-      #   - int_str_hash
-
-      # === empty_hash_promote ===
       def t_empty_hash_promote
         # Empty hash literal whose first []= write pins a different key/value
         # type pair than the str_int_hash default. Pre-fix: declaration ran
@@ -62,8 +52,29 @@ describe "Hash: regressions" do
         puts h5.length
       end
       t_empty_hash_promote
+    RUBY
 
-      # === hash ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      2
+      alpha
+      beta
+      2
+      one
+      two
+      2
+      10
+      20
+      2
+      ada
+      scientist
+      2
+    OUT
+  end
+
+  it "hash" do
+    result = ze0(<<~'RUBY')
       def t_hash
         # Test Hash support
 
@@ -93,8 +104,22 @@ describe "Hash: regressions" do
         puts h.length  # 2
       end
       t_hash
+    RUBY
 
-      # === hash_delete_order ===
+    _(result).must_answer <<~'OUT'
+      2
+      3
+      one
+      two
+      three
+      3
+      found
+      2
+    OUT
+  end
+
+  it "hash delete order" do
+    result = ze0(<<~'RUBY')
       def t_hash_delete_order
         # Regression test: Hash#delete must compact the insertion-order array
         # so that subsequent #keys / #values / each iteration skip the deleted
@@ -125,8 +150,21 @@ describe "Hash: regressions" do
         puts lh.keys.inspect          # [:a, :b]
       end
       t_hash_delete_order
+    RUBY
 
-      # === hash_keys_each ===
+    _(result).must_answer <<~'OUT'
+      ["a", "c"]
+      [1, 3]
+      2
+      [:a, :c]
+      [1, 3]
+      [:b, :c]
+      [:a, :b]
+    OUT
+  end
+
+  it "hash keys each" do
+    result = ze0(<<~'RUBY')
       def t_hash_keys_each
         # Test hash.keys.each fusion for all hash types
 
@@ -179,8 +217,26 @@ describe "Hash: regressions" do
         # => 2
       end
       t_hash_keys_each
+    RUBY
 
-      # === hash_transform_keys ===
+    _(result).must_answer <<~'OUT'
+      3
+      5
+      7
+      a
+      b
+      c
+      x
+      y
+      z
+      60
+      FizzBuzz
+      2
+    OUT
+  end
+
+  it "hash transform keys" do
+    result = ze0(<<~'RUBY')
       def t_hash_transform_keys
         # Hash#transform_keys for str_int_hash. The block runs once per key,
         # its return value becomes the new key. Mirrors transform_values'
@@ -216,8 +272,24 @@ describe "Hash: regressions" do
         puts big.transform_keys { |k| k + "!" }.length
       end
       t_hash_transform_keys
+    RUBY
 
-      # === hash_transform_values ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      10
+      20
+      false
+      true
+      100
+      200
+      0
+      3
+    OUT
+  end
+
+  it "hash transform values" do
+    result = ze0(<<~'RUBY')
       def t_hash_transform_values
         # Hash#transform_values across hash variants. The block runs once
         # per value, its return becomes the new value, keys and order
@@ -273,8 +345,31 @@ describe "Hash: regressions" do
         puts empty.length
       end
       t_hash_transform_values
+    RUBY
 
-      # === int_str_hash ===
+    _(result).must_answer <<~'OUT'
+      {a: 10, b: 20}
+      {x: 105, y: 110, z: 115}
+      9
+      5
+      {a: 1, b: 2}
+      {a: 100, b: 200}
+      alpha
+      beta
+      HELLO
+      WORLD
+      a!
+      b!
+      c!
+      3
+      true
+      true
+      2
+    OUT
+  end
+
+  it "int str hash" do
+    result = ze0(<<~'RUBY')
       def t_int_str_hash
         # Test integer-keyed string-valued hash (sp_IntStrHash)
         # Regression: previously segfaulted — codegen emitted sp_StrStrHash,
@@ -332,79 +427,9 @@ describe "Hash: regressions" do
         end
       end
       t_int_str_hash
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1
-      2
-      2
-      alpha
-      beta
-      2
-      one
-      two
-      2
-      10
-      20
-      2
-      ada
-      scientist
-      2
-      2
-      3
-      one
-      two
-      three
-      3
-      found
-      2
-      ["a", "c"]
-      [1, 3]
-      2
-      [:a, :c]
-      [1, 3]
-      [:b, :c]
-      [:a, :b]
-      3
-      5
-      7
-      a
-      b
-      c
-      x
-      y
-      z
-      60
-      FizzBuzz
-      2
-      1
-      2
-      10
-      20
-      false
-      true
-      100
-      200
-      0
-      3
-      {a: 10, b: 20}
-      {x: 105, y: 110, z: 115}
-      9
-      5
-      {a: 1, b: 2}
-      {a: 100, b: 200}
-      alpha
-      beta
-      HELLO
-      WORLD
-      a!
-      b!
-      c!
-      3
-      true
-      true
-      2
       Fizz
       Buzz
       Bazz
@@ -443,14 +468,8 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "bundle hash b1" do
+  it "hash dup str int str" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - hash_dup_str_int_str
-      #   - hash_each_block_param_types
-      #   - hash_merge_cross_variant
-
-      # === hash_dup_str_int_str ===
       def t_hash_dup_str_int_str
         # Hash#dup was missing from the str_str_hash and int_str_hash codegen
         # dispatch tables -- the runtime helpers exist (sp_StrStrHash_dup,
@@ -486,8 +505,24 @@ describe "Hash: regressions" do
         puts h2.has_key?(3)     # false
       end
       t_hash_dup_str_int_str
+    RUBY
 
-      # === hash_each_block_param_types ===
+    _(result).must_answer <<~'OUT'
+      2
+      3
+      1
+      3
+      2
+      3
+      one
+      three
+      false
+      false
+    OUT
+  end
+
+  it "hash each block param types" do
+    result = ze0(<<~'RUBY')
       def t_hash_each_block_param_types
         # `h.each do |k, v|` previously had its block params typed via
         # elem_type_of_array(recv_type), which only knows about typed
@@ -512,8 +547,16 @@ describe "Hash: regressions" do
         end
       end
       t_hash_each_block_param_types
+    RUBY
 
-      # === hash_merge_cross_variant ===
+    _(result).must_answer <<~'OUT'
+      a: 1
+      b: 2
+    OUT
+  end
+
+  it "hash merge cross variant" do
+    result = ze0(<<~'RUBY')
       def t_hash_merge_cross_variant
         # Issue #661: Hash#merge across hash variants with different value
         # types. Previously the codegen used the receiver's prefix
@@ -543,22 +586,9 @@ describe "Hash: regressions" do
         puts "ok"
       end
       t_hash_merge_cross_variant
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2
-      3
-      1
-      3
-      2
-      3
-      one
-      three
-      false
-      false
-      a: 1
-      b: 2
       1
       "x"
       1
@@ -567,13 +597,8 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "bundle hash b2" do
+  it "hash new default value" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - hash_new_default_value
-      #   - hash_or_fallback_missing_key
-
-      # === hash_new_default_value ===
       def t_hash_new_default_value
         # `Hash.new(default_value)` per-instance default support.
         #
@@ -656,8 +681,39 @@ describe "Hash: regressions" do
         p fm[99]                # 1.5 (merge inherits left default)
       end
       t_hash_new_default_value
+    RUBY
 
-      # === hash_or_fallback_missing_key ===
+    _(result).must_answer <<~'OUT'
+      5
+      5
+      0
+      false
+      5
+      99
+      10
+      99
+      none
+      none
+      42
+      42
+      1
+      1
+      42
+      42
+      1
+      0
+      2.5
+      0.0
+      0.0
+      1.5
+      1.5
+      3.5
+      1.5
+    OUT
+  end
+
+  it "hash or fallback missing key" do
+    result = ze0(<<~'RUBY')
       def t_hash_or_fallback_missing_key
         # Issue #660: `hash[k] || rhs` on a typed-hash receiver must return
         # rhs when the key is missing -- not the value-type zero (0 / "").
@@ -692,35 +748,9 @@ describe "Hash: regressions" do
         puts (h4[:found] || "fallback")
       end
       t_hash_or_fallback_missing_key
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      5
-      5
-      0
-      false
-      5
-      99
-      10
-      99
-      none
-      none
-      42
-      42
-      1
-      1
-      42
-      42
-      1
-      0
-      2.5
-      0.0
-      0.0
-      1.5
-      1.5
-      3.5
-      1.5
       fallback
       fallback
       -1
@@ -728,7 +758,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "bundle tiny misc" do
+  it "comparable clamp string" do
     result = ze0(<<~'RUBY')
       # Bundled tiny tests (auto-grouped by bundler):
       #   - comparable_clamp_string
@@ -747,7 +777,7 @@ describe "Hash: regressions" do
       #   - symbol_name
       #   - time_subtraction_returns_float
 
-      # === comparable_clamp_string ===
+
       def t_comparable_clamp_string
       # Issue #899: Comparable#clamp on a string receiver via strcmp.
       puts "b".clamp("a", "c")
@@ -755,8 +785,35 @@ describe "Hash: regressions" do
       puts "a".clamp("b", "c")
       end
       t_comparable_clamp_string
+    RUBY
 
-      # === file_separator_constants ===
+    _(result).must_answer <<~'OUT'
+      b
+      c
+      b
+    OUT
+  end
+
+  it "file separator constants" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_file_separator_constants
       # Issue #891: File::SEPARATOR / PATH_SEPARATOR / ALT_SEPARATOR
       # resolved at compile time as string literals.
@@ -765,8 +822,35 @@ describe "Hash: regressions" do
       puts "a" + File::SEPARATOR + "b"
       end
       t_file_separator_constants
+    RUBY
 
-      # === hash_fetch_int_int ===
+    _(result).must_answer <<~'OUT'
+      /
+      :
+      a/b
+    OUT
+  end
+
+  it "hash fetch int int" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_hash_fetch_int_int
       # Hash#fetch on an int->int specialized hash: plain lookup and the 2-arg
       # default form (the int->int variant previously had #[] but not #fetch).
@@ -778,8 +862,37 @@ describe "Hash: regressions" do
       puts "done"
       end
       t_hash_fetch_int_int
+    RUBY
 
-      # === i897 ===
+    _(result).must_answer <<~'OUT'
+      10
+      20
+      -1
+      42
+      done
+    OUT
+  end
+
+  it "i897" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_i897
       puts (1..Float::INFINITY).lazy.select { |x| x.odd? }.first(5).inspect
       puts (1..Float::INFINITY).lazy.select { |x| x % 3 == 0 }.first(4).inspect
@@ -790,8 +903,39 @@ describe "Hash: regressions" do
       puts (1..Float::INFINITY).lazy.select { |x| x > 5 }.first
       end
       t_i897
+    RUBY
 
-      # === i957 ===
+    _(result).must_answer <<~'OUT'
+      [1, 3, 5, 7, 9]
+      [3, 6, 9, 12]
+      [1, 3, 5, 7, 9]
+      [1, 2, 3]
+      [10, 12, 14]
+      [7, 14, 21]
+      6
+    OUT
+  end
+
+  it "i957" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_i957
       h = {a: 1, b: 2}
       p = h.to_proc
@@ -803,8 +947,36 @@ describe "Hash: regressions" do
       puts g.call("y")
       end
       t_i957
+    RUBY
 
-      # === i976 ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      10
+      20
+    OUT
+  end
+
+  it "i976" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_i976
       p = Proc.new { |a, b| puts "a=#{a.inspect} b=#{b.inspect}" }
       p.call(1)
@@ -816,8 +988,37 @@ describe "Hash: regressions" do
       q.call(10, 20, 30)
       end
       t_i976
+    RUBY
 
-      # === i981 ===
+    _(result).must_answer <<~'OUT'
+      a=1 b=nil
+      a=1 b=2
+      x=10 y= z=
+      x=10 y=20 z=
+      x=10 y=20 z=30
+    OUT
+  end
+
+  it "i981" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_i981
       puts ("a".."c").to_a.inspect
       puts ("A".."D").to_a.inspect
@@ -826,8 +1027,37 @@ describe "Hash: regressions" do
       puts (1..3).to_a.inspect
       end
       t_i981
+    RUBY
 
-      # === kernel_rand_no_arg_float ===
+    _(result).must_answer <<~'OUT'
+      ["a", "b", "c"]
+      ["A", "B", "C", "D"]
+      ["aa", "ab", "ac"]
+      ["az", "ba", "bb"]
+      [1, 2, 3]
+    OUT
+  end
+
+  it "kernel rand no arg float" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_kernel_rand_no_arg_float
       # Kernel#rand without args returns Float in [0.0, 1.0).
       puts rand.class
@@ -836,8 +1066,35 @@ describe "Hash: regressions" do
       puts v >= 0.0 && v < 1.0
       end
       t_kernel_rand_no_arg_float
+    RUBY
 
-      # === kernel_string_coercion ===
+    _(result).must_answer <<~'OUT'
+      Float
+      Integer
+      true
+    OUT
+  end
+
+  it "kernel string coercion" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_kernel_string_coercion
       # Issue #879: Kernel#String() coercion routes through .to_s for
       # each primitive type. nil -> "". Pre-fix: silently emitted 0.
@@ -849,8 +1106,38 @@ describe "Hash: regressions" do
       puts String(3.14)
       end
       t_kernel_string_coercion
+    RUBY
 
-      # === nil_coercion ===
+    _(result).must_answer <<~'OUT'
+      42
+      ""
+      true
+      hi
+      sym
+      3.14
+    OUT
+  end
+
+  it "nil coercion" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_nil_coercion
       # Issue #871: NilClass coercion methods. v1 covers to_i / to_f /
       # to_a. to_c, to_r, to_h deferred (Complex, Rational unsupported;
@@ -860,8 +1147,35 @@ describe "Hash: regressions" do
       puts nil.to_a.inspect
       end
       t_nil_coercion
+    RUBY
 
-      # === nil_to_h ===
+    _(result).must_answer <<~'OUT'
+      0
+      0.0
+      []
+    OUT
+  end
+
+  it "nil to h" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_nil_to_h
       # NilClass#to_h returns an empty hash.
       p nil.to_h
@@ -869,8 +1183,35 @@ describe "Hash: regressions" do
       p nil.to_h.empty?
       end
       t_nil_to_h
+    RUBY
 
-      # === ruby_version_constants ===
+    _(result).must_answer <<~'OUT'
+      {}
+      0
+      true
+    OUT
+  end
+
+  it "ruby version constants" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_ruby_version_constants
       # Issue #890: RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
       # string constants. Format-only check so the test stays stable
@@ -881,8 +1222,36 @@ describe "Hash: regressions" do
       puts RUBY_PLATFORM.length > 0
       end
       t_ruby_version_constants
+    RUBY
 
-      # === sym_int_hash_key_value ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "sym int hash key value" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_sym_int_hash_key_value
       # Hash#key(value) / #value? / #has_value? on sym_int_hash.
       # Missing-key #key returns the empty-sym sentinel since the typed
@@ -894,8 +1263,36 @@ describe "Hash: regressions" do
       puts h.value?(3)
       end
       t_sym_int_hash_key_value
+    RUBY
 
-      # === symbol_name ===
+    _(result).must_answer <<~'OUT'
+      :b
+      true
+      false
+      true
+    OUT
+  end
+
+  it "symbol name" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_symbol_name
       # Symbol#name returns the symbol's name as a string (not a pointer
       # value cast as int).
@@ -903,8 +1300,34 @@ describe "Hash: regressions" do
       puts :foo.name.length
       end
       t_symbol_name
+    RUBY
 
-      # === time_subtraction_returns_float ===
+    _(result).must_answer <<~'OUT'
+      hello
+      3
+    OUT
+  end
+
+  it "time subtraction returns float" do
+    result = ze0(<<~'RUBY')
+      # Bundled tiny tests (auto-grouped by bundler):
+      #   - comparable_clamp_string
+      #   - file_separator_constants
+      #   - hash_fetch_int_int
+      #   - i897
+      #   - i957
+      #   - i976
+      #   - i981
+      #   - kernel_rand_no_arg_float
+      #   - kernel_string_coercion
+      #   - nil_coercion
+      #   - nil_to_h
+      #   - ruby_version_constants
+      #   - sym_int_hash_key_value
+      #   - symbol_name
+      #   - time_subtraction_returns_float
+
+
       def t_time_subtraction_returns_float
       # Issue #901: Time - Time returns Float (elapsed seconds). LV
       # slot inferred as sp_Time on pass 1, refined to float on pass 2
@@ -916,67 +1339,9 @@ describe "Hash: regressions" do
       puts diff.class
       end
       t_time_subtraction_returns_float
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      b
-      c
-      b
-      /
-      :
-      a/b
-      10
-      20
-      -1
-      42
-      done
-      [1, 3, 5, 7, 9]
-      [3, 6, 9, 12]
-      [1, 3, 5, 7, 9]
-      [1, 2, 3]
-      [10, 12, 14]
-      [7, 14, 21]
-      6
-      1
-      2
-      10
-      20
-      a=1 b=nil
-      a=1 b=2
-      x=10 y= z=
-      x=10 y=20 z=
-      x=10 y=20 z=30
-      ["a", "b", "c"]
-      ["A", "B", "C", "D"]
-      ["aa", "ab", "ac"]
-      ["az", "ba", "bb"]
-      [1, 2, 3]
-      Float
-      Integer
-      true
-      42
-      ""
-      true
-      hi
-      sym
-      3.14
-      0
-      0.0
-      []
-      {}
-      0
-      true
-      true
-      true
-      true
-      true
-      :b
-      true
-      false
-      true
-      hello
-      3
       true
       Float
     OUT

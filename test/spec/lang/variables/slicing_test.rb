@@ -227,7 +227,7 @@ describe "Variables: slicing" do
     OUT
   end
 
-  it "global var" do
+  it "Operator-write ($x += / -= / *= / /= ... )" do
     result = ze0(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
       # Was four tests; merged here. Globals across the original files
@@ -235,7 +235,7 @@ describe "Variables: slicing" do
       # section so the merged script's accumulated state doesn't change
       # the per-section semantics.
 
-      # === Operator-write ($x += / -= / *= / /= ... ) ===
+
       # Mirror of LocalVariableOperatorWriteNode but the storage is a
       # C-level global symbol via sanitize_gvar(name).
       $counter = 0
@@ -248,8 +248,25 @@ describe "Variables: slicing" do
       puts $counter   # 12
       $counter /= 4
       puts $counter   # 3
+    RUBY
 
-      # === Or-write ($x ||= val) ===
+    _(result).must_answer <<~'OUT'
+      6
+      4
+      12
+      3
+    OUT
+  end
+
+  it "Or-write ($x ||= val)" do
+    result = ze0(<<~'RUBY')
+      # Global variable compound writes — Or / And / Operator / Target.
+      # Was four tests; merged here. Globals across the original files
+      # happened to reuse `$count`, so this file picks distinct names per
+      # section so the merged script's accumulated state doesn't change
+      # the per-section semantics.
+
+
       # Mirror of LocalVariableOrWriteNode. Only assigns if the global
       # is currently falsy.
       #
@@ -262,8 +279,23 @@ describe "Variables: slicing" do
       puts $or_count     # 5
       $or_count ||= 99   # already 5 (truthy in both), doesn't fire
       puts $or_count     # 5
+    RUBY
 
-      # === And-write ($x &&= val) ===
+    _(result).must_answer <<~'OUT'
+      5
+      5
+    OUT
+  end
+
+  it "And-write ($x &&= val)" do
+    result = ze0(<<~'RUBY')
+      # Global variable compound writes — Or / And / Operator / Target.
+      # Was four tests; merged here. Globals across the original files
+      # happened to reuse `$count`, so this file picks distinct names per
+      # section so the merged script's accumulated state doesn't change
+      # the per-section semantics.
+
+
       # Mirror of LocalVariableAndWriteNode. Only assigns if the global
       # is currently truthy.
       $and_count = 5
@@ -271,8 +303,23 @@ describe "Variables: slicing" do
       puts $and_count    # 10
       $and_count &&= 0   # 10 is truthy in C, fires
       puts $and_count    # 0
+    RUBY
 
-      # === Target (multi-assign LHS for globals) ===
+    _(result).must_answer <<~'OUT'
+      10
+      0
+    OUT
+  end
+
+  it "Target (multi-assign LHS for globals)" do
+    result = ze0(<<~'RUBY')
+      # Global variable compound writes — Or / And / Operator / Target.
+      # Was four tests; merged here. Globals across the original files
+      # happened to reuse `$count`, so this file picks distinct names per
+      # section so the merged script's accumulated state doesn't change
+      # the per-section semantics.
+
+
       # `$a, $b = 1, 2` -- each LHS slot is a GlobalVariableTargetNode.
       # Routes through MultiWriteNode's emit_multi_write_target to the
       # same g_<name> C-level storage GlobalVariableWriteNode uses.
@@ -285,14 +332,6 @@ describe "Variables: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      6
-      4
-      12
-      3
-      5
-      5
-      10
-      0
       1
       2
       2

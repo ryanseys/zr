@@ -3,14 +3,8 @@
 require "spec_helper"
 
 describe "Regexp: regressions" do
-  it "bundle misc c 26" do
+  it "regexp" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - regexp
-      #   - regexp_backspace_in_class
-      #   - regexp_inline_flag_group_no_hang
-
-      # === regexp ===
       def t_regexp
         # Test Regexp support
 
@@ -48,8 +42,26 @@ describe "Regexp: regressions" do
         puts parts.length  # 3
       end
       t_regexp
+    RUBY
 
-      # === regexp_backspace_in_class ===
+    _(result).must_answer <<~'OUT'
+      matched
+      2024
+      03
+      17
+      true
+      false
+      hell0 w0rld
+      hell0 world
+      1
+      2
+      3
+      3
+    OUT
+  end
+
+  it "regexp backspace in class" do
+    result = ze0(<<~'RUBY')
       def t_regexp_backspace_in_class
         # `\b` inside a `[...]` character class means U+0008 (backspace),
         # not the letter `b`. Outside `[...]`, `\b` is a word-boundary
@@ -72,8 +84,21 @@ describe "Regexp: regressions" do
         puts "a\tb\nc\bd".gsub(/[\t\n\b]/, "_")
       end
       t_regexp_backspace_in_class
+    RUBY
 
-      # === regexp_inline_flag_group_no_hang ===
+    _(result).must_answer <<~'OUT'
+      Ruby
+      aXc
+      no backspace here
+      backXspace
+      hello earth
+      hello worldwide
+      a_b_c_d
+    OUT
+  end
+
+  it "regexp inline flag group no hang" do
+    result = ze0(<<~'RUBY')
       def t_regexp_inline_flag_group_no_hang
         # `(?xim:...)` inline-flag groups previously parsed into an infinite
         # loop in re_compile: the `?` after `(` didn't match any recognized
@@ -111,29 +136,9 @@ describe "Regexp: regressions" do
         puts (/(?m:foo)/ =~ "foo").to_s       # 0
       end
       t_regexp_inline_flag_group_no_hang
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      matched
-      2024
-      03
-      17
-      true
-      false
-      hell0 w0rld
-      hell0 world
-      1
-      2
-      3
-      3
-      Ruby
-      aXc
-      no backspace here
-      backXspace
-      hello earth
-      hello worldwide
-      a_b_c_d
       0
       true
       0

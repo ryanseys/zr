@@ -3,17 +3,8 @@
 require "spec_helper"
 
 describe "Enumerable: regressions" do
-  it "bundle misc c 08" do
+  it "dig nested poly array" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - dig_nested_poly_array
-      #   - each_cons_map_chain_fusion
-      #   - each_cons_with_index_map_chain_fusion
-      #   - env_fetch
-      #   - equality_should_be_true
-      #   - fiber_storage_assign_expr
-
-      # === dig_nested_poly_array ===
       def t_dig_nested_poly_array
         # Array#dig walks through nested poly_array elements with int keys.
         # Pre-fix emit_dig_step's int-key branch only emitted an arm for
@@ -27,8 +18,18 @@ describe "Enumerable: regressions" do
         p [[1, [2, "3"]]].dig(0, 1, 5).nil?     # true (OOB at the last step)
       end
       t_dig_nested_poly_array
+    RUBY
 
-      # === each_cons_map_chain_fusion ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "each cons map chain fusion" do
+    result = ze0(<<~'RUBY')
       def t_each_cons_map_chain_fusion
         # Phase A of Enumerator-chain strategy (#566): `arr.each_cons(n)`
         # called without a block returns an Enumerator in CRuby. When the
@@ -58,8 +59,18 @@ describe "Enumerable: regressions" do
         p [1].each_cons(2).map { |pair| pair[0] }
       end
       t_each_cons_map_chain_fusion
+    RUBY
 
-      # === each_cons_with_index_map_chain_fusion ===
+    _(result).must_answer <<~'OUT'
+      [3, 5, 7]
+      [10, 10, 10]
+      [[1, 2], [2, 3]]
+      []
+    OUT
+  end
+
+  it "each cons with index map chain fusion" do
+    result = ze0(<<~'RUBY')
       def t_each_cons_with_index_map_chain_fusion
         # Phase A.3 of Enumerator-chain strategy (#566): three-step
         # `arr.each_cons(n).with_index(off).map { ... }` chain. CRuby
@@ -88,8 +99,18 @@ describe "Enumerable: regressions" do
         p [1, 2, 3, 4].each_cons(2).with_index(1).map { |(a, b), i| [b - a, i] }
       end
       t_each_cons_with_index_map_chain_fusion
+    RUBY
 
-      # === env_fetch ===
+    _(result).must_answer <<~'OUT'
+      [31, 52, 73]
+      [11, 12, 13]
+      [1, 2]
+      [[1, 1], [1, 2], [1, 3]]
+    OUT
+  end
+
+  it "env fetch" do
+    result = ze0(<<~'RUBY')
       def t_env_fetch
         # Regression: `ENV.fetch(key, default)` returns the env value when
         # set, otherwise `default`. Pre-fix the codegen emitted "cannot
@@ -129,8 +150,19 @@ describe "Enumerable: regressions" do
         puts "unset=" + maybe
       end
       t_env_fetch
+    RUBY
 
-      # === equality_should_be_true ===
+    _(result).must_answer <<~'OUT'
+      fallback-value
+      computed-default
+      pre-fix
+      set=ok
+      unset=fallback-used
+    OUT
+  end
+
+  it "equality should be true" do
+    result = ze0(<<~'RUBY')
       def t_equality_should_be_true
         # #555 (gurgeous/Adam Doppelt). A corpus of `should be true`
         # expressions that compiled to false in spinel pre-fix.
@@ -152,8 +184,26 @@ describe "Enumerable: regressions" do
         p ((1..).send(:include?, 2.4) == true)           # 12
       end
       t_equality_should_be_true
+    RUBY
 
-      # === fiber_storage_assign_expr ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+      true
+      true
+      true
+      true
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "fiber storage assign expr" do
+    result = ze0(<<~'RUBY')
       def t_fiber_storage_assign_expr
         # `(Fiber[:k] = v)` as an expression returns the assigned value,
         # matching MRI's `(h[k]=v) => v` semantics. The codegen path is
@@ -174,39 +224,9 @@ describe "Enumerable: regressions" do
         puts Fiber[:b]
       end
       t_fiber_storage_assign_expr
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      true
-      true
-      true
-      [3, 5, 7]
-      [10, 10, 10]
-      [[1, 2], [2, 3]]
-      []
-      [31, 52, 73]
-      [11, 12, 13]
-      [1, 2]
-      [[1, 1], [1, 2], [1, 3]]
-      fallback-value
-      computed-default
-      pre-fix
-      set=ok
-      unset=fallback-used
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
       42
       42
       7
@@ -214,14 +234,8 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "bundle misc c 23" do
+  it "ptr array null guards" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - ptr_array_null_guards
-      #   - ptr_array_pop
-      #   - puts_mixed_ternary
-
-      # === ptr_array_null_guards ===
       def t_ptr_array_null_guards
         # #566 (T.Yamada). The original report was a segfault from
         # downstream `Array#drop` / `take` running on a NULL pointer
@@ -246,8 +260,15 @@ describe "Enumerable: regressions" do
         p q.each_cons(2).with_index(1).map { |(x, y), i| [x - y, i] }.drop(a - 1).take(b - a + 1).max[1]
       end
       t_ptr_array_null_guards
+    RUBY
 
-      # === ptr_array_pop ===
+    _(result).must_answer <<~'OUT'
+      3
+    OUT
+  end
+
+  it "ptr array pop" do
+    result = ze0(<<~'RUBY')
       def t_ptr_array_pop
         # #520. `Array#pop` on a nested integer array (Array<Array<Int>>,
         # spinel-side `int_array_ptr_array`) used to fall through to the
@@ -282,8 +303,19 @@ describe "Enumerable: regressions" do
         puts c.length
       end
       t_ptr_array_pop
+    RUBY
 
-      # === puts_mixed_ternary ===
+    _(result).must_answer <<~'OUT'
+      before pop: [[1, 2]]
+      after  pop: []
+      after push: [[3, 4]]
+      ["real", "data"]
+      1
+    OUT
+  end
+
+  it "puts mixed ternary" do
+    result = ze0(<<~'RUBY')
       def t_puts_mixed_ternary
         # Issue #640: `puts cond ? :sym : int` used to dispatch through
         # the wrong puts variant (`sp_sym_to_s(an_int)` printing garbage
@@ -312,16 +344,9 @@ describe "Enumerable: regressions" do
         puts c > 5 ? "big" : c       # else: 1.5
       end
       t_puts_mixed_ternary
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      before pop: [[1, 2]]
-      after  pop: []
-      after push: [[3, 4]]
-      ["real", "data"]
-      1
       2
       odd
       positive
@@ -329,21 +354,8 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "bundle sym" do
+  it "sym array" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - sym_array
-      #   - sym_array_empty_push
-      #   - sym_array_full
-      #   - sym_hash
-      #   - sym_hash_keys_values
-      #   - sym_methods
-      #   - sym_poly
-      #   - sym_semantics
-      #   - symbol_upcase_downcase
-      #   - source_encoding
-
-      # === sym_array ===
       def t_sym_array
         # Symbol array
         a = [:red, :green, :blue]
@@ -361,8 +373,22 @@ describe "Enumerable: regressions" do
         end
       end
       t_sym_array
+    RUBY
 
-      # === sym_array_empty_push ===
+    _(result).must_answer <<~'OUT'
+      3
+      red
+      green
+      blue
+      red
+      blue
+      x=10
+      y=20
+    OUT
+  end
+
+  it "sym array empty push" do
+    result = ze0(<<~'RUBY')
       def t_sym_array_empty_push
         # Issue #85 / PR #92: an empty `[]` followed by `push(:sym)` should
         # promote the local's tracked type to sym_array, so element access
@@ -385,8 +411,19 @@ describe "Enumerable: regressions" do
         puts syms2[1]     # beta
       end
       t_sym_array_empty_push
+    RUBY
 
-      # === sym_array_full ===
+    _(result).must_answer <<~'OUT'
+      tag
+      more
+      2
+      alpha
+      beta
+    OUT
+  end
+
+  it "sym array full" do
+    result = ze0(<<~'RUBY')
       def t_sym_array_full
         # Full sym_array test
         a = [:red, :green, :blue, :yellow]
@@ -440,8 +477,37 @@ describe "Enumerable: regressions" do
         puts a              # should print each element on its own line
       end
       t_sym_array_full
+    RUBY
 
-      # === sym_hash ===
+    _(result).must_answer <<~'OUT'
+      4
+      red
+      yellow
+      yellow
+      red
+      green
+      blue
+      yellow
+      5
+      purple
+      true
+      false
+      4
+      red
+      2
+      red
+      apple
+      banana
+      cherry
+      red
+      green
+      blue
+      yellow
+    OUT
+  end
+
+  it "sym hash" do
+    result = ze0(<<~'RUBY')
       def t_sym_hash
         # Symbol-keyed hashes: keys are sp_sym (distinct from string keys).
         # Cover both int-valued (sp_SymIntHash) and string-valued
@@ -473,8 +539,29 @@ describe "Enumerable: regressions" do
         puts hs.length              # 3
       end
       t_sym_hash
+    RUBY
 
-      # === sym_hash_keys_values ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      3
+      true
+      false
+      false
+      4
+      4
+      Alice
+      admin
+      2
+      true
+      false
+      a@b.c
+      3
+    OUT
+  end
+
+  it "sym hash keys values" do
+    result = ze0(<<~'RUBY')
       def t_sym_hash_keys_values
         # keys / values for sym-keyed hash variants plus str_poly_hash.
 
@@ -514,8 +601,35 @@ describe "Enumerable: regressions" do
         end
       end
       t_sym_hash_keys_values
+    RUBY
 
-      # === sym_methods ===
+    _(result).must_answer <<~'OUT'
+      [:a, :b, :c]
+      [1, 2, 3]
+      3
+      3
+      [:name, :role]
+      ["Alice", "admin"]
+      [:name, :age, :active]
+      ["Alice", 30, true]
+      ["name", "age", "active"]
+      ["Alice", 30, true]
+      a
+      b
+      c
+      Alice
+      admin
+      name
+      age
+      active
+      Alice
+      30
+      true
+    OUT
+  end
+
+  it "sym methods" do
+    result = ze0(<<~'RUBY')
       def t_sym_methods
         # Symbol methods
         puts :hello.to_s        # hello
@@ -545,8 +659,27 @@ describe "Enumerable: regressions" do
         p :hello                # :hello
       end
       t_sym_methods
+    RUBY
 
-      # === sym_poly ===
+    _(result).must_answer <<~'OUT'
+      hello
+      5
+      false
+      true
+      false
+      true
+      dynamic
+      hello
+      foo
+      -1
+      1
+      0
+      :hello
+    OUT
+  end
+
+  it "sym poly" do
+    result = ze0(<<~'RUBY')
       def t_sym_poly
         # Mixed-type array triggers poly_array; symbol elements should
         # go through sp_box_sym / SP_TAG_SYM dispatch.
@@ -554,8 +687,19 @@ describe "Enumerable: regressions" do
         arr.each { |v| puts v }
       end
       t_sym_poly
+    RUBY
 
-      # === sym_semantics ===
+    _(result).must_answer <<~'OUT'
+      1
+      two
+      three
+      4.0
+      true
+    OUT
+  end
+
+  it "sym semantics" do
+    result = ze0(<<~'RUBY')
       def t_sym_semantics
         # Ruby semantic requirements that Phase 2 satisfies
 
@@ -589,8 +733,26 @@ describe "Enumerable: regressions" do
         puts "foo".to_sym == :foo # true
       end
       t_sym_semantics
+    RUBY
 
-      # === symbol_upcase_downcase ===
+    _(result).must_answer <<~'OUT'
+      false
+      false
+      true
+      true
+      false
+      true
+      false
+      false
+      1
+      true
+      hello
+      true
+    OUT
+  end
+
+  it "symbol upcase downcase" do
+    result = ze0(<<~'RUBY')
       def t_symbol_upcase_downcase
         # Symbol#upcase and Symbol#downcase return symbols by upper/lower-casing
         # the symbol's name string and re-interning. Mirrors the existing
@@ -620,122 +782,9 @@ describe "Enumerable: regressions" do
         puts :a.upcase != :A.downcase
       end
       t_symbol_upcase_downcase
-
-      # === source_encoding ===
-      def t_source_encoding
-        # SourceEncodingNode — the `__ENCODING__` keyword.
-        #
-        # Spinel sources are assumed to be UTF-8; __ENCODING__ is a small
-        # Encoding value whose to_s returns the canonical name.
-
-        puts __ENCODING__.to_s
-      end
-      t_source_encoding
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3
-      red
-      green
-      blue
-      red
-      blue
-      x=10
-      y=20
-      tag
-      more
-      2
-      alpha
-      beta
-      4
-      red
-      yellow
-      yellow
-      red
-      green
-      blue
-      yellow
-      5
-      purple
-      true
-      false
-      4
-      red
-      2
-      red
-      apple
-      banana
-      cherry
-      red
-      green
-      blue
-      yellow
-      1
-      2
-      3
-      true
-      false
-      false
-      4
-      4
-      Alice
-      admin
-      2
-      true
-      false
-      a@b.c
-      3
-      [:a, :b, :c]
-      [1, 2, 3]
-      3
-      3
-      [:name, :role]
-      ["Alice", "admin"]
-      [:name, :age, :active]
-      ["Alice", 30, true]
-      ["name", "age", "active"]
-      ["Alice", 30, true]
-      a
-      b
-      c
-      Alice
-      admin
-      name
-      age
-      active
-      Alice
-      30
-      true
-      hello
-      5
-      false
-      true
-      false
-      true
-      dynamic
-      hello
-      foo
-      -1
-      1
-      0
-      :hello
-      1
-      two
-      three
-      4.0
-      true
-      false
-      false
-      true
-      true
-      false
-      true
-      false
-      false
-      1
-      true
-      hello
-      true
       HELLO
       HELLO
       MIXEDCASE
@@ -750,6 +799,23 @@ describe "Enumerable: regressions" do
       true
       true
       true
+    OUT
+  end
+
+  it "source encoding" do
+    result = ze0(<<~'RUBY')
+      def t_source_encoding
+        # SourceEncodingNode — the `__ENCODING__` keyword.
+        #
+        # Spinel sources are assumed to be UTF-8; __ENCODING__ is a small
+        # Encoding value whose to_s returns the canonical name.
+
+        puts __ENCODING__.to_s
+      end
+      t_source_encoding
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       UTF-8
     OUT
   end

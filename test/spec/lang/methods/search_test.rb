@@ -165,7 +165,7 @@ describe "Methods: searching and matching" do
     OUT
   end
 
-  it "index write" do
+  it "Operator-write (`a[i] OP= v`)" do
     result = ze0(<<~'RUBY')
       # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
       # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
@@ -181,7 +181,7 @@ describe "Methods: searching and matching" do
         end
       end
 
-      # === Operator-write (`a[i] OP= v`) ===
+
       # Float / Int / hash receivers, both directly and through an
       # object field. IndexOperatorWriteNode is distinct from a `.[]=`
       # call; without the dedicated codegen the update is dropped.
@@ -220,8 +220,41 @@ describe "Methods: searching and matching" do
       puts vop2.data[0]   # 0.75
       puts vop2.data[1]   # 0.75
       puts vop2.data[2]   # 0.75
+    RUBY
 
-      # === And-write (`a[i] &&= v`) ===
+    _(result).must_answer <<~'OUT'
+      2.0
+      0.0
+      2.25
+      1.0
+      15
+      7
+      20
+      11
+      22
+      0.75
+      0.75
+      0.75
+    OUT
+  end
+
+  it "And-write (`a[i] &&= v`)" do
+    result = ze0(<<~'RUBY')
+      # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
+      # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
+      # The op_assign section's `class Vec` is unique; locals reused
+      # across the originals (`xs`, `counts`, etc.) get per-section
+      # prefixes so the merged script's type inference doesn't unify
+      # them or carry hash content across sections.
+
+      class Vec
+        attr_accessor :data
+        def initialize(n)
+          @data = Array.new(n, 0.5)
+        end
+      end
+
+
       # Reads a[i]; if truthy, sets a[i] = v. Stick to non-zero values
       # so the C-truthy semantic agrees with Ruby's truthy semantic.
       xs_aw = [1, 2, 3, 4, 5]
@@ -240,8 +273,37 @@ describe "Methods: searching and matching" do
       puts counts_aw["alice"]      # 31
       puts counts_aw["bob"]        # 25
       puts counts_aw.length        # 2 (carol not added)
+    RUBY
 
-      # === Or-write (`a[i] ||= v`) ===
+    _(result).must_answer <<~'OUT'
+      10
+      2
+      30
+      4
+      500
+      31
+      25
+      2
+    OUT
+  end
+
+  it "Or-write (`a[i] ||= v`)" do
+    result = ze0(<<~'RUBY')
+      # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
+      # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
+      # The op_assign section's `class Vec` is unique; locals reused
+      # across the originals (`xs`, `counts`, etc.) get per-section
+      # prefixes so the merged script's type inference doesn't unify
+      # them or carry hash content across sections.
+
+      class Vec
+        attr_accessor :data
+        def initialize(n)
+          @data = Array.new(n, 0.5)
+        end
+      end
+
+
       # Reads a[i]; if falsy, sets a[i] = v. Receiver and index are
       # evaluated exactly once even though the source has them on both
       # sides of the implicit `a[i] = a[i] || v`.
@@ -251,8 +313,32 @@ describe "Methods: searching and matching" do
       puts counts_or["alice"]      # 0
       puts counts_or["bob"]        # 5
       puts counts_or["carol"]      # 10
+    RUBY
 
-      # === Target (multi-assign LHS into indexed slots) ===
+    _(result).must_answer <<~'OUT'
+      0
+      5
+      10
+    OUT
+  end
+
+  it "Target (multi-assign LHS into indexed slots)" do
+    result = ze0(<<~'RUBY')
+      # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
+      # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
+      # The op_assign section's `class Vec` is unique; locals reused
+      # across the originals (`xs`, `counts`, etc.) get per-section
+      # prefixes so the merged script's type inference doesn't unify
+      # them or carry hash content across sections.
+
+      class Vec
+        attr_accessor :data
+        def initialize(n)
+          @data = Array.new(n, 0.5)
+        end
+      end
+
+
       # `a[0], b[1] = 1, 2` -- each LHS slot is an IndexTargetNode.
       xs_t = [10, 20, 30]
       ys_t = [100, 200, 300]
@@ -276,29 +362,6 @@ describe "Methods: searching and matching" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2.0
-      0.0
-      2.25
-      1.0
-      15
-      7
-      20
-      11
-      22
-      0.75
-      0.75
-      0.75
-      10
-      2
-      30
-      4
-      500
-      31
-      25
-      2
-      0
-      5
-      10
       1
       20
       999

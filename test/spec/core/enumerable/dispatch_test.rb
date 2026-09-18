@@ -3,15 +3,8 @@
 require "spec_helper"
 
 describe "Enumerable: dispatch" do
-  it "bundle poly" do
+  it "poly array map" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - poly_array_map
-      #   - poly_array_push_handlers
-      #   - poly_hash
-      #   - primitive_is_a
-
-      # === poly_array_map ===
       def t_poly_array_map
         # `compile_map_expr` had no `poly_array` recv branch — a
         # heterogeneous-element array (`[1, "two", :three]`) called
@@ -45,8 +38,27 @@ describe "Enumerable: dispatch" do
         puts sizes[3]        # 6
       end
       t_poly_array_map
+    RUBY
 
-      # === poly_array_push_handlers ===
+    _(result).must_answer <<~'OUT'
+      4
+      1
+      3
+      5
+      3
+      4
+      1
+      two
+      three
+      4.5
+      4
+      2
+      6
+    OUT
+  end
+
+  it "poly array push handlers" do
+    result = ze0(<<~'RUBY')
       def t_poly_array_push_handlers
         # `compile_call_expr` and `compile_mutating_call_stmt` had no `<<`
         # / `push` arms for poly_array recv. The expr-context fall-through
@@ -69,8 +81,20 @@ describe "Enumerable: dispatch" do
         puts arr[4]
       end
       t_poly_array_push_handlers
+    RUBY
 
-      # === poly_hash ===
+    _(result).must_answer <<~'OUT'
+      5
+      1
+      two
+      three
+      42
+      four
+    OUT
+  end
+
+  it "poly hash" do
+    result = ze0(<<~'RUBY')
       def t_poly_hash
         # Test heterogeneous Hash
 
@@ -89,8 +113,22 @@ describe "Enumerable: dispatch" do
         puts "done"
       end
       t_poly_hash
+    RUBY
 
-      # === primitive_is_a ===
+    _(result).must_answer <<~'OUT'
+      Alice
+      30
+      true
+      3
+      name
+      age
+      active
+      done
+    OUT
+  end
+
+  it "primitive is a" do
+    result = ze0(<<~'RUBY')
       def t_primitive_is_a
         # is_a? / kind_of? / instance_of? on primitive receivers — answer
         # decided at compile time based on Ruby's class hierarchy.
@@ -149,37 +187,9 @@ describe "Enumerable: dispatch" do
         p 5.instance_of?(BasicObject)
       end
       t_primitive_is_a
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      4
-      1
-      3
-      5
-      3
-      4
-      1
-      two
-      three
-      4.5
-      4
-      2
-      6
-      5
-      1
-      two
-      three
-      42
-      four
-      Alice
-      30
-      true
-      3
-      name
-      age
-      active
-      done
       true
       true
       true

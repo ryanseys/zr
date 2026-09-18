@@ -2084,7 +2084,7 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "redo" do
+  it "times" do
     result = ze0(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
@@ -2097,7 +2097,7 @@ describe "Control: control flow" do
       # `attempts` / `i` / `x` locals. Was 17 separate tests covering
       # each loop form individually plus a nested case.
 
-      # === times ===
+
       def t_times
         attempts = 0
         3.times do |i|
@@ -2110,8 +2110,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_times
+    RUBY
 
-      # === Array#each ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=1 attempt=5
+      i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Array#each" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_each
         attempts = 0
         [10, 20, 30].each do |x|
@@ -2124,8 +2146,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_each
+    RUBY
 
-      # === while ===
+    _(result).must_answer <<~'OUT'
+      x=10 attempt=1
+      x=20 attempt=5
+      x=30 attempt=6
+      total=6
+    OUT
+  end
+
+  it "while" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_while
         i = 0
         attempts = 0
@@ -2140,8 +2184,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_while
+    RUBY
 
-      # === until ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=1 attempt=5
+      i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "until" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_until
         i = 0
         attempts = 0
@@ -2156,8 +2222,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_until
+    RUBY
 
-      # === for-in over range ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=1 attempt=5
+      i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "for-in over range" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_for_range
         attempts = 0
         for i in 0..2
@@ -2170,8 +2258,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_for_range
+    RUBY
 
-      # === for-in over array ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=1 attempt=5
+      i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "for-in over array" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_for_array
         attempts = 0
         for x in [10, 20, 30]
@@ -2184,8 +2294,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_for_array
+    RUBY
 
-      # === Kernel#loop (uses break to terminate) ===
+    _(result).must_answer <<~'OUT'
+      x=10 attempt=1
+      x=20 attempt=5
+      x=30 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Kernel#loop (uses break to terminate)" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_loop
         i = 0
         attempts = 0
@@ -2201,8 +2333,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_loop
+    RUBY
 
-      # === Integer#upto ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=1 attempt=5
+      i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Integer#upto" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_upto
         attempts = 0
         0.upto(2) do |i|
@@ -2215,8 +2369,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_upto
+    RUBY
 
-      # === Integer#downto ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=1 attempt=5
+      i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Integer#downto" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_downto
         attempts = 0
         2.downto(0) do |i|
@@ -2229,8 +2405,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_downto
+    RUBY
 
-      # === Integer#step ===
+    _(result).must_answer <<~'OUT'
+      i=2 attempt=1
+      i=1 attempt=5
+      i=0 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Integer#step" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_step
         attempts = 0
         0.step(4, 2) do |i|
@@ -2243,8 +2441,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_step
+    RUBY
 
-      # === Array#each_with_index ===
+    _(result).must_answer <<~'OUT'
+      i=0 attempt=1
+      i=2 attempt=5
+      i=4 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Array#each with index" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_each_with_index
         attempts = 0
         ["a", "b", "c"].each_with_index do |x, i|
@@ -2257,8 +2477,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_each_with_index
+    RUBY
 
-      # === Array#each_cons ===
+    _(result).must_answer <<~'OUT'
+      x=a i=0 attempt=1
+      x=b i=1 attempt=5
+      x=c i=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Array#each cons" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_each_cons
         attempts = 0
         [1, 2, 3, 4].each_cons(2) do |pair|
@@ -2271,8 +2513,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_each_cons
+    RUBY
 
-      # === Array#each_slice ===
+    _(result).must_answer <<~'OUT'
+      pair=[1, 2] attempt=1
+      pair=[2, 3] attempt=5
+      pair=[3, 4] attempt=6
+      total=6
+    OUT
+  end
+
+  it "Array#each slice" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_each_slice
         attempts = 0
         [1, 2, 3, 4, 5].each_slice(2) do |chunk|
@@ -2285,8 +2549,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_each_slice
+    RUBY
 
-      # === Array#each_with_object ===
+    _(result).must_answer <<~'OUT'
+      chunk=[1, 2] attempt=1
+      chunk=[3, 4] attempt=5
+      chunk=[5] attempt=6
+      total=6
+    OUT
+  end
+
+  it "Array#each with object" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_each_with_object
         attempts = 0
         result = [1, 2, 3].each_with_object([]) do |x, acc|
@@ -2300,8 +2586,28 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_each_with_object
+    RUBY
 
-      # === Array#zip iteration ===
+    _(result).must_answer <<~'OUT'
+      [10, 20, 30]
+      total=6
+    OUT
+  end
+
+  it "Array#zip iteration" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_zip
         attempts = 0
         [1, 2, 3].zip([10, 20, 30]) do |a, b|
@@ -2314,8 +2620,30 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_zip
+    RUBY
 
-      # === Array#cycle (with count to terminate) ===
+    _(result).must_answer <<~'OUT'
+      a=1 b=10 attempt=1
+      a=2 b=20 attempt=5
+      a=3 b=30 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Array#cycle (with count to terminate)" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_cycle
         attempts = 0
         [1, 2].cycle(2) do |x|
@@ -2328,8 +2656,31 @@ describe "Control: control flow" do
         puts "total=#{attempts}"
       end
       t_cycle
+    RUBY
 
-      # === Nested redo (mixed loop kinds) — exercises label-stack uniqueness ===
+    _(result).must_answer <<~'OUT'
+      x=1 attempt=3
+      x=2 attempt=4
+      x=1 attempt=5
+      x=2 attempt=6
+      total=6
+    OUT
+  end
+
+  it "Nested redo (mixed loop kinds) — exercises label-stack uniqueness" do
+    result = ze0(<<~'RUBY')
+      # RedoNode coverage — `redo` re-runs the current iteration of the
+      # enclosing loop without re-evaluating the guard or advancing the
+      # iterator. Spinel emits a labeled goto back to the iteration top.
+      # Each loop form needs the wrapping helper trio (push_redo_label /
+      # emit_redo_label / pop_redo_label) so this file exercises every
+      # form that has it.
+      #
+      # Per-section `def t_<form>; ...; end; t_<form>` isolates the
+      # `attempts` / `i` / `x` locals. Was 17 separate tests covering
+      # each loop form individually plus a nested case.
+
+
       def t_nested
         inner_attempts = 0
         outer_done = 0
@@ -2352,69 +2703,6 @@ describe "Control: control flow" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      i=0 attempt=1
-      i=1 attempt=5
-      i=2 attempt=6
-      total=6
-      x=10 attempt=1
-      x=20 attempt=5
-      x=30 attempt=6
-      total=6
-      i=0 attempt=1
-      i=1 attempt=5
-      i=2 attempt=6
-      total=6
-      i=0 attempt=1
-      i=1 attempt=5
-      i=2 attempt=6
-      total=6
-      i=0 attempt=1
-      i=1 attempt=5
-      i=2 attempt=6
-      total=6
-      x=10 attempt=1
-      x=20 attempt=5
-      x=30 attempt=6
-      total=6
-      i=0 attempt=1
-      i=1 attempt=5
-      i=2 attempt=6
-      total=6
-      i=0 attempt=1
-      i=1 attempt=5
-      i=2 attempt=6
-      total=6
-      i=2 attempt=1
-      i=1 attempt=5
-      i=0 attempt=6
-      total=6
-      i=0 attempt=1
-      i=2 attempt=5
-      i=4 attempt=6
-      total=6
-      x=a i=0 attempt=1
-      x=b i=1 attempt=5
-      x=c i=2 attempt=6
-      total=6
-      pair=[1, 2] attempt=1
-      pair=[2, 3] attempt=5
-      pair=[3, 4] attempt=6
-      total=6
-      chunk=[1, 2] attempt=1
-      chunk=[3, 4] attempt=5
-      chunk=[5] attempt=6
-      total=6
-      [10, 20, 30]
-      total=6
-      a=1 b=10 attempt=1
-      a=2 b=20 attempt=5
-      a=3 b=30 attempt=6
-      total=6
-      x=1 attempt=3
-      x=2 attempt=4
-      x=1 attempt=5
-      x=2 attempt=6
-      total=6
       i=0 j=0 attempt=1
       i=0 j=1 attempt=4
       i=0 j=2 attempt=5

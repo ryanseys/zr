@@ -3,14 +3,8 @@
 require "spec_helper"
 
 describe "Methods: regressions" do
-  it "bundle int a" do
+  it "int array literal lshift heterogeneous" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - int_array_literal_lshift_heterogeneous
-      #   - int_array_replace_expr
-      #   - int_eq_nil_strict
-
-      # === int_array_literal_lshift_heterogeneous ===
       def t_int_array_literal_lshift_heterogeneous
         # `<int_array literal> << <non-int>` shape (`[1, 2] << "c"`).
         # Pushing a non-int element onto a literal int_array previously
@@ -28,8 +22,17 @@ describe "Methods: regressions" do
         p ([1, 2] << 3) == [1, 2, 3]           # true (int <<, no lift)
       end
       t_int_array_literal_lshift_heterogeneous
+    RUBY
 
-      # === int_array_replace_expr ===
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+    OUT
+  end
+
+  it "int array replace expr" do
+    result = ze0(<<~'RUBY')
       def t_int_array_replace_expr
         # `Array#replace` in *expression* position on an int_array.
         # The stmt-form arm has long supported this; the expr-form was
@@ -56,8 +59,21 @@ describe "Methods: regressions" do
         puts c.length
       end
       t_int_array_replace_expr
+    RUBY
 
-      # === int_eq_nil_strict ===
+    _(result).must_answer <<~'OUT'
+      10
+      20
+      30
+      40
+      4
+      10
+      4
+    OUT
+  end
+
+  it "int eq nil strict" do
+    result = ze0(<<~'RUBY')
       def t_int_eq_nil_strict
         # Partial fix for #521. In CRuby `0 == nil` is false -- only nil
         # equals nil. Spinel used to emit `(lc op rc)` for `int == nil`,
@@ -108,20 +124,9 @@ describe "Methods: regressions" do
         puts (nil != 0).inspect   # true
       end
       t_int_eq_nil_strict
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      true
-      true
-      10
-      20
-      30
-      40
-      4
-      10
-      4
       false
       true
       false
@@ -138,21 +143,8 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "bundle misc b" do
+  it "local or and write" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - local_or_and_write
-      #   - multi_target_nested
-      #   - numbered_block_params
-      #   - numbered_params_destructure
-      #   - parens_multi_stmt_and_local_write_expr
-      #   - sort_reduce
-      #   - gc_root_map_accumulator
-      #   - gc_root_range_and_times_map
-      #   - transpose_gc_root
-      #   - utf8
-
-      # === local_or_and_write ===
       def t_local_or_and_write
         # `LocalVariableOrWriteNode` (`a ||= b`) and
         # `LocalVariableAndWriteNode` (`a &&= b`) parse as their own
@@ -189,8 +181,22 @@ describe "Methods: regressions" do
         puts q       # 6
       end
       t_local_or_and_write
+    RUBY
 
-      # === multi_target_nested ===
+    _(result).must_answer <<~'OUT'
+      10
+      10
+      6
+      nil
+      7
+      7
+      6
+      6
+    OUT
+  end
+
+  it "multi target nested" do
+    result = ze0(<<~'RUBY')
       def t_multi_target_nested
         # MultiTargetNode -- nested LHS in destructuring multi-assign.
         #
@@ -217,8 +223,22 @@ describe "Methods: regressions" do
         puts y    # 20
       end
       t_multi_target_nested
+    RUBY
 
-      # === numbered_block_params ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      3
+      4
+      10
+      hello
+      world
+      20
+    OUT
+  end
+
+  it "numbered block params" do
+    result = ze0(<<~'RUBY')
       def t_numbered_block_params
         # Numbered block params (`_1`) and Ruby 3.4 implicit `it`.
         #
@@ -262,8 +282,29 @@ describe "Methods: regressions" do
         # bob
       end
       t_numbered_block_params
+    RUBY
 
-      # === numbered_params_destructure ===
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      3
+      20
+      40
+      2
+      4
+      6
+      20
+      40
+      60
+      3
+      4
+      alice
+      bob
+    OUT
+  end
+
+  it "numbered params destructure" do
+    result = ze0(<<~'RUBY')
       def t_numbered_params_destructure
         # Multi-arg numbered block params (`_1`, `_2`, ...) should destructure
         # the yielded sub-array. Pre-fix: `_1` binds to the whole element
@@ -298,8 +339,22 @@ describe "Methods: regressions" do
         puts short_total
       end
       t_numbered_params_destructure
+    RUBY
 
-      # === parens_multi_stmt_and_local_write_expr ===
+    _(result).must_answer <<~'OUT'
+      1=10
+      2=20
+      3=30
+      1-2-3
+      10-20-30
+      606
+      54
+      56
+    OUT
+  end
+
+  it "parens multi stmt and local write expr" do
+    result = ze0(<<~'RUBY')
       def t_parens_multi_stmt_and_local_write_expr
         # Verify two expression-context constructs:
         # - `(stmt1; stmt2; ...; expr)` — leading statements run for
@@ -326,8 +381,20 @@ describe "Methods: regressions" do
         puts d      # 13
       end
       t_parens_multi_stmt_and_local_write_expr
+    RUBY
 
-      # === sort_reduce ===
+    _(result).must_answer <<~'OUT'
+      2
+      2
+      5
+      5
+      13
+      13
+    OUT
+  end
+
+  it "sort reduce" do
+    result = ze0(<<~'RUBY')
       def t_sort_reduce
         # Test Array#sort, reduce, min, max, sum
 
@@ -352,8 +419,22 @@ describe "Methods: regressions" do
         puts arr.inject(0) { |s, x| s + x }  # 55
       end
       t_sort_reduce
+    RUBY
 
-      # === gc_root_map_accumulator ===
+    _(result).must_answer <<~'OUT'
+      1
+      10
+      1
+      10
+      55
+      55
+      3628800
+      55
+    OUT
+  end
+
+  it "gc root map accumulator" do
+    result = ze0(<<~'RUBY')
       def t_gc_root_map_accumulator
         # A nested map block — outer iteration allocates plenty of inner
         # objects via sp_*_new — can trigger a GC pass between pushes
@@ -418,8 +499,26 @@ describe "Methods: regressions" do
         puts r4[19999]            # 9  ("src-19999")
       end
       t_gc_root_map_accumulator
+    RUBY
 
-      # === gc_root_range_and_times_map ===
+    _(result).must_answer <<~'OUT'
+      20000
+      kept-string-value-0
+      999
+      20000
+      0
+      39998
+      20000
+      out-src-0
+      999
+      20000
+      5
+      9
+    OUT
+  end
+
+  it "gc root range and times map" do
+    result = ze0(<<~'RUBY')
       def t_gc_root_range_and_times_map
         # `Range#map` and `N.times.map` build a fresh accumulator
         # (IntArray / StrArray / FloatArray) and push each block result.
@@ -463,8 +562,26 @@ describe "Methods: regressions" do
         puts r4[2999]           # 3000
       end
       t_gc_root_range_and_times_map
+    RUBY
 
-      # === transpose_gc_root ===
+    _(result).must_answer <<~'OUT'
+      3001
+      padded
+      ext
+      3000
+      0
+      5998
+      3000
+      kept-0-with-extra-padding-text
+      ext
+      3000
+      1
+      3000
+    OUT
+  end
+
+  it "transpose gc root" do
+    result = ze0(<<~'RUBY')
       def t_transpose_gc_root
         # `Array#transpose` codegen creates the result `sp_PtrArray` and
         # inner `sp_IntArray` columns without `SP_GC_ROOT`. With many
@@ -484,8 +601,18 @@ describe "Methods: regressions" do
         puts big[1023][7]      # 7*1000 + 1023 = 8023
       end
       t_transpose_gc_root
+    RUBY
 
-      # === utf8 ===
+    _(result).must_answer <<~'OUT'
+      1024
+      8
+      3100
+      8023
+    OUT
+  end
+
+  it "utf8" do
+    result = ze0(<<~'RUBY')
       def t_utf8
         s = "あいうえお"
 
@@ -540,19 +667,53 @@ describe "Methods: regressions" do
         puts "あ".bytes.length            # 3
       end
       t_utf8
-
     RUBY
 
-    _(result).must_answer "10\n10\n6\nnil\n7\n7\n6\n6\n1\n2\n3\n4\n10\nhello\nworld\n20\n1\n2\n3\n20\n40\n2\n4\n6\n20\n40\n60\n3\n4\nalice\nbob\n1=10\n2=20\n3=30\n1-2-3\n10-20-30\n606\n54\n56\n2\n2\n5\n5\n13\n13\n1\n10\n1\n10\n55\n55\n3628800\n55\n20000\nkept-string-value-0\n999\n20000\n0\n39998\n20000\nout-src-0\n999\n20000\n5\n9\n3001\npadded\next\n3000\n0\n5998\n3000\nkept-0-with-extra-padding-text\next\n3000\n1\n3000\n1024\n8\n3100\n8023\n5\n5\n15\n5\nあ\nい\nう\nえ\nお\nおえういあ\nあ\nい\nお\nお\nいう\nいうえ\nうえ\n5\n2\n3\nあXう\n3\n3\nあああ\nあいう\nあ****\n****あ\n  あ  \n5\nぃ\nba\ntrue\ntrue\ntrue\n[日][本][語]\nあ\nい\nう\n3\n"
+    _(result).must_answer <<~'OUT'
+      5
+      5
+      15
+      5
+      あ
+      い
+      う
+      え
+      お
+      おえういあ
+      あ
+      い
+      お
+      お
+      いう
+      いうえ
+      うえ
+      5
+      2
+      3
+      あXう
+      3
+      3
+      あああ
+      あいう
+      あ****
+      ****あ
+        あ  
+      5
+      ぃ
+      ba
+      true
+      true
+      true
+      [日][本][語]
+      あ
+      い
+      う
+      3
+    OUT
   end
 
-  it "bundle misc c 30" do
+  it "str nul bound slice bytes" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - str_nul_bound_slice_bytes
-      #   - str_poly_hash_merge
-
-      # === str_nul_bound_slice_bytes ===
       def t_str_nul_bound_slice_bytes
         # Issue #657: a string with embedded NUL bytes had two surviving
         # truncation paths:
@@ -589,8 +750,23 @@ describe "Methods: regressions" do
         puts "bytes_len=#{s.bytes.length}"
       end
       t_str_nul_bound_slice_bytes
+    RUBY
 
-      # === str_poly_hash_merge ===
+    _(result).must_answer <<~'OUT'
+      len=7
+      slice_full=7
+      slice_after_nul=3
+      slice_around_nul=3
+      b0=97
+      b3=0
+      b4=100
+      b6=102
+      bytes_len=7
+    OUT
+  end
+
+  it "str poly hash merge" do
+    result = ze0(<<~'RUBY')
       def t_str_poly_hash_merge
         # Issue #426. `Hash#merge` was unresolved on a `str_poly_hash`
         # (mixed-value-type hash literal) -- emit produced `0` and the
@@ -641,19 +817,9 @@ describe "Methods: regressions" do
         puts m3.length                   # 4
       end
       t_str_poly_hash_merge
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      len=7
-      slice_full=7
-      slice_after_nul=3
-      slice_around_nul=3
-      b0=97
-      b3=0
-      b4=100
-      b6=102
-      bytes_len=7
       3
       a-ok
       c-ok
@@ -663,22 +829,12 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "bundle misc c 37" do
+  it "kw nil default string call" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - kw_nil_default_string_call (show -> t_kw_show)
-      #   - optional_string_param_method (parse -> t_osp_parse)
-      #   - poly_box_int_array (kind_of -> t_pbia_kind_of)
-      #   - poly_or_returns_value (pick / pick_int -> t_porv_*)
-      #   - each_with_object_seed_shadow (f -> t_ewoss_f)
-      #   - fetch_nil_default_int_lv (f -> t_fndi_f)
-      #   - no_keywords_param (add -> t_nkp_add)
-      #   - sym_case (classify -> t_sc_classify)
-      #
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
-      # === kw_nil_default_string_call ===
+
       def t_kw_show(x: nil)
         puts x
       end
@@ -688,8 +844,20 @@ describe "Methods: regressions" do
         t_kw_show(x: nil)
       end
       t_kw_nil_default_string_call
+    RUBY
 
-      # === optional_string_param_method ===
+    _(result).must_answer <<~'OUT'
+      hi
+
+    OUT
+  end
+
+  it "optional string param method" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_osp_parse(source, file_path = nil)
         if file_path
           puts file_path.length
@@ -704,8 +872,21 @@ describe "Methods: regressions" do
         t_osp_parse("longer", "another_name.rb")
       end
       t_optional_string_param_method
+    RUBY
 
-      # === poly_box_int_array ===
+    _(result).must_answer <<~'OUT'
+      7
+      3
+      15
+    OUT
+  end
+
+  it "poly box int array" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_pbia_kind_of(a)
         a.nil? ? "nil" : "something"
       end
@@ -715,8 +896,20 @@ describe "Methods: regressions" do
         puts t_pbia_kind_of([1, 2, 3])
       end
       t_poly_box_int_array
+    RUBY
 
-      # === poly_or_returns_value ===
+    _(result).must_answer <<~'OUT'
+      something
+      something
+    OUT
+  end
+
+  it "poly or returns value" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_porv_pick(a, b)
         a || b
       end
@@ -732,8 +925,22 @@ describe "Methods: regressions" do
         puts(nil || "direct")
       end
       t_poly_or_returns_value
+    RUBY
 
-      # === each_with_object_seed_shadow ===
+    _(result).must_answer <<~'OUT'
+      fallback
+      actual
+      0
+      direct
+    OUT
+  end
+
+  it "each with object seed shadow" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_ewoss_f
         obj = 42
         out = [1, 2, 3].each_with_object([]) { |x, obj| obj.push(x * 2) }
@@ -743,8 +950,22 @@ describe "Methods: regressions" do
         puts obj      # 42
       end
       t_ewoss_f
+    RUBY
 
-      # === fetch_nil_default_int_lv ===
+    _(result).must_answer <<~'OUT'
+      2
+      4
+      6
+      42
+    OUT
+  end
+
+  it "fetch nil default int lv" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_fndi_f(opts = {})
         v = opts.fetch(:k, nil)
         v.nil? ? "missing" : "found"
@@ -754,8 +975,19 @@ describe "Methods: regressions" do
         puts t_fndi_f
       end
       t_fetch_nil_default_int_lv
+    RUBY
 
-      # === no_keywords_param ===
+    _(result).must_answer <<~'OUT'
+      missing
+    OUT
+  end
+
+  it "no keywords param" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_nkp_add(a, b, **nil)
         a + b
       end
@@ -765,8 +997,20 @@ describe "Methods: regressions" do
         puts t_nkp_add(10, 20)
       end
       t_no_keywords_param
+    RUBY
 
-      # === sym_case ===
+    _(result).must_answer <<~'OUT'
+      3
+      30
+    OUT
+  end
+
+  it "sym case" do
+    result = ze0(<<~'RUBY')
+      # Each inner top-level def is renamed with a per-test prefix to
+      # avoid cross-test collisions when the bundle is compiled.
+
+
       def t_sc_classify(sym)
         case sym
         when :red then "warm"
@@ -787,24 +1031,6 @@ describe "Methods: regressions" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      hi
-
-      7
-      3
-      15
-      something
-      something
-      fallback
-      actual
-      0
-      direct
-      2
-      4
-      6
-      42
-      missing
-      3
-      30
       warm
       warm
       cool

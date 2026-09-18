@@ -3,16 +3,11 @@
 require "spec_helper"
 
 describe "Time programs" do
-  it "bundle misc c 33" do
+  it "sym hash method dispatch" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - sym_hash_method_dispatch
-      #   - time_accessors
-      #   - time_iso8601_strftime
-
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
-      # === sym_hash_method_dispatch ===
+
       def t_sym_hash_method_dispatch
         # #510. `sym_str_hash` and `sym_poly_hash` got the right type
         # tag at analyze time but the codegen dispatch had no arms for
@@ -55,8 +50,23 @@ describe "Time programs" do
         puts od.length
       end
       t_sym_hash_method_dispatch
+    RUBY
 
-      # === time_accessors ===
+    _(result).must_answer <<~'OUT'
+      2
+      2
+      2
+      delete
+      fallback
+      2
+    OUT
+  end
+
+  it "time accessors" do
+    result = ze0(<<~'RUBY')
+      require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
+
+
       def t_time_accessors
         # Local Time.new + broken-down accessors + scalar inspect +
         # utc_offset / zone. Accessors are checked against Time.at(0).utc
@@ -114,8 +124,59 @@ describe "Time programs" do
         puts((Time.at(5) - 1.25).to_f)
       end
       t_time_accessors
+    RUBY
 
-      # === time_iso8601_strftime ===
+    _(result).must_answer <<~'OUT'
+      1970
+      1
+      1
+      0
+      0
+      0
+      4
+      1
+      0
+      UTC
+      false
+      false
+      1970-01-01 00:00:00 UTC
+      1970-01-01 00:00:00 UTC
+      2026
+      5
+      16
+      9
+      30
+      15
+      1
+      1
+      0
+      true
+      true
+      true
+      true
+      true
+      true
+      -1
+      1
+      0
+      true
+      60
+      60
+      UTC
+      1234
+      10.5
+      9.5
+      1
+      2.25
+      3.75
+    OUT
+  end
+
+  it "time iso8601 strftime" do
+    result = ze0(<<~'RUBY')
+      require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
+
+
       def t_time_iso8601_strftime
         # Issue #414. `Time#iso8601` and `Time#strftime` were unresolved on
         # a Time receiver -- spinel emitted a `cannot resolve call to ...
@@ -169,58 +230,9 @@ describe "Time programs" do
         puts yr.length == 4 ? "yr-ok" : "yr-bad"
       end
       t_time_iso8601_strftime
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2
-      2
-      2
-      delete
-      fallback
-      2
-      1970
-      1
-      1
-      0
-      0
-      0
-      4
-      1
-      0
-      UTC
-      false
-      false
-      1970-01-01 00:00:00 UTC
-      1970-01-01 00:00:00 UTC
-      2026
-      5
-      16
-      9
-      30
-      15
-      1
-      1
-      0
-      true
-      true
-      true
-      true
-      true
-      true
-      -1
-      1
-      0
-      true
-      60
-      60
-      UTC
-      1234
-      10.5
-      9.5
-      1
-      2.25
-      3.75
       iso-len-ok
       iso-shape-ok
       ymd-len-ok
@@ -229,16 +241,11 @@ describe "Time programs" do
     OUT
   end
 
-  it "bundle misc c 34" do
+  it "time utc" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - time_utc
-      #   - times_map_nested_array
-      #   - toplevel_ivar_array
-
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
-      # === time_utc ===
+
       def t_time_utc
         # Issue #418. `Time#utc` was unresolved on a Time receiver --
         # emitted a `cannot resolve call to 'utc' on time (emitting 0)`
@@ -290,8 +297,22 @@ describe "Time programs" do
         puts Time.now.iso8601.length == 25 ? "local-iso-still-ok" : "local-iso-broken"
       end
       t_time_utc
+    RUBY
 
-      # === times_map_nested_array ===
+    _(result).must_answer <<~'OUT'
+      utc-iso-len-ok
+      utc-iso-zulu-ok
+      utc-hh-ok
+      utc-idempotent-ok
+      local-iso-still-ok
+    OUT
+  end
+
+  it "times map nested array" do
+    result = ze0(<<~'RUBY')
+      require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
+
+
       def t_times_map_nested_array
         # #553 (cielavenir). `N.times.map { block-returns-array }`
         # now collects into a sp_PtrArray rather than sp_IntArray.
@@ -314,8 +335,19 @@ describe "Time programs" do
         p b
       end
       t_times_map_nested_array
+    RUBY
 
-      # === toplevel_ivar_array ===
+    _(result).must_answer <<~'OUT'
+      [[1, 2, 3], [1, 2, 3]]
+      [[10, 20, 30], [10, 20, 30], [10, 20, 30]]
+    OUT
+  end
+
+  it "toplevel ivar array" do
+    result = ze0(<<~'RUBY')
+      require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
+
+
       def t_toplevel_ivar_array
         # Top-level instance variables: `@x` at script scope binds to the
         # main object, the same as inside an instance method. Spinel currently
@@ -338,17 +370,9 @@ describe "Time programs" do
         @arr.each { |v| puts v }
       end
       t_toplevel_ivar_array
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      utc-iso-len-ok
-      utc-iso-zulu-ok
-      utc-hh-ok
-      utc-idempotent-ok
-      local-iso-still-ok
-      [[1, 2, 3], [1, 2, 3]]
-      [[10, 20, 30], [10, 20, 30], [10, 20, 30]]
       2
       2
       7
