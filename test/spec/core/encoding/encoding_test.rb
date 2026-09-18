@@ -1201,13 +1201,13 @@ describe "Encoding programs" do
   end
 
   it "source file is bytes not utf8" do
-    result = ze0(<<~'RUBY', files: {"a_source_file_is_bytes_not_utf8/latin1_comment.rb" => "# Copyright \xA9 2007 Someone -- a Latin-1 sign byte, invalid UTF-8.\n=begin\nA block comment may hold them too: \xE0\xC0\n=end\nclass Greeter\n  def hello = \"hi\" # trailing comment \xB7\nend\n"})
+    result = ze0(<<~'RUBY', files: {"source_bytes/latin1_comment.rb" => "# Copyright \xA9 2007 Someone -- a Latin-1 sign byte, invalid UTF-8.\n=begin\nA block comment may hold them too: \xE0\xC0\n=end\nclass Greeter\n  def hello = \"hi\" # trailing comment \xB7\nend\n"})
       # Ruby source is a byte stream, not text. CRuby reads a file with the
       # default UTF-8 source encoding and simply SKIPS a byte that is not valid
       # UTF-8 when it sits in a comment -- only code has to decode. A required
       # library whose copyright line carries a Latin-1 (c) therefore loads, and
       # every definition in it is reachable.
-      require_relative "a_source_file_is_bytes_not_utf8/latin1_comment"
+      require_relative "source_bytes/latin1_comment"
 
       puts Greeter.new.hello
       p Greeter.instance_method(:hello).arity

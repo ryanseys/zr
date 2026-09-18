@@ -198,7 +198,7 @@ describe "Guards programs" do
   end
 
   it "autoload target is also a guarded require" do
-    result = ze0(<<~'RUBY', files: {"an_autoload_target_is_also_a_guarded_require/lib.rb" => "puts \"lib.rb ran\"\nmodule Outer\n  # Spelled with the extension, which is a different STRING from the one a\n  # `require_relative` of the same file resolves to -- and the same file.\n  autoload :Target, \"\#{__dir__}/target.rb\"\nend\n", "an_autoload_target_is_also_a_guarded_require/target.rb" => "puts \"target.rb ran\"\nmodule Outer\n  class Target\n    SPLIT = :split\n    class << self\n      def read = SPLIT\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_target/lib.rb" => "puts \"lib.rb ran\"\nmodule Outer\n  # Spelled with the extension, which is a different STRING from the one a\n  # `require_relative` of the same file resolves to -- and the same file.\n  autoload :Target, \"\#{__dir__}/target.rb\"\nend\n", "autoload_target/target.rb" => "puts \"target.rb ran\"\nmodule Outer\n  class Target\n    SPLIT = :split\n    class << self\n      def read = SPLIT\n    end\n  end\nend\n"})
       # One file, demanded twice under two different names. rack writes both:
       #
       #   lib/rack.rb          autoload :MediaType, "rack/media_type"
@@ -228,11 +228,11 @@ describe "Guards programs" do
 
       # The file holding the `autoload` is itself behind a guard, which is what puts
       # its demand in a later round. HOME is set in any test environment.
-      require_relative "an_autoload_target_is_also_a_guarded_require/lib" if ENV["HOME"]
+      require_relative "autoload_target/lib" if ENV["HOME"]
 
       # The rack shape: a guarded require of the same file that never runs.
       never_yields do
-        require_relative "an_autoload_target_is_also_a_guarded_require/target"
+        require_relative "autoload_target/target"
       end
 
       # Nothing has read the constant, so nothing has loaded the target.
@@ -1072,8 +1072,8 @@ describe "Guards programs" do
   end
 
   it "defined stands down when a program can load at run time" do
-    result = ze0(<<~'RUBY', files: {"defined_stands_down_when_a_program_can_load_at_run_time/latecomer.rb" => "RUNTIME_MARK = \"assigned by a run-time load\"\n"})
-      $LOAD_PATH.unshift(File.join(__dir__, "defined_stands_down_when_a_program_can_load_at_run_time"))
+    result = ze0(<<~'RUBY', files: {"defined_defers/latecomer.rb" => "RUNTIME_MARK = \"assigned by a run-time load\"\n"})
+      $LOAD_PATH.unshift(File.join(__dir__, "defined_defers"))
       require "latecomer"
 
       p RUNTIME_MARK
@@ -1493,7 +1493,7 @@ describe "Guards programs" do
   end
 
   it "guarded def does not take a positional install" do
-    result = ze0(<<~'RUBY', files: {"a_guarded_def_does_not_take_a_positional_install/base.rb" => "# The GUARDED reopen, in a unit walked before the unguarded bodies -- the\n# order `bundler/rubygems_ext.rb` and `rubygems/basic_specification.rb` are\n# walked in, which is what made the ordinals disagree.\nmodule Probe\n  class Unit\n    [:tag].each { |n| attr_accessor(n) }\n\n    if Probe.cpu == \"universal\"\n      ONLY_IF_UNIVERSAL = \"universal\"\n\n      def extensions_dir\n        ONLY_IF_UNIVERSAL\n      end\n\n      def self.channel\n        ONLY_IF_UNIVERSAL\n      end\n    end\n  end\nend\n\nrequire_relative \"real\"\n", "a_guarded_def_does_not_take_a_positional_install/real.rb" => "# The unguarded bodies, in a SECOND unit, reached after the guarded reopen\n# above -- rubygems' `basic_specification.rb` half of the pair.\nmodule Probe\n  class Unit\n    def extensions_dir\n      \"real\"\n    end\n\n    def self.channel\n      \"real class method\"\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"guarded_def/base.rb" => "# The GUARDED reopen, in a unit walked before the unguarded bodies -- the\n# order `bundler/rubygems_ext.rb` and `rubygems/basic_specification.rb` are\n# walked in, which is what made the ordinals disagree.\nmodule Probe\n  class Unit\n    [:tag].each { |n| attr_accessor(n) }\n\n    if Probe.cpu == \"universal\"\n      ONLY_IF_UNIVERSAL = \"universal\"\n\n      def extensions_dir\n        ONLY_IF_UNIVERSAL\n      end\n\n      def self.channel\n        ONLY_IF_UNIVERSAL\n      end\n    end\n  end\nend\n\nrequire_relative \"real\"\n", "guarded_def/real.rb" => "# The unguarded bodies, in a SECOND unit, reached after the guarded reopen\n# above -- rubygems' `basic_specification.rb` half of the pair.\nmodule Probe\n  class Unit\n    def extensions_dir\n      \"real\"\n    end\n\n    def self.channel\n      \"real class method\"\n    end\n  end\nend\n"})
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -1504,7 +1504,7 @@ describe "Guards programs" do
 
       # Two units, the GUARDED reopen walked first -- the ordering that let a
       # guarded body take the unguarded one's document position.
-      require_relative "a_guarded_def_does_not_take_a_positional_install/base"
+      require_relative "guarded_def/base"
       unit = Probe::Unit.new
       p unit.extensions_dir
       p Probe::Unit.channel
@@ -2053,7 +2053,7 @@ describe "Guards programs" do
   end
 
   it "platform guarded require is not loaded" do
-    result = ze0(<<~'RUBY', files: {"a_platform_guarded_require_is_not_loaded/posix_only.rb" => "module PosixOnly\n  def self.kind = :posix\nend\n\nPOSIX_MARKER = :loaded\n", "a_platform_guarded_require_is_not_loaded/windows_only.rb" => "# Never loaded on this platform -- and it must not be COMPILED either, which is\n# what the `:dword` below proves: it is a windows FFI typedef zeo does not know,\n# so following this require at all is a compile error.\nrequire \"ffi\"\n\nmodule WindowsOnly\n  extend FFI::Library\n\n  class ProfileInfo < FFI::Struct\n    layout :dw_size, :dword,\n           :dw_flags, :dword\n  end\nend\n\nWINDOWS_MARKER = :loaded\n"})
+    result = ze0(<<~'RUBY', files: {"platform_guarded/posix_only.rb" => "module PosixOnly\n  def self.kind = :posix\nend\n\nPOSIX_MARKER = :loaded\n", "platform_guarded/windows_only.rb" => "# Never loaded on this platform -- and it must not be COMPILED either, which is\n# what the `:dword` below proves: it is a windows FFI typedef zeo does not know,\n# so following this require at all is a compile error.\nrequire \"ffi\"\n\nmodule WindowsOnly\n  extend FFI::Library\n\n  class ProfileInfo < FFI::Struct\n    layout :dw_size, :dword,\n           :dw_flags, :dword\n  end\nend\n\nWINDOWS_MARKER = :loaded\n"})
       # A `require` under a platform guard names a file this program never loads, so
       # a whole-program compiler must not load it either. mixlib-shellout requires its
       # windows half from inside `class ShellOut`, and that half is full of windows
@@ -2065,9 +2065,9 @@ describe "Guards programs" do
       # is what makes the assertions below more than a `defined?` check.
 
       if RUBY_PLATFORM =~ /mswin|mingw|windows/
-        require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+        require_relative "platform_guarded/windows_only"
       else
-        require_relative "a_platform_guarded_require_is_not_loaded/posix_only"
+        require_relative "platform_guarded/posix_only"
       end
 
       p defined?(WINDOWS_MARKER)
@@ -2077,7 +2077,7 @@ describe "Guards programs" do
       # The same guard from inside a class body, which is where the real one sits.
       class Host
         if RUBY_PLATFORM =~ /mswin|mingw|windows/
-          require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+          require_relative "platform_guarded/windows_only"
         end
 
         def self.kind = :host
@@ -2090,18 +2090,18 @@ describe "Guards programs" do
       unless RUBY_PLATFORM =~ /mswin|mingw|windows/
         POSIX_AGAIN = :yes
       else
-        require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+        require_relative "platform_guarded/windows_only"
       end
 
       p POSIX_AGAIN
 
       # `match?` and the reversed operand order ask the same question.
       if /mswin|mingw/.match?(RUBY_PLATFORM)
-        require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+        require_relative "platform_guarded/windows_only"
       end
 
       if /mswin|mingw/ =~ RUBY_PLATFORM
-        require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+        require_relative "platform_guarded/windows_only"
       end
 
       p defined?(WINDOWS_MARKER)
@@ -2110,7 +2110,7 @@ describe "Guards programs" do
       # `nil` everywhere else, so its TRUTH is a property of the build. sys-filesystem
       # picks its half with it.
       if File::ALT_SEPARATOR
-        require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+        require_relative "platform_guarded/windows_only"
       end
 
       p File::ALT_SEPARATOR
@@ -2118,7 +2118,7 @@ describe "Guards programs" do
 
       # An engine gate is the same shape, on a different baked constant.
       if RUBY_ENGINE =~ /jruby|truffleruby/
-        require_relative "a_platform_guarded_require_is_not_loaded/windows_only"
+        require_relative "platform_guarded/windows_only"
       end
 
       p defined?(WINDOWS_MARKER)
@@ -3002,7 +3002,7 @@ describe "Guards programs" do
   end
 
   it "user platform predicate folds and defers" do
-    result = ze0(<<~'RUBY', files: {"a_user_platform_predicate_folds_and_defers/windows_only.rb" => "# Never loaded on this platform. The `:dword` is a windows FFI typedef this\n# file declares nowhere, so eagerly compiling this file is a compile error --\n# which is what makes the main file's assertions more than a `defined?` check.\nrequire \"ffi\"\n\nmodule WindowsUser\n  extend FFI::Library\n\n  class ProfileInfo < FFI::Struct\n    layout :dw_size, :dword,\n           :dw_flags, :dword\n  end\n\n  def self.admin? = true\nend\n\nWINDOWS_MARKER = :loaded\n"})
+    result = ze0(<<~'RUBY', files: {"user_predicate/windows_only.rb" => "# Never loaded on this platform. The `:dword` is a windows FFI typedef this\n# file declares nowhere, so eagerly compiling this file is a compile error --\n# which is what makes the main file's assertions more than a `defined?` check.\nrequire \"ffi\"\n\nmodule WindowsUser\n  extend FFI::Library\n\n  class ProfileInfo < FFI::Struct\n    layout :dw_size, :dword,\n           :dw_flags, :dword\n  end\n\n  def self.admin? = true\nend\n\nWINDOWS_MARKER = :loaded\n"})
       # puppet's shape: the platform test is a USER method whose body is
       # `!!File::ALT_SEPARATOR`. The predicate's truth is a property of the build,
       # so a top-level guard reading it picks its branch at compile time -- and a
@@ -3025,7 +3025,7 @@ describe "Guards programs" do
       module Manager
         def self.root?
           if Platform.windows?
-            require_relative "a_user_platform_predicate_folds_and_defers/windows_only"
+            require_relative "user_predicate/windows_only"
             WindowsUser.admin?
           else
             :uid_zero

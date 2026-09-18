@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Units programs" do
   it "autoload and a guarded require of one file share its unit" do
-    result = ze0(<<~'RUBY', files: {"an_autoload_and_a_guarded_require_of_one_file_share_its_unit/lib/pkg/target.rb" => "puts \"target ran\"\nmodule Pkg\n  class Target\n    SPLIT = :split\nclass << self\n  def read = SPLIT\nend\n  end\nend\n", "an_autoload_and_a_guarded_require_of_one_file_share_its_unit/lib/pkg.rb" => "puts \"pkg ran\"\nmodule Pkg\n  autoload :Target, \"pkg/target\"\nend\n", "an_autoload_and_a_guarded_require_of_one_file_share_its_unit/prog.rb" => "def self.never_yields\n  :no_yield\nend\nrequire_relative \"lib/pkg\" if ENV[\"HOME\"]\nnever_yields do\n  require_relative \"lib/pkg/target\"\nend\nputs \"before read\"\np Pkg::Target.read\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_and_guard/lib/pkg/target.rb" => "puts \"target ran\"\nmodule Pkg\n  class Target\n    SPLIT = :split\nclass << self\n  def read = SPLIT\nend\n  end\nend\n", "autoload_and_guard/lib/pkg.rb" => "puts \"pkg ran\"\nmodule Pkg\n  autoload :Target, \"pkg/target\"\nend\n", "autoload_and_guard/prog.rb" => "def self.never_yields\n  :no_yield\nend\nrequire_relative \"lib/pkg\" if ENV[\"HOME\"]\nnever_yields do\n  require_relative \"lib/pkg/target\"\nend\nputs \"before read\"\np Pkg::Target.read\n"})
       # One file demanded twice under two different names: an `autoload` naming it
       # on the load path, and a guarded `require_relative` naming it by path. rack
       # writes both, and the second never runs.
@@ -18,8 +18,8 @@ describe "Units programs" do
       # are in the dispatch tables from startup) and `Pkg::Target.read` was still
       # callable, so the only symptom was its body's constant missing.
 
-      $LOAD_PATH.unshift(File.expand_path("an_autoload_and_a_guarded_require_of_one_file_share_its_unit/lib", __dir__))
-      require_relative "an_autoload_and_a_guarded_require_of_one_file_share_its_unit/prog"
+      $LOAD_PATH.unshift(File.expand_path("autoload_and_guard/lib", __dir__))
+      require_relative "autoload_and_guard/prog"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -31,7 +31,7 @@ describe "Units programs" do
   end
 
   it "autoload target compiled as a unit" do
-    result = ze0(<<~'RUBY', files: {"an_autoload_target_compiled_as_a_unit/cmd.rb" => "require File.expand_path(\"thing\", __dir__)\n", "an_autoload_target_compiled_as_a_unit/demo.rb" => "module Demo\n  autoload :Thing, File.expand_path(\"thing\", __dir__)\nend\n", "an_autoload_target_compiled_as_a_unit/spec.rb" => "module Demo\n  class Spec\n    def self.value = Thing::VALUE\n  end\n  # A METHOD-BODY require is lazy, so `cmd.rb` becomes a unit -- and\n  # `thing.rb` is pulled into that unit rather than into the program.\n  def self.late\n    require_relative \"cmd\"\n  end\nend\n", "an_autoload_target_compiled_as_a_unit/thing.rb" => "module Demo\n  class Thing\n    VALUE = 42\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_unit/cmd.rb" => "require File.expand_path(\"thing\", __dir__)\n", "autoload_unit/demo.rb" => "module Demo\n  autoload :Thing, File.expand_path(\"thing\", __dir__)\nend\n", "autoload_unit/spec.rb" => "module Demo\n  class Spec\n    def self.value = Thing::VALUE\n  end\n  # A METHOD-BODY require is lazy, so `cmd.rb` becomes a unit -- and\n  # `thing.rb` is pulled into that unit rather than into the program.\n  def self.late\n    require_relative \"cmd\"\n  end\nend\n", "autoload_unit/thing.rb" => "module Demo\n  class Thing\n    VALUE = 42\n  end\nend\n"})
       # An `autoload` declared inside a file that is itself compiled as a LOAD-PATH
       # UNIT runs its target when the constant is READ, whichever spelling named it,
       # and whether or not anything else ever requires it.
@@ -46,7 +46,7 @@ describe "Units programs" do
       # Answering out of the unit table alone left a target the emitting compile
       # never saw silently unloaded.
 
-      $LOAD_PATH.unshift(File.join(__dir__, "an_autoload_target_compiled_as_a_unit"))
+      $LOAD_PATH.unshift(File.join(__dir__, "autoload_unit"))
       require "demo"
       require "spec"
       p Demo::Thing::VALUE
@@ -62,7 +62,7 @@ describe "Units programs" do
   end
 
   it "autoload target is a unit only target" do
-    result = ze0(<<~'RUBY', files: {"an_autoload_target_is_a_unit_only_target/cmd.rb" => "require File.expand_path(\"rule\", __dir__)\n", "an_autoload_target_is_a_unit_only_target/lib.rb" => "module Store\n  autoload :Rule, File.expand_path(\"rule\", __dir__)\nend\n", "an_autoload_target_is_a_unit_only_target/rule.rb" => "module Store\n  class Rule\n    LIMIT = 42\n    def self.limit = LIMIT\n  end\nend\n", "an_autoload_target_is_a_unit_only_target/spec.rb" => "module Store\n  class Spec\n    def self.limit = Rule::LIMIT\n  end\n  # A method-body `require_relative` is LAZY, so zeo splices it at the file\n  # tail -- and the file it reaches requires `rule.rb` at top level. That\n  # trailing splice used to claim the autoload's slot.\n  def self.late\n    require_relative \"cmd\"\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_only_target/cmd.rb" => "require File.expand_path(\"rule\", __dir__)\n", "unit_only_target/lib.rb" => "module Store\n  autoload :Rule, File.expand_path(\"rule\", __dir__)\nend\n", "unit_only_target/rule.rb" => "module Store\n  class Rule\n    LIMIT = 42\n    def self.limit = LIMIT\n  end\nend\n", "unit_only_target/spec.rb" => "module Store\n  class Spec\n    def self.limit = Rule::LIMIT\n  end\n  # A method-body `require_relative` is LAZY, so zeo splices it at the file\n  # tail -- and the file it reaches requires `rule.rb` at top level. That\n  # trailing splice used to claim the autoload's slot.\n  def self.late\n    require_relative \"cmd\"\n  end\nend\n"})
       # An `autoload` target is a UNIT-ONLY target: every other require site that
       # names the same file keeps its call and loads the unit, so whichever runs
       # first runs the body once.
@@ -77,8 +77,8 @@ describe "Units programs" do
       # The read also has to ASK. A compiled-in unit's classes are in the dispatch
       # tables from program start, so the read never misses and no `const_missing`
       # hook can carry the load -- the emitter gates the read itself.
-      require_relative "an_autoload_target_is_a_unit_only_target/lib"
-      require_relative "an_autoload_target_is_a_unit_only_target/spec"
+      require_relative "unit_only_target/lib"
+      require_relative "unit_only_target/spec"
 
       # Reading the constant is what runs the target.
       p Store::Rule::LIMIT
@@ -100,7 +100,7 @@ describe "Units programs" do
   end
 
   it "autoloaded units body runs" do
-    result = ze0(<<~'RUBY', files: {"an_autoloaded_units_body_runs/leaf.rb" => "LEAF_RAN = true\nclass Array\n  def leaf_method = :leaf_method\nend\n", "an_autoloaded_units_body_runs/target.rb" => "require_relative \"leaf\"\nmodule Holder\n  module Target\n    def self.go = :go\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoloaded_body/leaf.rb" => "LEAF_RAN = true\nclass Array\n  def leaf_method = :leaf_method\nend\n", "autoloaded_body/target.rb" => "require_relative \"leaf\"\nmodule Holder\n  module Target\n    def self.go = :go\n  end\nend\n"})
       # A unit reached through `autoload` runs its BODY, so every constant it
       # assigns is defined from there on.
       #
@@ -126,7 +126,7 @@ describe "Units programs" do
       # same cause.
 
       module Holder
-        autoload :Target, "#{__dir__}/an_autoloaded_units_body_runs/target"
+        autoload :Target, "#{__dir__}/autoloaded_body/target"
       end
 
       p defined?(LEAF_RAN)
@@ -144,16 +144,16 @@ describe "Units programs" do
   end
 
   it "conditional require units" do
-    result = ze0(<<~'RUBY', files: {"conditional_require_units/loud.rb" => "puts \"loud side effect\"\n", "conditional_require_units/second.rb" => "puts \"second loaded\"\n"})
+    result = ze0(<<~'RUBY', files: {"conditional_require/loud.rb" => "puts \"loud side effect\"\n", "conditional_require/second.rb" => "puts \"second loaded\"\n"})
       # A require under a runtime-undecidable guard runs only when the guard
       # passes -- CRuby's order of events. The false direction: this env var is
       # never set, so `loud.rb`'s side effect must not appear (an eager splice ran
       # it in every compile -- the divergence minitest's hell.rb recorded). The
       # true direction: HOME is set in any test environment, so `second.rb` loads
       # at runtime through its compiled-in unit.
-      require_relative "conditional_require_units/loud" if ENV["ZEO_TEST_NEVER_SET"]
+      require_relative "conditional_require/loud" if ENV["ZEO_TEST_NEVER_SET"]
       puts "between"
-      require_relative "conditional_require_units/second" if ENV["HOME"]
+      require_relative "conditional_require/second" if ENV["HOME"]
       puts "after"
     RUBY
 
@@ -165,8 +165,8 @@ describe "Units programs" do
   end
 
   it "def after an undef in a unit" do
-    result = ze0(<<~'RUBY', files: {"a_def_after_an_undef_in_a_unit/tracer.rb" => "class ::Module\n  undef method_added\n  def method_added(mid); end\nend\n"})
-      require_relative "a_def_after_an_undef_in_a_unit/tracer"
+    result = ze0(<<~'RUBY', files: {"def_after_undef/tracer.rb" => "class ::Module\n  undef method_added\n  def method_added(mid); end\nend\n"})
+      require_relative "def_after_undef/tracer"
       p Module.private_method_defined?(:method_added)
       p Module.private_instance_methods(false).sort.grep(/method_/)
       p Module.new.send(:method_added, :anything)
@@ -194,13 +194,13 @@ describe "Units programs" do
   end
 
   it "guarded def in an earlier unit does not take a later units position" do
-    result = ze0(<<~'RUBY', files: {"a_guarded_def_in_an_earlier_unit_does_not_take_a_later_units_position/guarded.rb" => "class C\n  [:tag].each { |n| attr_accessor(n) }\n  if Probe.cpu == \"universal\"\n    ONLY = \"universal\"\n    def which = ONLY\n    def self.which = ONLY\n  end\nend\nrequire \"real\"\n", "a_guarded_def_in_an_earlier_unit_does_not_take_a_later_units_position/main.rb" => "module Probe\n  def self.cpu = [\"arm\", \"64\"].join\nend\nrequire \"guarded\"\nputs C.new.which\nputs C.which\nc = C.new\nc.tag = \"tagged\"\nputs c.tag\n", "a_guarded_def_in_an_earlier_unit_does_not_take_a_later_units_position/real.rb" => "class C\n  def which = \"real\"\n  def self.which = \"real class method\"\nend\n"})
+    result = ze0(<<~'RUBY', files: {"guarded_def/guarded.rb" => "class C\n  [:tag].each { |n| attr_accessor(n) }\n  if Probe.cpu == \"universal\"\n    ONLY = \"universal\"\n    def which = ONLY\n    def self.which = ONLY\n  end\nend\nrequire \"real\"\n", "guarded_def/main.rb" => "module Probe\n  def self.cpu = [\"arm\", \"64\"].join\nend\nrequire \"guarded\"\nputs C.new.which\nputs C.which\nc = C.new\nc.tag = \"tagged\"\nputs c.tag\n", "guarded_def/real.rb" => "class C\n  def which = \"real\"\n  def self.which = \"real class method\"\nend\n"})
       # The failing shape ACROSS FILES, which is how bundler and rubygems meet:
       # the guarded reopen is a unit walked before the unit holding the real
       # bodies.
 
-      $LOAD_PATH.unshift(File.expand_path("a_guarded_def_in_an_earlier_unit_does_not_take_a_later_units_position", __dir__))
-      require_relative "a_guarded_def_in_an_earlier_unit_does_not_take_a_later_units_position/main"
+      $LOAD_PATH.unshift(File.expand_path("guarded_def", __dir__))
+      require_relative "guarded_def/main"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -288,7 +288,7 @@ describe "Units programs" do
   end
 
   it "method body require relative loads a unit" do
-    result = ze0(<<~'RUBY', files: {"a_method_body_require_relative_loads_a_unit/part.rb" => "PART = \"loaded\"\n"})
+    result = ze0(<<~'RUBY', files: {"method_body_require/part.rb" => "PART = \"loaded\"\n"})
       # A `require_relative` written in a METHOD body loads its target when the
       # method RUNS, even when some other site has already made that file a unit.
       #
@@ -308,10 +308,10 @@ describe "Units programs" do
       # require claims itself as it lowers, and a method-body one has to claim
       # itself in the pre-pass, ahead of the fold.
 
-      require_relative "a_method_body_require_relative_loads_a_unit/part" if ENV["NEVER"]
+      require_relative "method_body_require/part" if ENV["NEVER"]
 
       def load_part
-        require_relative "a_method_body_require_relative_loads_a_unit/part"
+        require_relative "method_body_require/part"
       end
 
       p defined?(PART)
@@ -437,7 +437,7 @@ describe "Units programs" do
   end
 
   it "unit class new dispatches runtime" do
-    result = ze0(<<~'RUBY', files: {"unit_class_new_dispatches_runtime/foo/thing.rb" => "module Outer\n  module Foo\n    class Thing\n      def initialize(a, b = 10)\n        @val = a * b\n      end\n      attr_reader :val\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_class/foo/thing.rb" => "module Outer\n  module Foo\n    class Thing\n      def initialize(a, b = 10)\n        @val = a * b\n      end\n      attr_reader :val\n    end\n  end\nend\n"})
       # `.new` on a class whose `initialize` lives in a lazily-loaded unit is a
       # call site like any other: the name de-optimizes to the dynamic path,
       # which resolves the REAL initialize (the static resolution fell through to
@@ -448,7 +448,7 @@ describe "Units programs" do
           def self.install(lib, &require_relative)
             name = "helper_#{lib}"
             (class << self; self; end).__send__(:define_method, name) do |f|
-              require_relative.call("unit_class_new_dispatches_runtime/#{lib}/#{f}")
+              require_relative.call("unit_class/#{lib}/#{f}")
             end
           end
           install(:foo) { |f| require_relative(f) }
@@ -464,7 +464,7 @@ describe "Units programs" do
   end
 
   it "unit records its own path in loaded features" do
-    result = ze0(<<~'RUBY', files: {"a_unit_records_its_own_path_in_loaded_features/part.rb" => "PART_OK = true\n"})
+    result = ze0(<<~'RUBY', files: {"unit_loaded_features/part.rb" => "PART_OK = true\n"})
       # `$LOADED_FEATURES` names the FILE a require loaded, never the spelling the
       # require asked under. CRuby lists absolute paths, and real libraries read that
       # list: rubygems' `already_loaded?` compares `"#{load_path_entry}/#{file}"`
@@ -476,10 +476,10 @@ describe "Units programs" do
       # Each unit row now carries its own source file, and that is what the load
       # records.
 
-      require_relative "a_unit_records_its_own_path_in_loaded_features/part" if ENV["NEVER"]
+      require_relative "unit_loaded_features/part" if ENV["NEVER"]
 
       def load_part
-        require_relative "a_unit_records_its_own_path_in_loaded_features/part"
+        require_relative "unit_loaded_features/part"
       end
 
       load_part
@@ -500,7 +500,7 @@ describe "Units programs" do
   end
 
   it "unit reopen of kernel is positional" do
-    result = ze0(<<~'RUBY', files: {"a_unit_reopen_of_kernel_is_positional/patch.rb" => "module Kernel\n  MONITOR = \"monitor\"\n  alias_method :orig_require, :require\n  def require(path)\n    MONITOR\n    orig_require(path)\n  end\nend\n", "a_unit_reopen_of_kernel_is_positional/pkg.rb" => "# A computed require makes this package's whole load path compile as\n# UNITS, which is what puts patch.rb in a unit rather than a splice.\nrequire ENV[\"ZEO_NEVER_SET\"] if ENV[\"ZEO_NEVER_SET\"]\nputs \"before\\t\#{require(\"set\")}\"\neval File.read(File.join(__dir__, \"patch.rb\")), nil, \"patch.rb\"\nputs \"after\\t\#{require(\"tmpdir\")}\"\n"})
+    result = ze0(<<~'RUBY', files: {"unit_reopen/patch.rb" => "module Kernel\n  MONITOR = \"monitor\"\n  alias_method :orig_require, :require\n  def require(path)\n    MONITOR\n    orig_require(path)\n  end\nend\n", "unit_reopen/pkg.rb" => "# A computed require makes this package's whole load path compile as\n# UNITS, which is what puts patch.rb in a unit rather than a splice.\nrequire ENV[\"ZEO_NEVER_SET\"] if ENV[\"ZEO_NEVER_SET\"]\nputs \"before\\t\#{require(\"set\")}\"\neval File.read(File.join(__dir__, \"patch.rb\")), nil, \"patch.rb\"\nputs \"after\\t\#{require(\"tmpdir\")}\"\n"})
       # A reopen of a builtin inside a LAZY UNIT is positional too.
       #
       # A reopen normally gets one `.bss` byte -- `zeo_reopen_flags` -- stored at
@@ -532,7 +532,7 @@ describe "Units programs" do
       # `before` must be the NATIVE require's answer, from a call written above
       # the reopen. `after` runs the patched body.
 
-      $LOAD_PATH.unshift(File.join(__dir__, "a_unit_reopen_of_kernel_is_positional"))
+      $LOAD_PATH.unshift(File.join(__dir__, "unit_reopen"))
       require "pkg"
       puts "monitor\t#{Kernel::MONITOR}"
       puts "patched\t#{method(:require).owner}"
@@ -547,7 +547,7 @@ describe "Units programs" do
   end
 
   it "unit requires run lazily" do
-    result = ze0(<<~'RUBY', files: {"unit_requires_run_lazily/foo/a.rb" => "require_relative \"b\"\nputs \"a body runs\"\nmodule Outer\n  module Foo\n    class A\n      def self.combined = \"a sees \#{B.origin}\"\n    end\n  end\nend\n", "unit_requires_run_lazily/foo/b.rb" => "puts \"b body runs\"\nmodule Outer\n  module Foo\n    class B\n      def self.origin = \"b loaded\"\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_requires/foo/a.rb" => "require_relative \"b\"\nputs \"a body runs\"\nmodule Outer\n  module Foo\n    class A\n      def self.combined = \"a sees \#{B.origin}\"\n    end\n  end\nend\n", "unit_requires/foo/b.rb" => "puts \"b body runs\"\nmodule Outer\n  module Foo\n    class B\n      def self.origin = \"b loaded\"\n    end\n  end\nend\n"})
       # A require INSIDE a lazily-loaded unit runs when the unit body executes --
       # CRuby's order -- rather than being woven inline into whichever unit the
       # sweep reached first (the cross-unit dedup hazard rbconfig hit inside
@@ -558,7 +558,7 @@ describe "Units programs" do
           def self.install(lib, &require_relative)
             name = "helper_#{lib}"
             (class << self; self; end).__send__(:define_method, name) do |f|
-              require_relative.call("unit_requires_run_lazily/#{lib}/#{f}")
+              require_relative.call("unit_requires/#{lib}/#{f}")
             end
           end
           install(:foo) { |f| require_relative(f) }
@@ -578,7 +578,7 @@ describe "Units programs" do
   end
 
   it "unit toplevel constant is defined from a class body" do
-    result = ze0(<<~'RUBY', files: {"a_unit_toplevel_constant_is_defined_from_a_class_body/latecomer.rb" => "TOP_MARK = \"from the unit\"\n\nmodule Latecomer\n  INSIDE = \"on the module\"\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_toplevel/latecomer.rb" => "TOP_MARK = \"from the unit\"\n\nmodule Latecomer\n  INSIDE = \"on the module\"\nend\n"})
       # `defined?` on a TOP-LEVEL constant a compiled-in unit assigns, read from
       # inside a class body, answers "constant".
       #
@@ -593,7 +593,7 @@ describe "Units programs" do
       # `Object` is probed too, which is the other half of ruby's own rule for a
       # bare constant rather than a widening of it.
 
-      require_relative "a_unit_toplevel_constant_is_defined_from_a_class_body/latecomer" unless defined?(Latecomer)
+      require_relative "unit_toplevel/latecomer" unless defined?(Latecomer)
 
       class Reader
         def top_defined = defined?(TOP_MARK)
@@ -623,7 +623,7 @@ describe "Units programs" do
   end
 
   it "unit visibility applies at load" do
-    result = ze0(<<~'RUBY', files: {"unit_visibility_applies_at_load/loaded_late.rb" => "class Widget\n  private :prod\n  private_class_method :assemble\nend\n", "unit_visibility_applies_at_load/never_loaded.rb" => "class Widget\n  private :poke\n  private_class_method :fabricate\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_visibility/loaded_late.rb" => "class Widget\n  private :prod\n  private_class_method :assemble\nend\n", "unit_visibility/never_loaded.rb" => "class Widget\n  private :poke\n  private_class_method :fabricate\nend\n"})
       # Visibility directives in a FEATURE UNIT's body apply when the unit LOADS,
       # not at program start: a never-loaded unit's `private` must not fire, and a
       # late-loaded one applies at its load point (CRuby's positional semantics).
@@ -645,7 +645,7 @@ describe "Units programs" do
         end
       end
 
-      require_relative "unit_visibility_applies_at_load/never_loaded" if ENV["ZEO_NEVER_SET"]
+      require_relative "unit_visibility/never_loaded" if ENV["ZEO_NEVER_SET"]
 
       w = Widget.new
       p w.poke
@@ -654,7 +654,7 @@ describe "Units programs" do
       p w.prod
       p Widget.assemble
 
-      require_relative "unit_visibility_applies_at_load/loaded_late" if ENV["ZEO_NEVER_SET"].nil?
+      require_relative "unit_visibility/loaded_late" if ENV["ZEO_NEVER_SET"].nil?
 
       begin
         w.prod
@@ -683,7 +683,7 @@ describe "Units programs" do
   end
 
   it "units module hook does not announce" do
-    result = ze0(<<~'RUBY', files: {"a_units_module_hook_does_not_announce/tracer.rb" => "# Loaded only when `Debugger.attach` runs. Everything below is invisible until\n# then -- which is the whole point of the golden beside this file.\nmodule Debugger\n  ANNOUNCED = []\n\n  class ::Module\n    undef method_added\n    def method_added(mid)\n      Debugger::ANNOUNCED << mid\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_module_hook/tracer.rb" => "# Loaded only when `Debugger.attach` runs. Everything below is invisible until\n# then -- which is the whole point of the golden beside this file.\nmodule Debugger\n  ANNOUNCED = []\n\n  class ::Module\n    undef method_added\n    def method_added(mid)\n      Debugger::ANNOUNCED << mid\n    end\n  end\nend\n"})
       # A `class ::Module; def method_added` in a file nothing has required yet is
       # not installed, so nothing announces itself to it.
       #
@@ -701,10 +701,10 @@ describe "Units programs" do
       #
       # `Module.private_method_defined?(:method_added)` is deliberately NOT printed
       # here: the unit's `undef` is still applied at boot, which is its own gap
-      # (`tests/gaps/a_units_undef_of_a_builtin_row_waits_for_the_unit.rb`).
+      # (`tests/gaps/unit_undef.rb`).
 
       if ARGV.include?("--debug")
-        require_relative "a_units_module_hook_does_not_announce/tracer"
+        require_relative "unit_module_hook/tracer"
       end
 
       module Shop
@@ -734,7 +734,7 @@ describe "Units programs" do
   end
 
   it "units superclass can live in a later unit" do
-    result = ze0(<<~'RUBY', files: {"a_units_superclass_can_live_in_a_later_unit/child.rb" => "module Store\n  class Child < Path\n    def hi = \"hi\"\n  end\nend\n", "a_units_superclass_can_live_in_a_later_unit/root.rb" => "module Store\n  autoload :Path,  File.expand_path(\"zpath\", __dir__)\n  autoload :Child, File.expand_path(\"child\", __dir__)\nend\n", "a_units_superclass_can_live_in_a_later_unit/settings.rb" => "# The unrelated namespace whose runtime-minted `Path` used to capture\n# every `class X < Path` in the program.\nmodule Settings\n  Path = Struct.new(:explicit, :system) do\n    def kind = \"struct\"\n  end\nend\n", "a_units_superclass_can_live_in_a_later_unit/zpath.rb" => "module Store\n  class Path\n    def kind = \"class\"\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_superclass/child.rb" => "module Store\n  class Child < Path\n    def hi = \"hi\"\n  end\nend\n", "unit_superclass/root.rb" => "module Store\n  autoload :Path,  File.expand_path(\"zpath\", __dir__)\n  autoload :Child, File.expand_path(\"child\", __dir__)\nend\n", "unit_superclass/settings.rb" => "# The unrelated namespace whose runtime-minted `Path` used to capture\n# every `class X < Path` in the program.\nmodule Settings\n  Path = Struct.new(:explicit, :system) do\n    def kind = \"struct\"\n  end\nend\n", "unit_superclass/zpath.rb" => "module Store\n  class Path\n    def kind = \"class\"\n  end\nend\n"})
       # A unit's `class Child < Path` names a superclass another unit defines, and
       # the compiler walks the two in demand order -- which is not load order.
       #
@@ -755,8 +755,8 @@ describe "Units programs" do
       # `Bundler::Settings::Path` elsewhere in the tree -- and it is what made
       # `require "bundler"` die on `Bundler::Source::Git`.
 
-      require_relative "a_units_superclass_can_live_in_a_later_unit/settings"
-      require_relative "a_units_superclass_can_live_in_a_later_unit/root"
+      require_relative "unit_superclass/settings"
+      require_relative "unit_superclass/root"
 
       p Store::Child
       p Store::Child.superclass
@@ -782,9 +782,9 @@ describe "Units programs" do
   end
 
   it "units undef of a builtin row waits for the unit" do
-    result = ze0(<<~'RUBY', files: {"a_units_undef_of_a_builtin_row_waits_for_the_unit/tracer.rb" => "module Debugger\n  class ::Module\n    undef method_added\n    def method_added(mid); end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"unit_undef/tracer.rb" => "module Debugger\n  class ::Module\n    undef method_added\n    def method_added(mid); end\n  end\nend\n"})
       if ARGV.include?("--debug")
-        require_relative "a_units_undef_of_a_builtin_row_waits_for_the_unit/tracer"
+        require_relative "unit_undef/tracer"
       end
 
       p Module.private_method_defined?(:method_added)

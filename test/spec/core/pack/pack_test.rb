@@ -55,11 +55,11 @@ describe "Pack programs" do
   end
 
   it "computed require without the pack is a load error" do
-    result = ze0(<<~'RUBY', files: {"a_computed_require_without_the_pack_is_a_load_error/lib/greeter.rb" => "module Greeter; end\n", "a_computed_require_without_the_pack_is_a_load_error/prog.rb" => "begin\n  require [\"greeter\", \"\"].first\nrescue LoadError => e\n  puts e.message\nend\n"})
+    result = ze0(<<~'RUBY', files: {"computed_require/lib/greeter.rb" => "module Greeter; end\n", "computed_require/prog.rb" => "begin\n  require [\"greeter\", \"\"].first\nrescue LoadError => e\n  puts e.message\nend\n"})
       # Without the flag the same program raises the LoadError it always did --
       # a hermetic binary is the default, not an accident.
 
-      require_relative "a_computed_require_without_the_pack_is_a_load_error/prog"
+      require_relative "computed_require/prog"
     RUBY
 
     _(result).must_answer "cannot load such file -- greeter\n"

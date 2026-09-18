@@ -71,7 +71,7 @@ describe "IO programs" do
   end
 
   it "autoload feature composes dir and expand path" do
-    result = ze0(<<~'RUBY', files: {"an_autoload_feature_composes_dir_and_expand_path/sub/also.rb" => "puts \"also ran\"\nmodule Sibling\n  class Also\n    def self.tag = :also\n  end\nend\n", "an_autoload_feature_composes_dir_and_expand_path/sub/target.rb" => "puts \"target ran\"\nmodule Holder\n  module Composed\n    MARK = :composed\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_dir_expand/sub/also.rb" => "puts \"also ran\"\nmodule Sibling\n  class Also\n    def self.tag = :also\n  end\nend\n", "autoload_dir_expand/sub/target.rb" => "puts \"target ran\"\nmodule Holder\n  module Composed\n    MARK = :composed\n  end\nend\n"})
       # An `autoload` target's feature text is folded at compile time from three
       # forms: a string literal, an interpolation whose computed part is `__dir__`,
       # and a whole `File.expand_path("<literal>", __dir__)`. They now COMPOSE --
@@ -88,7 +88,7 @@ describe "IO programs" do
       # does before it looks the leaf up.
 
       module Holder
-        autoload :Composed, "#{File.expand_path("an_autoload_feature_composes_dir_and_expand_path/sub", __dir__)}/target"
+        autoload :Composed, "#{File.expand_path("autoload_dir_expand/sub", __dir__)}/target"
       end
 
       puts "before"
@@ -100,7 +100,7 @@ describe "IO programs" do
       p Holder::Composed.name
 
       module Sibling
-        autoload :Also, "#{File.expand_path("an_autoload_feature_composes_dir_and_expand_path/sub", __dir__)}/also"
+        autoload :Also, "#{File.expand_path("autoload_dir_expand/sub", __dir__)}/also"
       end
       # The bare read of the constant itself, the shape that already worked.
       p Sibling::Also.tag
@@ -119,12 +119,12 @@ describe "IO programs" do
   end
 
   it "autoload with file expand path dir resolves a sibling file" do
-    result = ze0(<<~'RUBY', files: {"autoload_with_file_expand_path_dir_resolves_a_sibling_file/main.rb" => "class Config\n  autoload :Mirror, File.expand_path(\"mirror\", __dir__)\nend\nputs Config::Mirror.name\n", "autoload_with_file_expand_path_dir_resolves_a_sibling_file/mirror.rb" => "class Config\n  class Mirror\n    def self.name; \"mirror!\"; end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_sibling/main.rb" => "class Config\n  autoload :Mirror, File.expand_path(\"mirror\", __dir__)\nend\nputs Config::Mirror.name\n", "autoload_sibling/mirror.rb" => "class Config\n  class Mirror\n    def self.name; \"mirror!\"; end\n  end\nend\n"})
       # The dominant stdlib/bundler idiom: `autoload :C, File.expand_path("c",
       # __dir__)` -- a computed sibling path. Resolved at compile time from the
       # requiring file's directory.
 
-      require_relative "autoload_with_file_expand_path_dir_resolves_a_sibling_file/main"
+      require_relative "autoload_sibling/main"
     RUBY
 
     _(result).must_answer "mirror!\n"
@@ -153,7 +153,7 @@ describe "IO programs" do
   end
 
   it "boxs required file patches a shared class privately" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"a_boxs_required_file_patches_a_shared_class_privately/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"patch\"\np Array.respond_to?(:zzz)\np box::Owned.go\n", "a_boxs_required_file_patches_a_shared_class_privately/patch.rb" => "class Array\n  def self.zzz = 9\nend\nclass Owned\n  def self.go = 'go'\nend\n"}, ruby: ["-W:no-experimental"])
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_required_file/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"patch\"\np Array.respond_to?(:zzz)\np box::Owned.go\n", "box_required_file/patch.rb" => "class Array\n  def self.zzz = 9\nend\nclass Owned\n  def self.go = 'go'\nend\n"}, ruby: ["-W:no-experimental"])
       # A box loading a FILE (rather than an eval'd string) isolates the same
       # way. The two routes reach the compiler differently -- a literal
       # `box.eval` is spliced at compile time and a `require_relative` brings in
@@ -161,7 +161,7 @@ describe "IO programs" do
 
 
 
-      require_relative "a_boxs_required_file_patches_a_shared_class_privately/main"
+      require_relative "box_required_file/main"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -237,8 +237,8 @@ describe "IO programs" do
   end
 
   it "diamond requires execute the shared file exactly once" do
-    result = ze0(<<~'RUBY', files: {"diamond_requires_execute_the_shared_file_exactly_once/liba.rb" => "require_relative \"shared\"\nputs \"liba loaded\"\n", "diamond_requires_execute_the_shared_file_exactly_once/libb.rb" => "require_relative \"shared\"\nputs \"libb loaded\"\n", "diamond_requires_execute_the_shared_file_exactly_once/main.rb" => "require_relative \"liba\"\nrequire_relative \"libb\"\nrequire_relative \"shared\"\nputs SHARED\n", "diamond_requires_execute_the_shared_file_exactly_once/shared.rb" => "puts \"shared executed\"\nSHARED = 7\n"})
-      require_relative "diamond_requires_execute_the_shared_file_exactly_once/main"
+    result = ze0(<<~'RUBY', files: {"diamond_requires/liba.rb" => "require_relative \"shared\"\nputs \"liba loaded\"\n", "diamond_requires/libb.rb" => "require_relative \"shared\"\nputs \"libb loaded\"\n", "diamond_requires/main.rb" => "require_relative \"liba\"\nrequire_relative \"libb\"\nrequire_relative \"shared\"\nputs SHARED\n", "diamond_requires/shared.rb" => "puts \"shared executed\"\nSHARED = 7\n"})
+      require_relative "diamond_requires/main"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -2017,13 +2017,13 @@ describe "IO programs" do
   end
 
   it "self test block in a required file" do
-    result = ze0(<<~'RUBY', files: {"self_test_block_in_a_required_file/lib.rb" => "class Memcache\n  def get = \"get a\\r\\n\"\nend\n\nif __FILE__ == $0\n  class TestConnection < Memcache\n    def initialize = raise(\"the self-test block ran\")\n  end\n\n  Memcache.new.get\nend\n"})
+    result = ze0(<<~'RUBY', files: {"self_test_block/lib.rb" => "class Memcache\n  def get = \"get a\\r\\n\"\nend\n\nif __FILE__ == $0\n  class TestConnection < Memcache\n    def initialize = raise(\"the self-test block ran\")\n  end\n\n  Memcache.new.get\nend\n"})
       # `if __FILE__ == $0` -- the self-test block every second library file ends
       # with. In a file something else REQUIRED it is false whatever `$0` holds: the
       # entry point is, by definition, a different file. The definitions it guards
       # must therefore not register, which is what lets a library that ships its own
       # test harness compile at all.
-      require_relative "self_test_block_in_a_required_file/lib"
+      require_relative "self_test_block/lib"
 
       p Memcache.new.get
       p defined?(TestConnection)

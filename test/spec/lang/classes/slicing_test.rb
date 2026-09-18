@@ -321,7 +321,7 @@ describe "Classes: slicing" do
   end
 
   it "class is not its own superclass" do
-    result = ze0(<<~'RUBY', files: {"a_class_is_not_its_own_superclass/abstract.rb" => "# The rails shape, in its own file: inside `Store::Adapters`, the bare `Dumper`\n# is the name this very class binds -- so it is skipped, and the search\n# continues outward to `Store::Dumper`.\nmodule Store\n  module Adapters\n    class Dumper < Dumper\n      def extra = :extra\n    end\n  end\nend\n", "a_class_is_not_its_own_superclass/adapter.rb" => "# ... and the adapters that inherit THROUGH it, each in its own file, which is\n# what turns one bad edge into a chain every later pass walks.\nmodule Store\n  module Adapters\n    class MySQL < Adapters::Dumper\n      def kind = [:mysql, super]\n    end\n  end\nend\n", "a_class_is_not_its_own_superclass/base.rb" => "module Store\n  class Dumper\n    def kind = :base\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"own_superclass/abstract.rb" => "# The rails shape, in its own file: inside `Store::Adapters`, the bare `Dumper`\n# is the name this very class binds -- so it is skipped, and the search\n# continues outward to `Store::Dumper`.\nmodule Store\n  module Adapters\n    class Dumper < Dumper\n      def extra = :extra\n    end\n  end\nend\n", "own_superclass/adapter.rb" => "# ... and the adapters that inherit THROUGH it, each in its own file, which is\n# what turns one bad edge into a chain every later pass walks.\nmodule Store\n  module Adapters\n    class MySQL < Adapters::Dumper\n      def kind = [:mysql, super]\n    end\n  end\nend\n", "own_superclass/base.rb" => "module Store\n  class Dumper\n    def kind = :base\n  end\nend\n"})
       # Ruby evaluates a superclass expression BEFORE it binds the class's own name,
       # so the name being defined is never a candidate for its own superclass -- the
       # lexical search walks straight past it and continues outward. Rails writes
@@ -366,9 +366,9 @@ describe "Classes: slicing" do
       # writes `class Dumper < Dumper` and the adapters inherit through it. Split
       # across a require graph, the name the superclass clause must skip is one the
       # other files have already referenced.
-      require_relative "a_class_is_not_its_own_superclass/base"
-      require_relative "a_class_is_not_its_own_superclass/abstract"
-      require_relative "a_class_is_not_its_own_superclass/adapter"
+      require_relative "own_superclass/base"
+      require_relative "own_superclass/abstract"
+      require_relative "own_superclass/adapter"
 
       p Store::Adapters::Dumper.superclass
       p Store::Adapters::Dumper.new.extra

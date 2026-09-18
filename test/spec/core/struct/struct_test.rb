@@ -508,7 +508,7 @@ describe "Struct programs" do
   end
 
   it "data reopen body may nest a class" do
-    result = ze0(<<~'RUBY', files: {"a_data_reopen_body_may_nest_a_class/target/spec.rb" => "module Pkg3\n  class Target\n    class Spec\n      def initialize(name) = (@name = name; @build = nil)\n      def build(&block) = (@build = block)\n      def fin!\n        raise ArgumentError, \"needs a build block\" if @build.nil?\n        Pkg3::Target.new(name: @name, build_block: @build)\n      end\n    end\n  end\nend\n", "a_data_reopen_body_may_nest_a_class/target.rb" => "module Pkg3\n  Target = Data.define(:name, :build_block) do\n    def call(*a) = build_block.call(*a)\n  end\nend\nrequire_relative \"target/spec\"\n"})
+    result = ze0(<<~'RUBY', files: {"data_reopen/target/spec.rb" => "module Pkg3\n  class Target\n    class Spec\n      def initialize(name) = (@name = name; @build = nil)\n      def build(&block) = (@build = block)\n      def fin!\n        raise ArgumentError, \"needs a build block\" if @build.nil?\n        Pkg3::Target.new(name: @name, build_block: @build)\n      end\n    end\n  end\nend\n", "data_reopen/target.rb" => "module Pkg3\n  Target = Data.define(:name, :build_block) do\n    def call(*a) = build_block.call(*a)\n  end\nend\nrequire_relative \"target/spec\"\n"})
       # Reopening a `Data.define` constant with a bare `class` runs the body as a
       # `class_eval` block, and every class-body statement but a local write has a
       # spelling there -- a nested class included. The nested `class Spec` used to
@@ -533,7 +533,7 @@ describe "Struct programs" do
       p Pkg::Target.new(name: :b) > Pkg::Target.new(name: :a)
       p Pkg::Target.ancestors.include?(Data)
 
-      require_relative "a_data_reopen_body_may_nest_a_class/target"
+      require_relative "data_reopen/target"
 
       spec = Pkg3::Target::Spec.new(:t)
       spec.build { |x| x + 1 }

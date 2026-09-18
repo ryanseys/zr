@@ -304,7 +304,7 @@ describe "Exceptions: loading files" do
   end
 
   it "rescued require load error" do
-    result = ze0(<<~'RUBY', files: {"rescued_require_load_error/probe.rb" => "# The power_assert shape: a load-time probe that raises LoadError before any\n# definitions, so the file contributes nothing when the probe fails.\nraise LoadError, \"probe says no\"\nGOOD = 1\n"})
+    result = ze0(<<~'RUBY', files: {"rescued_require/probe.rb" => "# The power_assert shape: a load-time probe that raises LoadError before any\n# definitions, so the file contributes nothing when the probe fails.\nraise LoadError, \"probe says no\"\nGOOD = 1\n"})
       # A require inside `begin ... rescue LoadError` whose FILE RESOLVES but whose
       # top level RAISES LoadError when it runs -- power_assert's TracePoint probe,
       # which test-unit requires exactly this way and degrades by rescuing. The
@@ -312,7 +312,7 @@ describe "Exceptions: loading files" do
       # rescue clauses, so the raise lands in the handler CRuby's require timing
       # would give it, and execution continues after the begin.
       begin
-        require_relative "rescued_require_load_error/probe"
+        require_relative "rescued_require/probe"
       rescue LoadError => e
         p e.message
       end

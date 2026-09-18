@@ -33,8 +33,8 @@ describe "Require: constants" do
   end
 
   it "autoload dsl computes its own path" do
-    result = ze0(<<~'RUBY', files: {"autoload_dsl_computes_its_own_path/mylib/model.rb" => "module MyLib\n  class Model\n    def self.hello\n      \"model loaded\"\n    end\n  end\nend\n", "autoload_dsl_computes_its_own_path/mylib.rb" => "module MyLib\n  # `ActiveSupport::Autoload`'s shape, in miniature: an `autoload` written in\n  # plain Ruby that derives the path from the constant and hands it to the real\n  # `Module#autoload` through `super`. Nothing here is known to the compiler --\n  # the string only exists while the program runs.\n  module Autoload\n    def autoload(const_name, path = nil)\n      path ||= File.expand_path(\"mylib/\#{const_name.to_s.downcase}\", __dir__)\n      super const_name, path\n    end\n  end\n\n  extend Autoload\n\n  autoload :Model\nend\n"})
-      require_relative "autoload_dsl_computes_its_own_path/mylib"
+    result = ze0(<<~'RUBY', files: {"autoload_dsl/mylib/model.rb" => "module MyLib\n  class Model\n    def self.hello\n      \"model loaded\"\n    end\n  end\nend\n", "autoload_dsl/mylib.rb" => "module MyLib\n  # `ActiveSupport::Autoload`'s shape, in miniature: an `autoload` written in\n  # plain Ruby that derives the path from the constant and hands it to the real\n  # `Module#autoload` through `super`. Nothing here is known to the compiler --\n  # the string only exists while the program runs.\n  module Autoload\n    def autoload(const_name, path = nil)\n      path ||= File.expand_path(\"mylib/\#{const_name.to_s.downcase}\", __dir__)\n      super const_name, path\n    end\n  end\n\n  extend Autoload\n\n  autoload :Model\nend\n"})
+      require_relative "autoload_dsl/mylib"
 
       puts MyLib::Model.hello
       puts MyLib::Model.name
@@ -285,7 +285,7 @@ describe "Require: constants" do
   end
 
   it "compact module path keys its autoload" do
-    result = ze0(<<~'RUBY', files: {"a_compact_module_path_keys_its_autoload/target.rb" => "puts \"target.rb ran\"\nmodule Deep\n  module Nest\n    class Widget\n      KIND = :widget\n      class << self\n        def kind = KIND\n      end\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"compact_module/target.rb" => "puts \"target.rb ran\"\nmodule Deep\n  module Nest\n    class Widget\n      KIND = :widget\n      class << self\n        def kind = KIND\n      end\n    end\n  end\nend\n"})
       # `module A::B` -- the COMPACT form -- contributes both segments to the
       # lexical path a constant inside it hangs off. The autoload collector read
       # prism's `name` on that node, which is the LAST segment alone, so it keyed
@@ -306,7 +306,7 @@ describe "Require: constants" do
       end
 
       module Deep::Nest
-        autoload :Widget, "#{__dir__}/a_compact_module_path_keys_its_autoload/target"
+        autoload :Widget, "#{__dir__}/compact_module/target"
       end
 
       puts "before read"
@@ -353,7 +353,7 @@ describe "Require: constants" do
   end
 
   it "nested read under an autoload runs the target" do
-    result = ze0(<<~'RUBY', files: {"autoload_nested_fixture/ns.rb" => "puts \"  ns.rb body ran\"\nmodule NS\n  LOADED = true\n  module Inner\n    class Deep\n      def self.hi = \"deep\"\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_nested/ns.rb" => "puts \"  ns.rb body ran\"\nmodule NS\n  LOADED = true\n  module Inner\n    class Deep\n      def self.hi = \"deep\"\n    end\n  end\nend\n"})
       # An `autoload` names a NAMESPACE far more often than it names the leaf a
       # program reads: net/http writes `autoload :OpenSSL, "openssl"` and then reads
       # `OpenSSL::SSL::SSLContext`. The read has to run the target, so the gate at
@@ -363,10 +363,10 @@ describe "Require: constants" do
       # whose unit had not run -- `uninitialized constant OpenSSL::SSL::SSLContext`
       # from inside `Net::HTTP#connect`. Caught by an HTTPS request, not by the
       # corpus, which is why this shape is a golden now.
-      $LOAD_PATH.unshift(File.expand_path("autoload_nested_fixture", __dir__))
+      $LOAD_PATH.unshift(File.expand_path("autoload_nested", __dir__))
 
       puts "before"
-      autoload :NS, File.expand_path("autoload_nested_fixture/ns", __dir__)
+      autoload :NS, File.expand_path("autoload_nested/ns", __dir__)
       puts "after the declaration"
 
       # Nothing has run yet.
@@ -392,7 +392,7 @@ describe "Require: constants" do
   end
 
   it "superclass reference runs its autoload" do
-    result = ze0(<<~'RUBY', files: {"a_superclass_reference_runs_its_autoload/base.rb" => "puts \"base.rb ran\"\nclass Base\n  LIMIT = 7\n  def limit = LIMIT\nend\n", "a_superclass_reference_runs_its_autoload/sub.rb" => "class Sub < Base\nend\n"})
+    result = ze0(<<~'RUBY', files: {"superclass_reference/base.rb" => "puts \"base.rb ran\"\nclass Base\n  LIMIT = 7\n  def limit = LIMIT\nend\n", "superclass_reference/sub.rb" => "class Sub < Base\nend\n"})
       # `class Sub < Base` READS the constant `Base`, and a read is what runs an
       # `autoload` target. zeo resolves the superclass edge at compile time, so the
       # read had no run-time half at all: `sub.rb` linked to a `Base` whose body had
@@ -404,8 +404,8 @@ describe "Require: constants" do
       # class body is where `VALID_KEYS` comes from -- so `bundle install` died in
       # `Dsl#git_source` before it read the Gemfile.
 
-      autoload :Base, "#{__dir__}/a_superclass_reference_runs_its_autoload/base"
-      require_relative "a_superclass_reference_runs_its_autoload/sub"
+      autoload :Base, "#{__dir__}/superclass_reference/base"
+      require_relative "superclass_reference/sub"
       p Sub.new.limit
       p Sub.superclass
     RUBY

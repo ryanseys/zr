@@ -107,12 +107,12 @@ describe "Fiber programs" do
   end
 
   it "fiber scheduler reads and writes through its buffer hooks" do
-    result = ze0(<<~'RUBY', files: {"a_fiber_scheduler_takes_every_blocking_operation/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
+    result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A non-blocking fiber's reads and writes reach its scheduler's io_read,
       # io_write, io_pread and io_pwrite with an IO::Buffer, in the sizes io.c
       # reads and writes with. This runtime reads and writes itself and hands
       # the scheduler only io_wait, so a scheduler that logs its hooks sees none.
-      require_relative "a_fiber_scheduler_takes_every_blocking_operation/scheduler"
+      require_relative "fiber_scheduler/scheduler"
       require "tmpdir"
       class Logged < IOBufferScheduler
         attr_reader :calls
@@ -175,13 +175,13 @@ describe "Fiber programs" do
   end
 
   it "fiber scheduler takes every blocking operation" do
-    result = ze0(<<~'RUBY', files: {"a_fiber_scheduler_takes_every_blocking_operation/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
+    result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A thread with a fiber scheduler hands each blocking operation of its
       # non-blocking fibers to the scheduler: sleep, a pipe read and write, a
       # Mutex, a Queue, a Thread#value, Process.wait, Timeout.timeout,
       # getaddrinfo and a close. The scheduler is CRuby's own test scheduler
       # (test/fiber/scheduler.rb at ruby 4.0.6), unedited.
-      require_relative "a_fiber_scheduler_takes_every_blocking_operation/scheduler"
+      require_relative "fiber_scheduler/scheduler"
       require "timeout"
       log = []
       thread = Thread.new do
@@ -284,13 +284,13 @@ describe "Fiber programs" do
   end
 
   it "scheduler runs the calls that may block" do
-    result = ze0(<<~'RUBY', files: {"a_fiber_scheduler_takes_every_blocking_operation/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
+    result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A non-blocking fiber hands open(2), close(2) of a stream that writes,
       # stat(2), access(2) and unlink(2) to its scheduler's
       # blocking_operation_wait, as an object of an unnamed class whose #call
       # runs the operation once. IO reads and writes go to io_read and
       # io_write, and a hook's negative errno raises.
-      require_relative "a_fiber_scheduler_takes_every_blocking_operation/scheduler"
+      require_relative "fiber_scheduler/scheduler"
       require "tmpdir"
       ops = []
       Thread.new do

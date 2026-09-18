@@ -44,7 +44,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "bare reopen does not steal a declaring site" do
-    result = ze0(<<~'RUBY', files: {"a_bare_reopen_does_not_steal_a_declaring_site/aitem.rb" => "# Reopened BARE, in a file the compiler walks BEFORE the one that declares\n# the class with its superclass.\nmodule Store\n  class Item\n    class Nested\n      def where = \"aitem\"\n    end\n  end\nend\n", "a_bare_reopen_does_not_steal_a_declaring_site/item.rb" => "module Store\n  class Base\n    def base = \"base\"\n  end\n  class Item < Base\n    autoload :Nested, File.expand_path(\"aitem\", __dir__)\n    def own = \"own\"\n  end\nend\n", "a_bare_reopen_does_not_steal_a_declaring_site/root.rb" => "module Store\n  autoload :Item, File.expand_path(\"item\", __dir__)\nend\n"})
+    result = ze0(<<~'RUBY', files: {"bare_reopen/aitem.rb" => "# Reopened BARE, in a file the compiler walks BEFORE the one that declares\n# the class with its superclass.\nmodule Store\n  class Item\n    class Nested\n      def where = \"aitem\"\n    end\n  end\nend\n", "bare_reopen/item.rb" => "module Store\n  class Base\n    def base = \"base\"\n  end\n  class Item < Base\n    autoload :Nested, File.expand_path(\"aitem\", __dir__)\n    def own = \"own\"\n  end\nend\n", "bare_reopen/root.rb" => "module Store\n  autoload :Item, File.expand_path(\"item\", __dir__)\nend\n"})
       # One file REOPENS `class Item` bare; another DECLARES it with a superclass.
       # The compiler walks units in demand order, so the bare reopen can come first
       # -- and the declaration must still be the one that fixes the superclass and
@@ -66,7 +66,7 @@ describe "Classes: formatting and inspection" do
       # whose sites all read `stream=NONE`, or one whose only site is in the file
       # that merely reopens it.
 
-      require_relative "a_bare_reopen_does_not_steal_a_declaring_site/root"
+      require_relative "bare_reopen/root"
 
       p Store::Item
       p Store::Item.superclass

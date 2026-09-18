@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: packing and unpacking" do
   it "file line and dir name the file the code was written in" do
-    result = ze0(<<~'RUBY', files: {"file_line_and_dir_name_the_file_the_code_was_written_in/helper.rb" => "def helper_file; __FILE__; end\ndef helper_line; __LINE__; end\ndef helper_dir; __dir__; end\n", "file_line_and_dir_name_the_file_the_code_was_written_in/main.rb" => "require_relative \"helper\"\nputs File.basename(helper_file)\nputs helper_line\nputs File.basename(__FILE__)\nputs __LINE__\nputs helper_dir == __dir__\nputs __dir__.start_with?(\"/\")\n"})
+    result = ze0(<<~'RUBY', files: {"file_line_dir/helper.rb" => "def helper_file; __FILE__; end\ndef helper_line; __LINE__; end\ndef helper_dir; __dir__; end\n", "file_line_dir/main.rb" => "require_relative \"helper\"\nputs File.basename(helper_file)\nputs helper_line\nputs File.basename(__FILE__)\nputs __LINE__\nputs helper_dir == __dir__\nputs __dir__.start_with?(\"/\")\n"})
       # The point of the SOURCE_FILE stack: `require` merges every file's
       # statements into one Program, so by codegen time nothing tells them
       # apart -- these have to be resolved at LOWERING time, per file. A
@@ -25,7 +25,7 @@ describe "IO: packing and unpacking" do
       # agree whenever the program is run from its own directory, which is
       # verified against the oracle separately.
 
-      require_relative "file_line_and_dir_name_the_file_the_code_was_written_in/main"
+      require_relative "file_line_dir/main"
     RUBY
 
     _(result).must_answer <<~'OUT'

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Kernel: loading files" do
   it "bare require needs a load path root" do
-    result = ze0(<<~'RUBY', files: {"a_bare_require_needs_a_load_path_root/lib/thing.rb" => "module Thing\n  WHICH = :real\nend\n", "a_bare_require_needs_a_load_path_root/vendor/thing/lib/thing.rb" => "module Vendored\n  THING = :vendored\nend\n"})
+    result = ze0(<<~'RUBY', files: {"bare_require/lib/thing.rb" => "module Thing\n  WHICH = :real\nend\n", "bare_require/vendor/thing/lib/thing.rb" => "module Vendored\n  THING = :vendored\nend\n"})
       # `require "thing"` names the `thing.rb` sitting under a `$LOAD_PATH` root --
       # not every loaded file whose path happens to end in `/thing.rb`. zeo compared
       # `$LOADED_FEATURES` by path SUFFIX alone, so a vendored copy already loaded
@@ -17,9 +17,9 @@ describe "Kernel: loading files" do
       # `false` against the vendored path -- so `FileUtils` was undefined and
       # `bundle install` raised on its last step.
 
-      require_relative "a_bare_require_needs_a_load_path_root/vendor/thing/lib/thing"
+      require_relative "bare_require/vendor/thing/lib/thing"
       p Vendored::THING
-      $LOAD_PATH.unshift File.expand_path("a_bare_require_needs_a_load_path_root/lib", __dir__)
+      $LOAD_PATH.unshift File.expand_path("bare_require/lib", __dir__)
       p require("thing")
       p Thing::WHICH
       p require("thing")
@@ -180,7 +180,7 @@ describe "Kernel: loading files" do
   end
 
   it "deferred require reopens container" do
-    result = ze0(<<~'RUBY', files: {"deferred_require_reopens_container/lib.rb" => "# Pulled in by the deferred require above; reopens the forward-declared\n# container (adds a module method) and its nested class via a compact path.\nmodule Outer::Feature\n  def self.digest = \"sha256\"\nend\n\nclass Outer::Feature::Policy\n  def name = \"policy\"\nend\n"})
+    result = ze0(<<~'RUBY', files: {"deferred_require/lib.rb" => "# Pulled in by the deferred require above; reopens the forward-declared\n# container (adds a module method) and its nested class via a compact path.\nmodule Outer::Feature\n  def self.digest = \"sha256\"\nend\n\nclass Outer::Feature::Policy\n  def name = \"policy\"\nend\n"})
       # A deferred (in-method) require whose file reopens a compact-path class
       # (`class Outer::Feature::Policy`) BEFORE the forward-declaration it depends on
       # (`module Outer::Feature`) registers -- the rubygems `Gem::Security` shape.
@@ -196,7 +196,7 @@ describe "Kernel: loading files" do
       end
 
       def activate
-        require_relative "deferred_require_reopens_container/lib"
+        require_relative "deferred_require/lib"
       end
       activate
 
@@ -305,9 +305,9 @@ describe "Kernel: loading files" do
   end
 
   it "plain require resolves against search roots including nested features" do
-    result = ze0(<<~'RUBY', files: {"plain_require_resolves_against_search_roots_including_nested_features/main.rb" => "require \"util\"\nputs UTIL\nputs Spacer.doubled(21)\n", "plain_require_resolves_against_search_roots_including_nested_features/vendorlib/util/strings.rb" => "module Spacer\n  def self.doubled(n)\n    n * 2\n  end\nend\nputs \"util/strings loaded\"\n", "plain_require_resolves_against_search_roots_including_nested_features/vendorlib/util.rb" => "require \"util/strings\"\nUTIL = \"util root\"\nputs \"util loaded\"\n"})
-      $LOAD_PATH.unshift(File.expand_path("plain_require_resolves_against_search_roots_including_nested_features/vendorlib", __dir__))
-      require_relative "plain_require_resolves_against_search_roots_including_nested_features/main"
+    result = ze0(<<~'RUBY', files: {"plain_require/main.rb" => "require \"util\"\nputs UTIL\nputs Spacer.doubled(21)\n", "plain_require/vendorlib/util/strings.rb" => "module Spacer\n  def self.doubled(n)\n    n * 2\n  end\nend\nputs \"util/strings loaded\"\n", "plain_require/vendorlib/util.rb" => "require \"util/strings\"\nUTIL = \"util root\"\nputs \"util loaded\"\n"})
+      $LOAD_PATH.unshift(File.expand_path("plain_require/vendorlib", __dir__))
+      require_relative "plain_require/main"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -319,7 +319,7 @@ describe "Kernel: loading files" do
   end
 
   it "re require answers false" do
-    result = ze0(<<~'RUBY', files: {"a_re_require_answers_false/dep.rb" => "puts \"dep.rb ran\"\nDEP = :dep\n", "a_re_require_answers_false/other.rb" => "p require_relative(\"dep\")\n", "a_re_require_answers_false/pair.rb" => "puts \"pair.rb ran\"\nPAIR = :pair\n"})
+    result = ze0(<<~'RUBY', files: {"re_require/dep.rb" => "puts \"dep.rb ran\"\nDEP = :dep\n", "re_require/other.rb" => "p require_relative(\"dep\")\n", "re_require/pair.rb" => "puts \"pair.rb ran\"\nPAIR = :pair\n"})
       # `require` answers true the first time and false every time after -- the
       # question is whether the FEATURE loaded, not whether this call site ran.
       #
@@ -333,23 +333,23 @@ describe "Kernel: loading files" do
       # they name one file, so the second one is a re-require whichever came first.
 
       # Statement position, three times.
-      p require_relative("a_re_require_answers_false/dep")
-      p require_relative("a_re_require_answers_false/dep")
-      p require_relative("a_re_require_answers_false/dep")
+      p require_relative("re_require/dep")
+      p require_relative("re_require/dep")
+      p require_relative("re_require/dep")
 
       # A second file's require of the same target is a re-require too.
-      require_relative "a_re_require_answers_false/other"
+      require_relative "re_require/other"
 
       # Twice inside ONE statement, on a file nothing has loaded yet: the first
       # loads, the second does not. The statement's own splice has not happened when
       # the fold runs, so both call sites read the loaded set as free.
       p [
-        require_relative("a_re_require_answers_false/pair"),
-        require_relative("a_re_require_answers_false/pair"),
+        require_relative("re_require/pair"),
+        require_relative("re_require/pair"),
       ]
 
       # A runtime call answers from the loaded set, not from a fold.
-      p [1, 2].map { require_relative("a_re_require_answers_false/dep") }
+      p [1, 2].map { require_relative("re_require/dep") }
 
       # A builtin feature, whose re-require was already correct.
       p require("set")
@@ -376,7 +376,7 @@ describe "Kernel: loading files" do
   end
 
   it "require in a block runs when the block runs" do
-    result = ze0(<<~'RUBY', files: {"a_require_in_a_block_runs_when_the_block_runs/in_body.rb" => "puts \"in_body.rb ran\"\nmodule Holder\n  IN_BODY_MARKER = :in_body\nend\n", "a_require_in_a_block_runs_when_the_block_runs/lazy.rb" => "puts \"lazy.rb ran\"\nLAZY_MARKER = :lazy\n", "a_require_in_a_block_runs_when_the_block_runs/never.rb" => "puts \"never.rb ran\"\nNEVER_MARKER = :never\n", "a_require_in_a_block_runs_when_the_block_runs/once.rb" => "puts \"once.rb ran\"\nONCE_MARKER = :once\n", "a_require_in_a_block_runs_when_the_block_runs/repeat.rb" => "puts \"repeat.rb ran\"\nREPEAT_MARKER = :repeat\n"})
+    result = ze0(<<~'RUBY', files: {"require_in_block/in_body.rb" => "puts \"in_body.rb ran\"\nmodule Holder\n  IN_BODY_MARKER = :in_body\nend\n", "require_in_block/lazy.rb" => "puts \"lazy.rb ran\"\nLAZY_MARKER = :lazy\n", "require_in_block/never.rb" => "puts \"never.rb ran\"\nNEVER_MARKER = :never\n", "require_in_block/once.rb" => "puts \"once.rb ran\"\nONCE_MARKER = :once\n", "require_in_block/repeat.rb" => "puts \"repeat.rb ran\"\nREPEAT_MARKER = :repeat\n"})
       # A block body runs only when something yields to it, and how many times is a
       # runtime fact -- so a `require` written inside one is not a load this compile
       # can perform ahead of time. rack's test helper is the shape that found it:
@@ -407,7 +407,7 @@ describe "Kernel: loading files" do
 
       # 1. The block never runs, so neither does its require.
       never_yields do
-        require_relative "a_require_in_a_block_runs_when_the_block_runs/never"
+        require_relative "require_in_block/never"
       end
       p Object.const_defined?(:NEVER_MARKER)
 
@@ -415,13 +415,13 @@ describe "Kernel: loading files" do
       #    statement before it.
       puts "before once"
       yields_once do
-        require_relative "a_require_in_a_block_runs_when_the_block_runs/once"
+        require_relative "require_in_block/once"
       end
       puts "after once"
       p Object.const_defined?(:ONCE_MARKER)
 
       # 3. A lambda body is a block too: nothing loads until it is called.
-      loader = -> { require_relative "a_require_in_a_block_runs_when_the_block_runs/lazy" }
+      loader = -> { require_relative "require_in_block/lazy" }
       p Object.const_defined?(:LAZY_MARKER)
       loader.call
       p Object.const_defined?(:LAZY_MARKER)
@@ -429,7 +429,7 @@ describe "Kernel: loading files" do
       # 4. A block that runs many times loads its target once, and `require_relative`
       #    answers false from the second run on.
       answers = [1, 2, 3].map do
-        require_relative "a_require_in_a_block_runs_when_the_block_runs/repeat"
+        require_relative "require_in_block/repeat"
       end
       p answers
 
@@ -437,7 +437,7 @@ describe "Kernel: loading files" do
       #    so this one loads.
       class Host
         [:only].each do
-          require_relative "a_require_in_a_block_runs_when_the_block_runs/in_body"
+          require_relative "require_in_block/in_body"
         end
       end
       p Holder::IN_BODY_MARKER
@@ -446,11 +446,11 @@ describe "Kernel: loading files" do
       #    never yields leaves the file unloaded, and a later require of it from a
       #    position that DOES run loads it exactly once.
       never_yields do
-        require_relative "a_require_in_a_block_runs_when_the_block_runs/never"
+        require_relative "require_in_block/never"
       end
-      p require_relative("a_require_in_a_block_runs_when_the_block_runs/never")
+      p require_relative("require_in_block/never")
       p NEVER_MARKER
-      p require_relative("a_require_in_a_block_runs_when_the_block_runs/never")
+      p require_relative("require_in_block/never")
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -474,13 +474,13 @@ describe "Kernel: loading files" do
   end
 
   it "require in a block that never yields does not load" do
-    result = ze0(<<~'RUBY', files: {"a_require_in_a_block_that_never_yields_does_not_load/dep.rb" => "puts \"dep ran\"\nDEP = :dep\n", "a_require_in_a_block_that_never_yields_does_not_load/prog.rb" => "def self.never_yields\n  :no_yield\nend\nnever_yields do\n  require_relative \"dep\"\nend\np Object.const_defined?(:DEP)\np [1, 2].map { require_relative \"dep\" }\np DEP\n"})
+    result = ze0(<<~'RUBY', files: {"require_in_unyielded_block/dep.rb" => "puts \"dep ran\"\nDEP = :dep\n", "require_in_unyielded_block/prog.rb" => "def self.never_yields\n  :no_yield\nend\nnever_yields do\n  require_relative \"dep\"\nend\np Object.const_defined?(:DEP)\np [1, 2].map { require_relative \"dep\" }\np DEP\n"})
       # A block body runs only when something yields to it, so a `require` written
       # inside one is not a load this compile can perform ahead of time. rack's
       # test helper is the shape: `separate_testing do require_relative "..." end`,
       # where the non-SEPARATE definition of that method does not yield.
 
-      require_relative "a_require_in_a_block_that_never_yields_does_not_load/prog"
+      require_relative "require_in_unyielded_block/prog"
     RUBY
 
     _(result).must_answer <<~'OUT'

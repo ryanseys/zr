@@ -1335,7 +1335,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "open mode string carries its encodings" do
-    result = ze0(<<~'RUBY', files: {"an_open_mode_string_carries_its_encodings/sample.txt" => "hello\n"})
+    result = ze0(<<~'RUBY', files: {"open_mode/sample.txt" => "hello\n"})
       # A mode string is `access[:extenc[:intenc]]`, and everything after the first
       # `:` names encodings rather than access.
       #
@@ -1358,7 +1358,7 @@ describe "Encoding: formatting and inspection" do
         p [e.class, e.message]
       end
 
-      path = File.join(__dir__, "an_open_mode_string_carries_its_encodings", "sample.txt")
+      path = File.join(__dir__, "open_mode", "sample.txt")
 
       t("r:UTF-8") { File.open(path, "r:UTF-8", &:external_encoding).to_s }
       t("r:UTF-8:UTF-16") { File.open(path, "r:UTF-8:UTF-16") { |h| [h.external_encoding.to_s, h.internal_encoding.to_s] } }

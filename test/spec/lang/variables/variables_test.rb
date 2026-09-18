@@ -794,15 +794,15 @@ describe "Variables programs" do
   end
 
   it "earlier i root shadows a later same named stdlib file" do
-    result = ze0(<<~'RUBY', files: {"an_earlier_i_root_shadows_a_later_same_named_stdlib_file/main.rb" => "require \"patched\"\nputs Patched.source\n", "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/stdliblib/patched.rb" => "module Patched\n  def self.source = \"stdlib original\"\nend\n", "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/userlib/patched.rb" => "module Patched\n  def self.source = \"user override\"\nend\n"})
+    result = ze0(<<~'RUBY', files: {"earlier_root/main.rb" => "require \"patched\"\nputs Patched.source\n", "earlier_root/stdliblib/patched.rb" => "module Patched\n  def self.source = \"stdlib original\"\nend\n", "earlier_root/userlib/patched.rb" => "module Patched\n  def self.source = \"user override\"\nend\n"})
       # The documented precedence: `-I` roots are searched in order, first hit
       # wins (Ruby's own `$LOAD_PATH` rule) -- so a user root placed BEFORE the
       # stdlib checkout shadows the stdlib copy of a same-named feature, and the
       # later root's file is never loaded.
 
-      $LOAD_PATH.unshift(File.expand_path("an_earlier_i_root_shadows_a_later_same_named_stdlib_file/userlib", __dir__))
-      $LOAD_PATH.unshift(File.expand_path("an_earlier_i_root_shadows_a_later_same_named_stdlib_file/stdliblib", __dir__))
-      require_relative "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/main"
+      $LOAD_PATH.unshift(File.expand_path("earlier_root/userlib", __dir__))
+      $LOAD_PATH.unshift(File.expand_path("earlier_root/stdliblib", __dir__))
+      require_relative "earlier_root/main"
     RUBY
 
     _(result).must_answer "stdlib original\n"
@@ -1262,14 +1262,14 @@ describe "Variables programs" do
   end
 
   it "load reexecutes every time with fresh locals and never registers the feature" do
-    result = ze0(<<~'RUBY', files: {"load_reexecutes_every_time_with_fresh_locals_and_never_registers_the_feature/main.rb" => "load \"./tick.rb\"\nload \"./tick.rb\"\nrequire_relative \"tick\"\nputs \"end total=\#{$total}\"\n", "load_reexecutes_every_time_with_fresh_locals_and_never_registers_the_feature/tick.rb" => "ticks = 0\nticks += 1\n$total = ($total || 0) + ticks\nputs \"tick! total=\#{$total}\"\n"})
+    result = ze0(<<~'RUBY', files: {"load_reexecutes/main.rb" => "load \"./tick.rb\"\nload \"./tick.rb\"\nrequire_relative \"tick\"\nputs \"end total=\#{$total}\"\n", "load_reexecutes/tick.rb" => "ticks = 0\nticks += 1\n$total = ($total || 0) + ticks\nputs \"tick! total=\#{$total}\"\n"})
       # Three executions: two `load`s plus a `require` -- load never adds to
       # the feature table in real Ruby, so the require still fires. `ticks`
       # restarts at 0 each execution (fresh local scope per load), which the
       # per-splice-instance gensym reproduces.
 
-      Dir.chdir(File.expand_path("load_reexecutes_every_time_with_fresh_locals_and_never_registers_the_feature", __dir__))
-      require_relative "load_reexecutes_every_time_with_fresh_locals_and_never_registers_the_feature/main"
+      Dir.chdir(File.expand_path("load_reexecutes", __dir__))
+      require_relative "load_reexecutes/main"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -2503,13 +2503,13 @@ describe "Variables programs" do
   end
 
   it "require relative splices in document order and shares the global namespace" do
-    result = ze0(<<~'RUBY', files: {"require_relative_splices_in_document_order_and_shares_the_global_namespace/greeter.rb" => "GREETING = \"hello\"\nclass Greeter\n  def greet(name)\n    \"\#{GREETING}, \#{name}!\"\n  end\nend\nputs \"greeter loaded\"\n", "require_relative_splices_in_document_order_and_shares_the_global_namespace/main.rb" => "puts \"before require\"\nrequire_relative \"greeter\"\nputs \"after require\"\ng = Greeter.new\nputs g.greet(\"world\")\nputs GREETING\n"})
+    result = ze0(<<~'RUBY', files: {"require_relative_order/greeter.rb" => "GREETING = \"hello\"\nclass Greeter\n  def greet(name)\n    \"\#{GREETING}, \#{name}!\"\n  end\nend\nputs \"greeter loaded\"\n", "require_relative_order/main.rb" => "puts \"before require\"\nrequire_relative \"greeter\"\nputs \"after require\"\ng = Greeter.new\nputs g.greet(\"world\")\nputs GREETING\n"})
       # Top-level `def` in ANY file (main or required) is a separate,
       # pre-existing gap ("unexpected top-level-only node"), routed
       # around with classes/module functions here exactly like every
       # prior phase's tests.
 
-      require_relative "require_relative_splices_in_document_order_and_shares_the_global_namespace/main"
+      require_relative "require_relative_order/main"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -2522,14 +2522,14 @@ describe "Variables programs" do
   end
 
   it "required files top level locals are isolated from the main file" do
-    result = ze0(<<~'RUBY', files: {"a_required_files_top_level_locals_are_isolated_from_the_main_file/counterlib.rb" => "count = 100\n3.times do\n  count += 1\nend\n$lib_count = count\nclass CounterBox\n  def initialize\n    @n = 0\n  end\n  def bump\n    @n += 1\n  end\n  def n\n    @n\n  end\nend\n", "a_required_files_top_level_locals_are_isolated_from_the_main_file/main.rb" => "count = 5\nrequire_relative \"counterlib\"\nputs count\nputs $lib_count\nb = CounterBox.new\nb.bump\nb.bump\nputs b.n\n"})
+    result = ze0(<<~'RUBY', files: {"required_file_locals/counterlib.rb" => "count = 100\n3.times do\n  count += 1\nend\n$lib_count = count\nclass CounterBox\n  def initialize\n    @n = 0\n  end\n  def bump\n    @n += 1\n  end\n  def n\n    @n\n  end\nend\n", "required_file_locals/main.rb" => "count = 5\nrequire_relative \"counterlib\"\nputs count\nputs $lib_count\nb = CounterBox.new\nb.bump\nb.bump\nputs b.n\n"})
       # Real Ruby gives every file its own top-level local scope: main's
       # `count` and the lib's `count` (mutated through a block, exercising
       # the rename pass inside shared-scope block bodies) never touch. The
       # lib hands its result out through a global -- the only channel real
       # Ruby shares.
 
-      require_relative "a_required_files_top_level_locals_are_isolated_from_the_main_file/main"
+      require_relative "required_file_locals/main"
     RUBY
 
     _(result).must_answer <<~'OUT'

@@ -283,7 +283,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "runtime alias of a builtin reaches a class receiver" do
-    result = ze0(<<~'RUBY', files: {"a_runtime_alias_of_a_builtin_reaches_a_class_receiver/lib/kernel_patch.rb" => "module Kernel\n  alias_method :zeo_orig_frozen, :frozen?\n  private :zeo_orig_frozen\nend\n"})
+    result = ze0(<<~'RUBY', files: {"runtime_alias/lib/kernel_patch.rb" => "module Kernel\n  alias_method :zeo_orig_frozen, :frozen?\n  private :zeo_orig_frozen\nend\n"})
       # A run-time `alias_method` on Kernel whose source is a BUILTIN row landed
       # where an ordinary receiver could reach it and nowhere a Class or Module
       # receiver looks -- while `respond_to?` answered true for both, so the
@@ -298,7 +298,7 @@ describe "Classes: defining and naming methods" do
       # compile into one stream and the frozen registry answers.
 
       $LOAD_PATH.unshift File.expand_path(
-        "a_runtime_alias_of_a_builtin_reaches_a_class_receiver/lib", __dir__
+        "runtime_alias/lib", __dir__
       )
       feature = "kernel_patch"
       require feature

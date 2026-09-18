@@ -828,7 +828,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "superclass clause skips an outer module" do
-    result = ze0(<<~'RUBY', files: {"a_superclass_clause_skips_an_outer_module/bench.rb" => "module Mini\n  class Bench < Probe\n    def bench = \"bench\"\n  end\nend\n", "a_superclass_clause_skips_an_outer_module/outer.rb" => "# A top-level MODULE of the same leaf name -- test-unit ships exactly this,\n# beside minitest.\nmodule Probe\n  module Unit\n  end\nend\n", "a_superclass_clause_skips_an_outer_module/root.rb" => "module Mini\n  autoload :Bench, File.expand_path(\"bench\", __dir__)\n  autoload :Probe, File.expand_path(\"zprobe\", __dir__)\nend\n", "a_superclass_clause_skips_an_outer_module/zprobe.rb" => "module Mini\n  class Probe\n    def kind = \"mini-probe\"\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"superclass_clause/bench.rb" => "module Mini\n  class Bench < Probe\n    def bench = \"bench\"\n  end\nend\n", "superclass_clause/outer.rb" => "# A top-level MODULE of the same leaf name -- test-unit ships exactly this,\n# beside minitest.\nmodule Probe\n  module Unit\n  end\nend\n", "superclass_clause/root.rb" => "module Mini\n  autoload :Bench, File.expand_path(\"bench\", __dir__)\n  autoload :Probe, File.expand_path(\"zprobe\", __dir__)\nend\n", "superclass_clause/zprobe.rb" => "module Mini\n  class Probe\n    def kind = \"mini-probe\"\n  end\nend\n"})
       # `class Bench < Probe` inside `module Mini` names `Mini::Probe`, even when an
       # unrelated top-level `module Probe` is registered and `Mini::Probe` is not yet.
       #
@@ -849,8 +849,8 @@ describe "Modules: formatting and inspection" do
       # BasicObject` beneath it means the BUILTIN. An outer candidate that is already
       # a class stays the answer.
 
-      require_relative "a_superclass_clause_skips_an_outer_module/outer"
-      require_relative "a_superclass_clause_skips_an_outer_module/root"
+      require_relative "superclass_clause/outer"
+      require_relative "superclass_clause/root"
 
       p Mini::Bench.superclass
       p Mini::Bench.new.kind

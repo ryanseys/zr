@@ -1509,7 +1509,7 @@ describe "FFI programs" do
   end
 
   it "a library is marked before the module is reopened" do
-    result = ze0(<<~'RUBY', files: {"ffi_library_marked_before_its_reopen/curl.rb" => "require \"ffi\"\n\nmodule Curl\n  extend FFI::Library\n  ffi_lib FFI::Library::LIBC\n\n  def self.status_codes = [:ok, :partial, :failed]\n\n  # Declared ABOVE the require, and used BELOW it, in the required file.\n  class Stamp < FFI::Struct\n    layout :sec, :long\n  end\n\n  # The reopen that declares the vocabulary, required from INSIDE the body\n  # that establishes what the module is.\n  require_relative \"vocabulary\"\n\n  attach_function :pick, :abs, [:status], :status\n  attach_function :widen, :labs, [:ticks], :ticks\nend\n", "ffi_library_marked_before_its_reopen/vocabulary.rb" => "# A REOPEN of the library module. Nothing here says `extend FFI::Library`, so\n# whether these are FFI directives at all depends on the enclosing file having\n# been read first.\nmodule Curl\n  Status = enum(:status, status_codes)\n  typedef :long, :ticks\n\n  # The mirror image: a struct the REQUIRING file declared, taken by value.\n  class Frame < FFI::Struct\n    layout :head, Stamp.by_value, :n, :int\n  end\n\n  attach_function :measure, :llabs, [Stamp.by_value], :long\nend\n"})
+    result = ze0(<<~'RUBY', files: {"ffi_library/curl.rb" => "require \"ffi\"\n\nmodule Curl\n  extend FFI::Library\n  ffi_lib FFI::Library::LIBC\n\n  def self.status_codes = [:ok, :partial, :failed]\n\n  # Declared ABOVE the require, and used BELOW it, in the required file.\n  class Stamp < FFI::Struct\n    layout :sec, :long\n  end\n\n  # The reopen that declares the vocabulary, required from INSIDE the body\n  # that establishes what the module is.\n  require_relative \"vocabulary\"\n\n  attach_function :pick, :abs, [:status], :status\n  attach_function :widen, :labs, [:ticks], :ticks\nend\n", "ffi_library/vocabulary.rb" => "# A REOPEN of the library module. Nothing here says `extend FFI::Library`, so\n# whether these are FFI directives at all depends on the enclosing file having\n# been read first.\nmodule Curl\n  Status = enum(:status, status_codes)\n  typedef :long, :ticks\n\n  # The mirror image: a struct the REQUIRING file declared, taken by value.\n  class Frame < FFI::Struct\n    layout :head, Stamp.by_value, :n, :int\n  end\n\n  attach_function :measure, :llabs, [Stamp.by_value], :long\nend\n"})
       # A class-body `require` pre-LOWERS ahead of the requiring file's own
       # statements, so a required file's declarations exist before the statements
       # below the require -- libuv's `require 'libuv/ext/types'`, three lines above
@@ -1524,7 +1524,7 @@ describe "FFI programs" do
       # What each body IS -- an FFI library, a struct class -- is now read off the
       # requiring file's own syntax before anything it requires lowers. Only the
       # marks: what a body DECLARES needs the alias tables that real lowering has.
-      require_relative "ffi_library_marked_before_its_reopen/curl"
+      require_relative "ffi_library/curl"
 
       p Curl.pick(:failed)
       p Curl.pick(:ok)
@@ -2347,7 +2347,7 @@ describe "FFI programs" do
   end
 
   it "module body require declares before the next statement" do
-    result = ze0(<<~'RUBY', files: {"a_module_body_require_declares_before_the_next_statement/uv_types.rb" => "# The sibling vocabulary file: reopens the library module and declares the\n# typedef/enum the requiring body's very next statements spend.\nrequire \"ffi\"\n\nmodule Loop\n  extend FFI::Library\n\n  typedef :long, :uv_ret\n  enum :uv_kind, [:tcp, 3, :udp, 7]\nend\n"})
+    result = ze0(<<~'RUBY', files: {"module_body_require/uv_types.rb" => "# The sibling vocabulary file: reopens the library module and declares the\n# typedef/enum the requiring body's very next statements spend.\nrequire \"ffi\"\n\nmodule Loop\n  extend FFI::Library\n\n  typedef :long, :uv_ret\n  enum :uv_kind, [:tcp, 3, :udp, 7]\nend\n"})
       # A require written in a `class`/`module` BODY runs mid-body in CRuby, so
       # the target's declarations exist before the statements below it -- libuv
       # requires its `ext/types` (every typedef and enum) three lines above the
@@ -2361,7 +2361,7 @@ describe "FFI programs" do
         extend FFI::Library
         ffi_lib FFI::Library::LIBC
 
-        require_relative "a_module_body_require_declares_before_the_next_statement/uv_types"
+        require_relative "module_body_require/uv_types"
 
         attach_function :big_abs, :labs, [:uv_ret], :uv_ret
         # The enum declared by the sibling is vocabulary here too.

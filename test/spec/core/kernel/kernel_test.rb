@@ -341,7 +341,7 @@ describe "Kernel programs" do
   end
 
   it "class body require runs in place" do
-    result = ze0(<<~'RUBY', files: {"a_class_body_require_runs_in_place/inner.rb" => "puts \"inner runs\"\nINNER_TOP = 1\n\nclass InnerClass\n  def self.hi = \"inner-class\"\nend\n"})
+    result = ze0(<<~'RUBY', files: {"class_body_require/inner.rb" => "puts \"inner runs\"\nINNER_TOP = 1\n\nclass InnerClass\n  def self.hi = \"inner-class\"\nend\n"})
       # A `require` written in a `class`/`module` BODY runs AT ITS OWN POSITION in
       # CRuby, at the top-level cref -- not after the whole enclosing file.
       #
@@ -357,7 +357,7 @@ describe "Kernel programs" do
       # (see `a_module_body_require_declares_before_the_next_statement`).
       module M
         puts "before"
-        require_relative "a_class_body_require_runs_in_place/inner"
+        require_relative "class_body_require/inner"
         puts "after"
         p INNER_TOP
         p InnerClass.hi
@@ -370,7 +370,7 @@ describe "Kernel programs" do
 
       # A second require of the same file is a no-op, and answers false.
       module N
-        p require_relative("a_class_body_require_runs_in_place/inner")
+        p require_relative("class_body_require/inner")
       end
       puts "done"
     RUBY

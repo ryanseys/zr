@@ -64,7 +64,7 @@ describe "Enumerable programs" do
   end
 
   it "autoload lazy at declaration" do
-    result = ze0(<<~'RUBY', files: {"autoload_lazy_at_declaration/differ.rb" => "module Outer\n  module Foo\n    class Differ\n      ORIGIN = Outer::Foo.tag(\"differ\")\n      def self.origin = ORIGIN\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: {"autoload_lazy/differ.rb" => "module Outer\n  module Foo\n    class Differ\n      ORIGIN = Outer::Foo.tag(\"differ\")\n      def self.origin = ORIGIN\n    end\n  end\nend\n"})
       # An `autoload` target no longer loads BEFORE the statement holding it:
       # differ.rb calls a singleton method this module body installs a few
       # statements earlier (rspec-support's exact shape) -- the old eager splice
@@ -78,7 +78,7 @@ describe "Enumerable programs" do
         module Foo
           puts "body-1"
           def self.tag(x) = "tagged #{x}"
-          autoload :Differ, "#{__dir__}/autoload_lazy_at_declaration/differ"
+          autoload :Differ, "#{__dir__}/autoload_lazy/differ"
           puts "body-2"
         end
       end

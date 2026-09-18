@@ -165,12 +165,12 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal per file" do
-    result = ze0(<<~'RUBY', files: {"frozen_string_literal_per_file/helper_frozen.rb" => "# frozen_string_literal: true\ndef frozen_helper_lit\n  \"helper frozen lit\"\nend\n\ndef frozen_helper_mutate\n  s = \"helper buf\"\n  s << \"y\"   # FrozenError: the literal comes from a pragma file\nend\n", "frozen_string_literal_per_file/helper_plain.rb" => "def plain_helper_lit\n  \"helper plain lit\"\nend\n\ndef plain_helper_build\n  s = \"plain\"\n  s << \"!\"\n  s\nend\n"})
+    result = ze0(<<~'RUBY', files: {"frozen_literal/helper_frozen.rb" => "# frozen_string_literal: true\ndef frozen_helper_lit\n  \"helper frozen lit\"\nend\n\ndef frozen_helper_mutate\n  s = \"helper buf\"\n  s << \"y\"   # FrozenError: the literal comes from a pragma file\nend\n", "frozen_literal/helper_plain.rb" => "def plain_helper_lit\n  \"helper plain lit\"\nend\n\ndef plain_helper_build\n  s = \"plain\"\n  s << \"!\"\n  s\nend\n"})
       # Per-file frozen_string_literal: each literal carries its OWN file's pragma,
       # not the entry file's. helper_frozen.rb has the pragma; this entry file and
       # helper_plain.rb do not.
-      require_relative "frozen_string_literal_per_file/helper_frozen"
-      require_relative "frozen_string_literal_per_file/helper_plain"
+      require_relative "frozen_literal/helper_frozen"
+      require_relative "frozen_literal/helper_plain"
 
       p frozen_helper_lit.frozen?   # true  -- literal from the pragma file
       p plain_helper_lit.frozen?    # false -- literal from a plain file
@@ -198,11 +198,11 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal per file rev" do
-    result = ze0(<<~'RUBY', files: {"frozen_string_literal_per_file/helper_plain.rb" => "def plain_helper_lit\n  \"helper plain lit\"\nend\n\ndef plain_helper_build\n  s = \"plain\"\n  s << \"!\"\n  s\nend\n"})
+    result = ze0(<<~'RUBY', files: {"frozen_literal/helper_plain.rb" => "def plain_helper_lit\n  \"helper plain lit\"\nend\n\ndef plain_helper_build\n  s = \"plain\"\n  s << \"!\"\n  s\nend\n"})
       # frozen_string_literal: true
       # Reverse direction: pragma entry + plain helper. The helper's literals stay
       # unfrozen and mutable; the entry's literals are frozen.
-      require_relative "frozen_string_literal_per_file/helper_plain"
+      require_relative "frozen_literal/helper_plain"
 
       p "entry lit".frozen?         # true
       p plain_helper_lit.frozen?    # false
