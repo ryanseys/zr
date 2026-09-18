@@ -422,6 +422,63 @@ describe "Struct: frozen literals" do
       end
     RUBY
 
-    _(result).must_answer "1\n2\n[1, 2]\n[:x, :y]\n[:x, :y]\n2\n2\ntrue\nfalse\ntrue\ntrue\n[]\nnil\nfalse\n[:@note]\n\"hi\"\n1\n1\n2\n2\n1\n2\n[10, 20]\n{x: 10, y: 20}\n\"#<struct Point x=10, y=20>\"\n\"#<struct Point x=10, y=20>\"\n[1, nil]\n[nil, nil]\nArgumentError\nIndexError\nNameError\n10 20 \nx=10 y=20 \n10\n20\n[10, 20]\n[10, 20]\n[10, 20]\n[10, 20]\n[3, 4]\ntrue\ntrue\nStruct\n[10, 20]\n[10, 20]\nfalse\n[20, 40]\n[20]\ntrue\n[4, 5]\n[:x, :y]\n9\n4\ntrue\n2\nFrozenError\n"
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      [1, 2]
+      [:x, :y]
+      [:x, :y]
+      2
+      2
+      true
+      false
+      true
+      true
+      []
+      nil
+      false
+      [:@note]
+      "hi"
+      1
+      1
+      2
+      2
+      1
+      2
+      [10, 20]
+      {x: 10, y: 20}
+      "#<struct Point x=10, y=20>"
+      "#<struct Point x=10, y=20>"
+      [1, nil]
+      [nil, nil]
+      ArgumentError
+      IndexError
+      NameError
+      10 20 
+      x=10 y=20 
+      10
+      20
+      [10, 20]
+      [10, 20]
+      [10, 20]
+      [10, 20]
+      [3, 4]
+      true
+      true
+      Struct
+      [10, 20]
+      [10, 20]
+      false
+      [20, 40]
+      [20]
+      true
+      [4, 5]
+      [:x, :y]
+      9
+      4
+      true
+      2
+      FrozenError
+    OUT
   end
 end

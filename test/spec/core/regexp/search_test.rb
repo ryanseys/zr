@@ -1954,7 +1954,32 @@ describe "Regexp: searching and matching" do
       p "x1y2".scan(/[a-m0-5]/i)
     RUBY
 
-    _(result).must_answer "\"01\"\n\"hello\"\n\"2024\"\nnil\n\"ll\"\nHELLO WORLD \n\"hello world\"\n[2, 3]\n[2, 3]\n[2, 0]\n[2, 1]\n3\n\"HI\"\n5\n[[\"a\", \"b\"], [\"a\", \"c\"], [\"b\", \"c\"]]\n[[:a, :b], [:a, :c], [:b, :c]]\n[[1.0, 2.0], [1.0, 3.0], [2.0, 3.0]]\n[[\"a\", \"b\"], [\"a\", \"c\"], [\"b\", \"a\"], [\"b\", \"c\"], [\"c\", \"a\"], [\"c\", \"b\"]]\n[[\"a\", \"a\"], [\"a\", \"b\"], [\"b\", \"b\"]]\n[\"A\", \"B\", \"C\"]\n\"HelloWorld\"\n0\n[\"a\", \"B\", \"c\"]\n[\"1\", \"2\"]\n"
+    _(result).must_answer <<~'OUT'
+      "01"
+      "hello"
+      "2024"
+      nil
+      "ll"
+      HELLO WORLD 
+      "hello world"
+      [2, 3]
+      [2, 3]
+      [2, 0]
+      [2, 1]
+      3
+      "HI"
+      5
+      [["a", "b"], ["a", "c"], ["b", "c"]]
+      [[:a, :b], [:a, :c], [:b, :c]]
+      [[1.0, 2.0], [1.0, 3.0], [2.0, 3.0]]
+      [["a", "b"], ["a", "c"], ["b", "a"], ["b", "c"], ["c", "a"], ["c", "b"]]
+      [["a", "a"], ["a", "b"], ["b", "b"]]
+      ["A", "B", "C"]
+      "HelloWorld"
+      0
+      ["a", "B", "c"]
+      ["1", "2"]
+    OUT
   end
 
   it "regex fancy" do

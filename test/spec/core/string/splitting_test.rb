@@ -257,7 +257,36 @@ describe "String: splitting and joining" do
 
     RUBY
 
-    _(result).must_answer "[\"a\", \"b\", \"c\"]\n[\"a\", \"b\", \"c\"]\n[\"a\", \"b\\tc\\n\"]\n[\"a\", \"b\", \"c\", \"\"]\n[]\n[]\n[\"a\"]\n[\"a\", \"\"]\n[\"a\", \"b\", \"\"]\nxyz\"x y z\"\n[\" a\", \"b\"]\n\n[\"a\", \"b\"]\n[\"a\\u0000b\", \"c\"]\n[\"a\", \"b c\"]\n[\"a\", \"b c\"]\n[\"a,b\", \"c\"]\n[\"a,b\", \"c\"]\n[#<Encoding:UTF-8>]\nArgumentError\none two three \n0\n\"kept\"\n\"one\\n\"\n\"one\\n\"\n0\n[\"a\", \"b\"]\n[\"a\\nb\"]\n"
+    _(result).must_answer <<~'OUT'
+      ["a", "b", "c"]
+      ["a", "b", "c"]
+      ["a", "b\tc\n"]
+      ["a", "b", "c", ""]
+      []
+      []
+      ["a"]
+      ["a", ""]
+      ["a", "b", ""]
+      xyz"x y z"
+      [" a", "b"]
+
+      ["a", "b"]
+      ["a\u0000b", "c"]
+      ["a", "b c"]
+      ["a", "b c"]
+      ["a,b", "c"]
+      ["a,b", "c"]
+      [#<Encoding:UTF-8>]
+      ArgumentError
+      one two three 
+      0
+      "kept"
+      "one\n"
+      "one\n"
+      0
+      ["a", "b"]
+      ["a\nb"]
+    OUT
   end
 
   it "split on unresolved chain" do

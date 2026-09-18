@@ -132,7 +132,17 @@ describe "Regexp: substitution" do
       end
     RUBY
 
-    _(result).must_answer "f[oo]bar\nbacd\na-ab\n\"[y]z\"\n\"[]z\"\nf[oo]bar\n\\k'g'\nIndexError: undefined group name reference: y\nIndexError: undefined group name reference: \n"
+    _(result).must_answer <<~'OUT'
+      f[oo]bar
+      bacd
+      a-ab
+      "[y]z"
+      "[]z"
+      f[oo]bar
+      \k'g'
+      IndexError: undefined group name reference: y
+      IndexError: undefined group name reference: 
+    OUT
   end
 
   it "poly gsub block" do

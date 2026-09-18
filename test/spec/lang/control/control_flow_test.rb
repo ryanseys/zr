@@ -992,7 +992,38 @@ describe "Control: control flow" do
       p kept
     RUBY
 
-    _(result).must_answer "123\n3\n[1, 2]\n[3, 4]\n[3, 4]\n[[:one, 1], [:two, 2]]\n:two\n2\n[:three, 3]\n12\n[1, 3]\n4\n[1, 2]\n1231...4\n\n20\n1x 1y 2x 2y \n\"stop\"\n2\n\"undefined method 'each' for an instance of Integer\"\n2\n:none\n[1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]\n[2, 2]\n[2, 5]\n[10, 11, 12]\n[1, 2, 3]\n[nil, 1, nil, 2]\n:outer\n[1, 2, 3]\n"
+    _(result).must_answer <<~'OUT'
+      123
+      3
+      [1, 2]
+      [3, 4]
+      [3, 4]
+      [[:one, 1], [:two, 2]]
+      :two
+      2
+      [:three, 3]
+      12
+      [1, 3]
+      4
+      [1, 2]
+      1231...4
+
+      20
+      1x 1y 2x 2y 
+      "stop"
+      2
+      "undefined method 'each' for an instance of Integer"
+      2
+      :none
+      [1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]
+      [2, 2]
+      [2, 5]
+      [10, 11, 12]
+      [1, 2, 3]
+      [nil, 1, nil, 2]
+      :outer
+      [1, 2, 3]
+    OUT
   end
 
   it "for over paren collection" do

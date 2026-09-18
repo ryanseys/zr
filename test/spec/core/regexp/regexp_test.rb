@@ -2433,7 +2433,14 @@ describe "Regexp programs" do
       puts "no-sep".partition(",").inspect
     RUBY
 
-    _(result).must_answer "hello\n \nworld\n[\"hell\", \"o\", \" world\"]\n[\"hello\", \",\", \"world\"]\n[\"no-sep\", \"\", \"\"]\n"
+    _(result).must_answer <<~'OUT'
+      hello
+       
+      world
+      ["hell", "o", " world"]
+      ["hello", ",", "world"]
+      ["no-sep", "", ""]
+    OUT
   end
 
   it "string rpartition regex" do

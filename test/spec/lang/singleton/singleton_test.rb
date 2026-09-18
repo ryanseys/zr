@@ -2420,7 +2420,113 @@ describe "Singleton programs" do
       p MetaBoth.singleton_class.mixed
     RUBY
 
-    _(result).must_answer "== one module, one position, super reaches the tail\n\"M1(top)\"\n[\"#<Class:One>\", \"M1\", \"#<Class:Object>\"]\n\"M1\"\n[true, []]\n== an own def self.x sits BEFORE the extended module\n\"own(M1(top))\"\n\"#<Class:OwnFirst>\"\n\"M1\"\n== extend order: the LAST extend is closest\n\"M2(M1(top))\"\n[\"#<Class:TwoMods>\", \"M2\", \"M1\", \"#<Class:Object>\"]\n== a module reached BOTH ways holds two positions\n\"cm(own(cm(top)))\"\n[\"CM\", \"#<Class:BothWays>\", \"CM\", \"#<Class:Object>\"]\n\"cm(cm(top))\"\n[\"CM\", \"#<Class:BothNoOwn>\", \"CM\", \"#<Class:Object>\"]\n== the reverse order gives ONE position\n\"cm(top)\"\n[\"CM\", \"#<Class:PrependFirst>\", \"#<Class:Object>\"]\n== two prepends stack, latest closest, and super walks down\n\"PB(PA(own(top)))\"\n[\"PB\", \"PA\", \"#<Class:Stacked>\", \"#<Class:Object>\"]\n== a module that includes another, extended\n\"outer(inner(top))\"\n[\"#<Class:Nested>\", \"Outer\", \"Inner\", \"#<Class:Object>\"]\n\"Outer\"\n== inheritance: the parent's extend is reached from the child\n[\"M1(top)\", \"M1(top)\", \"M1(top)\"]\n[\"#<Class:Child>\", \"#<Class:Parent>\", \"M1\", \"#<Class:Object>\"]\n[\"M1\", \"M1\"]\n== the child adds its own extend, which sits ahead of the parent's\n\"M2(M1(top))\"\n[\"#<Class:ChildExtends>\", \"M2\", \"#<Class:Parent>\", \"M1\", \"#<Class:Object>\"]\n== a prepend on the PARENT's singleton, reached by super from the child\n[\"PA(pp(top))\", \"pc(PA(pp(top)))\"]\n[\"#<Class:PrependedChild>\", \"PA\", \"#<Class:PrependedParent>\", \"#<Class:Object>\", \"#<Class:BasicObject>\"]\n== super reaches the instance tail (Class's own methods)\n\"T(Tailed)\"\n\"N(Tailed)\"\n\"Tailed\"\n== super with explicit arguments, and zsuper, through a mixin\n\"own(over(argmod(1,20)))\"\n\"own(over(argmod(1,30)))\"\n== define_singleton_method beats a prepended module's copy? no -- prepend wins\n\"PA(dyn(noSuper))\"\n== a runtime class takes the same rules\n\"rt_own(M1(top))\"\n\"rt_own(M1(top))\"\n== a MODULE's own singleton chain\n\"modown(M1(top))\"\n[\"#<Class:HasSingleton>\", \"M1\", \"Module\"]\n== remove_method in class << self empties one position, undef ends the walk\n\"M1(top)\"\n\"undef ends the walk\"\n== a class-level method_missing is reached through the same chain\n\"mmod_ghost\"\ntrue\n== instance and class channels answer the same shape independently\n[\"inst(dual(top))\", \"cls(dual(top))\"]\n[\"BothChannels\", \"Dual\", \"Object\"]\n[\"#<Class:BothChannels>\", \"Dual\", \"#<Class:Object>\"]\n== #super_method walks the singleton chain, one position per step\n\"own(S2(S1))\"\n[[\"#<Class:Chained>\", \"own(S2(S1))\"], [\"S2\", \"S2(S1)\"], [\"S1\", \"S1\"]]\n== #super_method through a DOUBLED module stops instead of looping\n[\"CM\", \"CM\"]\n== unbind/bind and instance_method through a singleton class\n\"#<Class:Chained>\"\n\"#<Class:Chained>\"\n[\"#<Class:Chained>\", \"S2\", \"S1\", \"#<Class:Object>\"]\n== respond_to? and method_defined? agree with the walk\n[true, true]\n[true, false]\n== a frozen class refuses both singleton verbs\n[FrozenError, \"can't modify frozen Class: FrozenSingleton\"]\nFrozenError\n== extend on a plain OBJECT keeps its own chain\n\"obj(top)\"\n[\"#<Class:#<Object:0xADDR>>\", \"ObjMod\"]\n\"ObjMod\"\n== a module extended onto a MODULE, and its super\n\"modself(M1(top))\"\n\"#<Class:Extendee>\"\n\"M1\"\n== the walk is stable across repeated asks\nown(S2(S1)) own(S2(S1)) own(S2(S1)) \n[\"#<Class:Chained>\", \"S2\", \"S1\", \"#<Class:Object>\"]\n== a def self.x inside a singleton body is one level FURTHER up\n\"plain\"\n\"MetaHost.meta -> NoMethodError\"\n\"meta\"\n[:meta]\n[:plain]\n== the same inside class << obj\n\"obj_plain\"\n\"target.meta -> NoMethodError\"\n\"obj_meta\"\n== a meta method takes arguments and a block like any other\n\"build(9,2)\"\n\"build(9,3)\"\n[10, 20]\n== a meta method beside a mixin in the same singleton body\n\"meta\"\n\"mixed\"\n"
+    _(result).must_answer <<~'OUT'
+      == one module, one position, super reaches the tail
+      "M1(top)"
+      ["#<Class:One>", "M1", "#<Class:Object>"]
+      "M1"
+      [true, []]
+      == an own def self.x sits BEFORE the extended module
+      "own(M1(top))"
+      "#<Class:OwnFirst>"
+      "M1"
+      == extend order: the LAST extend is closest
+      "M2(M1(top))"
+      ["#<Class:TwoMods>", "M2", "M1", "#<Class:Object>"]
+      == a module reached BOTH ways holds two positions
+      "cm(own(cm(top)))"
+      ["CM", "#<Class:BothWays>", "CM", "#<Class:Object>"]
+      "cm(cm(top))"
+      ["CM", "#<Class:BothNoOwn>", "CM", "#<Class:Object>"]
+      == the reverse order gives ONE position
+      "cm(top)"
+      ["CM", "#<Class:PrependFirst>", "#<Class:Object>"]
+      == two prepends stack, latest closest, and super walks down
+      "PB(PA(own(top)))"
+      ["PB", "PA", "#<Class:Stacked>", "#<Class:Object>"]
+      == a module that includes another, extended
+      "outer(inner(top))"
+      ["#<Class:Nested>", "Outer", "Inner", "#<Class:Object>"]
+      "Outer"
+      == inheritance: the parent's extend is reached from the child
+      ["M1(top)", "M1(top)", "M1(top)"]
+      ["#<Class:Child>", "#<Class:Parent>", "M1", "#<Class:Object>"]
+      ["M1", "M1"]
+      == the child adds its own extend, which sits ahead of the parent's
+      "M2(M1(top))"
+      ["#<Class:ChildExtends>", "M2", "#<Class:Parent>", "M1", "#<Class:Object>"]
+      == a prepend on the PARENT's singleton, reached by super from the child
+      ["PA(pp(top))", "pc(PA(pp(top)))"]
+      ["#<Class:PrependedChild>", "PA", "#<Class:PrependedParent>", "#<Class:Object>", "#<Class:BasicObject>"]
+      == super reaches the instance tail (Class's own methods)
+      "T(Tailed)"
+      "N(Tailed)"
+      "Tailed"
+      == super with explicit arguments, and zsuper, through a mixin
+      "own(over(argmod(1,20)))"
+      "own(over(argmod(1,30)))"
+      == define_singleton_method beats a prepended module's copy? no -- prepend wins
+      "PA(dyn(noSuper))"
+      == a runtime class takes the same rules
+      "rt_own(M1(top))"
+      "rt_own(M1(top))"
+      == a MODULE's own singleton chain
+      "modown(M1(top))"
+      ["#<Class:HasSingleton>", "M1", "Module"]
+      == remove_method in class << self empties one position, undef ends the walk
+      "M1(top)"
+      "undef ends the walk"
+      == a class-level method_missing is reached through the same chain
+      "mmod_ghost"
+      true
+      == instance and class channels answer the same shape independently
+      ["inst(dual(top))", "cls(dual(top))"]
+      ["BothChannels", "Dual", "Object"]
+      ["#<Class:BothChannels>", "Dual", "#<Class:Object>"]
+      == #super_method walks the singleton chain, one position per step
+      "own(S2(S1))"
+      [["#<Class:Chained>", "own(S2(S1))"], ["S2", "S2(S1)"], ["S1", "S1"]]
+      == #super_method through a DOUBLED module stops instead of looping
+      ["CM", "CM"]
+      == unbind/bind and instance_method through a singleton class
+      "#<Class:Chained>"
+      "#<Class:Chained>"
+      ["#<Class:Chained>", "S2", "S1", "#<Class:Object>"]
+      == respond_to? and method_defined? agree with the walk
+      [true, true]
+      [true, false]
+      == a frozen class refuses both singleton verbs
+      [FrozenError, "can't modify frozen Class: FrozenSingleton"]
+      FrozenError
+      == extend on a plain OBJECT keeps its own chain
+      "obj(top)"
+      ["#<Class:#<Object:0xADDR>>", "ObjMod"]
+      "ObjMod"
+      == a module extended onto a MODULE, and its super
+      "modself(M1(top))"
+      "#<Class:Extendee>"
+      "M1"
+      == the walk is stable across repeated asks
+      own(S2(S1)) own(S2(S1)) own(S2(S1)) 
+      ["#<Class:Chained>", "S2", "S1", "#<Class:Object>"]
+      == a def self.x inside a singleton body is one level FURTHER up
+      "plain"
+      "MetaHost.meta -> NoMethodError"
+      "meta"
+      [:meta]
+      [:plain]
+      == the same inside class << obj
+      "obj_plain"
+      "target.meta -> NoMethodError"
+      "obj_meta"
+      == a meta method takes arguments and a block like any other
+      "build(9,2)"
+      "build(9,3)"
+      [10, 20]
+      == a meta method beside a mixin in the same singleton body
+      "meta"
+      "mixed"
+    OUT
   end
 
   it "a def in a class << obj body installs on the object, and a private below it marks the singleton" do

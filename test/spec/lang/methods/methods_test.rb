@@ -1277,7 +1277,23 @@ describe "Methods programs" do
       puts
     RUBY
 
-    _(result).must_answer "9 9 9 \nNoMethodError\n[1, 1]\n[2, 2]\n[\"hi\", \"hi\"]\n[:anything, [1, 2]]\n[:anything, [1, 2]]\n[4, 4]\n[5.0, 5.0]\n[\"x\", \"x\"]\n[:x, :y]\n[1, 2]\n[3, 4]\n[\"base\", \"base\"]\nab ab \n"
+    _(result).must_answer <<~'OUT'
+      9 9 9 
+      NoMethodError
+      [1, 1]
+      [2, 2]
+      ["hi", "hi"]
+      [:anything, [1, 2]]
+      [:anything, [1, 2]]
+      [4, 4]
+      [5.0, 5.0]
+      ["x", "x"]
+      [:x, :y]
+      [1, 2]
+      [3, 4]
+      ["base", "base"]
+      ab ab 
+    OUT
   end
 
   it "constant declared in a superclass resolves from a subclass method" do

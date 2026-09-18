@@ -555,7 +555,50 @@ describe "Exceptions: frozen literals" do
       show { Class.new(String).new("hi") }
     RUBY
 
-    _(result).must_answer "NameError: '@@bad' is not allowed as an instance variable name\nNameError: '@1x' is not allowed as an instance variable name\nNameError: '@' is not allowed as an instance variable name\nNameError: 'x' is not allowed as an instance variable name\nNameError: '@@bad' is not allowed as an instance variable name\nNameError: '@@bad' is not allowed as an instance variable name\n1\n1\n2\n2\n[:@ok, :@日本]\nNameError: wrong constant name lower\nNameError: wrong constant name A::B\nNameError: wrong constant name \nNameError: wrong constant name 1A\n1\nNameError: wrong constant name lower\nNameError: constant #<Module:0xN>::Nope not defined\nComparable\nNameError: invalid attribute name '1bad'\nNameError: invalid attribute name 'x?'\nNameError: invalid attribute name 'x!'\nTypeError: 1 is not a symbol nor a string\n[:ok, :ok=]\nNameError: invalid attribute name '1bad'\nFrozenError: can't modify frozen Class: #<Class:0xN>\nTypeError: wrong argument type Class (expected Module)\nTypeError: wrong argument type Integer (expected Module)\nTypeError: wrong argument type Class (expected Module)\nTypeError: wrong argument type Class (expected Module)\nArgumentError: cyclic include detected\nArgumentError: cyclic include detected\nfalse\nTypeError: wrong argument type Class (expected Module)\nFrozenError: can't modify frozen Class: #<Class:0xN>\nTypeError: superclass must be an instance of Class (given an instance of Module)\nTypeError: superclass must be an instance of Class (given an instance of Integer)\nTypeError: can't make subclass of Class\nTypeError: can't make subclass of singleton class\ntrue\ntrue\n\"hi\"\n"
+    _(result).must_answer <<~'OUT'
+      NameError: '@@bad' is not allowed as an instance variable name
+      NameError: '@1x' is not allowed as an instance variable name
+      NameError: '@' is not allowed as an instance variable name
+      NameError: 'x' is not allowed as an instance variable name
+      NameError: '@@bad' is not allowed as an instance variable name
+      NameError: '@@bad' is not allowed as an instance variable name
+      1
+      1
+      2
+      2
+      [:@ok, :@日本]
+      NameError: wrong constant name lower
+      NameError: wrong constant name A::B
+      NameError: wrong constant name 
+      NameError: wrong constant name 1A
+      1
+      NameError: wrong constant name lower
+      NameError: constant #<Module:0xN>::Nope not defined
+      Comparable
+      NameError: invalid attribute name '1bad'
+      NameError: invalid attribute name 'x?'
+      NameError: invalid attribute name 'x!'
+      TypeError: 1 is not a symbol nor a string
+      [:ok, :ok=]
+      NameError: invalid attribute name '1bad'
+      FrozenError: can't modify frozen Class: #<Class:0xN>
+      TypeError: wrong argument type Class (expected Module)
+      TypeError: wrong argument type Integer (expected Module)
+      TypeError: wrong argument type Class (expected Module)
+      TypeError: wrong argument type Class (expected Module)
+      ArgumentError: cyclic include detected
+      ArgumentError: cyclic include detected
+      false
+      TypeError: wrong argument type Class (expected Module)
+      FrozenError: can't modify frozen Class: #<Class:0xN>
+      TypeError: superclass must be an instance of Class (given an instance of Module)
+      TypeError: superclass must be an instance of Class (given an instance of Integer)
+      TypeError: can't make subclass of Class
+      TypeError: can't make subclass of singleton class
+      true
+      true
+      "hi"
+    OUT
   end
 
   it "no method error names a singleton receiver" do

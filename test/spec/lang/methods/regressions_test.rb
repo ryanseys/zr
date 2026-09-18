@@ -2194,6 +2194,81 @@ describe "Methods: regressions" do
       end
     RUBY
 
-    _(result).must_answer "instance_variable_get(@@x)\tNameError: '@@x' is not allowed as an instance variable name\ninstance_variable_get(x)\tNameError: 'x' is not allowed as an instance variable name\ninstance_variable_get(@1x)\tNameError: '@1x' is not allowed as an instance variable name\ninstance_variable_get(@)\tNameError: '@' is not allowed as an instance variable name\ninstance_variable_get(sym)\tok nil\ninstance_variable_set(bad)\tNameError: '@@x' is not allowed as an instance variable name\ninstance_variable_defined?(bad)\tNameError: 'x' is not allowed as an instance variable name\nremove_instance_variable(bad)\tNameError: 'x' is not allowed as an instance variable name\nremove_instance_variable(absent)\tNameError: instance variable @nope not defined\nconst_set(lower)\tNameError: wrong constant name lower\nconst_set(path)\tNameError: wrong constant name A::B\nconst_set(empty)\tNameError: wrong constant name \nconst_set(digit)\tNameError: wrong constant name 1A\nconst_get(lower)\tNameError: wrong constant name lower\nconst_get(absent)\tNameError: uninitialized constant #<Class:0xADDR>::Absent\nremove_const(absent)\tNameError: constant #<Class:0xADDR>::Absent not defined\nattr_accessor(1bad)\tNameError: invalid attribute name '1bad'\nattr_accessor(ok then bad)\tNameError: invalid attribute name '1bad'\nattr_accessor(bang)\tNameError: invalid attribute name 'x!'\nattr_accessor(int)\tTypeError: 1 is not a symbol nor a string\ndefine_method(no body)\tArgumentError: tried to create Proc object without a block\ndefine_method(int)\tTypeError: wrong argument type Integer (expected Proc/Method/UnboundMethod)\nalias_method(absent)\tNameError: undefined method 'nope' for class '#<Class:0xADDR>'\ninstance_method(absent)\tNameError: undefined method 'nope' for class '#<Class:0xADDR>'\ninclude(Class)\tTypeError: wrong argument type Class (expected Module)\ninclude(Integer)\tTypeError: wrong argument type Integer (expected Module)\ninclude(self)\tArgumentError: cyclic include detected\ninclude(frozen, bad)\tTypeError: wrong argument type Class (expected Module)\ninclude(frozen, good)\tFrozenError: can't modify frozen Class: #<Class:0xADDR>\ninclude(mod, Class)\tTypeError: wrong argument type Class (expected Module)\nprepend(Class)\tTypeError: wrong argument type Class (expected Module)\nextend(Class)\tTypeError: wrong argument type Class (expected Module)\nClass.new(Module)\tTypeError: superclass must be an instance of Class (given an instance of Module)\nClass.new(Class)\tTypeError: can't make subclass of Class\nClass.new(Integer)\tTypeError: superclass must be an instance of Class (given an instance of Integer)\nClass.new(singleton)\tTypeError: can't make subclass of singleton class\nproc >> Integer\tTypeError: callable object is expected\nproc << Integer\tTypeError: callable object is expected\nproc >> Symbol\tTypeError: callable object is expected\nproc >> proc\tok 1\nMethod#>> Integer\tTypeError: callable object is expected\ncurry(bad)\tTypeError: no implicit conversion of Symbol into Integer\nbsearch(String)\tTypeError: wrong argument type String (must be numeric, true, false or nil)\nbsearch(Float)\tok \"2\"\nbsearch(nil)\tok \"nil\"\nbsearch(NaN)\tArgumentError: comparison of Float with 0 failed\nArray#fill(bad)\tTypeError: no implicit conversion of Symbol into Integer\nArray#first(-1)\tArgumentError: negative array size\nArray#take(-1)\tArgumentError: attempt to take negative size\nArray#sample(-1)\tArgumentError: negative sample number\nArray#[]=(bad)\tTypeError: no implicit conversion of Symbol into Integer\nArray#flatten(bad)\tTypeError: no implicit conversion of Symbol into Integer\nHash#fetch(absent)\tKeyError: key not found: :x\nHash#merge(Integer)\tTypeError: no implicit conversion of Integer into Hash\nHash#dig(bad)\tTypeError: Integer does not have #dig method\nRange#new(incomparable)\tArgumentError: bad value for range\nRange#step(0)\tArgumentError: step can't be 0\nRange#step(-1)\tok []\nString#*(-1)\tArgumentError: negative argument\nString#[]=(absent)\tIndexError: string not matched\nInteger(bad)\tArgumentError: invalid value for Integer(): \"z\"\nInteger(nil)\tTypeError: can't convert nil into Integer\nFloat(bad)\tArgumentError: invalid value for Float(): \"z\"\nArray#pack(bad)\tTypeError: no implicit conversion of Integer into String\nString#unpack(bad)\tArgumentError: unknown unpack directive '-' in 'Z-'\nQueue.new(arg)\tTypeError: can't convert Integer into Array\nSizedQueue.new(0)\tArgumentError: queue size must be positive\nSizedQueue.new(-1)\tArgumentError: queue size must be positive\nQueue#pop(true) empty\tThreadError: queue empty\nQueue#pop(true, timeout:)\tArgumentError: can't set a timeout if non_block is enabled\nMarshal.dump(proc)\tTypeError: no _dump_data is defined for class Proc\nMarshal.dump(IO)\tTypeError: can't dump IO\nMarshal.dump(singleton)\tTypeError: singleton can't be dumped\nMarshal.dump(extended)\tok true\n"
+    _(result).must_answer <<~'OUT'
+      instance_variable_get(@@x)	NameError: '@@x' is not allowed as an instance variable name
+      instance_variable_get(x)	NameError: 'x' is not allowed as an instance variable name
+      instance_variable_get(@1x)	NameError: '@1x' is not allowed as an instance variable name
+      instance_variable_get(@)	NameError: '@' is not allowed as an instance variable name
+      instance_variable_get(sym)	ok nil
+      instance_variable_set(bad)	NameError: '@@x' is not allowed as an instance variable name
+      instance_variable_defined?(bad)	NameError: 'x' is not allowed as an instance variable name
+      remove_instance_variable(bad)	NameError: 'x' is not allowed as an instance variable name
+      remove_instance_variable(absent)	NameError: instance variable @nope not defined
+      const_set(lower)	NameError: wrong constant name lower
+      const_set(path)	NameError: wrong constant name A::B
+      const_set(empty)	NameError: wrong constant name 
+      const_set(digit)	NameError: wrong constant name 1A
+      const_get(lower)	NameError: wrong constant name lower
+      const_get(absent)	NameError: uninitialized constant #<Class:0xADDR>::Absent
+      remove_const(absent)	NameError: constant #<Class:0xADDR>::Absent not defined
+      attr_accessor(1bad)	NameError: invalid attribute name '1bad'
+      attr_accessor(ok then bad)	NameError: invalid attribute name '1bad'
+      attr_accessor(bang)	NameError: invalid attribute name 'x!'
+      attr_accessor(int)	TypeError: 1 is not a symbol nor a string
+      define_method(no body)	ArgumentError: tried to create Proc object without a block
+      define_method(int)	TypeError: wrong argument type Integer (expected Proc/Method/UnboundMethod)
+      alias_method(absent)	NameError: undefined method 'nope' for class '#<Class:0xADDR>'
+      instance_method(absent)	NameError: undefined method 'nope' for class '#<Class:0xADDR>'
+      include(Class)	TypeError: wrong argument type Class (expected Module)
+      include(Integer)	TypeError: wrong argument type Integer (expected Module)
+      include(self)	ArgumentError: cyclic include detected
+      include(frozen, bad)	TypeError: wrong argument type Class (expected Module)
+      include(frozen, good)	FrozenError: can't modify frozen Class: #<Class:0xADDR>
+      include(mod, Class)	TypeError: wrong argument type Class (expected Module)
+      prepend(Class)	TypeError: wrong argument type Class (expected Module)
+      extend(Class)	TypeError: wrong argument type Class (expected Module)
+      Class.new(Module)	TypeError: superclass must be an instance of Class (given an instance of Module)
+      Class.new(Class)	TypeError: can't make subclass of Class
+      Class.new(Integer)	TypeError: superclass must be an instance of Class (given an instance of Integer)
+      Class.new(singleton)	TypeError: can't make subclass of singleton class
+      proc >> Integer	TypeError: callable object is expected
+      proc << Integer	TypeError: callable object is expected
+      proc >> Symbol	TypeError: callable object is expected
+      proc >> proc	ok 1
+      Method#>> Integer	TypeError: callable object is expected
+      curry(bad)	TypeError: no implicit conversion of Symbol into Integer
+      bsearch(String)	TypeError: wrong argument type String (must be numeric, true, false or nil)
+      bsearch(Float)	ok "2"
+      bsearch(nil)	ok "nil"
+      bsearch(NaN)	ArgumentError: comparison of Float with 0 failed
+      Array#fill(bad)	TypeError: no implicit conversion of Symbol into Integer
+      Array#first(-1)	ArgumentError: negative array size
+      Array#take(-1)	ArgumentError: attempt to take negative size
+      Array#sample(-1)	ArgumentError: negative sample number
+      Array#[]=(bad)	TypeError: no implicit conversion of Symbol into Integer
+      Array#flatten(bad)	TypeError: no implicit conversion of Symbol into Integer
+      Hash#fetch(absent)	KeyError: key not found: :x
+      Hash#merge(Integer)	TypeError: no implicit conversion of Integer into Hash
+      Hash#dig(bad)	TypeError: Integer does not have #dig method
+      Range#new(incomparable)	ArgumentError: bad value for range
+      Range#step(0)	ArgumentError: step can't be 0
+      Range#step(-1)	ok []
+      String#*(-1)	ArgumentError: negative argument
+      String#[]=(absent)	IndexError: string not matched
+      Integer(bad)	ArgumentError: invalid value for Integer(): "z"
+      Integer(nil)	TypeError: can't convert nil into Integer
+      Float(bad)	ArgumentError: invalid value for Float(): "z"
+      Array#pack(bad)	TypeError: no implicit conversion of Integer into String
+      String#unpack(bad)	ArgumentError: unknown unpack directive '-' in 'Z-'
+      Queue.new(arg)	TypeError: can't convert Integer into Array
+      SizedQueue.new(0)	ArgumentError: queue size must be positive
+      SizedQueue.new(-1)	ArgumentError: queue size must be positive
+      Queue#pop(true) empty	ThreadError: queue empty
+      Queue#pop(true, timeout:)	ArgumentError: can't set a timeout if non_block is enabled
+      Marshal.dump(proc)	TypeError: no _dump_data is defined for class Proc
+      Marshal.dump(IO)	TypeError: can't dump IO
+      Marshal.dump(singleton)	TypeError: singleton can't be dumped
+      Marshal.dump(extended)	ok true
+    OUT
   end
 end

@@ -168,7 +168,47 @@ describe "RubyVM programs" do
       end
     RUBY
 
-    _(result).must_answer "----- \"1 +\"\nF.rb:7: syntax errors found\n> 7 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"foo(\"\nF.rb:7: syntax error found\n> 7 | foo(\n    |     ^ unexpected end-of-input; expected a `)` to close the arguments\n----- \"  x ]\"\nF.rb:7: syntax errors found\n> 7 |   x ]\n    |     ^ unexpected ']', ignoring it\n    |     ^ unexpected ']', expecting end-of-input\n----- \"a = 1\\na = 1\\nb +\"\nF.rb:6: syntax errors found\n  4 | a = 1\n  5 | a = 1\n> 6 | b +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n1 +\"\nF.rb:123: syntax errors found\n  121 | \n  122 | \n> 123 | 1 +\n      |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n      |    ^ unexpected end-of-input; expected an expression after the operator\n----- \"x = 'ありがとう' +\\n\"\nF.rb:3: syntax errors found\n> 3 | x = 'ありがとう' +\n    |              ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |              ^ unexpected end-of-input; expected an expression after the operator\n----- \"1 +\"\n(eval at core/rubyvm/rubyvm_test.rb:7):1: syntax errors found\n> 1 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\nSyntaxError\n"
+    _(result).must_answer <<~'OUT'
+      ----- "1 +"
+      F.rb:7: syntax errors found
+      > 7 | 1 +
+          |    ^ unexpected end-of-input, assuming it is closing the parent top level context
+          |    ^ unexpected end-of-input; expected an expression after the operator
+      ----- "foo("
+      F.rb:7: syntax error found
+      > 7 | foo(
+          |     ^ unexpected end-of-input; expected a `)` to close the arguments
+      ----- "  x ]"
+      F.rb:7: syntax errors found
+      > 7 |   x ]
+          |     ^ unexpected ']', ignoring it
+          |     ^ unexpected ']', expecting end-of-input
+      ----- "a = 1\na = 1\nb +"
+      F.rb:6: syntax errors found
+        4 | a = 1
+        5 | a = 1
+      > 6 | b +
+          |    ^ unexpected end-of-input, assuming it is closing the parent top level context
+          |    ^ unexpected end-of-input; expected an expression after the operator
+      ----- "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n1 +"
+      F.rb:123: syntax errors found
+        121 | 
+        122 | 
+      > 123 | 1 +
+            |    ^ unexpected end-of-input, assuming it is closing the parent top level context
+            |    ^ unexpected end-of-input; expected an expression after the operator
+      ----- "x = 'ありがとう' +\n"
+      F.rb:3: syntax errors found
+      > 3 | x = 'ありがとう' +
+          |              ^ unexpected end-of-input, assuming it is closing the parent top level context
+          |              ^ unexpected end-of-input; expected an expression after the operator
+      ----- "1 +"
+      (eval at core/rubyvm/rubyvm_test.rb:7):1: syntax errors found
+      > 1 | 1 +
+          |    ^ unexpected end-of-input, assuming it is closing the parent top level context
+          |    ^ unexpected end-of-input; expected an expression after the operator
+      SyntaxError
+    OUT
   end
 
   it "iseq compiles a string and evals it" do

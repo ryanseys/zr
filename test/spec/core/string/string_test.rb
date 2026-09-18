@@ -631,7 +631,47 @@ describe "String programs" do
       begin; e2.get_string; rescue => e; p [e.class, e.message]; end
     RUBY
 
-    _(result).must_answer "Integer\n65536\n[1, 2, 4, 8, 32, 64, 128]\n[4, 8, 4, 8]\n1\n12\n[8, false, true, false, true, false]\n4660\n\"\\x124\\x00\\x00\\x00\\x00\\x00\\x00\"\n\"#<IO::Buffer 0xADDR+8 INTERNAL>\"\n\"#<IO::Buffer 0xADDR+8 INTERNAL>\\n0xADDR  12 34 00 00 00 00 00 00                         .4......\"\n\"hi\"\n\"\\x124\"\nString\n[6, true, true, \"abcdef\"]\n[IO::Buffer::AccessError, \"Buffer is not writable!\"]\n[false, \"Zbcdef\"]\n\"Zbcdef\"\n\"xyz\"\n[[18, 52]]\n\"\\x00\\x00\\x00\\x00\"\n[7, 7]\n[ArgumentError, \"Type extends beyond end of buffer! (offset=5 > size=2)\"]\n[RuntimeError, RuntimeError, RuntimeError, RuntimeError, ArgumentError]\nObject\nU8=1 S8=1 U16=2 S16=2 U32=4 S32=4 U64=8 S64=8 u16=2 s16=2 u32=4 s32=4 u64=8 s64=8 F32=4 F64=8 f32=4 f64=8 \n[52, 18]\n-1\n1.5\n[1.5, [0, 0, 192, 63]]\n[0, 0, 0, 0]\n[[0, 0], [1, 0], [2, 0], [3, 0]]\ntrue\n\"bc\"\n-1\n[15, 0]\n[ArgumentError, \"Invalid type name!\"]\n[IO::Buffer::AccessError, \"Cannot resize external buffer!\"]\n[true, 0]\n"
+    _(result).must_answer <<~'OUT'
+      Integer
+      65536
+      [1, 2, 4, 8, 32, 64, 128]
+      [4, 8, 4, 8]
+      1
+      12
+      [8, false, true, false, true, false]
+      4660
+      "\x124\x00\x00\x00\x00\x00\x00"
+      "#<IO::Buffer 0xADDR+8 INTERNAL>"
+      "#<IO::Buffer 0xADDR+8 INTERNAL>\n0xADDR  12 34 00 00 00 00 00 00                         .4......"
+      "hi"
+      "\x124"
+      String
+      [6, true, true, "abcdef"]
+      [IO::Buffer::AccessError, "Buffer is not writable!"]
+      [false, "Zbcdef"]
+      "Zbcdef"
+      "xyz"
+      [[18, 52]]
+      "\x00\x00\x00\x00"
+      [7, 7]
+      [ArgumentError, "Type extends beyond end of buffer! (offset=5 > size=2)"]
+      [RuntimeError, RuntimeError, RuntimeError, RuntimeError, ArgumentError]
+      Object
+      U8=1 S8=1 U16=2 S16=2 U32=4 S32=4 U64=8 S64=8 u16=2 s16=2 u32=4 s32=4 u64=8 s64=8 F32=4 F64=8 f32=4 f64=8 
+      [52, 18]
+      -1
+      1.5
+      [1.5, [0, 0, 192, 63]]
+      [0, 0, 0, 0]
+      [[0, 0], [1, 0], [2, 0], [3, 0]]
+      true
+      "bc"
+      -1
+      [15, 0]
+      [ArgumentError, "Invalid type name!"]
+      [IO::Buffer::AccessError, "Cannot resize external buffer!"]
+      [true, 0]
+    OUT
   end
 
   it "issue string subclass new with arg" do

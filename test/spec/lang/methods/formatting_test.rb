@@ -2630,6 +2630,47 @@ describe "Methods: formatting and inspection" do
       t { p Vault.peek_singleton(Vault.new(1)) }
     RUBY
 
-    _(result).must_answer ":pub\nNoMethodError: private method 'priv' called for an instance\nNoMethodError: protected method 'prot' called for an instan\nNoMethodError: private method 'sec' called for an instance \n:priv\n:priv\n:prot\n:priv\nNoMethodError: private method 'priv' called for an instance\nfalse\ntrue\ntrue\ntrue\nNoMethodError: protected method 'balance' called for an ins\n10\nNoMethodError: private method 'secret' called for an instan\nNoMethodError: protected method 'balance' called for an ins\nNoMethodError: private method 'secret' called for an instan\n:open\nNoMethodError: private method 'hidden' called for an instan\nfalse\nNoMethodError: private method 'secret' called for an instan\n\"acct:42\"\nNoMethodError: protected method 'balance' called for an ins\n[:secret, Account]\nNoMethodError: private method 'w=' called for an instance o\nNoMethodError: private method 'w=' called for an instance o\n8\nNoMethodError: private method 'mpriv' called for an instanc\nNoMethodError: protected method 'mprot' called for an insta\n:mpriv\n:mprot\nNoMethodError: protected method 'amount' called for an inst\n1\nNoMethodError: protected method 'amount' called for an inst\n1\n1\n1\nNoMethodError: protected method 'amount' called for an inst\nNoMethodError: protected method 'amount' called for an inst\n"
+    _(result).must_answer <<~'OUT'
+      :pub
+      NoMethodError: private method 'priv' called for an instance
+      NoMethodError: protected method 'prot' called for an instan
+      NoMethodError: private method 'sec' called for an instance 
+      :priv
+      :priv
+      :prot
+      :priv
+      NoMethodError: private method 'priv' called for an instance
+      false
+      true
+      true
+      true
+      NoMethodError: protected method 'balance' called for an ins
+      10
+      NoMethodError: private method 'secret' called for an instan
+      NoMethodError: protected method 'balance' called for an ins
+      NoMethodError: private method 'secret' called for an instan
+      :open
+      NoMethodError: private method 'hidden' called for an instan
+      false
+      NoMethodError: private method 'secret' called for an instan
+      "acct:42"
+      NoMethodError: protected method 'balance' called for an ins
+      [:secret, Account]
+      NoMethodError: private method 'w=' called for an instance o
+      NoMethodError: private method 'w=' called for an instance o
+      8
+      NoMethodError: private method 'mpriv' called for an instanc
+      NoMethodError: protected method 'mprot' called for an insta
+      :mpriv
+      :mprot
+      NoMethodError: protected method 'amount' called for an inst
+      1
+      NoMethodError: protected method 'amount' called for an inst
+      1
+      1
+      1
+      NoMethodError: protected method 'amount' called for an inst
+      NoMethodError: protected method 'amount' called for an inst
+    OUT
   end
 end

@@ -539,7 +539,20 @@ describe "Constants programs" do
       check { M.const_defined?(:lower) }
     RUBY
 
-    _(result).must_answer "true\ntrue\nfalse\nfalse\nfalse\nwrong constant name name\nwrong constant name _Foo\nwrong constant name @x\nwrong constant name 1A\nwrong constant name A B\nwrong constant name \nwrong constant name lower\n"
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      false
+      false
+      false
+      wrong constant name name
+      wrong constant name _Foo
+      wrong constant name @x
+      wrong constant name 1A
+      wrong constant name A B
+      wrong constant name 
+      wrong constant name lower
+    OUT
   end
 
   it "const get builtin" do
