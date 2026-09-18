@@ -1184,7 +1184,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval" do
+  it "a literal eval reads and writes the enclosing local and instance variables" do
     result = ze0(<<~'RUBY')
       puts eval("1 + 2")
 
@@ -1213,7 +1213,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval class body keeps its openers" do
+  it "a class body compiled at run time keeps its own openers, so the snippet still parses" do
     result = ze0(<<~'RUBY')
       # A class body compiled at RUN TIME is recovered from the snippet's own
       # source text, and the slice has to start where the BODY starts -- not at
@@ -1302,7 +1302,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval defined class is named before inherited" do
+  it "the class keyword binds the constant before the inherited hook fires, in a snippet too" do
     result = ze0(<<~'RUBY')
       # The `class` KEYWORD names a class and binds its constant BEFORE the
       # superclass's `inherited` hook fires -- CRuby's rb_define_class_id_under
@@ -1330,7 +1330,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval defines a class" do
+  it "a class at a literal eval's top level registers as one written in place" do
     result = ze0(<<~'RUBY')
       # A literal `eval` splices at compile time, and a `class` at its top level
       # registers exactly as one written in place -- the registration walk descends
@@ -1346,7 +1346,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval definition statements" do
+  it "class_eval writes a def on its receiver, and a bare private is a cursor the later defs read" do
     result = ze0(<<~'RUBY')
       # The definition-level statements a run-time `eval` may write. Each one names
       # a DEFINEE only the run time knows -- `class_eval`'s receiver, a plain
@@ -1435,7 +1435,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval dynamic" do
+  it "a source only known at run time runs through the eval VM with self, constants and globals" do
     result = ze0(<<~'RUBY')
       # Runtime string `eval` (#97 stage 2). Each source is a runtime VALUE (a
       # variable, not a string literal), so it runs through the eval VM -- a
@@ -1526,7 +1526,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval instance eval" do
+  it "instance_eval of a string rebinds self, so an @ivar read resolves against the receiver" do
     result = ze0(<<~'RUBY')
       # The STRING form of `instance_eval` (#97 stage 2): the source runs through the
       # eval VM with `self` rebound to the receiver, so `@ivar` reads and
@@ -1579,7 +1579,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval mints a class" do
+  it "a class written in a run-time eval mints the class and runs the body as its own scope" do
     result = ze0(<<~'RUBY')
       # A `class`/`module` written in a run-time `eval`. The header mints or reuses
       # the class through the runtime; the BODY runs as one more `class_eval` of its
@@ -1666,7 +1666,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval named by a symbol carries the compiler" do
+  it "eval reached through send, public_send or method still carries the compiler" do
     result = ze0(<<~'RUBY')
       p send(:eval, "1 + 1")
       p __send__(:eval, "2 + 2")
@@ -1686,7 +1686,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval of a non literal argument runs in the vm" do
+  it "a non-literal source is not refused at compile time; it runs in the VM" do
     result = ze0(<<~'RUBY')
       # A non-literal source is not rejected at compile time; it runs
       # through the runtime `eval`. (`y` is interpolated INTO the source string, not
@@ -1699,7 +1699,7 @@ describe "Eval programs" do
     _(result).must_answer "42\n"
   end
 
-  it "eval short circuit returns the operand" do
+  it "|| in an eval'd source answers the operand, not true" do
     result = ze0(<<~'RUBY')
       src = "nil || 'fallback'"; puts eval(src)
     RUBY
@@ -1707,7 +1707,7 @@ describe "Eval programs" do
     _(result).must_answer "fallback\n"
   end
 
-  it "eval singleton body homes on the singleton" do
+  it "a class << self body in a snippet homes its constants on the singleton" do
     result = ze0(<<~'RUBY')
       src = <<~SRC
         module Schemes
@@ -1758,7 +1758,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval source assembled at runtime" do
+  it "a source assembled by interpolation runs as the text it became" do
     result = ze0(<<~'RUBY')
       op = "-"; puts eval("10 #{op} 3")
     RUBY
@@ -1766,7 +1766,7 @@ describe "Eval programs" do
     _(result).must_answer "7\n"
   end
 
-  it "eval strings" do
+  it "eval, class_eval and module_eval each compile a string where it runs" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -1817,7 +1817,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval vm defined and forwarding" do
+  it "the eval VM answers defined? and forwards (...), which def_delegators needs" do
     result = ze0(<<~'PROGRAM')
       # The eval VM's `defined?` and `(...)` forwarding -- forwardable's generated
       # delegators need both, so every gem that uses `def_delegators` does.

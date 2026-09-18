@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Format: formatting and inspection" do
-  it "format arg rooting" do
+  it "a format argument that is itself a call is rooted where it stands" do
     result = ze0(<<~'RUBY')
       # A format() argument that is itself a call rooting its own operands used to
       # leak that rooting decl into the PolyArray_push argument position
@@ -19,7 +19,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format directives" do
+  it "the full C directive set answers, plus ruby's named and positional references" do
     result = ze0(<<~'RUBY')
       # `format` (aka `sprintf`, and `String#%`) supports the full C-style directive
       # set, plus Ruby's named and positional references.
@@ -68,7 +68,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format directives named positional star and alternate form" do
+  it "the named, positional, star-width and alternate forms each answer through format and String#%" do
     result = ze0(<<~'RUBY')
       puts format("%<name>s is %<age>d", name: "Ada", age: 36)
       puts format("%#b / %#x", 10, 255)
@@ -81,7 +81,7 @@ describe "Format: formatting and inspection" do
     _(result).must_answer "Ada is 36\n0b1010 / 0xff\n   42|\nhello world\n0x1p-1\n03.14\n"
   end
 
-  it "format dynamic named" do
+  it "a star width or precision takes the next argument, and a missing name raises KeyError" do
     result = ze0(<<~'RUBY')
       # format/sprintf: dynamic width/precision (%*d, %.*f) consume the next
       # positional argument; %<name>conv and %{name} reference a hash argument by
@@ -118,7 +118,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format fixed precision rounding" do
+  it "%.Nf rounds the way ruby rounds, and a precision past the shortest digits expands exactly" do
     result = ze0(<<~'RUBY')
       puts format("%.2f", 2.675)
       puts format("%.1f", 0.15)
@@ -166,7 +166,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format flags mro errinfo" do
+  it "the + and space flags reach the non-decimal conversions, and %u is %d" do
     result = ze0(<<~'RUBY')
 
       # The non-decimal conversions honour '+' and ' ': C's printf drops both on
@@ -278,7 +278,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format g ignores precision" do
+  it "%g shows a fixed count of significant digits, and %#g keeps the trailing zeros" do
     result = ze0(<<~'RUBY')
       # `%g` picks between `%e` and `%f` and shows a fixed number of SIGNIFICANT
       # digits -- six by default, `%.Ng` for N, and `%#g` keeps the trailing zeros
@@ -317,7 +317,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format hex float" do
+  it "%a and %A render a float in hexadecimal" do
     result = ze0(<<~'RUBY')
       # %a/%A hex-float directives render through C's own %a (C99, portable),
       # via String#%, format, and sprintf.
@@ -335,7 +335,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format malformed specs" do
+  it "a malformed directive and a mixed reference style each raise ArgumentError" do
     result = ze0(<<~'RUBY')
       p(format("%.*f", -2, 3.14159))
       r001 = (format("%") rescue $!.class); p r001
@@ -363,7 +363,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format missing key and bad int" do
+  it "a missing name raises KeyError worded for the spelling, and unparseable text raises" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # The missing-key KeyError message brackets the key with <> where ruby uses
@@ -403,7 +403,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format named" do
+  it "a named reference reads a symbol-keyed hash, held in a local or returned by a method" do
     result = ze0(<<~'RUBY')
       # Named references in String#% (and the `%{name}` shorthand) read from a
       # symbol-keyed hash argument. Previously rejected at compile time.
@@ -442,7 +442,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format named ref marker" do
+  it "a name scanned out of the format still matches the hash's key byte for byte" do
     result = ze0(<<~'RUBY')
       # A format's `%<name>` / `%{name}` is scanned into a C stack buffer and then
       # compared against the hash's keys. The comparison read a marker byte in FRONT
@@ -500,7 +500,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format numeric conversion" do
+  it "a numeric conversion refuses what is not a number, and takes a bignum whole" do
     result = ze0(<<~'RUBY')
       # A numeric conversion in format/sprintf answered 0 for an argument that is not
       # a number at all -- nil, a Symbol, an Array -- where CRuby refuses (#4010).
@@ -588,7 +588,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format raise dollarbang symproc" do
+  it "too few arguments and a bad directive raise, beside a block pattern and $!" do
     result = ze0(<<~'RUBY')
       # gsub/sub with a String pattern and a block; format/% raising on too-few
       # arguments and malformed directives; $! visible inside rescue modifiers;
@@ -648,7 +648,7 @@ describe "Format: formatting and inspection" do
     OUT
   end
 
-  it "format s and nonfinite" do
+  it "%s calls to_s on every argument kind, and %f spells Inf, -Inf and NaN ruby's way" do
     result = ze0(<<~'RUBY')
       # %s calls to_s on every argument kind (it printed empty for symbols,
       # collections, booleans, and user objects); %f prints non-finite floats
@@ -671,7 +671,7 @@ describe "Format: formatting and inspection" do
     _(result).must_answer "sym\n[1, 2]\ntrue\n|\n   ab|\nX\nInf\n-Inf\nNaN\n42\n"
   end
 
-  it "format splat array variable" do
+  it "a splatted array variable contributes its elements as separate arguments" do
     result = ze0(<<~'RUBY')
       # A splatted Array variable contributes its ELEMENTS to format/sprintf/printf:
       # it used to be pushed as one boxed array, so the conversions went unfed and the
