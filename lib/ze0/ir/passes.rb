@@ -46,6 +46,12 @@ module Ze0
       def inline(functions) = Inline.run(functions)
 
       # The pipeline, in order.
+      #
+      # `Fold` runs twice because `Forward` uncovers constants for it: a
+      # load whose value it forwards is a constant the first fold could
+      # not see. It earns the second pass -- built without it, the
+      # runtime's object grows by 223 KB, and the whole pass costs 0.6 s
+      # of the 9.3 s that object takes.
       def run(f)
         Fold.run(f)
         Forward.run(f)
