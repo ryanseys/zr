@@ -1010,7 +1010,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel binding" do
+  it "a Binding names the whole frame, so writes flow both ways and a local declared later is already in it" do
     result = ze0(<<~'RUBY')
       # `Kernel#binding` at the top level: the Binding shares the frame's slots, so
       # every write is visible through both sides -- and a local declared LATER in
@@ -1104,7 +1104,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel caller and conversion functions resolve through every dispatch path" do
+  it "caller answers an empty Array, and the private conversion helpers resolve through every dispatch path" do
     result = ze0(<<~'RUBY')
       # `caller`/`caller_locations` answer an empty Array (no runtime frames in an
       # AOT build), and the private Kernel conversion/format helpers resolve as
@@ -1132,7 +1132,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel conversions" do
+  it "Hash(), warn, printf, putc and p answer in value position what ruby answers" do
     result = ze0(<<~'RUBY')
       # Kernel#Hash / #warn / #printf / #putc / p() value position (#2513, #2526, #2541)
       p(Hash(nil))
@@ -1163,7 +1163,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel proc warn method name and bare new" do
+  it "a proc calls, warn writes to stderr, __method__ names the method, and a bare new builds the class" do
     result = ze0(<<~'RUBY')
       sq = proc { |x| x * x }
       puts sq.call(5)
@@ -1186,7 +1186,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel reopen is one body for every carrier" do
+  it "a def written inside module Kernel reaches every class and is emitted once" do
     result = ze0(<<~'RUBY')
       # A `def` written inside `module Kernel` reaches every class in the program,
       # and zeo emits its body ONCE. This is the same rule as a top-level `def`
@@ -1247,7 +1247,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel reopen reports its owner" do
+  it "a method added by reopening Kernel reports Kernel as its owner, from every carrier" do
     result = ze0(<<~'RUBY')
       module Kernel
         def tagged(x) = x
@@ -1276,7 +1276,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "kernel universals" do
+  it "__callee__ and __method__ agree without an alias, and a private or missing call names the class" do
     result = ze0(<<~'RUBY')
       # __callee__ / __method__ (identical without aliases)
       def who

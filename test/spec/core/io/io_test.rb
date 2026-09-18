@@ -1178,7 +1178,7 @@ describe "IO programs" do
     OUT
   end
 
-  it "io buffer experimental warning" do
+  it "IO::Buffer.new answers its size and prints no experimental warning" do
     result = ze0(<<~'RUBY')
       b = IO::Buffer.new(8)
       p b.size
@@ -1189,7 +1189,7 @@ describe "IO programs" do
     ERR
   end
 
-  it "io buffered read position" do
+  it "a buffered read leaves the descriptor where ruby consumed to, not where the read-ahead reached" do
     result = ze0(<<~'RUBY')
       # Line and character reads buffer ahead, so every operation that observes or
       # moves the file position has to see the descriptor where RUBY consumed to,
@@ -1305,7 +1305,7 @@ describe "IO programs" do
     OUT
   end
 
-  it "io copy stream poly union" do
+  it "copy_stream and rewind dispatch on the runtime class of a parameter that unions StringIO and File" do
     result = ze0(<<~'RUBY')
       # IO.copy_stream / #rewind through a param that unions StringIO and File
       # dispatch on the runtime stream class (#3257). Uses temp files it creates.
@@ -1333,7 +1333,7 @@ describe "IO programs" do
     _(result).must_answer "hello-sio hello-file\n"
   end
 
-  it "io mode errors precede the syscall" do
+  it "reading a write-only handle raises IOError before the syscall, not Errno::EBADF" do
     result = ze0(<<~'RUBY')
       # Reading a write-only IO (or writing a read-only one) is an IOError ("not
       # opened for reading"/"not opened for writing") -- ruby checks the mode
@@ -1354,7 +1354,7 @@ describe "IO programs" do
     _(result).must_answer "IOError: not opened for reading\nIOError: not opened for writing\n"
   end
 
-  it "io pipe" do
+  it "IO.pipe answers a reader and a writer, and the reader reads what the writer wrote" do
     result = ze0(<<~'RUBY')
       r, w = IO.pipe
       puts r.class
@@ -1371,7 +1371,7 @@ describe "IO programs" do
     OUT
   end
 
-  it "io popen" do
+  it "popen replaces the child's stdin, stdout or both, and the handle knows its pid and reaps it into $?" do
     result = ze0(<<~'RUBY')
       # IO.popen -- a subprocess with a pipe replacing its stdout ("r"), its stdin
       # ("w"), or both ("r+"), the handle knowing its child: #pid answers it and
@@ -1423,7 +1423,7 @@ describe "IO programs" do
     OUT
   end
 
-  it "io stdout tty chain" do
+  it "STDOUT answers tty?, chains <<, and reports its fileno" do
     result = ze0(<<~'RUBY')
       # IO#tty?/#isatty, IO#<< (chainable), and IO#fileno on STDOUT/STDERR. The 12-gem
       # "unsupported call: tty?/<</winsize on STDOUT/STDERR" cluster (#1605): STDOUT

@@ -1307,7 +1307,7 @@ describe "Numeric programs" do
     OUT
   end
 
-  it "numeric exactness" do
+  it "Integer#size, Float#rationalize and the Rational and Complex constructors all stay exact" do
     result = ze0(<<~'RUBY')
       # Numeric-tower exactness: Integer#size, Float#rationalize, Rational/Complex.
 
@@ -1370,7 +1370,7 @@ describe "Numeric programs" do
     OUT
   end
 
-  it "numeric ranges bignum hexfloat" do
+  it "a Symbol range succeeds by name, and Integer iteration and Float() hold their long tail" do
     result = ze0(<<~'RUBY')
       # Range, Integer iteration, and Float() long-tail behaviors.
 
@@ -1435,7 +1435,7 @@ describe "Numeric programs" do
     OUT
   end
 
-  it "numeric step accepts by and to keywords" do
+  it "step takes by: and to: as keywords, and the same bounds positionally" do
     result = ze0(<<~'RUBY')
       1.step(by: 2, to: 10) { |i| print i, " " }
       puts
@@ -1450,7 +1450,7 @@ describe "Numeric programs" do
     _(result).must_answer "1 3 5 7 9 \n1 3 5 7 9 \n1 2 3 4 5 \n10 7 4 1 \n"
   end
 
-  it "numeric step keywords" do
+  it "step mixes a positional limit and step with the by: and to: keywords" do
     result = ze0(<<~'RUBY')
       # Numeric#step accepts positional (limit, step) and/or keyword (by:, to:) forms.
       1.step(by: 2, to: 9) { |i| print i, " " }
@@ -1477,7 +1477,7 @@ describe "Numeric programs" do
     _(result).must_answer "1 3 5 7 9 \n1 3 5 7 9 \n1 2 3 4 5 \n10 7 4 1 \n1.0 1.5 2.0 \n0 5 10 \n"
   end
 
-  it "numeric subclass defaults" do
+  it "a subclass that writes only <=>, -, /, *, to_f, to_i, to_r and coerce inherits the rest of Numeric" do
     result = ze0(<<~'RUBY')
       # `Numeric`'s generic implementations -- the ones a user subclass inherits.
       # They know nothing but `<=>`, `-`, `/`, `*`, `to_f`, `to_i`, `to_r` and
@@ -1628,7 +1628,7 @@ describe "Numeric programs" do
     OUT
   end
 
-  it "numeric subclass is a plain comparable object" do
+  it "a Numeric subclass carries ivars, and Comparable drives < and min off its own <=>" do
     result = ze0(<<~'RUBY')
       # A `Numeric` subclass (D3) is an ordinary ivar-carrying object: it defines its
       # own `<=>`/state, and `Comparable` (inherited through `Numeric`) drives
@@ -1661,7 +1661,7 @@ describe "Numeric programs" do
     OUT
   end
 
-  it "numeric subclass limits" do
+  it "Numeric#i over a subclass raises ruby's ArgumentError, naming Comparable#< and the frames under it" do
     result = ze0(<<~'RUBY')
       # WAITING ON `builtin_frames_in_a_backtrace`. Complex now holds a user
       # `Numeric` subclass and dispatches every component operation, so this file

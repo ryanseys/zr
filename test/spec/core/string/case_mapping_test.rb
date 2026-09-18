@@ -127,7 +127,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string and hash leaf methods" do
+  it "gsub with a Hash, split(\"\"), a capture index, casecmp?, oct and slice! each answer" do
     result = ze0(<<~'RUBY')
       puts "hello world".gsub(/[aeiou]/, "a" => "1", "e" => "2", "o" => "3")
       p "hello".split("")
@@ -149,7 +149,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string array leaves" do
+  it "a Hash replacement maps every match, and a key that is missing gives the empty string" do
     result = ze0(<<~'RUBY')
       # A grab-bag of String / Hash leaf methods.
 
@@ -206,7 +206,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string breadth matches the oracle" do
+  it "the case, strip, split, chomp, index, sub, tr and % families all match the oracle" do
     result = ze0(<<~'RUBY')
       # The String Tier A surface: case/strip families, split shapes, chomp,
       # indexing forms, sub/gsub (String + block), tr/delete/squeeze/count,
@@ -318,7 +318,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string casecmp" do
+  it "casecmp answers -1, 0 or 1, and casecmp? answers true or false" do
     result = ze0(<<~'RUBY')
       # String#casecmp returns -1 / 0 / 1 for case-insensitive lex compare.
       # String#casecmp? returns true / false.
@@ -342,7 +342,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string embedded nul ops" do
+  it "an embedded NUL is a byte of the string, and no operation truncates at it" do
     result = ze0(<<~'RUBY')
       # An embedded NUL is a byte of the string: the representation has always
       # carried it (the header records the true byte length), but an operation that
@@ -478,7 +478,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string methods" do
+  it "upcase, reverse, +, *, capitalize and include? each answer" do
     result = ze0(<<~'RUBY')
       puts "abc".upcase
       puts "ABC".downcase
@@ -507,7 +507,7 @@ describe "String: case mapping" do
     OUT
   end
 
-  it "string param inference from body" do
+  it "a parameter with no concrete-typed caller takes its type from the calls in the body" do
     result = ze0(<<~'RUBY')
       # #450 cascade 2: a method like
       #
