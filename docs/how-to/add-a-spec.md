@@ -123,9 +123,17 @@ claim out. The sentence a reader wants is the claim: "Math.lgamma is
 exactly [Infinity, 1] at every non-positive integer pole", "find, detect
 and take_while over an endless range stop at their answer".
 
-Two examples in one file may not share a sentence — `spec:check` refuses
-it, because a failure report that names a sentence has to name one
-example.
+Two examples may not share a sentence, in one file or across two —
+`spec:check` refuses it, because a failure report that names a sentence,
+or a `-n` filter written from one, has to name one example. The single
+exception is a sentence a generator writes into one file per subject;
+`SpecStyle::GENERATED` lists it and says which generator.
+
+Two examples may not share a *program* either. When the same program
+answers a question in two areas, the area whose behaviour it is evidence
+for keeps it and the other drops it — `rake spec:check` does not catch
+this one, so read what the program demonstrates rather than which file
+it sits in.
 
 The `describe` names the subject and, in a file that is not the
 subject's own, the facet: `describe "Hash programs"` in
@@ -138,6 +146,11 @@ subject's own, the facet: `describe "Hash programs"` in
 ```console
 $ rake 'spec:check[test/spec/core/string]'   # line length, heredoc tags, trailing space
 ```
+
+Scoped to a path, it compares sentences only within that path. Run it
+bare over the whole suite before you push a batch of renames, or a
+sentence you wrote can collide with one in an area you were not looking
+at.
 
 A program is `<<~'RUBY'` and an answer is `<<~'OUT'`, both with the tag
 quoted — an unquoted tag makes `#{}` inside a Ruby program interpolate

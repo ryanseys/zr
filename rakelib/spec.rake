@@ -172,33 +172,72 @@ module SpecStyle
   # program defines a method through `eval`.
   TAGS = %w[RUBY PROGRAM OUT LINUX WASI].freeze
 
+  # Sentences a generator writes into more than one file on purpose, as
+  # they are spelled in the source. `rake gen:dispatch`
+  # (`rakelib/dispatch.rake`) writes this one into six files, one per
+  # class it probes; each file's `describe` names the class, so the six
+  # read alike and pin six different things. Spelling the class into the
+  # sentence would only repeat what the `describe` already said.
+  GENERATED = ["subclass sees only the calls ruby makes"].map(&:inspect).freeze
+
   module_function
+
+  # Each line of a spec file with what encloses it: the tag of the
+  # heredoc the DSL opened around it, or nil for the file's own code.
+  # One implementation, because every rule below needs to know the
+  # difference and two copies of it would drift.
+  def each_line(path)
+    inside = nil
+    File.readlines(path).each_with_index do |line, i|
+      yield line, i + 1, inside
+      if inside
+        # A `<<~` terminator may be indented, so the tag is what closes it.
+        inside = nil if line.match?(/\A\s*#{inside}\s*\z/)
+      else
+        inside = line[/(?:\bze0\(|\bmust_answer )<<[-~]'?([A-Z_]+)/, 1]
+      end
+    end
+  end
+
+  # The sentences one file's own examples are named by, as
+  # `{name => [line, ...]}`. An `it` written *inside* a program under
+  # test -- an rspec suite has them -- is not one of this file's.
+  def sentences(path)
+    found = Hash.new { |h, k| h[k] = [] }
+    each_line(path) do |line, n, inside|
+      next if inside
+      (name = line[/\A\s*it ("(?:[^"\\]|\\.)*") do\n?\z/, 1]) && found[name] << n
+    end
+    found
+  end
+
+  # A sentence two FILES both use. The rule below holds one file to
+  # naming its own examples apart; this holds the suite to naming them
+  # apart from each other, so a sentence in a failure report or in a
+  # `-n` filter names one example and not two.
+  def crossed(paths)
+    seen = {}
+    paths.flat_map do |path|
+      sentences(path).filter_map do |name, lines|
+        next if GENERATED.include?(name)
+
+        first = (seen[name] ||= path)
+        [path, lines.first, "#{name} is also #{SpecNet.rel(first)}"] unless first.equal?(path)
+      end
+    end
+  end
 
   # Every complaint about one file, as `[line, why]`.
   def faults(path)
     out = []
-    inside = nil
-    sentences = Hash.new { |h, k| h[k] = [] }
-    File.readlines(path).each_with_index do |line, i|
-      n = i + 1
+    each_line(path) do |line, n, inside|
       out << [n, "trailing whitespace"] if line.rstrip != line.chomp && !ANSWERS.include?(inside)
 
       # Inside a heredoc the DSL opened, the lines are the program under
       # test or the answer to it -- a row of a table is as long as the
       # row is, and reflowing it would change what the example asks.
       # Only the file's own code is held to a width.
-      if inside
-        inside = nil if line.match?(/\A\s*#{inside}\s*\z/)
-        next
-      end
-      inside = line[/(?:\bze0\(|\bmust_answer )<<[-~]'?([A-Z_]+)/, 1]
-
-      # Collected here rather than in a pass of its own so that an `it`
-      # written *inside* a program under test -- an rspec suite has
-      # them -- is not mistaken for one of this file's.
-      if (name = line[/\A\s*it ("(?:[^"\\]|\\.)*") do\n?\z/, 1])
-        sentences[name] << n
-      end
+      next if inside
 
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
       # Only a heredoc this file opens as an argument to the DSL. A
@@ -219,8 +258,8 @@ module SpecStyle
     # fails, and a failure report then names a sentence that matches two
     # examples. A campaign that rewrites thousands of descriptions walks
     # into this, which is why it is checked rather than trusted.
-    sentences.reject { |_, lines| lines.one? }
-             .each { |name, lines| lines.drop(1).each { |n| out << [n, "#{name} is also line #{lines.first}"] } }
+    sentences(path).reject { |_, lines| lines.one? }
+                   .each { |name, lines| lines.drop(1).each { |n| out << [n, "#{name} is also line #{lines.first}"] } }
     out
   end
 end
@@ -232,6 +271,9 @@ namespace :spec do
     argv = ["test/spec"] if argv.empty?
     files = argv.flat_map { |p| SpecNet.files(p) }
     faults = files.flat_map { |f| SpecStyle.faults(f).map { |n, why| "#{SpecNet.rel(f)}:#{n}: #{why}" } }
+    # Across the files this run was given, and only those: a run scoped
+    # to one directory cannot see a sentence outside it.
+    faults += SpecStyle.crossed(files).map { |f, n, why| "#{SpecNet.rel(f)}:#{n}: #{why}" }
     faults.each { |line| warn line }
     puts format("%d file(s) checked, %d fault(s)", files.size, faults.size)
     exit(faults.empty? ? 0 : 1)
