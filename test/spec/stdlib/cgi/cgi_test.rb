@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "CGI programs" do
-  it "cgi element escapes span one tag" do
+  it "escapeElement rewrites only the tags it was asked about, each span ending at the next delimiter" do
     result = ze0(<<~'RUBY')
       # `CGI.escapeElement` / `CGI.unescapeElement` rewrite only the tags they were
       # asked about, and each span ends at the next DELIMITER.
@@ -87,7 +87,7 @@ describe "CGI programs" do
     OUT
   end
 
-  it "cgi escape helpers match ruby" do
+  it "escape, escapeHTML and unescape answer what ruby answers" do
     result = ze0(<<~'RUBY')
       require "cgi/escape"
       puts CGI.escape("a b&c=d")
@@ -102,7 +102,7 @@ describe "CGI programs" do
     OUT
   end
 
-  it "cgi escapes are byte transformations" do
+  it "every escape rewrites bytes, so the answer keeps the encoding it was given" do
     result = ze0(<<~'RUBY')
       # Every CGI escape is a BYTE transformation: it rewrites ASCII punctuation
       # and passes every other byte through, so ruby hands back a string in the
@@ -181,7 +181,7 @@ describe "CGI programs" do
     OUT
   end
 
-  it "cgi escapes live on the modules that own them" do
+  it "escapeHTML is an instance method of CGI::EscapeExt, which CGI reaches by include and extend" do
     result = ze0(<<~'RUBY')
       # `CGI.escapeHTML` is not a class method of `CGI`. It is an instance method of
       # `CGI::EscapeExt`, reached because `CGI` both INCLUDES and EXTENDS

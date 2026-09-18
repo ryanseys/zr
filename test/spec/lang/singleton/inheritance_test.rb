@@ -1084,7 +1084,7 @@ describe "Singleton: inheritance and ancestors" do
     OUT
   end
 
-  it "singleton chain edit orders against a class body extend" do
+  it "whichever of a runtime singleton edit and a class-body extend runs first finds the empty scope" do
     result = ze0(<<~'RUBY')
       # Every order a class body can put a run-time singleton edit and a
       # compile-time `extend` in. The rule is CRuby's own: `rb_include_module`
@@ -1199,7 +1199,7 @@ describe "Singleton: inheritance and ancestors" do
     OUT
   end
 
-  it "singleton dsm local" do
+  it "define_singleton_method compiles on a local receiver, the same as on a constant one" do
     result = ze0(<<~'RUBY')
       # `obj.define_singleton_method(:m) { }` compiled on a CONSTANT receiver and
       # stopped the build on a LOCAL one -- the same object, the same synthesized
@@ -1258,7 +1258,7 @@ describe "Singleton: inheritance and ancestors" do
     OUT
   end
 
-  it "singleton extend timing" do
+  it "extend changes what the object answers without changing its class, and leaves a sibling alone" do
     result = ze0(<<~'RUBY')
       module Bracketed
         def render(text) = "[" + super + "]"
@@ -1417,7 +1417,7 @@ describe "Singleton: inheritance and ancestors" do
     OUT
   end
 
-  it "singleton mixin super and override" do
+  it "a per-object mixin copies the method table, so super and the module's position are what that costs" do
     result = ze0(<<~'RUBY')
       # Two limits of zeo's per-object singleton, both reachable through plain
       # `obj.extend(M)` and therefore PRE-EXISTING -- routing `class << obj; include

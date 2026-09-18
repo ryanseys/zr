@@ -376,7 +376,7 @@ describe "RubyVM programs" do
     OUT
   end
 
-  it "rubyvm ast" do
+  it "AbstractSyntaxTree answers the oracle's own dump for the constructs zeo maps" do
     result = ze0(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
@@ -589,7 +589,7 @@ describe "RubyVM programs" do
     OUT
   end
 
-  it "rubyvm ast node taxonomy" do
+  it "every prism kind zeo maps dumps in parse.y's taxonomy, shape for shape" do
     result = ze0(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
@@ -936,7 +936,7 @@ describe "RubyVM programs" do
     OUT
   end
 
-  it "rubyvm iseq label on a proc handle" do
+  it "a handle made from a proc answers its label and base_label" do
     result = ze0(<<~'RUBY')
       $stderr.reopen(IO::NULL)
 
@@ -963,7 +963,7 @@ describe "RubyVM programs" do
     OUT
   end
 
-  it "rubyvm iseq of answers for a ruby callable" do
+  it "InstructionSequence.of answers a handle for a Ruby callable and nil for a C one" do
     result = ze0(<<~'RUBY')
       # `RubyVM::InstructionSequence.of` answers a real handle for a callable
       # written in Ruby and `nil` for a C-defined one. It used to answer `nil` for

@@ -570,7 +570,7 @@ describe "Thread: raising and rescuing" do
     _(result).must_answer "1\n"
   end
 
-  it "thread ensure inside block" do
+  it "an ensure written in a thread's block runs, and the value still reaches join" do
     result = ze0(<<~'RUBY')
       t = [0].map do |w|
         Thread.new do
@@ -629,7 +629,7 @@ describe "Thread: raising and rescuing" do
     OUT
   end
 
-  it "thread raise main" do
+  it "Thread#raise aimed at the main thread delivers or stays pending, and never crashes" do
     result = ze0(<<~'RUBY')
       # Thread#raise aimed at the MAIN thread from a sibling: the main thread is
       # a first-class interrupt target (delivered at its next interruption
@@ -651,7 +651,7 @@ describe "Thread: raising and rescuing" do
     _(result).must_answer "ok\n"
   end
 
-  it "thread raise on current is synchronous" do
+  it "Thread#raise on the current thread raises where the call is, so the rescue around it catches" do
     result = ze0(<<~'RUBY')
       # `Thread#raise` on the CURRENT thread raises synchronously -- the rescue
       # around the call catches it. zeo defers it like a cross-thread interrupt,
@@ -669,7 +669,7 @@ describe "Thread: raising and rescuing" do
     _(result).must_answer "caught self-raise\nafter\n"
   end
 
-  it "thread report on exception" do
+  it "a thread that dies of an uncaught exception reports on stderr, apart from the re-raise at join" do
     result = ze0(<<~'RUBY')
       # A thread that dies of an uncaught exception says so on stderr as it
       # terminates, naming itself. That report and the re-raise at `#join` are
