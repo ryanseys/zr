@@ -540,6 +540,7 @@ machine def zr_require_run(path, fn, kind, framed)
     else
       if zr_hidden_p(path)
         zr_feature_reveal(path)
+        zr_autoload_provided(Machine.value(QNIL), path)
         return Machine.value(QTRUE)
       end
       real = zr_feature_real_path(path)
@@ -574,6 +575,14 @@ machine def zr_require_run(path, fn, kind, framed)
       zr_ary_delete_string(zr_real_features(), real)
     end
     return r
+  end
+  # The file is provided now, so an autoload waiting for it stops
+  # waiting -- `autoload?` answers nil and `const_defined?` answers
+  # false, as ruby's do once `rb_feature_provided` is true of the
+  # feature. A literal require reaches here and not `Kernel.load_file`,
+  # which is where a computed one says the name it asked by as well.
+  if kind != 2
+    zr_autoload_provided(Machine.value(QNIL), path)
   end
   Machine.value(QTRUE)
 end

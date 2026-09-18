@@ -566,7 +566,7 @@ end
 # Whether row `e` is a name an autoload declared and no file has
 # defined. An autoload still waiting for its file holds QUNDEF too, and
 # that one counts as defined, so the row table decides: a row that names
-# this entry means a file is still to come.
+# this entry and is still waiting means a file is still to come.
 sig [Ptr] => Bool
 machine def zr_const_declared_only(e)
   if CEntry.value(e) != QUNDEF
@@ -578,7 +578,7 @@ machine def zr_const_declared_only(e)
   end
   i = 0
   while i < RArray.len(rows)
-    if zr_const_row(zr_ary_at(rows, i), zr_sym2id(zr_ary_at(rows, i + 1))) == e
+    if zr_autoload_waiting(rows, i) && zr_const_row(zr_ary_at(rows, i), zr_sym2id(zr_ary_at(rows, i + 1))) == e
       return false
     end
     i += AUTOLOAD_ROW
@@ -799,7 +799,7 @@ machine def zr_class_define(scope, id, sup)
   if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
-  if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
+  if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_pending(scope, id) < 0
     e = 0
   end
   k = Machine.value(QUNDEF)
@@ -851,7 +851,7 @@ machine def zr_module_define(scope, id)
   if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
-  if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
+  if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_pending(scope, id) < 0
     e = 0
   end
   m = Machine.value(QUNDEF)
@@ -1175,10 +1175,12 @@ G_AUTOLOADS = 38
 AUTOLOAD_ROW = 6
 AUTOLOAD_REQUIRE = 4
 # A feature a require of would read no file, because the program holds
-# it already or a require read it before. ruby keeps no row for one --
-# `autoload?` answers nil -- and declares the name all the same, so the
-# constant stands undefined here and shadows one of the same name
-# further out.
+# it already or a require read it before. The row is kept, as ruby keeps
+# its own, and stops counting: `autoload?` answers nil and
+# `const_defined?` answers false. The name is declared all the same, so
+# the constant stands undefined here and shadows one of the same name
+# further out. A row is given this kind where it is registered, or where
+# `zr_autoload_provided` finds the require that provided its feature.
 AUTOLOAD_DECLARED = 5
 
 sig [Value, Word, Value, Ptr, Value, Word, Value] => Value
@@ -1186,12 +1188,15 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
     mod = zr_cref_klass(zr_cref_lexical(cref))
   end
-  # A name that already holds a value stands; a name still waiting for
-  # its file is declared again, and announces again.
-  pending = zr_autoload_row(mod, id)
-  if zr_const_row(mod, id) != 0 && pending < 0
+  # A name that already holds a value stands, as `autoload_synchronized`
+  # (variable.c:2913) answers false for one. A name that holds no value
+  # -- undefined, or waiting for a file, or waiting for one something
+  # else has since provided -- is declared again, and announces again.
+  row = zr_const_row(mod, id)
+  if row != 0 && CEntry.value(row) != QUNDEF
     return Machine.value(QNIL)
   end
+  pending = zr_autoload_row(mod, id)
   rows = zr_global(G_AUTOLOADS)
   if zr_special_p(rows)
     rows = zr_ary_new(AUTOLOAD_ROW)
@@ -1218,9 +1223,11 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if zr_const_write(mod, id, Machine.value(QUNDEF)) == 0
     return Machine.value(QUNDEF)
   end
-  if kind != AUTOLOAD_DECLARED
-    zr_autoload_push(rows, mod, id, feature, fn, kind, path)
-  end
+  # The row goes in whether or not a file is still to come. ruby keeps
+  # one for a feature already provided too -- it simply does not count
+  # it -- and the row is what a second `autoload` of the same name
+  # replaces, and what the read of the name asks for its feature.
+  zr_autoload_push(rows, mod, id, feature, fn, kind, path)
   r = zr_const_announce(mod, id)
   return r if r == QUNDEF
   Machine.value(QNIL)
@@ -1229,9 +1236,11 @@ end
 # `autoload(name, feature)` with a feature the program computed, already
 # a String; `name` is a Symbol or a String. `loaded` is true where a
 # require of the feature would read no file, which declares the name and
-# keeps no row.
-sig [Value, Value, Value, Value, Value] => Value
-machine def zr_autoload_computed(mod, name, feature, cref, loaded)
+# leaves its row not waiting. `file` is where a require of the feature
+# would read, or nil where nothing of that name stands: a later require
+# of that file stops the row waiting however it spells the feature.
+sig [Value, Value, Value, Value, Value, Value] => Value
+machine def zr_autoload_computed(mod, name, feature, cref, loaded, file)
   slot = Machine.slot(8)
   r = zr_name_id(name, slot)
   return r if r == QUNDEF
@@ -1248,7 +1257,8 @@ machine def zr_autoload_computed(mod, name, feature, cref, loaded)
   if RString.len(feature) == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
   end
-  zr_autoload(mod, id, feature, Machine.ptr(0), cref, loaded == QTRUE ? AUTOLOAD_DECLARED : AUTOLOAD_REQUIRE, feature)
+  zr_autoload(mod, id, feature, Machine.ptr(0), cref, loaded == QTRUE ? AUTOLOAD_DECLARED : AUTOLOAD_REQUIRE,
+              zr_special_p(file) ? feature : file)
 end
 
 sig [Value, Value, Word, Value, Ptr, Word, Value] => Void
@@ -1270,7 +1280,70 @@ machine def zr_autoload_require(feature)
   zr_send(zr_global(G_MAIN), Machine.id(:require), 1, slot)
 end
 
-# The autoload row index for `mod` and `id`, or -1.
+# Whether the row at `i` is still waiting for its file. A row whose
+# feature something has provided is not: `check_autoload_required`
+# (variable.c:3035) answers 0 for one, so `autoload?` answers nil and
+# `const_defined?` answers false, and ruby leaves the row standing all
+# the same. It is marked AUTOLOAD_DECLARED here, either where it was
+# registered or where the require that provided its feature came
+# through `zr_autoload_provided`.
+sig [Value, Word] => Bool
+machine def zr_autoload_waiting(rows, i)
+  zr_fix2long(zr_ary_at(rows, i + 4)) != AUTOLOAD_DECLARED
+end
+
+# The autoload row index for `mod` and `id` where a file is still to
+# come, or -1. This is the question every caller but three asks; the
+# three that want the row whatever it is -- a second `autoload`, a value
+# written over the name, and `remove_const` -- ask `zr_autoload_row`.
+sig [Value, Word] => Word
+machine def zr_autoload_pending(mod, id)
+  i = zr_autoload_row(mod, id)
+  if i < 0 || !zr_autoload_waiting(zr_global(G_AUTOLOADS), i)
+    return 0 - 1
+  end
+  i
+end
+
+# A require has read the file at `path`, which the program asked for by
+# the name `feature`. Every autoload row for either string stops
+# waiting.
+#
+# ruby asks `rb_feature_provided` of the row's feature each time it is
+# asked whether the row is pending. This is that question asked once,
+# where the answer is settled, which the kernel can do and the asking
+# cannot: resolving a feature to a file is `Kernel.feature_path`'s work
+# and reaches $LOAD_PATH. Both strings are compared because a row keeps
+# the feature as it was written beside the file it resolved to when it
+# was registered, and a $LOAD_PATH that grew between the two leaves
+# only the feature to match on.
+sig [Value, Value] => Value
+machine def zr_autoload_provided(feature, path)
+  rows = zr_global(G_AUTOLOADS)
+  if zr_special_p(rows)
+    return Machine.value(QNIL)
+  end
+  i = 0
+  while i < RArray.len(rows)
+    if zr_autoload_names(zr_ary_at(rows, i + 2), feature) || zr_autoload_names(zr_ary_at(rows, i + 5), path)
+      zr_ary_store(rows, i + 4, zr_fix(AUTOLOAD_DECLARED))
+    end
+    i += AUTOLOAD_ROW
+  end
+  Machine.value(QNIL)
+end
+
+# Whether the row's `kept` string is `asked`. A row registered before
+# its feature could be resolved keeps no path, and nothing is that.
+sig [Value, Value] => Bool
+machine def zr_autoload_names(kept, asked)
+  if zr_special_p(kept) || zr_special_p(asked) || zr_type(kept) != T_STRING || zr_type(asked) != T_STRING
+    return false
+  end
+  zr_bytes_eq(RString.ptr(kept), RString.len(kept), RString.ptr(asked), RString.len(asked))
+end
+
+# The autoload row index for `mod` and `id`, waiting or not, or -1.
 sig [Value, Word] => Word
 machine def zr_autoload_row(mod, id)
   rows = zr_global(G_AUTOLOADS)
@@ -1290,7 +1363,7 @@ end
 # `autoload?(name)`: the feature still to load, or nil.
 sig [Value, Word] => Value
 machine def zr_autoload_feature(mod, id)
-  i = zr_autoload_row(mod, id)
+  i = zr_autoload_pending(mod, id)
   if i < 0
     return Machine.value(QNIL)
   end
@@ -1345,7 +1418,12 @@ machine def zr_const_loaded(e, gone)
   while i < RArray.len(rows)
     mod = zr_ary_at(rows, i)
     id = zr_sym2id(zr_ary_at(rows, i + 1))
-    if zr_const_row(mod, id) == e
+    # A row no longer waiting reads no file: something provided its
+    # feature, so a require of it now would answer false and define
+    # nothing. It is passed over, and the name is left standing and
+    # undefined, which is what ruby leaves it -- `rb_autoload_load`
+    # declines and the read raises where it stands.
+    if zr_autoload_waiting(rows, i) && zr_const_row(mod, id) == e
       feature = zr_ary_at(rows, i + 2)
       fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
       kind = zr_fix2long(zr_ary_at(rows, i + 4))

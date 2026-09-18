@@ -139,12 +139,20 @@ module Kernel
     Primitive.attr! :hidden
     return true if preloaded?(feature)
 
-    path = begin
-      feature_path(feature)
-    rescue LoadError
-      nil
-    end
+    path = feature_file(feature)
     !path.nil? && $LOADED_FEATURES.include?(path)
+  end
+
+  # Where a require of `feature` would read, or nil where no file of
+  # that name stands on any road. An autoload keeps this beside the
+  # feature as it was written, so that a require of the same file is
+  # recognised whatever name it asks for the file by -- ruby settles
+  # that question afresh every time, and here it is settled once.
+  def self.feature_file(feature)
+    Primitive.attr! :hidden
+    feature_path(feature)
+  rescue LoadError
+    nil
   end
 
   # A require (kind 0), require_relative (1) or load (2) of the file at
@@ -154,6 +162,12 @@ module Kernel
   def self.load_file(path, feature, kind)
     Primitive.attr! :hidden
     missing(feature, kind) unless path
+    # An autoload of this feature stops waiting whichever way the file
+    # arrives here: through this require, or through an earlier one.
+    # ruby asks `rb_feature_provided` afresh each time it is asked
+    # whether a row is pending; this is the same question, answered once
+    # where both the name and the file it resolved to are in hand.
+    Primitive.zr_autoload_provided(feature, path) if kind != 2
     return false if kind != 2 && $LOADED_FEATURES.include?(path)
 
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)

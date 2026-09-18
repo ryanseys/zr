@@ -325,9 +325,13 @@ module Ze0
         d zr_mod_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_remove Void klass:Value id:Word
         d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word path:Value
-        d zr_autoload_computed Value mod:Value name:Value feature:Value cref:Value loaded:Value
+        d zr_autoload_computed Value mod:Value name:Value feature:Value cref:Value loaded:Value file:Value
         d zr_autoload_push Void rows:Value mod:Value id:Word feature:Value fn:Ptr kind:Word path:Value
         d zr_autoload_require Value feature:Value
+        d zr_autoload_waiting Bool rows:Value i:Word
+        d zr_autoload_pending Word mod:Value id:Word
+        d zr_autoload_provided Value feature:Value path:Value
+        d zr_autoload_names Bool kept:Value asked:Value
         d zr_autoload_row Word mod:Value id:Word
         d zr_autoload_feature Value mod:Value id:Word
         d zr_const_value Value e:Ptr
