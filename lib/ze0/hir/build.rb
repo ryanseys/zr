@@ -102,6 +102,7 @@ module Ze0
         preludes.concat(rubygems(loader)) if road && loader.gems?
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
+        preludes << irb_session(loader) if road && loader.irbs?
         preludes << ast_translator(loader) if road && loader.asts?
         # A program that evals numbers its `using` rows here, but a
         # build it makes while it runs cannot see how far they reach --
@@ -129,6 +130,7 @@ module Ze0
           rbconfig(loader)
           normalizer(loader)
           pretty_printer(loader)
+          irb_session(loader)
           ast_translator(loader)
         end
       end
@@ -159,6 +161,7 @@ module Ze0
       # The file that arms Kernel#pp's load of ruby's own pp.rb, as
       # CRuby's prelude requires it on the first call.
       PRETTY_PRINTER = File.join(EXT, "ze0/pretty_printer.rb")
+      IRB_SESSION = File.join(EXT, "ze0/irb_session.rb")
       SYNTAX_TREE = File.join(EXT, "ze0/syntax_tree.rb")
 
       # The file that loads RubyVM::AbstractSyntaxTree's translator,
@@ -170,6 +173,12 @@ module Ze0
 
       def self.pretty_printer(loader)
         Require.new(:eval_road, "ze0/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
+      end
+
+      # The file that arms Binding#irb's load of irb, as CRuby's prelude
+      # requires it on the first call.
+      def self.irb_session(loader)
+        Require.new(:eval_road, "ze0/irb_session", IRB_SESSION, loader.add(IRB_SESSION), 0)
       end
 
       # `rbconfig`, which ruby has loaded before a program's first line:
@@ -258,6 +267,7 @@ module Ze0
           @evals = false
           @normalizes = external&.normalizes? || false
           @pretty_prints = external&.pretty_prints? || false
+          @irbs = external&.irbs? || false
           @asts = false
           @configures = external&.configures? || false
           # A `using` row is a place in one table the whole program
@@ -470,6 +480,7 @@ module Ze0
 
         def normalizes? = @normalizes
         def pretty_prints? = @pretty_prints
+        def irbs? = @irbs
 
         def configures? = @configures
         def configures! = @configures = true
@@ -491,6 +502,8 @@ module Ze0
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
           # A program that names pp carries pp.rb, which the first call loads.
           @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp)
+          # And one that names irb carries irb, which `binding.irb` loads.
+          @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)
         end
 
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)

@@ -57,6 +57,46 @@ class Binding
   # brought, as it does Kernel#eval.
   def eval(source, file = nil, line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
 
+  IRB_SESSION = []
+  private_constant :IRB_SESSION
+
+  def self.irb_session=(load)
+    Primitive.attr! :hidden
+    IRB_SESSION[0] = load
+  end
+
+  # The load `irb` arms, taken once: irb's own Binding#irb answers every
+  # call after the first.
+  def self.irb_session
+    Primitive.attr! :hidden
+    IRB_SESSION.pop
+  end
+
+  # CRuby's prelude: the first `binding.irb` requires irb, whose own
+  # Binding#irb replaces this one, and then calls it. A program that
+  # names `irb` carries rt/ext/ze0/irb_session.rb ahead of its body, and
+  # that file arms the require, so irb joins $LOADED_FEATURES only on
+  # that first call.
+  #
+  # ruby suppresses the bundled-gem warning around its require, because
+  # irb is a bundled gem there and reline and rdoc come with it, and
+  # falls back on `Gem::BUNDLED_GEMS.force_activate`. Here irb is part
+  # of the library the program was compiled against: there is no warning
+  # to suppress and nothing to activate, and a program that did not
+  # carry irb raises the LoadError a ruby without it raises.
+  def irb(...)
+    Primitive.attr! :ruby
+    load = Binding.send(:irb_session) or raise LoadError, "cannot load such file -- irb"
+
+    load.call
+    # A send of the core library reaches the core's own row, so the call
+    # goes through the row irb.rb wrote.
+    Binding.instance_method(:irb).bind_call(self, ...)
+  end
+  # CRuby's prelude aliases irb to itself, so irb.rb's definition over
+  # it warns of no redefinition.
+  alias irb irb
+
   # A copy names the same scope, but a local it adds is its own, as
   # binding_copy gives it.
   def dup = super

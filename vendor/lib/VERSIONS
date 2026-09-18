@@ -13,6 +13,7 @@ fileutils 1.8.0
 find 0.2.0
 forwardable 1.4.0
 ipaddr 1.2.8
+irb 1.18.0
 net-http 0.9.1
 objspace ruby-4.0.6 (ext/objspace/lib)
 net-protocol 0.2.2
