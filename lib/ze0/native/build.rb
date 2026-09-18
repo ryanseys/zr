@@ -113,7 +113,10 @@ module Ze0
         return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless named
 
         path = File.join(Zr::CACHE, "prelink-#{Digest::SHA256.hexdigest(objects.map { |o| File.basename(o) }.join("\n"))}.bin")
-        kept = File.exist?(path) && Obj::MachO::Prelink.load(File.binread(path))
+        # Kept for the life of the process as well as on disk: reading
+        # and parsing the 25 MB image was 21% of a link, and a check tier
+        # links thousands of times. Nothing a link does writes to it.
+        kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Obj::MachO::Prelink.load(File.binread(path))
         return kept if kept
 
         Ze0.clock("objects prelinked") do

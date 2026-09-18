@@ -123,8 +123,38 @@ module Ze0
           Read.new(sections: sections, symbols: symbols || [], strings: strings || "\0".b)
         end
 
+        # A unit as `read` answers it, without writing an object at all.
+        #
+        # The linker's input is that shape, and it used to reach it by
+        # writing the whole object into a string and parsing the string
+        # straight back -- 18% of every link ze0 makes, between two
+        # pieces of ze0 that already agree. `read(write(unit))` and
+        # `of(unit)` must stay equal, and `macho_test.rb` holds them so.
+        def of(unit)
+          laid = laid_out(unit)
+          sections = laid.sections.map do |s|
+            Section.new(name: s[:name], segment: s[:seg], addr: s[:addr], size: s[:size], align: s[:align],
+                        flags: s[:flags], bytes: s[:flags] == S_ZEROFILL ? nil : s[:bytes],
+                        relocs: s[:relocs].join.unpack("L<*"))
+          end
+          symbols = laid.symbols.flat_map { |sym| nlist(sym).unpack("Q<2") }
+          Read.new(sections: sections, symbols: symbols, strings: laid.strtab)
+        end
+
+        # One symbol as `nlist_64` packs it.
+        def nlist(sym) = [sym[:strx], sym[:type], sym[:sect], 0, sym[:value]].pack("L<CCS<Q<")
+
         # The file's bytes.
-        def write(unit, minos: [14, 0, 0])
+        def write(unit, minos: [14, 0, 0]) = bytes(laid_out(unit), minos)
+
+        # Where everything lands before any of it is written: the
+        # sections and their bytes, the symbol table, the relocations and
+        # the string table. Both roads out of a unit -- an object's bytes
+        # and `of` -- start here.
+        Laid = Struct.new(:sections, :symbols, :strtab, :vmsize, :data_start, :data_end, :symoff, :stroff,
+                          :sizeofcmds, :segment_cmd, keyword_init: true)
+
+        def laid_out(unit)
           items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] }
           placed = []
           sections = SECTIONS.map do |name, seg, flags, kinds|
@@ -164,14 +194,9 @@ module Ze0
             s[:relocs] = s[:relocs].sort_by { |group| -group[0] }.flat_map { |group| group[1] }
           end
 
-          header_size = 32
           segment_cmd = 72 + (80 * sections.size)
-          build_version_cmd = 24
-          symtab_cmd = 24
-          dysymtab_cmd = 80
-          ncmds = 4
-          sizeofcmds = segment_cmd + build_version_cmd + symtab_cmd + dysymtab_cmd
-          offset = align_up(header_size + sizeofcmds, 16)
+          sizeofcmds = segment_cmd + 24 + 24 + 80
+          offset = align_up(32 + sizeofcmds, 16)
           data_start = offset
           sections.each do |s|
             next if s[:flags] == S_ZEROFILL
@@ -194,19 +219,33 @@ module Ze0
             sym[:strx] = strtab.bytesize
             strtab << sym[:name].b << "\0".b
           end
-          strsize = strtab.bytesize
+          Laid.new(sections: sections, symbols: symbols, strtab: strtab, vmsize: vmsize, data_start: data_start,
+                   data_end: data_end, symoff: symoff, stroff: stroff, sizeofcmds: sizeofcmds,
+                   segment_cmd: segment_cmd)
+        end
 
+        # A laid-out unit as a Mach-O object file.
+        def bytes(laid, minos)
+          sections = laid.sections
+          symbols = laid.symbols
+          vmsize = laid.vmsize
+          data_start = laid.data_start
+          sizeofcmds = laid.sizeofcmds
+          strsize = laid.strtab.bytesize
+          ncmds = 4
+          build_version_cmd = symtab_cmd = 24
+          dysymtab_cmd = 80
           out = +"".b
           out << [MH_MAGIC_64, CPU_TYPE_ARM64, 0, MH_OBJECT, ncmds, sizeofcmds, MH_SUBSECTIONS_VIA_SYMBOLS, 0].pack("L<8")
-          out << [LC_SEGMENT_64, segment_cmd].pack("L<2") << ("\0" * 16).b
-          out << [0, vmsize, data_start, data_end - data_start, 7, 7, sections.size, 0].pack("Q<4L<4")
+          out << [LC_SEGMENT_64, laid.segment_cmd].pack("L<2") << ("\0" * 16).b
+          out << [0, vmsize, data_start, laid.data_end - data_start, 7, 7, sections.size, 0].pack("Q<4L<4")
           sections.each do |s|
             out << pad16(s[:name]) << pad16(s[:seg])
             out << [s[:addr], s[:size], s[:flags] == S_ZEROFILL ? 0 : s[:offset], s[:align],
                     s[:reloff], s[:relocs].size, s[:flags], 0, 0, 0].pack("Q<2L<8")
           end
           out << [LC_BUILD_VERSION, build_version_cmd, PLATFORM_MACOS, version(minos), version(minos), 0].pack("L<6")
-          out << [LC_SYMTAB, symtab_cmd, symoff, symbols.size, stroff, strsize].pack("L<6")
+          out << [LC_SYMTAB, symtab_cmd, laid.symoff, symbols.size, laid.stroff, strsize].pack("L<6")
           groups = %i[local export import].map { |l| symbols.count { |sym| sym[:linkage] == l } }
           out << [LC_DYSYMTAB, dysymtab_cmd, 0, groups[0], groups[0], groups[1], groups[0] + groups[1], groups[2]].pack("L<8")
           out << ([0] * 12).pack("L<12")
@@ -219,10 +258,8 @@ module Ze0
           end
           out << ("\0" * (align_up(out.bytesize, 8) - out.bytesize)).b
           sections.each { |s| s[:relocs].each { |r| out << r } }
-          symbols.each do |sym|
-            out << [sym[:strx], sym[:type], sym[:sect], 0, sym[:value]].pack("L<CCS<Q<")
-          end
-          out << strtab
+          symbols.each { |sym| out << nlist(sym) }
+          out << laid.strtab
           out
         end
 

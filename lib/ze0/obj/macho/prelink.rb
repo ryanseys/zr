@@ -154,9 +154,15 @@ module Ze0
         def empty? = @parts.empty?
 
         # The address of the global `name` ("_zr_send"), or nil.
-        def global(name)
-          n = @names.bsearch_index { |candidate| candidate >= name }
-          n && @names[n] == name ? @addresses[n] : nil
+        #
+        # Asked once for every external a program names, and the runtime
+        # holds a quarter of a million symbols, so a search through the
+        # sorted names was 12% of a link. The names do not change once an
+        # image is loaded, so the table is built the first time and kept.
+        def global(name) = addressed[name]
+
+        def addressed
+          @addressed ||= @names.each_with_index.to_h { |n, i| [n, @addresses[i]] }
         end
 
         def data_end = @data_vm + @data_vmsize

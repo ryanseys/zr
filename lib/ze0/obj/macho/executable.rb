@@ -124,7 +124,7 @@ module Ze0
           @stack = stack
           @entry = entry
           outside = prelink.empty? ? nil : ->(name) { prelink.global(name) }
-          @top = Block.new([ObjectFile.write(unit)], outside: outside)
+          @top = Block.new([ObjectFile.of(unit)], outside: outside)
         end
 
         def write

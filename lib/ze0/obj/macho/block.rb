@@ -49,10 +49,12 @@ module Ze0
 
         attr_reader :externals, :fixups
 
-        # `objects` are object files' bytes. `outside` answers the address
+        # `objects` are object files' bytes, or what `ObjectFile.read`
+        # answers for them -- which `ObjectFile.of` builds from a unit
+        # without writing an object at all. `outside` answers the address
         # of a name no input defines, or nil.
         def initialize(objects, outside: nil)
-          @inputs = objects.map { |bytes| ObjectFile.read(bytes) }
+          @inputs = objects.map { |o| o.is_a?(String) ? ObjectFile.read(o) : o }
           @outside = outside
           @at = {}
           @fixups = []

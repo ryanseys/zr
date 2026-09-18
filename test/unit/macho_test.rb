@@ -48,4 +48,19 @@ class MachOTest < Minitest::Test
       assert_equal 3, $?.exitstatus
     end
   end
+
+  # The two roads from a unit to the shape a link reads. `of` builds it,
+  # and `read(write(...))` gets there by writing a whole object file into
+  # a string and parsing the string straight back. The linker took the
+  # long road for every binary ze0 ever made -- 18% of a link -- and it
+  # may take the short one only while the two agree exactly.
+  def test_of_answers_what_an_object_written_and_read_back_answers
+    long = Obj::MachO::ObjectFile.read(Obj::MachO::ObjectFile.write(unit))
+    short = Obj::MachO::ObjectFile.of(unit)
+
+    assert_equal long.symbols, short.symbols
+    assert_equal long.strings, short.strings
+    assert_equal long.sections.map(&:to_h), short.sections.map(&:to_h)
+    assert_equal (0...long.count).map { |i| long.name(i) }, (0...short.count).map { |i| short.name(i) }
+  end
 end
