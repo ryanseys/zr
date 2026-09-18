@@ -7600,7 +7600,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2868" do
+  it "Kernel#rand truncates a Float bound to an Integer draw" do
     result = ze0(<<~'RUBY')
       p rand(3.5).class
       p (0...3).include?(rand(3.5))
@@ -7612,7 +7612,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2876" do
+  it "sort_by over a Hash orders by a two-element key" do
     result = ze0(<<~'RUBY')
       counts = Hash.new(0)
       counts["the"] = 3
@@ -7627,7 +7627,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2888" do
+  it "a class held in a Hash value constructs and dispatches through the lookup" do
     result = ze0(<<~'RUBY')
       class Circle
         def initialize(r) = @r = r
@@ -7651,7 +7651,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2902" do
+  it "group_by keys the groups by the block's value" do
     result = ze0(<<~'RUBY')
       class Graph
         def key(x) = x % 3
@@ -7669,7 +7669,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2911" do
+  it "an Array is a Hash key by value, and [1] and [1.0] are two keys" do
     result = ze0(<<~'RUBY')
       counts = Hash.new(0)
       [0].product([0]).each { |k| counts[k] += 1 }
@@ -7695,7 +7695,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2913" do
+  it "an empty Range#sum with a block answers the block's zero, not an integer one" do
     result = ze0(<<~'RUBY')
       # An empty `Range#sum { block }` whose block value is poly (a product of
       # values read from nested poly containers) must accumulate via the block, not
@@ -7716,7 +7716,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 2933" do
+  it "sum with a block over objects rounds to the places asked for" do
     result = ze0(<<~'RUBY')
       # An object whose ivar comes from a destructured-pair block param, summed via a
       # block and rounded (Refs #2913 sum, #2926 round).
@@ -7732,7 +7732,7 @@ describe "Classes: regressions" do
     _(result).must_answer "15.7\n"
   end
 
-  it "issue 2952" do
+  it "attr defines the reader alone" do
     result = ze0(<<~'RUBY')
       class C001
         attr :x
@@ -7744,7 +7744,7 @@ describe "Classes: regressions" do
     _(result).must_answer "5\n"
   end
 
-  it "issue 2953" do
+  it "a class object is not frozen" do
     result = ze0(<<~'RUBY')
       class C001; end
       p(C001.frozen?)
@@ -7753,7 +7753,7 @@ describe "Classes: regressions" do
     _(result).must_answer "false\n"
   end
 
-  it "issue 2957" do
+  it "instance_exec passes its arguments to a BasicObject's block" do
     result = ze0(<<~'RUBY')
       class BO < BasicObject
         def initialize; @x = 0; end
@@ -7772,7 +7772,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3006" do
+  it "the Integer methods answer for a bignum argument" do
     result = ze0(<<~'RUBY')
       b = 2 ** 70
       p 5.pow(3, b).class
@@ -7799,7 +7799,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3017" do
+  it "Object#<=> answers 0 for itself and nil for another" do
     result = ze0(<<~'RUBY')
       o = Object.new
       p(o <=> o)
@@ -7826,7 +7826,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3018" do
+  it "=== falls through to ==, and a class may define its own" do
     result = ze0(<<~'RUBY')
       class Point
         def initialize(x); @x = x; end
@@ -7855,7 +7855,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3022" do
+  it "Interrupt descends from SignalException, not from StandardError" do
     result = ze0(<<~'RUBY')
       p Interrupt.new.class.superclass
       p Interrupt.new.class.ancestors
@@ -7871,7 +7871,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3023" do
+  it "ScriptError and SystemExit are Exceptions but not StandardErrors" do
     result = ze0(<<~'RUBY')
       e = LocalJumpError.new("no block given")
       p e.class
@@ -7900,7 +7900,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3042" do
+  it "NoMethodError carries the arguments the call was made with" do
     result = ze0(<<~'RUBY')
       e = NoMethodError.new("msg", :meth, [1, 2])
       p e.args
@@ -7921,7 +7921,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3058" do
+  it "Random#rand answers an Integer for a bignum bound" do
     result = ze0(<<~'RUBY')
       r = Random.new(5)
       p r.rand(2 ** 70).class
@@ -7938,7 +7938,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3062" do
+  it "select and reject with no block answer an Enumerator" do
     result = ze0(<<~'RUBY')
       x = (1..3).select
       p x.class
@@ -7961,7 +7961,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3064" do
+  it "a String range answers every Range method a numeric one does" do
     result = ze0(<<~'RUBY')
       a = ("a".."e")
       p a.class
@@ -8019,7 +8019,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3109" do
+  it "a method added to String reaches every string, however the string was built" do
     result = ze0(<<~'RUBY')
       class String
         def shout
@@ -8062,7 +8062,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3129" do
+  it "the Integer methods answer for a bignum receiver" do
     result = ze0(<<~'RUBY')
       b = 2 ** 80
       p b[3]
@@ -8085,7 +8085,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3153" do
+  it "reading a StringIO's string between writes does not disturb the buffer" do
     result = ze0(<<~'RUBY')
       require "stringio"
       5.times do
@@ -8100,7 +8100,7 @@ describe "Classes: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3157" do
+  it "a method that writes through an Array.new block's array is seen by the caller" do
     result = ze0(<<~'RUBY')
       def setit(arr, i)
         arr[i] = 99
@@ -8132,7 +8132,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3169" do
+  it "rjust, ljust and center take a width that is only known at run time" do
     result = ze0(<<~'RUBY')
       # rjust/ljust/center with a dynamically-typed width (Hash#keys.max -> poly)
       counts = Hash.new(0)
@@ -8159,7 +8159,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3174" do
+  it "a Set stored as a Hash value takes writes through the lookup" do
     result = ze0(<<~'RUBY')
       require 'set'
       h = { a: Set.new }
@@ -8180,7 +8180,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3190" do
+  it "a matrix product built from zip and sum with a block" do
     result = ze0(<<~'RUBY')
       a = [[1, 2, 3], [4, 5, 6]]
       b = [[7, 8], [9, 10], [11, 12]]
@@ -8196,7 +8196,7 @@ describe "Classes: regressions" do
     _(result).must_answer "[[58, 64], [139, 154]]\n"
   end
 
-  it "issue 3191" do
+  it "trailing keyword arguments arrive as a Hash where the method wants one" do
     result = ze0(<<~'RUBY')
       class V
         def run(data); "#{data[:age]}/#{data.size}"; end
@@ -8218,7 +8218,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3205" do
+  it "a method writes to a global Hash and the caller sees it" do
     result = ze0(<<~'RUBY')
       $wifis = Hash.new
       class Client
@@ -8233,7 +8233,7 @@ describe "Classes: regressions" do
     _(result).must_answer "{\"test\" => \"value\"}\n"
   end
 
-  it "issue 3231" do
+  it "a Method object stored in a container still calls and reports its arity" do
     result = ze0(<<~'RUBY')
       def square(x) = x * x
       arr = [method(:square)]
@@ -8263,7 +8263,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3236" do
+  it "Kernel#loop with no block answers an endless Enumerator of nil" do
     result = ze0(<<~'RUBY')
       # Blockless Kernel#loop returns an infinite Enumerator (yields nil).
       e = loop
@@ -8284,7 +8284,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3252" do
+  it "a cloned or duped Method calls the method it came from" do
     result = ze0(<<~'RUBY')
       def dbl(n) = n * 2
       p(method(:dbl).clone.call(5))
@@ -8309,7 +8309,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue 3273" do
+  it "a multiple assignment in initialize sets every ivar it names" do
     result = ze0(<<~'RUBY')
       class MyClass
         def initialize
