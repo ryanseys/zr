@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "answer"
+require_relative "unbundled"
 
 module Ze0
   module Harness
@@ -41,12 +42,13 @@ module Ze0
       # The answer and the seconds it took. The answer's code is :timeout
       # past `seconds` and :memory past `megabytes`.
       def run(argv, cwd:, seconds:, megabytes:, stdin: nil, env: {})
-        env = { "RUBYOPT" => nil, "RUBYLIB" => nil }.merge(env)
+        env = Unbundled.env(env)
         out_r, out_w = IO.pipe
         err_r, err_w = IO.pipe
         in_r, in_w = IO.pipe
         started = now
-        pid = Process.spawn(env, *argv, chdir: cwd, in: in_r, out: out_w, err: err_w, pgroup: true)
+        pid = Process.spawn(env, *argv, chdir: cwd, in: in_r, out: out_w, err: err_w, pgroup: true,
+                            unsetenv_others: true)
         [out_w, err_w, in_r].each(&:close)
         writer = Thread.new do
           in_w.binmode

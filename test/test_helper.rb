@@ -3,6 +3,7 @@
 require "minitest/autorun"
 require_relative "../lib/ze0/target"
 require_relative "support/fork_pool"
+require_relative "support/harness/unbundled"
 require "tmpdir"
 require "fileutils"
 
@@ -59,9 +60,12 @@ module Checks
   # `[stdout, why]` of `argv` under `env`, `why` naming the bound it
   # passed and nil when it stopped on its own. `$?` is the child's, as
   # `IO.popen` leaves it.
+  #
+  # The child runs outside this bundle; `Harness::Unbundled` says why.
   def bounded(env, argv, err:, chdir: Dir.pwd)
     why = nil
-    out = IO.popen(env, argv, err: err, chdir: chdir) do |io|
+    out = IO.popen(Ze0::Harness::Unbundled.env(env), argv, err: err, chdir: chdir,
+                   unsetenv_others: true) do |io|
       watchdog = Thread.new { why = watch(io.pid) }
       io.read.tap { watchdog.kill }
     end
