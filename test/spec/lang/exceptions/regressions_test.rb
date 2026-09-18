@@ -761,7 +761,7 @@ describe "Exceptions: regressions" do
     OUT
   end
 
-  it "Rational#round takes the rounding rule as half:" do
+  it "Rational#round takes a digit count and a half: rule together" do
     result = ze0(<<~'RUBY')
       r = (Rational(1,2).round(half: :up) rescue $!.class); p r
       r2 = (Rational(5,2).round(0, half: :up) rescue $!.class); p r2

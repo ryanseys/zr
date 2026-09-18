@@ -1590,7 +1590,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2863" do
+  it "between? compares a bignum receiver against bignum bounds" do
     result = ze0(<<~'RUBY')
       p((2 ** 150).between?(1, 2 ** 100))
       p((2 ** 150).between?(2 ** 100, 2 ** 200))
@@ -1604,7 +1604,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2893" do
+  it "between? compares a small Integer against bignum bounds" do
     result = ze0(<<~'RUBY')
       p 50.between?(1, 2 ** 100)
       p 50.between?(2 ** 100, 2 ** 200)
@@ -1620,7 +1620,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2918" do
+  it "the operator assignments keep a Rational local a Rational" do
     result = ze0(<<~'RUBY')
       # Rational operator-assignment (`r += x`, `-=`, `*=`, `/=`) on a Rational local.
       t = Rational(0, 1)
@@ -1642,7 +1642,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2926" do
+  it "round with a digit count dispatches on the value's runtime type" do
     result = ze0(<<~'RUBY')
       # `.round(ndigits)` on a poly value (a zip-sum divided by a Float): the
       # digit-taking round must dispatch on the runtime tag, not raise NoMethodError.
@@ -1664,7 +1664,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2934" do
+  it "numerator and denominator answer for a Rational read out of a container" do
     result = ze0(<<~'RUBY')
       # numerator/denominator on a Rational read out of a poly container: the
       # poly receiver must dispatch on the runtime tag, not return an opaque value.
@@ -1684,7 +1684,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2936" do
+  it "a sum block runs its leading statement before the value it answers with" do
     result = ze0(<<~'RUBY')
       # A sum block with a leading statement (a block-local) feeding a nested
       # Array#find: the leading statement must run, not be dropped.
@@ -1703,7 +1703,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2941" do
+  it "conjugate and conj negate the imaginary part of a Complex read out of a container" do
     result = ze0(<<~'RUBY')
       # conjugate/conj on a Complex read out of a poly container: dispatch on the
       # runtime tag (negate the imaginary part) instead of returning an opaque value.
@@ -1720,7 +1720,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2944" do
+  it "a nested write lands on the inner array when both subscripts came from destructuring" do
     result = ze0(<<~'RUBY')
       # A nested write g[r][c] = v where r/c are poly (from destructuring) must land
       # on the inner array, not be dropped -- sp_poly_set_poly lacked Str/Float array
@@ -1742,7 +1742,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2945" do
+  it "a sum block written with do...end runs its leading assignment" do
     result = ze0(<<~'RUBY')
       # Array#sum with a do...end block containing a leading local assignment: the
       # per-iteration leading statements must not emit a #line directive mid
@@ -1765,7 +1765,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 2962" do
+  it "a Complex raised to a Rational power" do
     result = ze0(<<~'RUBY')
       p(Complex(2, 3) ** Rational(2, 1))
       p(Complex(2, 3) ** Rational(1, 2))
@@ -1779,7 +1779,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3009" do
+  it "a Float compares against a bignum by value" do
     result = ze0(<<~'RUBY')
       p(3.0 <=> (10**30))
       p((10**30) <=> 3.0)
@@ -1797,7 +1797,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3010" do
+  it "Float#step with a NaN bound yields nothing, and an infinite start never ends" do
     result = ze0(<<~'RUBY')
       Float::NAN.step(2.0, 0.5) { |x| p x }; puts "a"
       1.0.step(Float::NAN, 0.5) { |x| p x }; puts "b"
@@ -1819,7 +1819,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3016" do
+  it "Math.lgamma is exactly [Infinity, 1] at every non-positive integer pole" do
     result = ze0(<<~'RUBY')
       # poles at non-positive integers are exactly [Infinity, 1]
       p Math.lgamma(-1.0)
@@ -1846,7 +1846,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3047" do
+  it "Rational#round takes the rounding rule as half:" do
     result = ze0(<<~'RUBY')
       p Rational(5, 2).round(half: :even)
       p Rational(5, 2).round(half: :up)
@@ -1870,7 +1870,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3057" do
+  it "Rational#rationalize answers the simplest fraction inside the tolerance" do
     result = ze0(<<~'RUBY')
       p Rational(1,3).rationalize(Rational(1,10))
       p Rational(5000,10001).rationalize(Rational(1,100))
@@ -1888,7 +1888,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3067" do
+  it "Range#bsearch over floats takes the find-minimum form and the find-any form" do
     result = ze0(<<~'RUBY')
       p((0.0..10.0).bsearch { |x| x * x - 4 >= 0 ? x * x - 4 : nil })
       p((0.0..10.0).bsearch { |x| 4 - x*x })
@@ -1908,7 +1908,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3105" do
+  it "Signal.signame truncates a Float signal number" do
     result = ze0(<<~'RUBY')
       p Signal.signame(2.9)
       p Signal.signame(2)
@@ -1922,7 +1922,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3111" do
+  it "a **kwargs parameter collects every keyword, whatever the values are" do
     result = ze0(<<~'RUBY')
       def f(**k); p k; end
       f(value: ["x"])
@@ -1941,7 +1941,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3116" do
+  it "Math.lgamma answers sign -1 at negative zero and 1 at positive zero" do
     result = ze0(<<~'RUBY')
       p Math.lgamma(-0.0)
       p Math.lgamma(0.0)
@@ -1957,7 +1957,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3137" do
+  it "pop and first answer through a method that took the array as a parameter" do
     result = ze0(<<~'RUBY')
       def fn(opts) = opts.pop
       def fn2(*opts) = fn(opts)
@@ -1976,7 +1976,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3156" do
+  it "Integer#[] takes a bit index, a range of bits and a start and length on a bignum" do
     result = ze0(<<~'RUBY')
       p((2 ** 100)[10..20])
       p((2 ** 100)[100])
@@ -1998,7 +1998,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3159" do
+  it "sum over a row answers in the row's own type" do
     result = ze0(<<~'RUBY')
       mat = [[Rational(1, 2), Rational(1, 3)]]
       p mat[0].sum
@@ -2015,7 +2015,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3176" do
+  it "a wrapper that splats both *args and **kwargs passes them on unchanged" do
     result = ze0(<<~'RUBY')
       def build(name, **extra)
         "#{name}/#{extra.size}"
@@ -2035,7 +2035,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3224" do
+  it "Float#rationalize answers the simplest fraction inside the tolerance" do
     result = ze0(<<~'RUBY')
       p 0.333333.rationalize(Rational(1, 1000))
       p 0.5.rationalize(Rational(1, 100))
@@ -2051,7 +2051,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3232" do
+  it "between? and clamp take a Rational bound against an Integer receiver" do
     result = ze0(<<~'RUBY')
       p(2.between?(1, Rational(5, 2)))
       p(5.clamp(1, Rational(9, 2)))
@@ -2069,7 +2069,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3233" do
+  it "Rational#clamp and #between? answer in the bound's type" do
     result = ze0(<<~'RUBY')
       p(Rational(5, 2).clamp(1, 2))
       p(Rational(5, 2).clamp(1.0, 2.0))
@@ -2087,7 +2087,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3299 integer base poly" do
+  it "Kernel#Integer takes a base, and refuses anything that is not a string" do
     result = ze0(<<~'RUBY')
       class Item
         attr_reader :kind
@@ -2130,7 +2130,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3305 int enum with index" do
+  it "the Integer enumerators chain through with_index and with_object" do
     result = ze0(<<~'RUBY')
       p 4.times.with_index(1).to_a
       p 3.upto(5).with_index(1).to_a
@@ -2156,7 +2156,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "issue 3315 int enum with index block" do
+  it "with_index and each_with_index answer the receiver when given a block" do
     result = ze0(<<~'RUBY')
       p(4.times.with_index(1) { |x, i| x })
       acc = []
