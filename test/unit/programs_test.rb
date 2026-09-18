@@ -23,6 +23,13 @@ require_relative "../support/harness/answer"
 # the fork pool is for: each program runs in a worker, and a worker
 # that has grown is closed and forked again.
 class ProgramsTest < Minitest::Test
+  # Longer than the pool allows an example by default. Building a
+  # program for wasm is slow rather than stuck -- `sets` takes 44 s on
+  # its own, most of it in the backend's block ladder -- and the tier
+  # runs eight of these at once, each forking six more processes, so one
+  # of them passed three minutes and was reported as a hang it was not.
+  def self.deadline = 600
+
   # These allocate too much for a collection at every allocation.
   NO_STRESS = %w[heap_growth].freeze
 

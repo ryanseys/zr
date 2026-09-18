@@ -62,6 +62,17 @@ module Ze0
       # which is what a debugger session wants.
       DEADLINE = Integer(ENV.fetch("ZE0_TEST_TIMEOUT", 180))
 
+      # What one example of `klass` may take. A suite that answers
+      # `deadline` asks for its own bound, which is for work that is
+      # slow rather than stuck -- a wasm build spends minutes in the
+      # backend. `ZE0_TEST_TIMEOUT` overrules every suite, so one run can
+      # still hold the whole tier to one number.
+      def self.deadline_for(klass)
+        return DEADLINE unless ENV["ZE0_TEST_TIMEOUT"].nil? && klass.respond_to?(:deadline)
+
+        klass.deadline
+      end
+
       # What a worker may reside in before it is retired, in megabytes.
       # The pilot measured a process at 426 MB over 388 compiles and at
       # 696 MB over the heaviest area, so this retires the heavy ones
@@ -232,10 +243,11 @@ module Ze0
         end
 
         # The result of running `klass#name` here, or nil if this worker
-        # did not live to answer, or took longer than `DEADLINE` over it.
+        # did not live to answer, or took longer over it than the suite
+        # is allowed.
         def ask(klass, name)
           Marshal.dump([Minitest::Runnable.runnables.index(klass), name], @jobs)
-          return nil unless answered?
+          return nil unless answered?(ForkPool.deadline_for(klass))
 
           result, @resident = Marshal.load(@back)
           result
@@ -243,15 +255,15 @@ module Ze0
           nil
         end
 
-        # Whether the worker has begun to write an answer inside the
-        # deadline. Waiting on the pipe catches a worker stuck anywhere at
-        # all -- in the compiler's Ruby, in a C call, or on a machine that
-        # has started to swap -- where a timeout inside the worker would
-        # only catch the first of the three.
-        def answered?
-          return true if DEADLINE.zero? || @back.wait_readable(DEADLINE)
+        # Whether the worker has begun to write an answer inside
+        # `seconds`. Waiting on the pipe catches a worker stuck anywhere
+        # at all -- in the compiler's Ruby, in a C call, or on a machine
+        # that has started to swap -- where a timeout inside the worker
+        # would only catch the first of the three.
+        def answered?(seconds)
+          return true if seconds.zero? || @back.wait_readable(seconds)
 
-          @overdue = self.class.resident_of(@pid)
+          @overdue = [seconds, self.class.resident_of(@pid)]
           false
         end
 
@@ -265,7 +277,8 @@ module Ze0
             stop!
             _, @status = Process.wait2(@pid)
             if @overdue
-              "the worker ran past #{DEADLINE}s on this example, holding #{@overdue} MB " \
+              seconds, resident = @overdue
+              "the worker ran past #{seconds}s on this example, holding #{resident} MB " \
                 "(ZE0_TEST_TIMEOUT changes the bound)"
             elsif @status.nil?
               "the worker went without a status"

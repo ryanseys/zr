@@ -44,6 +44,16 @@ class ForkPoolTest < Minitest::Test
     assert_equal 180, Ze0::Test::ForkPool::DEADLINE
   end
 
+  # A suite whose work is slow rather than stuck asks for its own bound.
+  class Patient < Minitest::Test
+    def self.deadline = 600
+  end
+
+  def test_a_suite_may_ask_for_a_bound_of_its_own
+    assert_equal 600, Ze0::Test::ForkPool.deadline_for(Patient)
+    assert_equal Ze0::Test::ForkPool::DEADLINE, Ze0::Test::ForkPool.deadline_for(ForkPoolTest)
+  end
+
   # A worker that has to be killed takes with it whatever it started. A
   # ze0 build forks six more processes, and one orphaned by a killed
   # worker held its pipe open, and a hundred megabytes, for eight minutes
