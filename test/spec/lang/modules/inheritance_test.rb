@@ -1052,7 +1052,7 @@ describe "Modules: inheritance and ancestors" do
     OUT
   end
 
-  it "toplevel include module function" do
+  it "a top-level include brings a module's methods to main" do
     result = ze0(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
@@ -1076,6 +1076,35 @@ describe "Modules: inheritance and ancestors" do
       puts hello("world")
       puts bye
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hello, world!
+      bye
+    OUT
+  end
+
+  it "a nested module's methods arrive under the name their namespace gives them" do
+    result = ze0(<<~'RUBY')
+      # Top-level `include <Mod>` mixes the module's module_function
+      # methods into the main scope so bare `<m>` calls dispatch to
+      # them. CRuby installs them on Object; Spinel registers parallel
+      # bare-name entries in @meth_* pointing at the same body_id.
+
+      module Greeter
+        module_function
+
+        def hello(name)
+          "hello, " + name + "!"
+        end
+
+        def bye
+          "bye"
+        end
+      end
+
+      include Greeter
+
       # ---
       # `include Outer::Inner` (ConstantPathNode arg) at top level.
 
@@ -1092,6 +1121,34 @@ describe "Modules: inheritance and ancestors" do
       include Outer::Inner
 
       puts greet
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hi-from-Outer-Inner
+    OUT
+  end
+
+  it "two included modules resolve a shared name to the later one, and keep each one's own" do
+    result = ze0(<<~'RUBY')
+      # Top-level `include <Mod>` mixes the module's module_function
+      # methods into the main scope so bare `<m>` calls dispatch to
+      # them. CRuby installs them on Object; Spinel registers parallel
+      # bare-name entries in @meth_* pointing at the same body_id.
+
+      module Greeter
+        module_function
+
+        def hello(name)
+          "hello, " + name + "!"
+        end
+
+        def bye
+          "bye"
+        end
+      end
+
+      include Greeter
 
       # ---
       # Multi-include with overlap: a later include shadows the earlier
@@ -1130,6 +1187,36 @@ describe "Modules: inheritance and ancestors" do
       puts only_in_first    # still resolvable via First
       puts only_in_second   # newly available via Second
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      shared-from-Second
+      only-First
+      only-Second
+    OUT
+  end
+
+  it "a user-defined method wins over an included module's of the same name" do
+    result = ze0(<<~'RUBY')
+      # Top-level `include <Mod>` mixes the module's module_function
+      # methods into the main scope so bare `<m>` calls dispatch to
+      # them. CRuby installs them on Object; Spinel registers parallel
+      # bare-name entries in @meth_* pointing at the same body_id.
+
+      module Greeter
+        module_function
+
+        def hello(name)
+          "hello, " + name + "!"
+        end
+
+        def bye
+          "bye"
+        end
+      end
+
+      include Greeter
+
       # ---
       # A user-defined top-level `def` is not shadowed by a later
       # `include` of a module with the same method name. CRuby's
@@ -1158,12 +1245,6 @@ describe "Modules: inheritance and ancestors" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      hello, world!
-      bye
-      hi-from-Outer-Inner
-      shared-from-Second
-      only-First
-      only-Second
       user-defined
       tail-only
     OUT
