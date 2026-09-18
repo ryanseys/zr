@@ -5,53 +5,50 @@ require "spec_helper"
 describe "Hash: regressions" do
   it "empty hash promote" do
     result = ze0(<<~'RUBY')
-      def t_empty_hash_promote
-        # Empty hash literal whose first []= write pins a different key/value
-        # type pair than the str_int_hash default. Pre-fix: declaration ran
-        # before any []= so `h = {}; h[1] = "one"` got declared as
-        # sp_StrIntHash and the int-keyed []= failed to compile.
+      # Empty hash literal whose first []= write pins a different key/value
+      # type pair than the str_int_hash default. Pre-fix: declaration ran
+      # before any []= so `h = {}; h[1] = "one"` got declared as
+      # sp_StrIntHash and the int-keyed []= failed to compile.
 
-        # Empty -> string keys, int values (matches str_int_hash default; works pre-fix)
-        h1 = {}
-        h1["k"] = 1
-        h1["m"] = 2
-        puts h1["k"]
-        puts h1["m"]
-        puts h1.length
+      # Empty -> string keys, int values (matches str_int_hash default; works pre-fix)
+      h1 = {}
+      h1["k"] = 1
+      h1["m"] = 2
+      puts h1["k"]
+      puts h1["m"]
+      puts h1.length
 
-        # Empty -> string keys, string values
-        h2 = {}
-        h2["x"] = "alpha"
-        h2["y"] = "beta"
-        puts h2["x"]
-        puts h2["y"]
-        puts h2.length
+      # Empty -> string keys, string values
+      h2 = {}
+      h2["x"] = "alpha"
+      h2["y"] = "beta"
+      puts h2["x"]
+      puts h2["y"]
+      puts h2.length
 
-        # Empty -> int keys, string values
-        h3 = {}
-        h3[1] = "one"
-        h3[2] = "two"
-        puts h3[1]
-        puts h3[2]
-        puts h3.length
+      # Empty -> int keys, string values
+      h3 = {}
+      h3[1] = "one"
+      h3[2] = "two"
+      puts h3[1]
+      puts h3[2]
+      puts h3.length
 
-        # Empty -> sym keys, int values
-        h4 = {}
-        h4[:a] = 10
-        h4[:b] = 20
-        puts h4[:a]
-        puts h4[:b]
-        puts h4.length
+      # Empty -> sym keys, int values
+      h4 = {}
+      h4[:a] = 10
+      h4[:b] = 20
+      puts h4[:a]
+      puts h4[:b]
+      puts h4.length
 
-        # Empty -> sym keys, string values
-        h5 = {}
-        h5[:name] = "ada"
-        h5[:role] = "scientist"
-        puts h5[:name]
-        puts h5[:role]
-        puts h5.length
-      end
-      t_empty_hash_promote
+      # Empty -> sym keys, string values
+      h5 = {}
+      h5[:name] = "ada"
+      h5[:role] = "scientist"
+      puts h5[:name]
+      puts h5[:role]
+      puts h5.length
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -75,35 +72,32 @@ describe "Hash: regressions" do
 
   it "hash" do
     result = ze0(<<~'RUBY')
-      def t_hash
-        # Test Hash support
+      # Test Hash support
 
-        # Hash literal
-        h = {}
-        h["one"] = 1
-        h["two"] = 2
-        h["three"] = 3
-        puts h["two"]    # 2
-        puts h.length    # 3
+      # Hash literal
+      h = {}
+      h["one"] = 1
+      h["two"] = 2
+      h["three"] = 3
+      puts h["two"]    # 2
+      puts h.length    # 3
 
-        # Iteration
-        h.each do |k, v|
-          puts k
-        end
-
-        # keys
-        puts h.keys.length  # 3
-
-        # has_key?
-        if h.has_key?("two")
-          puts "found"
-        end
-
-        # delete
-        h.delete("two")
-        puts h.length  # 2
+      # Iteration
+      h.each do |k, v|
+        puts k
       end
-      t_hash
+
+      # keys
+      puts h.keys.length  # 3
+
+      # has_key?
+      if h.has_key?("two")
+        puts "found"
+      end
+
+      # delete
+      h.delete("two")
+      puts h.length  # 2
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -120,36 +114,33 @@ describe "Hash: regressions" do
 
   it "hash delete order" do
     result = ze0(<<~'RUBY')
-      def t_hash_delete_order
-        # Regression test: Hash#delete must compact the insertion-order array
-        # so that subsequent #keys / #values / each iteration skip the deleted
-        # entry. The Robin Hood backing array was being repaired correctly on
-        # delete but the parallel `order[]` array was not, so #keys returned the
-        # stale key and #values returned a zero / NULL slot for it.
+      # Regression test: Hash#delete must compact the insertion-order array
+      # so that subsequent #keys / #values / each iteration skip the deleted
+      # entry. The Robin Hood backing array was being repaired correctly on
+      # delete but the parallel `order[]` array was not, so #keys returned the
+      # stale key and #values returned a zero / NULL slot for it.
 
-        # String keys
-        sh = {"a" => 1, "b" => 2, "c" => 3}
-        sh.delete("b")
-        puts sh.keys.inspect          # ["a", "c"]
-        puts sh.values.inspect        # [1, 3]
-        puts sh.length                # 2
+      # String keys
+      sh = {"a" => 1, "b" => 2, "c" => 3}
+      sh.delete("b")
+      puts sh.keys.inspect          # ["a", "c"]
+      puts sh.values.inspect        # [1, 3]
+      puts sh.length                # 2
 
-        # Symbol keys (the path that exposed the bug via PR #246)
-        yh = {a: 1, b: 2, c: 3}
-        yh.delete(:b)
-        puts yh.keys.inspect          # [:a, :c]
-        puts yh.values.inspect        # [1, 3]
+      # Symbol keys (the path that exposed the bug via PR #246)
+      yh = {a: 1, b: 2, c: 3}
+      yh.delete(:b)
+      puts yh.keys.inspect          # [:a, :c]
+      puts yh.values.inspect        # [1, 3]
 
-        # Delete first / last entries (boundary cases for the shift loop)
-        fh = {a: 1, b: 2, c: 3}
-        fh.delete(:a)
-        puts fh.keys.inspect          # [:b, :c]
+      # Delete first / last entries (boundary cases for the shift loop)
+      fh = {a: 1, b: 2, c: 3}
+      fh.delete(:a)
+      puts fh.keys.inspect          # [:b, :c]
 
-        lh = {a: 1, b: 2, c: 3}
-        lh.delete(:c)
-        puts lh.keys.inspect          # [:a, :b]
-      end
-      t_hash_delete_order
+      lh = {a: 1, b: 2, c: 3}
+      lh.delete(:c)
+      puts lh.keys.inspect          # [:a, :b]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -165,58 +156,55 @@ describe "Hash: regressions" do
 
   it "hash keys each" do
     result = ze0(<<~'RUBY')
-      def t_hash_keys_each
-        # Test hash.keys.each fusion for all hash types
+      # Test hash.keys.each fusion for all hash types
 
-        # int_str_hash: integer keys
-        h1 = {3 => "Fizz", 5 => "Buzz", 7 => "Bazz"}
-        h1.keys.each do |ki|
-          puts ki
-        end
-        # => 3 5 7
-
-        # str_str_hash: string keys
-        h2 = {"a" => "apple", "b" => "banana", "c" => "cherry"}
-        h2.keys.each do |ks|
-          puts ks
-        end
-        # => a b c
-
-        # str_int_hash: string keys, integer values
-        h3 = {"x" => 10, "y" => 20, "z" => 30}
-        h3.keys.each do |ks2|
-          puts ks2
-        end
-        # => x y z
-
-        # body reads value via lookup
-        total = 0
-        {10 => "ten", 20 => "twenty", 30 => "thirty"}.keys.each do |n|
-          total = total + n
-        end
-        puts total
-        # => 60
-
-        # common pattern: conditional accumulation
-        map = {3 => "Fizz", 5 => "Buzz"}
-        output = ""
-        map.keys.each do |d|
-          if 15 % d == 0
-            output = output + map[d]
-          end
-        end
-        puts output
-        # => FizzBuzz
-
-        # no block param
-        count = 0
-        {"a" => 1, "b" => 2}.keys.each do
-          count = count + 1
-        end
-        puts count
-        # => 2
+      # int_str_hash: integer keys
+      h1 = {3 => "Fizz", 5 => "Buzz", 7 => "Bazz"}
+      h1.keys.each do |ki|
+        puts ki
       end
-      t_hash_keys_each
+      # => 3 5 7
+
+      # str_str_hash: string keys
+      h2 = {"a" => "apple", "b" => "banana", "c" => "cherry"}
+      h2.keys.each do |ks|
+        puts ks
+      end
+      # => a b c
+
+      # str_int_hash: string keys, integer values
+      h3 = {"x" => 10, "y" => 20, "z" => 30}
+      h3.keys.each do |ks2|
+        puts ks2
+      end
+      # => x y z
+
+      # body reads value via lookup
+      total = 0
+      {10 => "ten", 20 => "twenty", 30 => "thirty"}.keys.each do |n|
+        total = total + n
+      end
+      puts total
+      # => 60
+
+      # common pattern: conditional accumulation
+      map = {3 => "Fizz", 5 => "Buzz"}
+      output = ""
+      map.keys.each do |d|
+        if 15 % d == 0
+          output = output + map[d]
+        end
+      end
+      puts output
+      # => FizzBuzz
+
+      # no block param
+      count = 0
+      {"a" => 1, "b" => 2}.keys.each do
+        count = count + 1
+      end
+      puts count
+      # => 2
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -237,41 +225,38 @@ describe "Hash: regressions" do
 
   it "hash transform keys" do
     result = ze0(<<~'RUBY')
-      def t_hash_transform_keys
-        # Hash#transform_keys for str_int_hash. The block runs once per key,
-        # its return value becomes the new key. Mirrors transform_values'
-        # shape (which already shipped) but on the key axis.
+      # Hash#transform_keys for str_int_hash. The block runs once per key,
+      # its return value becomes the new key. Mirrors transform_values'
+      # shape (which already shipped) but on the key axis.
 
-        # Identity transform — keys unchanged
-        h1 = {"alpha" => 1, "beta" => 2}
-        puts h1.transform_keys { |k| k }["alpha"]
-        puts h1.transform_keys { |k| k }["beta"]
+      # Identity transform — keys unchanged
+      h1 = {"alpha" => 1, "beta" => 2}
+      puts h1.transform_keys { |k| k }["alpha"]
+      puts h1.transform_keys { |k| k }["beta"]
 
-        # Upcase keys
-        h2 = {"hello" => 10, "world" => 20}
-        upper = h2.transform_keys { |k| k.upcase }
-        puts upper["HELLO"]
-        puts upper["WORLD"]
-        puts upper.has_key?("hello")
-        puts upper.has_key?("HELLO")
+      # Upcase keys
+      h2 = {"hello" => 10, "world" => 20}
+      upper = h2.transform_keys { |k| k.upcase }
+      puts upper["HELLO"]
+      puts upper["WORLD"]
+      puts upper.has_key?("hello")
+      puts upper.has_key?("HELLO")
 
-        # Concat suffix
-        h3 = {"a" => 100, "b" => 200}
-        suff = h3.transform_keys { |k| k + "_x" }
-        puts suff["a_x"]
-        puts suff["b_x"]
+      # Concat suffix
+      h3 = {"a" => 100, "b" => 200}
+      suff = h3.transform_keys { |k| k + "_x" }
+      puts suff["a_x"]
+      puts suff["b_x"]
 
-        # Empty hash transform
-        empty = {}
-        empty["k"] = 1
-        empty.delete("k")
-        puts empty.transform_keys { |k| k.upcase }.length
+      # Empty hash transform
+      empty = {}
+      empty["k"] = 1
+      empty.delete("k")
+      puts empty.transform_keys { |k| k.upcase }.length
 
-        # Length preserved
-        big = {"one" => 1, "two" => 2, "three" => 3}
-        puts big.transform_keys { |k| k + "!" }.length
-      end
-      t_hash_transform_keys
+      # Length preserved
+      big = {"one" => 1, "two" => 2, "three" => 3}
+      puts big.transform_keys { |k| k + "!" }.length
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -290,61 +275,58 @@ describe "Hash: regressions" do
 
   it "hash transform values" do
     result = ze0(<<~'RUBY')
-      def t_hash_transform_values
-        # Hash#transform_values across hash variants. The block runs once
-        # per value, its return becomes the new value, keys and order
-        # preserved. str_int_hash already shipped; this covers int_str_hash
-        # and sym_int_hash.
+      # Hash#transform_values across hash variants. The block runs once
+      # per value, its return becomes the new value, keys and order
+      # preserved. str_int_hash already shipped; this covers int_str_hash
+      # and sym_int_hash.
 
-        # === sym_int_hash variant ===
-        # `{a: 1, b: 2}` parses as sym→int. transform_values keeps the
-        # key set and feeds each value through the block. p on the result
-        # uses the new sp_SymIntHash_inspect helper to print the hash in
-        # Ruby's `{a: V, b: V, ...}` form.
-        p({a: 1, b: 2}.transform_values { |v| v * 10 })
-        p({x: 5, y: 10, z: 15}.transform_values { |v| v + 100 })
-        puts({a: 1, b: 2, c: 3}.transform_values { |v| v * v }[:c])
-        puts({foo: 7}.transform_values { |v| v - 2 }[:foo])
+      # === sym_int_hash variant ===
+      # `{a: 1, b: 2}` parses as sym→int. transform_values keeps the
+      # key set and feeds each value through the block. p on the result
+      # uses the new sp_SymIntHash_inspect helper to print the hash in
+      # Ruby's `{a: V, b: V, ...}` form.
+      p({a: 1, b: 2}.transform_values { |v| v * 10 })
+      p({x: 5, y: 10, z: 15}.transform_values { |v| v + 100 })
+      puts({a: 1, b: 2, c: 3}.transform_values { |v| v * v }[:c])
+      puts({foo: 7}.transform_values { |v| v - 2 }[:foo])
 
-        # Non-destructive — original hash retains its values; result is a
-        # fresh hash. transform_values must not mutate the receiver.
-        hh = {a: 1, b: 2}
-        hh2 = hh.transform_values { |v| v * 100 }
-        p hh         # {a: 1, b: 2}
-        p hh2        # {a: 100, b: 200}
+      # Non-destructive — original hash retains its values; result is a
+      # fresh hash. transform_values must not mutate the receiver.
+      hh = {a: 1, b: 2}
+      hh2 = hh.transform_values { |v| v * 100 }
+      p hh         # {a: 1, b: 2}
+      p hh2        # {a: 100, b: 200}
 
-        # === int_str_hash variant ===
+      # === int_str_hash variant ===
 
-        # Identity transform — values unchanged
-        h1 = {1 => "alpha", 2 => "beta"}
-        puts h1.transform_values { |v| v }[1]
-        puts h1.transform_values { |v| v }[2]
+      # Identity transform — values unchanged
+      h1 = {1 => "alpha", 2 => "beta"}
+      puts h1.transform_values { |v| v }[1]
+      puts h1.transform_values { |v| v }[2]
 
-        # Upcase values
-        h2 = {1 => "hello", 2 => "world"}
-        upper = h2.transform_values { |v| v.upcase }
-        puts upper[1]
-        puts upper[2]
+      # Upcase values
+      h2 = {1 => "hello", 2 => "world"}
+      upper = h2.transform_values { |v| v.upcase }
+      puts upper[1]
+      puts upper[2]
 
-        # String concat
-        h3 = {1 => "a", 2 => "b", 3 => "c"}
-        suff = h3.transform_values { |v| v + "!" }
-        puts suff[1]
-        puts suff[2]
-        puts suff[3]
+      # String concat
+      h3 = {1 => "a", 2 => "b", 3 => "c"}
+      suff = h3.transform_values { |v| v + "!" }
+      puts suff[1]
+      puts suff[2]
+      puts suff[3]
 
-        # Length preserved across transform
-        big = {10 => "one", 20 => "two", 30 => "three"}
-        puts big.transform_values { |v| v + "?" }.length
+      # Length preserved across transform
+      big = {10 => "one", 20 => "two", 30 => "three"}
+      puts big.transform_values { |v| v + "?" }.length
 
-        # Empty block maps every value to nil (CRuby parity).
-        # For int_str_hash the value type is `const char *`; nil → NULL.
-        empty = {1 => "alpha", 2 => "beta"}.transform_values { }
-        puts empty[1].nil?
-        puts empty[2].nil?
-        puts empty.length
-      end
-      t_hash_transform_values
+      # Empty block maps every value to nil (CRuby parity).
+      # For int_str_hash the value type is `const char *`; nil → NULL.
+      empty = {1 => "alpha", 2 => "beta"}.transform_values { }
+      puts empty[1].nil?
+      puts empty[2].nil?
+      puts empty.length
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -370,63 +352,60 @@ describe "Hash: regressions" do
 
   it "int str hash" do
     result = ze0(<<~'RUBY')
-      def t_int_str_hash
-        # Test integer-keyed string-valued hash (sp_IntStrHash)
-        # Regression: previously segfaulted — codegen emitted sp_StrStrHash,
-        # causing sp_str_hash() to dereference integer keys as pointers.
+      # Test integer-keyed string-valued hash (sp_IntStrHash)
+      # Regression: previously segfaulted — codegen emitted sp_StrStrHash,
+      # causing sp_str_hash() to dereference integer keys as pointers.
 
-        # Literal creation and lookup
-        h = {3 => "Fizz", 5 => "Buzz", 7 => "Bazz"}
-        puts h[3]          # Fizz
-        puts h[5]          # Buzz
-        puts h[7]          # Bazz
-        puts h[1]          # (empty)
+      # Literal creation and lookup
+      h = {3 => "Fizz", 5 => "Buzz", 7 => "Bazz"}
+      puts h[3]          # Fizz
+      puts h[5]          # Buzz
+      puts h[7]          # Bazz
+      puts h[1]          # (empty)
 
-        # has_key?
-        puts h.has_key?(3)   # true
-        puts h.has_key?(4)   # false
+      # has_key?
+      puts h.has_key?(3)   # true
+      puts h.has_key?(4)   # false
 
-        # length
-        puts h.length        # 3
+      # length
+      puts h.length        # 3
 
-        # keys returns int array
-        puts h.keys.length   # 3
-        puts h.keys[0]       # 3
+      # keys returns int array
+      puts h.keys.length   # 3
+      puts h.keys[0]       # 3
 
-        # values
-        puts h.values[0]     # Fizz
+      # values
+      puts h.values[0]     # Fizz
 
-        # keys.each iteration
-        h.keys.each do |k|
-          puts k
-        end
-
-        # each iteration (key, value)
-        h.each do |k, v|
-          puts "#{k}:#{v}"
-        end
-
-        # []= assignment
-        h[15] = "FizzBuzz"
-        puts h[15]           # FizzBuzz
-        puts h.length        # 4
-
-        # fetch with default
-        puts h.fetch(3, "none")   # Fizz
-        puts h.fetch(99, "none")  # none
-
-        # FizzBuzz pattern — the original failing case
-        map = {3 => "Fizz", 5 => "Buzz"}
-        (1..15).each do |x|
-          out = ""
-          map.keys.each do |k|
-            out += map[k] if x % k == 0
-          end
-          out = x.to_s if out.empty?
-          puts out
-        end
+      # keys.each iteration
+      h.keys.each do |k|
+        puts k
       end
-      t_int_str_hash
+
+      # each iteration (key, value)
+      h.each do |k, v|
+        puts "#{k}:#{v}"
+      end
+
+      # []= assignment
+      h[15] = "FizzBuzz"
+      puts h[15]           # FizzBuzz
+      puts h.length        # 4
+
+      # fetch with default
+      puts h.fetch(3, "none")   # Fizz
+      puts h.fetch(99, "none")  # none
+
+      # FizzBuzz pattern — the original failing case
+      map = {3 => "Fizz", 5 => "Buzz"}
+      (1..15).each do |x|
+        out = ""
+        map.keys.each do |k|
+          out += map[k] if x % k == 0
+        end
+        out = x.to_s if out.empty?
+        puts out
+      end
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -470,41 +449,38 @@ describe "Hash: regressions" do
 
   it "hash dup str int str" do
     result = ze0(<<~'RUBY')
-      def t_hash_dup_str_int_str
-        # Hash#dup was missing from the str_str_hash and int_str_hash codegen
-        # dispatch tables -- the runtime helpers exist (sp_StrStrHash_dup,
-        # sp_IntStrHash_dup) but the codegen arms didn't dispatch to them, so
-        # `m = h.dup` lowered to `cannot resolve call to 'dup' on str_str_hash
-        # (emitting 0)` and subsequent `.length` / `[]=` / `.each` calls on
-        # the int-typed `0` segfaulted at runtime.
-        #
-        # Sibling Hash variants (sym_int / sym_str / sym_poly / str_int /
-        # str_poly) already had dup arms; this closes the coverage gap.
-        # Issue #592.
+      # Hash#dup was missing from the str_str_hash and int_str_hash codegen
+      # dispatch tables -- the runtime helpers exist (sp_StrStrHash_dup,
+      # sp_IntStrHash_dup) but the codegen arms didn't dispatch to them, so
+      # `m = h.dup` lowered to `cannot resolve call to 'dup' on str_str_hash
+      # (emitting 0)` and subsequent `.length` / `[]=` / `.each` calls on
+      # the int-typed `0` segfaulted at runtime.
+      #
+      # Sibling Hash variants (sym_int / sym_str / sym_poly / str_int /
+      # str_poly) already had dup arms; this closes the coverage gap.
+      # Issue #592.
 
-        # str_str_hash
-        h1 = {"a" => "1", "b" => "2"}
-        m1 = h1.dup
-        m1["c"] = "3"
-        puts h1.length          # 2
-        puts m1.length          # 3
-        puts m1["a"]            # 1
-        puts m1["c"]            # 3
+      # str_str_hash
+      h1 = {"a" => "1", "b" => "2"}
+      m1 = h1.dup
+      m1["c"] = "3"
+      puts h1.length          # 2
+      puts m1.length          # 3
+      puts m1["a"]            # 1
+      puts m1["c"]            # 3
 
-        # int_str_hash
-        h2 = {1 => "one", 2 => "two"}
-        m2 = h2.dup
-        m2[3] = "three"
-        puts h2.length          # 2
-        puts m2.length          # 3
-        puts m2[1]              # one
-        puts m2[3]              # three
+      # int_str_hash
+      h2 = {1 => "one", 2 => "two"}
+      m2 = h2.dup
+      m2[3] = "three"
+      puts h2.length          # 2
+      puts m2.length          # 3
+      puts m2[1]              # one
+      puts m2[3]              # three
 
-        # Verify the dup is independent (original unchanged).
-        puts h1.has_key?("c")   # false
-        puts h2.has_key?(3)     # false
-      end
-      t_hash_dup_str_int_str
+      # Verify the dup is independent (original unchanged).
+      puts h1.has_key?("c")   # false
+      puts h2.has_key?(3)     # false
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -523,30 +499,27 @@ describe "Hash: regressions" do
 
   it "hash each block param types" do
     result = ze0(<<~'RUBY')
-      def t_hash_each_block_param_types
-        # `h.each do |k, v|` previously had its block params typed via
-        # elem_type_of_array(recv_type), which only knows about typed
-        # arrays — for a hash receiver it fell back to "int" for both
-        # `k` and `v`. Code inside the block like `puts k + ": " + v.to_s`
-        # then had analyze cache (and codegen's infer_type fallback)
-        # return "int" for the chained `+`, lowering `puts` to
-        # `printf("%lld", (long long)(string_concat + int_to_s))` — both
-        # the cast and the raw `+` between pointers fail C compile.
-        #
-        # Fix: block_param_type_at now branches on is_hash_type for the
-        # `each` family and returns the hash's key part for pi==0 and the
-        # value part for pi==1, expanded to full names (str→string,
-        # sym→symbol). Codegen's infer_type CallNode cache-miss path also
-        # learned `+` on string recv returns string and `.to_s` returns
-        # string, covering nodes inside block bodies that walk_and_cache
-        # doesn't cache.
+      # `h.each do |k, v|` previously had its block params typed via
+      # elem_type_of_array(recv_type), which only knows about typed
+      # arrays — for a hash receiver it fell back to "int" for both
+      # `k` and `v`. Code inside the block like `puts k + ": " + v.to_s`
+      # then had analyze cache (and codegen's infer_type fallback)
+      # return "int" for the chained `+`, lowering `puts` to
+      # `printf("%lld", (long long)(string_concat + int_to_s))` — both
+      # the cast and the raw `+` between pointers fail C compile.
+      #
+      # Fix: block_param_type_at now branches on is_hash_type for the
+      # `each` family and returns the hash's key part for pi==0 and the
+      # value part for pi==1, expanded to full names (str→string,
+      # sym→symbol). Codegen's infer_type CallNode cache-miss path also
+      # learned `+` on string recv returns string and `.to_s` returns
+      # string, covering nodes inside block bodies that walk_and_cache
+      # doesn't cache.
 
-        h = { "a" => 1, "b" => 2 }
-        h.each do |k, v|
-          puts k + ": " + v.to_s
-        end
+      h = { "a" => 1, "b" => 2 }
+      h.each do |k, v|
+        puts k + ": " + v.to_s
       end
-      t_hash_each_block_param_types
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -557,35 +530,32 @@ describe "Hash: regressions" do
 
   it "hash merge cross variant" do
     result = ze0(<<~'RUBY')
-      def t_hash_merge_cross_variant
-        # Issue #661: Hash#merge across hash variants with different value
-        # types. Previously the codegen used the receiver's prefix
-        # unconditionally (sp_SymIntHash_merge(h1, h2) where h2 was
-        # sp_SymStrHash *), failing C compile.
-        #
-        # Fix: when recv and arg are both sym-keyed (or both str-keyed) but
-        # their value types differ, the analyzer pulls the call's return
-        # type up to sym_poly_hash / str_poly_hash, and codegen promotes
-        # both sides via the existing *_to_sym_poly / *_from_str_int_hash
-        # converters before dispatching sp_*PolyHash_merge.
+      # Issue #661: Hash#merge across hash variants with different value
+      # types. Previously the codegen used the receiver's prefix
+      # unconditionally (sp_SymIntHash_merge(h1, h2) where h2 was
+      # sp_SymStrHash *), failing C compile.
+      #
+      # Fix: when recv and arg are both sym-keyed (or both str-keyed) but
+      # their value types differ, the analyzer pulls the call's return
+      # type up to sym_poly_hash / str_poly_hash, and codegen promotes
+      # both sides via the existing *_to_sym_poly / *_from_str_int_hash
+      # converters before dispatching sp_*PolyHash_merge.
 
-        # Sym + Sym with mixed value types.
-        h1 = { a: 1, b: 2 }
-        h2 = { c: "x", d: "y" }
-        h3 = h1.merge(h2)
-        puts h3[:a].inspect
-        puts h3[:c].inspect
+      # Sym + Sym with mixed value types.
+      h1 = { a: 1, b: 2 }
+      h2 = { c: "x", d: "y" }
+      h3 = h1.merge(h2)
+      puts h3[:a].inspect
+      puts h3[:c].inspect
 
-        # Str + Str with mixed value types.
-        s1 = { "a" => 1, "b" => 2 }
-        s2 = { "c" => "x", "d" => "y" }
-        s3 = s1.merge(s2)
-        puts s3["a"].inspect
-        puts s3["c"].inspect
+      # Str + Str with mixed value types.
+      s1 = { "a" => 1, "b" => 2 }
+      s2 = { "c" => "x", "d" => "y" }
+      s3 = s1.merge(s2)
+      puts s3["a"].inspect
+      puts s3["c"].inspect
 
-        puts "ok"
-      end
-      t_hash_merge_cross_variant
+      puts "ok"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -599,88 +569,85 @@ describe "Hash: regressions" do
 
   it "hash new default value" do
     result = ze0(<<~'RUBY')
-      def t_hash_new_default_value
-        # `Hash.new(default_value)` per-instance default support.
-        #
-        # Each hash variant struct (StrIntHash / StrStrHash / IntStrHash /
-        # SymIntHash / SymStrHash / StrPolyHash / SymPolyHash / PolyPolyHash)
-        # gains a `default_v` field. `_new` initializes it to the variant's
-        # sentinel zero (so legacy `{}` literals unchanged); `_new_with_default`
-        # is a new constructor that sets the field. `_get` returns
-        # `default_v` on miss; `_dup` / `_merge` propagate (merge inherits
-        # the LEFT receiver's default per CRuby).
-        #
-        # Codegen routes `Hash.new(N)` through `_new_with_default` and
-        # adds `Hash#default` / `Hash#default=` accessor arms to each
-        # variant. The analyzer's `infer_call_type` arm picks the right
-        # variant from the default's type (string → str_str_hash, int
-        # / nil / bool → str_int_hash) and types `h.default` as the
-        # value-slot type so `puts h.default` dispatches correctly.
-        #
-        # Block form `Hash.new { |h, k| ... }` (proc default) remains
-        # deferred -- separate feature.
-        #
-        # Issue #600 puzzle 2.
+      # `Hash.new(default_value)` per-instance default support.
+      #
+      # Each hash variant struct (StrIntHash / StrStrHash / IntStrHash /
+      # SymIntHash / SymStrHash / StrPolyHash / SymPolyHash / PolyPolyHash)
+      # gains a `default_v` field. `_new` initializes it to the variant's
+      # sentinel zero (so legacy `{}` literals unchanged); `_new_with_default`
+      # is a new constructor that sets the field. `_get` returns
+      # `default_v` on miss; `_dup` / `_merge` propagate (merge inherits
+      # the LEFT receiver's default per CRuby).
+      #
+      # Codegen routes `Hash.new(N)` through `_new_with_default` and
+      # adds `Hash#default` / `Hash#default=` accessor arms to each
+      # variant. The analyzer's `infer_call_type` arm picks the right
+      # variant from the default's type (string → str_str_hash, int
+      # / nil / bool → str_int_hash) and types `h.default` as the
+      # value-slot type so `puts h.default` dispatches correctly.
+      #
+      # Block form `Hash.new { |h, k| ... }` (proc default) remains
+      # deferred -- separate feature.
+      #
+      # Issue #600 puzzle 2.
 
-        # Int default
-        h = Hash.new(5)
-        puts h[:a]              # 5
-        puts h["x"]             # 5
-        puts h.length           # 0
-        puts h.key?(:a)         # false
-        puts h.default          # 5
+      # Int default
+      h = Hash.new(5)
+      puts h[:a]              # 5
+      puts h["x"]             # 5
+      puts h.length           # 0
+      puts h.key?(:a)         # false
+      puts h.default          # 5
 
-        # Modify default; existing key unaffected
-        h.default = 99
-        puts h["missing"]       # 99
-        h["b"] = 10
-        puts h["b"]             # 10
-        puts h["c"]             # 99
+      # Modify default; existing key unaffected
+      h.default = 99
+      puts h["missing"]       # 99
+      h["b"] = 10
+      puts h["b"]             # 10
+      puts h["c"]             # 99
 
-        # String default
-        s = Hash.new("none")
-        puts s["x"]             # none
-        puts s.default          # none
+      # String default
+      s = Hash.new("none")
+      puts s["x"]             # none
+      puts s.default          # none
 
-        # dup propagates default
-        h2 = Hash.new(42)
-        h2["a"] = 1
-        d = h2.dup
-        puts d.default          # 42
-        puts d["never_set"]     # 42
-        puts d.length           # 1
-        puts d["a"]             # 1
+      # dup propagates default
+      h2 = Hash.new(42)
+      h2["a"] = 1
+      d = h2.dup
+      puts d.default          # 42
+      puts d["never_set"]     # 42
+      puts d.length           # 1
+      puts d["a"]             # 1
 
-        # merge inherits left default
-        m = h2.merge({"x" => 100})
-        puts m.default          # 42
-        puts m["not_there"]     # 42
+      # merge inherits left default
+      m = h2.merge({"x" => 100})
+      puts m.default          # 42
+      puts m["not_there"]     # 42
 
-        # Hash.new(0) -- pre-existing lrama_features shape, default ==
-        # sentinel, behaviour unchanged.
-        counter = Hash.new(0)
-        counter["x"] = counter["x"] + 1
-        puts counter["x"]       # 1
-        puts counter["z"]       # 0
+      # Hash.new(0) -- pre-existing lrama_features shape, default ==
+      # sentinel, behaviour unchanged.
+      counter = Hash.new(0)
+      counter["x"] = counter["x"] + 1
+      puts counter["x"]       # 1
+      puts counter["z"]       # 0
 
-        # Float default with int keys -- lands on the PolyPoly variant, which
-        # previously had no default_v / _new_with_default at all, so
-        # `Hash.new(0.0)` emitted `sp_PolyPolyHash_new_with_default(0.0)` and
-        # failed C compilation (int-to-pointer conversion).
-        f = Hash.new(0.0)
-        f[1] += 2.5
-        p f[1]                  # 2.5
-        p f[7]                  # 0.0 (default for a missing key)
-        p f.default             # 0.0
-        f.default = 1.5
-        p f[9]                  # 1.5
-        fd = f.dup
-        p fd[42]                # 1.5 (dup propagates default)
-        fm = f.merge({2 => 3.5})
-        p fm[2]                 # 3.5
-        p fm[99]                # 1.5 (merge inherits left default)
-      end
-      t_hash_new_default_value
+      # Float default with int keys -- lands on the PolyPoly variant, which
+      # previously had no default_v / _new_with_default at all, so
+      # `Hash.new(0.0)` emitted `sp_PolyPolyHash_new_with_default(0.0)` and
+      # failed C compilation (int-to-pointer conversion).
+      f = Hash.new(0.0)
+      f[1] += 2.5
+      p f[1]                  # 2.5
+      p f[7]                  # 0.0 (default for a missing key)
+      p f.default             # 0.0
+      f.default = 1.5
+      p f[9]                  # 1.5
+      fd = f.dup
+      p fd[42]                # 1.5 (dup propagates default)
+      fm = f.merge({2 => 3.5})
+      p fm[2]                 # 3.5
+      p fm[99]                # 1.5 (merge inherits left default)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -714,40 +681,37 @@ describe "Hash: regressions" do
 
   it "hash or fallback missing key" do
     result = ze0(<<~'RUBY')
-      def t_hash_or_fallback_missing_key
-        # Issue #660: `hash[k] || rhs` on a typed-hash receiver must return
-        # rhs when the key is missing -- not the value-type zero (0 / "").
-        #
-        # Background: typed hash variants (sp_StrIntHash, sp_StrStrHash, ...)
-        # materialize the value type's zero as the missing-key default. Combined
-        # with the `||` truthy-lhs ternary lowering, the rhs arm was unreachable:
-        # 0 / "" are truthy in Ruby, so the always-present zero short-circuited
-        # the fallback.
-        #
-        # Fix: compile_or detects `hash[k]` on a typed-hash recv and rewrites
-        # to `has_key(h, k) ? get(h, k) : rhs`. Poly-hash variants already
-        # return sp_box_nil on miss, so they keep the legacy truthy lowering.
+      # Issue #660: `hash[k] || rhs` on a typed-hash receiver must return
+      # rhs when the key is missing -- not the value-type zero (0 / "").
+      #
+      # Background: typed hash variants (sp_StrIntHash, sp_StrStrHash, ...)
+      # materialize the value type's zero as the missing-key default. Combined
+      # with the `||` truthy-lhs ternary lowering, the rhs arm was unreachable:
+      # 0 / "" are truthy in Ruby, so the always-present zero short-circuited
+      # the fallback.
+      #
+      # Fix: compile_or detects `hash[k]` on a typed-hash recv and rewrites
+      # to `has_key(h, k) ? get(h, k) : rhs`. Poly-hash variants already
+      # return sp_box_nil on miss, so they keep the legacy truthy lowering.
 
-        # Empty hash, no writes (inferred str_int_hash).
-        h1 = {}
-        puts (h1[:missing] || "fallback")
+      # Empty hash, no writes (inferred str_int_hash).
+      h1 = {}
+      puts (h1[:missing] || "fallback")
 
-        # String-valued hash via prior write.
-        h2 = {}
-        h2[:set_key] = "value"
-        puts (h2[:missing] || "fallback")
+      # String-valued hash via prior write.
+      h2 = {}
+      h2[:set_key] = "value"
+      puts (h2[:missing] || "fallback")
 
-        # Int-valued hash via prior write -- the missing-key 0 used to win.
-        h3 = {}
-        h3[:set] = 1
-        puts (h3[:missing] || -1)
+      # Int-valued hash via prior write -- the missing-key 0 used to win.
+      h3 = {}
+      h3[:set] = 1
+      puts (h3[:missing] || -1)
 
-        # Present key returns the value, not the fallback.
-        h4 = {}
-        h4[:found] = "got it"
-        puts (h4[:found] || "fallback")
-      end
-      t_hash_or_fallback_missing_key
+      # Present key returns the value, not the fallback.
+      h4 = {}
+      h4[:found] = "got it"
+      puts (h4[:found] || "fallback")
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -760,13 +724,10 @@ describe "Hash: regressions" do
 
   it "comparable clamp string" do
     result = ze0(<<~'RUBY')
-      def t_comparable_clamp_string
       # Issue #899: Comparable#clamp on a string receiver via strcmp.
       puts "b".clamp("a", "c")
       puts "z".clamp("a", "c")
       puts "a".clamp("b", "c")
-      end
-      t_comparable_clamp_string
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -778,14 +739,11 @@ describe "Hash: regressions" do
 
   it "file separator constants" do
     result = ze0(<<~'RUBY')
-      def t_file_separator_constants
       # Issue #891: File::SEPARATOR / PATH_SEPARATOR / ALT_SEPARATOR
       # resolved at compile time as string literals.
       puts File::SEPARATOR
       puts File::PATH_SEPARATOR
       puts "a" + File::SEPARATOR + "b"
-      end
-      t_file_separator_constants
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -797,7 +755,6 @@ describe "Hash: regressions" do
 
   it "hash fetch int int" do
     result = ze0(<<~'RUBY')
-      def t_hash_fetch_int_int
       # Hash#fetch on an int->int specialized hash: plain lookup and the 2-arg
       # default form (the int->int variant previously had #[] but not #fetch).
       h = { 1 => 10, 2 => 20 }
@@ -806,8 +763,6 @@ describe "Hash: regressions" do
       puts h.fetch(9, -1)
       puts h.fetch(0, 42)
       puts "done"
-      end
-      t_hash_fetch_int_int
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -821,7 +776,6 @@ describe "Hash: regressions" do
 
   it "i897" do
     result = ze0(<<~'RUBY')
-      def t_i897
       puts (1..Float::INFINITY).lazy.select { |x| x.odd? }.first(5).inspect
       puts (1..Float::INFINITY).lazy.select { |x| x % 3 == 0 }.first(4).inspect
       puts (1..Float::INFINITY).lazy.reject { |x| x.even? }.first(5).inspect
@@ -829,8 +783,6 @@ describe "Hash: regressions" do
       puts (10..Float::INFINITY).lazy.select { |x| x.even? }.first(3).inspect
       puts (1..100).lazy.select { |x| x % 7 == 0 }.first(3).inspect
       puts (1..Float::INFINITY).lazy.select { |x| x > 5 }.first
-      end
-      t_i897
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -846,7 +798,6 @@ describe "Hash: regressions" do
 
   it "i957" do
     result = ze0(<<~'RUBY')
-      def t_i957
       h = {a: 1, b: 2}
       p = h.to_proc
       puts p.call(:a)
@@ -855,8 +806,6 @@ describe "Hash: regressions" do
       g = {"x" => 10, "y" => 20}.to_proc
       puts g.call("x")
       puts g.call("y")
-      end
-      t_i957
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -869,7 +818,6 @@ describe "Hash: regressions" do
 
   it "i976" do
     result = ze0(<<~'RUBY')
-      def t_i976
       p = Proc.new { |a, b| puts "a=#{a.inspect} b=#{b.inspect}" }
       p.call(1)
       p.call(1, 2)
@@ -878,8 +826,6 @@ describe "Hash: regressions" do
       q.call(10)
       q.call(10, 20)
       q.call(10, 20, 30)
-      end
-      t_i976
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -893,14 +839,11 @@ describe "Hash: regressions" do
 
   it "i981" do
     result = ze0(<<~'RUBY')
-      def t_i981
       puts ("a".."c").to_a.inspect
       puts ("A".."D").to_a.inspect
       puts ("aa".."ac").to_a.inspect
       puts ("az".."bb").to_a.inspect
       puts (1..3).to_a.inspect
-      end
-      t_i981
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -914,14 +857,11 @@ describe "Hash: regressions" do
 
   it "kernel rand no arg float" do
     result = ze0(<<~'RUBY')
-      def t_kernel_rand_no_arg_float
       # Kernel#rand without args returns Float in [0.0, 1.0).
       puts rand.class
       puts rand(100).class
       v = rand
       puts v >= 0.0 && v < 1.0
-      end
-      t_kernel_rand_no_arg_float
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -933,7 +873,6 @@ describe "Hash: regressions" do
 
   it "kernel string coercion" do
     result = ze0(<<~'RUBY')
-      def t_kernel_string_coercion
       # Issue #879: Kernel#String() coercion routes through .to_s for
       # each primitive type. nil -> "". Pre-fix: silently emitted 0.
       puts String(42)
@@ -942,8 +881,6 @@ describe "Hash: regressions" do
       puts String("hi")
       puts String(:sym)
       puts String(3.14)
-      end
-      t_kernel_string_coercion
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -958,15 +895,12 @@ describe "Hash: regressions" do
 
   it "nil coercion" do
     result = ze0(<<~'RUBY')
-      def t_nil_coercion
       # Issue #871: NilClass coercion methods. v1 covers to_i / to_f /
       # to_a. to_c, to_r, to_h deferred (Complex, Rational unsupported;
       # typed-Hash empty needs element-type judgement).
       puts nil.to_i
       puts nil.to_f
       puts nil.to_a.inspect
-      end
-      t_nil_coercion
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -978,13 +912,10 @@ describe "Hash: regressions" do
 
   it "nil to h" do
     result = ze0(<<~'RUBY')
-      def t_nil_to_h
       # NilClass#to_h returns an empty hash.
       p nil.to_h
       p nil.to_h.length
       p nil.to_h.empty?
-      end
-      t_nil_to_h
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -996,7 +927,6 @@ describe "Hash: regressions" do
 
   it "ruby version constants" do
     result = ze0(<<~'RUBY')
-      def t_ruby_version_constants
       # Issue #890: RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
       # string constants. Format-only check so the test stays stable
       # across platforms — the actual values are runtime-detected.
@@ -1004,8 +934,6 @@ describe "Hash: regressions" do
       puts RUBY_PLATFORM.is_a?(String)
       puts RUBY_ENGINE.is_a?(String)
       puts RUBY_PLATFORM.length > 0
-      end
-      t_ruby_version_constants
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1018,7 +946,6 @@ describe "Hash: regressions" do
 
   it "sym int hash key value" do
     result = ze0(<<~'RUBY')
-      def t_sym_int_hash_key_value
       # Hash#key(value) / #value? / #has_value? on sym_int_hash.
       # Missing-key #key returns the empty-sym sentinel since the typed
       # sym slot can't carry nil.
@@ -1027,8 +954,6 @@ describe "Hash: regressions" do
       puts h.has_value?(2)
       puts h.has_value?(99)
       puts h.value?(3)
-      end
-      t_sym_int_hash_key_value
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1041,13 +966,10 @@ describe "Hash: regressions" do
 
   it "symbol name" do
     result = ze0(<<~'RUBY')
-      def t_symbol_name
       # Symbol#name returns the symbol's name as a string (not a pointer
       # value cast as int).
       puts :hello.name
       puts :foo.name.length
-      end
-      t_symbol_name
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1058,7 +980,6 @@ describe "Hash: regressions" do
 
   it "time subtraction returns float" do
     result = ze0(<<~'RUBY')
-      def t_time_subtraction_returns_float
       # Issue #901: Time - Time returns Float (elapsed seconds). LV
       # slot inferred as sp_Time on pass 1, refined to float on pass 2
       # once the rhs LV was declared as time. merge_refined_local_type
@@ -1067,8 +988,6 @@ describe "Hash: regressions" do
       diff = Time.now - start
       puts diff >= 0
       puts diff.class
-      end
-      t_time_subtraction_returns_float
     RUBY
 
     _(result).must_answer <<~'OUT'

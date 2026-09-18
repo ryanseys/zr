@@ -5,19 +5,16 @@ require "spec_helper"
 describe "Enumerable: regressions" do
   it "dig nested poly array" do
     result = ze0(<<~'RUBY')
-      def t_dig_nested_poly_array
-        # Array#dig walks through nested poly_array elements with int keys.
-        # Pre-fix emit_dig_step's int-key branch only emitted an arm for
-        # SP_BUILTIN_INT_STR_HASH; every other receiver kind collapsed the
-        # accumulator to nil at the next step, so a nested poly_array
-        # dig surfaced nil instead of the leaf value. Issue #619 puzzle 6.
+      # Array#dig walks through nested poly_array elements with int keys.
+      # Pre-fix emit_dig_step's int-key branch only emitted an arm for
+      # SP_BUILTIN_INT_STR_HASH; every other receiver kind collapsed the
+      # accumulator to nil at the next step, so a nested poly_array
+      # dig surfaced nil instead of the leaf value. Issue #619 puzzle 6.
 
-        p [[1, [2, "3"]]].dig(0, 1, 1) == "3"   # true (string leaf)
-        p [[1, [2, "3"]]].dig(0, 0) == 1        # true (int leaf via box_int)
-        p [[1, [2, "3"]]].dig(0, 1, 0) == 2     # true
-        p [[1, [2, "3"]]].dig(0, 1, 5).nil?     # true (OOB at the last step)
-      end
-      t_dig_nested_poly_array
+      p [[1, [2, "3"]]].dig(0, 1, 1) == "3"   # true (string leaf)
+      p [[1, [2, "3"]]].dig(0, 0) == 1        # true (int leaf via box_int)
+      p [[1, [2, "3"]]].dig(0, 1, 0) == 2     # true
+      p [[1, [2, "3"]]].dig(0, 1, 5).nil?     # true (OOB at the last step)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -30,35 +27,32 @@ describe "Enumerable: regressions" do
 
   it "each cons map chain fusion" do
     result = ze0(<<~'RUBY')
-      def t_each_cons_map_chain_fusion
-        # Phase A of Enumerator-chain strategy (#566): `arr.each_cons(n)`
-        # called without a block returns an Enumerator in CRuby. When the
-        # very next call is a terminal like `.map { |pair| ... }`, the
-        # Enumerator is consumed immediately and the chain has the same
-        # observable result as eagerly materialising each window. Spinel
-        # fuses the source + terminal into a single C loop, so no
-        # Enumerator object is allocated and no intermediate
-        # array-of-arrays is built (one window allocation per iteration,
-        # bounded by .map's accumulator).
-        #
-        # The terminal block may take the window as a single param
-        # (`|pair|`, typed as the receiver's array shape) or destructure
-        # it (`|(a, b)|`, binds individual locals -- the per-iteration
-        # window allocation is skipped on this path).
+      # Phase A of Enumerator-chain strategy (#566): `arr.each_cons(n)`
+      # called without a block returns an Enumerator in CRuby. When the
+      # very next call is a terminal like `.map { |pair| ... }`, the
+      # Enumerator is consumed immediately and the chain has the same
+      # observable result as eagerly materialising each window. Spinel
+      # fuses the source + terminal into a single C loop, so no
+      # Enumerator object is allocated and no intermediate
+      # array-of-arrays is built (one window allocation per iteration,
+      # bounded by .map's accumulator).
+      #
+      # The terminal block may take the window as a single param
+      # (`|pair|`, typed as the receiver's array shape) or destructure
+      # it (`|(a, b)|`, binds individual locals -- the per-iteration
+      # window allocation is skipped on this path).
 
-        # T1: plain |pair| form, scalar block result
-        p [1, 2, 3, 4].each_cons(2).map { |pair| pair[0] + pair[1] }
+      # T1: plain |pair| form, scalar block result
+      p [1, 2, 3, 4].each_cons(2).map { |pair| pair[0] + pair[1] }
 
-        # T2: destructure |(a, b)|, scalar block result
-        p [10, 20, 30, 40].each_cons(2).map { |(a, b)| b - a }
+      # T2: destructure |(a, b)|, scalar block result
+      p [10, 20, 30, 40].each_cons(2).map { |(a, b)| b - a }
 
-        # T3: |pair| with array-returning block -> result is int_array_ptr_array
-        p [1, 2, 3].each_cons(2).map { |pair| [pair[0], pair[1]] }
+      # T3: |pair| with array-returning block -> result is int_array_ptr_array
+      p [1, 2, 3].each_cons(2).map { |pair| [pair[0], pair[1]] }
 
-        # T4: empty / short receiver (length < n) -> empty result
-        p [1].each_cons(2).map { |pair| pair[0] }
-      end
-      t_each_cons_map_chain_fusion
+      # T4: empty / short receiver (length < n) -> empty result
+      p [1].each_cons(2).map { |pair| pair[0] }
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -71,34 +65,31 @@ describe "Enumerable: regressions" do
 
   it "each cons with index map chain fusion" do
     result = ze0(<<~'RUBY')
-      def t_each_cons_with_index_map_chain_fusion
-        # Phase A.3 of Enumerator-chain strategy (#566): three-step
-        # `arr.each_cons(n).with_index(off).map { ... }` chain. CRuby
-        # returns an Enumerator from each_cons, then another from
-        # with_index, and consumes both at the terminal .map. Spinel
-        # fuses the whole chain into a single C loop with an idx counter
-        # initialised from `off` (default 0) and incremented after each
-        # pair, so no Enumerator object is allocated.
-        #
-        # Block param shapes:
-        #   |pair, i|       -- pair is the typed sub-array, i is the int idx
-        #   |(a, b), i|     -- nested destructure of pair into individual
-        #                      window slots (skips the per-iteration sub-
-        #                      array allocation), trailing i as int idx
+      # Phase A.3 of Enumerator-chain strategy (#566): three-step
+      # `arr.each_cons(n).with_index(off).map { ... }` chain. CRuby
+      # returns an Enumerator from each_cons, then another from
+      # with_index, and consumes both at the terminal .map. Spinel
+      # fuses the whole chain into a single C loop with an idx counter
+      # initialised from `off` (default 0) and incremented after each
+      # pair, so no Enumerator object is allocated.
+      #
+      # Block param shapes:
+      #   |pair, i|       -- pair is the typed sub-array, i is the int idx
+      #   |(a, b), i|     -- nested destructure of pair into individual
+      #                      window slots (skips the per-iteration sub-
+      #                      array allocation), trailing i as int idx
 
-        # T1: |pair, i| with explicit offset
-        p [10, 20, 30, 40].each_cons(2).with_index(1).map { |pair, i| pair[0] + pair[1] + i }
+      # T1: |pair, i| with explicit offset
+      p [10, 20, 30, 40].each_cons(2).with_index(1).map { |pair, i| pair[0] + pair[1] + i }
 
-        # T2: |(a, b), i| destructure, explicit offset
-        p [10, 20, 30, 40].each_cons(2).with_index(1).map { |(a, b), i| b - a + i }
+      # T2: |(a, b), i| destructure, explicit offset
+      p [10, 20, 30, 40].each_cons(2).with_index(1).map { |(a, b), i| b - a + i }
 
-        # T3: default offset (0)
-        p [1, 2, 3].each_cons(2).with_index.map { |pair, i| pair[1] - pair[0] + i }
+      # T3: default offset (0)
+      p [1, 2, 3].each_cons(2).with_index.map { |pair, i| pair[1] - pair[0] + i }
 
-        # T4: block returns array -> result is int_array_ptr_array
-        p [1, 2, 3, 4].each_cons(2).with_index(1).map { |(a, b), i| [b - a, i] }
-      end
-      t_each_cons_with_index_map_chain_fusion
+      # T4: block returns array -> result is int_array_ptr_array
+      p [1, 2, 3, 4].each_cons(2).with_index(1).map { |(a, b), i| [b - a, i] }
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -111,45 +102,42 @@ describe "Enumerable: regressions" do
 
   it "env fetch" do
     result = ze0(<<~'RUBY')
-      def t_env_fetch
-        # Regression: `ENV.fetch(key, default)` returns the env value when
-        # set, otherwise `default`. Pre-fix the codegen emitted "cannot
-        # resolve call to 'fetch' on int" and segfaulted at runtime.
+      # Regression: `ENV.fetch(key, default)` returns the env value when
+      # set, otherwise `default`. Pre-fix the codegen emitted "cannot
+      # resolve call to 'fetch' on int" and segfaulted at runtime.
 
-        # ---- unset / default branch ----
+      # ---- unset / default branch ----
 
-        # Literal default.
-        puts ENV.fetch("DEFINITELY_UNSET_VAR_XYZ_42", "fallback-value")
+      # Literal default.
+      puts ENV.fetch("DEFINITELY_UNSET_VAR_XYZ_42", "fallback-value")
 
-        # Default expression need not be a literal.
-        default = "computed-default"
-        puts ENV.fetch("ANOTHER_UNSET_VAR_XYZ_42", default)
+      # Default expression need not be a literal.
+      default = "computed-default"
+      puts ENV.fetch("ANOTHER_UNSET_VAR_XYZ_42", default)
 
-        # Default by string concatenation.
-        puts ENV.fetch("THIRD_UNSET_VAR_XYZ_42", "pre-" + "fix")
+      # Default by string concatenation.
+      puts ENV.fetch("THIRD_UNSET_VAR_XYZ_42", "pre-" + "fix")
 
-        # ---- set / retrieval branch ----
-        # Spinel doesn't currently expose `ENV[]=` from Ruby, so we can't
-        # set a var ourselves. HOME is always exported by POSIX `make` and
-        # in CI, so we use that as the "set" probe. We only assert "non-
-        # empty + not the fallback string" so the test stays portable
-        # across runners (the actual home value differs per machine).
-        # A regression that inverted the getenv-result ternary would
-        # return the fallback here and print "set=fallback-not-used".
-        home = ENV.fetch("HOME", "fallback-not-used")
-        if home.length > 0 && home != "fallback-not-used"
-          puts "set=ok"
-        else
-          puts "set=" + home
-        end
-
-        # Symmetric: an unset var with a literal default round-trips
-        # through the same ternary. (Would catch a regression that always
-        # returned the env value -- empty string -- regardless.)
-        maybe = ENV.fetch("DEFINITELY_UNSET_VAR_ABC_99", "fallback-used")
-        puts "unset=" + maybe
+      # ---- set / retrieval branch ----
+      # Spinel doesn't currently expose `ENV[]=` from Ruby, so we can't
+      # set a var ourselves. HOME is always exported by POSIX `make` and
+      # in CI, so we use that as the "set" probe. We only assert "non-
+      # empty + not the fallback string" so the test stays portable
+      # across runners (the actual home value differs per machine).
+      # A regression that inverted the getenv-result ternary would
+      # return the fallback here and print "set=fallback-not-used".
+      home = ENV.fetch("HOME", "fallback-not-used")
+      if home.length > 0 && home != "fallback-not-used"
+        puts "set=ok"
+      else
+        puts "set=" + home
       end
-      t_env_fetch
+
+      # Symmetric: an unset var with a literal default round-trips
+      # through the same ternary. (Would catch a regression that always
+      # returned the env value -- empty string -- regardless.)
+      maybe = ENV.fetch("DEFINITELY_UNSET_VAR_ABC_99", "fallback-used")
+      puts "unset=" + maybe
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -163,27 +151,24 @@ describe "Enumerable: regressions" do
 
   it "equality should be true" do
     result = ze0(<<~'RUBY')
-      def t_equality_should_be_true
-        # #555 (gurgeous/Adam Doppelt). A corpus of `should be true`
-        # expressions that compiled to false in spinel pre-fix.
-        # Each line is an independent equality predicate; CRuby
-        # returns true for all twelve, and after the followup
-        # commits spinel matches on all 12.
+      # #555 (gurgeous/Adam Doppelt). A corpus of `should be true`
+      # expressions that compiled to false in spinel pre-fix.
+      # Each line is an independent equality predicate; CRuby
+      # returns true for all twelve, and after the followup
+      # commits spinel matches on all 12.
 
-        p ({} == {})                                     # 01
-        p ({a: 1} == {a: 1})                             # 02
-        p ({:a= => 1} == {:"a=" => 1})                   # 03
-        p ({:a! => 1} == {:"a!" => 1})                   # 04
-        p ({:a? => 1} == {:"a?" => 1})                   # 05
-        a = [1] ; a.shift ; a << :foo ; p (a == [:foo])  # 06
-        p ([42, { foo: :bar }].dig(1, :foo) == :bar)     # 07
-        a2 = [1, 2, 3, 4, 5] ; p ((a2[2, 3] = 10) == 10) # 08
-        p ("hello".chars == ['h', 'e', 'l', 'l', 'o'])   # 09
-        p "abc\r\n".chomp(nil) == "abc\r\n"              # 10
-        p ((/(.)(.)(.)/ =~ "abc") == 0)                  # 11
-        p ((1..).send(:include?, 2.4) == true)           # 12
-      end
-      t_equality_should_be_true
+      p ({} == {})                                     # 01
+      p ({a: 1} == {a: 1})                             # 02
+      p ({:a= => 1} == {:"a=" => 1})                   # 03
+      p ({:a! => 1} == {:"a!" => 1})                   # 04
+      p ({:a? => 1} == {:"a?" => 1})                   # 05
+      a = [1] ; a.shift ; a << :foo ; p (a == [:foo])  # 06
+      p ([42, { foo: :bar }].dig(1, :foo) == :bar)     # 07
+      a2 = [1, 2, 3, 4, 5] ; p ((a2[2, 3] = 10) == 10) # 08
+      p ("hello".chars == ['h', 'e', 'l', 'l', 'o'])   # 09
+      p "abc\r\n".chomp(nil) == "abc\r\n"              # 10
+      p ((/(.)(.)(.)/ =~ "abc") == 0)                  # 11
+      p ((1..).send(:include?, 2.4) == true)           # 12
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -204,26 +189,23 @@ describe "Enumerable: regressions" do
 
   it "fiber storage assign expr" do
     result = ze0(<<~'RUBY')
-      def t_fiber_storage_assign_expr
-        # `(Fiber[:k] = v)` as an expression returns the assigned value,
-        # matching MRI's `(h[k]=v) => v` semantics. The codegen path is
-        # distinct from the statement form `Fiber[:k] = v` — that lands in
-        # compile_mutating_call_stmt, while the expression-context dispatch
-        # emits a gcc statement-expression so the RHS reaches the outer
-        # assignment.
+      # `(Fiber[:k] = v)` as an expression returns the assigned value,
+      # matching MRI's `(h[k]=v) => v` semantics. The codegen path is
+      # distinct from the statement form `Fiber[:k] = v` — that lands in
+      # compile_mutating_call_stmt, while the expression-context dispatch
+      # emits a gcc statement-expression so the RHS reaches the outer
+      # assignment.
 
-        x = (Fiber[:n] = 42)
-        puts x                # 42 — value of the assignment expression
-        puts Fiber[:n]        # 42 — confirms the write also took effect
+      x = (Fiber[:n] = 42)
+      puts x                # 42 — value of the assignment expression
+      puts Fiber[:n]        # 42 — confirms the write also took effect
 
-        # Chained: `Fiber[:a] = Fiber[:b] = 7`. Right-to-left associativity
-        # makes `Fiber[:b] = 7` evaluate first (yielding 7), then
-        # `Fiber[:a] = 7`.
-        Fiber[:a] = Fiber[:b] = 7
-        puts Fiber[:a]
-        puts Fiber[:b]
-      end
-      t_fiber_storage_assign_expr
+      # Chained: `Fiber[:a] = Fiber[:b] = 7`. Right-to-left associativity
+      # makes `Fiber[:b] = 7` evaluate first (yielding 7), then
+      # `Fiber[:a] = 7`.
+      Fiber[:a] = Fiber[:b] = 7
+      puts Fiber[:a]
+      puts Fiber[:b]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -236,30 +218,27 @@ describe "Enumerable: regressions" do
 
   it "ptr array null guards" do
     result = ze0(<<~'RUBY')
-      def t_ptr_array_null_guards
-        # #566 (T.Yamada). The original report was a segfault from
-        # downstream `Array#drop` / `take` running on a NULL pointer
-        # emitted by then-unimplemented `each_cons` / `with_index` /
-        # `max` (all warned-and-emitted-0 at the time). The NULL
-        # guards in `sp_PtrArray_*` (commit 729b9cb) stopped the
-        # segfault first; subsequently the missing Enumerator-chain
-        # methods were implemented via chain fusion so the full
-        # expression now produces CRuby's `3` instead of the
-        # warned-fallback `0`.
-        #
-        # This test now covers two things together:
-        # 1. The original NULL-safe guards on `sp_PtrArray_*` (a
-        #    later regression that emits NULL where a PtrArray is
-        #    expected must not crash here).
-        # 2. The end-to-end Enumerator-chain `each_cons(n).
-        #    with_index(off).map { ... }.drop.take.max[i]` lowering.
+      # #566 (T.Yamada). The original report was a segfault from
+      # downstream `Array#drop` / `take` running on a NULL pointer
+      # emitted by then-unimplemented `each_cons` / `with_index` /
+      # `max` (all warned-and-emitted-0 at the time). The NULL
+      # guards in `sp_PtrArray_*` (commit 729b9cb) stopped the
+      # segfault first; subsequently the missing Enumerator-chain
+      # methods were implemented via chain fusion so the full
+      # expression now produces CRuby's `3` instead of the
+      # warned-fallback `0`.
+      #
+      # This test now covers two things together:
+      # 1. The original NULL-safe guards on `sp_PtrArray_*` (a
+      #    later regression that emits NULL where a PtrArray is
+      #    expected must not crash here).
+      # 2. The end-to-end Enumerator-chain `each_cons(n).
+      #    with_index(off).map { ... }.drop.take.max[i]` lowering.
 
-        q = [100, 90, 82, 70, 65]
-        a = 2
-        b = 4
-        p q.each_cons(2).with_index(1).map { |(x, y), i| [x - y, i] }.drop(a - 1).take(b - a + 1).max[1]
-      end
-      t_ptr_array_null_guards
+      q = [100, 90, 82, 70, 65]
+      a = 2
+      b = 4
+      p q.each_cons(2).with_index(1).map { |(x, y), i| [x - y, i] }.drop(a - 1).take(b - a + 1).max[1]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -269,40 +248,37 @@ describe "Enumerable: regressions" do
 
   it "ptr array pop" do
     result = ze0(<<~'RUBY')
-      def t_ptr_array_pop
-        # #520. `Array#pop` on a nested integer array (Array<Array<Int>>,
-        # spinel-side `int_array_ptr_array`) used to fall through to the
-        # unresolved-call warning and emit 0 — the array stayed intact.
-        # The same gap existed for any `<X>_ptr_array` element type; only
-        # the IntArray / StrArray / FloatArray / SymArray flavors had a
-        # direct `_pop` runtime helper.
-        #
-        # Fix: new sp_PtrArray_pop runtime helper (returns NULL on empty,
-        # matching CRuby's nil) plus a dispatch arm in the
-        # is_ptr_array_type recv_type branch.
+      # #520. `Array#pop` on a nested integer array (Array<Array<Int>>,
+      # spinel-side `int_array_ptr_array`) used to fall through to the
+      # unresolved-call warning and emit 0 — the array stayed intact.
+      # The same gap existed for any `<X>_ptr_array` element type; only
+      # the IntArray / StrArray / FloatArray / SymArray flavors had a
+      # direct `_pop` runtime helper.
+      #
+      # Fix: new sp_PtrArray_pop runtime helper (returns NULL on empty,
+      # matching CRuby's nil) plus a dispatch arm in the
+      # is_ptr_array_type recv_type branch.
 
-        a = [[1, 2]]
-        puts "before pop: #{a.inspect}"
-        a.pop
-        puts "after  pop: #{a.inspect}"
-        a.push([3, 4])
-        puts "after push: #{a.inspect}"
+      a = [[1, 2]]
+      puts "before pop: #{a.inspect}"
+      a.pop
+      puts "after  pop: #{a.inspect}"
+      a.push([3, 4])
+      puts "after push: #{a.inspect}"
 
-        # Seed-and-pop idiom: array typed as Array<String> via the seed,
-        # then drained and used as an accumulator.
-        b = ["seed"]
-        b.pop
-        b.push("real")
-        b.push("data")
-        puts b.inspect
+      # Seed-and-pop idiom: array typed as Array<String> via the seed,
+      # then drained and used as an accumulator.
+      b = ["seed"]
+      b.pop
+      b.push("real")
+      b.push("data")
+      puts b.inspect
 
-        # Multiple pops drain the array.
-        c = [[10], [20], [30]]
-        c.pop
-        c.pop
-        puts c.length
-      end
-      t_ptr_array_pop
+      # Multiple pops drain the array.
+      c = [[10], [20], [30]]
+      c.pop
+      c.pop
+      puts c.length
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -316,34 +292,31 @@ describe "Enumerable: regressions" do
 
   it "puts mixed ternary" do
     result = ze0(<<~'RUBY')
-      def t_puts_mixed_ternary
-        # Issue #640: `puts cond ? :sym : int` used to dispatch through
-        # the wrong puts variant (`sp_sym_to_s(an_int)` printing garbage
-        # instead of the int value). unify_return_type collapsed [int,
-        # symbol] to "symbol" via the "int-as-default" heuristic, so the
-        # else arm's int was passed through sym dispatch.
-        #
-        # Fix: compile_puts detects an IfNode arg whose then/else arms
-        # have different *concrete* base types (neither nil/void) and
-        # routes through sp_poly_puts so each arm's value is boxed to its
-        # real tag.
-        #
-        # nil-arm cases (`if cond; X; end` without else) are left alone —
-        # string and pointer types already handle nil through the existing
-        # str_or_nil path.
+      # Issue #640: `puts cond ? :sym : int` used to dispatch through
+      # the wrong puts variant (`sp_sym_to_s(an_int)` printing garbage
+      # instead of the int value). unify_return_type collapsed [int,
+      # symbol] to "symbol" via the "int-as-default" heuristic, so the
+      # else arm's int was passed through sym dispatch.
+      #
+      # Fix: compile_puts detects an IfNode arg whose then/else arms
+      # have different *concrete* base types (neither nil/void) and
+      # routes through sp_poly_puts so each arm's value is boxed to its
+      # real tag.
+      #
+      # nil-arm cases (`if cond; X; end` without else) are left alone —
+      # string and pointer types already handle nil through the existing
+      # str_or_nil path.
 
-        a = 2
-        puts a%2>0 ? :odd : a    # else: prints "2"
+      a = 2
+      puts a%2>0 ? :odd : a    # else: prints "2"
 
-        b = 3
-        puts b%2>0 ? :odd : b    # then: prints "odd"
+      b = 3
+      puts b%2>0 ? :odd : b    # then: prints "odd"
 
-        # Float vs string
-        c = 1.5
-        puts c > 0 ? "positive" : c  # then: "positive"
-        puts c > 5 ? "big" : c       # else: 1.5
-      end
-      t_puts_mixed_ternary
+      # Float vs string
+      c = 1.5
+      puts c > 0 ? "positive" : c  # then: "positive"
+      puts c > 5 ? "big" : c       # else: 1.5
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -356,23 +329,20 @@ describe "Enumerable: regressions" do
 
   it "sym array" do
     result = ze0(<<~'RUBY')
-      def t_sym_array
-        # Symbol array
-        a = [:red, :green, :blue]
-        puts a.length
-        a.each { |s| puts s }
+      # Symbol array
+      a = [:red, :green, :blue]
+      puts a.length
+      a.each { |s| puts s }
 
-        # [] access
-        puts a[0]
-        puts a[2]
+      # [] access
+      puts a[0]
+      puts a[2]
 
-        # Also sym_int_hash each
-        h = {x: 10, y: 20}
-        h.each do |k, v|
-          puts k.to_s + "=" + v.to_s
-        end
+      # Also sym_int_hash each
+      h = {x: 10, y: 20}
+      h.each do |k, v|
+        puts k.to_s + "=" + v.to_s
       end
-      t_sym_array
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -389,28 +359,25 @@ describe "Enumerable: regressions" do
 
   it "sym array empty push" do
     result = ze0(<<~'RUBY')
-      def t_sym_array_empty_push
-        # Issue #85 / PR #92: an empty `[]` followed by `push(:sym)` should
-        # promote the local's tracked type to sym_array, so element access
-        # emits the symbol-name path instead of printing the symbol id.
-        # The literal-array form (`syms = [:tag, :more]`) was already passing
-        # on master before PR #92, so this test exercises empty-then-push.
+      # Issue #85 / PR #92: an empty `[]` followed by `push(:sym)` should
+      # promote the local's tracked type to sym_array, so element access
+      # emits the symbol-name path instead of printing the symbol id.
+      # The literal-array form (`syms = [:tag, :more]`) was already passing
+      # on master before PR #92, so this test exercises empty-then-push.
 
-        syms = []
-        syms.push(:tag)
-        syms.push(:more)
-        puts syms[0]      # tag
-        puts syms[1]      # more
-        puts syms.length  # 2
+      syms = []
+      syms.push(:tag)
+      syms.push(:more)
+      puts syms[0]      # tag
+      puts syms[1]      # more
+      puts syms.length  # 2
 
-        # `<<` form should behave the same.
-        syms2 = []
-        syms2 << :alpha
-        syms2 << :beta
-        puts syms2[0]     # alpha
-        puts syms2[1]     # beta
-      end
-      t_sym_array_empty_push
+      # `<<` form should behave the same.
+      syms2 = []
+      syms2 << :alpha
+      syms2 << :beta
+      puts syms2[0]     # alpha
+      puts syms2[1]     # beta
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -424,59 +391,56 @@ describe "Enumerable: regressions" do
 
   it "sym array full" do
     result = ze0(<<~'RUBY')
-      def t_sym_array_full
-        # Full sym_array test
-        a = [:red, :green, :blue, :yellow]
+      # Full sym_array test
+      a = [:red, :green, :blue, :yellow]
 
-        # Basic access
-        puts a.length       # 4
-        puts a[0]           # red
-        puts a[3]           # yellow
-        puts a[-1]          # yellow
+      # Basic access
+      puts a.length       # 4
+      puts a[0]           # red
+      puts a[3]           # yellow
+      puts a[-1]          # yellow
 
-        # each
-        a.each { |s| puts s }
-        # red green blue yellow
+      # each
+      a.each { |s| puts s }
+      # red green blue yellow
 
-        # push
-        a.push(:purple)
-        puts a.length       # 5
+      # push
+      a.push(:purple)
+      puts a.length       # 5
 
-        # pop
-        v = a.pop
-        puts v              # purple
+      # pop
+      v = a.pop
+      puts v              # purple
 
-        # include?
-        puts a.include?(:red)   # true
-        puts a.include?(:pink)  # false
+      # include?
+      puts a.include?(:red)   # true
+      puts a.include?(:pink)  # false
 
-        # map
-        b = a.map { |s| s.to_s }
-        puts b.length       # 4
-        puts b[0]           # red
+      # map
+      b = a.map { |s| s.to_s }
+      puts b.length       # 4
+      puts b[0]           # red
 
-        # select
-        c = a.select { |s| s.to_s.length > 4 }
-        puts c.length       # 2
+      # select
+      c = a.select { |s| s.to_s.length > 4 }
+      puts c.length       # 2
 
-        # each_with_index
-        a.each_with_index do |s, i|
-          if i == 0
-            puts s          # red
-          end
+      # each_with_index
+      a.each_with_index do |s, i|
+        if i == 0
+          puts s          # red
         end
-
-        # sort (by symbol name, lexical)
-        d = [:cherry, :apple, :banana]
-        d_sorted = d.sort
-        puts d_sorted[0]    # apple
-        puts d_sorted[1]    # banana
-        puts d_sorted[2]    # cherry
-
-        # puts of sym_array
-        puts a              # should print each element on its own line
       end
-      t_sym_array_full
+
+      # sort (by symbol name, lexical)
+      d = [:cherry, :apple, :banana]
+      d_sorted = d.sort
+      puts d_sorted[0]    # apple
+      puts d_sorted[1]    # banana
+      puts d_sorted[2]    # cherry
+
+      # puts of sym_array
+      puts a              # should print each element on its own line
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -508,37 +472,34 @@ describe "Enumerable: regressions" do
 
   it "sym hash" do
     result = ze0(<<~'RUBY')
-      def t_sym_hash
-        # Symbol-keyed hashes: keys are sp_sym (distinct from string keys).
-        # Cover both int-valued (sp_SymIntHash) and string-valued
-        # (sp_SymStrHash) shapes — same operator surface, different value
-        # types — in one file. Different local names so per-method type
-        # inference doesn't unify the two h's.
+      # Symbol-keyed hashes: keys are sp_sym (distinct from string keys).
+      # Cover both int-valued (sp_SymIntHash) and string-valued
+      # (sp_SymStrHash) shapes — same operator surface, different value
+      # types — in one file. Different local names so per-method type
+      # inference doesn't unify the two h's.
 
-        # Int values
-        hi = {a: 1, b: 2, c: 3}
-        puts hi[:a]            # 1
-        puts hi[:b]            # 2
-        puts hi.length         # 3
-        puts hi.has_key?(:a)   # true
-        puts hi.has_key?(:z)   # false
-        puts hi.empty?         # false
-        hi[:d] = 4
-        puts hi[:d]            # 4
-        puts hi.length         # 4
+      # Int values
+      hi = {a: 1, b: 2, c: 3}
+      puts hi[:a]            # 1
+      puts hi[:b]            # 2
+      puts hi.length         # 3
+      puts hi.has_key?(:a)   # true
+      puts hi.has_key?(:z)   # false
+      puts hi.empty?         # false
+      hi[:d] = 4
+      puts hi[:d]            # 4
+      puts hi.length         # 4
 
-        # String values
-        hs = {name: "Alice", role: "admin"}
-        puts hs[:name]              # Alice
-        puts hs[:role]              # admin
-        puts hs.length              # 2
-        puts hs.has_key?(:name)     # true
-        puts hs.has_key?(:unknown)  # false
-        hs[:email] = "a@b.c"
-        puts hs[:email]             # a@b.c
-        puts hs.length              # 3
-      end
-      t_sym_hash
+      # String values
+      hs = {name: "Alice", role: "admin"}
+      puts hs[:name]              # Alice
+      puts hs[:role]              # admin
+      puts hs.length              # 2
+      puts hs.has_key?(:name)     # true
+      puts hs.has_key?(:unknown)  # false
+      hs[:email] = "a@b.c"
+      puts hs[:email]             # a@b.c
+      puts hs.length              # 3
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -562,45 +523,42 @@ describe "Enumerable: regressions" do
 
   it "sym hash keys values" do
     result = ze0(<<~'RUBY')
-      def t_sym_hash_keys_values
-        # keys / values for sym-keyed hash variants plus str_poly_hash.
+      # keys / values for sym-keyed hash variants plus str_poly_hash.
 
-        # sym_int_hash
-        h1 = {a: 1, b: 2, c: 3}
-        puts h1.keys.inspect
-        puts h1.values.inspect
-        puts h1.keys.length
-        puts h1.values.length
+      # sym_int_hash
+      h1 = {a: 1, b: 2, c: 3}
+      puts h1.keys.inspect
+      puts h1.values.inspect
+      puts h1.keys.length
+      puts h1.values.length
 
-        # sym_str_hash
-        h2 = {name: "Alice", role: "admin"}
-        puts h2.keys.inspect
-        puts h2.values.inspect
+      # sym_str_hash
+      h2 = {name: "Alice", role: "admin"}
+      puts h2.keys.inspect
+      puts h2.values.inspect
 
-        # sym_poly_hash (mixed value types)
-        h3 = {name: "Alice", age: 30, active: true}
-        puts h3.keys.inspect
-        puts h3.values.inspect
+      # sym_poly_hash (mixed value types)
+      h3 = {name: "Alice", age: 30, active: true}
+      puts h3.keys.inspect
+      puts h3.values.inspect
 
-        # str_poly_hash (string keys, mixed values)
-        h4 = {"name" => "Alice", "age" => 30, "active" => true}
-        puts h4.keys.inspect
-        puts h4.values.inspect
+      # str_poly_hash (string keys, mixed values)
+      h4 = {"name" => "Alice", "age" => 30, "active" => true}
+      puts h4.keys.inspect
+      puts h4.values.inspect
 
-        h1.keys.each do |k1|
-          puts k1
-        end
-        h2.values.each do |sv|
-          puts sv
-        end
-        h3.keys.each do |k3|
-          puts k3
-        end
-        h3.values.each do |pv|
-          puts pv
-        end
+      h1.keys.each do |k1|
+        puts k1
       end
-      t_sym_hash_keys_values
+      h2.values.each do |sv|
+        puts sv
+      end
+      h3.keys.each do |k3|
+        puts k3
+      end
+      h3.values.each do |pv|
+        puts pv
+      end
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -630,35 +588,32 @@ describe "Enumerable: regressions" do
 
   it "sym methods" do
     result = ze0(<<~'RUBY')
-      def t_sym_methods
-        # Symbol methods
-        puts :hello.to_s        # hello
-        puts :hello.length      # 5
-        puts :hello.empty?      # false
-        puts (:a == :a)         # true
-        puts (:a == :b)         # false
-        puts (:a != :b)         # true
+      # Symbol methods
+      puts :hello.to_s        # hello
+      puts :hello.length      # 5
+      puts :hello.empty?      # false
+      puts (:a == :a)         # true
+      puts (:a == :b)         # false
+      puts (:a != :b)         # true
 
-        # String#to_sym → Symbol
-        s = "dynamic".to_sym
-        puts s                  # dynamic
+      # String#to_sym → Symbol
+      s = "dynamic".to_sym
+      puts s                  # dynamic
 
-        # to_sym on literal (compile-time interned)
-        t = "hello".to_sym
-        puts t                  # hello
+      # to_sym on literal (compile-time interned)
+      t = "hello".to_sym
+      puts t                  # hello
 
-        # Symbol#to_sym is identity
-        puts :foo.to_sym        # foo
+      # Symbol#to_sym is identity
+      puts :foo.to_sym        # foo
 
-        # Symbol#<=> (lexical)
-        puts (:apple <=> :banana)  # -1
-        puts (:banana <=> :apple)  # 1
-        puts (:apple <=> :apple)   # 0
+      # Symbol#<=> (lexical)
+      puts (:apple <=> :banana)  # -1
+      puts (:banana <=> :apple)  # 1
+      puts (:apple <=> :apple)   # 0
 
-        # Kernel#p with symbol
-        p :hello                # :hello
-      end
-      t_sym_methods
+      # Kernel#p with symbol
+      p :hello                # :hello
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -680,13 +635,10 @@ describe "Enumerable: regressions" do
 
   it "sym poly" do
     result = ze0(<<~'RUBY')
-      def t_sym_poly
-        # Mixed-type array triggers poly_array; symbol elements should
-        # go through sp_box_sym / SP_TAG_SYM dispatch.
-        arr = [1, "two", :three, 4.0, true]
-        arr.each { |v| puts v }
-      end
-      t_sym_poly
+      # Mixed-type array triggers poly_array; symbol elements should
+      # go through sp_box_sym / SP_TAG_SYM dispatch.
+      arr = [1, "two", :three, 4.0, true]
+      arr.each { |v| puts v }
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -700,39 +652,36 @@ describe "Enumerable: regressions" do
 
   it "sym semantics" do
     result = ze0(<<~'RUBY')
-      def t_sym_semantics
-        # Ruby semantic requirements that Phase 2 satisfies
+      # Ruby semantic requirements that Phase 2 satisfies
 
-        # 0. Symbol is distinct from String
-        puts :a == "a"            # false
-        puts "a" == :a            # false
-        puts :a != "a"            # true
+      # 0. Symbol is distinct from String
+      puts :a == "a"            # false
+      puts "a" == :a            # false
+      puts :a != "a"            # true
 
-        # 1. Same symbol is equal to itself
-        puts :foo == :foo         # true
+      # 1. Same symbol is equal to itself
+      puts :foo == :foo         # true
 
-        # 2. Different symbols are not equal
-        puts :foo == :bar         # false
+      # 2. Different symbols are not equal
+      puts :foo == :bar         # false
 
-        # 3. Symbol-keyed hash distinguishes sym keys (Ruby semantics)
-        h = {a: 1, b: 2}
-        puts h.has_key?(:a)       # true
-        puts h.has_key?(:z)       # false
-        puts h.has_key?("a")      # false - sym key hash, string arg
+      # 3. Symbol-keyed hash distinguishes sym keys (Ruby semantics)
+      h = {a: 1, b: 2}
+      puts h.has_key?(:a)       # true
+      puts h.has_key?(:z)       # false
+      puts h.has_key?("a")      # false - sym key hash, string arg
 
-        # 3b. {a:1}[:a] finds it
-        puts h[:a]                # 1
+      # 3b. {a:1}[:a] finds it
+      puts h[:a]                # 1
 
-        # 4. to_sym idempotent on Symbol
-        puts :foo.to_sym == :foo  # true
+      # 4. to_sym idempotent on Symbol
+      puts :foo.to_sym == :foo  # true
 
-        # 5. String#to_sym + Symbol#to_s round trip
-        puts "hello".to_sym.to_s  # hello
+      # 5. String#to_sym + Symbol#to_s round trip
+      puts "hello".to_sym.to_s  # hello
 
-        # 6. Interned symbol identity ("foo" interns to same ID as :foo)
-        puts "foo".to_sym == :foo # true
-      end
-      t_sym_semantics
+      # 6. Interned symbol identity ("foo" interns to same ID as :foo)
+      puts "foo".to_sym == :foo # true
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -753,35 +702,32 @@ describe "Enumerable: regressions" do
 
   it "symbol upcase downcase" do
     result = ze0(<<~'RUBY')
-      def t_symbol_upcase_downcase
-        # Symbol#upcase and Symbol#downcase return symbols by upper/lower-casing
-        # the symbol's name string and re-interning. Mirrors the existing
-        # String#upcase / #downcase plumbing — the only delta is `sp_sym_to_s`
-        # in front of the case helper and `sp_sym_intern` wrapping the result.
+      # Symbol#upcase and Symbol#downcase return symbols by upper/lower-casing
+      # the symbol's name string and re-interning. Mirrors the existing
+      # String#upcase / #downcase plumbing — the only delta is `sp_sym_to_s`
+      # in front of the case helper and `sp_sym_intern` wrapping the result.
 
-        # Symbol#upcase
-        puts :hello.upcase
-        puts :HELLO.upcase
-        puts :MixedCase.upcase
-        puts :a.upcase
-        puts :_.upcase
+      # Symbol#upcase
+      puts :hello.upcase
+      puts :HELLO.upcase
+      puts :MixedCase.upcase
+      puts :a.upcase
+      puts :_.upcase
 
-        # Symbol#downcase
-        puts :HELLO.downcase
-        puts :hello.downcase
-        puts :MixedCase.downcase
-        puts :Z.downcase
+      # Symbol#downcase
+      puts :HELLO.downcase
+      puts :hello.downcase
+      puts :MixedCase.downcase
+      puts :Z.downcase
 
-        # Round trip — sym -> upper -> lower returns to original lower form
-        puts :foo.upcase.downcase
-        puts :BAR.downcase.upcase
+      # Round trip — sym -> upper -> lower returns to original lower form
+      puts :foo.upcase.downcase
+      puts :BAR.downcase.upcase
 
-        # Re-intern stability — equal pre/post-case symbols stay equal
-        puts :Hello.upcase == :HELLO
-        puts :Hello.downcase == :hello
-        puts :a.upcase != :A.downcase
-      end
-      t_symbol_upcase_downcase
+      # Re-intern stability — equal pre/post-case symbols stay equal
+      puts :Hello.upcase == :HELLO
+      puts :Hello.downcase == :hello
+      puts :a.upcase != :A.downcase
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -804,15 +750,12 @@ describe "Enumerable: regressions" do
 
   it "source encoding" do
     result = ze0(<<~'RUBY')
-      def t_source_encoding
-        # SourceEncodingNode — the `__ENCODING__` keyword.
-        #
-        # Spinel sources are assumed to be UTF-8; __ENCODING__ is a small
-        # Encoding value whose to_s returns the canonical name.
+      # SourceEncodingNode — the `__ENCODING__` keyword.
+      #
+      # Spinel sources are assumed to be UTF-8; __ENCODING__ is a small
+      # Encoding value whose to_s returns the canonical name.
 
-        puts __ENCODING__.to_s
-      end
-      t_source_encoding
+      puts __ENCODING__.to_s
     RUBY
 
     _(result).must_answer <<~'OUT'

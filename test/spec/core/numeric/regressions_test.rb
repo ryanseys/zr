@@ -5,31 +5,28 @@ require "spec_helper"
 describe "Numeric: regressions" do
   it "integer bit index" do
     result = ze0(<<~'RUBY')
-      def t_integer_bit_index
-        # `Integer#[N]` returns bit N (0-indexed from the LSB) of the
-        # integer. `data[5]` was previously falling through to the
-        # unknown-method 0-fallback. Lower as `((rc >> idx) & 1)`.
+      # `Integer#[N]` returns bit N (0-indexed from the LSB) of the
+      # integer. `data[5]` was previously falling through to the
+      # unknown-method 0-fallback. Lower as `((rc >> idx) & 1)`.
 
-        # Static index
-        n = 0b10110100
-        puts n[0]    # 0
-        puts n[1]    # 0
-        puts n[2]    # 1
-        puts n[3]    # 0
-        puts n[4]    # 1
-        puts n[5]    # 1
-        puts n[6]    # 0
-        puts n[7]    # 1
+      # Static index
+      n = 0b10110100
+      puts n[0]    # 0
+      puts n[1]    # 0
+      puts n[2]    # 1
+      puts n[3]    # 0
+      puts n[4]    # 1
+      puts n[5]    # 1
+      puts n[6]    # 0
+      puts n[7]    # 1
 
-        # Dynamic index
-        i = 0
-        while i < 4
-          puts n[i]
-          i += 1
-        end
-        # 0 0 1 0
+      # Dynamic index
+      i = 0
+      while i < 4
+        puts n[i]
+        i += 1
       end
-      t_integer_bit_index
+      # 0 0 1 0
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -147,30 +144,27 @@ describe "Numeric: regressions" do
 
   it "integer ceildiv" do
     result = ze0(<<~'RUBY')
-      def t_integer_ceildiv
-        # basic
-        puts 7.ceildiv(2)
-        puts 10.ceildiv(5)
-        puts 11.ceildiv(5)
+      # basic
+      puts 7.ceildiv(2)
+      puts 10.ceildiv(5)
+      puts 11.ceildiv(5)
 
-        # exact division
-        puts 6.ceildiv(3)
+      # exact division
+      puts 6.ceildiv(3)
 
-        # zero dividend
-        puts 0.ceildiv(3)
+      # zero dividend
+      puts 0.ceildiv(3)
 
-        # one
-        puts 1.ceildiv(1)
+      # one
+      puts 1.ceildiv(1)
 
-        # negative
-        puts((-7).ceildiv(2))
-        puts 7.ceildiv(-2)
-        puts((-7).ceildiv(-2))
+      # negative
+      puts((-7).ceildiv(2))
+      puts 7.ceildiv(-2)
+      puts((-7).ceildiv(-2))
 
-        # large
-        puts 1000001.ceildiv(1000)
-      end
-      t_integer_ceildiv
+      # large
+      puts 1000001.ceildiv(1000)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -189,13 +183,10 @@ describe "Numeric: regressions" do
 
   it "integer divmod" do
     result = ze0(<<~'RUBY')
-      def t_integer_divmod
-        p 100.divmod(7)
-        # Float#divmod returns [Integer, Float] — exercises the
-        # tuple:int,float inspect arm.
-        p 5.5.divmod(2)
-      end
-      t_integer_divmod
+      p 100.divmod(7)
+      # Float#divmod returns [Integer, Float] — exercises the
+      # tuple:int,float inspect arm.
+      p 5.5.divmod(2)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -206,45 +197,42 @@ describe "Numeric: regressions" do
 
   it "integer lcm" do
     result = ze0(<<~'RUBY')
-      def t_integer_lcm
-        # basic
-        puts 6.lcm(4)
-        puts 4.lcm(6)
+      # basic
+      puts 6.lcm(4)
+      puts 4.lcm(6)
 
-        # zero
-        puts 0.lcm(5)
-        puts 5.lcm(0)
-        puts 0.lcm(0)
+      # zero
+      puts 0.lcm(5)
+      puts 5.lcm(0)
+      puts 0.lcm(0)
 
-        # negative
-        puts((-4).lcm(6))
-        puts 6.lcm(-4)
-        puts((-3).lcm(-7))
+      # negative
+      puts((-4).lcm(6))
+      puts 6.lcm(-4)
+      puts((-3).lcm(-7))
 
-        # same
-        puts 7.lcm(7)
+      # same
+      puts 7.lcm(7)
 
-        # one
-        puts 1.lcm(5)
-        puts 5.lcm(1)
+      # one
+      puts 1.lcm(5)
+      puts 5.lcm(1)
 
-        # coprime
-        puts 8.lcm(9)
+      # coprime
+      puts 8.lcm(9)
 
-        # divisor — one divides the other
-        puts 3.lcm(9)
-        puts 9.lcm(3)
+      # divisor — one divides the other
+      puts 3.lcm(9)
+      puts 9.lcm(3)
 
-        # primes
-        puts 7.lcm(13)
+      # primes
+      puts 7.lcm(13)
 
-        # one with one
-        puts 1.lcm(1)
+      # one with one
+      puts 1.lcm(1)
 
-        # large
-        puts 12345.lcm(67890)
-      end
-      t_integer_lcm
+      # large
+      puts 12345.lcm(67890)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -270,52 +258,49 @@ describe "Numeric: regressions" do
 
   it "integer powmod" do
     result = ze0(<<~'RUBY')
-      def t_integer_powmod
-        # basic
-        puts 2.pow(10, 1000)
-        puts 5.pow(2, 3)
-        puts 3.pow(3, 8)
+      # basic
+      puts 2.pow(10, 1000)
+      puts 5.pow(2, 3)
+      puts 3.pow(3, 8)
 
-        # exp zero
-        puts 2.pow(0, 5)
-        puts 0.pow(0, 5)
+      # exp zero
+      puts 2.pow(0, 5)
+      puts 0.pow(0, 5)
 
-        # mod one — always zero
-        puts 2.pow(100, 1)
-        puts 999.pow(999, 1)
+      # mod one — always zero
+      puts 2.pow(100, 1)
+      puts 999.pow(999, 1)
 
-        # negative base
-        puts((-2).pow(3, 5))
-        puts((-3).pow(2, 7))
+      # negative base
+      puts((-2).pow(3, 5))
+      puts((-3).pow(2, 7))
 
-        # large exponent
-        puts 2.pow(20, 1000000)
-        puts 7.pow(15, 100)
+      # large exponent
+      puts 2.pow(20, 1000000)
+      puts 7.pow(15, 100)
 
-        # base larger than mod
-        puts 100.pow(3, 7)
+      # base larger than mod
+      puts 100.pow(3, 7)
 
-        # base zero
-        puts 0.pow(5, 3)
+      # base zero
+      puts 0.pow(5, 3)
 
-        # base one
-        puts 1.pow(999, 7)
+      # base one
+      puts 1.pow(999, 7)
 
-        # mod two
-        puts 7.pow(3, 2)
+      # mod two
+      puts 7.pow(3, 2)
 
-        # exp one
-        puts 5.pow(1, 3)
+      # exp one
+      puts 5.pow(1, 3)
 
-        # negative mod
-        puts 2.pow(2, -3)
-        puts 2.pow(3, -5)
+      # negative mod
+      puts 2.pow(2, -3)
+      puts 2.pow(3, -5)
 
-        # one-arg pow
-        puts 2.pow(10)
-        puts 3.pow(3)
-      end
-      t_integer_powmod
+      # one-arg pow
+      puts 2.pow(10)
+      puts 3.pow(3)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -344,20 +329,17 @@ describe "Numeric: regressions" do
 
   it "integer pred" do
     result = ze0(<<~'RUBY')
-      def t_integer_pred
-        # basic
-        puts 5.pred
-        puts 1.pred
-        puts 0.pred
+      # basic
+      puts 5.pred
+      puts 1.pred
+      puts 0.pred
 
-        # negative
-        puts((-1).pred)
-        puts((-100).pred)
+      # negative
+      puts((-1).pred)
+      puts((-100).pred)
 
-        # large
-        puts 1000000.pred
-      end
-      t_integer_pred
+      # large
+      puts 1000000.pred
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -372,24 +354,21 @@ describe "Numeric: regressions" do
 
   it "integer sqrt" do
     result = ze0(<<~'RUBY')
-      def t_integer_sqrt
-        p Integer.sqrt(0)
-        p Integer.sqrt(1)
-        p Integer.sqrt(16)
-        p Integer.sqrt(99)
-        p Integer.sqrt(100)
-        p Integer.sqrt(101)
-        p Integer.sqrt(1_000_000)
+      p Integer.sqrt(0)
+      p Integer.sqrt(1)
+      p Integer.sqrt(16)
+      p Integer.sqrt(99)
+      p Integer.sqrt(100)
+      p Integer.sqrt(101)
+      p Integer.sqrt(1_000_000)
 
-        # Large-integer precision — beyond the 53-bit double mantissa.
-        # A double-based sqrt would round and produce off-by-one results
-        # for values above ~2^53; the Newton-method helper stays exact.
-        p Integer.sqrt(2**53)
-        p Integer.sqrt(2**53 + 1)
-        p Integer.sqrt(2**60)
-        p Integer.sqrt(2**62 - 1)
-      end
-      t_integer_sqrt
+      # Large-integer precision — beyond the 53-bit double mantissa.
+      # A double-based sqrt would round and produce off-by-one results
+      # for values above ~2^53; the Newton-method helper stays exact.
+      p Integer.sqrt(2**53)
+      p Integer.sqrt(2**53 + 1)
+      p Integer.sqrt(2**60)
+      p Integer.sqrt(2**62 - 1)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -409,33 +388,30 @@ describe "Numeric: regressions" do
 
   it "catch" do
     result = ze0(<<~'RUBY')
-      def t_catch
-        # Test catch/throw
+      # Test catch/throw
 
-        result = catch(:done) do
-          throw :done, 42
-          999  # unreachable
-        end
-        puts result  # 42
-
-        # catch without throw returns block value
-        result2 = catch(:nope) do
-          100
-        end
-        puts result2  # 100
-
-        # Nested catch (same type)
-        result3 = catch(:outer) do
-          catch(:inner) do
-            throw :outer, 77
-          end
-          0
-        end
-        puts result3  # 77
-
-        puts "done"
+      result = catch(:done) do
+        throw :done, 42
+        999  # unreachable
       end
-      t_catch
+      puts result  # 42
+
+      # catch without throw returns block value
+      result2 = catch(:nope) do
+        100
+      end
+      puts result2  # 100
+
+      # Nested catch (same type)
+      result3 = catch(:outer) do
+        catch(:inner) do
+          throw :outer, 77
+        end
+        0
+      end
+      puts result3  # 77
+
+      puts "done"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -448,52 +424,49 @@ describe "Numeric: regressions" do
 
   it "class threeq" do
     result = ze0(<<~'RUBY')
-      def t_class_threeq
-        # Class#=== — case-when membership for primitive type names.
-        # Compile-time decided based on the arg's inferred type.
-        p Integer === 5
-        p Integer === 5.0
-        p Integer === "x"
-        p Numeric === 5
-        p Numeric === 5.0
-        p Comparable === 5
-        p Float === 5.0
-        p Float === 5
-        p String === "hi"
-        p String === :hi
-        p Symbol === :hi
-        p Symbol === "hi"
-        p Array === [1, 2, 3]
-        p Array === "x"
-        p Range === (1..3)
-        p Range === 5
-        p TrueClass === true
-        p FalseClass === false
-        p NilClass === nil
-        p Object === 5
-        p Object === "x"
+      # Class#=== — case-when membership for primitive type names.
+      # Compile-time decided based on the arg's inferred type.
+      p Integer === 5
+      p Integer === 5.0
+      p Integer === "x"
+      p Numeric === 5
+      p Numeric === 5.0
+      p Comparable === 5
+      p Float === 5.0
+      p Float === 5
+      p String === "hi"
+      p String === :hi
+      p Symbol === :hi
+      p Symbol === "hi"
+      p Array === [1, 2, 3]
+      p Array === "x"
+      p Range === (1..3)
+      p Range === 5
+      p TrueClass === true
+      p FalseClass === false
+      p NilClass === nil
+      p Object === 5
+      p Object === "x"
 
-        # More true/false coverage for the remaining primitive arms.
-        p Hash === {a: 1}
-        p Hash === [1, 2, 3]
-        p Numeric === "5"
-        p Numeric === :sym
-        p Comparable === 1.5
-        p Comparable === [1, 2]
-        p TrueClass === false
-        p FalseClass === true
-        p NilClass === 0
-        p NilClass === false
+      # More true/false coverage for the remaining primitive arms.
+      p Hash === {a: 1}
+      p Hash === [1, 2, 3]
+      p Numeric === "5"
+      p Numeric === :sym
+      p Comparable === 1.5
+      p Comparable === [1, 2]
+      p TrueClass === false
+      p FalseClass === true
+      p NilClass === 0
+      p NilClass === false
 
-        # Kernel and BasicObject — Ruby's universal ancestors. Every receiver
-        # is in the Object hierarchy, so `=== anything` is true.
-        p Kernel === 5
-        p Kernel === "x"
-        p Kernel === nil
-        p BasicObject === 5
-        p BasicObject === [1]
-      end
-      t_class_threeq
+      # Kernel and BasicObject — Ruby's universal ancestors. Every receiver
+      # is in the Object hierarchy, so `=== anything` is true.
+      p Kernel === 5
+      p Kernel === "x"
+      p Kernel === nil
+      p BasicObject === 5
+      p BasicObject === [1]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -538,32 +511,29 @@ describe "Numeric: regressions" do
 
   it "do while post test loop" do
     result = ze0(<<~'RUBY')
-      def t_do_while_post_test_loop
-        # Prism's PM_LOOP_FLAGS_BEGIN_MODIFIER (= 4, bit 2) marks
-        # `begin..end while cond` / `begin..end until cond` as post-test
-        # loops — body runs at least once. Spinel was treating them as
-        # plain pre-test `while`, so a body that should have run once but
-        # whose condition was false on entry never ran at all.
+      # Prism's PM_LOOP_FLAGS_BEGIN_MODIFIER (= 4, bit 2) marks
+      # `begin..end while cond` / `begin..end until cond` as post-test
+      # loops — body runs at least once. Spinel was treating them as
+      # plain pre-test `while`, so a body that should have run once but
+      # whose condition was false on entry never ran at all.
 
-        ran = 0
-        begin
-          ran += 1
-        end while ran > 99      # cond false on entry → post-test runs body once
-        puts ran                # 1
+      ran = 0
+      begin
+        ran += 1
+      end while ran > 99      # cond false on entry → post-test runs body once
+      puts ran                # 1
 
-        ran2 = 0
-        begin
-          ran2 += 1
-        end until ran2 < 99     # cond true on entry → post-test runs body once
-        puts ran2               # 1
+      ran2 = 0
+      begin
+        ran2 += 1
+      end until ran2 < 99     # cond true on entry → post-test runs body once
+      puts ran2               # 1
 
-        # Sanity: bare pre-test `while` with cond false on entry runs zero
-        # times.
-        ran3 = 0
-        while ran3 > 99 do ran3 += 1 end
-        puts ran3               # 0
-      end
-      t_do_while_post_test_loop
+      # Sanity: bare pre-test `while` with cond false on entry runs zero
+      # times.
+      ran3 = 0
+      while ran3 > 99 do ran3 += 1 end
+      puts ran3               # 0
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -575,63 +545,60 @@ describe "Numeric: regressions" do
 
   it "fiber" do
     result = ze0(<<~'RUBY')
-      def t_fiber
-        # Test Fiber (cooperative concurrency)
+      # Test Fiber (cooperative concurrency)
 
-        # Basic yield/resume
-        f = Fiber.new {
-          Fiber.yield(10)
-          Fiber.yield(20)
-          30
-        }
-        puts f.resume  # 10
-        puts f.resume  # 20
-        puts f.resume  # 30
+      # Basic yield/resume
+      f = Fiber.new {
+        Fiber.yield(10)
+        Fiber.yield(20)
+        30
+      }
+      puts f.resume  # 10
+      puts f.resume  # 20
+      puts f.resume  # 30
 
-        # Value passing
-        f2 = Fiber.new { |first|
-          second = Fiber.yield(first * 2)
-          second * 3
-        }
-        puts f2.resume(5)   # 10
-        puts f2.resume(7)   # 21
+      # Value passing
+      f2 = Fiber.new { |first|
+        second = Fiber.yield(first * 2)
+        second * 3
+      }
+      puts f2.resume(5)   # 10
+      puts f2.resume(7)   # 21
 
-        # String passing
-        f3 = Fiber.new {
-          Fiber.yield("hello")
-          Fiber.yield("world")
-          "done"
-        }
-        puts f3.resume  # hello
-        puts f3.resume  # world
-        puts f3.resume  # done
+      # String passing
+      f3 = Fiber.new {
+        Fiber.yield("hello")
+        Fiber.yield("world")
+        "done"
+      }
+      puts f3.resume  # hello
+      puts f3.resume  # world
+      puts f3.resume  # done
 
-        # alive?
-        f4 = Fiber.new {
-          Fiber.yield(1)
-          2
-        }
-        puts f4.alive?   # true
-        f4.resume
-        puts f4.alive?   # true
-        f4.resume
-        puts f4.alive?   # false
+      # alive?
+      f4 = Fiber.new {
+        Fiber.yield(1)
+        2
+      }
+      puts f4.alive?   # true
+      f4.resume
+      puts f4.alive?   # true
+      f4.resume
+      puts f4.alive?   # false
 
-        # Fiber.current
-        cur = Fiber.current
-        puts cur.alive?  # true
+      # Fiber.current
+      cur = Fiber.current
+      puts cur.alive?  # true
 
-        # FiberError on dead fiber
-        f5 = Fiber.new { 42 }
+      # FiberError on dead fiber
+      f5 = Fiber.new { 42 }
+      f5.resume
+      begin
         f5.resume
-        begin
-          f5.resume
-          puts "ERROR"
-        rescue FiberError
-          puts "caught FiberError"
-        end
+        puts "ERROR"
+      rescue FiberError
+        puts "caught FiberError"
       end
-      t_fiber
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -891,54 +858,51 @@ describe "Numeric: regressions" do
 
   it "math" do
     result = ze0(<<~'RUBY')
-      def t_math
-        # Math module methods. All should return Float.
+      # Math module methods. All should return Float.
 
-        # Trig (in radians)
-        puts (Math.sin(0.0) * 1000).to_i        # 0
-        puts (Math.cos(0.0) * 1000).to_i        # 1000
-        puts (Math.tan(0.0) * 1000).to_i        # 0
-        puts (Math.sin(0.5) * 1000).to_i        # 479
-        puts (Math.cos(0.5) * 1000).to_i        # 877
-        puts (Math.tan(0.5) * 1000).to_i        # 546
+      # Trig (in radians)
+      puts (Math.sin(0.0) * 1000).to_i        # 0
+      puts (Math.cos(0.0) * 1000).to_i        # 1000
+      puts (Math.tan(0.0) * 1000).to_i        # 0
+      puts (Math.sin(0.5) * 1000).to_i        # 479
+      puts (Math.cos(0.5) * 1000).to_i        # 877
+      puts (Math.tan(0.5) * 1000).to_i        # 546
 
-        # Inverse trig
-        puts (Math.atan(1.0) * 1000).to_i       # 785
-        puts (Math.atan2(1.0, 1.0) * 1000).to_i # 785
-        puts (Math.asin(1.0) * 1000).to_i       # 1570
-        puts (Math.acos(0.0) * 1000).to_i       # 1570
+      # Inverse trig
+      puts (Math.atan(1.0) * 1000).to_i       # 785
+      puts (Math.atan2(1.0, 1.0) * 1000).to_i # 785
+      puts (Math.asin(1.0) * 1000).to_i       # 1570
+      puts (Math.acos(0.0) * 1000).to_i       # 1570
 
-        # Powers / logs
-        puts (Math.sqrt(2.0) * 1000).to_i       # 1414
-        puts (Math.log(1.0) * 1000).to_i        # 0
-        puts (Math.log2(8.0) * 1000).to_i       # 3000
-        puts (Math.log10(100.0) * 1000).to_i    # 2000
-        puts (Math.exp(0.0) * 1000).to_i        # 1000
+      # Powers / logs
+      puts (Math.sqrt(2.0) * 1000).to_i       # 1414
+      puts (Math.log(1.0) * 1000).to_i        # 0
+      puts (Math.log2(8.0) * 1000).to_i       # 3000
+      puts (Math.log10(100.0) * 1000).to_i    # 2000
+      puts (Math.exp(0.0) * 1000).to_i        # 1000
 
-        # Float-typed result (would print "1" / "0" if inferred as int).
-        # Use the *1000+to_i idiom to dodge precision-formatting differences
-        # between Spinel's float-puts and CRuby's.
-        puts (Math.log2(3.0) * 1000).to_i       # 1584
-        puts (Math.log10(3.0) * 1000).to_i      # 477
+      # Float-typed result (would print "1" / "0" if inferred as int).
+      # Use the *1000+to_i idiom to dodge precision-formatting differences
+      # between Spinel's float-puts and CRuby's.
+      puts (Math.log2(3.0) * 1000).to_i       # 1584
+      puts (Math.log10(3.0) * 1000).to_i      # 477
 
-        # Hypot
-        puts (Math.hypot(3.0, 4.0) * 1000).to_i # 5000
+      # Hypot
+      puts (Math.hypot(3.0, 4.0) * 1000).to_i # 5000
 
-        # Hyperbolic
-        puts (Math.tanh(0.5) * 1000).to_i       # 462
-        puts (Math.tanh(1.0) * 1000).to_i       # 761
-        puts (Math.sinh(1.0) * 1000).to_i       # 1175
-        puts (Math.cosh(1.0) * 1000).to_i       # 1543
+      # Hyperbolic
+      puts (Math.tanh(0.5) * 1000).to_i       # 462
+      puts (Math.tanh(1.0) * 1000).to_i       # 761
+      puts (Math.sinh(1.0) * 1000).to_i       # 1175
+      puts (Math.cosh(1.0) * 1000).to_i       # 1543
 
-        # Inverse hyperbolic
-        puts (Math.atanh(0.5) * 1000).to_i      # 549
-        puts (Math.asinh(1.0) * 1000).to_i      # 881
-        puts (Math.acosh(2.0) * 1000).to_i      # 1316
+      # Inverse hyperbolic
+      puts (Math.atanh(0.5) * 1000).to_i      # 549
+      puts (Math.asinh(1.0) * 1000).to_i      # 881
+      puts (Math.acosh(2.0) * 1000).to_i      # 1316
 
-        # PI
-        puts (Math::PI * 1000).to_i             # 3141
-      end
-      t_math
+      # PI
+      puts (Math::PI * 1000).to_i             # 3141
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -973,26 +937,23 @@ describe "Numeric: regressions" do
 
   it "misc2" do
     result = ze0(<<~'RUBY')
-      def t_misc2
-        # Test format/sprintf
-        puts format("%d:%02d", 5, 3)
-        puts sprintf("hello %s %d", "world", 42)
+      # Test format/sprintf
+      puts format("%d:%02d", 5, 3)
+      puts sprintf("hello %s %d", "world", 42)
 
-        # Test inline rescue as expression
-        x = raise("oops") rescue 42
-        puts x
+      # Test inline rescue as expression
+      x = raise("oops") rescue 42
+      puts x
 
-        # Test symbol key hash (string values -> sp_RbHash)
-        h = {running: "green", waiting: "yellow"}
-        puts h[:running]
-        puts h[:waiting]
+      # Test symbol key hash (string values -> sp_RbHash)
+      h = {running: "green", waiting: "yellow"}
+      puts h[:running]
+      puts h[:waiting]
 
-        # Test symbol key hash with integer values (-> sp_StrIntHash)
-        h2 = {a: 1, b: 2}
-        puts h2[:a]
-        puts h2[:b]
-      end
-      t_misc2
+      # Test symbol key hash with integer values (-> sp_StrIntHash)
+      h2 = {a: 1, b: 2}
+      puts h2[:a]
+      puts h2[:b]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1008,30 +969,27 @@ describe "Numeric: regressions" do
 
   it "numeric" do
     result = ze0(<<~'RUBY')
-      def t_numeric
-        # Test numeric methods and conversions
+      # Test numeric methods and conversions
 
-        puts (-5).abs     # 5
-        puts 3.14.to_i    # 3
-        puts 3.14.ceil    # 4
-        puts 3.14.floor   # 3
-        puts 3.14.round   # 3
-        puts 3.75.round   # 4
+      puts (-5).abs     # 5
+      puts 3.14.to_i    # 3
+      puts 3.14.ceil    # 4
+      puts 3.14.floor   # 3
+      puts 3.14.round   # 3
+      puts 3.75.round   # 4
 
-        # Integer methods
-        puts 7.even?      # false
-        puts 8.even?      # true
-        puts 7.odd?       # true
-        puts 10.zero?     # false
-        puts 0.zero?      # true
+      # Integer methods
+      puts 7.even?      # false
+      puts 8.even?      # true
+      puts 7.odd?       # true
+      puts 10.zero?     # false
+      puts 0.zero?      # true
 
-        # Numeric abs
-        puts (-3.14).abs  # 3.14
+      # Numeric abs
+      puts (-3.14).abs  # 3.14
 
-        # Power
-        puts 2 ** 10      # 1024
-      end
-      t_numeric
+      # Power
+      puts 2 ** 10      # 1024
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1053,24 +1011,21 @@ describe "Numeric: regressions" do
 
   it "safe nav" do
     result = ze0(<<~'RUBY')
-      def t_safe_nav
-        # Test safe navigation operator &.
+      # Test safe navigation operator &.
 
-        s = "hello"
-        puts s&.length    # 5
-        puts s&.upcase    # HELLO
+      s = "hello"
+      puts s&.length    # 5
+      puts s&.upcase    # HELLO
 
-        arr = Array.new
-        arr.push(10)
-        arr.push(20)
-        puts arr&.length  # 2
+      arr = Array.new
+      arr.push(10)
+      arr.push(20)
+      puts arr&.length  # 2
 
-        # Chain
-        puts "world"&.upcase&.length  # 5
+      # Chain
+      puts "world"&.upcase&.length  # 5
 
-        puts "done"
-      end
-      t_safe_nav
+      puts "done"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1084,44 +1039,41 @@ describe "Numeric: regressions" do
 
   it "shuffle" do
     result = ze0(<<~'RUBY')
-      def t_shuffle
-        arr = [1, 2, 3, 4, 5]
-        s = arr.shuffle
-        puts s.length
-        puts s.sort.join(",")
-        puts arr.join(",")
+      arr = [1, 2, 3, 4, 5]
+      s = arr.shuffle
+      puts s.length
+      puts s.sort.join(",")
+      puts arr.join(",")
 
-        words = ["foo", "bar", "baz", "qux"]
-        s2 = words.shuffle
-        puts s2.length
-        puts s2.include?("foo")
-        puts s2.include?("bar")
-        puts s2.include?("baz")
-        puts s2.include?("qux")
-        puts words.join(",")
+      words = ["foo", "bar", "baz", "qux"]
+      s2 = words.shuffle
+      puts s2.length
+      puts s2.include?("foo")
+      puts s2.include?("bar")
+      puts s2.include?("baz")
+      puts s2.include?("qux")
+      puts words.join(",")
 
-        nums = [10, 20, 30]
-        nums.shuffle!
-        puts nums.length
-        puts nums.sort.join(",")
+      nums = [10, 20, 30]
+      nums.shuffle!
+      puts nums.length
+      puts nums.sort.join(",")
 
-        # FloatArray
-        floats = [1.5, 2.5, 3.5, 4.5]
-        fs = floats.shuffle
-        puts fs.length            # 4
-        puts floats.length        # 4 (original unchanged)
-        floats.shuffle!
-        puts floats.length        # 4 (in-place, length stable)
+      # FloatArray
+      floats = [1.5, 2.5, 3.5, 4.5]
+      fs = floats.shuffle
+      puts fs.length            # 4
+      puts floats.length        # 4 (original unchanged)
+      floats.shuffle!
+      puts floats.length        # 4 (in-place, length stable)
 
-        # Empty / single-element edge cases stay stable.
-        empty = []
-        empty.shuffle!
-        puts empty.length         # 0
-        one = [42]
-        one.shuffle!
-        puts one[0]               # 42
-      end
-      t_shuffle
+      # Empty / single-element edge cases stay stable.
+      empty = []
+      empty.shuffle!
+      puts empty.length         # 0
+      one = [42]
+      one.shuffle!
+      puts one[0]               # 42
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1146,22 +1098,19 @@ describe "Numeric: regressions" do
 
   it "float array sort" do
     result = ze0(<<~'RUBY')
-      def t_float_array_sort
-        a = [3.5, 1.25, 2.0, 0.75, 4.125]
-        b = a.sort
-        puts b.length
+      a = [3.5, 1.25, 2.0, 0.75, 4.125]
+      b = a.sort
+      puts b.length
 
-        i = 0
-        while i < b.length
-          puts b[i]
-          i = i + 1
-        end
-
-        # Source unchanged.
-        puts a[0]
-        puts a[1]
+      i = 0
+      while i < b.length
+        puts b[i]
+        i = i + 1
       end
-      t_float_array_sort
+
+      # Source unchanged.
+      puts a[0]
+      puts a[1]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1178,22 +1127,19 @@ describe "Numeric: regressions" do
 
   it "integer literal large" do
     result = ze0(<<~'RUBY')
-      def t_integer_literal_large
-        mod = 4_294_967_296
-        puts mod
-        puts 16_777_621 % mod
+      mod = 4_294_967_296
+      puts mod
+      puts 16_777_621 % mod
 
-        hash = 2_166_136_261
-        data = "spinel"
-        i = 0
-        while i < data.length
-          hash = (hash * 16_777_619 + data.getbyte(i)) % mod
-          i += 1
-        end
-
-        puts hash
+      hash = 2_166_136_261
+      data = "spinel"
+      i = 0
+      while i < data.length
+        hash = (hash * 16_777_619 + data.getbyte(i)) % mod
+        i += 1
       end
-      t_integer_literal_large
+
+      puts hash
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1205,12 +1151,9 @@ describe "Numeric: regressions" do
 
   it "program name gvar" do
     result = ze0(<<~'RUBY')
-      def t_program_name_gvar
-        # `$PROGRAM_NAME` / `$0` are Ruby's standard aliases.
-        puts $PROGRAM_NAME.length > 0
-        puts $0.length > 0
-      end
-      t_program_name_gvar
+      # `$PROGRAM_NAME` / `$0` are Ruby's standard aliases.
+      puts $PROGRAM_NAME.length > 0
+      puts $0.length > 0
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1221,19 +1164,16 @@ describe "Numeric: regressions" do
 
   it "multi write as expression" do
     result = ze0(<<~'RUBY')
-      def t_multi_write_as_expression
-        # #554. `(a, b = 10, 11)` used as an expression returns the RHS array.
-        p( (a, b = 10, 11)[1] )
-        p a
-        p b
+      # #554. `(a, b = 10, 11)` used as an expression returns the RHS array.
+      p( (a, b = 10, 11)[1] )
+      p a
+      p b
 
-        arr = (x, y = "hi", "lo")
-        p arr[0]
-        p arr[1]
-        p x
-        p y
-      end
-      t_multi_write_as_expression
+      arr = (x, y = "hi", "lo")
+      p arr[0]
+      p arr[1]
+      p x
+      p y
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1249,23 +1189,20 @@ describe "Numeric: regressions" do
 
   it "range predicate block" do
     result = ze0(<<~'RUBY')
-      def t_range_predicate_block
-        # (a..b).any?/all?/none?/one? { |i| ... }
-        puts (0..5).all? {|i| i >= 0 }      # true
-        puts (0..5).all? {|i| i < 3 }       # false
-        puts (0..3).all? {|i| (0..3).cover?(i) }  # true
+      # (a..b).any?/all?/none?/one? { |i| ... }
+      puts (0..5).all? {|i| i >= 0 }      # true
+      puts (0..5).all? {|i| i < 3 }       # false
+      puts (0..3).all? {|i| (0..3).cover?(i) }  # true
 
-        puts (0..5).any? {|i| i == 3 }      # true
-        puts (0..5).any? {|i| i > 100 }     # false
+      puts (0..5).any? {|i| i == 3 }      # true
+      puts (0..5).any? {|i| i > 100 }     # false
 
-        puts (0..5).none? {|i| i > 100 }    # true
-        puts (0..5).none? {|i| i == 3 }     # false
+      puts (0..5).none? {|i| i > 100 }    # true
+      puts (0..5).none? {|i| i == 3 }     # false
 
-        puts (0..5).one? {|i| i == 3 }      # true
-        puts (0..5).one? {|i| i >= 4 }      # false
-        puts (0..5).one? {|i| i > 100 }     # false
-      end
-      t_range_predicate_block
+      puts (0..5).one? {|i| i == 3 }      # true
+      puts (0..5).one? {|i| i >= 4 }      # false
+      puts (0..5).one? {|i| i > 100 }     # false
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1284,29 +1221,26 @@ describe "Numeric: regressions" do
 
   it "fetch nil default distinguishes zero" do
     result = ze0(<<~'RUBY')
-      def t_fetch_nil_default_distinguishes_zero
-        # #682: hash.fetch(k, nil).nil? distinguishes missing-key from a 0 value.
-        h0 = {k: 0}
-        v0 = h0.fetch(:k, nil)
-        puts v0.nil? ? "missing" : "found-0"
+      # #682: hash.fetch(k, nil).nil? distinguishes missing-key from a 0 value.
+      h0 = {k: 0}
+      v0 = h0.fetch(:k, nil)
+      puts v0.nil? ? "missing" : "found-0"
 
-        hm = {}
-        vm = hm.fetch(:k, nil)
-        puts vm.nil? ? "missing" : "found-m"
+      hm = {}
+      vm = hm.fetch(:k, nil)
+      puts vm.nil? ? "missing" : "found-m"
 
-        h1 = {k: 42}
-        v1 = h1.fetch(:k, nil)
-        puts v1.nil? ? "missing" : "found-#{v1}"
+      h1 = {k: 42}
+      v1 = h1.fetch(:k, nil)
+      puts v1.nil? ? "missing" : "found-#{v1}"
 
-        hs = {"a" => 0}
-        vs = hs.fetch("a", nil)
-        puts vs.nil? ? "missing-str" : "found-str-#{vs}"
+      hs = {"a" => 0}
+      vs = hs.fetch("a", nil)
+      puts vs.nil? ? "missing-str" : "found-str-#{vs}"
 
-        hsm = {}
-        vsm = hsm.fetch("a", nil)
-        puts vsm.nil? ? "missing-str-key" : "found-str-bad"
-      end
-      t_fetch_nil_default_distinguishes_zero
+      hsm = {}
+      vsm = hsm.fetch("a", nil)
+      puts vsm.nil? ? "missing-str-key" : "found-str-bad"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1320,29 +1254,26 @@ describe "Numeric: regressions" do
 
   it "stdlib" do
     result = ze0(<<~'RUBY')
-      def t_stdlib
-        # Array#join
-        arr = (1..5).to_a
-        puts arr.join(", ")
+      # Array#join
+      arr = (1..5).to_a
+      puts arr.join(", ")
 
-        # Array#uniq
-        nums = (1..5).to_a
-        nums.push(3)
-        nums.push(1)
-        uniq = nums.uniq
-        puts uniq.length
+      # Array#uniq
+      nums = (1..5).to_a
+      nums.push(3)
+      nums.push(1)
+      uniq = nums.uniq
+      puts uniq.length
 
-        # srand/rand
-        srand(0)
-        r = rand(100)
-        puts r >= 0
+      # srand/rand
+      srand(0)
+      r = rand(100)
+      puts r >= 0
 
-        # ARGV.length
-        puts ARGV.length
+      # ARGV.length
+      puts ARGV.length
 
-        puts "done"
-      end
-      t_stdlib
+      puts "done"
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1356,29 +1287,26 @@ describe "Numeric: regressions" do
 
   it "math fn parity" do
     result = ze0(<<~'RUBY')
-      def t_math_fn_parity
-        # End-to-end exercise of every recognized Math fn.
-        puts Math.sqrt(16.0).to_i.to_s
-        puts Math.cos(0.0).to_i.to_s
-        puts Math.sin(0.0).to_i.to_s
-        puts Math.tan(0.0).to_i.to_s
-        puts Math.acos(1.0).to_i.to_s
-        puts Math.asin(0.0).to_i.to_s
-        puts Math.atan(0.0).to_i.to_s
-        puts Math.sinh(0.0).to_i.to_s
-        puts Math.cosh(0.0).to_i.to_s
-        puts Math.tanh(0.0).to_i.to_s
-        puts Math.asinh(0.0).to_i.to_s
-        puts Math.acosh(1.0).to_i.to_s
-        puts Math.atanh(0.0).to_i.to_s
-        puts Math.log(1.0).to_i.to_s
-        puts Math.log2(1.0).to_i.to_s
-        puts Math.log10(1.0).to_i.to_s
-        puts Math.exp(0.0).to_i.to_s
-        puts Math.atan2(0.0, 1.0).to_i.to_s
-        puts Math.hypot(3.0, 4.0).to_i.to_s
-      end
-      t_math_fn_parity
+      # End-to-end exercise of every recognized Math fn.
+      puts Math.sqrt(16.0).to_i.to_s
+      puts Math.cos(0.0).to_i.to_s
+      puts Math.sin(0.0).to_i.to_s
+      puts Math.tan(0.0).to_i.to_s
+      puts Math.acos(1.0).to_i.to_s
+      puts Math.asin(0.0).to_i.to_s
+      puts Math.atan(0.0).to_i.to_s
+      puts Math.sinh(0.0).to_i.to_s
+      puts Math.cosh(0.0).to_i.to_s
+      puts Math.tanh(0.0).to_i.to_s
+      puts Math.asinh(0.0).to_i.to_s
+      puts Math.acosh(1.0).to_i.to_s
+      puts Math.atanh(0.0).to_i.to_s
+      puts Math.log(1.0).to_i.to_s
+      puts Math.log2(1.0).to_i.to_s
+      puts Math.log10(1.0).to_i.to_s
+      puts Math.exp(0.0).to_i.to_s
+      puts Math.atan2(0.0, 1.0).to_i.to_s
+      puts Math.hypot(3.0, 4.0).to_i.to_s
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1406,7 +1334,6 @@ describe "Numeric: regressions" do
 
   it "float infinite nil" do
     result = ze0(<<~'RUBY')
-      def t_float_infinite_nil
       # Float#infinite?: nil for a finite value, -1 / +1 for -Inf / +Inf.
       p 0.0.infinite?
       p 3.14.infinite?
@@ -1414,8 +1341,6 @@ describe "Numeric: regressions" do
       p (-1.0 / 0.0).infinite?
       puts((1.0 / 0.0).infinite? ? "inf" : "finite")
       puts(2.5.infinite? ? "inf" : "finite")
-      end
-      t_float_infinite_nil
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1430,15 +1355,12 @@ describe "Numeric: regressions" do
 
   it "float next prev" do
     result = ze0(<<~'RUBY')
-      def t_float_next_prev
       # Float#next_float / prev_float — adjacent IEEE 754 representable
       # values via libm's nextafter.
       puts 1.0.next_float
       puts 1.0.prev_float
       puts 0.0.next_float
       puts 0.0.prev_float
-      end
-      t_float_next_prev
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1451,15 +1373,12 @@ describe "Numeric: regressions" do
 
   it "float zero p" do
     result = ze0(<<~'RUBY')
-      def t_float_zero_p
       # Float#zero?: true only for 0.0 / -0.0.
       p 0.0.zero?
       p(-0.0.zero?)
       p 3.5.zero?
       p (1.0 - 1.0).zero?
       puts(0.0.zero? ? "z" : "nz")
-      end
-      t_float_zero_p
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1473,7 +1392,6 @@ describe "Numeric: regressions" do
 
   it "int step expr block" do
     result = ze0(<<~'RUBY')
-      def t_int_step_expr_block
       # Integer#step with a block in expression position — CRuby returns
       # the receiver, not 0. Previously fell through to the unresolved-
       # call path and emitted 0 (and analyze inferred int_array, which
@@ -1481,8 +1399,6 @@ describe "Numeric: regressions" do
       result = 1.step(5) { |x| x }
       puts result.inspect
       puts result.class
-      end
-      t_int_step_expr_block
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1493,14 +1409,11 @@ describe "Numeric: regressions" do
 
   it "integer nonzero" do
     result = ze0(<<~'RUBY')
-      def t_integer_nonzero
       # Issue #874: Integer#nonzero? returns nil when receiver is 0,
       # self otherwise. Surfaces as int? (nullable int).
       puts 0.nonzero?.inspect
       puts 42.nonzero?.inspect
       puts(-5.nonzero? || "default")
-      end
-      t_integer_nonzero
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1512,14 +1425,11 @@ describe "Numeric: regressions" do
 
   it "range size exclusive" do
     result = ze0(<<~'RUBY')
-      def t_range_size_exclusive
       # Range#size with exclusive range
       # (1...5).size should return 4, not 5.
 
       puts (1..5).size
       puts (1...5).size
-      end
-      t_range_size_exclusive
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1530,7 +1440,6 @@ describe "Numeric: regressions" do
 
   it "range size string" do
     result = ze0(<<~'RUBY')
-      def t_range_size_string
       # A String range has no integer size; CRuby Range#size returns nil.
       # Integer ranges keep returning their element count.
       p (1..10).size
@@ -1538,8 +1447,6 @@ describe "Numeric: regressions" do
       p ("a".."z").size
       p ("a".."z").size.nil?
       p ("a".."e").size
-      end
-      t_range_size_string
     RUBY
 
     _(result).must_answer <<~'OUT'
