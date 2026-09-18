@@ -926,7 +926,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern" do
+  it "case/in matches by class, by alternation and by nil, and binds what it matched" do
     result = ze0(<<~'RUBY')
       # Test pattern matching (case/in)
 
@@ -984,7 +984,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern deconstruct" do
+  it "an object scrutinee is asked to deconstruct itself, by value or by pointer" do
     result = ze0(<<~'RUBY')
       # A user object used as a pattern-match scrutinee must be asked to deconstruct
       # itself: #deconstruct for an array pattern, #deconstruct_keys for a hash
@@ -1078,7 +1078,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern element subpatterns" do
+  it "a class, alternation or range guard checks an element, and a find pattern binds inside its window" do
     result = ze0(<<~'RUBY')
       # Element sub-pattern checks and binding descent in container patterns:
       # class/alternation/range guards on array elements, nested hash patterns
@@ -1172,7 +1172,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern keys and nesting" do
+  it "a hash pattern passes deconstruct_keys just the keys it names, and nil only when it takes them all" do
     result = ze0(<<~'RUBY')
       # Two pattern-matching reports.
       #
@@ -1263,7 +1263,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern matching" do
+  it "a capture, a leading splat and a middle splat each bind what they cover" do
     result = ze0(<<~'RUBY')
       case 5
       in Integer => n
@@ -1401,7 +1401,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern methodobj kwsplat undersupply" do
+  it "an under-supplied call raises in value position, beside **rest, **nil and a Method object" do
     result = ze0(<<~'RUBY')
       # Under-supplied calls raise at runtime in value position, `Class => var`
       # bindings in typed-array patterns, hash-pattern **rest / **nil, Method
@@ -1484,7 +1484,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern object deconstruct element types" do
+  it "an array pattern binds what deconstruct returns, whatever kind each element is" do
     result = ze0(<<~'RUBY')
       # An array pattern over an object binds what its #deconstruct returns: the
       # elements used to default to Integer, so a Symbol element bound its boxed bits
@@ -1551,7 +1551,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern pin" do
+  it "a pin matches the scrutinee by == against a local, an ivar or an expression" do
     result = ze0(<<~'RUBY')
       # Pattern matching: PinnedExpressionNode + PinnedVariableNode.
       #
@@ -1675,7 +1675,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern poly scrutinee bindings" do
+  it "a binding against an untyped scrutinee stays boxed, rest slice and all" do
     result = ze0(<<~'RUBY')
       # Array-pattern bindings against a poly/untyped VALUE scrutinee must be boxed
       # (poly), not int. A helper widened to an untyped return by extra call sites
@@ -1715,7 +1715,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern post splat" do
+  it "an array or find pattern binds the fixed elements that come after the splat" do
     result = ze0(<<~'RUBY')
       # Array and find patterns must bind fixed elements that come AFTER a splat.
       #
@@ -1827,7 +1827,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "pattern rightward oneline" do
+  it "expr => pattern destructures with splats, posts and **rest, as a one-line in does" do
     result = ze0(<<~'RUBY')
       # Rightward pattern assignment (`expr => pattern`) with splats, posts, and
       # **rest captures, plus one-line `in` hash patterns carrying value

@@ -45,7 +45,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal dump anonymous class" do
+  it "an anonymous class is refused, because a dump names the class load must find" do
     result = ze0(<<~'RUBY')
       # A dump names the class so `Marshal.load` can find it again, which an
       # ANONYMOUS class has no way to be -- so it is refused rather than written as a
@@ -99,7 +99,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal dump load roundtrip and wire format" do
+  it "the value tower round-trips, and symbols and floats write CRuby's exact bytes" do
     result = ze0(<<~'RUBY')
       # Marshal round-trips the value tower (primitives, bignum, array, hash,
       # Rational, shared refs and cycles) and writes CRuby's exact wire bytes for
@@ -147,7 +147,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal entry options" do
+  it "dump takes an IO and a depth limit, and load takes an IO, freeze: and a proc" do
     result = ze0(<<~'RUBY')
       # Marshal's entry surface beyond the byte format (which matches
       # exactly): `dump(obj, io)` WRITES to the IO (zeo writes nothing),
@@ -185,7 +185,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal exceptions and extends" do
+  it "an exception loads back, and an extended module travels with the object" do
     result = ze0(<<~'RUBY')
       # A dumped exception loads back. `marshal_allocate` has no Exception arm,
       # so it reports "allocator undefined" for a class `rclass.rs` already knows
@@ -227,7 +227,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal io stream" do
+  it "dump writes a NUL-heavy payload to an IO, and load reads one back" do
     result = ze0(<<~'RUBY')
       # Marshal.load takes either the serialized bytes or an IO to read them from,
       # and Marshal.dump writes to an IO when it is given one. Only the String forms
@@ -284,7 +284,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal roundtrip" do
+  it "Rational, Complex and a plain user object round-trip, sharing what was shared" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -450,7 +450,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal roundtrips a struct graph" do
+  it "a graph of hashes, arrays and a Struct comes back == to what went in" do
     result = ze0(<<~'RUBY')
       # Marshal writes and reads a graph of core objects inside the binary.
       Point = Struct.new(:x, :y)
@@ -471,7 +471,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal string ivars round trip" do
+  it "an instance variable on a String survives the round trip" do
     result = ze0(<<~'RUBY')
       # Instance variables on a STRING survive a Marshal round-trip (the I
       # prefix carries them); zeo drops them silently -- object ivars already
@@ -490,7 +490,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal symlink float" do
+  it "a repeated symbol writes a link, and a float writes CRuby's shortest round-tripping text" do
     result = ze0(<<~'RUBY')
       # Marshal writer: a repeated symbol emits a `;<index>` link (CRuby writes each
       # symbol in full once), and floats use CRuby's Marshal text -- the shortest
@@ -514,7 +514,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal value fidelity" do
+  it "a Range and a hash default survive the round trip" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -573,7 +573,7 @@ describe "Marshal programs" do
     OUT
   end
 
-  it "marshal wire format" do
+  it "the I, /, c, m, S, U and u records each match CRuby byte for byte" do
     result = ze0(<<~'RUBY')
       # Marshal wire format: the `I` encoding wrapper, `/` Regexp, `c`/`m` class and
       # module references, `S` Struct, and the `U`/`u` user hooks -- all byte-checked
