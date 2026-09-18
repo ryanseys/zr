@@ -292,7 +292,7 @@ describe "Guards programs" do
     OUT
   end
 
-  it "build time guard reads the number the pattern and the list" do
+  it "a version comparison at build time picks the branch its number falls in" do
     result = ze0(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
@@ -322,6 +322,41 @@ describe "Guards programs" do
       p Adapter.superclass
       p Adapter.new.which
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Array
+      :current
+    OUT
+  end
+
+  it "String#to_i reads the leading integer of a version and stops" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
+
       # `String#to_i` reads the leading integer and stops -- chef spells its major
       # version this way.
       if Framework::VERSION::STRING.to_i >= 12
@@ -335,6 +370,40 @@ describe "Guards programs" do
       end
       p Chef12.new.which
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :old
+    OUT
+  end
+
+  it "an unescaped dot in a version pattern is exactly one character" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
+
       # An unescaped `.` in a pattern is exactly one character, which is what gmp's
       # `unless RUBY_VERSION =~ /^1.8/` says. It reads the same as `/^1\.8/` on
       # every real version string, and is matched rather than assumed.
@@ -344,6 +413,40 @@ describe "Guards programs" do
         end
       end
       p Modern.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :modern
+    OUT
+  end
+
+  it "an /i pattern over the engine name reads the same at build time" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
 
       # `/i` -- the spelling a jruby gate uses.
       if RUBY_PLATFORM =~ /java/i
@@ -358,6 +461,41 @@ describe "Guards programs" do
       p Vm.superclass
       p Vm.new.which
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Array
+      :native
+    OUT
+  end
+
+  it "String#[] as a condition asks whether the pattern matched" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
+
       # `String#[]` hands back the match or nil, so as a CONDITION it asks whether
       # the platform string contains that text.
       if RUBY_PLATFORM['nosuchplatform']
@@ -366,6 +504,40 @@ describe "Guards programs" do
         end
       end
       p defined?(Odd)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+    OUT
+  end
+
+  it "a literal list asked for membership is the comparison spelled sideways" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
 
       # A literal list asked for membership is the comparison spelled sideways.
       if ['opal', 'rubymotion'].include?(RUBY_ENGINE)
@@ -380,6 +552,41 @@ describe "Guards programs" do
       p Web.superclass
       p Web.new.which
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Array
+      :mri
+    OUT
+  end
+
+  it "instance_methods.include? is method_defined? the long way" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
+
       # `X.instance_methods.include?(:m)` is `X.method_defined?(:m)` the long way --
       # a polyfill gate, and it decides against the compiled method tables.
       unless Regexp.instance_methods.include?(:match?)
@@ -388,6 +595,40 @@ describe "Guards programs" do
         end
       end
       p defined?(MatchPolyfill)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+    OUT
+  end
+
+  it "a guard on a constant the program does fill installs the filled body" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
 
       class Bare
         def only_this = 1
@@ -398,6 +639,40 @@ describe "Guards programs" do
         end
       end
       p Filled.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :filled
+    OUT
+  end
+
+  it "RUBY_PLATFORM.to_s is RUBY_PLATFORM, because String#to_s answers self" do
+    result = ze0(<<~'RUBY')
+      # A version gate is written against the NUMBER as often as against the string
+      # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
+      # All three are as fixed for a whole-program target as the version strings the
+      # comparison folders already decide, and each one wraps a whole class in the
+      # corpus -- so a compiler that cannot decide it registers both arms and reports
+      # a superclass mismatch for a program ruby runs without complaint.
+
+      module Framework
+        module VERSION
+          MAJOR = 8
+          MINOR = 1
+          STRING = "8.1.0"
+        end
+      end
+
+      if Framework::VERSION::MAJOR == 8 && Framework::VERSION::MINOR >= 1
+        class Adapter < Array
+          def which = :current
+        end
+      else
+        class Adapter < String
+          def which = :legacy
+        end
+      end
 
       # `RUBY_PLATFORM.to_s` is `RUBY_PLATFORM` -- `String#to_s` returns self.
       if RUBY_PLATFORM.to_s == 'java'
@@ -413,17 +688,6 @@ describe "Guards programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Array
-      :current
-      :old
-      :modern
-      Array
-      :native
-      nil
-      Array
-      :mri
-      nil
-      :filled
       :mri
     OUT
   end
@@ -1639,7 +1903,7 @@ describe "Guards programs" do
     _(result).must_answer "real\n"
   end
 
-  it "guarded def does not take a positional install" do
+  it "a guarded reopen walked first does not displace the real definition" do
     result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
@@ -1658,6 +1922,26 @@ describe "Guards programs" do
       p Probe::Unit.const_defined?(:ONLY_IF_UNIVERSAL)
       unit.tag = "tagged"
       p unit.tag
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "real"
+      "real class method"
+      false
+      "tagged"
+    OUT
+  end
+
+  it "the same pair in one file, guarded first, keeps the unguarded body" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
 
       # The same pair in one file: guarded first, unguarded second.
       module Probe
@@ -1678,6 +1962,24 @@ describe "Guards programs" do
       p Probe::GuardedFirst.new.which
       p Probe::GuardedFirst.which
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "real"
+      "real class method"
+    OUT
+  end
+
+  it "and in the other order, the unguarded body still wins" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
+
       # ...and the other order.
       module Probe
         class GuardedLast
@@ -1692,6 +1994,23 @@ describe "Guards programs" do
         end
       end
       p Probe::GuardedLast.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "real"
+    OUT
+  end
+
+  it "a guard that is true still installs its body" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
 
       # A guard that is TRUE still installs, or the fix would just be "never
       # install a guarded body".
@@ -1708,6 +2027,24 @@ describe "Guards programs" do
       end
       p Probe::GuardTaken.new.which
       p Probe::GuardTaken.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "taken"
+      "taken class method"
+    OUT
+  end
+
+  it "a name only a false branch writes is absent, and so is its constant" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
 
       # A name only a false branch writes is absent, and so is its constant.
       module Probe
@@ -1727,6 +2064,25 @@ describe "Guards programs" do
         p e.class.to_s
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      false
+      "NoMethodError"
+    OUT
+  end
+
+  it "three bodies for one name, two of them guarded, install only the unguarded one" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
+
       # Three bodies for one name, two of them guarded: the counts differ by two.
       module Probe
         class ThreeBodies
@@ -1741,6 +2097,23 @@ describe "Guards programs" do
         end
       end
       p Probe::ThreeBodies.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "real"
+    OUT
+  end
+
+  it "a guard inside a guard, with a local assigned between them, still reads right" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
 
       # Bundler's actual nesting: a guard inside a guard, with a local assigned
       # between them.
@@ -1758,6 +2131,23 @@ describe "Guards programs" do
         end
       end
       p Probe::Nested.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "real"
+    OUT
+  end
+
+  it "a block-installed accessor loses to the def that always runs" do
+    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+      module Probe
+        # A question no compile-time fold can answer, the way bundler asks
+        # `Gem::Platform.local.cpu`. Every guard below reads it.
+        def self.cpu
+          ["arm", "64"].join
+        end
+      end
 
       # The pass's own job, unchanged: a block-installed accessor loses to the
       # `def` written below it, and so does a macro a class method expands.
@@ -1788,20 +2178,6 @@ describe "Guards programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "real"
-      "real class method"
-      false
-      "tagged"
-      "real"
-      "real class method"
-      "real"
-      "taken"
-      "taken class method"
-      false
-      false
-      "NoMethodError"
-      "real"
-      "real"
       [1, 1]
       [2, 2]
     OUT

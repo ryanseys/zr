@@ -849,7 +849,7 @@ describe "Numeric: arithmetic" do
     OUT
   end
 
-  it "int arg into bigint param" do
+  it "a small Integer argument binds a parameter another call site passes a bignum" do
     result = ze0(<<~'RUBY')
       # A parameter that sees both a small Integer and a Bignum types as bigint --
       # ty_unify keeps them together rather than widening to poly, on the premise
@@ -865,17 +865,71 @@ describe "Numeric: arithmetic" do
       p any(1)
       p any(2**200)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "1"
+      "1606938044258990275541962092341162602522202993782792835301376"
+    OUT
+  end
+
+  it "arithmetic inside that parameter answers for both widths" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+
       def arith(n)
         n * 2 + 1
       end
       p arith(3)
       p arith(2**70)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      2361183241434822606849
+    OUT
+  end
+
+  it "a comparison inside that parameter answers for both widths" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+
       def cmp(a, b)
         a > b
       end
       p cmp(5, 2**80)
       p cmp(2**80, 5)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      true
+    OUT
+  end
+
+  it "a default value binds the same widened slot" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
 
       # the default-value path binds the same slot
       def opt(x = 7)
@@ -884,6 +938,24 @@ describe "Numeric: arithmetic" do
       p opt
       p opt(2**100)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "7"
+      "1267650600228229401496703205376"
+    OUT
+  end
+
+  it "a keyword and a splat argument reach the widened slot too" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+
       # keyword and splat arguments reach it too
       def kw(x:, y: 3)
         (x + y).to_s
@@ -891,10 +963,45 @@ describe "Numeric: arithmetic" do
       p kw(x: 1)
       p kw(x: 2**90, y: 2)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "4"
+      "1237940039285380274899124226"
+    OUT
+  end
+
+  it "a rest parameter holds both widths at once" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+
       def rest(*xs)
         xs.map { |v| v.to_s }
       end
       p rest(1, 2**70)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["1", "1180591620717411303424"]
+    OUT
+  end
+
+  it "a constructor argument binds the same widened slot" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
 
       # a constructor argument is the same binding
       class Box
@@ -908,6 +1015,24 @@ describe "Numeric: arithmetic" do
       end
       p Box.new(9).show
       p Box.new(2**90).show
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "9"
+      "1237940039285380274899124224"
+    OUT
+  end
+
+  it "an ivar written from both widths holds each" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
 
       # The same boundary on the SLOT side: an ivar or class variable that elsewhere
       # holds a Bignum takes an int write through the same promotion. Without it
@@ -944,6 +1069,29 @@ describe "Numeric: arithmetic" do
       p a.add(2**64)
       p Acc.new(5).add(2**70)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      1208925819614629174706177
+      1208925819614629174706178
+      1208925819614629174706178
+      0
+      18446744073709551616
+      1180591620717411303429
+    OUT
+  end
+
+  it "a class variable written from both widths holds each" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
+
       class Tally
         @@total = 0
 
@@ -954,6 +1102,24 @@ describe "Numeric: arithmetic" do
       end
       p Tally.bump(1)
       p Tally.bump(2**80)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      1208925819614629174706177
+    OUT
+  end
+
+  it "a conditional whose arms are an Integer and a bignum answers both" do
+    result = ze0(<<~'RUBY')
+      # A parameter that sees both a small Integer and a Bignum types as bigint --
+      # ty_unify keeps them together rather than widening to poly, on the premise
+      # that an int is promoted at the boundary.
+      #
+      # The promotion was only ever wired into the arithmetic operands, so a
+      # parameter that reached bigint any other way got an mrb_int handed to an
+      # sp_Bigint* slot: ill-typed C, caught only by -Werror.
 
       # a conditional whose arms are an int and a Bignum
       class Either
@@ -968,28 +1134,6 @@ describe "Numeric: arithmetic" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "1"
-      "1606938044258990275541962092341162602522202993782792835301376"
-      7
-      2361183241434822606849
-      false
-      true
-      "7"
-      "1267650600228229401496703205376"
-      "4"
-      "1237940039285380274899124226"
-      ["1", "1180591620717411303424"]
-      "9"
-      "1237940039285380274899124224"
-      1
-      1208925819614629174706177
-      1208925819614629174706178
-      1208925819614629174706178
-      0
-      18446744073709551616
-      1180591620717411303429
-      1
-      1208925819614629174706177
       "0"
       "1237940039285380274899124224"
     OUT

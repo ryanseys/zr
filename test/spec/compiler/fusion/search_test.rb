@@ -395,7 +395,7 @@ describe "Fusion: searching and matching" do
     OUT
   end
 
-  it "guarded mixin into an existing class splices at runtime" do
+  it "a guarded include splices into an existing class at run time" do
     result = ze0(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
@@ -422,6 +422,32 @@ describe "Fusion: searching and matching" do
       p Thermos < Warmth
       p Thermos.new.warmed?
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      true
+      true
+      true
+    OUT
+  end
+
+  it "a guarded prepend overrides a method the class already answers" do
+    result = ze0(<<~'RUBY')
+      # A mixin into an EXISTING class under a runtime-undecidable guard is a
+      # runtime ancestry edit: the directive runs as the send it is, exactly when
+      # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
+      # guard, clusterer's `$LINALG == true`). Call sites the module could newly
+      # answer or override are de-optimized, so a folded call cannot bypass the
+      # splice -- and before the guard runs, the ancestry is untouched.
+      module Warmth
+        def warmed? = true
+      end
+
+      class Thermos
+        def temperature = 20
+      end
+
       # A prepend that OVERRIDES a method the class already answers -- the
       # de-optimization is what keeps a statically-resolved `capacity` from
       # reaching the class's own body underneath the override.
@@ -441,6 +467,30 @@ describe "Fusion: searching and matching" do
       p Bottle.new.capacity
       p Bottle.ancestors.first == Doubled
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      700
+      true
+    OUT
+  end
+
+  it "a false guard splices nothing, so the method stays missing" do
+    result = ze0(<<~'RUBY')
+      # A mixin into an EXISTING class under a runtime-undecidable guard is a
+      # runtime ancestry edit: the directive runs as the send it is, exactly when
+      # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
+      # guard, clusterer's `$LINALG == true`). Call sites the module could newly
+      # answer or override are de-optimized, so a folded call cannot bypass the
+      # splice -- and before the guard runs, the ancestry is untouched.
+      module Warmth
+        def warmed? = true
+      end
+
+      class Thermos
+        def temperature = 20
+      end
+
       # A FALSE guard splices nothing.
       module Chill
         def frosty? = true
@@ -459,6 +509,30 @@ describe "Fusion: searching and matching" do
         puts e.class
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      NoMethodError
+    OUT
+  end
+
+  it "a guarded extend brings the module's methods in as class methods" do
+    result = ze0(<<~'RUBY')
+      # A mixin into an EXISTING class under a runtime-undecidable guard is a
+      # runtime ancestry edit: the directive runs as the send it is, exactly when
+      # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
+      # guard, clusterer's `$LINALG == true`). Call sites the module could newly
+      # answer or override are de-optimized, so a folded call cannot bypass the
+      # splice -- and before the guard runs, the ancestry is untouched.
+      module Warmth
+        def warmed? = true
+      end
+
+      class Thermos
+        def temperature = 20
+      end
+
       # `extend` under the guard: the module's methods arrive as class methods.
       module Stockroom
         def stocked? = true
@@ -473,6 +547,29 @@ describe "Fusion: searching and matching" do
         end
       end
       p Pantry.stocked?
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+    OUT
+  end
+
+  it "a guarded prepend inside class << self overrides an existing class method" do
+    result = ze0(<<~'RUBY')
+      # A mixin into an EXISTING class under a runtime-undecidable guard is a
+      # runtime ancestry edit: the directive runs as the send it is, exactly when
+      # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
+      # guard, clusterer's `$LINALG == true`). Call sites the module could newly
+      # answer or override are de-optimized, so a folded call cannot bypass the
+      # splice -- and before the guard runs, the ancestry is untouched.
+      module Warmth
+        def warmed? = true
+      end
+
+      class Thermos
+        def temperature = 20
+      end
 
       # The singleton half (`class << self; prepend M`), overriding an existing
       # class method.
@@ -494,6 +591,29 @@ describe "Fusion: searching and matching" do
       end
       p Shop.open
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "announcing: 9am"
+    OUT
+  end
+
+  it "the module's included hook fires only where the guard passes" do
+    result = ze0(<<~'RUBY')
+      # A mixin into an EXISTING class under a runtime-undecidable guard is a
+      # runtime ancestry edit: the directive runs as the send it is, exactly when
+      # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
+      # guard, clusterer's `$LINALG == true`). Call sites the module could newly
+      # answer or override are de-optimized, so a folded call cannot bypass the
+      # splice -- and before the guard runs, the ancestry is untouched.
+      module Warmth
+        def warmed? = true
+      end
+
+      class Thermos
+        def temperature = 20
+      end
+
       # The module's hook fires when (and only when) the guard passes, with the
       # edited class as its argument.
       module Tracked
@@ -512,6 +632,29 @@ describe "Fusion: searching and matching" do
       end
       p $included_into
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "Ledger"
+    OUT
+  end
+
+  it "a guarded mixin into Object itself reaches every value" do
+    result = ze0(<<~'RUBY')
+      # A mixin into an EXISTING class under a runtime-undecidable guard is a
+      # runtime ancestry edit: the directive runs as the send it is, exactly when
+      # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
+      # guard, clusterer's `$LINALG == true`). Call sites the module could newly
+      # answer or override are de-optimized, so a folded call cannot bypass the
+      # splice -- and before the guard runs, the ancestry is untouched.
+      module Warmth
+        def warmed? = true
+      end
+
+      class Thermos
+        def temperature = 20
+      end
+
       # hammertime's exact shape: Object itself, behind its own idempotence probe.
       module Hammer
         def hammer_time? = true
@@ -528,17 +671,6 @@ describe "Fusion: searching and matching" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      false
-      true
-      true
-      true
-      700
-      true
-      false
-      NoMethodError
-      true
-      "announcing: 9am"
-      "Ledger"
       true
       true
       still running

@@ -1097,9 +1097,7 @@ describe "Builtins programs" do
     OUT
   end
 
-  it "core long tail rows" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
-
+  it "Array.[] builds an array from its arguments, and an empty one from none" do
     result = ze0(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
@@ -1112,12 +1110,48 @@ describe "Builtins programs" do
       puts "Array.[]: #{Array[1, 2, 3].inspect}"
       puts "Array.[] empty: #{Array[].inspect}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Array.[]: [1, 2, 3]
+      Array.[] empty: []
+    OUT
+  end
+
+  it "attached_object answers the object a singleton class belongs to" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "attached_object: #{String.singleton_class.attached_object}"
       begin
         Class.new.attached_object
       rescue TypeError => e
         puts "attached_object plain: #{e.message.sub(/0x\h+/, '0xADDR')}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      attached_object: String
+      attached_object plain: '#<Class:0xADDR>' is not a singleton class
+    OUT
+  end
+
+  it "Encoding.aliases maps an alias to its name, and locale_charmap answers a String" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       puts "Encoding.aliases: #{Encoding.aliases['BINARY']}"
       puts "Encoding.locale_charmap: #{Encoding.locale_charmap.class}"
@@ -1126,18 +1160,126 @@ describe "Builtins programs" do
       # CRuby's `_load` answers what it was handed rather than the singleton.
       puts "Encoding._load class: #{Encoding._load('UTF-8').class}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Encoding.aliases: ASCII-8BIT
+      Encoding.locale_charmap: String
+      Encoding._dump: UTF-8
+      Encoding._load: UTF-8
+      Encoding._load class: String
+    OUT
+  end
+
+  it "lazy.eager answers an Enumerator that forces the chain" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "lazy eager: #{[1, 2, 3].lazy.map { |x| x * 2 }.eager.class}"
       puts "lazy eager values: #{[1, 2, 3].lazy.map { |x| x * 2 }.eager.to_a.inspect}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      lazy eager: Enumerator
+      lazy eager values: [2, 4, 6]
+    OUT
+  end
+
+  it "GC#garbage_collect is listed among GC's own instance methods" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "GC#garbage_collect listed: #{GC.instance_methods(false).include?(:garbage_collect)}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      GC#garbage_collect listed: true
+    OUT
+  end
+
+  it "ruby2_keywords_hash marks a Hash, and ruby2_keywords_hash? reads the mark" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       marked = Hash.ruby2_keywords_hash({ a: 1 })
       puts "ruby2_keywords_hash: #{marked.inspect}"
       puts "ruby2_keywords_hash? plain: #{Hash.ruby2_keywords_hash?({})}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ruby2_keywords_hash: {a: 1}
+      ruby2_keywords_hash? plain: false
+    OUT
+  end
+
+  it "Marshal.restore reads back what Marshal.dump wrote" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "Marshal.restore: #{Marshal.restore(Marshal.dump([1, 'two', :three])).inspect}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Marshal.restore: [1, "two", :three]
+    OUT
+  end
+
+  it "Random.seed answers an Integer" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "Random.seed: #{Random.seed.is_a?(Integer)}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Random.seed: true
+    OUT
+  end
+
+  it "Regexp.timeout reads and writes the global timeout" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       puts "Regexp.timeout default: #{Regexp.timeout.inspect}"
       Regexp.timeout = 3
@@ -1148,20 +1290,114 @@ describe "Builtins programs" do
       puts "Regexp#~: #{~/world/}"
       puts "Regexp#~ miss: #{(~/nope/).inspect}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Regexp.timeout default: nil
+      Regexp.timeout set: 3.0
+      Regexp.timeout cleared: nil
+      Regexp#~: 6
+      Regexp#~ miss: nil
+    OUT
+  end
+
+  it "compare_by_identity switches a Set to identity and answers the Set" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       s = Set[1, 2]
       puts "compare_by_identity? before: #{s.compare_by_identity?}"
       puts "compare_by_identity: #{s.compare_by_identity.class}"
       puts "compare_by_identity? after: #{s.compare_by_identity?}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      compare_by_identity? before: false
+      compare_by_identity: Set
+      compare_by_identity? after: true
+    OUT
+  end
+
+  it "unicode_normalize! normalizes the receiver in place" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       str = +"é"
       puts "unicode_normalize!: #{str.unicode_normalize!(:nfc).bytes.inspect}"
       puts "unicode_normalize! in place: #{str.bytes.inspect}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      unicode_normalize!: [195, 169]
+      unicode_normalize! in place: [195, 169]
+    OUT
+  end
+
+  it "Symbol.all_symbols answers an Array of the symbols in use" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "Symbol.all_symbols: #{Symbol.all_symbols.is_a?(Array)}"
       puts "Symbol.all_symbols has one: #{Symbol.all_symbols.include?(:all_symbols_probe_sym)}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Symbol.all_symbols: true
+      Symbol.all_symbols has one: true
+    OUT
+  end
+
+  it "Warning.categories names the categories, and Warning#warn is listed" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       puts "Warning.categories: #{Warning.categories.include?(:deprecated)}"
       puts "Warning#warn listed: #{Warning.instance_methods(false).inspect}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Warning.categories: true
+      Warning#warn listed: [:warn]
+    OUT
+  end
+
+  it "Process::Tms names its four members" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       puts "Process::Tms.members: #{Process::Tms.members.inspect}"
       puts "Process::Tms.keyword_init?: #{Process::Tms.keyword_init?.inspect}"
@@ -1171,12 +1407,53 @@ describe "Builtins programs" do
       puts "Process::Tms writer: #{tms.utime}"
       puts "Process::Tms to_a: #{tms.to_a.inspect}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Process::Tms.members: [:utime, :stime, :cutime, :cstime]
+      Process::Tms.keyword_init?: nil
+      Process::Tms.[]: #<struct Process::Tms utime=1, stime=2, cutime=3, cstime=4>
+      Process::Tms writer: 9.5
+      Process::Tms to_a: [9.5, 2, 3, 4]
+    OUT
+  end
+
+  it "Process::Status.wait answers a Status for the child it waited on" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       pid = Process.spawn("true")
       st = Process::Status.wait(pid)
       puts "Status.wait: #{st.class}"
       puts "Status.wait exit: #{st.exitstatus}"
       puts "Status coredump?: #{st.coredump?}"
       puts "Status stopsig: #{st.stopsig.inspect}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Status.wait: Process::Status
+      Status.wait exit: 0
+      Status coredump?: false
+      Status stopsig: nil
+    OUT
+  end
+
+  it "a Queue answers num_waiting, clear and size" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       q = Thread::Queue.new
       q << 1
@@ -1195,10 +1472,49 @@ describe "Builtins programs" do
         puts "CV marshal_dump: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Queue num_waiting: 0
+      Queue clear: Thread::Queue
+      Queue size after clear: 0
+      Queue marshal_dump: can't dump Thread::Queue
+      CV marshal_dump: can't dump Thread::ConditionVariable
+    OUT
+  end
+
+  it "a SizedQueue answers num_waiting and clear as a Queue does" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       sq = Thread::SizedQueue.new(2)
       puts "SizedQueue num_waiting: #{sq.num_waiting}"
       sq << 1
       puts "SizedQueue clear: #{sq.clear.class}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      SizedQueue num_waiting: 0
+      SizedQueue clear: Thread::SizedQueue
+    OUT
+  end
+
+  it "Mutex#sleep answers nil and leaves the mutex locked" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       m = Thread::Mutex.new
       m.lock
@@ -1206,11 +1522,49 @@ describe "Builtins programs" do
       puts "Mutex still locked: #{m.locked?}"
       m.unlock
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Mutex#sleep: nil
+      Mutex still locked: true
+    OUT
+  end
+
+  it "ThreadGroup#enclose marks the group, and enclosed? reads the mark" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
+
       g = ThreadGroup.new
       puts "ThreadGroup enclosed? before: #{g.enclosed?}"
       puts "ThreadGroup enclose: #{g.enclose.class}"
       puts "ThreadGroup enclosed? after: #{g.enclosed?}"
       puts "Default enclosed?: #{ThreadGroup::Default.enclosed?}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ThreadGroup enclosed? before: false
+      ThreadGroup enclose: ThreadGroup
+      ThreadGroup enclosed? after: true
+      Default enclosed?: false
+    OUT
+  end
+
+  it "the top-level Queue, Mutex and SizedQueue are the Thread:: ones" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       puts "top-level Queue: #{Queue.equal?(Thread::Queue)}"
       puts "top-level Mutex: #{Mutex.equal?(Thread::Mutex)}"
@@ -1218,6 +1572,28 @@ describe "Builtins programs" do
       puts "top-level ConditionVariable: #{ConditionVariable.equal?(Thread::ConditionVariable)}"
       puts "RUBY_COPYRIGHT: #{RUBY_COPYRIGHT.start_with?('ruby - Copyright')}"
       puts "File::Separator: #{File::Separator.inspect}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      top-level Queue: true
+      top-level Mutex: true
+      top-level SizedQueue: true
+      top-level ConditionVariable: true
+      RUBY_COPYRIGHT: true
+      File::Separator: "/"
+    OUT
+  end
+
+  it "Dir#chdir with a block returns to where it was, and chroot raises EPERM" do
+    result = ze0(<<~'RUBY')
+      # The long tail: one row apiece across Array, Class, Dir, Encoding,
+
+      # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
+      # Symbol, Warning and the Thread family.
+
+      require "set"
+      require "tmpdir"
 
       Dir.mktmpdir do |dir|
         Dir.open(dir) do |d|
@@ -1233,64 +1609,6 @@ describe "Builtins programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Array.[]: [1, 2, 3]
-      Array.[] empty: []
-      attached_object: String
-      attached_object plain: '#<Class:0xADDR>' is not a singleton class
-      Encoding.aliases: ASCII-8BIT
-      Encoding.locale_charmap: String
-      Encoding._dump: UTF-8
-      Encoding._load: UTF-8
-      Encoding._load class: String
-      lazy eager: Enumerator
-      lazy eager values: [2, 4, 6]
-      GC#garbage_collect listed: true
-      ruby2_keywords_hash: {a: 1}
-      ruby2_keywords_hash? plain: false
-      Marshal.restore: [1, "two", :three]
-      Random.seed: true
-      Regexp.timeout default: nil
-      Regexp.timeout set: 3.0
-      Regexp.timeout cleared: nil
-      Regexp#~: 6
-      Regexp#~ miss: nil
-      compare_by_identity? before: false
-      compare_by_identity: Set
-      compare_by_identity? after: true
-      unicode_normalize!: [195, 169]
-      unicode_normalize! in place: [195, 169]
-      Symbol.all_symbols: true
-      Symbol.all_symbols has one: true
-      Warning.categories: true
-      Warning#warn listed: [:warn]
-      Process::Tms.members: [:utime, :stime, :cutime, :cstime]
-      Process::Tms.keyword_init?: nil
-      Process::Tms.[]: #<struct Process::Tms utime=1, stime=2, cutime=3, cstime=4>
-      Process::Tms writer: 9.5
-      Process::Tms to_a: [9.5, 2, 3, 4]
-      Status.wait: Process::Status
-      Status.wait exit: 0
-      Status coredump?: false
-      Status stopsig: nil
-      Queue num_waiting: 0
-      Queue clear: Thread::Queue
-      Queue size after clear: 0
-      Queue marshal_dump: can't dump Thread::Queue
-      CV marshal_dump: can't dump Thread::ConditionVariable
-      SizedQueue num_waiting: 0
-      SizedQueue clear: Thread::SizedQueue
-      Mutex#sleep: nil
-      Mutex still locked: true
-      ThreadGroup enclosed? before: false
-      ThreadGroup enclose: ThreadGroup
-      ThreadGroup enclosed? after: true
-      Default enclosed?: false
-      top-level Queue: true
-      top-level Mutex: true
-      top-level SizedQueue: true
-      top-level ConditionVariable: true
-      RUBY_COPYRIGHT: true
-      File::Separator: "/"
       Dir#chdir block: true
       Dir.chroot: Errno::EPERM
     OUT
@@ -3159,9 +3477,7 @@ describe "Builtins programs" do
     OUT
   end
 
-  it "process identity rows" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
-
+  it "Process::Sys, UID and GID are modules, each naming its own singleton rows" do
     result = ze0(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
@@ -3194,6 +3510,47 @@ describe "Builtins programs" do
       puts "Sys respond_to?: #{Process::Sys.respond_to?(:setuid)}"
       puts "Sys included: #{Class.new { include Process::Sys }.new.send(:getuid) == uid}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Process::Sys class: Module
+      Process::Sys singleton: [:getegid, :geteuid, :getgid, :getuid, :issetugid, :setegid, :seteuid, :setgid, :setregid, :setresgid, :setresuid, :setreuid, :setrgid, :setruid, :setuid]
+      Process::Sys private: [:getegid, :geteuid, :getgid, :getuid, :issetugid, :setegid, :seteuid, :setgid, :setregid, :setresgid, :setresuid, :setreuid, :setrgid, :setruid, :setuid]
+      Process::Sys public instance: []
+      Process::UID class: Module
+      Process::UID singleton: [:change_privilege, :eid, :eid=, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+      Process::UID private: [:change_privilege, :eid, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+      Process::UID public instance: []
+      Process::GID class: Module
+      Process::GID singleton: [:change_privilege, :eid, :eid=, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+      Process::GID private: [:change_privilege, :eid, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
+      Process::GID public instance: []
+      Sys respond_to?: true
+      Sys included: true
+    OUT
+  end
+
+  it "the Sys readers answer what Process already answers" do
+    result = ze0(<<~'RUBY')
+
+      # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
+      #
+      # Every id printed here is compared against one the process already knows,
+      # never printed raw, so the output is the same on any machine. Nothing in
+      # this file can change an id: an unprivileged process may only re-assert the
+      # ids it already holds, and every other request is refused.
+
+      uid = Process.uid
+      euid = Process.euid
+      gid = Process.gid
+      egid = Process.egid
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       # The readers, each against the answer `Process` already gives.
       show("Sys.getuid") { Process::Sys.getuid == uid }
       show("Sys.geteuid") { Process::Sys.geteuid == euid }
@@ -3206,6 +3563,44 @@ describe "Builtins programs" do
       show("GID.eid") { Process::GID.eid == egid }
       show("UID.sid_available?") { Process::UID.sid_available? }
       show("GID.sid_available?") { Process::GID.sid_available? }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Sys.getuid: true
+      Sys.geteuid: true
+      Sys.getgid: true
+      Sys.getegid: true
+      Sys.issetugid: false
+      UID.rid: true
+      UID.eid: true
+      GID.rid: true
+      GID.eid: true
+      UID.sid_available?: true
+      GID.sid_available?: true
+    OUT
+  end
+
+  it "from_name resolves a passwd or group name, and passes an Integer straight through" do
+    result = ze0(<<~'RUBY')
+
+      # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
+      #
+      # Every id printed here is compared against one the process already knows,
+      # never printed raw, so the output is the same on any machine. Nothing in
+      # this file can change an id: an unprivileged process may only re-assert the
+      # ids it already holds, and every other request is refused.
+
+      uid = Process.uid
+      euid = Process.euid
+      gid = Process.gid
+      egid = Process.egid
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       # `from_name` resolves a passwd or group name; an Integer passes straight
       # through, and anything that is neither takes the Integer conversion's own
@@ -3226,6 +3621,44 @@ describe "Builtins programs" do
       show("UID.from_name missing") { Process::UID.from_name("nosuchuser__") }
       show("GID.from_name missing") { Process::GID.from_name("nosuchgroup__") }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      UID.from_name root: 0
+      UID.from_name self: true
+      GID.from_name self: true
+      UID.from_name float: 1
+      UID.from_name negative: 4294967295
+      UID.from_name to_int: 7
+      UID.from_name bignum: RangeError: bignum too big to convert into 'unsigned long'
+      UID.from_name nil: TypeError: no implicit conversion of nil into Integer
+      UID.from_name symbol: TypeError: no implicit conversion of Symbol into Integer
+      UID.from_name missing: ArgumentError: can't find user for nosuchuser__
+      GID.from_name missing: ArgumentError: can't find group for nosuchgroup__
+    OUT
+  end
+
+  it "re-asserting an id the process already holds is the one change it may make" do
+    result = ze0(<<~'RUBY')
+
+      # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
+      #
+      # Every id printed here is compared against one the process already knows,
+      # never printed raw, so the output is the same on any machine. Nothing in
+      # this file can change an id: an unprivileged process may only re-assert the
+      # ids it already holds, and every other request is refused.
+
+      uid = Process.uid
+      euid = Process.euid
+      gid = Process.gid
+      egid = Process.egid
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       # Re-asserting the ids the process already holds is the one change it is
       # allowed to make, and it answers what CRuby answers: nil from `Sys`, the
       # argument as written from `UID`/`GID`.
@@ -3243,6 +3676,47 @@ describe "Builtins programs" do
       show("GID.grant_privilege self") { Process::GID.grant_privilege(gid) == gid }
       show("UID.eid= self") { (Process::UID.eid = uid) == uid }
       show("GID.eid= self") { (Process::GID.eid = gid) == gid }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Sys.setuid self: nil
+      Sys.setgid self: nil
+      Sys.seteuid self: nil
+      Sys.setegid self: nil
+      Sys.setruid self: nil
+      Sys.setrgid self: nil
+      Sys.setreuid self: nil
+      Sys.setregid self: nil
+      UID.change_privilege self: true
+      GID.change_privilege self: true
+      UID.grant_privilege self: true
+      GID.grant_privilege self: true
+      UID.eid= self: true
+      GID.eid= self: true
+    OUT
+  end
+
+  it "a request for an id this process does not hold is refused with EPERM" do
+    result = ze0(<<~'RUBY')
+
+      # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
+      #
+      # Every id printed here is compared against one the process already knows,
+      # never printed raw, so the output is the same on any machine. Nothing in
+      # this file can change an id: an unprivileged process may only re-assert the
+      # ids it already holds, and every other request is refused.
+
+      uid = Process.uid
+      euid = Process.euid
+      gid = Process.gid
+      egid = Process.egid
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       # Every request for an id this process does not hold is refused, and by the
       # BARE errno message -- CRuby's `rb_sys_fail(0)` appends no context.
@@ -3262,11 +3736,81 @@ describe "Builtins programs" do
       show("Sys.setuid bad name") { Process::Sys.setuid("nosuchuser__") }
       show("Sys.setgid bad name") { Process::Sys.setgid("nosuchgroup__") }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Sys.setuid root: Errno::EPERM: Operation not permitted
+      Sys.setgid wheel: Errno::EPERM: Operation not permitted
+      Sys.seteuid root: Errno::EPERM: Operation not permitted
+      Sys.setreuid root: Errno::EPERM: Operation not permitted
+      UID.change_privilege root: Errno::EPERM: Operation not permitted
+      UID.grant_privilege root: Errno::EPERM: Operation not permitted
+      UID.eid= root: Errno::EPERM: Operation not permitted
+      UID.switch: Errno::EPERM: Operation not permitted
+      UID.switch block: Errno::EPERM: Operation not permitted
+      GID.switch: Errno::EPERM: Operation not permitted
+      Sys.setuid by name: Errno::EPERM: Operation not permitted
+      Sys.setuid bad name: ArgumentError: can't find user for nosuchuser__
+      Sys.setgid bad name: ArgumentError: can't find group for nosuchgroup__
+    OUT
+  end
+
+  it "setresuid and setresgid raise NotImplementedError" do
+    result = ze0(<<~'RUBY')
+
+      # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
+      #
+      # Every id printed here is compared against one the process already knows,
+      # never printed raw, so the output is the same on any machine. Nothing in
+      # this file can change an id: an unprivileged process may only re-assert the
+      # ids it already holds, and every other request is refused.
+
+      uid = Process.uid
+      euid = Process.euid
+      gid = Process.gid
+      egid = Process.egid
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       # `setresuid`/`setresgid` are the not-implemented stubs, which take any
       # arguments at all and still report arity 0.
       show("Sys.setresuid") { Process::Sys.setresuid(0, 0, 0) }
       show("Sys.setresgid") { Process::Sys.setresgid }
       puts "setresuid arity: #{Process::Sys.method(:setresuid).arity}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Sys.setresuid: NotImplementedError: setresuid() function is unimplemented on this machine
+      Sys.setresgid: NotImplementedError: setresgid() function is unimplemented on this machine
+      setresuid arity: 0
+    OUT
+  end
+
+  it "re_exchangeable? answers for the platform, and UID and GID agree" do
+    result = ze0(<<~'RUBY')
+
+      # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
+      #
+      # Every id printed here is compared against one the process already knows,
+      # never printed raw, so the output is the same on any machine. Nothing in
+      # this file can change an id: an unprivileged process may only re-assert the
+      # ids it already holds, and every other request is refused.
+
+      uid = Process.uid
+      euid = Process.euid
+      gid = Process.gid
+      egid = Process.egid
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       # `re_exchangeable?` answers for the platform, so the golden checks that
       # `re_exchange` AGREES with it rather than printing either answer.
@@ -3285,72 +3829,6 @@ describe "Builtins programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      Process::Sys class: Module
-      Process::Sys singleton: [:getegid, :geteuid, :getgid, :getuid, :issetugid, :setegid, :seteuid, :setgid, :setregid, :setresgid, :setresuid, :setreuid, :setrgid, :setruid, :setuid]
-      Process::Sys private: [:getegid, :geteuid, :getgid, :getuid, :issetugid, :setegid, :seteuid, :setgid, :setregid, :setresgid, :setresuid, :setreuid, :setrgid, :setruid, :setuid]
-      Process::Sys public instance: []
-      Process::UID class: Module
-      Process::UID singleton: [:change_privilege, :eid, :eid=, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
-      Process::UID private: [:change_privilege, :eid, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
-      Process::UID public instance: []
-      Process::GID class: Module
-      Process::GID singleton: [:change_privilege, :eid, :eid=, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
-      Process::GID private: [:change_privilege, :eid, :from_name, :grant_privilege, :re_exchange, :re_exchangeable?, :rid, :sid_available?, :switch]
-      Process::GID public instance: []
-      Sys respond_to?: true
-      Sys included: true
-      Sys.getuid: true
-      Sys.geteuid: true
-      Sys.getgid: true
-      Sys.getegid: true
-      Sys.issetugid: false
-      UID.rid: true
-      UID.eid: true
-      GID.rid: true
-      GID.eid: true
-      UID.sid_available?: true
-      GID.sid_available?: true
-      UID.from_name root: 0
-      UID.from_name self: true
-      GID.from_name self: true
-      UID.from_name float: 1
-      UID.from_name negative: 4294967295
-      UID.from_name to_int: 7
-      UID.from_name bignum: RangeError: bignum too big to convert into 'unsigned long'
-      UID.from_name nil: TypeError: no implicit conversion of nil into Integer
-      UID.from_name symbol: TypeError: no implicit conversion of Symbol into Integer
-      UID.from_name missing: ArgumentError: can't find user for nosuchuser__
-      GID.from_name missing: ArgumentError: can't find group for nosuchgroup__
-      Sys.setuid self: nil
-      Sys.setgid self: nil
-      Sys.seteuid self: nil
-      Sys.setegid self: nil
-      Sys.setruid self: nil
-      Sys.setrgid self: nil
-      Sys.setreuid self: nil
-      Sys.setregid self: nil
-      UID.change_privilege self: true
-      GID.change_privilege self: true
-      UID.grant_privilege self: true
-      GID.grant_privilege self: true
-      UID.eid= self: true
-      GID.eid= self: true
-      Sys.setuid root: Errno::EPERM: Operation not permitted
-      Sys.setgid wheel: Errno::EPERM: Operation not permitted
-      Sys.seteuid root: Errno::EPERM: Operation not permitted
-      Sys.setreuid root: Errno::EPERM: Operation not permitted
-      UID.change_privilege root: Errno::EPERM: Operation not permitted
-      UID.grant_privilege root: Errno::EPERM: Operation not permitted
-      UID.eid= root: Errno::EPERM: Operation not permitted
-      UID.switch: Errno::EPERM: Operation not permitted
-      UID.switch block: Errno::EPERM: Operation not permitted
-      GID.switch: Errno::EPERM: Operation not permitted
-      Sys.setuid by name: Errno::EPERM: Operation not permitted
-      Sys.setuid bad name: ArgumentError: can't find user for nosuchuser__
-      Sys.setgid bad name: ArgumentError: can't find group for nosuchgroup__
-      Sys.setresuid: NotImplementedError: setresuid() function is unimplemented on this machine
-      Sys.setresgid: NotImplementedError: setresgid() function is unimplemented on this machine
-      setresuid arity: 0
       Process::UID re_exchange agrees: true
       Process::GID re_exchange agrees: true
     OUT

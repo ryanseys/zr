@@ -248,7 +248,7 @@ describe "Kernel: formatting and inspection" do
     OUT
   end
 
-  it "implicit conversion args" do
+  it "a user object converts through to_str, to_int and to_ary at a builtin's slot" do
     result = ze0(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
@@ -316,6 +316,53 @@ describe "Kernel: formatting and inspection" do
         File.delete(path) if File.exist?(path)
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "hello\n"
+      ["hello\n"]
+      true
+      true
+      20
+      [10]
+      [10]
+      98
+      true
+      "o"
+      ["hello=", "worl", "d"]
+      [TypeError, "no implicit conversion of Inert into String"]
+      [TypeError, "no implicit conversion of Inert into Integer"]
+    OUT
+  end
+
+  it "a boxed user object converts inside a generic runtime call too" do
+    result = ze0(<<~'RUBY')
+      # CRuby's implicit conversion protocol at builtin argument boundaries: a user
+      # object defining #to_str / #to_int converts where a String / Integer is
+      # wanted; one that defines neither raises CRuby's TypeError. The raw object
+      # pointer previously went into the typed C slot and stopped the generated-C
+      # build.
+      class Stringish
+        def to_str
+          "conv-target.txt"
+        end
+      end
+
+      class Mode
+        def to_str
+          "w"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      class Inert
+      end
+
       # the runtime bridge: a BOXED user object converts inside a generic runtime
       # walk (pack), including a conversion method that arrives through a mixin
       module IntLike
@@ -342,6 +389,45 @@ describe "Kernel: formatting and inspection" do
       end
       p [2**64 + 65].pack("Q")[0]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1]
+      [7, 1]
+      [TypeError, "no implicit conversion of Inert into Integer"]
+      [TypeError, "no implicit conversion of nil into Integer"]
+      "A"
+    OUT
+  end
+
+  it "the same protocol runs through a poly slot, where the class is not known" do
+    result = ze0(<<~'RUBY')
+      # CRuby's implicit conversion protocol at builtin argument boundaries: a user
+      # object defining #to_str / #to_int converts where a String / Integer is
+      # wanted; one that defines neither raises CRuby's TypeError. The raw object
+      # pointer previously went into the typed C slot and stopped the generated-C
+      # build.
+      class Stringish
+        def to_str
+          "conv-target.txt"
+        end
+      end
+
+      class Mode
+        def to_str
+          "w"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      class Inert
+      end
+
       # The same protocol reached through a POLY slot, where the class is not known
       # until run time: the container read hands the builtin a boxed object, which
       # converts through the bridge. These answered a wrong result in SILENCE before
@@ -357,30 +443,9 @@ describe "Kernel: formatting and inspection" do
       p "wow".delete([1, Mode.new][1])
       p [boxed_int].pack("C").bytes
 
-      # native package bindings: a declared :string argument converts too
-      require "stringio"
-      p StringIO.new(Stringish.new).read
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "hello\n"
-      ["hello\n"]
-      true
-      true
-      20
-      [10]
-      [10]
-      98
-      true
-      "o"
-      ["hello=", "worl", "d"]
-      [TypeError, "no implicit conversion of Inert into String"]
-      [TypeError, "no implicit conversion of Inert into Integer"]
-      [1]
-      [7, 1]
-      [TypeError, "no implicit conversion of Inert into Integer"]
-      [TypeError, "no implicit conversion of nil into Integer"]
-      "A"
       2
       true
       [10]
@@ -388,6 +453,43 @@ describe "Kernel: formatting and inspection" do
       98
       "o"
       [1]
+    OUT
+  end
+
+  it "a native binding's declared :string argument converts as well" do
+    result = ze0(<<~'RUBY')
+      # CRuby's implicit conversion protocol at builtin argument boundaries: a user
+      # object defining #to_str / #to_int converts where a String / Integer is
+      # wanted; one that defines neither raises CRuby's TypeError. The raw object
+      # pointer previously went into the typed C slot and stopped the generated-C
+      # build.
+      class Stringish
+        def to_str
+          "conv-target.txt"
+        end
+      end
+
+      class Mode
+        def to_str
+          "w"
+        end
+      end
+
+      class Idx
+        def to_int
+          1
+        end
+      end
+
+      class Inert
+      end
+
+      # native package bindings: a declared :string argument converts too
+      require "stringio"
+      p StringIO.new(Stringish.new).read
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       "conv-target.txt"
     OUT
   end
