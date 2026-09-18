@@ -310,3 +310,68 @@ namespace :spec do
     puts format("%d example(s) split cleanly into %d, %d left whole", splittable, splittable + gained, coupled)
   end
 end
+
+# What ruby answers for a program that is not in a spec file yet.
+#
+# The hand splits Phase 3 left -- the examples with no banner to cut on
+# -- need a new literal for every fragment, and the repo's rule is that
+# a literal is never written by hand. This asks ruby through the
+# oracle's own machinery, so the path, the scrub and the environment are
+# the ones the example will run under, and prints the answer already
+# shaped as the assertion to paste.
+#
+#   rake 'spec:ask[test/spec/core/thread/thread_test.rb frag.rb]'
+#   rake 'spec:ask[test/spec/stdlib/etc/etc_test.rb frag.rb -n "reads a group"]'
+#
+# `-n` borrows an existing example's keywords, for a fragment that needs
+# the `files:` or `argv:` its bundle had.
+module SpecAsk
+  module_function
+
+  # The assertion for an answer, in the shape the suite writes it.
+  def assertion(answer)
+    tail = []
+    tail << "stderr: #{dump(answer.stderr)}" unless answer.stderr.empty?
+    tail << "status: #{answer.code}" unless answer.code.zero?
+    tail << "signal: #{answer.signal.inspect}" if answer.signal
+    head = "_(result).must_answer"
+    body = answer.stdout
+    return "#{head} #{dump(body)}#{tail.empty? ? "" : ", #{tail.join(", ")}"}" unless body.include?("\n")
+
+    "#{head} <<~'OUT'#{tail.empty? ? "" : ", #{tail.join(", ")}"}\n" \
+      "#{body.lines.map { |l| "  #{l}" }.join}OUT"
+  end
+
+  # A literal with the escapes the suite uses, not `inspect`'s -- which
+  # would turn a UTF-8 answer into `\u` escapes.
+  def dump(bytes)
+    out = bytes.dup.force_encoding(Encoding::UTF_8)
+    out = bytes unless out.valid_encoding?
+    %("#{out.gsub("\\", "\\\\\\\\").gsub('"', '\"').gsub("\n", '\n').gsub("\t", '\t').gsub("\e", '\e')}")
+  end
+end
+
+namespace :spec do
+  desc "What ruby answers for a candidate program: rake 'spec:ask[<spec_file> <program.rb>]'"
+  task :ask, [:args] do |_, args|
+    SpecNet.stub!
+    argv = args[:args].to_s.split
+    borrow = nil
+    OptionParser.new { |o| o.on("-n NAME", "borrow this example's keywords") { |v| borrow = v } }.parse!(argv)
+    spec_file, program = argv
+    raise ArgumentError, "want: rake 'spec:ask[<spec_file> <program.rb>]'" unless spec_file && program
+
+    kwargs = { path: Ze0::Reader.path_for(spec_file) }
+    if borrow
+      from = Ze0::Reader.read(spec_file).find { |e| e.name == borrow }
+      raise ArgumentError, "no example named #{borrow.inspect} in #{spec_file}" unless from
+
+      kwargs = from.kwargs
+    end
+    example = Ze0::Reader::Example.new(name: "ask", source: File.read(program), kwargs: kwargs, want: {})
+    answer = Oracle.ask(example)
+    raise "ruby did not finish" unless answer
+
+    puts SpecAsk.assertion(answer)
+  end
+end

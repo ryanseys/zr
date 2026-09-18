@@ -48,57 +48,22 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "integer bits" do
+  it "allbits? is true only when every bit in the mask is set" do
     result = ze0(<<~'RUBY')
-      def t_integer_bits
-        # Integer bit-test predicates: allbits? / nobits? / anybits?. Three
-        # parallel methods (true iff the bits in the mask are: all set / all
-        # clear / any set on the receiver). Same coverage matrix per method:
-        # basic, no-overlap / subset, zero mask, single bit, large value,
-        # negative receiver. Was three near-identical files.
+      # Basic, subset, zero mask, single bit, large value and a negative
+      # receiver -- the same matrix nobits? and anybits? are held to.
 
-        # === allbits? ===
-        puts 255.allbits?(255)
-        puts 255.allbits?(128)
-        puts 0.allbits?(0)
-        puts 42.allbits?(0)
-        puts 5.allbits?(6)
-        puts 8.allbits?(3)
-        puts 4.allbits?(4)
-        puts 4.allbits?(2)
-        puts 0xFFFF.allbits?(0xFF00)
-        puts((-1).allbits?(255))
-        puts 0.allbits?(1)
-
-        # === nobits? ===
-        puts 256.nobits?(1)
-        puts 256.nobits?(255)
-        puts 8.nobits?(4)
-        puts 255.nobits?(1)
-        puts 6.nobits?(2)
-        puts 0.nobits?(0)
-        puts 42.nobits?(0)
-        puts 4.nobits?(2)
-        puts 4.nobits?(4)
-        puts((-1).nobits?(1))
-        puts((-4).nobits?(2))
-        puts 0xFF00.nobits?(0x00FF)
-
-        # === anybits? ===
-        puts 255.anybits?(128)
-        puts 255.anybits?(1)
-        puts 0.anybits?(1)
-        puts 16.anybits?(8)
-        puts 4.anybits?(2)
-        puts 0.anybits?(0)
-        puts 42.anybits?(0)
-        puts 6.anybits?(4)
-        puts 6.anybits?(2)
-        puts((-1).anybits?(1))
-        puts((-4).anybits?(4))
-        puts 0xFF00.anybits?(0x0100)
-      end
-      t_integer_bits
+      puts 255.allbits?(255)
+      puts 255.allbits?(128)
+      puts 0.allbits?(0)
+      puts 42.allbits?(0)
+      puts 5.allbits?(6)
+      puts 8.allbits?(3)
+      puts 4.allbits?(4)
+      puts 4.allbits?(2)
+      puts 0xFFFF.allbits?(0xFF00)
+      puts((-1).allbits?(255))
+      puts 0.allbits?(1)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -113,6 +78,26 @@ describe "Numeric: regressions" do
       true
       true
       false
+    OUT
+  end
+
+  it "nobits? is true only when no bit in the mask is set" do
+    result = ze0(<<~'RUBY')
+      puts 256.nobits?(1)
+      puts 256.nobits?(255)
+      puts 8.nobits?(4)
+      puts 255.nobits?(1)
+      puts 6.nobits?(2)
+      puts 0.nobits?(0)
+      puts 42.nobits?(0)
+      puts 4.nobits?(2)
+      puts 4.nobits?(4)
+      puts((-1).nobits?(1))
+      puts((-4).nobits?(2))
+      puts 0xFF00.nobits?(0x00FF)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       true
       true
       true
@@ -125,6 +110,26 @@ describe "Numeric: regressions" do
       false
       true
       true
+    OUT
+  end
+
+  it "anybits? is true when at least one bit in the mask is set" do
+    result = ze0(<<~'RUBY')
+      puts 255.anybits?(128)
+      puts 255.anybits?(1)
+      puts 0.anybits?(1)
+      puts 16.anybits?(8)
+      puts 4.anybits?(2)
+      puts 0.anybits?(0)
+      puts 42.anybits?(0)
+      puts 6.anybits?(4)
+      puts 6.anybits?(2)
+      puts((-1).anybits?(1))
+      puts((-4).anybits?(4))
+      puts 0xFF00.anybits?(0x0100)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       true
       true
       false
@@ -646,134 +651,26 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "float" do
+  it "reduces a float array to its min, max, sum, first and last" do
     result = ze0(<<~'RUBY')
-      def t_float
-        # Float and FloatArray coverage — to_s formatting, FloatArray
-        # reductions / slicing / shift, and Float#ceil/floor/round/truncate
-        # with a precision arg. Was five separate tests; merged. No class
-        # collisions; locals reused across the originals (`f`, `arr`, `a`)
-        # get per-section prefixes so spinel's local-type inference doesn't
-        # unify them.
+      arr = [1.5, 2.5, 0.5, 3.5]
+      puts arr.min     # 0.5
+      puts arr.max     # 3.5
+      puts arr.first   # 1.5
+      puts arr.last    # 3.5
 
-        # === FloatArray reductions: min / max / sum / first / last ===
-        fr_arr = [1.5, 2.5, 0.5, 3.5]
-        puts fr_arr.min     # 0.5
-        puts fr_arr.max     # 3.5
-        puts fr_arr.first   # 1.5
-        puts fr_arr.last    # 3.5
+      neg = [-1.5, -3.25, 2.75]
+      puts neg.min     # -3.25
+      puts neg.max     # 2.75
 
-        fr_neg = [-1.5, -3.25, 2.75]
-        puts fr_neg.min     # -3.25
-        puts fr_neg.max     # 2.75
+      one = [4.5]
+      puts one.min     # 4.5
+      puts one.max     # 4.5
 
-        fr_one = [4.5]
-        puts fr_one.min     # 4.5
-        puts fr_one.max     # 4.5
-
-        # Sum with non-integer-valued result (avoids the stale-type truncation
-        # that would print "4" instead of "4.5").
-        fr_sum = [1.5, 2.5, 0.5]
-        puts fr_sum.sum     # 4.5
-
-        # === FloatArray slicing: a[range] and a[start, len] ===
-        fs_a = [1.5, 2.5, 3.5, 4.5, 5.5]
-        fs_b = fs_a[1..3]
-        puts fs_b.length    # 3
-        puts fs_b[0]        # 2.5
-        puts fs_b[1]        # 3.5
-        puts fs_b[2]        # 4.5
-        fs_c = fs_a[1, 2]
-        puts fs_c.length    # 2
-        puts fs_c[0]        # 2.5
-        puts fs_c[1]        # 3.5
-        fs_d = fs_a[-2, 2]
-        puts fs_d.length    # 2
-        puts fs_d[0]        # 4.5
-        puts fs_d[1]        # 5.5
-        fs_e = fs_a[2, 100]
-        puts fs_e.length    # 3 (clamped)
-        puts fs_e[0]        # 3.5
-        puts fs_e[2]        # 5.5
-        puts fs_a[0]        # 1.5
-        puts fs_a[-1]       # 5.5
-        puts fs_a[1..3].sum # 10.5
-
-        # === FloatArray#shift ===
-        fsh_arr = [1.5, 2.5, 3.5, 4.5]
-        puts fsh_arr.shift  # 1.5
-        puts fsh_arr.length # 3
-        puts fsh_arr[0]     # 2.5
-        while fsh_arr.length > 0
-          puts fsh_arr.shift
-        end
-        puts fsh_arr.length # 0
-
-        # === Float#ceil/floor/round/truncate with precision arg ===
-        puts 3.14159.round(2)
-        puts 3.14159.round(4)
-        puts 1.5.round(1)
-        puts 2.5.round(1)
-        puts 3.14159.ceil(2)
-        puts 3.14159.ceil(4)
-        puts 1.001.ceil(2)
-        puts 3.14159.floor(2)
-        puts 3.14159.floor(4)
-        puts 1.999.floor(2)
-        puts 3.14159.truncate(2)
-        puts 3.14159.truncate(4)
-        puts (-1.567).truncate(2)
-        puts 3.14.round
-        puts 3.14.ceil
-        puts 3.14.floor
-        puts 3.14.truncate
-        # Negative precision: bool-compare for type-stable output across
-        # CRuby's Integer-return rule vs. Spinel's uniform Float inference.
-        puts 12345.6789.floor(-2) == 12300
-        puts 12345.6789.ceil(-2) == 12400
-        puts 12345.6789.round(-1) == 12350
-        puts 12345.6789.truncate(-2) == 12300
-        puts (-12345.6789).floor(-2) == -12400
-        puts (-12345.6789).ceil(-2) == -12300
-
-        # === Float#to_s / p / puts byte-identical output ===
-        # Shortest decimal that round-trips; fixed-point inside CRuby's
-        # [-4, 15] decimal-exponent window, scientific (`d.ddde+NN`)
-        # outside.
-        puts 1.0
-        puts 100.0
-        puts(-3.25)
-        puts 1234567890.0
-        puts 1234567890.5
-        puts 0.1
-        puts 0.3
-        puts 0.30000000000000004
-        puts 0.0001
-        puts 0.00001
-        puts 1.5e14
-        puts 1.0e15
-        puts 9.99e15
-        puts 1.0e16
-        puts 1.0e100
-        puts(-0.0)
-        puts Float::INFINITY
-        puts(-Float::INFINITY)
-        puts Float::NAN
-        p 1.0
-        p 1234567890.5
-        p 1.0e16
-        p(-0.0)
-
-        # === Kernel#Float coerces strings, ints, and floats ===
-        puts Float("3.14")        # 3.14
-        puts Float("0")           # 0.0
-        puts Float("-2.5")        # -2.5
-        puts Float(1)             # 1.0
-        puts Float(42)            # 42.0
-        puts Float(2.71)          # 2.71
-        puts Float("1e2")         # 100.0
-      end
-      t_float
+      # Sum with non-integer-valued result (avoids the stale-type truncation
+      # that would print "4" instead of "4.5").
+      sum = [1.5, 2.5, 0.5]
+      puts sum.sum     # 4.5
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -786,6 +683,35 @@ describe "Numeric: regressions" do
       4.5
       4.5
       4.5
+    OUT
+  end
+
+  it "slices a float array by a range and by start and length" do
+    result = ze0(<<~'RUBY')
+      a = [1.5, 2.5, 3.5, 4.5, 5.5]
+      b = a[1..3]
+      puts b.length    # 3
+      puts b[0]        # 2.5
+      puts b[1]        # 3.5
+      puts b[2]        # 4.5
+      c = a[1, 2]
+      puts c.length    # 2
+      puts c[0]        # 2.5
+      puts c[1]        # 3.5
+      d = a[-2, 2]
+      puts d.length    # 2
+      puts d[0]        # 4.5
+      puts d[1]        # 5.5
+      e = a[2, 100]
+      puts e.length    # 3 (clamped)
+      puts e[0]        # 3.5
+      puts e[2]        # 5.5
+      puts a[0]        # 1.5
+      puts a[-1]       # 5.5
+      puts a[1..3].sum # 10.5
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       3
       2.5
       3.5
@@ -802,6 +728,22 @@ describe "Numeric: regressions" do
       1.5
       5.5
       10.5
+    OUT
+  end
+
+  it "shift takes the front of a float array until it is empty" do
+    result = ze0(<<~'RUBY')
+      arr = [1.5, 2.5, 3.5, 4.5]
+      puts arr.shift  # 1.5
+      puts arr.length # 3
+      puts arr[0]     # 2.5
+      while arr.length > 0
+        puts arr.shift
+      end
+      puts arr.length # 0
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       1.5
       3
       2.5
@@ -809,6 +751,39 @@ describe "Numeric: regressions" do
       3.5
       4.5
       0
+    OUT
+  end
+
+  it "ceil, floor, round and truncate take a number of decimal places" do
+    result = ze0(<<~'RUBY')
+      puts 3.14159.round(2)
+      puts 3.14159.round(4)
+      puts 1.5.round(1)
+      puts 2.5.round(1)
+      puts 3.14159.ceil(2)
+      puts 3.14159.ceil(4)
+      puts 1.001.ceil(2)
+      puts 3.14159.floor(2)
+      puts 3.14159.floor(4)
+      puts 1.999.floor(2)
+      puts 3.14159.truncate(2)
+      puts 3.14159.truncate(4)
+      puts (-1.567).truncate(2)
+      puts 3.14.round
+      puts 3.14.ceil
+      puts 3.14.floor
+      puts 3.14.truncate
+      # Negative precision: bool-compare for type-stable output across
+      # CRuby's Integer-return rule vs. Spinel's uniform Float inference.
+      puts 12345.6789.floor(-2) == 12300
+      puts 12345.6789.ceil(-2) == 12400
+      puts 12345.6789.round(-1) == 12350
+      puts 12345.6789.truncate(-2) == 12300
+      puts (-12345.6789).floor(-2) == -12400
+      puts (-12345.6789).ceil(-2) == -12300
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       3.14
       3.1416
       1.5
@@ -832,6 +807,40 @@ describe "Numeric: regressions" do
       true
       true
       true
+    OUT
+  end
+
+  it "prints a float as the shortest decimal that reads back as itself" do
+    result = ze0(<<~'RUBY')
+      # Shortest decimal that round-trips; fixed-point inside CRuby's
+      # [-4, 15] decimal-exponent window, scientific (`d.ddde+NN`)
+      # outside.
+      puts 1.0
+      puts 100.0
+      puts(-3.25)
+      puts 1234567890.0
+      puts 1234567890.5
+      puts 0.1
+      puts 0.3
+      puts 0.30000000000000004
+      puts 0.0001
+      puts 0.00001
+      puts 1.5e14
+      puts 1.0e15
+      puts 9.99e15
+      puts 1.0e16
+      puts 1.0e100
+      puts(-0.0)
+      puts Float::INFINITY
+      puts(-Float::INFINITY)
+      puts Float::NAN
+      p 1.0
+      p 1234567890.5
+      p 1.0e16
+      p(-0.0)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       1.0
       100.0
       -3.25
@@ -855,6 +864,21 @@ describe "Numeric: regressions" do
       1234567890.5
       1.0e+16
       -0.0
+    OUT
+  end
+
+  it "Kernel#Float coerces a string, an integer and a float" do
+    result = ze0(<<~'RUBY')
+      puts Float("3.14")        # 3.14
+      puts Float("0")           # 0.0
+      puts Float("-2.5")        # -2.5
+      puts Float(1)             # 1.0
+      puts Float(42)            # 42.0
+      puts Float(2.71)          # 2.71
+      puts Float("1e2")         # 100.0
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       3.14
       0.0
       -2.5

@@ -54,87 +54,74 @@ describe "Thread programs" do
     OUT
   end
 
-  it "bundle misc c 09" do
+  it "reads back what it wrote to fiber storage, and nil for a key it never wrote" do
     result = ze0(<<~'RUBY')
-      # Bundled tests:
-      #   - fiber_storage_basic
-      #   - fiber_storage_current_alias
-      #   - fiber_storage_gc_root
+      Fiber[:user_id] = 42
+      puts Fiber[:user_id]
 
-      # === fiber_storage_basic ===
-      def t_fiber_storage_basic
-        Fiber[:user_id] = 42
-        puts Fiber[:user_id]
+      Fiber[:user_id] = 43
+      puts Fiber[:user_id]
 
-        Fiber[:user_id] = 43
-        puts Fiber[:user_id]
-
-        # Unset key reads as nil.
-        v = Fiber[:not_set]
-        if v.nil?
-          puts "nil_ok"
-        else
-          puts "nil_unexpected"
-        end
+      v = Fiber[:not_set]
+      if v.nil?
+        puts "nil_ok"
+      else
+        puts "nil_unexpected"
       end
-      t_fiber_storage_basic
-
-      # === fiber_storage_current_alias ===
-      def t_fiber_storage_current_alias
-        # `Fiber.current[:k]` and `Fiber.current[:k] = v` are aliases for
-        # `Fiber[:k]` and `Fiber[:k] = v` — both target the same storage Hash
-        # on the currently-running fiber.
-
-        Fiber.current[:via_current] = 100
-        puts Fiber[:via_current]                       # 100 — reads via Fiber[]
-
-        Fiber[:via_bare] = 200
-        puts Fiber.current[:via_bare]                  # 200 — reads via Fiber.current[]
-      end
-      t_fiber_storage_current_alias
-
-      # === fiber_storage_gc_root ===
-      def t_fiber_storage_gc_root
-        # Regression: sp_fiber_root.storage must survive GC. sp_fiber_root
-        # is a static (not sp_gc_alloc'd) so its scan never runs via the
-        # heap walker. Without explicit marking in sp_re_mark_globals, the
-        # SymPolyHash allocated by `Fiber[:k] = v` at top level gets
-        # prematurely collected on the next cycle.
-        #
-        # Force GC by allocating many sp_gc_alloc'd objects (arrays of
-        # strings, each becoming garbage on the next iteration) to push
-        # sp_gc_bytes past the 256KB threshold. Then verify the storage
-        # value still reads back.
-
-        Fiber[:answer] = 42
-
-        i = 0
-        while i < 10000
-          # Each iteration allocates a fresh PolyArray + a String element;
-          # both are GC-tracked (sp_gc_alloc), so this drives sp_gc_bytes
-          # past the auto-collect threshold within the loop.
-          garbage = ["garbage_" + i.to_s, "more_" + i.to_s, "still_" + i.to_s]
-          i = i + 1
-        end
-
-        # If sp_fiber_root.storage wasn't marked, the SymPolyHash holding
-        # :answer would have been freed and read would return nil.
-        v = Fiber[:answer]
-        if v == 42
-          puts "survived"
-        else
-          puts "lost"
-        end
-      end
-      t_fiber_storage_gc_root
-
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/thread_test.rb:30:in 'Object#t_fiber_storage_current_alias': undefined method '[]=' for an instance of Fiber (NoMethodError)\n\n  Fiber.current[:via_current] = 100\n               ^^^^^^^^^^^^^^^^\n\tfrom core/thread/thread_test.rb:36:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT'
       42
       43
       nil_ok
     OUT
+  end
+
+  it "refuses Fiber.current[k] = v, because storage is reached through the class" do
+    result = ze0(<<~'RUBY')
+      # Fiber storage is reached through `Fiber[]`, and a Fiber instance
+      # carries no `[]=` to alias it with.
+
+      Fiber.current[:via_current] = 100
+      puts Fiber[:via_current]
+    RUBY
+
+    _(result).must_answer "", status: 1,
+                              stderr: "core/thread/thread_test.rb:4:in '<main>': undefined method '[]=' " \
+                                      "for an instance of Fiber (NoMethodError)\n\n" \
+                                      "Fiber.current[:via_current] = 100\n             ^^^^^^^^^^^^^^^^\n"
+  end
+
+  it "keeps fiber storage alive across a collection" do
+    result = ze0(<<~'RUBY')
+      # sp_fiber_root.storage must survive GC. sp_fiber_root is a static
+      # rather than sp_gc_alloc'd, so the heap walker never scans it;
+      # without explicit marking in sp_re_mark_globals the SymPolyHash
+      # that `Fiber[:k] = v` allocates at top level is collected on the
+      # next cycle.
+
+      Fiber[:answer] = 42
+
+      # Each turn allocates a PolyArray and three Strings, all
+      # GC-tracked, which drives sp_gc_bytes past the 256KB threshold
+      # well inside the loop.
+      i = 0
+      while i < 10000
+        garbage = ["garbage_" + i.to_s, "more_" + i.to_s, "still_" + i.to_s]
+        i = i + 1
+      end
+
+      # Unmarked, the hash holding :answer would be freed and this would
+      # read nil.
+      v = Fiber[:answer]
+      if v == 42
+        puts "survived"
+      else
+        puts "lost"
+      end
+    RUBY
+
+    _(result).must_answer "survived\n"
   end
 
   it "fiber storage inherits" do
