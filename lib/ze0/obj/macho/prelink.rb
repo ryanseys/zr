@@ -155,14 +155,21 @@ module Ze0
 
         # The address of the global `name` ("_zr_send"), or nil.
         #
-        # Asked once for every external a program names, and the runtime
-        # holds a quarter of a million symbols, so a search through the
-        # sorted names was 12% of a link. The names do not change once an
-        # image is loaded, so the table is built the first time and kept.
-        def global(name) = addressed[name]
+        # The answer is kept, not the whole table. A link asks this once
+        # for every name it defines and every name it needs, against a
+        # runtime that holds a quarter of a million symbols, and the
+        # search through the sorted names was 12% of a link -- but only
+        # because the image outlives the link now, and the next link asks
+        # the same questions. Building the whole table instead would cost
+        # a single `ze0 build` 33 ms it never gets back.
+        def global(name)
+          @addressed ||= {}
+          @addressed.fetch(name) { @addressed[name] = search(name) }
+        end
 
-        def addressed
-          @addressed ||= @names.each_with_index.to_h { |n, i| [n, @addresses[i]] }
+        def search(name)
+          n = @names.bsearch_index { |candidate| candidate >= name }
+          n && @names[n] == name ? @addresses[n] : nil
         end
 
         def data_end = @data_vm + @data_vmsize
