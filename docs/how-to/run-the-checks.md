@@ -149,7 +149,27 @@ $ rake spec:fingerprint > before.txt         # or keep the digests yourself
 `--renames` lets a description change and still holds everything else, so a
 pass of renaming is checked as tightly as any other edit. Examples are
 compared by position, so a reordering or a dropped example is a failure and
-not a coincidence.
+not a coincidence. A report names the part that moved — `describe`,
+`program`, `keywords` or `answer` — so a pass that meant to touch one of
+them can be read back and checked rather than trusted.
+
+## Ask ruby for a literal
+
+A rewrite that changes a program needs a new answer, and the answer never
+comes from you. `rake spec:ask` runs a candidate program through the
+oracle's own machinery — the same path, the same scrub, the same bare
+environment — and prints what ruby said, already shaped as the assertion to
+paste:
+
+```console
+$ rake 'spec:ask[test/spec/core/thread/thread_test.rb /tmp/fragment.rb]'
+_(result).must_answer <<~'OUT'
+  42
+OUT
+```
+
+`-n "<sentence>"` borrows an existing example's keywords, for a fragment
+that needs the `files:` or `argv:` its bundle had.
 
 What it cannot see: anything outside an example — file comments, `require`
 lines — and a guard is evaluated down one branch, as macOS with everything

@@ -116,6 +116,23 @@ already said. `describe "Hash: comparison and equality"` plus
 `it "hash equality ignores order"` says "hash" twice; the example is
 `it "ignores insertion order"`.
 
+Say what the program shows, not what it is about. A tracker number
+(`it "issue 3016"`) names something the reader does not have; a noun
+phrase (`it "range one sided search"`) names a subject and leaves the
+claim out. The sentence a reader wants is the claim: "Math.lgamma is
+exactly [Infinity, 1] at every non-positive integer pole", "find, detect
+and take_while over an endless range stop at their answer".
+
+Two examples in one file may not share a sentence — `spec:check` refuses
+it, because a failure report that names a sentence has to name one
+example.
+
+The `describe` names the subject and, in a file that is not the
+subject's own, the facet: `describe "Hash programs"` in
+`core/hash/hash_test.rb`, `describe "Hash: comparison and equality"` in
+`core/hash/comparison_test.rb`. Spell a library the way ruby does —
+`BigDecimal`, `CGI`, `FileUtils` — not the way its directory does.
+
 ## Keep the file in shape
 
 ```console
