@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Time: conversion" do
-  it "time at subsecond carry" do
+  it "a sub-second argument past its unit's range carries into the whole seconds" do
     result = ze0(<<~'RUBY')
       p Time.at(1, 1_000_000).to_i
       p Time.at(1, 1_000_000).usec
@@ -23,7 +23,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time at zone argument" do
+  it "Time.at takes in: as a name, an offset string or a number of seconds, and refuses a bad one" do
     result = ze0(<<~'RUBY')
       p Time.at(0, in: "UTC").utc?
       p Time.at(0, in: 3600).utc_offset
@@ -47,7 +47,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time extended" do
+  it "asctime, to_a, to_r, round, floor, ceil and deconstruct_keys each answer in UTC" do
     result = ze0(<<~'RUBY')
       # Time#asctime/to_a/to_r/round/floor/ceil/xmlschema/deconstruct_keys.
       # All in UTC so the golden output is portable across build hosts.
@@ -84,7 +84,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time in container accessors" do
+  it "tv_sec and to_r answer on a Time read out of an array or a hash" do
     result = ze0(<<~'RUBY')
       a001 = [Time.utc(2020, 1, 2)]
       p a001[0].tv_sec
@@ -109,7 +109,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time localtime gmtime" do
+  it "gmtime and localtime flip the presentation flag, leaving the instant alone" do
     result = ze0(<<~'RUBY')
       # Time#gmtime / #localtime (and the getutc / getlocal variants) flip the
       # UTC-presentation flag. The underlying instant is unchanged, so these
@@ -144,7 +144,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time operand type errors" do
+  it "Time + Time is a TypeError, and between? with a non-Time bound is an ArgumentError" do
     result = ze0(<<~'RUBY')
       # Time + Time is a TypeError and Time#between?/#clamp with non-Time bounds is
       # an ArgumentError; both read the operand as a number and did not build
@@ -169,7 +169,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time subsec utc" do
+  it "utc?, usec, nsec and tv_sec read the fields the instant already holds" do
     result = ze0(<<~'RUBY')
       # Time instance accessors that read existing sp_Time fields:
       #   utc? / gmt?      -> the is_utc presentation flag (bool)
@@ -205,7 +205,7 @@ describe "Time: conversion" do
     OUT
   end
 
-  it "time to a to r" do
+  it "to_a answers the civil parts with the zone, and to_r the exact epoch" do
     result = ze0(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.to_a

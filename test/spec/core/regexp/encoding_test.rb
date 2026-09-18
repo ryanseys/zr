@@ -278,7 +278,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp class and struct wire and roundtrip" do
+  it "the /, c, m and S marshal records each match CRuby byte for byte and round-trip" do
     result = ze0(<<~'RUBY')
       # `/` (regexp source + option byte, `I`-wrapped for encoding), `c`/`m`
       # (class/module reference), and `S` (Struct: class symbol, member count,
@@ -311,7 +311,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp control escape" do
+  it "M-, C- and c are ruby's escapes, decoded before the engine sees the pattern" do
     result = ze0(<<~'RUBY')
       # `\M-X`, `\C-X` and `\cX` are RUBY'S escapes, not the engine's. `re.c`
       # decodes them before the engine ever sees the pattern: `\M-` sets bit 0x80,
@@ -387,7 +387,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp methods read wide and legacy text by characters" do
+  it "every String method taking a pattern reads wide and legacy text one character at a time" do
     result = ze0(<<~'RUBY')
       # Every String method that takes a Regexp reads wide and legacy text a
       # character at a time: scan, split, index and rindex, byteindex,
@@ -823,7 +823,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp new takes its encoding from the source and the flags" do
+  it "the FIXEDENCODING and NOENCODING bits count, and the source's own bytes settle the rest" do
     result = ze0(<<~'RUBY')
       # `Regexp.new(string, integer)`: the integer's FIXEDENCODING and
       # NOENCODING bits count, as rb_reg_initialize_str reads them, and the
@@ -882,7 +882,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp new three args" do
+  it "Regexp.new refuses a third argument" do
     result = ze0(<<~'RUBY')
       begin
         p Regexp.new("a", nil, "n").encoding.name
@@ -894,7 +894,7 @@ describe "Regexp: encodings" do
     _(result).must_answer "ArgumentError\n"
   end
 
-  it "regexp over a multibyte legacy encoding reads characters" do
+  it "a pattern over EUC-JP or Shift_JIS text takes a whole two-byte character for a dot" do
     result = ze0(<<~'RUBY')
       # A Regexp over EUC-JP, Shift_JIS or Windows-31J text reads it a character
       # at a time, with that encoding's own classes and case folds: `.` takes a
@@ -930,7 +930,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp over east asian encodings reads their characters" do
+  it "a pattern over Japanese, Chinese or Korean text reads whole characters and their properties" do
     result = ze0(<<~'RUBY')
       # A Regexp over Japanese, Chinese or Korean text in a legacy multibyte
       # encoding reads whole characters of it: one to four bytes as the
@@ -1218,7 +1218,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp over utf16 and utf32 text reads wide characters" do
+  it "a pattern in UTF-16 or UTF-32 reads a surrogate pair as one character" do
     result = ze0(<<~'RUBY')
       # A Regexp written in UTF-16 or UTF-32 reads text of that encoding a
       # character at a time: two or four bytes, a surrogate pair as one

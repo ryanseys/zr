@@ -374,7 +374,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct accessor is an entry of the kernels" do
+  it "a member's reader and writer are kernel entries, so they have no frame of their own" do
     result = ze0(<<~'RUBY')
       # A Struct member's reader and writer are entries of the kernel's, with
       # no frame of their own: the arity error is the caller's, a trace sees
@@ -447,7 +447,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct and data" do
+  it "Struct and Data build their classes at run time, out of machinery the binary carries" do
     result = ze0(<<~'RUBY')
       # Struct and Data build classes at run time; the binary carries the class
       # machinery that needs.
@@ -472,7 +472,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct data inspect" do
+  it "a Struct or Data instance renders like CRuby, and a user #inspect overrides the generated one" do
     result = ze0(<<~'RUBY')
       # p / puts / print / interpolation / #inspect / #to_s of Struct and Data
       # instances render like CRuby. A user-defined #inspect or #to_s overrides the
@@ -519,7 +519,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct display to s" do
+  it "display writes what inspect would" do
     result = ze0(<<~'RUBY')
       Point = Struct.new(:x, :y)
       Point.new(1, 2).display
@@ -529,7 +529,7 @@ describe "Struct: formatting and inspection" do
     _(result).must_answer "#<struct Point x=1, y=2>\n"
   end
 
-  it "struct keyword init inspect" do
+  it "a keyword_init struct's name carries the (keyword_init: true) suffix" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A keyword_init Struct's inspect omits the "(keyword_init: true)" suffix.
@@ -584,7 +584,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct local zero arg new" do
+  it "a member-less struct keeps the space CRuby leaves where the name would go" do
     result = ze0(<<~'RUBY')
       # A member-less `Struct`/`Data` inspects with the space CRuby prints.
       #
@@ -645,7 +645,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct member size reader" do
+  it "a member named size dispatches to the generated reader, not to the builtin" do
     result = ze0(<<~'RUBY')
       # A Struct member named `size` (or `length`) must dispatch to the generated
       # member reader, not the built-in length/size, even on a poly receiver.
@@ -669,7 +669,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "struct to a values" do
+  it "to_a and values gather the members in declaration order, whatever their kinds" do
     result = ze0(<<~'RUBY')
       # Struct#to_a and #values gather the member values into an array,
       # preserving declaration order. Members may be heterogeneous.

@@ -241,7 +241,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio binary ivar" do
+  it "a StringIO held in an ivar takes packed bytes and reads them back whole" do
     result = ze0(<<~'RUBY')
       require "stringio"
 
@@ -286,7 +286,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio bytes" do
+  it "getbyte and each_byte read bytes, so a multi-byte character does not make them skip" do
     result = ze0(<<~'RUBY')
       # `StringIO`'s BYTE-wise reads. Distinct from `getc`'s character-wise ones: a
       # multi-byte encoding must not make a byte reader skip. prism's deserializer
@@ -333,7 +333,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio honours its mode" do
+  it "the mode string decides every read, write, truncate and append the StringIO allows" do
     result = ze0(<<~'RUBY')
       # StringIO's mode string decides what it allows, and the whole table is
       # here because every row of it was previously ignored.
@@ -386,7 +386,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio io surface" do
+  it "each_line, readlines and gets take chomp:, and printf is public on the receiver" do
     result = ze0(<<~'RUBY')
       # `StringIO` is meant to be drop-in for an `IO`, which is what makes it the
       # standard way to capture output or feed a parser in a test. Three of IO's
@@ -432,7 +432,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio open ignores its block" do
+  it "StringIO.open yields the io, answers the block's value, and closes it afterwards" do
     result = ze0(<<~'RUBY')
       # `StringIO.open(string) { |io| ... }` must YIELD the new StringIO to the
       # block and answer the block's value, closing the io afterwards -- the same
@@ -466,7 +466,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio ungetbyte" do
+  it "ungetbyte pushes a byte back for the next read to take" do
     result = ze0(<<~'RUBY')
       require "stringio"
 
@@ -483,7 +483,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio ungetc" do
+  it "ungetc pushes a character back for the next read to take" do
     result = ze0(<<~'RUBY')
       require "stringio"
 
@@ -502,7 +502,7 @@ describe "StringIO programs" do
     OUT
   end
 
-  it "stringio write modes" do
+  it "append mode seeks to the end before each write, and a read-only io refuses one" do
     result = ze0(<<~'RUBY')
       # StringIO's write modes: append mode seeks to the END before each write
       # (zeo overwrites from position 0 -- "cb" instead of "abc": data
