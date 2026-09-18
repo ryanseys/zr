@@ -43,8 +43,23 @@ the worker waits for it.
 
 ## Run one file, or one example
 
-The `minitest` command takes files, directories and line numbers, and
-puts `test` and `lib` on the load path itself:
+`rake test` takes files and directories. A bare name is looked up under
+`test/`, so the path is optional, and each file is loaded after the
+helper its tier loads — which is what a file that reads the compiler's
+own load order needs:
+
+```console
+$ rake test wasm_test.rb
+$ rake test test/unit/wasm_test.rb test/unit/exe_test.rb
+$ rake test test/spec/core/string N=/deduplicated/
+```
+
+`N=`, `X=` and `A=` mean here what they mean for a whole tier.
+
+The `minitest` command takes the same files, and line numbers besides,
+and puts `test` and `lib` on the load path itself. It loads a file
+before any helper, so a file that depends on the tier's load order runs
+under `rake test` instead:
 
 ```console
 $ bundle exec minitest test/unit/wasm_test.rb

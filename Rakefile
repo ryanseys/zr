@@ -75,8 +75,56 @@ def tier(name, glob, framework, what)
   task name
 end
 
+# `rake test test/unit/prism_test.rb` -- or a bare `prism_test.rb`, or a
+# directory, or several of them. Rake reads every word after a task as
+# another task, so a word that names something under `test/` is answered
+# here with an empty task and collected instead, and `test` runs
+# minitest over exactly those files rather than the three tiers.
+#
+# A word is only taken when it resolves INSIDE `test/`, so `N=/utf8/`,
+# a switch, a bracketed argument and a real task name all go by
+# untouched.
+def ze0_test_argv
+  ARGV.drop(1).filter_map do |word|
+    next if word.include?("=") || word.start_with?("-")
+
+    full = File.expand_path(word, ROOT)
+    full = Dir[File.join(ROOT, "test/**", word)].min unless File.exist?(full)
+    next unless full && File.exist?(full) && full.start_with?(File.join(ROOT, "test", ""))
+
+    task(word) {} # so rake does not go looking for a task by this name
+    full
+  end
+end
+
+# The files a word names, and the helper the tier they live in loads.
+def ze0_test_files(paths)
+  paths.flat_map { |p| File.directory?(p) ? Dir[File.join(p, "**/*_test.rb")].sort : [p] }
+       .group_by { |f| f.start_with?(File.join(ROOT, "test/spec", "")) ? "spec_helper" : "test_helper" }
+end
+
+ZE0_TEST_ARGV = ze0_test_argv
+
 desc "Every test: the units, the specs and the end-to-end programs"
-task test: %w[test:unit test:spec test:e2e]
+if ZE0_TEST_ARGV.empty?
+  task test: %w[test:unit test:spec test:e2e]
+else
+  task :test do
+    require "rbconfig"
+    # The tier's own switches, so one file answers to what a whole tier
+    # answers to: `N=` matches an example, `X=` leaves one out, `A=`
+    # passes anything else through.
+    opts = []
+    opts += ["-n", ENV["N"]] if ENV["N"]
+    opts += ["-e", ENV["X"]] if ENV["X"]
+    opts += ENV["A"].split if ENV["A"]
+    ze0_test_files(ZE0_TEST_ARGV).each do |framework, files|
+      line = %(RubyVM::YJIT.enable; require "#{framework}"; ) +
+             files.map { |f| %(require "#{f}"; ) }.join
+      sh(RbConfig.ruby, "-Ilib:test", "-e", line, "--", *opts)
+    end
+  end
+end
 
 tier "test:unit", "test/unit/*_test.rb", "test_helper",
      "ze0's own internals"
