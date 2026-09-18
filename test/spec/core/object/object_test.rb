@@ -920,7 +920,7 @@ describe "Object programs" do
     OUT
   end
 
-  it "object default display" do
+  it "the default to_s and inspect name the class and dump the ivars, and raise refuses a non-exception" do
     result = ze0(<<~'RUBY')
       # Default Object#to_s / #inspect for user objects, and raising a
       # non-exception object. puts obj was an unsupported argument, obj.inspect
@@ -984,7 +984,7 @@ describe "Object programs" do
     OUT
   end
 
-  it "object id basic" do
+  it "object_id is stable for one object and differs between two" do
     result = ze0(<<~'RUBY')
       # Object#object_id — unique stable id per object value.
       # Int uses the MRI tagged formula (2*n+1), string uses the pointer
@@ -1019,7 +1019,7 @@ describe "Object programs" do
     OUT
   end
 
-  it "object id nil true" do
+  it "nil, false and true carry fixed, distinct object_ids" do
     result = ze0(<<~'RUBY')
       # The immediate values nil, false and true have fixed, distinct object_ids.
       p nil.object_id
@@ -1042,7 +1042,7 @@ describe "Object programs" do
     OUT
   end
 
-  it "object method gaps callee clone itself" do
+  it "__callee__ names the method, String#clone copies, and NilClass#itself answers nil" do
     result = ze0(<<~'RUBY')
       # Small built-in method gaps (#1222): __callee__ (resolves like
       # __method__ to the current method name), String#clone (like dup), and

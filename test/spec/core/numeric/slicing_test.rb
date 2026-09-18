@@ -427,7 +427,7 @@ describe "Numeric: slicing" do
     OUT
   end
 
-  it "numeric long tail ranges bignum iteration and hex float" do
+  it "a Symbol range succeeds by name, a Float range refuses to iterate, and a bignum steps" do
     result = ze0(<<~'RUBY')
       # Symbol range iterates by name succession.
       p (:a..:e).to_a
@@ -467,7 +467,7 @@ describe "Numeric: slicing" do
     OUT
   end
 
-  it "numeric reopen resolves down the mro" do
+  it "a class Numeric reopen materializes onto Integer and Float, static receiver or poly" do
     result = ze0(<<~'RUBY')
       # A `class Numeric` reopen materializes onto Integer AND Float (the mro
       # machinery) and is found on both static receivers and dynamic Poly ones
@@ -491,7 +491,7 @@ describe "Numeric: slicing" do
     OUT
   end
 
-  it "numeric tower methods" do
+  it "bit_length, fdiv, the type-strict eql? and Math.gamma each answer" do
     result = ze0(<<~'RUBY')
       # Integer#bit_length, Integer#fdiv / Float#fdiv, Float#eql? (type-strict),
       # and Math.gamma. fdiv always returns a Float; eql? is true only for a Float
@@ -563,7 +563,7 @@ describe "Numeric: slicing" do
     OUT
   end
 
-  it "numeric tower remainder" do
+  it "Integer#[start, len] reads the bit field, and Math.lgamma answers the log and the sign" do
     result = ze0(<<~'RUBY')
       # Numeric tower remainder: Integer#[start, len] (the len-bit field starting at
       # bit `start`) and Math.lgamma (which returns [log(|gamma(x)|), sign]). The

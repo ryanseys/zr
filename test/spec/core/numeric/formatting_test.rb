@@ -532,7 +532,7 @@ describe "Numeric: formatting and inspection" do
     OUT
   end
 
-  it "numeric breadth matches the oracle" do
+  it "the divmod, rounding, gcd, predicate and iteration families all match the oracle" do
     result = ze0(<<~'RUBY')
       # The Numeric/Integer/Float Tier A breadth: divmod matrices, the rounding
       # families, gcd/lcm/digits/chr/ord, predicates, step/times/upto/downto,
@@ -646,7 +646,7 @@ describe "Numeric: formatting and inspection" do
     OUT
   end
 
-  it "numeric nil argument" do
+  it "an Integer operation given nil raises TypeError rather than ending the process" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # An Integer operation with a nil argument PANICS the runtime
@@ -712,7 +712,7 @@ describe "Numeric: formatting and inspection" do
     OUT
   end
 
-  it "numeric rect polar and collection leaf methods" do
+  it "rect, polar, rationalize and the collection leaf rows each answer" do
     result = ze0(<<~'RUBY')
       p 5.rect
       p 5.polar
@@ -750,7 +750,7 @@ describe "Numeric: formatting and inspection" do
     OUT
   end
 
-  it "numeric tower" do
+  it "the bignum Integer, Rational, Complex, coercion, Math and conversion rows all answer" do
     result = ze0(<<~'RUBY')
       # Phase 17.1 -- the numeric tower: full-bignum Integer, Rational, Complex,
       # the CRuby-exact coercion matrix, Math, and Kernel conversions.

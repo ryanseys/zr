@@ -358,7 +358,7 @@ describe "Regexp: substitution" do
     OUT
   end
 
-  it "regexp gsub zero width" do
+  it "gsub on a zero-width match inserts at each position, keeps the character, and advances by one" do
     result = ze0(<<~'RUBY')
       # gsub with a zero-width match (anchors, empty pattern, word boundary,
       # zero-repeat quantifier) must insert the replacement at each match
@@ -405,7 +405,7 @@ describe "Regexp: substitution" do
     OUT
   end
 
-  it "regexp ruby escape e lowers to x1b" do
+  it "ruby's \\e lowers to \\x1b, and #source still shows the \\e that was written" do
     result = ze0(<<~'RUBY')
       # Ruby's `\e` (ESC) is not an escape every regex engine knows; it must be
       # translated to `\x1b`, and `#source` still shows the original `\e`.
@@ -421,7 +421,7 @@ describe "Regexp: substitution" do
     OUT
   end
 
-  it "regexp sub gsub length" do
+  it "a sub or gsub result reports the bytes written, not the buffer's slack" do
     result = ze0(<<~'RUBY')
       # Regex String#sub / #gsub build into an over-allocated buffer; the
       # result's stored byte length must reflect the bytes actually written,
@@ -456,7 +456,7 @@ describe "Regexp: substitution" do
     OUT
   end
 
-  it "regexp sub gsub realloc" do
+  it "a sub or gsub result that outgrows the initial buffer grows on a real malloc base" do
     result = ze0(<<~'RUBY')
       # When a regex sub / gsub / scrub result grows past the initial buffer
       # capacity, the buffer must be grown on a real malloc base. Previously

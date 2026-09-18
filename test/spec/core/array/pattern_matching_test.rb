@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: pattern matching" do
-  it "array empty and pattern" do
+  it "first, last, take, drop and the deconstruct rows answer on an empty array too" do
     result = ze0(<<~'RUBY')
       # Array/Comparable conformance (KieranP #2287,#2289-2294)
       class Ver
@@ -54,7 +54,7 @@ describe "Array: pattern matching" do
     OUT
   end
 
-  it "array pattern element check" do
+  it "a case/in array pattern checks the required element values, not only the length" do
     result = ze0(<<~'RUBY')
       # A case/in array pattern must check required element values, not only length.
       def si(x); x; end
@@ -123,7 +123,7 @@ describe "Array: pattern matching" do
     OUT
   end
 
-  it "array pattern poly scrutinee" do
+  it "a case/in array pattern reads a poly scrutinee's length and elements through the poly path" do
     result = ze0(<<~'RUBY')
       # A case/in array pattern over a poly-typed scrutinee must read its length and
       # elements through the poly path (sp_poly_length / sp_poly_index_poly behind a
@@ -189,7 +189,7 @@ describe "Array: pattern matching" do
     OUT
   end
 
-  it "array pattern trailing comma is an implicit rest" do
+  it "a trailing comma in an array pattern is an implicit rest" do
     result = ze0(<<~'RUBY')
       case [0, 1, 2, 3]
       in [0, 1, ] then puts "matched"
