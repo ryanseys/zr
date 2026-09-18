@@ -300,10 +300,34 @@ module Ze0
       end
     end
 
+    # The compiler's own files that no runtime object can depend on: the
+    # command line, the linkers, and the images and processes they write
+    # into. Everything else under `lib` counts, so a file added to the
+    # compiler is covered until someone takes it out of here by name -- a
+    # stale runtime object is a silently wrong binary.
+    #
+    # They are not free of consequence, only of this one. `link_digest`
+    # is folded into the name of the prelinked image, because deciding
+    # that is exactly what they do.
+    LINK_ONLY = %w[
+      cli.rb
+      native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
+      obj/jit.rb obj/jit/fiddle.rb
+      obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb
+    ].map { |name| File.join(__dir__, name) }.freeze
+
     # The files `target`'s runtime is lowered from, and the compiler that
     # lowers them.
     def sources(target = Target.default)
-      kernel_files(target) + core_files(target) + Dir[File.join(__dir__, "**/*.rb")].sort
+      kernel_files(target) + core_files(target) + (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY)
+    end
+
+    # What the files above say, as one digest. A cache that the link
+    # writes names itself with this beside whatever else it depends on.
+    def link_digest
+      @link_digest ||= Digest::SHA256.new.tap do |d|
+        LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) }
+      end.hexdigest
     end
 
     # `content` at `path` under the cache, written whole: a parallel

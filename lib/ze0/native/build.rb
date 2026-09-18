@@ -112,7 +112,12 @@ module Ze0
         named = !objects.empty? && objects.all? { |o| File.dirname(File.expand_path(o)) == cache }
         return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless named
 
-        path = File.join(Zr::CACHE, "prelink-#{Digest::SHA256.hexdigest(objects.map { |o| File.basename(o) }.join("\n"))}.bin")
+        # The objects name themselves after the digest of what lowered
+        # them, and `Zr.link_digest` is the rest of what this image
+        # depends on: the linker's own files, which that digest leaves
+        # out on purpose.
+        key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
+        path = File.join(Zr::CACHE, "prelink-#{key}.bin")
         # Kept for the life of the process as well as on disk: reading
         # and parsing the 25 MB image was 21% of a link, and a check tier
         # links thousands of times. Nothing a link does writes to it.
