@@ -32,15 +32,15 @@ module Ze0
         def falsy(value, line) = If.new(value, Literal.new(false, line), Literal.new(true, line), line)
 
         # `case value; in pattern [if guard] then body; ...; else other; end`
-        def case_match(node)
+        def case_match(node, taken = true)
           line = node.location.start_line
           subject = temp(:subject)
           single = node.conditions.size == 1 && node.else_clause.nil?
           match = Match.new(self, single ? temp(:why) : nil, single ? temp(:key) : nil, single ? temp(:matchee) : nil)
-          chain = node.else_clause ? expr(node.else_clause) : no_match(subject, match, line)
+          chain = node.else_clause ? expr(node.else_clause, taken: taken) : no_match(subject, match, line)
           node.conditions.reverse_each do |clause|
             test = match.clause(clause.pattern, subject)
-            body = clause.statements ? seq(clause.statements) : Literal.new(nil, clause.location.start_line)
+            body = clause.statements ? seq(clause.statements, taken: taken) : Literal.new(nil, clause.location.start_line)
             chain = If.new(test, body, chain, clause.location.start_line)
           end
           Seq.new([set(subject, expr(node.predicate), line), *match.resets(line), chain], line)

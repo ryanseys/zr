@@ -982,7 +982,24 @@ module Ze0
         end
       end
 
-      def regexp_literal(node, line)
+      # Which branch a condition written as a literal always chooses, or
+      # nil where the program decides. ruby's compiler writes nothing for
+      # the other branch, so it reads nothing there either: `if false
+      # then /[q-a]/ end` runs, and `if 1 == 2 then /[q-a]/ end` does not.
+      def chooses?(node)
+        case node
+        when Prism::TrueNode then true
+        when Prism::FalseNode, Prism::NilNode then false
+        end
+      end
+
+      def regexp_literal(node, line, taken = true)
+        # Nothing takes this literal's value, so ruby never reads the
+        # pattern and neither does ze0: an invalid one here is a program
+        # that runs. An interpolated regexp is a Send, not this, and it
+        # still runs its parts.
+        return Seq.new([], line) unless taken
+
         pinned = regexp_encoding(node)
         # `n` reads the pattern as bytes, so an escape past ASCII is
         # legal there and nowhere else; the check must read it that way.
@@ -1014,18 +1031,23 @@ module Ze0
 
       # `hoist` puts the `BEGIN { }` blocks of a file first, in their
       # order, before anything else runs.
-      def seq(node, hoist: false)
+      #
+      # A sequence answers with its last statement, so every statement
+      # before that one stands where nothing takes its value, whatever
+      # the sequence itself stands in.
+      def seq(node, hoist: false, taken: true)
         return Seq.new([], 1) if node.nil?
 
         body = node.body
         body = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }.flatten if hoist
-        Seq.new(body.map { |s| statement(s) }, node.location.start_line)
+        last = body.size - 1
+        Seq.new(body.each_with_index.map { |s, i| statement(s, taken: taken && i == last) }, node.location.start_line)
       end
 
       # One statement, with the activation in force where it stands
       # written on every send it holds. A `using` moves that activation
       # on for the statements after it.
-      def statement(node)
+      def statement(node, taken: true)
         # Every `using` row there is was made by `using_activation`, so a
         # statement that made none holds none, and the walk below -- which
         # reads the whole of what was just built, for every statement of
@@ -1033,7 +1055,7 @@ module Ze0
         # `using` in it at all.
         made = @usings
         traced = line_event(node)
-        out = using_activation(node) || expr(node)
+        out = using_activation(node) || expr(node, taken: taken)
         out = Seq.new([traced, out], traced.line) if traced
         mark_using(out, {}) if @using
         return out if out.is_a?(Using)
@@ -1116,8 +1138,16 @@ module Ze0
       end
 
       # A prism node's HIR, noted with the node's id.
-      def expr(node)
-        noted(built(node), node)
+      #
+      # `taken` is false where the program never takes this expression's
+      # value: a statement before the last of its scope, a `while` body,
+      # or a branch a literal condition never chooses. ruby's compiler
+      # writes nothing for such an expression, and so reads nothing in
+      # it -- which is why `puts 1; /[z-a]/; puts 2` runs where the same
+      # literal as a scope's value is a SyntaxError. A regexp is the one
+      # literal ze0 reads as it builds, so it is the one that asks.
+      def expr(node, taken: true)
+        noted(built(node, taken), node)
       end
 
       # `hir` came from prism's `node`: the frame of what it runs reports
@@ -1128,11 +1158,11 @@ module Ze0
         hir
       end
 
-      def built(node)
+      def built(node, taken = true)
         line = node.location.start_line
         case node
-        when Prism::StatementsNode then seq(node)
-        when Prism::ParenthesesNode then node.body ? expr(node.body) : Literal.new(nil, line)
+        when Prism::StatementsNode then seq(node, taken: taken)
+        when Prism::ParenthesesNode then node.body ? expr(node.body, taken: taken) : Literal.new(nil, line)
         when Prism::IntegerNode, Prism::FloatNode then Literal.new(node.value, line)
         # `3r` and `2i` are the core's own, even where self has no Kernel.
         when Prism::RationalNode then Send.new(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
@@ -1177,21 +1207,28 @@ module Ze0
           value = jump_value(node.arguments, line)
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
         when Prism::IfNode
-          If.new(expr(node.predicate), node.statements && seq(node.statements), node.subsequent && expr(node.subsequent), line)
-        when Prism::CaseMatchNode then case_match(node)
+          chosen = chooses?(node.predicate)
+          If.new(expr(node.predicate), node.statements && seq(node.statements, taken: taken && chosen != false),
+                 node.subsequent && expr(node.subsequent, taken: taken && chosen != true), line)
+        when Prism::CaseMatchNode then case_match(node, taken)
         when Prism::MatchRequiredNode then match_required(node)
         when Prism::MatchPredicateNode then match_predicate(node)
         when Prism::MatchWriteNode then match_write(node)
         when Prism::UnlessNode
-          If.new(expr(node.predicate), node.else_clause && seq(node.else_clause.statements), node.statements && seq(node.statements), line)
-        when Prism::ElseNode then node.statements ? seq(node.statements) : Literal.new(nil, line)
+          chosen = chooses?(node.predicate)
+          If.new(expr(node.predicate), node.else_clause && seq(node.else_clause.statements, taken: taken && chosen != false),
+                 node.statements && seq(node.statements, taken: taken && chosen != true), line)
+        when Prism::ElseNode then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
+        # A loop answers nil, so nothing takes the value of its body.
         when Prism::WhileNode
-          While.new(expr(node.predicate), node.statements && seq(node.statements), line, node.begin_modifier?)
+          While.new(expr(node.predicate), node.statements && seq(node.statements, taken: false), line, node.begin_modifier?)
         when Prism::UntilNode
-          While.new(falsy(expr(node.predicate), line), node.statements && seq(node.statements), line, node.begin_modifier?)
+          While.new(falsy(expr(node.predicate), line), node.statements && seq(node.statements, taken: false), line, node.begin_modifier?)
         when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
-        when Prism::AndNode then And.new(expr(node.left), expr(node.right), line)
-        when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
+        # The left decides, so its value is always taken; the right is
+        # the pair's answer and stands where the pair does.
+        when Prism::AndNode then And.new(expr(node.left), expr(node.right, taken: taken), line)
+        when Prism::OrNode then Or.new(expr(node.left), expr(node.right, taken: taken), line)
         when Prism::ClassNode
           scope, name = constant_path(node.constant_path)
           superclass = node.superclass && expr(node.superclass)
@@ -1244,7 +1281,7 @@ module Ze0
         when Prism::XStringNode then Send.new(nil, :`, [Literal.new(node.unescaped, line)], line, false)
         when Prism::NumberedReferenceReadNode then BackRef.new(:nth, node.number, line)
         when Prism::BackReferenceReadNode then back_reference(node, line)
-        when Prism::RegularExpressionNode then regexp_literal(node, line)
+        when Prism::RegularExpressionNode then regexp_literal(node, line, taken)
         when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node, line)
         when Prism::MatchLastLineNode
           # A bare regexp as a condition matches `$_`.
@@ -1321,9 +1358,9 @@ module Ze0
         when Prism::CaseNode
           clauses = node.conditions.map do |w|
             values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? splat(c, line) : expr(c) }
-            [values, w.statements ? seq(w.statements) : Literal.new(nil, line)]
+            [values, w.statements ? seq(w.statements, taken: taken) : Literal.new(nil, line)]
           end
-          Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause), line)
+          Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause, taken: taken), line)
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
           refuse(node, "a block in an index target is not lowered yet") if node.block
           args = index_args(node, line)
@@ -1358,7 +1395,7 @@ module Ze0
           Or.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::InstanceVariableAndWriteNode
           And.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
-        when Prism::BeginNode then protected_region(node)
+        when Prism::BeginNode then protected_region(node, taken)
         when Prism::RescueModifierNode
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
@@ -1369,9 +1406,14 @@ module Ze0
       end
 
       # `begin ... end` with its clauses; a bare `begin ... end` is its body.
-      def protected_region(node)
+      # A region's body and its `else` answer for the region and stand
+      # where it stands. An `ensure` runs for its effect alone and
+      # answers nothing, so nothing ever takes its value. A `rescue`
+      # body is not the same: ruby reads a regexp there even where the
+      # region's own value is dropped.
+      def protected_region(node, taken = true)
         line = node.location.start_line
-        body = node.statements ? seq(node.statements) : Literal.new(nil, line)
+        body = node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
         return body if node.rescue_clause.nil? && node.ensure_clause.nil?
 
         rescues = []
@@ -1380,8 +1422,8 @@ module Ze0
           rescues << rescue_clause(clause)
           clause = clause.subsequent
         end
-        else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements) : Literal.new(nil, line))
-        ensure_body = node.ensure_clause && (node.ensure_clause.statements ? seq(node.ensure_clause.statements) : Literal.new(nil, line))
+        else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements, taken: taken) : Literal.new(nil, line))
+        ensure_body = node.ensure_clause && (node.ensure_clause.statements ? seq(node.ensure_clause.statements, taken: false) : Literal.new(nil, line))
         Begin.new(body, rescues, else_body, ensure_body, line)
       end
 
