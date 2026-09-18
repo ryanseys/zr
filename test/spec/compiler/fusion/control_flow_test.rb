@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Fusion: control flow" do
-  it "blocks times inlines to a native loop" do
+  it "a times block inlines to a native loop" do
     result = ze0(<<~'RUBY')
       3.times do |i|
         puts i

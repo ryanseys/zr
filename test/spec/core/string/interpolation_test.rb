@@ -348,7 +348,7 @@ describe "String: interpolation" do
     OUT
   end
 
-  it "string literal interpolation indexing and mutation" do
+  it "a literal interpolates, indexes from either end, and takes an index write" do
     result = ze0(<<~'RUBY')
       name = "world"
       greeting = "hello #{name}, #{1 + 2} times"

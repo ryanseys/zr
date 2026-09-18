@@ -1627,7 +1627,7 @@ describe "Methods: defining and naming methods" do
     OUT
   end
 
-  it "dynamic" do
+  it "send with a name held in a variable reaches a method defined by define_method" do
     result = ze0(<<~'RUBY')
       class Greeter
         define_method(:hello) do

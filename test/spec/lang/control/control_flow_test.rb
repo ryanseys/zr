@@ -357,7 +357,7 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "conditionals" do
+  it "if/elsif/else answers the same as a statement and as a value" do
     result = ze0(<<~'RUBY')
       n = -5
       if n < 0

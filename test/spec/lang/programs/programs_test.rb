@@ -684,7 +684,7 @@ describe "Whole programs" do
     OUT
   end
 
-  it "hello" do
+  it "the smallest program runs, and puts writes a symbol without its colon" do
     result = ze0(<<~'RUBY')
       puts :ok
     RUBY
