@@ -320,7 +320,7 @@ describe "Singleton: formatting and inspection" do
     OUT
   end
 
-  it "singleton body call keeps the visibility barrier down" do
+  it "a receiverless call in a class << X body reaches a private singleton method" do
     result = ze0(<<~'RUBY')
       # Every shape where a `class << X` body's receiverless call reaches a method
       # that is private on the singleton class. Ruby runs those with no receiver, so
@@ -424,7 +424,7 @@ describe "Singleton: formatting and inspection" do
     OUT
   end
 
-  it "singleton body visibility reaches the object" do
+  it "a visibility directive in a compiled class << obj body leaves every method public" do
     result = ze0(<<~'RUBY')
       # A compiled `class << obj` body's visibility directives never reach the
       # object, so every method it writes installs PUBLIC.
@@ -536,7 +536,7 @@ describe "Singleton: formatting and inspection" do
     OUT
   end
 
-  it "singleton class reflects its own visibility" do
+  it "a singleton class reports every per-object row as public, whatever mark the object carries" do
     result = ze0(<<~'RUBY')
       # A singleton class's instance-method reflection reports every per-object row
       # as PUBLIC, whatever mark the object carries.

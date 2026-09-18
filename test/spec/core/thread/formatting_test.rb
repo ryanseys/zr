@@ -296,7 +296,7 @@ describe "Thread: formatting and inspection" do
     OUT
   end
 
-  it "thread alloc heavy workers" do
+  it "four allocating workers each finish their loop and their totals add up" do
     result = ze0(<<~'RUBY')
       threads = []
       t = 0
@@ -329,7 +329,7 @@ describe "Thread: formatting and inspection" do
     _(result).must_answer "588890\n"
   end
 
-  it "thread pass fairness" do
+  it "Thread.pass yields a turn without draining the siblings, and never starves the main loop" do
     result = ze0(<<~'RUBY')
       # Thread.pass from the main thread yields a turn to runnable siblings
       # without draining them to completion. On a preemptive parallel scheduler
@@ -376,7 +376,7 @@ describe "Thread: formatting and inspection" do
     OUT
   end
 
-  it "thread preempt" do
+  it "more CPU-bound threads than workers still all finish, whatever the interleaving" do
     result = ze0(<<~'RUBY')
       # More CPU-bound threads than OS workers, each a bounded loop with no explicit
       # yield: under the parallel build the monitor must timeslice them (otherwise the

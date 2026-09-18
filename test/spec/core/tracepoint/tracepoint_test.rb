@@ -805,7 +805,7 @@ describe "TracePoint programs" do
     OUT
   end
 
-  it "tracepoint" do
+  it "the lifecycle and error shapes answer, and the event streams match the oracle line for line" do
     result = ze0(<<~'RUBY', path: "core/tracepoint/tracepoint.rb")
       # TracePoint: lifecycle and error shapes, then oracle-matched event streams
       # over methods, class bodies, blocks, raises, and an unwinding return. Every
@@ -1021,7 +1021,7 @@ describe "TracePoint programs" do
     OUT
   end
 
-  it "tracepoint disable is a call event" do
+  it "TracePoint's own methods fire a call and return pair, and disable reports one last event" do
     result = ze0(<<~'RUBY')
       # CRuby implements TracePoint's own surface in Ruby (<internal:trace_point>),
       # so calling one of those methods while a trace is live fires an ordinary
@@ -1091,7 +1091,7 @@ describe "TracePoint programs" do
     OUT
   end
 
-  it "tracepoint self and binding" do
+  it "a :line event answers the object the line ran under and a binding on that scope" do
     result = ze0(<<~'RUBY')
       # `TracePoint#self` and `#binding` answer for a `:line` event, as CRuby's do:
       # `self` is the object the line ran under and `binding` is that scope.

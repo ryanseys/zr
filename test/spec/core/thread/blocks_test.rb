@@ -1148,7 +1148,7 @@ describe "Thread: blocks and yields" do
     OUT
   end
 
-  it "thread new block arg" do
+  it "Thread.new(&proc) converts the block argument the way every other call site converts one" do
     result = ze0(<<~'RUBY')
       # `Thread.new(&proc)` -- drb starts its main loop that way. The block argument
       # converts exactly as it does at every other call site.
@@ -1192,7 +1192,7 @@ describe "Thread: blocks and yields" do
     OUT
   end
 
-  it "thread value returns the block result and args bind to params" do
+  it "value answers the block's result, and the arguments bind to the block's parameters" do
     result = ze0(<<~'RUBY')
       v = Thread.new(20, 22) { |a, b| a + b }.value
       puts v
@@ -1201,7 +1201,7 @@ describe "Thread: blocks and yields" do
     _(result).must_answer "42\n"
   end
 
-  it "thread yield handle and ensure" do
+  it "a Mutex yielded to a block inside Thread.new survives the proc ABI and the ensure funnel" do
     result = ze0(<<~'RUBY')
       # A Mutex yielded to a block from inside Thread.new. Two separate faults met
       # here: the proc ABI packs arguments into an mrb_int[] and only knew how to

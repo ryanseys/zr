@@ -261,7 +261,7 @@ describe "String: blocks and yields" do
     OUT
   end
 
-  it "string array hash symbol proc leaf methods" do
+  it "codepoints, chomp!, partition, delete_prefix and clear each answer" do
     result = ze0(<<~'RUBY')
       p "hello".codepoints
       s = "hi\n"; p s.chomp!; p s.chomp!
@@ -314,7 +314,7 @@ describe "String: blocks and yields" do
     OUT
   end
 
-  it "string enum block returns self" do
+  it "chars, bytes, codepoints and lines with a block yield and answer the receiver" do
     result = ze0(<<~'RUBY')
       # String#chars/#bytes/#codepoints/#lines with a block yield each element
       # and return the receiver (self), not the element array. The no-block
@@ -360,7 +360,7 @@ describe "String: blocks and yields" do
     OUT
   end
 
-  it "string to c lenient" do
+  it "to_c reads a leading complex and ignores the rest, where Complex() demands the whole string" do
     result = ze0(<<~'RUBY')
       # String#to_c raised where CRuby answers (0+0i). One parser was serving two
       # contracts: Kernel#Complex(str) must consume the whole string or raise, while

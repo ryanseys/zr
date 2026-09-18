@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Regexp: regressions" do
-  it "regexp" do
+  it "the match operator, the named captures, gsub and the count rows each answer" do
     result = ze0(<<~'RUBY')
       # Test Regexp support
 
@@ -57,7 +57,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "regexp backspace in class" do
+  it "\\b inside a character class means backspace, and outside one it stays a word boundary" do
     result = ze0(<<~'RUBY')
       # `\b` inside a `[...]` character class means U+0008 (backspace),
       # not the letter `b`. Outside `[...]`, `\b` is a word-boundary
@@ -91,7 +91,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "regexp inline flag group no hang" do
+  it "an inline-flag group compiles and matches rather than spin on the unconsumed ?" do
     result = ze0(<<~'RUBY')
       # `(?xim:...)` inline-flag groups previously parsed into an infinite
       # loop in re_compile: the `?` after `(` didn't match any recognized
