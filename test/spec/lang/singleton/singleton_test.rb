@@ -1154,7 +1154,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton address reuse" do
+  it "a dead receiver's singleton method does not follow the address to a later object" do
     result = ze0(<<~'RUBY')
       # A singleton method is stored against its receiver's heap identity. Once the
       # receiver dies, an unrelated later object must not inherit it because the
@@ -1216,7 +1216,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body" do
+  it "a class << self body lowers def, alias, attr_accessor, define_method, private and undef" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -1315,7 +1315,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body class and self path" do
+  it "a class nested in a class << self body belongs to the singleton, and self:: roots a path there" do
     result = ze0(<<~'RUBY')
       # Two things a `class << self` body can hold that zeo used to reject outright,
       # both straight out of irb: a nested `class` (color.rb's `class
@@ -1393,7 +1393,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body cref" do
+  it "a constant written in a class << self body belongs to the singleton and Module.nesting reports it" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -1568,7 +1568,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body frame is spelled singleton class" do
+  it "the backtrace frame of a class << self body is spelled 'singleton class'" do
     result = ze0(<<~'RUBY')
       # Ruby labels the backtrace frame of a `class << self` body `singleton class`
       # -- a fixed spelling, not a class name. zeo homes such a body on a surrogate
@@ -1607,7 +1607,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body is statements about a class" do
+  it "class << Klass takes ordinary statements, and a prepend there fronts the class methods" do
     result = ze0(<<~'RUBY')
       # `class << Klass` opens the class's SINGLETON, so `prepend M` there puts M's
       # instance methods in front of `Klass`'s own class methods, with `super` resuming
@@ -1723,7 +1723,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body prepend undef and visibility" do
+  it "prepend, undef_method and private in a class << self body reach the class methods" do
     result = ze0(<<~'RUBY')
       # `class << self` carries more than `def`: a `prepend` mixes into the singleton
       # ahead of the class's own `def self.x`, an `undef_method` retires an inherited
@@ -1808,7 +1808,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body statement defines class methods at runtime" do
+  it "a statement in a class << self body runs in source order, so define_method lands between the defs" do
     result = ze0(<<~'RUBY')
       # The corpus's single biggest lowering gap: `class << self` bodies rejected on
       # ONE shape -- a call with a receiver whose BLOCK reaches for `self`:
@@ -1915,7 +1915,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton body statement runs in its own frame" do
+  it "a spliced statement keeps its own singleton-class frame over the enclosing class body" do
     result = ze0(<<~'RUBY')
       # Ruby gives a `class << self` body a backtrace frame of its own, labelled
       # `singleton class`, with the enclosing `<class:Config>` frame beneath it.
@@ -2057,7 +2057,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton chain dispatch sweep" do
+  it "every seat in a singleton chain answers super, Method#owner and the reflection surface" do
     result = ze0(<<~'RUBY')
       # The CLASS-METHOD channel swept against ruby: every way a module can be
       # seated in a singleton class, every order they can be written in, and what
@@ -2423,7 +2423,7 @@ describe "Singleton programs" do
     _(result).must_answer "== one module, one position, super reaches the tail\n\"M1(top)\"\n[\"#<Class:One>\", \"M1\", \"#<Class:Object>\"]\n\"M1\"\n[true, []]\n== an own def self.x sits BEFORE the extended module\n\"own(M1(top))\"\n\"#<Class:OwnFirst>\"\n\"M1\"\n== extend order: the LAST extend is closest\n\"M2(M1(top))\"\n[\"#<Class:TwoMods>\", \"M2\", \"M1\", \"#<Class:Object>\"]\n== a module reached BOTH ways holds two positions\n\"cm(own(cm(top)))\"\n[\"CM\", \"#<Class:BothWays>\", \"CM\", \"#<Class:Object>\"]\n\"cm(cm(top))\"\n[\"CM\", \"#<Class:BothNoOwn>\", \"CM\", \"#<Class:Object>\"]\n== the reverse order gives ONE position\n\"cm(top)\"\n[\"CM\", \"#<Class:PrependFirst>\", \"#<Class:Object>\"]\n== two prepends stack, latest closest, and super walks down\n\"PB(PA(own(top)))\"\n[\"PB\", \"PA\", \"#<Class:Stacked>\", \"#<Class:Object>\"]\n== a module that includes another, extended\n\"outer(inner(top))\"\n[\"#<Class:Nested>\", \"Outer\", \"Inner\", \"#<Class:Object>\"]\n\"Outer\"\n== inheritance: the parent's extend is reached from the child\n[\"M1(top)\", \"M1(top)\", \"M1(top)\"]\n[\"#<Class:Child>\", \"#<Class:Parent>\", \"M1\", \"#<Class:Object>\"]\n[\"M1\", \"M1\"]\n== the child adds its own extend, which sits ahead of the parent's\n\"M2(M1(top))\"\n[\"#<Class:ChildExtends>\", \"M2\", \"#<Class:Parent>\", \"M1\", \"#<Class:Object>\"]\n== a prepend on the PARENT's singleton, reached by super from the child\n[\"PA(pp(top))\", \"pc(PA(pp(top)))\"]\n[\"#<Class:PrependedChild>\", \"PA\", \"#<Class:PrependedParent>\", \"#<Class:Object>\", \"#<Class:BasicObject>\"]\n== super reaches the instance tail (Class's own methods)\n\"T(Tailed)\"\n\"N(Tailed)\"\n\"Tailed\"\n== super with explicit arguments, and zsuper, through a mixin\n\"own(over(argmod(1,20)))\"\n\"own(over(argmod(1,30)))\"\n== define_singleton_method beats a prepended module's copy? no -- prepend wins\n\"PA(dyn(noSuper))\"\n== a runtime class takes the same rules\n\"rt_own(M1(top))\"\n\"rt_own(M1(top))\"\n== a MODULE's own singleton chain\n\"modown(M1(top))\"\n[\"#<Class:HasSingleton>\", \"M1\", \"Module\"]\n== remove_method in class << self empties one position, undef ends the walk\n\"M1(top)\"\n\"undef ends the walk\"\n== a class-level method_missing is reached through the same chain\n\"mmod_ghost\"\ntrue\n== instance and class channels answer the same shape independently\n[\"inst(dual(top))\", \"cls(dual(top))\"]\n[\"BothChannels\", \"Dual\", \"Object\"]\n[\"#<Class:BothChannels>\", \"Dual\", \"#<Class:Object>\"]\n== #super_method walks the singleton chain, one position per step\n\"own(S2(S1))\"\n[[\"#<Class:Chained>\", \"own(S2(S1))\"], [\"S2\", \"S2(S1)\"], [\"S1\", \"S1\"]]\n== #super_method through a DOUBLED module stops instead of looping\n[\"CM\", \"CM\"]\n== unbind/bind and instance_method through a singleton class\n\"#<Class:Chained>\"\n\"#<Class:Chained>\"\n[\"#<Class:Chained>\", \"S2\", \"S1\", \"#<Class:Object>\"]\n== respond_to? and method_defined? agree with the walk\n[true, true]\n[true, false]\n== a frozen class refuses both singleton verbs\n[FrozenError, \"can't modify frozen Class: FrozenSingleton\"]\nFrozenError\n== extend on a plain OBJECT keeps its own chain\n\"obj(top)\"\n[\"#<Class:#<Object:0xADDR>>\", \"ObjMod\"]\n\"ObjMod\"\n== a module extended onto a MODULE, and its super\n\"modself(M1(top))\"\n\"#<Class:Extendee>\"\n\"M1\"\n== the walk is stable across repeated asks\nown(S2(S1)) own(S2(S1)) own(S2(S1)) \n[\"#<Class:Chained>\", \"S2\", \"S1\", \"#<Class:Object>\"]\n== a def self.x inside a singleton body is one level FURTHER up\n\"plain\"\n\"MetaHost.meta -> NoMethodError\"\n\"meta\"\n[:meta]\n[:plain]\n== the same inside class << obj\n\"obj_plain\"\n\"target.meta -> NoMethodError\"\n\"obj_meta\"\n== a meta method takes arguments and a block like any other\n\"build(9,2)\"\n\"build(9,3)\"\n[10, 20]\n== a meta method beside a mixin in the same singleton body\n\"meta\"\n\"mixed\"\n"
   end
 
-  it "singleton class" do
+  it "a def in a class << obj body installs on the object, and a private below it marks the singleton" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -2585,7 +2585,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton class object" do
+  it "class << obj on a named object overrides its methods, with super reaching the class" do
     result = ze0(<<~'RUBY')
       # `class << obj` (block form of def obj.m) on a statically-traceable object.
       class Widget
@@ -2652,7 +2652,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton class prepend" do
+  it "singleton_class.prepend puts a module's instance methods ahead of def self.x" do
     result = ze0(<<~'RUBY')
       # `C.singleton_class.prepend(M)` prepends a module onto a class's SINGLETON
       # class, so M's INSTANCE methods become C's CLASS methods at higher priority
@@ -2751,7 +2751,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton class superclass chain" do
+  it "a singleton class's superclass is the superclass's singleton class" do
     result = ze0(<<~'RUBY')
       # A singleton class's superclass is the singleton class of the superclass:
       #
@@ -2793,7 +2793,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton constant edges" do
+  it "a singleton-class constant survives a reopen, reads the enclosing scope, and hides from outside" do
     result = ze0(<<~'RUBY')
       # Singleton-class constants (`class << self` surrogates) beyond the promoted
       # gap shape: reopens, enclosing-scope reads, nesting depth, and the reach
@@ -2867,7 +2867,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton def ignores the running visibility default" do
+  it "a bare private does not reach a following def self.x, which stays public" do
     result = ze0(<<~'RUBY')
       # A bare `private` sets the default only for subsequent INSTANCE defs; a
       # singleton def (`def self.name` / `def Recv.name`) that follows is a
@@ -2898,7 +2898,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton on value" do
+  it "a singleton method belongs to the object, so an Array or a String takes one and an Integer refuses" do
     result = ze0(<<~'RUBY')
       # A singleton method belongs to the OBJECT, and in Ruby that includes any heap
       # value -- csv defines `def NO_QUOTED_FIELDS.[](i)` on a bare Array.
@@ -2954,7 +2954,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton prepend names its module" do
+  it "a module prepended into a singleton wins the lookup, and Method#owner names it bare" do
     result = ze0(<<~'RUBY')
       # A module prepended into a singleton class WINS the class-method lookup, so
       # `super` inside it reaches the class's own `def self.x` and `Method#owner`
@@ -3036,7 +3036,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton prepend runtime class" do
+  it "singleton_class.prepend works on a Class.new receiver and is visible through a subclass" do
     result = ze0(<<~'RUBY')
       # `X.singleton_class.prepend(M)` where X only ever exists at RUNTIME (a
       # `Class.new` minting -- the same shape as a rails class behind a computed
@@ -3070,7 +3070,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton prepend walks the inherited chain" do
+  it "a subclass inherits its parent's singleton prepend for dispatch as well as reflection" do
     result = ze0(<<~'RUBY')
       # A module prepended into a SINGLETON class, reached from every direction a
       # subclass chain gives it.

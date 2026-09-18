@@ -781,7 +781,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set algebra operand enum" do
+  it "& and - enumerate the operand, so the result follows the operand's order" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A Set algebra operation over a non-Set Enumerable does not preserve
@@ -826,7 +826,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set backtrace accepts locations" do
+  it "Exception#set_backtrace names an Array of String or of Location in its TypeError" do
     result = ze0(<<~'RUBY')
       # `Exception#set_backtrace`'s TypeError names what ruby 4 accepts: "an
       # Array of String or an Array of Thread::Backtrace::Location"; zeo's
@@ -844,7 +844,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set basic" do
+  it "Set.new drops the equal elements, and each, include? and << answer over what is left" do
     result = ze0(<<~'RUBY')
       # The bundled `set` library: construction from an array (with de-duplication of
       # equal scalar elements), iteration, membership, and mutation.
@@ -878,7 +878,7 @@ describe "Set programs" do
     _(result).must_answer "3\n3\nfalse\ntrue\nfalse\na b c \n4\ntrue\ntrue\n6\n3\n"
   end
 
-  it "set block autosplat" do
+  it "a two-parameter block auto-splats an Array element on map, each, select and sum" do
     result = ze0(<<~'RUBY')
       require "set"
 
@@ -932,7 +932,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set bracket ctor" do
+  it "Set[...] builds a set from its arguments and drops the duplicates" do
     result = ze0(<<~'RUBY')
       # Set[...] class-method constructor (CRuby's Set.[]).
       require "set"
@@ -961,7 +961,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set comparator block" do
+  it "max, min and sort take a comparator block, and max takes a count" do
     result = ze0(<<~'RUBY')
       require 'set'
       p(Set[3, 1, 2].max { |x, y| y <=> x })
@@ -982,7 +982,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set conformance batch2" do
+  it "flatten!, replace and reset mutate in place, and every combinator takes an Array operand" do
     result = ze0(<<~'RUBY')
       # Set mutators (flatten!/replace/reset), combinators with Array operands,
       # and mixed Set/Array arguments reaching the same combinator call site.
@@ -1034,7 +1034,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set construction membership operators and enumerable" do
+  it "size, include?, |, subset? and map answer on a set built from a literal" do
     result = ze0(<<~'RUBY')
       s = Set[3, 1, 2, 1]
       p s.size
@@ -1053,7 +1053,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set delete" do
+  it "delete is a no-op for a missing element and returns the set, so it chains" do
     result = ze0(<<~'RUBY')
       require 'set'
 
@@ -1089,7 +1089,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set demo" do
+  it "add, delete, the four operators, subset?, == and the Enumerable methods answer in one run" do
     result = ze0(<<~'RUBY')
       require "set"
 
@@ -1142,7 +1142,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set divide" do
+  it "divide groups by a one-parameter block's value and by a two-parameter block's relation" do
     result = ze0(<<~'RUBY')
       require 'set'
       s = Set[1, 2, 3, 4, 5, 6]
@@ -1158,7 +1158,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set enumerable operand" do
+  it "a blockless each is an Enumerator, and the constructor takes any Enumerable including one" do
     result = ze0(<<~'RUBY')
       require 'set'
 
@@ -1201,7 +1201,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set extended" do
+  it "keep_if and delete_if return the receiver, and select! and reject! return nil when nothing moved" do
     result = ze0(<<~'RUBY')
       require "set"
 
@@ -1263,7 +1263,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set frozen mutators" do
+  it "a frozen set refuses every mutator with FrozenError, and an unfrozen one still mutates" do
     result = ze0(<<~'RUBY')
       require 'set'
 
@@ -1318,7 +1318,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set full api" do
+  it "the Enumerable methods, the comparison operators and to_set answer across the API" do
     result = ze0(<<~'RUBY')
       require 'set'
       p(Set[1, 2, 3].select { |x| x > 1 })
@@ -1409,7 +1409,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set long tail" do
+  it "FrozenError names the receiver, and a binary operator on a subclass answers the subclass" do
     result = ze0(<<~'RUBY')
       # Two Set rows: the FrozenError names the receiver ("can't modify
       # frozen Set: Set[1]"), and a binary op on a Set SUBCLASS answers the
@@ -1430,7 +1430,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set new from mapped set" do
+  it "Set.new takes the Array that map returns, and a plain class takes the same shape" do
     result = ze0(<<~'RUBY')
       require "set"
 
@@ -1484,7 +1484,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set operation asks eql not equals" do
+  it "a search asks == while a set operation asks eql?, so [1.0] - [1] keeps the Float" do
     result = ze0(<<~'RUBY')
       # Ruby splits its container rows in two, and the split is observable.
       #
@@ -1630,7 +1630,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set operations" do
+  it "&, | and - build fresh sets, and subset? and superset? compare membership" do
     result = ze0(<<~'RUBY')
       # Set operators and queries over the array-backed bundled set: & | - build
       # fresh sets, subset?/superset? compare membership, to_a/map expose the
@@ -1672,7 +1672,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set predicate arg" do
+  it "the containment predicates take a set and raise ArgumentError on anything else" do
     result = ze0(<<~'RUBY')
       # The containment predicates take a Set and nothing else: CRuby answers
       # ArgumentError("value must be a set"). Passing an Array reached the operand's
@@ -1713,7 +1713,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set range operand" do
+  it "a Range is an operand for every combinator, and for merge, subtract and replace" do
     result = ze0(<<~'RUBY')
       require 'set'
       p((Set[1, 2] & (2..4)).to_a)
@@ -1744,7 +1744,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set subtract flatten map filter classify and divide" do
+  it "subtract, flatten, map!, select!, reject!, classify and divide each answer" do
     result = ze0(<<~'RUBY')
       require "set"
       s = Set[1, 2, 3, 4]
@@ -1778,7 +1778,7 @@ describe "Set programs" do
     OUT
   end
 
-  it "set thread module and exception keyword accessors" do
+  it "Set#reset, Thread.list, Module#const_set and the exception accessors that take data" do
     result = ze0(<<~'RUBY')
       # Set#reset, Thread.list, Module#const_set, and the exception accessors that
       # take keyword/positional data: KeyError(key:/receiver:), SystemExit(status),

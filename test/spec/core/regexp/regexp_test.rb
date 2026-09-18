@@ -922,7 +922,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp" do
+  it "=~, match, named captures, flags, scan, split, gsub and case/when all answer at once" do
     result = ze0(<<~'RUBY', path: "regexp.rb")
       puts "hello world" =~ /world/
       puts "hello world" =~ /xyz/
@@ -1093,7 +1093,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp backtrack heap stack" do
+  it "deep backtracking runs off the heap, and atomic groups and backrefs answer with it" do
     result = ze0(<<~'RUBY')
       [100, 5000, 9500, 10000, 12000, 20000].each do |n|
         s = "a" * n + "b" + "a" * n
@@ -1159,7 +1159,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp capture ivar hash" do
+  it "a capture used as an ivar hash key is kept as a String, so a String literal finds it" do
     result = ze0(<<~'RUBY')
       # A regex match-capture used as the key of an instance-variable hash,
       # inside a loop, must store the capture as a boxed String key, so keys
@@ -1222,7 +1222,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp captures family" do
+  it "named and numbered captures reach scan, a replacement backref and a gsub block" do
     result = ze0(<<~'RUBY')
       # Regexp capture plumbing: named-group scan, block-form scan destructuring,
       # the \+ replacement backref, non-string gsub block values, and blockless
@@ -1332,7 +1332,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp case eq and source" do
+  it "#source is the pattern text and #=== answers whether the string matches" do
     result = ze0(<<~'RUBY')
       puts(/abc/ =~ "xxabcxx")
       r = /foo/
@@ -1349,7 +1349,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp character range modes" do
+  it "(?a), (?u) and (?d) set which character-range mode a pattern reads" do
     result = ze0(<<~'RUBY')
       # Ruby reads a pattern in one of three character-range modes. In the default
       # mode `\w`, `\d` and `\s` are ASCII-only while `\b`, `\B` and the POSIX
@@ -1472,7 +1472,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp compile error messages" do
+  it "RegexpError repeats onig's wording, and a subject with bytes invalid in its encoding is refused" do
     result = ze0(<<~'RUBY')
       # `RegexpError` messages, which CRuby words after onig's own reasons and
       # echoes the pattern into. The engine underneath zeo words several of them
@@ -1532,7 +1532,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp compile regexp" do
+  it "Regexp.compile and Regexp.new take a Regexp and copy its source and options" do
     result = ze0(<<~'RUBY')
       p(Regexp.compile(/ab/i).source)
       p(Regexp.compile(/ab/i).options)
@@ -1550,7 +1550,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp complex range leaf methods" do
+  it "Regexp.escape, Regexp#options, Complex.rect and Range#bsearch each answer" do
     result = ze0(<<~'RUBY')
       p Regexp.escape("a.b*c")
       p Regexp.quote("1+1")
@@ -1578,7 +1578,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp empty group quantified" do
+  it "a quantified empty group matches empty, while a quantifier with no atom raises" do
     result = ze0(<<~'RUBY')
       # Repeating an empty group answers the same empty match however many times it
       # runs, so the quantifier applies to an atom that emits no code. The engine
@@ -1624,7 +1624,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp eq non regexp" do
+  it "a pattern is never equal to a String, a number or nil" do
     result = ze0(<<~'RUBY')
       a001 = /ab/
       p(a001 == "ab")
@@ -1647,7 +1647,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp eql hash by source" do
+  it "Regexp.new and an equal literal are eql? and share a hash" do
     result = ze0(<<~'RUBY')
       a001 = Regexp.new("ab")
       p(a001 == /ab/)
@@ -1665,7 +1665,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp equality options" do
+  it "equality covers the flags, so /ab/ and /ab/i are two patterns" do
     result = ze0(<<~'RUBY')
       # Regexp equality is source AND options: /ab/ and /ab/i are different patterns.
       # Only the source was compared, so every flag variant of a pattern was equal to
@@ -1703,7 +1703,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp error catchable" do
+  it "Regexp.new raises a catchable RegexpError and the program runs on" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # The RegexpError message reads "unterminated character class"; ruby
@@ -1732,7 +1732,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp error flag suffix" do
+  it "a RegexpError message echoes the pattern with its flag suffix" do
     result = ze0(<<~'RUBY')
       def show(src, flags)
         Regexp.new(src, flags)
@@ -1786,7 +1786,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp escape control" do
+  it "Regexp.escape writes a control character as its letter form" do
     result = ze0(<<~'RUBY')
       # Regexp.escape renders a control character as its LETTER form -- a backslash
       # and an 'n' -- where a backslash followed by the real newline came out.
@@ -1814,7 +1814,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp hash flags" do
+  it "/ab/ and /ab/i hash apart, so they take two slots in a Hash" do
     result = ze0(<<~'RUBY')
       # Regexp#hash covers the flags: /ab/ and /ab/i are not eql?, so they must not
       # collide as Hash keys (#3816).
@@ -1840,7 +1840,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp hash keys" do
+  it "a pattern key is found by its source and flags, never by object identity" do
     result = ze0(<<~'RUBY')
       # A Regexp is keyed by its SOURCE and flags, which is ruby's own
       # `Regexp#eql?`/`#hash` rule: `/a/` written twice is one Hash key, `/a/` and
@@ -1877,7 +1877,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp last match and groups" do
+  it "Regexp.last_match(1) and (2) give the groups of the last =~" do
     result = ze0(<<~'RUBY')
       "abc123" =~ /([a-z]+)(\d+)/
       p Regexp.last_match(1)
@@ -1890,7 +1890,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp last match capture" do
+  it "Regexp.last_match takes a variable index, and answers nil past the last group" do
     result = ze0(<<~'RUBY')
       # Regexp.last_match(n) returns the n-th capture group of the most
       # recent match (n==0 is the whole match), or nil when the group is
@@ -1926,7 +1926,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp literal compiles once per site" do
+  it "a static literal compiles once per site, and an interpolated one is rebuilt every time" do
     result = ze0(<<~'RUBY')
       # A static regexp literal is compiled once per SITE, not once per evaluation
       # and not once per pattern text.
@@ -2004,7 +2004,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp local if else union" do
+  it "an if/else whose arms both build a pattern unifies to one the match can read" do
     result = ze0(<<~'RUBY')
       # An if/else expression whose branches both build a Regexp now
       # unifies to the new `regexp` type (mrb_regexp_pattern *) instead
@@ -2053,7 +2053,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp matches a string subclass" do
+  it "#=== reads a String subclass by its own characters, never through to_s" do
     result = ze0(<<~'RUBY')
       # `Regexp#===` against an instance of a String SUBCLASS.
       #
@@ -2122,7 +2122,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp new literal" do
+  it "Regexp.new with a literal argument matches like a literal, and an interpolated one tracks its value" do
     result = ze0(<<~'RUBY')
       # `Regexp.new("literal")` / `Regexp.compile("literal")` with a
       # string-literal argument folds into the same static pattern table
@@ -2226,7 +2226,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp property error is one line" do
+  it "an unknown character property raises RegexpError on one line" do
     result = ze0(<<~'RUBY')
       # An unknown character property raises RegexpError with ruby's one-line
       # message ("invalid character property name {Nope}: /\p{Nope}/"); zeo
@@ -2243,7 +2243,7 @@ describe "Regexp programs" do
     _(result).must_answer "invalid character property name {Nope}: /\\p{Nope}/\n"
   end
 
-  it "regexp reflection" do
+  it "casefold?, options, try_convert, union, timeout and ~ answer the reflection surface" do
     result = ze0(<<~'RUBY')
       # Regexp reflection/class-method surface
       # #2492 casefold?, #2493 option constants, #2494 last_match, #2495 try_convert,
@@ -2300,7 +2300,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp split compat" do
+  it "String#split by a pattern places the captures, the empty fields and the limit the way ruby does" do
     result = ze0(<<~'RUBY')
       # spinel-side String#split(regexp[, limit]) compatibility, mirroring CRuby and
       # upstream mruby-regexp string_regexp.rb#split (62a55cefe split compat,
@@ -2355,7 +2355,7 @@ describe "Regexp programs" do
     OUT
   end
 
-  it "regexp string interpolation" do
+  it "a pattern interpolates into a string as its (?flags:source) form" do
     result = ze0(<<~'RUBY')
       # A Regexp interpolates into a string as its to_s ("(?-mix:abc)" form),
       # both as a literal and through a variable.
