@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 # Asks ruby what an end-to-end program answers, and writes it beside
 # the program.
 #
 #   rake 'record[e2e/core/io/stdout_flush_at_exit.rb]'
-#   ruby tools/record.rb e2e/core/io/stdout_flush_at_exit.rb
+#   rake 'record[--again e2e/core/io/stdout_flush_at_exit.rb]'
 #
 # The answer is three files at most, each holding the bytes it holds and
 # nothing else: `<name>.out` always, `<name>.err` when the program wrote
@@ -21,13 +23,19 @@ require "open3"
 require "rbconfig"
 require_relative "../test/support/e2e"
 
-ROOT = File.expand_path("../test", __dir__)
+module Record
+  ROOT = File.expand_path("../test", __dir__)
 
-again = ARGV.delete("--again")
-abort "usage: ruby tools/record.rb [--again] <program path>..." if ARGV.empty?
+  module_function
 
-Dir.chdir(ROOT) do
-  ARGV.each do |name|
+  def write(argv)
+    again = argv.delete("--again")
+    abort "usage: rake 'record[[--again] <program path>...]'" if argv.empty?
+
+    Dir.chdir(ROOT) { argv.each { |name| one(name, again) } }
+  end
+
+  def one(name, again)
     path = name.delete_prefix("#{ROOT}/").delete_prefix("test/")
     base = path.delete_suffix(".rb")
     abort "#{path}: no such program" unless File.file?(path)
@@ -46,8 +54,10 @@ Dir.chdir(ROOT) do
     File.binwrite("#{base}.signal", "#{status.termsig}\n") if status.signaled?
     File.binwrite("#{base}.status", "#{status.exitstatus}\n") if !status.signaled? && !status.exitstatus.zero?
 
-    wrote = Dir["#{base}.{out,err,status,signal}"].sort
     puts "recorded #{path} (#{status.signaled? ? "signal #{status.termsig}" : "exit #{status.exitstatus}"})"
-    wrote.each { |f| puts "  #{f} (#{File.size(f)} bytes)" }
+    Dir["#{base}.{out,err,status,signal}"].sort.each { |f| puts "  #{f} (#{File.size(f)} bytes)" }
   end
 end
+
+desc "Ask ruby what a whole program answers, and write it beside the program"
+task(:record, [:program]) { |_, args| Record.write(args[:program].to_s.split) }

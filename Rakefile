@@ -5,14 +5,21 @@ require "minitest/test_task"
 
 ROOT = __dir__
 
-# A tool runs under the checkout's own ruby, with the compiler and the
-# test support on the load path, so a task never depends on how the
-# shell was started.
-def ruby_run(*args, env: {})
-  sh(env, Gem.ruby, "-I#{File.join(ROOT, "lib")}", "-I#{File.join(ROOT, "test")}", *args)
-end
+# The task bodies live in `rakelib/*.rake`, which rake loads after this
+# file, so what is here is what they share: the checkout's root, the
+# load path the compiler and the test support want, and the collector
+# tuning a compile wants.
+$LOAD_PATH.unshift(File.join(ROOT, "lib"), File.join(ROOT, "test"))
 
-def tool(name, *args, env: {}) = ruby_run(File.join(ROOT, "tools", "#{name}.rb"), *args, env: env)
+# What `Ze0::CLI.tune!` does to a command, without its re-exec, since a
+# rake task cannot start itself again. A task that spawns a compile
+# hands the tuning on through the environment, and the child then goes
+# straight on rather than starting itself again.
+def ze0_tune!
+  require "ze0/cli"
+  ENV.update(Ze0::CLI::GC_ENV) if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
+  RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"
+end
 
 # `TARGET=wasm32-wasi` builds every program for that triple and runs it
 # the way that triple is run, as the cross-target rows of CI do;
@@ -67,15 +74,6 @@ tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
 tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",
      "Whole programs through a real link"
 
-desc "How long does what ze0 built take? rake 'bench[--runs 5 fib]'"
-task(:bench, [:filters]) { |_, args| tool("bench", *args[:filters].to_s.split) }
-
-desc "ze0 compiles itself twice, to the same bytes"
-task(:stage1) { tool("stage1") }
-
-desc "The compiler compiled by itself is a fixed point"
-task(:stage2) { tool("stage2") }
-
 # Every literal a spec asserts was lifted from a trailer ruby wrote, and
 # this is what says it still is. It compiles nothing: each program is
 # run under the ruby the `.ruby-version` pins and held to what its
@@ -102,8 +100,7 @@ namespace :gen do
     onig_unicode: "rt/core/regexp/unicode_tables.rb and rt/kernel/onig_tables.rb",
     onig_encodings: "rt/core/regexp/onig/encoding_tables.rb",
     prism_generate: "rt/ext/prism/ruby/*.rb",
-    prism_encoding_tables: "rt/ext/prism/ruby/encoding_tables.rb",
-    dispatch: "the programs that show which of its own methods a core class calls"
+    prism_encoding_tables: "rt/ext/prism/ruby/encoding_tables.rb"
   }.freeze
 
   # Tools that write the file to stdout, so the task holds the pen.
@@ -164,11 +161,5 @@ namespace :diff do
   desc "Run ruby 4.0.6's test/openssl against the port"
   task(:openssl, [:opts]) { |_, args| ruby_run(File.join(ROOT, "tools/openssl/suite.rb"), *args[:opts].to_s.split) }
 end
-
-desc "Count the instructions the backend writes for the runtime"
-task(:codesize, [:opts]) { |_, args| tool("codesize", *args[:opts].to_s.split) }
-
-desc "Ask ruby what a whole program answers, and write it beside the program"
-task(:record, [:program]) { |_, args| tool("record", *Array(args[:program])) }
 
 task default: :test
