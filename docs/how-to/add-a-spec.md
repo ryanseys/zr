@@ -92,5 +92,5 @@ $ rake 'oracle[test/spec/core/string/frozen_test.rb]'
 
 A program that needs a real link or a whole require graph is not a
 spec. Those live in `test/e2e/<suite>/<area>/` as programs with ruby's
-answer under `__END__`; see
-[The program format](../reference/test-format.md).
+answer in the files beside it; see
+[Whole programs](../reference/test-format.md).

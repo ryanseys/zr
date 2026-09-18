@@ -8,6 +8,3 @@ end
 
 puts tarai(12, 6, 0)
 puts "done"
-__END__
-12
-done

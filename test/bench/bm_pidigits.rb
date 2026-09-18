@@ -29,5 +29,3 @@ while i < n
   end
 end
 puts result
-__END__
-314159265358979323846264338

@@ -32,5 +32,3 @@ end
 obj = TheClass.new
 result = obj.get_value_loop
 puts result
-__END__
-10000000

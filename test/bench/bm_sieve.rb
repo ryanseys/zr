@@ -21,6 +21,3 @@ while k < num
 end
 puts count
 puts "done"
-__END__
-1616
-done

@@ -51,10 +51,3 @@ while depth <= max_depth
 end
 
 puts check_tree(long_lived_tree)
-__END__
-4095
-31744
-32512
-32704
-32752
-2047

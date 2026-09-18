@@ -239,15 +239,3 @@ DOC2 = "---\ntitle: Second Post\nauthor: spinel\n---\n# Second\n\nA shorter arti
 puts site.build(DOC1)
 puts "---"
 puts site.build(DOC2)
-__END__
-<html><head><title>Hello World</title></head><body><h1>Hello World</h1><p class='by'>by Matz</p>
-<h1>Welcome</h1>
-<p>This is a <strong>bold</strong> intro paragraph.</p>
-<h2>Why static</h2>
-<p>Fast, <em>cacheable</em>, and <strong>portable</strong>.</p>
-</body></html>
----
-<html><head><title>Second Post</title></head><body><h1>Second Post</h1><p class='by'>by spinel</p>
-<h1>Second</h1>
-<p>A shorter article with <em>one</em> emphasis.</p>
-</body></html>

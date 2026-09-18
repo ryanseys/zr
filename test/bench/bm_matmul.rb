@@ -40,7 +40,3 @@ c = matmul(a, b, n)
 puts (c[0] * 1000000).to_i
 puts (c[n * n - 1] * 1000000).to_i
 puts "done"
-__END__
--29502222
--77855452
-done

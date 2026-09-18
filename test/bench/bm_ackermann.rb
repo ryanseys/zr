@@ -10,6 +10,3 @@ end
 
 puts ack(3, 9)
 puts "done"
-__END__
-4093
-done

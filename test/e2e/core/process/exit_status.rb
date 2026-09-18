@@ -4,8 +4,3 @@ at_exit { $stderr.puts "leaving" }
 puts "before"
 exit 3
 puts "unreachable"
-__END__
-before
-#@ stderr
-leaving
-#@ exit 3

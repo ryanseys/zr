@@ -119,7 +119,7 @@ $ rake test:spec TARGET=aarch64-linux-musl N=/blocks/
 A target on its way in is held to what it did rather than to the whole
 tier: `test/baselines/<triple>.txt` names the programs it is allowed to
 fail. A named program that now passes fails the run, so the file cannot
-go stale. See [The program format](../reference/test-format.md).
+go stale. See [Whole programs](../reference/test-format.md).
 
 ## Check that a literal is still ruby's word
 

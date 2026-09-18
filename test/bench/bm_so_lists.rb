@@ -45,4 +45,3 @@ while i<NUM
 end
 
 result
-__END__

@@ -139,6 +139,3 @@ while i < 256
   i = i + 1
 end
 puts alphabet
-__END__
-993391
-31

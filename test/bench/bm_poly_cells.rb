@@ -73,10 +73,3 @@ while i < arr.length
   puts render_one(arr[i].get)
   i = i + 1
 end
-__END__
-count: 5
-hello
-42
-[3 items]
-world
-99

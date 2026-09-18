@@ -13,5 +13,3 @@ worker.join
 out = []
 out << done.pop until done.empty?
 p out
-__END__
-["A", "B", "C"]

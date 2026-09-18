@@ -98,7 +98,3 @@ while j < 10
 end
 puts count_nodes(root)
 puts "done"
-__END__
-10000
-10000
-done

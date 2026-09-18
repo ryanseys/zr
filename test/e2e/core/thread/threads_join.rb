@@ -9,5 +9,3 @@ threads = (1..4).map do |i|
 end
 threads.each(&:join)
 p seen.sort
-__END__
-[1, 4, 9, 16]

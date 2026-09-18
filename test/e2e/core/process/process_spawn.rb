@@ -8,9 +8,3 @@ out = IO.popen(["/bin/echo", "captured"], &:read)
 print out
 failed = spawn("/bin/sh", "-c", "exit 7")
 puts Process.wait2(failed).last.exitstatus
-__END__
-from the child
-0
-true
-captured
-7

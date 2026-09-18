@@ -36,7 +36,3 @@ end
 puts (s0 * 1000000000).to_i
 puts (s8 * 1000000000).to_i
 puts "done"
-__END__
-2999999999
-785398063
-done

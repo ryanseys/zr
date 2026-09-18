@@ -71,5 +71,3 @@ while depth <= MAX_DEPTH
 end
 
 puts "done"
-__END__
-done

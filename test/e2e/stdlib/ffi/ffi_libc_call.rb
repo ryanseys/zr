@@ -14,7 +14,3 @@ puts Libc.abs(-42)
 buf = FFI::MemoryPointer.new(:char, 8)
 buf.put_bytes(0, "abcdefg\0")
 puts buf.read_string
-__END__
-17
-42
-abcdefg

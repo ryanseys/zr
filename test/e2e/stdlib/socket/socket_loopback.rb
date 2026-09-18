@@ -16,6 +16,3 @@ client.write("pong\n")
 client.close
 writer.join
 server.close
-__END__
-ping
-pong

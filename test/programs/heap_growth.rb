@@ -1,4 +1,4 @@
-# no stress: the heap grows past its first arena, and stays correct.
+# The heap grows past its first arena, and stays correct.
 pairs = []
 120_000.times { |i| pairs << [i, i.to_s] }
 puts pairs.size

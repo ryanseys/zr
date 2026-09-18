@@ -22,7 +22,7 @@ Steps for a goal you already have.
 - [How to debug a program that diverges](how-to/debug-a-program-that-diverges.md)
 - [How to add a method to the core library](how-to/add-a-core-method.md)
 - [How to port a C extension](how-to/port-a-c-extension.md)
-- [How to record answers on other platforms](how-to/record-answers-on-other-platforms.md)
+- [How to hold another target](how-to/hold-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
 
 ## Reference: look it up
@@ -33,7 +33,7 @@ Facts about commands, formats and layouts.
 - [Environment variables](reference/environment-variables.md)
 - [Targets](reference/targets.md)
 - [Dependencies](reference/dependencies.md)
-- [The program format](reference/test-format.md)
+- [Whole programs](reference/test-format.md)
 - [Tools](reference/tools.md)
 - [Repository layout](reference/repository-layout.md)
 - [The kernel dialect](reference/kernel-dialect.md)

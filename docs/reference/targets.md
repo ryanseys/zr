@@ -30,7 +30,7 @@ cannot link a binary, `ze0 build` without `--emit` exits with status 3.
 | `eval` of a string | yes | no: a static binary cannot load code | no |
 | FFI (`ffi`, `fiddle`) | yes | no | no |
 | Preemption | a timer thread | a timer thread | a count at each safe point |
-| Answer held to | macOS sections | `#@ linux` sections, else macOS's | `#@ wasi` sections, else macOS's |
+| Answer held to | what ruby recorded | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
 
 ## Runtime layers
 

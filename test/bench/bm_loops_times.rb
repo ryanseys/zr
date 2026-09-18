@@ -14,5 +14,3 @@ end
 
 result = a[r]
 puts result
-__END__
-8007

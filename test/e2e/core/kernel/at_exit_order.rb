@@ -3,7 +3,3 @@
 at_exit { puts "first registered, last run" }
 at_exit { puts "second registered, first run" }
 puts "body"
-__END__
-body
-second registered, first run
-first registered, last run

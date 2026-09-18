@@ -79,5 +79,3 @@ while r < 100
   r += 1
 end
 p acc
-__END__
-529257

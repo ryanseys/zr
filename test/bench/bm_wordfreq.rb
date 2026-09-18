@@ -41,6 +41,3 @@ while i < keys.length
 end
 puts total
 puts keys.length
-__END__
-10000
-20

@@ -23,6 +23,3 @@ end
 obj = TheClass.new(1, 2, 3, 1)
 puts get_value_loop(obj)
 puts "done"
-__END__
-10000000
-done

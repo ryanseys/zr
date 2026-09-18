@@ -66,9 +66,3 @@ puts c.value        # 10000000
 puts c.double_value # 20000000
 
 puts "done"
-__END__
-250000000
-110000000
-10000000
-20000000
-done

@@ -31,5 +31,3 @@ end
 obj = TheClass.new
 result = obj.set_value_loop
 puts result
-__END__
-999999

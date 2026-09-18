@@ -85,7 +85,7 @@ That is the same division the buckets used to draw.
 | Task | Runs |
 |---|---|
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6, compiling nothing |
-| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer under `__END__` |
+| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
 | `rake 'bench[--runs 5 fib]'` | builds each benchmark in `test/bench/` that matches, checks its answer, and prints the median of `--runs` runs (default 3) beside `ruby` and `ruby --yjit` |
 | `rake stage1` | compiles the compiler (`tools/stage.rb`) twice, in two processes with separate caches, and compares the compiler's and the runtime's object bytes |
 | `rake stage2` | builds the compiler with ruby, then with that binary, and compares the two binaries |

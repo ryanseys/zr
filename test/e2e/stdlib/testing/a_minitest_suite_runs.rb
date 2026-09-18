@@ -1,4 +1,3 @@
-#@ args: --seed 42
 # This program lives in `stdlib/testing/` and not in `stdlib/minitest/`
 # because minitest filters its own frames out of a backtrace with
 # `%r%lib/minitest%` -- and `stdlib/minitest` matches it. A program on
@@ -95,28 +94,3 @@ end
 
 
 
-__END__
-Run options: --seed <n>
-
-# Running:
-
-.....EFS
-
-Finished in <time>
-
-  1) Error:
-FailuresTest#test_errors:
-ArgumentError: boom
-    e2e/stdlib/testing/a_minitest_suite_runs.rb:54:in 'FailuresTest#test_errors'
-
-  2) Failure:
-FailuresTest#test_fails [e2e/stdlib/testing/a_minitest_suite_runs.rb:50]:
-one is not two.
-Expected: 1
-  Actual: 2
-
-8 runs, 31 assertions, 1 failures, 1 errors, 1 skips
-
-You have skipped tests. Run with --verbose for details.
-order=["setup", "b", "teardown", "setup", "a", "teardown"]
-#@ exit 1

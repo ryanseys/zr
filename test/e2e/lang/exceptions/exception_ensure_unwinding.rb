@@ -22,8 +22,3 @@ rescue StandardError => e
 ensure
   puts "outer ensure"
 end
-__END__
-ensure ran on try 3
-ok after 3
-TypeError: outer
-outer ensure

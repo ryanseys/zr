@@ -71,5 +71,3 @@ ip.define("fib", Fn.new(["n"],
                  Call.new("fib", [Sub.new(Var.new("n"), Num.new(2))])))))
 prog = Call.new("fib", [Num.new(24)])
 p ip.visit(prog, {})
-__END__
-46368

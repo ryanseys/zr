@@ -280,5 +280,3 @@ end
 if result.is_a?(IntV)
   puts result.n
 end
-__END__
-720

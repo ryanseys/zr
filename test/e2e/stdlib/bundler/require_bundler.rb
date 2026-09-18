@@ -1,4 +1,3 @@
-#@ build-mb: 3072
 # MILESTONE: `require "bundler"` standalone, with nothing requiring rubygems
 # first.
 #
@@ -46,14 +45,3 @@ p Bundler::Definition.is_a?(Class)
 p Bundler::Dsl.is_a?(Class)
 p Bundler.gem_version.is_a?(Gem::Version)
 p Bundler.gem_version.to_s == Bundler::VERSION
-__END__
-"constant"
-true
-true
-true
-true
-true
-true
-true
-true
-true

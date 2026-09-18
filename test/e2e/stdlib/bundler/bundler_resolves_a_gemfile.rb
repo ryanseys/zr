@@ -76,14 +76,3 @@ Dir.mktmpdir do |dir|
   p rake.groups
 end
 
-__END__
-true
-true
-true
-true
-["minitest", "rake"]
-true
-true
-[true]
-true
-[:default]

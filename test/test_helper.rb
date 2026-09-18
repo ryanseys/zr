@@ -36,7 +36,7 @@ WASM_FLAGS = ["-W", "max-memory-size=#{ENV.fetch("ZE0_WASM_MEMORY", 1 << 30)}"].
 # `hygiene_test.rb` exists to refuse.
 module Checks
   # A program a check runs must not be able to take the machine with it.
-  # `test/programs/utf8.rb` on the wasm road allocates in a loop -- five
+  # `test/programs/native/utf8.rb` on the wasm road allocates in a loop -- five
   # gigabytes in twelve seconds, and it never ends -- so a run is bounded
   # in time and in resident memory, and one that passes either bound is
   # killed and reads as a failure rather than as a hung machine.

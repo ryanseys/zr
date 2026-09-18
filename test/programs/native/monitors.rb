@@ -27,7 +27,9 @@ p o.synchronize { 1 }
 mu = Mutex.new; cv = ConditionVariable.new
 mu.synchronize { p cv.wait(mu, 0.01) }
 mu.synchronize { p mu.sleep(0.01) }
-t = Thread.new { mu.synchronize { p cv.wait(mu, 5) } }
+# What it waited is what the machine was doing, not what ruby promises:
+# an Integer says the signal woke it, and nil would say it timed out.
+t = Thread.new { mu.synchronize { p cv.wait(mu, 5).is_a?(Integer) } }
 sleep 0.05
 mu.synchronize { cv.signal }
 t.join

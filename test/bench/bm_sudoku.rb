@@ -215,6 +215,3 @@ while n < 100
 end
 puts total
 puts "done"
-__END__
-100
-done

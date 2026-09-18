@@ -19,5 +19,3 @@ while i < 1000000
   i = i + 1
 end
 puts sum
-__END__
-0

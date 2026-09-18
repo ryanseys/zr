@@ -155,7 +155,3 @@ while i < 10000
   i = i + 1
 end
 puts "done"
-__END__
-4
-7
-done

@@ -126,6 +126,3 @@ end
 
 puts found
 puts "done"
-__END__
-25000
-done

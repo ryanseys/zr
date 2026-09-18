@@ -7,5 +7,3 @@ fib = Fiber.new do
   end
 end
 p 8.times.map { fib.resume }
-__END__
-[0, 1, 1, 2, 3, 5, 8, 13]

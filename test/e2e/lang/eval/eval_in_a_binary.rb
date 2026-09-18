@@ -13,8 +13,3 @@ obj = Object.new
 obj.instance_eval { @hidden = 41 }
 puts obj.instance_variable_get(:@hidden) + 1
 puts binding.local_variable_defined?(:obj)
-__END__
-7
-hello, world
-42
-true

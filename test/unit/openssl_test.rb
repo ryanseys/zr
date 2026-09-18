@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../support/harness/case"
+require_relative "../support/harness/answer"
 
 # `require "openssl"` opens the host's libssl 3 when the program runs.
 # Where the library is absent it raises LoadError naming each place it

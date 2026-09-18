@@ -68,6 +68,3 @@ end
 # Count final live cells
 puts cells.count { _1 == 1 }
 puts "done"
-__END__
-0
-done

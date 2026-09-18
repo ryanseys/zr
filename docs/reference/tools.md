@@ -15,7 +15,7 @@ path itself.
 | `rake test:e2e [TARGET=]` | whole programs through a real link |
 | `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6 |
-| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer under `__END__` |
+| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
 | `rake 'bench[--runs 5 fib]'` | how long does what ze0 built take? |
 | `rake stage1`, `rake stage2` | the bootstrap |
 

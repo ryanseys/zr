@@ -169,7 +169,7 @@ end
 desc "Count the instructions the backend writes for the runtime"
 task(:codesize, [:opts]) { |_, args| tool("codesize", *args[:opts].to_s.split) }
 
-desc "Record ruby's answer under __END__ for an end-to-end program"
-task(:record, [:case]) { |_, args| tool("record", *Array(args[:case])) }
+desc "Ask ruby what a whole program answers, and write it beside the program"
+task(:record, [:program]) { |_, args| tool("record", *Array(args[:program])) }
 
 task default: :test

@@ -22,7 +22,7 @@ require "optparse"
 require "rbconfig"
 require "tmpdir"
 require_relative "../test/support/reader"
-require_relative "../test/support/harness/case"
+require_relative "../test/support/harness/answer"
 require_relative "../test/support/harness/child"
 
 # What a guard asks of the machine. The real ones live in

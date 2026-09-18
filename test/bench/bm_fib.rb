@@ -7,5 +7,3 @@ def fib(n)
 end
 
 puts fib(34)
-__END__
-5702887

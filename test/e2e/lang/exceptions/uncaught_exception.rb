@@ -12,12 +12,3 @@ outer
 
 
 
-__END__
-#@ stderr
-e2e/lang/exceptions/uncaught_exception.rb:4:in 'Object#inner': bad thing (ArgumentError)
-
-  raise ArgumentError, "bad thing"
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-	from e2e/lang/exceptions/uncaught_exception.rb:8:in 'Object#outer'
-	from e2e/lang/exceptions/uncaught_exception.rb:11:in '<main>'
-#@ exit 1

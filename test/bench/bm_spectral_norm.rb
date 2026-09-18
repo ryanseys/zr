@@ -69,5 +69,3 @@ end
 result = Math.sqrt(vbv / vv)
 # Print as integer to avoid float formatting differences
 puts (result * 1000000000).to_i
-__END__
-1274219991

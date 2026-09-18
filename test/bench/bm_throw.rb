@@ -23,6 +23,3 @@ while i < 200000
 end
 puts total
 puts "done"
-__END__
-2000000
-done

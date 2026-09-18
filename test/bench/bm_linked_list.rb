@@ -73,9 +73,3 @@ while j < 10
 end
 puts list_length(head)
 puts "done"
-__END__
-100000
-4999950000
-4999950000
-100000
-done

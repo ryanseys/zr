@@ -3,15 +3,16 @@
 require "test_helper"
 require_relative "../../lib/ze0/zr"
 require_relative "../../lib/ze0/native/build"
-require_relative "../support/harness/case"
+require_relative "../support/harness/answer"
 
 # Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs
 # under ruby, the oracle, and then compiled with the kernel and under
 # wasmtime; stdout, stderr and the exit status must agree.
 #
-# Which programs a road leaves out is written below as three lists of
-# names rather than as a comment in each program that this file reads
-# back: a list is data anyone can grep, and nothing has to parse prose.
+# A program under `test/programs/native/` reads the host -- its
+# environment, its working directory, its libSystem, or a stack a fiber
+# switches -- and only the native road runs it. The directory says so,
+# so nothing here reads a comment back out of a program.
 #
 # `ZE0_STRESS=1` adds the collect-at-every-allocation column.
 #
@@ -22,18 +23,6 @@ require_relative "../support/harness/case"
 # the fork pool is for: each program runs in a worker, and a worker
 # that has grown is closed and forked again.
 class ProgramsTest < Minitest::Test
-  # These read the host -- its environment, its working directory, its
-  # libSystem or a stack a fiber switches -- so only the native road
-  # runs them.
-  NATIVE_ONLY = %w[
-    bignums bindings caches callees core_gaps dates dispatch encodings_more
-    enumerators environment eval_strings eval_under external fibers files
-    files_and_copies files_more floats format_floats jit_loads jsons
-    kernel_batch marshals monitors numeric_batch pathnames popens processes
-    random_batch range_batch rationals requires self_compiles sockets stdlibs
-    string_batch struct_batch threads times utf8 warnings_batch weak_tables
-  ].freeze
-
   # These allocate too much for a collection at every allocation.
   NO_STRESS = %w[heap_growth].freeze
 
@@ -70,7 +59,10 @@ class ProgramsTest < Minitest::Test
     assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 
-  Dir[File.join(ROOT, "test/programs/*.rb")].sort.each do |rb|
+  BOTH_ROADS = Dir[File.join(ROOT, "test/programs/*.rb")].sort.freeze
+  NATIVE_ROAD = Dir[File.join(ROOT, "test/programs/native/*.rb")].sort.freeze
+
+  (BOTH_ROADS + NATIVE_ROAD).each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_#{name}") do
       want = oracle(rb)
@@ -84,9 +76,10 @@ class ProgramsTest < Minitest::Test
       end
     end
 
+    next unless BOTH_ROADS.include?(rb)
+
     define_method("test_wasm_#{name}") do
       skip "wasmtime is not installed" unless Checks.wasmtime?
-      skip "the program reads the host" if NATIVE_ONLY.include?(name)
       skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name)
 
       want = oracle(rb)

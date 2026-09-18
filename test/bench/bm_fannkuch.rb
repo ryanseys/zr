@@ -86,6 +86,3 @@ end
 
 n = Integer(ARGV[0] || 7)
 fannkuch(n)
-__END__
-228
-16

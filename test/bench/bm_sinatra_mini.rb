@@ -124,17 +124,3 @@ while j < entries.length
   puts entries[j]
   j = j + 1
 end
-__END__
-200 Hello, world
-200 Hello, Matz
-200 Hello, anonymous
-200 hi hi hi
-200 x
-404 Not Found: /missing
----log---
-GET /
-GET /greet
-GET /greet
-GET /echo
-GET /echo
-GET /missing

@@ -3,10 +3,6 @@
 **Builtin.** A method the runtime defines, from the core library or the
 kernel, as opposed to a method the program defines.
 
-**Case.** One whole program: a `.rb` file with ruby's answer under
-`__END__`, in `test/e2e/` or `test/bench/`. See
-[The program format](test-format.md).
-
 **Cell.** A fixed-size block of the heap that holds one object: 32, 64,
 128 or 256 bytes.
 
@@ -66,6 +62,10 @@ that compiled code tests at safe points to switch threads.
 **Primitive.** `Primitive.zr_name(...)` in the core library: a direct
 call of a kernel def.
 
+**Program.** One whole `.rb` file in `test/e2e/` or `test/bench/`, with
+what ruby answered in files beside it. See
+[Whole programs](test-format.md).
+
 **Refusal.** ze0 declines to compile a form it cannot compile correctly.
 It names the form and its line, and exits with status 3.
 
@@ -84,7 +84,7 @@ on tasks.
 **Undef.** The Value `0x34`. A function answers it to say a signal is
 pending.
 
-**Unit.** A Minitest file in `test/unit/`, run by `rake test:unit`.
+**Unit.** A minitest file in `test/unit/`, run by `rake test:unit`.
 
 **zr.** The runtime's name: its symbols are `zr_*`, and its environment
 variables `ZR_*`.

@@ -55,13 +55,3 @@ end
 
 File.delete("/tmp/spinel_io_wf.txt")
 puts "done"
-__END__
-the: 625
-quick: 625
-brown: 625
-fox: 625
-jumps: 625
-over: 625
-lazy: 625
-dog: 625
-done

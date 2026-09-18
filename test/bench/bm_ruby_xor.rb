@@ -26,7 +26,3 @@ result = xor_strings(a, b)
 puts result.bytesize
 puts result.getbyte(0)
 puts result.getbyte(1)
-__END__
-1600
-16
-16

@@ -1,123 +1,53 @@
-# Records the answer of the ruby the .ruby-version pins under `__END__`
-# of each case named on the command line, in the trailer format of
-# docs/reference/test-format.md. A path is taken relative to test/, or as it
-# stands when it already points into it.
+# Asks ruby what an end-to-end program answers, and writes it beside
+# the program.
 #
-#   ruby tools/record.rb core/io/a_stream_reads_what_it_holds.rb
-#   ruby tools/record.rb --os linux core/io/a_stream_reads_what_it_holds.rb
+#   rake 'record[e2e/core/io/stdout_flush_at_exit.rb]'
+#   ruby tools/record.rb e2e/core/io/stdout_flush_at_exit.rb
 #
-# A case that carries a trailer already is left alone: a recording is
-# made once, and a change of answer is a change of program.
+# The answer is three files at most, each holding the bytes it holds and
+# nothing else: `<name>.out` always, `<name>.err` when the program wrote
+# to stderr, and `<name>.status` when it did not exit 0. There is no
+# format to read and nothing to escape, so a wrong answer is a `diff`.
 #
-# `--os linux` or `--os wasi` runs on that platform's ruby instead, and
-# writes that platform's sections of a case macOS recorded: the ones
-# where its answer parts from macOS's, in place of the ones it wrote
-# before. `--ruby "<command>"` names that ruby when `ruby` is not it, as
-# ruby.wasm under wasmtime is not.
+# ruby 4.0.6 is the only source of right answers, so this is the only
+# thing that writes those files. A program already recorded is left
+# alone: a change of answer is a change of program, and `--again` is how
+# you say you meant it.
+#
+# A path is taken relative to `test/`, or as it stands when it already
+# points into it.
+
 require "open3"
-require "shellwords"
-require_relative "../test/support/harness/case"
+require "rbconfig"
+require_relative "../test/support/e2e"
 
 ROOT = File.expand_path("../test", __dir__)
 
-# A body line that would read as a marker takes one more `#`, which the
-# reader strips again.
-def escaped(text) = text.gsub(/^(#+@)/, '#\1')
-
-# A section of the trailer: the bytes, and the note that says when the
-# last line of them has no newline of its own.
-def section(text) = text.empty? || text.end_with?("\n") ? escaped(text) : "#{escaped(text)}\n#@ nonl\n"
-
-# The header directives that shape the run of the oracle. The others
-# (`only:`, `needs:`) say nothing about ruby.
-def directives(source, path)
-  head = source.split(/^__END__$/, 2).first
-  rows = head.scan(/^#@ (\w+):[ \t]*(.*)$/).to_h
-  env = rows["env"].to_s.split.to_h { |pair| pair.split("=", 2) }
-  [
-    Shellwords.split(rows["ruby"].to_s) + [path] + Shellwords.split(rows["args"].to_s),
-    env,
-    rows["stdin"] && File.expand_path(rows["stdin"], File.dirname(path)),
-  ]
-end
-
-# The status marker `prefix` leads, or nil for an exit of 0.
-def status_marker(status, prefix = "")
-  return "#@ #{prefix}signal #{status.termsig}\n" if status.signaled?
-
-  "#@ #{prefix}exit #{status.exitstatus}\n" unless status.exitstatus.zero?
-end
-
-def trailer_of(out, err, status)
-  trailer = +"\n__END__\n"
-  trailer << section(out) unless out.empty?
-  trailer << "#@ stderr\n" << section(err) unless err.empty?
-  trailer << status_marker(status).to_s
-  trailer
-end
-
-# `os`'s sections: each of stdout, stderr and the status where the
-# answer parts from macOS's.
-def sections_of(os, macos, out, err, status)
-  text = +""
-  text << "#@ #{os} stdout\n" << section(out) unless out.b == macos.stdout
-  text << "#@ #{os} stderr\n" << section(err) unless err.b == macos.stderr
-  same = status.signaled? ? macos.signal == status.termsig : macos.signal.nil? && macos.code == status.exitstatus
-  text << (status_marker(status, "#{os} ") || "#@ #{os} exit 0\n") unless same
-  text
-end
-
-# The trailer without `os`'s sections: from each of its markers up to the
-# next marker that is not its own.
-def without(trailer, os)
-  inside = false
-  trailer.each_line.reject do |line|
-    if line.start_with?("#@ ")
-      words = line.split
-      inside = words[1] == os unless words[1] == "nonl"
-    end
-    inside
-  end.join
-end
-
-options = { os: nil, ruby: ["ruby"] }
-while ARGV.first&.start_with?("--")
-  case ARGV.shift
-  when "--os" then options[:os] = ARGV.shift
-  when "--ruby" then options[:ruby] = Shellwords.split(ARGV.shift.to_s)
-  else ARGV.clear
-  end
-end
-os = options[:os]
-if ARGV.empty? || (os && !Ze0::Harness::Case::PREFIXED.include?(os))
-  abort "usage: ruby tools/record.rb [--os #{Ze0::Harness::Case::PREFIXED.join("|")}] [--ruby <command>] <case path>..."
-end
+again = ARGV.delete("--again")
+abort "usage: ruby tools/record.rb [--again] <program path>..." if ARGV.empty?
 
 Dir.chdir(ROOT) do
   ARGV.each do |name|
     path = name.delete_prefix("#{ROOT}/").delete_prefix("test/")
-    source = File.read(path)
-    recorded = source.match?(/^__END__$/)
-    abort "#{path}: already recorded" if recorded && os.nil?
-    abort "#{path}: macOS's answer comes first" if os && !recorded
+    base = path.delete_suffix(".rb")
+    abort "#{path}: no such program" unless File.file?(path)
+    abort "#{path}: already recorded; say --again if you mean to replace it" if File.file?("#{base}.out") && !again
 
-    arguments, env, stdin = directives(source, path)
-    # RUBYOPT is cleared so that what the shell carries cannot reach the
-    # answer a case records.
-    out, err, status = Open3.capture3(env.merge("RUBYOPT" => nil), *options[:ruby], *arguments,
-                                      stdin_data: stdin ? File.binread(stdin) : "")
-    if os
-      program, trailer = source.split(/^__END__\n?/, 2)
-      trailer = without(trailer.to_s, os)
-      added = sections_of(os, Ze0::Harness::Case.new(source, path).expected, out, err, status)
-      File.write(path, "#{program}__END__\n#{trailer}#{added}")
-      apart = added.scan(/^#@ #{os} (\w+)/).flatten
-      puts "recorded #{os} for #{path}: #{apart.empty? ? "the same as macOS" : apart.join(", ")}"
-    else
-      trailer = trailer_of(out, err, status)
-      File.write(path, source + trailer)
-      puts "recorded #{path} (#{status.signaled? ? "signal #{status.termsig}" : "exit #{status.exitstatus}"})"
-      print trailer
-    end
+    how = Ze0::E2E::HOW.fetch(base.delete_prefix("e2e/"), {})
+    stdin = how[:stdin] && File.binread(File.expand_path(how[:stdin], File.dirname(path)))
+    # RUBYOPT is cleared: what the shell happens to carry must not reach
+    # the answer a program is held to.
+    env = how.fetch(:env, {}).merge("RUBYOPT" => nil)
+    out, err, status = Open3.capture3(env, RbConfig.ruby, path, *Array(how[:argv]), stdin_data: stdin || "")
+
+    File.binwrite("#{base}.out", out)
+    %w[err status signal].each { |kind| File.delete("#{base}.#{kind}") if File.file?("#{base}.#{kind}") }
+    File.binwrite("#{base}.err", err) unless err.empty?
+    File.binwrite("#{base}.signal", "#{status.termsig}\n") if status.signaled?
+    File.binwrite("#{base}.status", "#{status.exitstatus}\n") if !status.signaled? && !status.exitstatus.zero?
+
+    wrote = Dir["#{base}.{out,err,status,signal}"].sort
+    puts "recorded #{path} (#{status.signaled? ? "signal #{status.termsig}" : "exit #{status.exitstatus}"})"
+    wrote.each { |f| puts "  #{f} (#{File.size(f)} bytes)" }
   end
 end

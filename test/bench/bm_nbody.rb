@@ -113,6 +113,3 @@ while i < n
 end
 
 puts (energy(bodies, nbodies) * 1000000000).to_i
-__END__
--169075163
--169087605

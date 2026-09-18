@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "case"
+require_relative "answer"
 
 module Ze0
   module Harness
@@ -20,7 +20,6 @@ module Ze0
 
       # A case's build bound: its own `#@ build-mb`, where the program is
       # known to need more, and never below what the environment gives.
-      def self.build_mb(directives) = [directives.build_mb || 0, BUILD_MB].max
 
       # How often the group's memory is read, in seconds.
       EVERY = 0.2

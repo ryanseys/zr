@@ -48,8 +48,3 @@ while i < 50000
   i = i + 1
 end
 puts "done"
-__END__
-Hello Matz! You are 58 years old. Welcome to Matsue.
-Hi World, how are you?
-yes and {{unknown}}
-done

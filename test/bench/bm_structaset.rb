@@ -22,6 +22,3 @@ end
 obj = TheClass.new(1, 2, 3, 1)
 puts set_value_loop(obj)
 puts "done"
-__END__
-999999
-done

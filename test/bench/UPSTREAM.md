@@ -13,7 +13,7 @@ while zeo's dispatch-bound gap on it is still open; the polymorphic
 structure is unchanged.
 
 Each `bm_<name>.rb` prints deterministic output, and carries ruby 4.0.6's
-recording of it under `__END__` in the format of `docs/reference/test-format.md`,
+recording of it beside it, in the layout of `docs/reference/test-format.md`,
 like every other corpus program. `ze0 bench` builds each one, checks the
 answer against that recording before it keeps any time (a wrong answer
 fails the row -- the speed of a wrong answer means nothing), and reports

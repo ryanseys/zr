@@ -37,8 +37,3 @@ end
   puts "n=#{n} checksum=#{checksum(sorted)}"
 end
 puts "done"
-__END__
-n=8000 checksum=47828418
-n=16000 checksum=191311428
-n=32000 checksum=765203592
-done

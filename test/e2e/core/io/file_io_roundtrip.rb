@@ -10,10 +10,3 @@ Dir.mktmpdir("zeo-aot") do |dir|
   puts File.basename(path), File.extname(path)
   puts Dir.children(dir).inspect
 end
-__END__
-18
-["line one", "line two"]
-3
-note.txt
-.txt
-["note.txt"]

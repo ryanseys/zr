@@ -27,6 +27,3 @@ while a < n
 end
 puts x
 puts "done"
-__END__
-16777216
-done

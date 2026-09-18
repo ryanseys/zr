@@ -35,6 +35,3 @@ end
 tc = TheClass.new
 puts tc.set_value_loop
 puts "done"
-__END__
-999999
-done

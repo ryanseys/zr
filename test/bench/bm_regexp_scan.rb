@@ -13,6 +13,3 @@ bytes = 0
   count += text.scan(/caf./).size
 end
 puts count, bytes
-__END__
-220000
-1680000

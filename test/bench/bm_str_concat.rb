@@ -13,5 +13,3 @@ end
 
 result = concat_test(10240, "ssssssee")
 puts result.length
-__END__
-81920

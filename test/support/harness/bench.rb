@@ -3,25 +3,32 @@
 require "etc"
 require "rbconfig"
 require "tmpdir"
-require_relative "sweep"
+require_relative "answer"
+require_relative "child"
+require_relative "runner"
 
 module Ze0
   module Harness
     # `rake bench`: how long the binary ze0 built takes, beside the ruby
     # that recorded its answer.
     #
-    # `test/bench` holds whole programs in the same format `test/e2e`
-    # does, so what is here is the clock and the comparison columns, and
+    # `test/bench` holds whole programs the way `test/e2e` does -- a
+    # `.rb` file, with what ruby answered in `<name>.out` beside it --
+    # so what is here is the clock and the comparison columns, and
     # nothing that reads a program.
     #
     # **The answer is checked before any time is kept.** The speed of a
     # wrong answer means nothing, and a codegen step that trades an
     # answer for a time is the one thing the contract does not allow.
     #
-    # Serial from end to end. A sweep runs a process per core because it
-    # only asks what a program said; a time measured beside three other
-    # compiles is not a time.
+    # Serial from end to end. The tiers run a worker per core because
+    # they only ask what a program said; a time measured beside three
+    # other compiles is not a time.
     class Bench
+      # Long enough for the slowest program, and short enough that one
+      # that loops does not hold the suite.
+      LIMIT = 300
+
       # Three runs and the middle one: enough that one scheduling
       # accident is not the answer, few enough that the suite is minutes.
       RUNS = 3
@@ -38,15 +45,20 @@ module Ze0
         @root = root
         @runs = runs
         @show = show
-        @sweep = Sweep.new(root, target: target)
+        @runner = Runner.new(root, target)
       end
 
       # Every program under `test/bench`, or the ones a filter names.
       def matching(filters)
-        rows = @sweep.matching(["bench::"])
+        rows = Dir[File.join(@root, "test/bench/*.rb")].sort
         return rows if filters.empty?
 
         rows.select { |rb| filters.any? { |f| File.basename(rb).include?(f) } }
+      end
+
+      # One child, bounded in time and in memory as every other is.
+      def bounded(argv, cwd, stdin, megabytes, env)
+        Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: LIMIT, megabytes: megabytes).first
       end
 
       def run(cases, io = $stdout)
@@ -63,44 +75,42 @@ module Ze0
 
       # Build, check the answer, then time the three of them.
       def one(rb, work)
-        kase = Case.read(rb)
-        return Row.new(rb, :skipped, "no recording") unless kase.recorded?
+        recorded = Answer.beside(rb)
+        return Row.new(rb, :skipped, "no recording") unless recorded
 
         cwd = File.join(@root, "test")
         rel = rb.delete_prefix("#{cwd}/")
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        build, out = clocked { @sweep.bounded(@sweep.build_argv(rel, bin), cwd, nil, Child.build_mb(kase.directives), @sweep.build_env) }
+        build, out = clocked { bounded(@runner.build_argv(rel, bin), cwd, nil, Child::BUILD_MB, @runner.build_env) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
-        return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{Sweep::LIMIT}s" : first_line(out)) unless out.code == 0
+        return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{LIMIT}s" : first_line(out)) unless out.code == 0
 
-        stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))
-        env = kase.directives.env.merge(kase.directives.zeo_env)
-        want = Normalize.answer(kase.expected(@sweep.runner.platform), rb, cwd)
-        argv, run_env = @sweep.runner.run(bin, kase.directives.args, env)
-        got, wrong = medians(argv, cwd, stdin, run_env, rb, want)
+        want = Normalize.answer(recorded, rb, cwd)
+        argv, run_env = @runner.run(bin, [], {})
+        got, wrong = medians(argv, cwd, nil, run_env, rb, want)
         return Row.new(rb, :diverged, wrong) if wrong
 
-        oracle = kase.directives.ruby + [rel, *kase.directives.args]
-        plain, = medians([RbConfig.ruby, *oracle], cwd, stdin, kase.directives.env, rb, nil)
-        jit, = medians([RbConfig.ruby, "--yjit", *oracle], cwd, stdin, kase.directives.env, rb, nil)
+        plain, = medians([RbConfig.ruby, rel], cwd, nil, {}, rb, nil)
+        jit, = medians([RbConfig.ruby, "--yjit", rel], cwd, nil, {}, rb, nil)
         Row.new(rb, :timed, nil, build, got, plain, jit)
       end
 
       # The middle of `@runs` wall clocks, and what the first run of the
       # binary got wrong when `want` is given. A later run is not checked
       # again: a program whose answer depends on the run is a defect the
-      # sweep is there to find, not something to spend a comparison on.
+      # spec tier is there to find, not something to spend a comparison
+      # on.
       def medians(argv, cwd, stdin, env, rb, want)
         times = []
         @runs.times do |n|
-          seconds, out = clocked { @sweep.bounded(argv, cwd, stdin, Child::RUN_MB, env) }
-          return [nil, "ran past #{Sweep::LIMIT}s"] if out.code == :timeout
+          seconds, out = clocked { bounded(argv, cwd, stdin, Child::RUN_MB, env) }
+          return [nil, "ran past #{LIMIT}s"] if out.code == :timeout
 
           if n.zero? && want
             got = Normalize.answer(out, rb, cwd)
-            return [nil, @sweep.diff(want, got)] if got != want
+            return [nil, want.apart_from(got)] if got != want
           elsif want.nil? && out.code != 0
             # ruby could not run it -- an old `--yjit`, a gem it wants.
             # The column stays empty and the row keeps its ze0 time.

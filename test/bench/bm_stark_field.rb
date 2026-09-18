@@ -261,8 +261,3 @@ puts acc.inspect
 puts Field.add(inv[0], inv[N - 1])
 puts sum
 puts air.fingerprint
-__END__
-[673065045, 1857861762, 1544397081, 339589583]
-864836275
-8064
-1939952147

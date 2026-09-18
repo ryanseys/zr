@@ -39,6 +39,3 @@ while n < 10
 end
 puts total
 puts "done"
-__END__
-100000000
-done

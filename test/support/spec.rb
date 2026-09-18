@@ -3,7 +3,7 @@
 require "fileutils"
 require "minitest"
 require "tmpdir"
-require_relative "harness/case"
+require_relative "harness/answer"
 require_relative "reader"
 require_relative "harness/child"
 require_relative "harness/runner"

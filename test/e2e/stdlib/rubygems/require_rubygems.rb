@@ -59,31 +59,3 @@ p spec.runtime_dependencies.map(&:name)
 p Gem::Platform.new("arm64-darwin").to_a
 p Gem::Platform.new("x86_64-linux").to_a
 p Gem::Platform.new("ruby").to_s
-__END__
-"constant"
-true
-true
-true
-">= 0"
-"1.2.3"
-true
-true
-"rake"
-"ruby"
-true
-true
-false
-">= 1.0, < 2.0"
-"1.5"
-["1.9.3", "1.9.10", "1.10.0", "2.0.0.pre"]
-true
-"zeo-milestone"
-"0.1.0"
-"zeo-milestone-0.1.0"
-"zeo-milestone-0.1.0.gem"
-["lib"]
-[["rake", :runtime, ">= 13.0"], ["minitest", :development, "~> 5.0"]]
-["rake"]
-["arm64", "darwin", nil]
-["x86_64", "linux", nil]
-"ruby"

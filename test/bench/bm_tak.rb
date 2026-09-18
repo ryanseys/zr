@@ -8,6 +8,3 @@ end
 
 puts tak(18, 9, 0)
 puts "done"
-__END__
-9
-done
