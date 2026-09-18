@@ -180,12 +180,12 @@ module SpecStyle
   # sentence would only repeat what the `describe` already said.
   GENERATED = ["subclass sees only the calls ruby makes"].map(&:inspect).freeze
 
-  # Where the DSL opens a heredoc: the program, what it printed, and
-  # what it wrote to stderr. Only these -- a program under test may open
-  # one of its own (`eval(<<~SRC)`, a Gemfile, a PEM), and an expected
-  # answer may quote the text of one, as the Ripper examples do. Neither
-  # is this file's shape to hold.
-  OPENS = /(?:\bze0\(|\bmust_answer |\bstderr: )<<[-~]'?([A-Z_]+)/
+  # Where the DSL opens a heredoc: the program, what it printed, what
+  # it wrote to stderr, and what a named platform answers instead. Only
+  # these -- a program under test may open one of its own (`eval(<<~SRC)`,
+  # a Gemfile, a PEM), and an expected answer may quote the text of one,
+  # as the Ripper examples do. Neither is this file's shape to hold.
+  OPENS = /(?:\bze0\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<[-~]'?([A-Z_]+)/
 
   module_function
 
@@ -250,7 +250,7 @@ module SpecStyle
       next if inside
 
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
-      line.scan(/(?:\bze0\(|\bmust_answer |\bstderr: )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
+      line.scan(/(?:\bze0\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
         out << [n, "heredoc <<#{squiggly}#{tag}: use <<~"] if squiggly != "~"
         out << [n, "heredoc #{tag}: not one of #{TAGS.join(", ")}"] unless TAGS.include?(tag)
         # A Ruby program in an interpolating heredoc has live `#{}` in
