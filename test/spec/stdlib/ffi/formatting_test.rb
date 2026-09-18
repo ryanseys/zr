@@ -97,7 +97,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi array specs decl" do
+  it "a ruby array's numeric contents cross the boundary as a contiguous C buffer" do
     result = ze0(<<~'RUBY')
       # Ported from spinel's :float_array/:int_array bulk-transfer specs (#474) to
       # the real ffi gem API: a Ruby array's numeric contents cross the FFI boundary
@@ -134,7 +134,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi binstr recv" do
+  it "read_string(len) keeps the embedded NULs where the strlen form truncates at the first" do
     result = ze0(<<~'RUBY')
       # Ported from spinel's :binstr FFI return mode to the real ffi gem API: a
       # binary payload with embedded NULs survives a byte-count read
@@ -161,7 +161,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi declaration attaches at run time" do
+  it "a declaration the compiler could not see attaches over the gem's runtime objects" do
     result = ze0(<<~'RUBY')
       # zeo has two tiers for an `FFI::Library` declaration, and which one runs is
       # decided by whether the COMPILER could see it.
@@ -292,7 +292,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi enum marshals symbols and ints" do
+  it "an enum marshals a Symbol argument to its int and an int return back to its Symbol" do
     result = ze0(<<~'RUBY')
       # FFI `enum`: a named `enum :tag, [...]` used as an
       # `attach_function` type. A Symbol argument marshals to its int; an int return
@@ -323,7 +323,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi inline array of inline arrays" do
+  it "an inline array of inline arrays lays out as rows of rows, and the proxy refuses an index" do
     result = ze0(<<~'RUBY')
       # `layout :matrix, [[:XFixed, 3], 3]` -- X11's XTransform, a 3x3 matrix. C
       # lays a 2-D array out as rows of rows, so the field is 9 elements wide and
@@ -392,7 +392,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi memory" do
+  it "MemoryPointer owns a heap buffer with typed accessors that C reads and writes" do
     result = ze0(<<~'RUBY')
       # FFI::MemoryPointer / FFI::Pointer and :pointer marshaling (#204 follow-on):
       # an owned heap buffer with typed accessors, passed to and returned from C.
@@ -428,7 +428,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi platform typedefs in signatures" do
+  it "a platform typedef is legal in argument and return position, where a struct field fixes a width" do
     result = ze0(<<~'RUBY')
       # A POSIX typedef whose width differs between zeo's targets (mode_t is u16
       # on macOS, u32 on glibc) is legal in argument/return position -- the
@@ -506,7 +506,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi struct" do
+  it "a Struct layout answers size, offset_of and members over an owned MemoryPointer" do
     result = ze0(<<~'RUBY')
       # FFI::Struct + layout (#204 follow-on): C field offsets/alignment, [] / []=,
       # size, offset_of, members -- synthesized over an FFI::MemoryPointer.
@@ -548,7 +548,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi struct answers its own layout" do
+  it "a struct class answers offsets and a layout whose fields carry name, offset, size and type" do
     result = ze0(<<~'RUBY')
       # A struct class describes itself: `.offsets`, and a `.layout` reader
       # answering an `FFI::StructLayout` whose fields carry each field's name,
@@ -635,7 +635,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi struct holds an inline array" do
+  it "an inline array field stores its elements in place and reads back as a proxy over them" do
     result = ze0(<<~'RUBY')
       # An INLINE array field (`layout :bytes, [:uint8, 4]`) stores its elements in
       # place, so it is the field that decides where every following one starts --
@@ -732,7 +732,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi struct layout fields and c call" do
+  it "a struct auto-converts to its pointer at a C :pointer argument" do
     result = ze0(<<~'RUBY')
       # FFI `FFI::Struct` + `layout`: a `class T < FFI::Struct`
       # with a `layout` gets synthesized `[]`/`[]=`/`size`/`offset_of`/`members`
@@ -783,7 +783,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi type is one object per canonical name" do
+  it "FFI::Type::Builtin holds one object per canonical type, and LONG and INT64 are two" do
     skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
 
     result = ze0(<<~'RUBY')
@@ -914,7 +914,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi unsigned 64 bit values" do
+  it "an integer slot range-checks by the converter the gem picks, not by the slot's width" do
     result = ze0(<<~'RUBY')
       # An FFI integer slot converts the way the gem does, and THE SLOT'S WIDTH IS
       # NOT THE RANGE CHECKED: the gem reaches C through NUM2INT/NUM2UINT for a 1-,
@@ -1035,7 +1035,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi variadic" do
+  it "a trailing :varargs spec makes the function variadic, taking (type, value) pairs" do
     result = ze0(<<~'RUBY')
       # Variadic FFI through the real ffi gem API: a trailing :varargs spec makes
       # the function variadic, and each call passes (type, value) pairs for the
@@ -1074,7 +1074,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "ffi variadic callback" do
+  it "a variadic call builds its interface at run time, and a callback type takes a ruby Proc" do
     result = ze0(<<~'RUBY')
       # Variadic FFI and Ruby-Proc callbacks, AOT-compiled through libffi: a
       # `[.., :varargs]` function builds its call interface at runtime, and a
