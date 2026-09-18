@@ -1038,7 +1038,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 266 def length inference" do
+  it "a user class that defines length does not make every other class's array parameter poly" do
     result = ze0(<<~'RUBY')
       # Issue #266 regression: defining `def length` on a class flipped
       # Spinel's inference for IntArray params on unrelated class methods to
@@ -1108,7 +1108,7 @@ describe "Methods: regressions" do
     _(result).must_answer "0.0\n"
   end
 
-  it "issue 2871" do
+  it "a method writes into the Hash it was handed and the caller sees it" do
     result = ze0(<<~'RUBY')
       def fill(h)
         h[1] = 100
@@ -1132,7 +1132,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 2884" do
+  it "include? and index use ==, where uniq uses eql?" do
     result = ze0(<<~'RUBY')
       class Point
         attr_reader :x
@@ -1157,7 +1157,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 2886" do
+  it "reduce folds through a class's own + operator" do
     result = ze0(<<~'RUBY')
       class Money
         attr_reader :cents
@@ -1180,7 +1180,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 2894" do
+  it "a method writes a key it was handed into the Hash it was handed" do
     result = ze0(<<~'RUBY')
       def mark(h, k)
         h[k] = true
@@ -1203,7 +1203,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 2917" do
+  it "Set membership goes through eql? and hash, so 1 and 1.0 are two members" do
     result = ze0(<<~'RUBY')
       # Set membership uses #eql?/#hash (like CRuby's Hash-backed Set), so an
       # equal-but-distinct value object is found, and 1 / 1.0 are distinct members.
@@ -1240,7 +1240,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3042b" do
+  it "NoMethodError carries the arguments and whether the call was private" do
     result = ze0(<<~'RUBY')
       p NoMethodError.new("m", :nm, [1, 2]).args
       p NoMethodError.new("m", :nm, [1], true).private_call?
@@ -1254,7 +1254,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3114" do
+  it "a keyword parameter after a splat takes only what is written as a keyword" do
     result = ze0(<<~'RUBY')
       def f(*a, foo: nil); p a; p foo; end
       f("xyz", "bar")
@@ -1279,7 +1279,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3136" do
+  it "an attr_accessor with no ivar written reads as nil, and a written false reads false" do
     result = ze0(<<~'RUBY')
       class A
         attr_accessor :b, :i
@@ -1311,7 +1311,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3139" do
+  it "a reader called inside initialize reaches the ivar it was just given" do
     result = ze0(<<~'RUBY')
       class C
         attr_reader :arr, :nums
@@ -1344,7 +1344,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3143" do
+  it "tap on a fresh object writes to that object, not to the next one" do
     result = ze0(<<~'RUBY')
       class Crash
         attr_accessor :foo
@@ -1359,7 +1359,7 @@ describe "Methods: regressions" do
     _(result).must_answer "nil\n"
   end
 
-  it "issue 3144" do
+  it "tap inside a method appends to the receiver's own collection" do
     result = ze0(<<~'RUBY')
       class Crash
         attr_reader :foo
@@ -1393,7 +1393,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3154" do
+  it "a collection passed to another method is the same object the reader answers" do
     result = ze0(<<~'RUBY')
       class Flag ; end
       class Config
@@ -1427,7 +1427,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3158" do
+  it "||= through a Hash parameter writes only the first time" do
     result = ze0(<<~'RUBY')
       def store(memo, n)
         memo[n] ||= n * 10
@@ -1452,7 +1452,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3196" do
+  it "a collection handed down two calls deep still collects" do
     result = ze0(<<~'RUBY')
       class Flag; end
       class Crash
@@ -1479,7 +1479,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3198" do
+  it "sub and gsub take their pattern and replacement from attribute readers" do
     result = ze0(<<~'RUBY')
       class Config
         attr_accessor :name
@@ -1502,7 +1502,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3211" do
+  it "a method takes a value that is a String or nil and calls a String method on it" do
     result = ze0(<<~'RUBY')
       def maybe_string(flag) = flag ? "foo" : nil
       def crash(value) = value.end_with?("o")
@@ -1517,7 +1517,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3227 cross method" do
+  it "a shared string stays shared across a method boundary and through a reader" do
     result = ze0(<<~'RUBY')
       # Shared-mutable strings across method boundaries (P5): a shared handle
       # passed into a string-mutating parameter, and aliases taken through
@@ -1586,7 +1586,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3227 matrix" do
+  it "every in-place String mutator reaches every binding that holds the string" do
     result = ze0(<<~'RUBY')
       # mutator × storage 最終確認 matrix
       puts "== local alias =="
@@ -1645,7 +1645,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3227 reflection reads" do
+  it "a promoted ivar read through reflection or interpolation hands out the current text" do
     result = ze0(<<~'RUBY')
       # Promoted-ivar reads through reflection and formatting paths hand out safe
       # copies (never the raw handle); instance_variable_set joins the shared set.
@@ -1690,7 +1690,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3247 super method" do
+  it "Method#super_method answers the superclass's method, or nil" do
     result = ze0(<<~'RUBY')
       def dbl(n) = n * 2
       p method(:dbl) === 5
@@ -1721,7 +1721,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3251" do
+  it "iterator? says whether the calling method was given a block" do
     result = ze0(<<~'RUBY')
       def has_block? = iterator?
       p(has_block? { 1 })
@@ -1741,7 +1741,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3283" do
+  it "an if with an empty then arm answers nil" do
     result = ze0(<<~'RUBY')
       module TypedStore
         def self.parse(serialized)
@@ -1779,7 +1779,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3289" do
+  it "+= on an ivar array in initialize keeps what it accumulated" do
     result = ze0(<<~'RUBY')
       class MyClass
         attr_reader :switches
@@ -1803,7 +1803,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3290 method curry" do
+  it "a curried Method takes one argument at a time, or several" do
     result = ze0(<<~'RUBY')
       def add(a, b) = a + b
       def add3(a, b, c) = a + b + c
@@ -1830,7 +1830,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3298" do
+  it "delete_at on an array of strings answers the element, or nil past the end" do
     result = ze0(<<~'RUBY')
       # Two bugs from the Rails-emit boot crash: a poly-array receiver had no
       # delete_at arm, and "Set-Cookie" in a string tripped the textual Set
@@ -1868,7 +1868,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3303 paren write poly shift" do
+  it "a parenthesised assignment from shift on an empty array compiles" do
     result = ze0(<<~'RUBY')
       module Slap
         def self.parse(argv = ARGV) = Main.new.parse(argv)
@@ -1899,7 +1899,7 @@ describe "Methods: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3304 method reflection" do
+  it "box, curry, clone and dup keep a Method's signature" do
     result = ze0(<<~'RUBY')
       # The Method/UnboundMethod reflection tail: `#box` (nil for a method in no
       # namespace), `#curry`, and `#clone`/`#dup` keeping the signature.
@@ -1937,7 +1937,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3306 shared strarray insert delete at" do
+  it "insert and delete_at on an array of strings place and remove by index" do
     result = ze0(<<~'RUBY')
       class R
         attr_accessor :cookies
@@ -1977,7 +1977,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3307 container reader mutation" do
+  it "a string reached through two readers is mutated in place" do
     result = ze0(<<~'RUBY')
       class Sub
         attr_accessor :topic, :fd, :mode
@@ -2030,7 +2030,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3326 seeded strarray clear" do
+  it "clear empties an array that was seeded with one element, and a Hash through a parameter" do
     result = ze0(<<~'RUBY')
       class Res
         attr_accessor :cookies
@@ -2065,7 +2065,7 @@ describe "Methods: regressions" do
     OUT
   end
 
-  it "issue 3328 poly int chr" do
+  it "Integer#chr and String#chr both answer a one-character string" do
     result = ze0(<<~'RUBY')
       def hexd(n)
         n < 10 ? ("0".getbyte(0) + n).chr : ("A".getbyte(0) + n - 10).chr
