@@ -60,6 +60,12 @@ module Ze0
     # scope runs inside, or nil outside one.
     def compile(source, file, line = 1, scopes = [], method = nil)
       Eval.plainly { compiled(source, file, line, scopes, method) }
+    rescue Hir::Invalid => e
+      # ruby reads a regexp literal as it compiles the string around it,
+      # so a pattern the engine refuses is a syntax error and not a
+      # run-time one. The build road exits 3 and names the line; here the
+      # program is running, and this is an error it may rescue.
+      raise SyntaxError.new(e.message).tap { |syntax| syntax.set_backtrace(caller_locations(1)) }
     rescue SyntaxError => e
       # The error is the eval's, raised where the eval stands, unless it
       # names only the string, as a stray `yield`'s does.

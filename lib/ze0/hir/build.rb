@@ -10,6 +10,13 @@ module Ze0
   module Hir
     class Refused < StandardError; end
 
+    # A form ruby itself refuses as it compiles, rather than one the HIR
+    # does not hold yet. A build treats it as any other refusal -- it
+    # stops and names the line -- but a program that compiles this while
+    # it runs must see what ruby raises there, which is a SyntaxError,
+    # and `Ze0::Eval` makes it one.
+    class Invalid < Refused; end
+
     # Prism to HIR. A form the HIR does not hold yet is refused by name at
     # its line: the contract is CRuby-identical or refused, never a guess.
     class Build
@@ -247,7 +254,41 @@ module Ze0
         # this build fires the events one asks for.
         def traces? = @traces
         def tracing? = @trace
+
+        # What a program that wants `:line` events names. The bytes are
+        # asked first, because almost no file holds any of these words
+        # and a regexp over the source costs far less than a walk; a
+        # file that does hold one is then read, so that prose does not
+        # decide. A comment that says TracePoint used to arm the events
+        # for every statement of every file, and pay for a second whole
+        # build, which is a large cost for a word.
         TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage)\b/
+        TRACE_CONSTANTS = %i[TracePoint Coverage].freeze
+        TRACE_CALLS = %i[set_trace_func add_trace_func].freeze
+        TRACE_WORDS = %w[TracePoint Coverage set_trace_func add_trace_func].freeze
+        COVERAGE_CONSTANTS = %i[Coverage].freeze
+        COVERAGE_WORDS = %w[Coverage].freeze
+
+        def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS, TRACE_WORDS)
+
+        def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [], COVERAGE_WORDS)
+
+        # Whether the tree names one of `constants`, calls one of
+        # `calls`, or writes one of `words` as a symbol or a string. The
+        # last of the three is what keeps this as safe as the regexp it
+        # replaced: a name reached by `const_get` of a string still
+        # counts, because arming a program that does not trace costs
+        # time and missing one that does costs the answer.
+        def names_of?(tree, constants, calls, words)
+          !tree.breadth_first_search do |n|
+            case n
+            when Prism::ConstantReadNode then constants.include?(n.name)
+            when Prism::ConstantPathNode then n.parent.nil? && constants.include?(n.name)
+            when Prism::CallNode then calls.include?(n.name)
+            when Prism::SymbolNode, Prism::StringNode then words.include?(n.unescaped)
+            end
+          end.nil?
+        end
 
         # Whether some file names Coverage, and the lines of each file a
         # traced build fires :line events on, with the file's line count:
@@ -435,10 +476,10 @@ module Ze0
             front ? @roots.unshift(*paths) : @roots.concat(paths)
           end
           configures! if !configures? && names_rbconfig?(result.value)
-          @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b)
-          @covers ||= !Build.runtime_file?(file) && COVERAGE_NAMES.match?(source.b)
+          @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
+          @covers ||= !Build.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
           @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
-          build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
+          build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value), root: result.value)
           build.within_method(method, scopes) if scopes && method
           body = build.seq(result.value.statements, hoist: true)
           spots = Spots.of(result.value) unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
@@ -609,9 +650,10 @@ module Ze0
         end
       end
 
-      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {})
+      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {}, root: nil)
         @file = file
         @loader = loader
+        @root = root
         @node_ids = loader&.node_ids
         @encoding = encoding
         @shadowed = shadowed
@@ -882,25 +924,47 @@ module Ze0
         def write(*parts) = parts.sum { |part| concat(part.to_s) && part.to_s.bytesize }
       end
 
+      # Whether this build keeps the engine's warnings rather than
+      # letting them out where they are made.
+      def keeps_warnings? = !@loader&.eval?
+
+      # What the engine wrote to $stderr while it read `held`. Reading
+      # the pattern is also the check: one the engine refuses raises.
+      #
+      # Taking $stderr and $VERBOSE is the only way to keep those
+      # warnings, and a build may take them: it forks, and nothing else
+      # in that process writes. A compile the eval road makes runs inside
+      # the program, where the two belong to every thread it has -- and
+      # where ruby lets the engine warn on the program's own stderr, as
+      # `eval("/(?:a?)*b/")` does. So there the pattern is read plainly.
+      def read_pattern(held, options)
+        unless keeps_warnings?
+          Regexp.new(held, options)
+          return ""
+        end
+
+        written = Written.new
+        begin
+          stderr, $stderr = $stderr, written
+          verbose, $VERBOSE = $VERBOSE, false
+          Regexp.new(held, options)
+          written
+        ensure
+          $stderr = stderr
+          $VERBOSE = verbose
+        end
+      end
+
       def regexp_literal(node, line)
         pinned = regexp_encoding(node)
         # `n` reads the pattern as bytes, so an escape past ASCII is
         # legal there and nowhere else; the check must read it that way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
-        written = Written.new
-        begin
-          # What the engine warns of, the file prints as it starts.
-          stderr, $stderr = $stderr, written
-          verbose, $VERBOSE = $VERBOSE, false
-          Regexp.new(held, regexp_options(node) & 7)
-        rescue RegexpError => e
-          refuse(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
-        ensure
-          $stderr = stderr
-          $VERBOSE = verbose
-        end
+        written = read_pattern(held, regexp_options(node) & 7)
         written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{@file}:#{line}: warning: #{message}" }
         RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
+      rescue RegexpError => e
+        invalid(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
       end
 
       # The parts of an interpolated string, each a String or the value
@@ -1214,6 +1278,16 @@ module Ze0
           if node.old_name.is_a?(Prism::GlobalVariableReadNode) && !FRAME_GVARS.include?(node.old_name.name)
             GvarAlias.new(node.new_name.name, node.old_name.name, line)
           else
+            # `$&` is a register of the frame that last matched and not a
+            # global, so an alias of one is not a row the runtime can
+            # carry: the new name is resolved as this file is lowered.
+            # That is right only where the file runs the alias whenever
+            # it loads. ruby leaves an alias it does not reach undone --
+            # `if false; alias $x $&; end` leaves `$x` nil -- so one
+            # written where it may not run is refused rather than taken.
+            unless certain_alias?(node)
+              refuse(node, "alias #{node.new_name.name} #{node.old_name.name} where it may not run is not lowered yet")
+            end
             @loader&.back_ref!(node.new_name.name, node.old_name)
             Literal.new(nil, line)
           end
@@ -1942,8 +2016,42 @@ module Ze0
         end
       end
 
+      # The bodies a file runs whenever it loads: its own statements, a
+      # class or a module body, and a `begin` that stands for grouping.
+      # A branch, a loop, a block and a method body are none of these.
+      def self.always_run(node)
+        case node
+        when Prism::ProgramNode, Prism::BeginNode then [node.statements]
+        when Prism::StatementsNode then node.body
+        when Prism::ModuleNode, Prism::ClassNode, Prism::SingletonClassNode then [node.body]
+        end
+      end
+
+      # Every `alias $x $&` the file always runs, by identity.
+      def self.certain_aliases(node, out = {}.compare_by_identity)
+        (always_run(node) || []).compact.each do |child|
+          out[child] = true if child.is_a?(Prism::AliasGlobalVariableNode)
+          certain_aliases(child, out)
+        end
+        out
+      end
+
+      # Whether this file always runs `node`. The walk happens the first
+      # time one is asked about, which for almost every file is never.
+      def certain_alias?(node)
+        return true unless @root
+
+        (@certain ||= Build.certain_aliases(@root)).key?(node)
+      end
+
       def refuse(node, message)
         raise Refused, "#{@file}:#{node.location.start_line}: #{message}"
+      end
+
+      # A refusal of a form ruby refuses too, which a program compiling
+      # it while it runs sees as the SyntaxError ruby raises.
+      def invalid(node, message)
+        raise Invalid, "#{@file}:#{node.location.start_line}: #{message}"
       end
     end
   end
