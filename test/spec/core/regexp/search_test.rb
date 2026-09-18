@@ -2336,7 +2336,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp alternation priority" do
+  it "alternation takes the leftmost branch that lets the whole match succeed" do
     result = ze0(<<~'RUBY')
       # Imported mruby-regexp alternation-priority fixes (leftmost-first).
       #
@@ -2386,7 +2386,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp atomic group quantified" do
+  it "a quantified atomic group keeps what it consumed and never gives it back" do
     result = ze0(<<~'RUBY')
       # Inserting a quantifier's SPLIT ahead of an atom relocates every jump target
       # that crosses the insertion, and the atomic group carries one in the same
@@ -2429,7 +2429,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp backref ignorecase" do
+  it "a backreference under /i matches the other case of what the group took" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
@@ -2469,7 +2469,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp brace zero lower" do
+  it "a {0,m} quantifier may match nothing at all" do
     result = ze0(<<~'RUBY')
       # Imported mruby-regexp e246b2c05: {0,m} matched one copy too many. The
       # quantifier compiler emitted the atom once up front and counted it as the
@@ -2518,7 +2518,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp empty iteration capture" do
+  it "a repetition whose body may match empty ends on an empty capture" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
@@ -2571,7 +2571,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp extended whitespace" do
+  it "under /x the whitespace and comments in a pattern are not part of it" do
     result = ze0(<<~'RUBY')
       # Under `/x` the `regex` crate strips whitespace INSIDE a character class as
       # well as outside it -- unlike Ruby, which only ignores it between tokens. That
@@ -2654,7 +2654,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp line anchors" do
+  it "^ and $ anchor to a line, where \\A and \\z anchor to the subject" do
     result = ze0(<<~'RUBY')
       # Ruby's ^ and $ are always line-anchored, independent of the /m flag
       # (which in Ruby only makes `.` match newlines). ^ matches at the start
@@ -2711,7 +2711,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp literal slots compile" do
+  it "every literal pattern in a program compiles at startup" do
     result = ze0(<<~'RUBY')
       # Every literal pattern is compiled at startup into its own slot. A refusal
       # there used to leave the slot NULL for the first match to dereference; it now
@@ -2732,7 +2732,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp lookbehind alternation" do
+  it "a lookbehind of alternatives matches at the position after any of them" do
     result = ze0(<<~'RUBY')
       # A lookbehind was measured by walking its code, and the walk gave up at the
       # first alternation -- "for simplicity", though branches of the same width are
@@ -2782,7 +2782,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp lookbehind characters" do
+  it "a lookbehind counts characters, not bytes" do
     result = ze0(<<~'RUBY')
       # A lookbehind was measured and rewound in BYTES, so a class or a `.` inside
       # one -- each of which matches a character of whatever width -- landed the
@@ -2824,7 +2824,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp match" do
+  it "compilation, named captures and unicode classes work in the binary" do
     result = ze0(<<~'RUBY')
       # The regexp engine is linked: compilation, named captures and unicode
       # classes all work in the binary.
@@ -2843,7 +2843,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp match block" do
+  it "Regexp#match with a block yields the MatchData and answers the block's value" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Regexp#match with a block returns the MatchData instead of the block's
@@ -2880,7 +2880,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp match data" do
+  it "match answers a MatchData that reads its groups by index" do
     result = ze0(<<~'RUBY')
       # Issue #867: String#match and Regexp#match return a MatchData-like
       # object instead of falling through to unresolved-call emit-0.
@@ -2913,7 +2913,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp match p position" do
+  it "match? takes a start offset, and a negative one counts from the end" do
     result = ze0(<<~'RUBY')
       # Issue #869: Regexp#match?(str, pos) starts matching at byte
       # offset `pos`. Previously the position argument was silently
@@ -2932,7 +2932,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp matchdata caps" do
+  it "MatchData reports size, captures, offsets, names and named_captures" do
     result = ze0(<<~'RUBY')
       # MatchData carries its capture positions in the same block as the struct,
       # sized to the match. The read of the last group is what a mis-sized block
@@ -3001,7 +3001,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp named backref" do
+  it "\\k<name> matches what the group of that name took" do
     result = ze0(<<~'RUBY')
       # Imported mruby-regexp engine fix.
       #
@@ -3035,7 +3035,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp named capture match" do
+  it "a named capture reads by name, and =~ on a literal assigns the locals" do
     result = ze0(<<~'RUBY')
       # A literal regexp on the left of `=~` binds each named group to a local
       # variable (CRuby's MatchWriteNode): a String when the group participated, nil
@@ -3099,7 +3099,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp named disables numbered" do
+  it "a pattern with a named group has no numbered captures" do
     result = ze0(<<~'RUBY')
       m001 = "a1".match(/(?<l>[a-z])(\d)/)
       p m001.captures
@@ -3125,7 +3125,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp new" do
+  it "Regexp.new builds from a string and reports its source" do
     result = ze0(<<~'RUBY')
       # `Regexp.new` builds a Regexp from a pattern string (or copies another
       # Regexp). A second argument sets flags: an Integer OR-ing the `Regexp::`
@@ -3162,7 +3162,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp new from string flags and copy" do
+  it "Regexp.new takes another Regexp and copies its source and flags" do
     result = ze0(<<~'RUBY')
       p(Regexp.new("a.c") =~ "xabc")
       p Regexp.new("hi", Regexp::IGNORECASE).match?("HI")
@@ -3178,7 +3178,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp new match boxed subject" do
+  it "a Regexp.new pattern matches a subject that arrives boxed" do
     result = ze0(<<~'RUBY')
       # Regexp#match on a Regexp.new pattern has to accept a subject that arrives
       # boxed: one call site handing it an untyped block parameter is enough to
@@ -3216,7 +3216,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp pike capture and bol" do
+  it "an alternation whose winning branch is not the first keeps its capture" do
     result = ze0(<<~'RUBY')
       # Imported mruby-regexp engine fixes.
       #
@@ -3253,7 +3253,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp quantifier alt loopback" do
+  it "a quantified alternation backtracks into its other branch" do
     result = ze0(<<~'RUBY')
       # Imported mruby-regexp da41af3c9: keep a quantifier's loop-back after an
       # alternation SPLIT is inserted in front of its atom. A greedy `\d+` compiles
@@ -3303,7 +3303,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp quoted named group" do
+  it "(?'name'...) is the other spelling of a named group" do
     result = ze0(<<~'RUBY')
       # A named group has two spellings and the engine read both of them in \k while
       # accepting only one in a declaration: the scan that decides whether a plain
@@ -3348,7 +3348,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp repeated group capture" do
+  it "a repeated group captures only its last iteration" do
     result = ze0(<<~'RUBY')
       # Imported mruby-regexp engine fix.
       #
@@ -3375,7 +3375,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp repeated group name" do
+  it "two alternatives may share a capture name, and named_captures lists both slots" do
     result = ze0(<<~'RUBY')
       p(/(?<a>x)|(?<a>y)/.names)
       p("y".match(/(?<a>x)|(?<a>y)/).names)
@@ -3393,7 +3393,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp replacement named group" do
+  it "a replacement string reads a group by number or by name" do
     result = ze0(<<~'RUBY')
       p "ab".sub(/(?<x>b)/, "[\\1]")
       p "abab".gsub(/(?<x>b)/, "[\\1]")
@@ -3430,7 +3430,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp source options" do
+  it "source is the pattern as written and options is the flag bits" do
     result = ze0(<<~'RUBY')
       # Issue #868: Regexp#source returns the original pattern string;
       # #options returns the CRuby flag bitmask (1=IGNORECASE, 2=EXTENDED,
@@ -3453,7 +3453,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp threeq" do
+  it "=== matches a string, which is what a case arm uses" do
     result = ze0(<<~'RUBY')
       # Regexp#=== matches a string against the pattern (the operator
       # `case x when /re/` uses). Previously fell through to the
@@ -3480,7 +3480,7 @@ describe "Regexp: searching and matching" do
     OUT
   end
 
-  it "regexp union strings" do
+  it "Regexp.union escapes the strings it is given" do
     result = ze0(<<~'RUBY')
       # Regexp.union builds an alternation of its operands. A String operand is
       # regexp-escaped; a (flagless) Regexp operand contributes its source; a single

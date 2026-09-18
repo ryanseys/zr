@@ -256,7 +256,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string chop" do
+  it "chop removes the last character, and a whole CRLF" do
     result = ze0(<<~'RUBY')
       # basic
       puts "hello".chop
@@ -287,7 +287,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string each byte" do
+  it "each_byte and bytes walk the bytes, not the characters" do
     result = ze0(<<~'RUBY')
       # String#each_byte iterates the bytes of a string. Mirrors each_char
       # but yields the (unsigned) byte value at each position rather than
@@ -339,7 +339,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string escape" do
+  it "a literal backslash is one character and an escape sequence is another" do
     result = ze0(<<~'RUBY')
       # Literal backslash preservation — the original bug: "\\n" is two
       # bytes (backslash + n) in Ruby source-level escape, and length is 2.
@@ -373,7 +373,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string format single" do
+  it "format fills each directive from its one argument" do
     result = ze0(<<~'RUBY')
       # `"fmt" % value` (the single-value form of String#%) used to fall
       # through to sp_imod, which rejected the format string as a non-int.
@@ -392,7 +392,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string lines" do
+  it "lines keeps the separator on every line but a last one without it" do
     result = ze0(<<~'RUBY')
       # Tests String#lines preserves trailing newline on each piece (CRuby semantics).
       p "hello\nworld\n".lines
@@ -777,7 +777,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string endless range" do
+  it "a subscript takes an endless or beginless range" do
     result = ze0(<<~'RUBY')
       # #543. `s[1..]` (Ruby 2.6+ endless range) returned an empty
       # string under spinel-AOT instead of the substring from index 1
@@ -824,7 +824,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string index from" do
+  it "index takes a start position and searches from there" do
     result = ze0(<<~'RUBY')
       # Regression: `String#index(sub, start)` 2-arg form.
       # Pre-fix the codegen ignored `start` and re-emitted the 1-arg
@@ -894,7 +894,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string index nullable" do
+  it "index and rindex answer nil when there is no match" do
     result = ze0(<<~'RUBY')
       # #532. `String#index` / `String#rindex` previously returned
       # mrb_int with -1 as the not-found sentinel. The CRuby idiom
@@ -967,7 +967,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string index oob returns nil" do
+  it "a single-integer subscript past the end answers nil" do
     result = ze0(<<~'RUBY')
       # `"hello"[20]` (single-int index past the end) returns nil in CRuby,
       # not "". Pre-fix spinel's sp_str_sub_range fell through to its
@@ -996,7 +996,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string to i underscore" do
+  it "to_i reads leading digits and underscores and stops at the rest" do
     result = ze0(<<~'RUBY')
       # CRuby's `String#to_i` accepts `_` between consecutive digits and
       # stops at the first non-digit. spinel previously emitted
@@ -1098,7 +1098,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string ascii only" do
+  it "ascii_only? is true only when every byte is under 128" do
     result = ze0(<<~'RUBY')
       # String#ascii_only? : true iff every byte is 7-bit ASCII.
       p "hello".ascii_only?
@@ -1117,7 +1117,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string chomp separator" do
+  it "chomp takes the separator to remove" do
     result = ze0(<<~'RUBY')
       # Issue #881: String#chomp with an explicit separator argument
       # strips that suffix. Without the fix the arg was silently dropped
@@ -1138,7 +1138,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string codepoints" do
+  it "codepoints answers one number a character" do
     result = ze0(<<~'RUBY')
       # Issue #903: String#codepoints returns int_array of UTF-8
       # codepoints (not bytes).
@@ -1154,7 +1154,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string delete multi arg" do
+  it "delete removes the characters every argument names" do
     result = ze0(<<~'RUBY')
       # String#delete with multiple args deletes the intersection of the
       # charsets (each arg is a charset spec).
@@ -1176,7 +1176,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string gsub empty pat" do
+  it "an empty pattern matches between every pair of characters" do
     result = ze0(<<~'RUBY')
       # Issue #850: String#gsub with empty pattern inserts the
       # replacement between every character (and at the start/end).
@@ -1191,7 +1191,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string range splat" do
+  it "splatting a String range into an array literal spreads it" do
     result = ze0(<<~'RUBY')
       # Splatting a string range into an array literal expands it into a
       # str_array (the runtime already has sp_StrArray_from_string_range; the
@@ -1211,7 +1211,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string scan capture" do
+  it "scan answers the captures when the pattern has groups, the match when it does not" do
     result = ze0(<<~'RUBY')
       # Issue #880: String#scan returns nested arrays for capture groups.
 
@@ -1229,7 +1229,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string spaceship" do
+  it "<=> orders two strings byte by byte" do
     result = ze0(<<~'RUBY')
       # Issue #900: String#<=> dispatches strcmp clamped to -1/0/1.
       # Pre-fix: always returned 0.
@@ -1247,7 +1247,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string squeeze multi arg" do
+  it "squeeze collapses runs of the characters every argument names" do
     result = ze0(<<~'RUBY')
       # String#squeeze with multiple args squeezes runs of chars in the
       # intersection of the charsets.
@@ -1265,7 +1265,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string strip nul" do
+  it "strip, lstrip and rstrip remove a NUL along with the whitespace" do
     result = ze0(<<~'RUBY')
       # String#strip / #lstrip / #rstrip remove the NUL byte along with ASCII
       # whitespace, matching CRuby.
@@ -1287,7 +1287,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string symbol itself" do
+  it "itself answers the receiver, for a String and for a Symbol" do
     result = ze0(<<~'RUBY')
       # Kernel#itself on string and symbol returns self.
       puts "hello".itself
@@ -1300,7 +1300,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string tr s" do
+  it "tr_s translates and then squeezes the run it made" do
     result = ze0(<<~'RUBY')
       # Issue #902: String#tr_s translates and squeezes adjacent
       # identical translated chars (untranslated runs keep their
@@ -1320,7 +1320,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string valid encoding" do
+  it "valid_encoding? is false for bytes that are not the encoding's" do
     result = ze0(<<~'RUBY')
       # String#valid_encoding? — true for ASCII / well-formed UTF-8,
       # false for invalid byte sequences.
@@ -1340,7 +1340,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string with nul byte" do
+  it "a NUL byte in a literal is one character of the string, not its end" do
     result = ze0(<<~'RUBY')
       # Issue #722: a string literal with an embedded NUL byte reports
       # the full length, and .bytes iterates all bytes (not strlen-
@@ -1706,7 +1706,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string conformance batch3" do
+  it "String#+ refuses a non-String, concat with no argument answers the receiver, and a frozen bang raises" do
     result = ze0(<<~'RUBY')
       # String#+ non-String -> TypeError; concat no-args -> self; match non-match
       # .class -> NilClass; frozen in-place bang -> FrozenError.
@@ -1737,7 +1737,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string conformance batch4" do
+  it "match? takes a String pattern, and inspect escapes a control byte" do
     result = ze0(<<~'RUBY')
       # String conformance (KieranP #2308,#2310,#2312,#2313)
       p("hello".match?("l"))              # #2310 match? String pattern
@@ -1775,7 +1775,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string conformance batch6" do
+  it "-@ on a frozen string is the receiver, and []= answers the value assigned" do
     result = ze0(<<~'RUBY')
       # String conformance (KieranP #2369, #2370)
       a = "abc".freeze
@@ -1821,7 +1821,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "string conformance wave2" do
+  it "a Hash replacement in sub and gsub falls back to the hash's default" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A String transform drops replacement characters ruby emits.

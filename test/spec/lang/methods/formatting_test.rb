@@ -1789,7 +1789,7 @@ describe "Methods: formatting and inspection" do
       b = Buf.new
       b << "hi"
       b << "!"
-      b >> "[" 
+      b >> "["
       puts b.to_s
       # Builtin << still works (regression guard).
       a = []

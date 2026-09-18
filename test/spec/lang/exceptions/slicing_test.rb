@@ -576,7 +576,7 @@ describe "Exceptions: slicing" do
         end
       end
       puts "done"
-      puts "==="; 
+      puts "===";
       for x in [1,2,3]
         begin
           break if x == 3
@@ -637,7 +637,7 @@ describe "Exceptions: slicing" do
         end
       end
       puts "done"
-      puts "==="; 
+      puts "===";
       def a
         begin
           return 1

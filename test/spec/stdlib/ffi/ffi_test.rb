@@ -460,7 +460,7 @@ describe "FFI programs" do
     _(result).must_answer "rescued: boom from callback\n"
   end
 
-  it "ffi blocking call with a callback" do
+  it "a blocking call with a callback" do
     result = ze0(<<~'RUBY')
       # `blocking: true` beside a callback argument is legal: the gem releases the
       # GVL around the C body and the callback trampoline re-acquires before
@@ -484,7 +484,7 @@ describe "FFI programs" do
     _(result).must_answer "[2, 4, 9, 15, 31]\n"
   end
 
-  it "ffi callback" do
+  it "a callback type declares a C function pointer, and a proc becomes one" do
     result = ze0(<<~'RUBY')
       # Ported from spinel's ffi_callback trampoline to the real ffi gem API: a
       # `callback` type declares a C function-pointer type, and a Ruby proc passed
@@ -540,7 +540,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi callback declares a function pointer type" do
+  it "a callback declares a function pointer type" do
     result = ze0(<<~'RUBY')
       # FFI `callback :tag, [args], ret` declares a callback TYPE. A C callback is a
       # function pointer, so the tag resolves to `:pointer` and is usable anywhere a
@@ -565,7 +565,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi const nested module path" do
+  it "a constant in a library module resolves through a nested constant path" do
     result = ze0(<<~'RUBY')
       # A constant in an FFI-library module referenced through a NESTED constant
       # path (Outer::CMath::MODE) must still resolve parent-qualified by the
@@ -603,7 +603,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi declaration inside an eval" do
+  it "a declaration inside an eval reaches the library" do
     result = ze0(<<~'RUBY')
       # An `FFI::Library` declaration written inside a run-time `eval` attaches
       # for real.
@@ -650,7 +650,7 @@ describe "FFI programs" do
     _(result).must_answer "7\n"
   end
 
-  it "ffi declaration spellings widen" do
+  it "the declaration spellings a real adapter writes" do
     result = ze0(<<~'RUBY')
       # FFI declaration spellings the lowering used to reject as "literal symbol/
       # string required", together in one program:
@@ -755,7 +755,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi declarations reach wider than the scalar keywords" do
+  it "declarations reach wider than the scalar keywords" do
     result = ze0(<<~'RUBY')
       # Three declaration forms the real `ffi` gem takes and zeo refused.
       require "ffi"
@@ -835,7 +835,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi directives under platform guards" do
+  it "a directive under a platform guard runs only on that platform" do
     result = ze0(<<~'RUBY')
       # An FFI directive under a class-body `if`/`unless` whose predicate is fixed
       # for the build target (`FFI::Platform::ADDRESS_SIZE`, a `RUBY_PLATFORM`
@@ -889,7 +889,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi enum members fold body constants" do
+  it "enum members fold the constants of the body they sit in" do
     result = ze0(<<~'RUBY')
       # An enum member's VALUE and an inline array's COUNT are compile-time
       # integers to zeo -- they decide marshaling tables and field offsets. Both
@@ -936,7 +936,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi foreign ptr gc" do
+  it "a foreign pointer held in an ivar is not traced as a heap object" do
     result = ze0(<<~'RUBY')
       # A foreign pointer (malloc'd C memory) kept alive in an ivar must not be
       # traced by the GC as a heap object. Heavy allocation churns GC cycles that
@@ -979,7 +979,7 @@ describe "FFI programs" do
     _(result).must_answer "ok 200\n"
   end
 
-  it "ffi function takes its body as a block" do
+  it "a function takes its body as a block" do
     result = ze0(<<~'RUBY')
       # The ffi gem takes an `FFI::Function`'s body as a BLOCK as readily as a Proc
       # in the third position -- the two spellings build the same closure. zeo's
@@ -1014,7 +1014,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi gem compat" do
+  it "require, extend and attach_function are the gem's own spellings" do
     result = ze0(<<~'RUBY')
       # The ffi-gem (CRuby `ffi`) compat frontend: require "ffi" is a native
       # no-op, `extend FFI::Library` is declarative, attach_function (plain and
@@ -1045,7 +1045,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi global typedef registers for all libraries" do
+  it "a global typedef registers for every library" do
     result = ze0(<<~'RUBY')
       # `FFI.typedef :existing, :alias` writes the gem's GLOBAL type registry --
       # visible to every library module and struct layout that runs after it, from
@@ -1083,7 +1083,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi int arg poly value" do
+  it "an :int argument coerces a boxed integer rather than passing the box" do
     result = ze0(<<~'RUBY')
       # An FFI numeric arg (:int) call site receiving a poly-typed value (an ivar
       # widened by a mixed-type initializer) must coerce the boxed integer rather
@@ -1112,7 +1112,7 @@ describe "FFI programs" do
     _(result).must_answer "42\n"
   end
 
-  it "ffi integers take their full c range" do
+  it "the integer types take their full C range" do
     result = ze0(<<~'RUBY')
       # Every FFI integer type accepts its whole C range in both directions: a
       # :ulong/:uint64/:size_t argument or return reaches 2**64-1 (a Bignum), a
@@ -1311,7 +1311,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi layout installed by an included module" do
+  it "a layout installed by an included module" do
     result = ze0(<<~'RUBY')
       # A module whose `self.included(base)` hook `class_eval`s a `layout` into
       # whoever includes it. gssapi writes every one of its buffer structs this way:
@@ -1379,7 +1379,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi layout reads enclosing body constants" do
+  it "a layout reads the constants of the body it sits in" do
     result = ze0(<<~'RUBY')
       # A layout can spell its types and counts as CONSTANTS of the ENCLOSING
       # module -- ffi-ncurses declares its whole vocabulary that way above the
@@ -1417,7 +1417,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi lib names a candidate it can decide" do
+  it "ffi_lib names a candidate it can decide" do
     result = ze0(<<~'RUBY')
       # An ARRAY argument to `ffi_lib` is a list of ALTERNATIVE spellings of ONE
       # library, and ruby loads the first that dlopens. (Separate arguments are
@@ -1476,7 +1476,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi libc libm basic" do
+  it "scalar doubles, a string measured by strlen, and a no-argument int return" do
     result = ze0(<<~'RUBY')
       # Basic libc + libm bindings through the real ffi gem API (ported from
       # spinel's ffi_func): scalar doubles in/out, a string argument measured by
@@ -1514,7 +1514,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi library marked before its reopen" do
+  it "a library is marked before the module is reopened" do
     result = ze0(<<~'RUBY', files: {"ffi_library_marked_before_its_reopen/curl.rb" => "require \"ffi\"\n\nmodule Curl\n  extend FFI::Library\n  ffi_lib FFI::Library::LIBC\n\n  def self.status_codes = [:ok, :partial, :failed]\n\n  # Declared ABOVE the require, and used BELOW it, in the required file.\n  class Stamp < FFI::Struct\n    layout :sec, :long\n  end\n\n  # The reopen that declares the vocabulary, required from INSIDE the body\n  # that establishes what the module is.\n  require_relative \"vocabulary\"\n\n  attach_function :pick, :abs, [:status], :status\n  attach_function :widen, :labs, [:ticks], :ticks\nend\n", "ffi_library_marked_before_its_reopen/vocabulary.rb" => "# A REOPEN of the library module. Nothing here says `extend FFI::Library`, so\n# whether these are FFI directives at all depends on the enclosing file having\n# been read first.\nmodule Curl\n  Status = enum(:status, status_codes)\n  typedef :long, :ticks\n\n  # The mirror image: a struct the REQUIRING file declared, taken by value.\n  class Frame < FFI::Struct\n    layout :head, Stamp.by_value, :n, :int\n  end\n\n  attach_function :measure, :llabs, [Stamp.by_value], :long\nend\n"})
       # A class-body `require` pre-LOWERS ahead of the requiring file's own
       # statements, so a required file's declarations exist before the statements
@@ -1555,7 +1555,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi platform reports the hosts c abi" do
+  it "FFI::Platform reports the host's C ABI" do
     skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
 
     result = ze0(<<~'RUBY')
@@ -1667,7 +1667,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi poly int array" do
+  it "an int array whose type collapsed still marshals its elements" do
     result = ze0(<<~'RUBY')
       # An int array whose static type poly-collapsed (a param union widened it)
       # must still marshal its element data at an FFI array boundary, and a poly
@@ -1703,7 +1703,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi runtime dlopen resolves a path candidate list" do
+  it "a runtime dlopen resolves a list of path candidates" do
     result = ze0(<<~'RUBY')
       # An `ffi_lib` whose name only a RUNNING process can resolve -- a path built
       # by interpolation -- takes the dlopen/dlsym tier: the first candidate that
@@ -1722,7 +1722,7 @@ describe "FFI programs" do
     _(result).must_answer "256.0\n"
   end
 
-  it "ffi str arg poly value" do
+  it "a :string argument coerces a boxed string rather than passing the box" do
     result = ze0(<<~'RUBY')
       # An FFI :string arg call site receiving a poly-typed value (an ivar widened
       # by a mixed-type initializer) must coerce the boxed string rather than
@@ -1751,7 +1751,7 @@ describe "FFI programs" do
     _(result).must_answer "42\n"
   end
 
-  it "ffi string names and current process" do
+  it "a function name may be a String, and the library may be the current process" do
     result = ze0(<<~'RUBY')
       # The declaration spellings the corpus writes that the strict forms missed:
       # a String function name (the gem calls `.to_sym` on it), and
@@ -1770,7 +1770,7 @@ describe "FFI programs" do
     _(result).must_answer "9\n"
   end
 
-  it "ffi struct declared inside an eval" do
+  it "a struct declared inside an eval" do
     result = ze0(<<~'RUBY')
       # A `class < FFI::Struct` written inside a run-time `eval` declares its
       # layout for real.
@@ -1873,7 +1873,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi struct layout built by the class body lowers" do
+  it "a struct layout built by the class body lowers" do
     result = ze0(<<~'RUBY')
       # A C struct whose shape depends on the platform is written as a list the
       # class body builds up and then splats into one `layout` -- sys-uname's
@@ -1944,7 +1944,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi type constant needs no library" do
+  it "a type constant needs no library" do
     result = ze0(<<~'RUBY')
       # `FFI::Type::X` is an OBJECT, and ruby-ffi's `find_type` reads whatever
       # value the constant holds. So the vocabulary a struct spends may sit in a
@@ -1980,7 +1980,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi type crosses between snippets" do
+  it "a type crosses between snippets" do
     result = ze0(<<~'RUBY')
       # An FFI type declared in one compile can be NAMED by the next.
       #
@@ -2050,7 +2050,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi type descriptor classes" do
+  it "the four FFI::Type class constants name the non-scalar descriptors" do
     result = ze0(<<~'RUBY')
       # `FFI::Type`'s four CLASS constants -- the non-scalar type descriptors.
       # `Array`/`Function`/`Struct` alias the canonical `FFI::ArrayType`/
@@ -2077,7 +2077,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi type list forms" do
+  it "a type list may be a constant, a repeated array or a word list" do
     result = ze0(<<~'RUBY')
       # Imported from the spinel corpus at c55d9bdb.
       # An ffi type list may be written the way a real adapter writes a long one:
@@ -2138,7 +2138,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi typedef aliases a scalar type" do
+  it "a typedef aliases a scalar type" do
     result = ze0(<<~'RUBY')
       # FFI `typedef :existing, :alias`: a library-local type alias,
       # declared before use as the gem requires, resolves in a later
@@ -2159,7 +2159,7 @@ describe "FFI programs" do
     _(result).must_answer "5\n"
   end
 
-  it "ffi typedefs and guarded directives" do
+  it "typedefs and guarded directives together" do
     result = ze0(<<~'RUBY')
       # The FFI type registry is whole-program: `FFI.typedef` writes it from
       # whatever namespace it stands in, and every `layout` after it reads it. The
@@ -2225,7 +2225,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi void return" do
+  it "a void-returning function works in any expression position" do
     result = ze0(<<~'RUBY')
       # Void-returning FFI functions through the real ffi gem API (ported from
       # spinel's ffi_func).
@@ -2255,7 +2255,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "ffi write roundtrip" do
+  it "every put_ writer round-trips through the matching get_ reader" do
     result = ze0(<<~'RUBY')
       # put_*/get_* round-trips through the real ffi gem API (ported from spinel's
       # ffi_write_*/ffi_read_* DSL): each writer stores a value at a byte offset
