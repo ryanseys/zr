@@ -32,6 +32,28 @@ cannot link a binary, `ze0 build` without `--emit` exits with status 3.
 | Preemption | a timer thread | a timer thread | a count at each safe point |
 | Answer held to | what ruby recorded | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
 
+### What wasm does not answer, and why it stays that way
+
+`test/baselines/wasm32-wasi.txt` names the end-to-end programs this
+target is allowed to fail. Two groups of them are not work that is
+waiting to be done.
+
+**Fibers, threads and ractors.** Each needs a second machine stack to
+switch onto, and a WASI module is given one, which the engine keeps
+(`docs/explanation/threads-fibers-and-ractors.md`). Nothing the runtime
+can call makes another. The answer is the **stack-switching proposal**,
+which would give a module its own suspendable continuations; wasmtime
+does not ship it, so `Fiber.new` raises `FiberError` here and the rows
+for `fiber_resume` and `threads_join` stay until an engine does.
+
+**Processes and signals.** WASI has no `fork`, no `exec` and no `kill`,
+and no proposal is pending for any of them, so `spawn` and `Signal.trap`
+stay on the baseline as well.
+
+The other rows are work: a memory bound a 32-bit module runs into, a
+socket table nobody has written, and `dlopen`, which wasm has no form
+for.
+
 A darwin or linux program that evals writes the machine code it
 compiles into itself. A module's code is fixed when the engine
 instantiates it, and WASI hands a guest no way to make a second one, so
