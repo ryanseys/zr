@@ -11,38 +11,57 @@ module Packing
   BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".freeze
   private_constant :INTEGERS, :BASE64
 
+  # The directives a template may name, the bytes a space is written
+  # with, the modifiers that follow a directive, and the star and the
+  # digits a count is written in.
+  KNOWN = "CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".freeze
+  SPACE = [32, 10, 9].freeze
+  MODIFIERS = [60, 62, 95, 33].freeze     # < > _ !
+  STAR = 42
+  DIGIT_0 = 48
+  DIGIT_9 = 57
+  private_constant :KNOWN, :SPACE, :MODIFIERS, :STAR, :DIGIT_0, :DIGIT_9
+
   # The template as [directive, count, big?] triples; count is nil
   # for none, :all for `*`. `check` off keeps an unknown directive, so
   # a caller that reads the template as it goes refuses in ruby's
   # order.
+  #
+  # Read by its bytes, with one String cut of it a directive:
+  # `template[i]` made one of every byte it looked at, and a program
+  # packs the same short template again and again -- one build of the
+  # compiler packs 555,616 times, mostly with `L<` and `Q<`.
   def self.directives(template, kind, check: true)
     out = []
     i = 0
-    while i < template.bytesize
-      c = template[i]
+    size = template.bytesize
+    while i < size
+      b = template.getbyte(i)
       i += 1
-      next if c == " " || c == "\n" || c == "\t"
+      next if SPACE.include?(b)
 
-      if check && !"CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".include?(c)
+      c = template[i - 1]
+      if check && !KNOWN.include?(c)
         raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'"
       end
 
       big = nil
       native = false
-      while i < template.bytesize && "<>_!".include?(template[i])
-        big = template[i] == ">" if template[i] == ">" || template[i] == "<"
-        native = true if template[i] == "_" || template[i] == "!"
+      while i < size && MODIFIERS.include?(template.getbyte(i))
+        m = template.getbyte(i)
+        big = m == 62 if m == 62 || m == 60
+        native = true if m == 95 || m == 33
         i += 1
       end
       c = c == "L" ? "Q" : "q" if native && (c == "L" || c == "l")
       count = nil
-      if i < template.bytesize && template[i] == "*"
+      if i < size && template.getbyte(i) == STAR
         count = :all
         i += 1
-      elsif i < template.bytesize && template[i] >= "0" && template[i] <= "9"
+      elsif i < size && template.getbyte(i) >= DIGIT_0 && template.getbyte(i) <= DIGIT_9
         count = 0
-        while i < template.bytesize && template[i] >= "0" && template[i] <= "9"
-          count = count * 10 + template[i].to_i
+        while i < size && template.getbyte(i) >= DIGIT_0 && template.getbyte(i) <= DIGIT_9
+          count = (count * 10) + (template.getbyte(i) - DIGIT_0)
           i += 1
         end
       end
@@ -249,7 +268,7 @@ module Packing
           text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
           at += 1
           (associates ||= []) << text
-          out << pack_integer(text.nil? ? 0 : Primitive.zr_str_bytes_address(text), 8, false)
+          push_integer(out, text.nil? ? 0 : Primitive.zr_str_bytes_address(text), 8, false)
         end
       when "U"
         each_item(items, at, count) { |item| out << utf8(integer_item(item)) }
@@ -269,7 +288,7 @@ module Packing
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
         each_item(items, at, count) do |item|
-          out << pack_integer(integer_item(item), size, big)
+          push_integer(out, integer_item(item), size, big)
         end
         at += count == :all ? items.size - at : (count || 1)
       end
@@ -291,8 +310,11 @@ module Packing
   end
 
   # An item an integer directive takes: a Numeric truncated to an Integer,
-  # or what `to_int` answers for anything else that has one.
+  # or what `to_int` answers for anything else that has one. An Integer
+  # is already one, and Kernel#Integer is a base and a keyword parameter
+  # away from saying so, which every element of a `Q<*` would pay.
   def self.integer_item(item)
+    return item if item.is_a?(Integer)
     return Integer(item) if item.is_a?(Numeric)
     raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" if item.nil? || !item.respond_to?(:to_int)
 
@@ -317,19 +339,36 @@ module Packing
     n.times { |i| yield items[at + i] }
   end
 
-  # The low `size` bytes of n in two's complement; a negative n is
-  # taken byte by byte so no shift leaves the fixnum range.
-  def self.pack_integer(n, size, big)
-    bytes = []
-    size.times do
-      bytes << (n & 255)
+  # The low `size` bytes of n in two's complement, appended to `out`; a
+  # negative n is taken byte by byte so no shift leaves the fixnum
+  # range. Appended, and not answered as a String of its own, because a
+  # `Q<*` over a long Array made one an element -- and an Array of its
+  # bytes, and a String a byte -- where the packed String stands right
+  # here to write into.
+  def self.push_integer(out, n, size, big)
+    first = out.bytesize
+    i = 0
+    while i < size
+      out << (n & 255)
       n >>= 8
+      i += 1
     end
-    bytes.reverse! if big
-    out = "".b
-    bytes.each { |b| out << b.chr }
+    reverse_bytes(out, first, size) if big
     out
   end
+
+  # The `n` bytes from `at` in the other order, where they stand.
+  def self.reverse_bytes(out, at, n)
+    i = 0
+    while i < n / 2
+      low = out.getbyte(at + i)
+      out.setbyte(at + i, out.getbyte(at + n - 1 - i))
+      out.setbyte(at + n - 1 - i, low)
+      i += 1
+    end
+  end
+
+  def self.pack_integer(n, size, big) = push_integer("".b, n, size, big)
 
   def self.pack_text(item, c, count)
     return item + (c == "Z" ? "\0" : "") if count == :all

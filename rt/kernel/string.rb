@@ -652,11 +652,28 @@ machine def zr_str_concat_codepoint(recv, c)
     end
     zr_str_set_binary(recv)
   end
+  # One byte onto a String whose characters are bytes: written where it
+  # goes. A String of its own for the one byte is a cell, a malloc and a
+  # copy, and `out << byte` is how a program writes bytes -- `Array#pack`
+  # writes every byte of every integer that way, which is four cells of
+  # an `L<` and eight of a `Q<`. The flags follow zr_str_concat's rule:
+  # plain ASCII onto plain ASCII stays plain ASCII, and the encoding
+  # cannot move, since zr_str_join_index answers the receiver's own for
+  # a piece that carries it.
+  if c < 128 || !zr_str_wide_p(recv)
+    n = RString.len(recv) + 1
+    zr_str_reserve(recv, n)
+    Machine.store8(RString.ptr(recv) + n - 1, 0, Machine.i8(c))
+    RString.set_len(recv, n)
+    Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+    if c >= 128 || (RBasic.flags(recv) & FL_ASCII) == 0
+      zr_str_modified(recv)
+    end
+    return recv
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  if c < 128 || !zr_str_wide_p(recv)
-    zr_buf_byte(b, c)
-  elsif c < 2048
+  if c < 2048
     zr_buf_byte(b, 192 | (c >> 6))
     zr_buf_byte(b, 128 | (c & 63))
   elsif c < 65536
