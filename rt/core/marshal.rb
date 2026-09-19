@@ -671,12 +671,44 @@ module Marshal
     end
 
     def constant(path, kind)
-      value = Object.const_get(path)
+      value = namespace(path)
       raise ArgumentError, "#{path} does not refer to #{kind == Class ? "class" : "module"}" unless value.is_a?(kind)
 
       value
-    rescue NameError
-      raise ArgumentError, "undefined #{kind == Class ? "class" : "module"} #{path}"
+    end
+
+    # `rb_path_to_class` (variable.c): the path walked from Object one
+    # component at a time. A component that names nothing stops with the
+    # path as far as the walk read it, which takes in the separator the
+    # walk had already stepped past -- so `Absent::Nested` is refused as
+    # "Absent::" and `Outer::Nope` as the whole of itself. A component
+    # that names something other than a class or a module is ruby's
+    # TypeError, whatever kind the caller wanted.
+    def namespace(path)
+      raise ArgumentError, "can't retrieve anonymous class #{path.inspect}" if path.empty? || path.start_with?("#")
+
+      found = Object
+      read = 0
+      while read < path.bytesize
+        stop = path.index(":", read) || path.bytesize
+        name = path.byteslice(read, stop - read)
+        read = stop
+        if read < path.bytesize
+          undefined(path, read) unless path.byteslice(read, 2) == "::"
+          read += 2
+        end
+        found = begin
+          found.const_get(name, false)
+        rescue NameError
+          undefined(path, read)
+        end
+        raise TypeError, "#{path} does not refer to class/module" unless found.is_a?(Module)
+      end
+      found
+    end
+
+    def undefined(path, read)
+      raise ArgumentError, "undefined class/module #{path.byteslice(0, read)}"
     end
 
     def keep(value)
