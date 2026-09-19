@@ -39,7 +39,7 @@ end
 # label of the frame that asked.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_eval_at(code, self_, cref, env, blk)
-  FrameMeta.set_parent(Machine.ptr(zr_code_word(code, 1)), Frame.meta(zr_caller_frame()))
+  FrameMeta.set_parent(Machine.ptr(zr_code_word(code, 1)), Frame.meta(zr_eval_frame()))
   Machine.call(:eval, Machine.ptr(zr_code_word(code, 0)), self_, cref, env, blk)
 end
 

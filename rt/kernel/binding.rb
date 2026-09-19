@@ -9,20 +9,33 @@ machine def zr_caller_frame
   Frame.prev(Task.top(zr_task()))
 end
 
+# The frame an eval takes its scope from: the nearest one written in
+# ruby. A call that came through `Method#call`, `Enumerable#each` or
+# any other builtin stands on a frame with no locals, no cref and no
+# block to lend, so the walk goes past it -- which is why
+# `method(:eval).call("x")` reads the caller's `x`. CRuby walks to the
+# same place, with rb_vm_get_ruby_level_next_cfp in
+# eval_string_with_cref, and takes that frame's whole block: its
+# locals, its ep, and the cref under it.
+sig [] => Ptr
+machine def zr_eval_frame
+  zr_frame_with_file(zr_caller_frame())
+end
+
 sig [] => Value
 machine def zr_eval_cref
-  Frame.cref(zr_caller_frame())
+  Frame.cref(zr_eval_frame())
 end
 
 sig [] => Value
 machine def zr_eval_block
-  Frame.blk(zr_caller_frame())
+  Frame.blk(zr_eval_frame())
 end
 
 # `(eval at file:line)`: the name ruby gives an eval that names no file.
 sig [] => Value
 machine def zr_eval_source_name
-  rec = zr_frame_with_file(zr_caller_frame())
+  rec = zr_eval_frame()
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("(eval at "), 9)
@@ -80,7 +93,7 @@ end
 
 sig [] => Value
 machine def zr_eval_env
-  zr_frame_env(zr_caller_frame())
+  zr_frame_env(zr_eval_frame())
 end
 
 # The parameters of the method the frame that asked for an eval runs
@@ -89,7 +102,7 @@ end
 # outside a method.
 sig [] => Value
 machine def zr_eval_parameters
-  zr_meta_parameters(Frame.meta(zr_caller_frame()))
+  zr_meta_parameters(Frame.meta(zr_eval_frame()))
 end
 
 sig [Value] => Value

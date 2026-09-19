@@ -56,6 +56,7 @@ module Ze0
         d zr_ary_clear Value a:Value unused:Value
         d zr_index_operand_m Value v:Value
         d zr_caller_frame Ptr
+        d zr_eval_frame Ptr
         d zr_eval_cref Value
         d zr_eval_block Value
         d zr_eval_source_name Value
