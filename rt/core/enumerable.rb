@@ -4,15 +4,10 @@
 # nil, so an `each` that stops on a truthy answer, as `find_index`
 # does, sees every element.
 module Enumerable
-  def map
-    return to_enum(:map) { enumerable_size } unless block_given?
+  def map(&blk)
+    return to_enum(:map) { enumerable_size } unless blk
 
-    out = []
-    each do |*x|
-      out << yield(*x)
-      nil
-    end
-    out
+    Primitive.zr_enum_collect(self, nil, blk)
   end
 
   def select
@@ -769,15 +764,10 @@ end
 module Enumerable
   # Its own body, so an Enumerator made from it names `collect`, and a
   # subclass's `map` is not called.
-  def collect
-    return to_enum(:collect) { enumerable_size } unless block_given?
+  def collect(&blk)
+    return to_enum(:collect) { enumerable_size } unless blk
 
-    out = []
-    each do |*x|
-      out << yield(*x)
-      nil
-    end
-    out
+    Primitive.zr_enum_collect(self, nil, blk)
   end
   alias filter select
   alias find_all select

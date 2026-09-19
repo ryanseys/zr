@@ -302,6 +302,42 @@ machine def zr_enum_each_block(p, argc, argv, blk)
   zr_yield1(RProc.self(p), zr_ary_of(argc, argv))
 end
 
+# `each` over `recv` with every value yielded straight through to
+# `blk`, and what `blk` answers kept in an Array: rb_block_call with
+# `collect_i`, which yields by rb_yield_values2 and so packs nothing.
+# A block of one parameter then sees the first value where `each`
+# yielded several, which is what `map` answers and what a packing
+# adapter cannot give.
+#
+# Written here rather than in `Enumerable#map` because a Ruby block
+# that takes `|*x|` to pass them on allocates that Array once an
+# element: 2,000,000 elements cost 242 ms that way and 65 ms this.
+# The adapter's self is the pair [Array, block], so both are held
+# where the collector already looks.
+sig [Value, Value, Value] => Value
+machine def zr_enum_collect(recv, args, blk)
+  kept = zr_ary_new(2)
+  zr_ary_push(kept, zr_ary_new(4))
+  zr_ary_push(kept, blk)
+  p = zr_native_proc(Machine.addr(:zr_enum_collect_block), kept)
+  if args == QNIL
+    r = zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+  else
+    r = zr_send_blk(recv, Machine.id(:each), RArray.len(args), RArray.ptr(args), p)
+  end
+  return r if r == QUNDEF
+  zr_ary_at(kept, 0)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_enum_collect_block(p, argc, argv, blk)
+  kept = RProc.self(p)
+  v = zr_yield(zr_ary_at(kept, 1), argc, argv)
+  return v if v == QUNDEF
+  zr_ary_push(zr_ary_at(kept, 0), v)
+  Machine.value(QNIL)
+end
+
 # A lambda whose body is the kernel function `fn`, with `self_` as
 # what it works on: a Symbol's or a Method's Proc.
 sig [Ptr, Value] => Value
@@ -674,9 +710,10 @@ machine def zr_block_call_live(p)
   false
 end
 
-# The kernel's each adapter (zr_enum_each) stands for the block it
-# hands one value at a time to, so that block's `break` leaves the
-# `each` the adapter was given to.
+# The kernel's each adapters (zr_enum_each, zr_enum_collect) stand for
+# the block they hand values to, so that block's `break` leaves the
+# `each` the adapter was given to. One keeps its block as its self, and
+# the other keeps it second in a pair.
 sig [Value, Value] => Bool
 machine def zr_same_block(given, p)
   if given == p
@@ -687,6 +724,9 @@ machine def zr_same_block(given, p)
   end
   if RProc.fn(given) == Machine.addr(:zr_enum_each_block)
     return zr_same_block(RProc.self(given), p)
+  end
+  if RProc.fn(given) == Machine.addr(:zr_enum_collect_block)
+    return zr_same_block(zr_ary_at(RProc.self(given), 1), p)
   end
   RProc.fn(given) == RProc.fn(p) && RProc.home(given) == RProc.home(p) && RProc.serial(given) == RProc.serial(p) && RProc.site(given) == RProc.site(p)
 end
