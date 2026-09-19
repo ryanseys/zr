@@ -98,10 +98,30 @@ machine def zr_env_get(env, i)
   Machine.value(Machine.load64(REnv.slots(env) + (i * 8), 0))
 end
 
+# The write barrier for a store into an Env's slots.
+#
+# A record's image is flagged FL_STACK and sits in no arena, so the
+# barrier steps over it. That is right while the slots are the frame's
+# own, which every collection reads as a root. Once a keeper has moved
+# the scope to a cell (`zr_env_escape`) the slots are the cell's, and a
+# minor collection reaches them through the cell alone -- and stops at
+# it once it is old. So from then on the barrier is the cell's, and a
+# store handed the image writes down nothing.
+#
+# This is what `vm_env_write_slowpath` (vm_insnhelper.c:514 at 4.0.6)
+# does: it remembers `VM_ENV_ENVVAL(ep)`, which is the cell, never the
+# frame. A heap Env holds QNIL in `cell` and answers for itself.
+sig [Value, Value] => Void
+machine def zr_env_barrier(env, v)
+  cell = REnv.cell(env)
+  zr_write_barrier(cell == QNIL ? env : cell, v)
+end
+Machine.inline :zr_env_barrier
+
 sig [Value, Word, Value] => Value
 machine def zr_env_set(env, i, v)
   Machine.store64(REnv.slots(env) + (i * 8), 0, Machine.word(v))
-  zr_write_barrier(env, v)
+  zr_env_barrier(env, v)
   v
 end
 

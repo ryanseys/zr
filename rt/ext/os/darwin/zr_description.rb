@@ -1393,6 +1393,7 @@ module Ze0
         d zr_env_escape Value env:Value
         d zr_env_up Value env:Value depth:Word
         d zr_env_get Value env:Value i:Word
+        d zr_env_barrier Void env:Value v:Value
         d zr_env_set Value env:Value i:Word v:Value
         d zr_mark_env Void e:Value
         d zr_mark_proc Void p:Value

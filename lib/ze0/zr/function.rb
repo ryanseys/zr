@@ -566,6 +566,11 @@ module Ze0
       # the frame, which every collection reads as a root, and the
       # kernel's barrier steps over it by its FL_STACK.
       #
+      # The barrier is `zr_env_barrier` and not `zr_write_barrier`,
+      # because `env` here is the frame's image wherever the scope has
+      # one, and after the scope escapes that image's slots are the
+      # cell's. The cell is what the barrier has to be handed.
+      #
       # The test emitted here is that `v` is a cell rather than an
       # immediate, which a store of a Fixnum, of nil, of true or false or
       # of a Symbol fails; the kernel's own does the rest.
@@ -576,7 +581,7 @@ module Ze0
         done = @f.label
         @f.brif(@f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil)), remember, done)
         switch(remember)
-        kernel("zr_write_barrier", env, v)
+        kernel("zr_env_barrier", env, v)
         @f.jump(done)
         switch(done)
       end
