@@ -73,6 +73,30 @@ class ParseCacheTest < Minitest::Test
     ParseCache.memo.clear
   end
 
+  # The memo is bounded, because a build parses each file once and would
+  # otherwise hold every tree it ever made until the build ended.
+  def test_the_memo_drops_the_least_recently_used_once_its_bound_is_passed
+    memo = Ze0::ParseCache::Memo.new(10)
+    memo.keep("a", :first, 4)
+    memo.keep("b", :second, 4)
+    memo["a"]
+    memo.keep("c", :third, 4)
+
+    assert_nil memo["b"]
+    assert_equal :first, memo["a"]
+    assert_equal :third, memo["c"]
+    assert_equal 8, memo.bytes
+  end
+
+  def test_a_source_larger_than_the_whole_bound_is_answered_and_not_held
+    memo = Ze0::ParseCache::Memo.new(10)
+    memo.keep("small", :kept, 4)
+
+    assert_equal :huge, memo.keep("huge", :huge, 11)
+    assert_nil memo["huge"]
+    assert_equal :kept, memo["small"]
+  end
+
   def test_a_result_read_back_answers_as_the_parse_did
     Dir.mktmpdir("ze0-parse-") do |dir|
       path = File.join(dir, "result.marshal")

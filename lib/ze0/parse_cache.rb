@@ -22,27 +22,91 @@ module Ze0
     OWN = [File.expand_path("../../rt/ext/prism/{prism.rb,ruby/**/*.rb}", __dir__), File.join(__dir__, "prism_backend/**/*.rb"),
            File.join(__dir__, "prism.rb"), __FILE__].freeze
 
+    # The source bytes whose parses a process keeps. A tree in memory is
+    # some tens of times its source, so this is a proxy and not a
+    # measurement; what it has to be is a bound.
+    MEMO_BYTES = 4 * 1024 * 1024
+
+    # The parses this process has made or read back, keyed as the cache
+    # files are, newest last, and bounded: past the bound the least
+    # recently asked for goes first.
+    #
+    # One result answers every caller. That is sound because a
+    # ParseResult is written once and read after: the port's setters
+    # (rt/ext/prism/ruby/mutation.rb) run while it builds the tree, and
+    # nothing downstream writes to a node.
+    #
+    # The bound is what makes the memo pay in both of the shapes that ask
+    # for it. A worker of the test tier runs a hundred examples that each
+    # require "set", and unmarshalling set.rb's tree a hundred times is
+    # the whole of what that costs -- so there the memo must hold. A
+    # build parses each file exactly once, so there it can only retain,
+    # and an unbounded one holds every tree of the program until the
+    # build ends, which a self-compile pays for in gigabytes the
+    # collector marks on every pass.
+    class Memo
+      Held = Data.define(:result, :bytes)
+
+      def initialize(bound)
+        @bound = bound
+        @held = {}
+        @bytes = 0
+      end
+
+      # What is held for source of this many bytes.
+      attr_reader :bytes
+
+      # The result under `key`, made the most recently used, or nil.
+      def [](key)
+        held = @held.delete(key) or return nil
+
+        @held[key] = held
+        held.result
+      end
+
+      # `result` held under `key`, and the least recently used dropped
+      # until what is held is inside the bound. A source larger than the
+      # whole bound is answered and not held, so one big file cannot
+      # empty the memo.
+      def keep(key, result, bytes)
+        return result if bytes > @bound
+
+        @bytes += bytes - (@held.delete(key)&.bytes || 0)
+        @held[key] = Held.new(result: result, bytes: bytes)
+        drop_oldest while @bytes > @bound
+        result
+      end
+
+      def clear
+        @held.clear
+        @bytes = 0
+      end
+
+      private
+
+      def drop_oldest
+        _, held = @held.shift
+        @bytes -= held.bytes
+      end
+    end
+
     module_function
 
     def parse(source, **options)
       key = key(source, options)
-      memo[key] ||= begin
-        path = File.join(directory, "#{key}.marshal")
-        read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
-      end
+      memo[key] || memo.keep(key, parsed(key, source, options), source.bytesize)
     end
 
-    # The parses this process has made or read back, by their key. A
-    # worker of the test tier runs a hundred examples that each require
-    # "set", and unmarshalling set.rb's tree a hundred times is the
-    # whole of what that costs.
-    #
-    # One result then answers every caller. That is sound because a
-    # ParseResult is written once and read after: the port's setters
-    # (rt/ext/prism/ruby/mutation.rb) run while it builds the tree, and
-    # nothing downstream writes to a node.
+    # The parse under `key`: what an earlier build left in the cache, else
+    # the port's, whose answer the next build reads back.
+    def parsed(key, source, options)
+      path = File.join(directory, "#{key}.marshal")
+      read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
+    end
+
+    # The parses this process holds.
     def memo
-      @memo ||= {}
+      @memo ||= Memo.new(MEMO_BYTES)
     end
 
     def key(source, options)

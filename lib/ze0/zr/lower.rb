@@ -208,7 +208,10 @@ module Ze0
           @unit_hidden = u.hidden
           open_unit(unit_entry(i))
           kept = finish && taken(u)
-          next finished.concat(kept) if kept
+          if kept
+            spent(u)
+            next finished.concat(kept)
+          end
 
           from = @data.size
           Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
@@ -217,6 +220,7 @@ module Ze0
           close_pool
           made = finished_functions(&finish)
           @units&.keep(u, @prefix, made, @data[from..])
+          spent(u)
           finished.concat(made)
         end
         open_unit
@@ -226,6 +230,24 @@ module Ze0
         @file = @program.file
         @warnings = @program.warnings || []
         [finish ? finished : @functions, @data]
+      end
+
+      # A unit whose code is made and kept, released. Its tree, its
+      # locals and its source are what the front end left for the
+      # lowering, nothing else reads them once the unit is lowered (each
+      # unit's code has come from its own file alone since a unit's names
+      # stopped depending on the compile order), and the cache has taken
+      # the source it keys on. A self-compile lowers some four thousand
+      # units, so holding every tree to the end of the build is most of
+      # what the collector marks on every pass.
+      #
+      # Only the streaming path releases: given no block, `run` answers
+      # every function at once and the caller may be a test that lowers a
+      # program and then dumps it.
+      def spent(unit)
+        unit.body = nil
+        unit.locals = nil
+        unit.source = nil
       end
 
       # The name every function of the unit being lowered starts from.
