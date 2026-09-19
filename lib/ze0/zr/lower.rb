@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require_relative "../hir"
 require_relative "../ir"
 require_relative "../obj/model"
@@ -101,7 +102,18 @@ module Ze0
         @data = []
         @functions = []
         @spelled = {}
+        open_unit
+      end
+
+      # A unit stands on its own: every name it spells starts from its
+      # own prefix and is numbered from its own counters, so the same
+      # file writes the same names whatever was compiled before it. The
+      # program's own file keeps the entry it was given.
+      def open_unit(prefix = @entry)
+        @prefix = prefix
         @next = 0
+        @lits = 0
+        @keyword_tables = {}
       end
 
       # `[functions, data]`: the program's toplevel, then one function
@@ -119,9 +131,11 @@ module Ze0
           @warnings = u.warnings || []
           @unit_internal = u.internal
           @unit_hidden = u.hidden
-          Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
+          open_unit(unit_entry(i))
+          Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
           finished.concat(finished_functions(&finish)) if finish
         end
+        open_unit
         @unit_internal = @ext
         @unit_hidden = false
         @file = @program.file
@@ -129,13 +143,24 @@ module Ze0
         [finish ? finished : @functions, @data]
       end
 
-      # The name every function this lowering makes starts from.
-      attr_reader :entry
+      # The name every function of the unit being lowered starts from.
+      def entry = @prefix
 
-      # A unit's toplevel: this program's unit at `index`, or the entry a
-      # road built already answers for a file it holds.
+      # A unit's toplevel: the entry a road built already answers for a
+      # file it holds, else a name made from this lowering's entry and
+      # the file. It is the file and not the place in the program, so
+      # that a unit's names -- and so its code -- do not move when a
+      # file is added before it. The entry is in the name because the
+      # core library is lowered a file at a time and each of those
+      # lowerings carries its own copy of what it requires: two copies
+      # of one file must still be two symbols.
       def unit_entry(index)
-        index.is_a?(String) ? index : "#{@entry}_unit_#{index}"
+        return index if index.is_a?(String)
+
+        file = @program.units[index]&.file
+        return "#{@entry}_unit_#{index}" unless file&.start_with?("/")
+
+        "zr_u#{Digest::SHA256.hexdigest("#{@entry}\0#{file}")[0, 16]}"
       end
 
       # The FrameMeta kind a function of `kind` gets here.
@@ -168,7 +193,8 @@ module Ze0
 
       # A read-only string literal, as data this unit carries.
       def literal(bytes)
-        name = "#{@entry}_lit_#{@data.size}"
+        name = "#{@prefix}_lit_#{@lits}"
+        @lits += 1
         @data << Obj::Data.new(name, :text_const, bytes.b, align: 1)
         name
       end
@@ -181,7 +207,7 @@ module Ze0
       # named from the site count so no two lowerings that share a symbol
       # table name the same cell.
       def cache_cell(prefix, bytes)
-        name = "zr_#{prefix}_#{@symbols.site}"
+        name = "#{@prefix}_cell_#{prefix}_#{number}"
         @data << Obj::Data.new(name, :bss, bytes, align: 8)
         name
       end
@@ -276,9 +302,8 @@ module Ze0
       # passes the same keys in the same order, so a def's shape cell
       # hits across them.
       def keyword_table(ids)
-        @keyword_tables ||= {}
         @keyword_tables[ids] ||= begin
-          name = "#{@entry}_kw_#{@data.size}"
+          name = "#{@prefix}_kw_#{@keyword_tables.size}"
           @data << Obj::Data.new(name, :text_const, ids.pack("Q<*"), align: 8)
           name
         end
@@ -286,7 +311,7 @@ module Ze0
 
       # The function a def becomes, lowered now and named for the site.
       def define(node)
-        name = "#{@entry}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
+        name = "#{@prefix}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
         Function.new(self, name, node.locals, node.body, node, :def).lower
         name
       end
@@ -294,7 +319,7 @@ module Ze0
       # The function a class, module or singleton class body becomes.
       def body(node)
         kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class)
-        name = "#{@entry}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
+        name = "#{@prefix}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
         Function.new(self, name, node.locals, node.body, node, kind).lower
         name
       end
@@ -302,7 +327,7 @@ module Ze0
       # The function a block literal becomes; `outer` is the Function it
       # is written in.
       def block(node, outer)
-        name = "#{@entry}_blk_#{number}"
+        name = "#{@prefix}_blk_#{number}"
         Function.new(self, name, node.locals, node.body, node, :block, outer: outer).lower
         name
       end
