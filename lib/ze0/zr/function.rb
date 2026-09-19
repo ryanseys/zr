@@ -628,9 +628,12 @@ module Ze0
       # `nodes` evaluated into fresh record slots, `extra` more reserved
       # after them; the block gets the address of the first slot and its
       # index, and the slots are free again after it.
-      def staged(nodes, extra = 0)
+      # `evaluate` lowers a node where `expr` is not what this caller
+      # wants: string interpolation takes its literal pieces as shared
+      # frozen Strings, since it hands none of them to the program.
+      def staged(nodes, extra = 0, evaluate: nil)
         base = reserve(nodes.size + extra)
-        nodes.each_with_index { |n, i| @f.store(expr(n), @rec, value_offset(base + i)) }
+        nodes.each_with_index { |n, i| @f.store(evaluate ? evaluate.call(n) : expr(n), @rec, value_offset(base + i)) }
         result = yield(@f.iadd(@rec, imm(value_offset(base))), base)
         release(base)
         result

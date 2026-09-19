@@ -51,7 +51,7 @@ module Ze0
               ends = [@f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0)]
               checked(node.static ? kernel("zr_range_literal", site_word, *ends) : kernel("zr_range_new", *ends))
             end
-          when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
+          when Hir::Interp then interp(node)
           when Hir::RegexpLit
             checked(kernel("zr_regexp_literal", site_word, @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
@@ -196,6 +196,30 @@ module Ze0
           return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
 
           imm([word].pack("Q<").unpack1("q<"))
+        end
+
+        # `"a#{b}c"`. The pieces between the embedded expressions are
+        # never handed to the program: `zr_str_interp` (rt/kernel/string.rb)
+        # reads their bytes and answers a String of its own. So each one is
+        # the shared frozen String of those bytes and not a String made
+        # again every time control passes the literal, which is what a
+        # piece cost before -- an allocation, a malloc and a copy each.
+        def interp(node)
+          staged(node.parts, evaluate: method(:interp_part)) do |argv|
+            checked(kernel("zr_str_interp", imm(node.parts.size), argv))
+          end
+        end
+
+        # A piece of an interpolation: the shared String where it is a
+        # literal this file wrote in UTF-8, and lowered as anything else
+        # otherwise. The shared table keys on bytes alone and so cannot
+        # tell two encodings apart, which is why a file of another script
+        # encoding keeps the plain form.
+        def interp_part(node)
+          text = node.is_a?(Hir::Literal) ? node.value : nil
+          return expr(node) unless text.is_a?(String) && text.encoding == ::Encoding::UTF_8
+
+          string_literal(text, "zr_str_literal_shared")
         end
 
         # A String literal, built by `fn` and tagged with the script
