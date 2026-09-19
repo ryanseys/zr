@@ -42,9 +42,7 @@ class ProgramsTest < Minitest::Test
   # find out that one has is to ask, and asking should not mean editing
   # this file. A row that passes under it comes out, with what it now
   # answers in the commit.
-  WASM_DEFECTS = {
-    "exceptions" => "an uncaught exception traps out of bounds instead of reporting and exiting 1"
-  }.freeze
+  WASM_DEFECTS = {}.freeze
 
   # `[stdout, stderr, status]` of `argv` under `env`. A run that passes
   # a bound is killed, and its status says which bound rather than

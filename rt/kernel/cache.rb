@@ -393,7 +393,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   if !zr_special_p(obj) && (RBasic.flags(obj) & (T_MASK | FL_FREEZE)) == T_OBJECT && Task.ractor(zr_task()) == 0
     t = RObject.iv(obj)
     if IvarCache.index(ic) == IvTab.len(t) && zr_ivtab_row(t, id) == 0
-      zr_ivtab_append(t, id, v)
+      zr_ivtab_append(t, id, v, obj)
       return v
     end
   end
@@ -409,7 +409,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   if e == 0
     # A new row goes last, where the next guess finds it.
     IvarCache.set_index(ic, IvTab.len(t))
-    zr_ivtab_set(t, id, v)
+    zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
   else
     IvEntry.set_value(e, v)
   end

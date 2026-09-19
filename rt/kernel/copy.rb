@@ -6,15 +6,15 @@
 # The rows of one ivar table copied into another, fresh, table; the
 # object id and the mark a core class puts on a cell it has built
 # stay with the original.
-sig [Ptr, Ptr] => Void
-machine def zr_ivtab_copy(to, from)
+sig [Ptr, Ptr, Value] => Void
+machine def zr_ivtab_copy(to, from, owner)
   IvTab.set_len(to, 0)
   IvTab.set_names(to, 0)
   i = 0
   while i < IvTab.len(from)
     e = IvTab.rows(from) + (i * IvEntry.size)
     if IvEntry.id(e) != Machine.id(:__object_id__) && IvEntry.id(e) != Machine.id(:__built__)
-      zr_ivtab_set(to, IvEntry.id(e), IvEntry.value(e))
+      zr_ivtab_set_in(to, IvEntry.id(e), IvEntry.value(e), owner)
     end
     i += 1
   end
@@ -30,7 +30,7 @@ machine def zr_copy_payload(copy, orig)
   if t == T_OBJECT
     # The cell's bytes came over, rows pointer and all.
     zr_obj_ivtab_init(copy)
-    zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig))
+    zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig), copy)
   elsif t == T_STRING
     zr_str_buf_new(copy, 0)
     Machine.store8(RString.ptr(copy), 0, Machine.i8(0))
@@ -82,7 +82,7 @@ machine def zr_copy_payload(copy, orig)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
   end
   if (RBasic.flags(orig) & FL_EXIVAR) != 0
-    zr_ivtab_copy(zr_exivar_tab_for_write(copy), zr_exivar_tab(orig))
+    zr_ivtab_copy(zr_exivar_tab_for_write(copy), zr_exivar_tab(orig), Machine.value(QNIL))
   end
   copy
 end
@@ -225,8 +225,8 @@ machine def zr_class_copy(orig)
     ClassExt.set_clen(ext, ClassExt.clen(from))
     ClassExt.set_ccap(ext, ClassExt.clen(from))
   end
-  zr_ivtab_copy(ClassExt.iv(ext), ClassExt.iv(from))
-  zr_ivtab_copy(ClassExt.cv(ext), ClassExt.cv(from))
+  zr_ivtab_copy(ClassExt.iv(ext), ClassExt.iv(from), Machine.value(QNIL))
+  zr_ivtab_copy(ClassExt.cv(ext), ClassExt.cv(from), Machine.value(QNIL))
   if zr_type(orig) == T_CLASS
     zr_make_metaclass(copy)
   end

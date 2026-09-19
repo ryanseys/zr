@@ -350,7 +350,7 @@ module Ze0
         d zr_cont_roots Void roots:Value
         d zr_cont_capture Value cont:Value
         d zr_cont_resume Value cont:Value
-        d zr_ivtab_copy Void to:Ptr from:Ptr
+        d zr_ivtab_copy Void to:Ptr from:Ptr owner:Value
         d zr_copy_payload Value copy:Value orig:Value
         d zr_copy_cell Value orig:Value
         d zr_copy_allocatable Value recv:Value
@@ -1061,6 +1061,7 @@ module Ze0
         d zr_mark_ivtab Void t:Ptr
         d zr_release_ivtab Void t:Ptr
         d zr_ivtab_embedded_p Bool t:Ptr
+        d zr_ivtab_owner Value obj:Value
         d zr_obj_alloc Value klass:Value
         d zr_obj_ivars_seen Void o:Value n:Word
         d zr_obj_ivtab_init Void o:Value
@@ -1078,7 +1079,8 @@ module Ze0
         d zr_ivar_id_visible_p Bool id:Word
         d zr_ivar_set Value obj:Value id:Word v:Value
         d zr_ivtab_set Void t:Ptr id:Word v:Value
-        d zr_ivtab_append Void t:Ptr id:Word v:Value
+        d zr_ivtab_set_in Void t:Ptr id:Word v:Value owner:Value
+        d zr_ivtab_append Void t:Ptr id:Word v:Value owner:Value
         d zr_site_literal Value g:Word index:Word
         d zr_site_literal_set Void g:Word index:Word v:Value
         d zr_range_literal Value index:Word low:Value high:Value excl:Word

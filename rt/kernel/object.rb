@@ -76,9 +76,27 @@ machine def zr_release_ivtab(t)
   end
 end
 
+# Whether `t`'s rows sit in the cell right behind the table, which is
+# how `zr_obj_ivtab_init` lays a T_OBJECT out. The address alone does
+# not say so: a table on the heap whose rows were allocated right after
+# its header answers the same, and a bump allocator makes that the
+# common case rather than a curiosity. So this is asked only of a table
+# an object owns, where the rows can be inside the cell or on the heap
+# and nothing else can land between.
 sig [Ptr] => Bool
 machine def zr_ivtab_embedded_p(t)
   IvTab.rows(t) == t + IvTab.size
+end
+
+# The object whose cell holds `t`'s rows, or nil where they are on the
+# heap. Only a T_OBJECT lays its rows inside its own cell, so only a
+# T_OBJECT can answer.
+sig [Value] => Value
+machine def zr_ivtab_owner(obj)
+  if !zr_special_p(obj) && (RBasic.flags(obj) & T_MASK) == T_OBJECT
+    return obj
+  end
+  Machine.value(QNIL)
 end
 
 # An instance of `klass` in the cell its class's instances have needed
@@ -224,7 +242,7 @@ end
 # locks after it is frozen, as the C fields of CRuby's do.
 sig [Value, Value, Value] => Value
 machine def zr_state_set(obj, name, v)
-  zr_ivtab_set(zr_ivtab_for_write(obj), zr_sym2id(name), v)
+  zr_ivtab_set_in(zr_ivtab_for_write(obj), zr_sym2id(name), v, zr_ivtab_owner(obj))
   v
 end
 
@@ -271,7 +289,7 @@ machine def zr_obj_object_id(recv, argc, argv, cref, blk)
   n = Machine.load64(counter, 0) + 8
   Machine.store64(counter, 0, n)
   id = zr_fix(n)
-  zr_ivtab_set(t, Machine.id(:__object_id__), id)
+  zr_ivtab_set_in(t, Machine.id(:__object_id__), id, zr_ivtab_owner(recv))
   id
 end
 
@@ -287,15 +305,22 @@ machine def zr_ivar_set(obj, id, v)
     return zr_frozen_error(obj)
   end
   t = zr_ivtab_for_write(obj)
-  zr_ivtab_set(t, id, v)
+  zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
   v
 end
 
+# A row in a table no object owns: the class variables, the globals,
+# the caches. Their rows are always on the heap.
 sig [Ptr, Word, Value] => Void
 machine def zr_ivtab_set(t, id, v)
+  zr_ivtab_set_in(t, id, v, Machine.value(QNIL))
+end
+
+sig [Ptr, Word, Value, Value] => Void
+machine def zr_ivtab_set_in(t, id, v, owner)
   e = zr_ivtab_row(t, id)
   if e == 0
-    zr_ivtab_append(t, id, v)
+    zr_ivtab_append(t, id, v, owner)
   else
     IvEntry.set_value(e, v)
   end
@@ -303,8 +328,8 @@ end
 
 # A row for `id`, which no row holds yet, past the last; the rows grow
 # when full.
-sig [Ptr, Word, Value] => Void
-machine def zr_ivtab_append(t, id, v)
+sig [Ptr, Word, Value, Value] => Void
+machine def zr_ivtab_append(t, id, v, owner)
   n = IvTab.len(t)
   if n == IvTab.cap(t)
     cap = n * 2
@@ -314,8 +339,11 @@ machine def zr_ivtab_append(t, id, v)
     rows = zr_xmalloc(cap * IvEntry.size)
     if IvTab.rows(t) != 0
       zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
-      if zr_ivtab_embedded_p(t)
-        zr_obj_ivars_seen(Machine.value(t - RBasic.size), n + 1)
+      # The rows that were in the cell are left where they are, and the
+      # class is told that its objects want room for one more. Anything
+      # else is a heap block this table is done with.
+      if owner != QNIL && zr_ivtab_embedded_p(t)
+        zr_obj_ivars_seen(owner, n + 1)
       else
         zr_xfree(IvTab.rows(t))
       end
