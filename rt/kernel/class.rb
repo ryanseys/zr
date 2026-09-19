@@ -2251,6 +2251,85 @@ machine def zr_using_holders(list, mod)
   zr_ary_splat(list, found)
 end
 
+# The class a row's element stands over, or nil for anything else that
+# reached the row: a row is filled from `Module#refinements`, which is
+# ruby, and a program may answer it with whatever it likes.
+sig [Value] => Value
+machine def zr_refined_target(h)
+  if zr_special_p(h) || zr_type(h) != T_MODULE
+    return Machine.value(QNIL)
+  end
+  ClassExt.refined(RClass.ext(h))
+end
+
+# Whether a holder over `target` stands before `stop` in the row.
+sig [Value, Value, Word] => Bool
+machine def zr_refined_target_seen_p(list, target, stop)
+  i = 0
+  while i < stop
+    if zr_refined_target(zr_ary_at(list, i)) == target
+      return true
+    end
+    i += 1
+  end
+  false
+end
+
+# `Module.used_refinements`: every refinement in force where the caller
+# stands, in the order CRuby answers. Its table is keyed by the refined
+# class and holds the head of that class's chain, so its answer is the
+# refined classes in the order a `using` first reached them and, down
+# each one, the newest refinement first. The activation row is one flat
+# list in `using` order, so a walk per distinct target gives both orders
+# back.
+#
+# This is a builtin because a compiled ruby frame starts with no
+# refinements in use -- they belong to the call site, not to what the
+# site called -- while a builtin's frame keeps the row the site filled.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_used_refinements(recv, argc, argv, cref, blk)
+  out = zr_ary_new(4)
+  list = Task.refine(zr_task())
+  if zr_special_p(list) || zr_type(list) != T_ARRAY
+    return out
+  end
+  n = RArray.len(list)
+  i = 0
+  while i < n
+    target = zr_refined_target(zr_ary_at(list, i))
+    if target != QNIL && !zr_refined_target_seen_p(list, target, i)
+      k = n - 1
+      while k >= 0
+        h = zr_ary_at(list, k)
+        if zr_refined_target(h) == target
+          zr_ary_push(out, h)
+        end
+        k -= 1
+      end
+    end
+    i += 1
+  end
+  out
+end
+
+# `Module.used_modules`: the module each refinement in use was written
+# in, in the same order and without repeats -- a module that refines two
+# classes stands in two chains, and CRuby uniqs.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_used_modules(recv, argc, argv, cref, blk)
+  found = zr_mod_used_refinements(recv, argc, argv, cref, blk)
+  out = zr_ary_new(4)
+  i = 0
+  while i < RArray.len(found)
+    origin = zr_ivar_get(zr_ary_at(found, i), Machine.id(:__origin__))
+    if zr_ary_index_of(out, origin) < 0
+      zr_ary_push(out, origin)
+    end
+    i += 1
+  end
+  out
+end
+
 # The walk a lookup makes with refinements in use: at each node of the
 # chain, a refinement of that node's class or module answers before
 # the node's own table, so a subclass's own method still wins over a

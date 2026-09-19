@@ -426,6 +426,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_MODULE), Machine.id(:remove_class_variable), Machine.addr(:zr_mod_remove_class_variable), 1)
   zr_builtin(zr_singleton_class(zr_global(G_MODULE)), Machine.id(:nesting), Machine.addr(:zr_mod_nesting), 0)
   zr_builtin(zr_singleton_class(zr_global(G_MODULE)), Machine.id(:constants), Machine.addr(:zr_mod_s_constants), 0 - 1)
+  zr_builtin(zr_singleton_class(zr_global(G_MODULE)), Machine.id(:used_modules), Machine.addr(:zr_mod_used_modules), 0)
+  zr_builtin(zr_singleton_class(zr_global(G_MODULE)), Machine.id(:used_refinements), Machine.addr(:zr_mod_used_refinements), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:undefined_instance_methods), Machine.addr(:zr_mod_undefined_instance_methods), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:subclasses), Machine.addr(:zr_class_subclasses), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:remove_instance_variable), Machine.addr(:zr_obj_remove_instance_variable), 1)

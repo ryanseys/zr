@@ -1344,7 +1344,7 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
   if refined != QNIL
     inner = zr_send(refined, Machine.id(:to_s), 0, 0)
     return inner if inner == QUNDEF
-    origin = zr_send(zr_ivar_get(recv, Machine.id(:@__origin__)), Machine.id(:to_s), 0, 0)
+    origin = zr_send(zr_ivar_get(recv, Machine.id(:__origin__)), Machine.id(:to_s), 0, 0)
     return origin if origin == QUNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)

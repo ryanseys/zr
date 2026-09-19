@@ -257,6 +257,10 @@ module Ze0
         d zr_using_default Value id:Word from:Word
         d zr_using_activate Value id:Word mod:Value from:Word
         d zr_using_holders Value list:Value mod:Value
+        d zr_refined_target Value h:Value
+        d zr_refined_target_seen_p Bool list:Value target:Value stop:Word
+        d zr_mod_used_refinements Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_mod_used_modules Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_refined_search Ptr klass:Value mid:Word
         d zr_refined_entry_at Ptr target:Value mid:Word
         d zr_found_refinement Value

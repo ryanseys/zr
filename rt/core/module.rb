@@ -188,7 +188,7 @@ class Module
     holder = table[target]
     unless holder
       holder = Primitive.zr_refinement_new(target, @__activated__ ||= [])
-      holder.instance_variable_set(:@__origin__, self)
+      Primitive.zr_hidden_set(holder, :__origin__, self)
       table[target] = holder
     end
     Primitive.zr_refine_body(block, holder)
@@ -206,9 +206,10 @@ class Module
   end
   private :using
 
-  def self.used_modules = []
-
-  def self.used_refinements = []
+  # `Module.used_modules` and `Module.used_refinements` are builtins
+  # (zr_mod_used_modules): a compiled ruby frame starts with no
+  # refinements in use, so only a frame the kernel pushes still holds
+  # the row the call site filled.
 
   private
 
