@@ -20,11 +20,26 @@ module Ze0
         return items.map(&work) if jobs <= 1 || weights.sum < floor || !Process.respond_to?(:fork)
 
         answers = Array.new(items.size)
+        warmed
         failures = dealt(weights, jobs).map { |bin| started(items, bin, work) }.filter_map do |pid, reader, bin|
           collected(pid, reader, bin, answers)
         end
         raise_first(failures) unless failures.empty?
         answers
+      end
+
+      # What the parent owes its workers before it forks.
+      # `Process.warmup` runs a full collection, compacts what is left and
+      # promotes it to the old generation, then frees the pages that came
+      # empty: a worker then inherits a heap whose objects a minor
+      # collection steps over, instead of one it marks again and dirties
+      # a page at a time.
+      #
+      # Sampled while a self-compile ran, a worker spent 92% of its
+      # running time in ruby's collector and the parent 64%, and nearly
+      # all of the worker's was marking what the fork had given it.
+      def warmed
+        Process.warmup if Process.respond_to?(:warmup)
       end
 
       # The item indexes of each bin: the heaviest item first, each to the
