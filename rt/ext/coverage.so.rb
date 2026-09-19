@@ -21,7 +21,10 @@ module Coverage
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
     mode = mode_of(args)
-    Primitive.zr_unimplemented("Coverage of methods") if mode[:methods]
+    # A string an eval compiles is not a file the build read, so no line
+    # of it is measurable and `:all`, which asks for this one too, stops
+    # here by name rather than answering a file short of its evals.
+    Primitive.zr_unimplemented("Coverage of eval") if mode[:eval]
     Primitive.zr_hidden_set(self, :__mode__, mode)
     shift(:suspended)
     nil
@@ -107,6 +110,7 @@ module Coverage
         counts.each_with_index { |count, i| into[i] = (into[i] || 0) + count }
       end
       runs = mode[:branches] ? Primitive.zr_coverage_branch_counts(clear) : nil
+      claims = mode[:methods] ? claimed(Primitive.zr_coverage_method_counts(clear)) : nil
       totals.to_h do |path, counts|
         lines = lines_of(path, counts)
         next [path, lines.freeze] if mode.empty?
@@ -115,6 +119,7 @@ module Coverage
         shaped[:lines] = lines.freeze if mode[:lines]
         shaped[:oneshot_lines] = lines.each_index.select { |i| lines[i]&.positive? }.map { |i| i + 1 }.freeze if mode[:oneshot_lines]
         shaped[:branches] = branches_of(path, runs).freeze if runs
+        shaped[:methods] = (claims[path] || {}).freeze if claims
         [path, shaped]
       end.freeze
     end
@@ -137,6 +142,44 @@ module Coverage
         end
       end
       out
+    end
+
+    # Each method a definition claimed while coverage was set up, as
+    # `{path => {[owner, name, start line, start column, end line, end
+    # column] => count}}`. The claim carries the owner and the name, and
+    # the def-site row it names carries the span; a file coverage did not
+    # measure drops out with its lines, and two claims of one key add,
+    # which is what the C extension does with a method defined twice.
+    def claimed(rows)
+      sites = def_table
+      out = {}
+      rows.each_slice(4) do |site, owner, name, count|
+        where = sites[site] or next
+
+        path, span = where
+        methods = (out[path] ||= {})
+        key = [owner, name, *span].freeze
+        methods[key] = (methods[key] || 0) + count
+      end
+      out
+    end
+
+    # Every def site the compiler wrote down, by its id: the file it was
+    # written in and the span ruby names a method made from it by.
+    def def_table
+      Primitive.zr_hidden_get(self, :__defs__) || Primitive.zr_hidden_set(self, :__defs__, compiled_defs)
+    end
+
+    def compiled_defs
+      sites = {}
+      Primitive.zr_load_names(8).lines(chomp: true).each do |row|
+        path, *cells = row.split("\t")
+        cells.each do |cell|
+          id, *span = cell.split(",").map { |n| Integer(n) }
+          sites[id] = [path, span]
+        end
+      end
+      sites
     end
 
     # The branch rows the compiler wrote down, by file.

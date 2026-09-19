@@ -1540,6 +1540,7 @@ machine def zr_meta_at(rec)
   FrameMeta.set_box(meta, Machine.value(QNIL))
   FrameMeta.set_ruby(meta, 0)
   FrameMeta.set_node(meta, zr_frame_node_id(rec))
+  FrameMeta.set_cover(meta, 0)
   meta
 end
 

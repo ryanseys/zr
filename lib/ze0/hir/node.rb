@@ -25,9 +25,10 @@ module Ze0
     # `activations` is how many `using` rows this program holds, which a
     # build at run time takes its own rows after.
     # `branches` holds each measured file's branch rows, by file name, in
-    # the order Coverage numbers them.
+    # the order Coverage numbers them, and `defs` each file's def and
+    # block spans, which a definition claims to become a method row.
     Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable, :activations,
-                         :branches)
+                         :branches, :defs)
     # `hidden` when the unit loads only for the runtime's own use, as the
     # eval road's files do.
     Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden)
@@ -92,7 +93,7 @@ module Ze0
     BlockPass = Struct.new(:value, :line)
     # A block literal: its parameters, every local of its scope
     # (parameters first), and its body.
-    Block = Struct.new(:params, :locals, :body, :line, :end_line)
+    Block = Struct.new(:params, :locals, :body, :line, :end_line, :cover)
     # `-> (params) { body }`: a Block that is a lambda from the start.
     Lambda = Struct.new(:block, :line)
     # The one parameter shape: `required` and `post` are names,
@@ -171,7 +172,7 @@ module Ze0
     # `def name(params) body end`; its value is the name. `params` is a
     # Params; `receiver` is the expression of a singleton def
     # (`def self.x`, `def obj.x`), or nil.
-    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver, :evals, :end_line)
+    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver, :evals, :end_line, :cover)
     # `depth` counts block scopes up to the one that holds the local.
     Local = Struct.new(:name, :depth, :line)
     # The point a traced program fires a TracePoint `event` from: a

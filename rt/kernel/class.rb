@@ -33,7 +33,7 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # `define_method` body runs under, made at the first call (eval.rb,
 # `zr_bmethod_cref`). An entry is 88 bytes: a Method's cell embeds one
 # after three Values, and a 128-byte cell holds no more.
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
 # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
 # own entry, whose name and cref its frame records, and the chain node
@@ -970,6 +970,7 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     FrameMeta.set_box(meta, Machine.value(QNIL))
     FrameMeta.set_ruby(meta, 0)
     FrameMeta.set_node(meta, 0)
+    FrameMeta.set_cover(meta, 0)
   elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
     # The same def run under another class (a class body in a block
     # that runs twice) gets a meta of its own, so each keeps its owner.
@@ -983,9 +984,12 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   core = !zr_program_started_p() || zr_internal_meta_p(meta) ? ROW_CORE : 0
   if modfn
     single = zr_singleton_class(klass)
-    zr_method_add_row(single, mid, fn, arity, kind, zr_meta_owned(meta, single), cref, VIS_PUBLIC | core)
+    owned = zr_meta_owned(meta, single)
+    zr_method_add_row(single, mid, fn, arity, kind, owned, cref, VIS_PUBLIC | core)
+    zr_coverage_method_claim(single, mid, owned)
   end
   zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis | core)
+  zr_coverage_method_claim(klass, mid, meta)
   # Under `module_function` one def makes two methods, and ruby reports
   # both of them.
   r = zr_method_added(klass, mid)
@@ -1049,10 +1053,18 @@ machine def zr_define_bmethod(klass, mid, meta, body, cref)
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
   modfn = cref != QNIL && RCref.modfn(cref) != 0
+  # `meta` is the frame the call stands in, which is what a backtrace
+  # names; Coverage names the block instead, so the row is claimed from
+  # the Proc's own meta -- and a Proc a Symbol or a Method made has
+  # none, which is where CRuby's rb_proc_get_iseq answers nothing.
+  block_meta = RProc.meta(body)
   if modfn
-    zr_method_add_vis(zr_singleton_class(klass), mid, 0, 0 - 1, KIND_BMETHOD, meta, body, VIS_PUBLIC)
+    single = zr_singleton_class(klass)
+    zr_method_add_vis(single, mid, 0, 0 - 1, KIND_BMETHOD, meta, body, VIS_PUBLIC)
+    zr_coverage_method_claim(single, mid, block_meta)
   end
   zr_method_add_vis(klass, mid, 0, 0 - 1, KIND_BMETHOD, meta, body, zr_definition_vis(mid, cref))
+  zr_coverage_method_claim(klass, mid, block_meta)
   r = zr_method_added(klass, mid)
   return r if r == QUNDEF || !modfn
 
@@ -1161,6 +1173,7 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
   MEntry.set_core(e, core ? 1 : 0)
+  MEntry.set_cover(e, 0)
   IvarCache.set_index(MEntry.ivar(e), 0)
   zr_gates_recheck(mid)
 end
@@ -1356,10 +1369,14 @@ machine def zr_method_copy(klass, mid, e, meta, vis, found)
   if found && from == QNIL
     from = Task.found(zr_task())
   end
+  cover = MEntry.cover(e)
   zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), meta, MEntry.cref(e), vis)
   e = zr_find_method_at(zr_origin(klass), mid)
   MEntry.set_orig(e, orig)
   MEntry.set_from(e, from)
+  # An alias counts where the method it was made from counts, which is
+  # what rb_resolve_me_location gives the :call event.
+  MEntry.set_cover(e, cover)
 end
 
 # `private`, `public`, `protected` and `module_function` as a class

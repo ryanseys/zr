@@ -280,6 +280,7 @@ end
 # the method the body was written in).
 sig [Ptr, Value, Word, Ptr, Value] => Value
 machine def zr_bmethod_call(e, recv, argc, argv, blk)
+  zr_coverage_method(e)
   body = MEntry.cref(e)
   if RProc.meta(body) == 0
     # a Symbol's or Method's Proc works on its arguments alone

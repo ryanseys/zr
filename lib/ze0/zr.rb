@@ -284,7 +284,7 @@ module Ze0
       end
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
       tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
-                           branches: hir.branches || {}, target: target)
+                           branches: hir.branches || {}, defs: hir.defs || {}, target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)
     end
 
@@ -455,7 +455,7 @@ module Ze0
     # file and the compiling ruby's install layout, which every program
     # carries. `units` are `[path, entry]`
     # pairs; a unit that only stops has no path.
-    def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, target: Target.default)
+    def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
       # A name ruby carries that no root here holds, and after a tab the
       # reason where there is one to give, so a require the program
@@ -477,6 +477,11 @@ module Ze0
       # this branch bumps, and `root` the side's own root by its place in
       # the file, empty for a root.
       names << branches.map { |file, rows| "#{file}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+      # Where each def and each block of a measured file was written, a
+      # row a file: its path, then one `id,start line,start column,end
+      # line,end column` a scope. A definition claims the row by its id,
+      # which is how a method row learns its span.
+      names << defs.map { |file, rows| "#{file}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

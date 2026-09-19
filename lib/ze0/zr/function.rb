@@ -91,6 +91,7 @@ module Ze0
         # where it hands the turn on, once its record holds its arguments.
         preempt if @kind == :def
         trace_open
+        cover_method if @kind == :def && method_cover
         if @kind == :block
           @body_label = @f.label
           @f.jump(@body_label)
@@ -105,6 +106,12 @@ module Ze0
         @l.functions << @f
         @f
       end
+
+      # The def-site row this scope claims when it makes a method, or
+      # nil where the program measures none. A block carries one too:
+      # `define_method` makes a method of one, and ruby locates that
+      # method at the block.
+      def method_cover = %i[def block].include?(@kind) ? @def&.cover : nil
 
       # The record slot of the local `node` names, `node.depth` scopes up.
       def slot_at(node)
@@ -204,7 +211,7 @@ module Ze0
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
         node_id = @def ? @l.node_id(@def) : 0
         @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby),
-                        captures: true, node: node_id)
+                        captures: true, node: node_id, cover: method_cover)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))

@@ -197,7 +197,7 @@ module Ze0
       end
 
       def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false,
-               captures: false, node: 0)
+               captures: false, node: 0, cover: nil)
         layout = layout("FrameMeta")
         file = file_bytes
         bytes = ("\0" * layout.size).b
@@ -207,6 +207,9 @@ module Ze0
         word.call("kind", const(kind))
         word.call("line", line)
         word.call("node", node)
+        # The def-site row this scope claims when it makes a method,
+        # plus one, so that 0 stands for a program measuring none.
+        word.call("cover", cover ? cover + 1 : 0)
         word.call("arity", params ? params.arity : 0)
         word.call("env", env ? 1 : 0)
         word.call("ruby", ruby ? 1 : 0)

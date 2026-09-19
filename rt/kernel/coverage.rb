@@ -53,6 +53,14 @@ machine def zr_coverage_forget(c)
   end
   Coverage.set_branches(c, 0)
   Coverage.set_branch_size(c, 0)
+  rows = zr_global(G_COVERAGE_METHODS)
+  if !zr_special_p(rows) && zr_type(rows) == T_ARRAY
+    i = 3
+    while i < RArray.len(rows)
+      zr_ary_store(rows, i, zr_fix(0))
+      i += 4
+    end
+  end
 end
 
 # The row of the file whose bytes are at `file`, made now when the file
@@ -196,6 +204,81 @@ machine def zr_coverage_counts(clear)
       zr_ary_push(out, pair)
     end
     i += 1
+  end
+  out
+end
+
+# The methods Coverage names, which are the definitions that ran while
+# it was set up: one row of four for each, `[def-site id, owner, name,
+# count]`, flat, in a global so the collector keeps the owners. The rows
+# outlive a `forget`, since a method entry names its row by place and a
+# file that has already been measured is never measured again; what a
+# `forget` and a `clear` drop is the counts.
+G_COVERAGE_METHODS = 53
+
+sig [] => Value
+machine def zr_coverage_method_rows
+  rows = zr_global(G_COVERAGE_METHODS)
+  if zr_special_p(rows) || zr_type(rows) != T_ARRAY
+    rows = zr_ary_new(64)
+    zr_set_global(G_COVERAGE_METHODS, rows)
+  end
+  rows
+end
+
+# A definition of `mid` on `klass` from the scope `meta` names: its row,
+# which the entry then names by place. A scope no measured file wrote
+# carries no def-site id and claims nothing.
+sig [Value, Word, Ptr] => Void
+machine def zr_coverage_method_claim(klass, mid, meta)
+  c = zr_coverage()
+  if Coverage.setup(c) == 0 || meta == 0 || FrameMeta.cover(meta) == 0
+    return
+  end
+  e = zr_find_method_at(zr_origin(klass), mid)
+  if e == 0
+    return
+  end
+  rows = zr_coverage_method_rows()
+  MEntry.set_cover(e, (RArray.len(rows) / 4) + 1)
+  zr_ary_push(rows, zr_fix(FrameMeta.cover(meta) - 1))
+  zr_ary_push(rows, zr_origin(klass))
+  zr_ary_push(rows, zr_sym(mid))
+  zr_ary_push(rows, zr_fix(0))
+end
+
+# One more run of the method `e` names, while coverage runs: what CRuby
+# counts on the :call event, for a def and for a `define_method` block
+# alike. An alias holds the row its original claimed, as CRuby resolves
+# an alias to the entry it was made from.
+sig [Ptr] => Void
+machine def zr_coverage_method(e)
+  c = zr_coverage()
+  if Coverage.running(c) == 0 || MEntry.cover(e) == 0
+    return
+  end
+  rows = zr_global(G_COVERAGE_METHODS)
+  i = ((MEntry.cover(e) - 1) * 4) + 3
+  zr_ary_store(rows, i, zr_fix(zr_fix2long(zr_ary_at(rows, i)) + 1))
+end
+
+# Every method row, as the Ruby half reads them; `clear` zeroes the
+# counts after, and leaves the rows where the entries point at them.
+sig [Value] => Value
+machine def zr_coverage_method_counts(clear)
+  rows = zr_coverage_method_rows()
+  out = zr_ary_new(RArray.len(rows))
+  i = 0
+  while i < RArray.len(rows)
+    zr_ary_push(out, zr_ary_at(rows, i))
+    i += 1
+  end
+  if clear == QTRUE
+    i = 3
+    while i < RArray.len(rows)
+      zr_ary_store(rows, i, zr_fix(0))
+      i += 4
+    end
   end
   out
 end

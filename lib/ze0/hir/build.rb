@@ -120,7 +120,8 @@ module Ze0
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
         Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?,
-                    loader.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {})
+                    loader.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
+                    loader.covers? ? loader.defs : {})
       end
 
       # Each prelude under the loader flag that asks for it, in the order
@@ -304,6 +305,8 @@ module Ze0
           @coverable = {}
           @branches = {}
           @branch_count = 0
+          @defs = {}
+          @def_count = 0
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = external ? external.units.dup : {}
@@ -398,6 +401,21 @@ module Ze0
           @branch_count += 1
           rows << [kind, id, under, *span]
           [id, rows.size - 1]
+        end
+
+        # Where each scope Coverage can name a method by was written, by
+        # file. A `def` and a block both get a row, since `define_method`
+        # makes a method of a block and ruby locates that one at the
+        # block; which of the two ever becomes a method is the run's to
+        # say, so the row is the span alone -- the name and the owner
+        # come from the definition that claims it.
+        attr_reader :defs
+
+        def def_site!(file, span)
+          id = @def_count
+          @def_count += 1
+          (@defs[file] ||= []) << [id, *span]
+          id
         end
 
         # How many `using` rows stand taken once this build is done, and
@@ -1169,6 +1187,24 @@ module Ze0
       # order ruby lists them, which is the source's order except that
       # an `unless` puts its else first; the root is numbered ahead of
       # them, as CRuby numbers a branch and then its sides.
+      # The id of the row a `def` or a block claims where it makes a
+      # method, or nil where nothing is measured.
+      def method_cover(node)
+        return nil unless @loader&.covers? && !Build.runtime_file?(@file)
+
+        @loader.def_site!(@file, method_span(node))
+      end
+
+      # Where ruby locates a method made from this scope. A lambda's row
+      # starts past its `->`, which is where CRuby's iseq for one begins:
+      # `define_method(:a, ->(x) { x })` is located at `(x) { x }`. Every
+      # other scope stands where it was written.
+      def method_span(node)
+        return span(node.location) unless node.is_a?(Prism::LambdaNode)
+
+        [node.operator_loc.end_line, node.operator_loc.end_column, node.location.end_line, node.location.end_column]
+      end
+
       def branch_covers(kind, span, sides)
         return [nil] * sides.size unless @loader&.covers? && !Build.runtime_file?(@file)
 
@@ -1332,7 +1368,8 @@ module Ze0
           in_block do
             params, extra = block_params(node.parameters)
             body = node.body ? expr(node.body) : Literal.new(nil, line)
-            Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line), node), line)
+            Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
+                                       node.location.end_line, method_cover(node)), node), line)
           end
         when Prism::ItLocalVariableReadNode then Local.new(IT, 0, line)
         when Prism::UndefNode
@@ -1649,7 +1686,8 @@ module Ze0
             body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
             body = marked(body, marks, node.location.start_line) unless marks.empty?
             locals = with_temps(node.locals + (params.names - node.locals))
-            Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line)
+            Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
+                    method_cover(node))
           end
         ensure
           @in_def = was
@@ -1826,7 +1864,8 @@ module Ze0
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
-          noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line), node)
+          noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
+                          node.location.end_line, method_cover(node)), node)
         end
       end
 
