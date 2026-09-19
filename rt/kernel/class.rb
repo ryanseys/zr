@@ -2081,12 +2081,8 @@ machine def zr_release(v)
   elsif t == T_ARRAY
     zr_ary_buf_free(v)
   elsif t == T_HASH
-    if RHash.entries(v) != 0
-      zr_xfree(RHash.entries(v))
-    end
-    if RHash.bins(v) != 0
-      zr_xfree(RHash.bins(v))
-    end
+    zr_sized_xfree(RHash.entries(v), RHash.cap(v) * HEntry.size)
+    zr_sized_xfree(RHash.bins(v), RHash.nbins(v) * 8)
   elsif t == T_FIBER
     zr_release_fiber(v)
   elsif t == T_REGEXP

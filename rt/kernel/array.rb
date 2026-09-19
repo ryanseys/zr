@@ -63,8 +63,17 @@ end
 sig [Value] => Void
 machine def zr_ary_buf_free(a)
   if !zr_ary_embedded_p(a)
-    zr_xfree(RArray.base(a))
+    zr_sized_xfree(RArray.base(a), zr_ary_buf_bytes(a))
   end
+end
+
+# The bytes of `a`'s buffer, which starts at `base`: its capacity in
+# words, and the front gap a shift left behind `ptr`. A shift moves
+# `ptr` up and takes the same count off `capa`, so the two together are
+# what was asked for however often the array has been shifted.
+sig [Value] => Word
+machine def zr_ary_buf_bytes(a)
+  (RArray.capa(a) * 8) + (RArray.ptr(a) - RArray.base(a))
 end
 
 sig [Word] => Value

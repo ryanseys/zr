@@ -36,9 +36,32 @@ end
 sig [Ptr] => Void
 machine def zr_xfree(p)
   if p != 0
+    zr_sized_xfree(p, zr_os_malloc_size(p))
+  end
+end
+
+# A free whose caller knows the block's size already.
+#
+# `zr_xfree` asks the allocator for it (`zr_os_malloc_size`, which is
+# `malloc_size` on darwin and `malloc_usable_size` on linux), and a
+# sweep does that for every String, Array, ivar table and Hash it frees.
+# The buffers a cell owns all carry their own size -- a String's is its
+# capacity and a NUL, an Array's its capacity in words and the front gap
+# a shift left behind it, an ivar table's and a Hash's their row counts
+# -- so those frees ask nothing.
+#
+# The count it keeps is truer as well. `zr_xmalloc` adds the bytes
+# **asked for** and `zr_xfree` takes off the bytes the allocator
+# **gave**, which is at least as many, so `Heap.malloced` drifts down on
+# every round of the same buffer and the collector's malloc trigger
+# fires later than it should. The `size > malloced` clamp hides that by
+# stopping at zero. A caller that names the size it asked for takes off
+# exactly what was added.
+sig [Ptr, Word] => Void
+machine def zr_sized_xfree(p, n)
+  if p != 0
     h = zr_heap()
-    size = zr_os_malloc_size(p)
-    Heap.set_malloced(h, size > Heap.malloced(h) ? 0 : Heap.malloced(h) - size)
+    Heap.set_malloced(h, n > Heap.malloced(h) ? 0 : Heap.malloced(h) - n)
     free(p)
   end
 end

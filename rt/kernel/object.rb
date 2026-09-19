@@ -71,8 +71,8 @@ end
 
 sig [Ptr] => Void
 machine def zr_release_ivtab(t)
-  if IvTab.rows(t) != 0 && !zr_ivtab_embedded_p(t)
-    zr_xfree(IvTab.rows(t))
+  if !zr_ivtab_embedded_p(t)
+    zr_sized_xfree(IvTab.rows(t), IvTab.cap(t) * IvEntry.size)
   end
 end
 
@@ -345,7 +345,7 @@ machine def zr_ivtab_append(t, id, v, owner)
       if owner != QNIL && zr_ivtab_embedded_p(t)
         zr_obj_ivars_seen(owner, n + 1)
       else
-        zr_xfree(IvTab.rows(t))
+        zr_sized_xfree(IvTab.rows(t), IvTab.cap(t) * IvEntry.size)
       end
     end
     IvTab.set_rows(t, rows)

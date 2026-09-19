@@ -48,8 +48,8 @@ end
 # with the cell.
 sig [Value] => Void
 machine def zr_str_buf_free(s)
-  if !zr_str_embedded_p(s) && RString.ptr(s) != 0
-    zr_xfree(RString.ptr(s))
+  if !zr_str_embedded_p(s)
+    zr_sized_xfree(RString.ptr(s), RString.capa(s) + 1)
   end
 end
 

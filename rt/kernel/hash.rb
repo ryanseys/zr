@@ -367,9 +367,7 @@ HASH_SMALL = 8
 
 sig [Value] => Void
 machine def zr_hash_rebins(h)
-  if RHash.bins(h) != 0
-    zr_xfree(RHash.bins(h))
-  end
+  zr_sized_xfree(RHash.bins(h), RHash.nbins(h) * 8)
   if RHash.cap(h) <= HASH_SMALL
     RHash.set_bins(h, 0)
     RHash.set_nbins(h, 0)
@@ -421,9 +419,7 @@ machine def zr_hash_reserve(h)
     end
     i += 1
   end
-  if RHash.entries(h) != 0
-    zr_xfree(RHash.entries(h))
-  end
+  zr_sized_xfree(RHash.entries(h), RHash.cap(h) * HEntry.size)
   RHash.set_entries(h, entries)
   RHash.set_len(h, j)
   RHash.set_cap(h, cap)

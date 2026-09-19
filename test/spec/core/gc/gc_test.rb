@@ -1946,6 +1946,33 @@ describe "GC programs" do
     _(result).must_answer "#<struct S x=#<struct S:...>>\n"
   end
 
+  it "counts the same payload however often it is made and freed" do
+    result = ze0(<<~'RUBY')
+      # The bytes the heap counts against its malloc trigger must not
+      # drift as the same buffers are made and freed. A count that falls
+      # a little on every round pushes the next collection further away
+      # every time, until the trigger stops firing at all.
+
+      def payload = GC.stat(:malloc_increase_bytes)
+
+      def churn
+        rows = Array.new(4_000) { |i| { "k#{i}" => "v#{i}" * 20, i => [i] * 40 } }
+        rows.clear
+        GC.start
+        GC.start
+        payload
+      end
+
+      churn
+      first = churn
+      last = nil
+      10.times { last = churn }
+      puts (last - first).abs < 16_384
+    RUBY
+
+    _(result).must_answer "true\n"
+  end
+
   it "asks the host for nothing when a collection frees nothing" do
     result = ze0(<<~'RUBY')
       # A collection that finds the same objects live as the one before

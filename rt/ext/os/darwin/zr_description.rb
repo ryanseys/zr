@@ -9,6 +9,7 @@ module Ze0
         d zr_ary_cell_bytes Word capa:Word
         d zr_ary_buf_new Void a:Value capa:Word
         d zr_ary_buf_free Void a:Value
+        d zr_ary_buf_bytes Word a:Value
         d zr_ary_new Value capa:Word
         d zr_ary_len_m Value a:Value
         d zr_ary_at_m Value a:Value i:Value
@@ -1891,6 +1892,7 @@ module Ze0
         d zr_trace_within Value meta_word:Value target:Value
         d zr_xmalloc Ptr n:Word
         d zr_xfree Void p:Ptr
+        d zr_sized_xfree Void p:Ptr n:Word
         d zr_memory_for_p Value n:Value
         d zr_memory_exhausted Void
         d zr_fixnum_p Bool v:Value

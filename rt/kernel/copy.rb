@@ -161,8 +161,8 @@ end
 # rb_hash_replace and hash_copy do once the checks are made.
 sig [Value, Value] => Value
 machine def zr_hash_copy_from(recv, other)
-  zr_xfree(RHash.entries(recv))
-  zr_xfree(RHash.bins(recv))
+  zr_sized_xfree(RHash.entries(recv), RHash.cap(recv) * HEntry.size)
+  zr_sized_xfree(RHash.bins(recv), RHash.nbins(recv) * 8)
   RHash.set_entries(recv, 0)
   RHash.set_bins(recv, 0)
   if RHash.entries(other) != 0
