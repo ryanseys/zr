@@ -31,6 +31,24 @@ The first build after a change under `rt/` or `lib/` compiles the
 runtime again. Build twice, and time the second build, unless you want
 to measure the cold build.
 
+## Time the compiles
+
+`rake compile` is `rake bench` for the compiler: it builds each rung of
+`test/bench/compile/` and reports the seconds each phase took, so a
+change that moves the total says which phase it moved.
+
+```console
+$ rake compile
+$ rake 'compile[--runs 5 bundler]'
+$ rake 'compile[--write]'          # writes test/bench/compile/results.tsv
+```
+
+The rungs are a ladder of require graphs: `hello` requires nothing,
+`stdlib` requires six of the libraries ze0 carries, and `rubygems` and
+`bundler` enter at the two largest umbrellas there are. The runtime is
+warm, as it is for everyone who is not building ze0 for the first time,
+and the first run of each rung is thrown away.
+
 ## Measure the size of the generated code
 
 `rake codesize` counts the instructions the backend writes for the

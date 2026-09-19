@@ -1,0 +1,18 @@
+# test/bench/compile/results.tsv -- ze0 compile cost, the median of 3 run(s) at 3f6eeb7f, runtime warm
+# rung	phase	median_secs
+bundler	hir built	5.8430
+bundler	program lowered and assembled	42.1650
+bundler	program object written and linked	3.7060
+bundler	the whole build	52.1843
+hello	hir built	0.0060
+hello	program lowered and assembled	0.1020
+hello	program object written and linked	0.1020
+hello	the whole build	0.4659
+rubygems	hir built	1.7120
+rubygems	program lowered and assembled	0.4310
+rubygems	program object written and linked	0.9130
+rubygems	the whole build	3.3624
+stdlib	hir built	2.0560
+stdlib	program lowered and assembled	4.3290
+stdlib	program object written and linked	1.0710
+stdlib	the whole build	7.7452
