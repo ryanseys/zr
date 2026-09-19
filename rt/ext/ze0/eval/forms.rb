@@ -24,6 +24,12 @@ module Kernel
     Primitive.zr_trace_script_compiled(source, name, line)
     Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref, Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
+
+  # As ruby has it: private where it is written, public where it is
+  # called on Kernel itself. `module_function` is what makes the second
+  # copy, and the copy must be made here, since the stub this method
+  # stands over left one of its own behind.
+  module_function :eval
 end
 
 class Binding
