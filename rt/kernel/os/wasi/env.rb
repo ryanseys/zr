@@ -156,14 +156,26 @@ machine def zr_os_passwd_dir(pw)
   Machine.ptr(0)
 end
 
-# musl's sysconf name and utsname: six fields of 65 bytes, sysname,
-# nodename, release, version, machine and domainname.
+# musl's sysconf name for the processor count.
 SC_NPROCESSORS_ONLN = 84
 
-# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`. wasi has no sysconf for either,
-# so the heap's bound reads -1 here and falls back to its own floor.
+# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`. wasi has neither, and the names
+# are kept only so that `Etc.sysconf` has something to be asked with.
 SC_PAGESIZE = 30
 SC_PHYS_PAGES = 85
+
+# wasi has no sysconf at all, so a module that calls one stops by name
+# before its first line -- and `zr_machine_bytes` asks this of every
+# program. What bounds a module is its own address space and not the
+# host's memory, and four gigabytes is all a wasm32 module can address,
+# which is what 0 leaves the heap to use.
+sig [] => Word
+machine def zr_os_machine_bytes
+  0
+end
+
+# musl's utsname: six fields of 65 bytes, sysname, nodename, release,
+# version, machine and domainname.
 UTSNAME_LEN = 390
 UTSNAME_FIELD = 65
 

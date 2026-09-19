@@ -62,6 +62,16 @@ SC_NPROCESSORS_ONLN = 84
 SC_PAGESIZE = 30
 SC_PHYS_PAGES = 85
 
+# What this machine has, for the bound the heap's growth keeps under
+# (`zr_machine_bytes`, rt/kernel/heap.rb), or 0 where the host will not
+# say -- sysconf answers -1 for a name it does not know.
+sig [] => Word
+machine def zr_os_machine_bytes
+  pages = sysconf(Machine.i32(SC_PHYS_PAGES))
+  size = sysconf(Machine.i32(SC_PAGESIZE))
+  pages == 0 - 1 || size == 0 - 1 ? 0 : pages * size
+end
+
 # The clock that never jumps, as clock_gettime(2) numbers it.
 CLOCK_MONOTONIC = 1
 

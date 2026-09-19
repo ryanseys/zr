@@ -391,7 +391,12 @@ machine def zr_heap_bytes
 end
 
 # What this machine has to hold a heap in, asked of the host once. A
-# machine that will not say is treated as one of four gigabytes.
+# host that will not say is treated as one of four gigabytes, which is
+# also all a wasm32 module can address.
+#
+# The question belongs to the OS layer, because the way to ask it is
+# not portable: `zr_os_machine_bytes` reads sysconf where there is one
+# and answers 0 where there is none.
 sig [] => Word
 machine def zr_machine_bytes
   at = Machine.static(:machine_bytes, 8)
@@ -399,9 +404,10 @@ machine def zr_machine_bytes
   if known != 0
     return known
   end
-  pages = sysconf(Machine.i32(SC_PHYS_PAGES))
-  size = sysconf(Machine.i32(SC_PAGESIZE))
-  bytes = pages == 0 - 1 || size == 0 - 1 ? 4294967296 : pages * size
+  bytes = zr_os_machine_bytes()
+  if bytes == 0
+    bytes = 4294967296
+  end
   Machine.store64(at, 0, bytes)
   bytes
 end

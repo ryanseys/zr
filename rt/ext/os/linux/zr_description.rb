@@ -2116,6 +2116,7 @@ module Ze0
         d zr_os_random Word
         d zr_os_passwd_row Value pw:Ptr
         d zr_os_passwd_dir Ptr pw:Ptr
+        d zr_os_machine_bytes Word
         d zr_os_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value
         d zr_os_setid Value call:Value id:Value
         d zr_os_issetugid Value
