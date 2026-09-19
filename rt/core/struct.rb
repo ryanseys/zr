@@ -79,14 +79,18 @@ class Struct
     store = Primitive.zr_hidden_get(self, :__values__)
     return store if store
 
-    store = Array.new(Primitive.zr_ary_len_m(Primitive.zr_real_class(self).members))
+    store = Array.new(Primitive.zr_ary_len_m(member_names))
     Primitive.zr_hidden_set(self, :__values__, store)
     store
   end
   private :values_store
 
+  # `members`, and not the class's, which hands out a copy: nothing
+  # here changes the row, and rb_struct_initialize reads the class's
+  # own too. The values bind by index rather than by each_with_index,
+  # which would cost this its own Array and a Proc a call.
   def initialize(*args, **keywords)
-    members = Primitive.zr_real_class(self).members
+    members = member_names
     count = Primitive.zr_ary_len_m(members)
     values = Array.new(count)
     Primitive.zr_hidden_set(self, :__values__, values)
@@ -109,7 +113,11 @@ class Struct
     else
       raise ArgumentError, "struct size differs" if given > count
 
-      args.each_with_index { |v, i| values[i] = v }
+      i = 0
+      while i < given
+        values[i] = Primitive.zr_ary_at_m(args, i)
+        i += 1
+      end
     end
   end
 

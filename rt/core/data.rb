@@ -36,18 +36,35 @@ class Data
   end
 
 
+  # The values in the members' order, filled in one walk over them. A
+  # call that names every member and nothing else makes no Array but
+  # the values' own: `missing` and `unknown` are built where the call
+  # was wrong and the message needs them, which is where
+  # rb_data_initialize_m builds its own.
   def initialize(**kwargs)
-    members = Primitive.zr_real_class(self).members
-    missing = members - kwargs.keys
-    if Primitive.zr_ary_len_m(missing) > 0
+    members = member_names
+    count = Primitive.zr_ary_len_m(members)
+    values = Array.new(count)
+    named = 0
+    i = 0
+    while i < count
+      m = Primitive.zr_ary_at_m(members, i)
+      if Primitive.zr_hash_key_p_m(kwargs, m)
+        values[i] = Primitive.zr_hash_aref_m(kwargs, m)
+        named += 1
+      end
+      i += 1
+    end
+    if named < count
+      missing = members - kwargs.keys
       raise ArgumentError, "missing keyword#{Primitive.zr_ary_len_m(missing) > 1 ? 's' : ''}: #{missing.map(&:inspect).join(', ')}"
     end
-    unknown = kwargs.keys - members
-    if Primitive.zr_ary_len_m(unknown) > 0
+    if named < Primitive.zr_hash_len_m(kwargs)
+      unknown = kwargs.keys - members
       raise ArgumentError, "unknown keyword#{Primitive.zr_ary_len_m(unknown) > 1 ? 's' : ''}: #{unknown.map(&:inspect).join(', ')}"
     end
 
-    Primitive.zr_hidden_set(self, :__values__, members.map { |m| kwargs[m] }.freeze)
+    Primitive.zr_hidden_set(self, :__values__, values.freeze)
     freeze
   end
 
@@ -58,30 +75,41 @@ class Data
   end
 
   # A member may be named `class`, so the class comes from the kernel.
-  def members = Primitive.zr_real_class(self).members
+  def members = member_names.dup
+
+  # The names as the class holds them, which rb_data_members reads: a
+  # subclass's own `members`, instance or class, is not called.
+  def member_names
+    Primitive.attr! :hidden
+    k = Primitive.zr_real_class(self)
+    k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
+    Primitive.zr_hidden_get(k, :__members__)
+  end
+  private :member_names
 
   # The values, one per member: nil for each until `initialize` runs, as
   # an allocated Data reads in CRuby.
   def values_store
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :__values__) || Array.new(Primitive.zr_ary_len_m(members))
+    Primitive.zr_hidden_get(self, :__values__) || Array.new(Primitive.zr_ary_len_m(member_names))
   end
   private :values_store
 
   def to_h(&block)
-    pairs = members.zip(values_store)
+    pairs = member_names.zip(values_store)
     block ? pairs.to_h(&block) : pairs.to_h
   end
 
   def deconstruct_keys(keys)
     return to_h if keys.nil?
     raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.is_a?(Array)
-    return {} if keys.size > members.size
+    names = member_names
+    return {} if keys.size > names.size
 
     values = values_store
     out = {}
     keys.each do |k|
-      i = k.is_a?(Symbol) ? members.index(k) : nil
+      i = k.is_a?(Symbol) ? names.index(k) : nil
       break unless i
 
       out[k] = values[i]
@@ -119,7 +147,7 @@ class Data
     return Primitive.zr_obj_form("#{head}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
       Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
