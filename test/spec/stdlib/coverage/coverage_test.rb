@@ -138,4 +138,95 @@ describe "Coverage programs" do
       [true, false]
     OUT
   end
+  it "names every branch and every method the way the C extension names them" do
+    result = ze0(<<~'RUBY', files: beside("coverage/branching.rb"))
+      # Branch and method coverage over the AOT instrumentation, against
+      # the C extension row for row: the key is [kind, id, start line,
+      # start column, end line, end column] with 0-based columns, and
+      # the ids run from 0 a file, a root then its sides.
+      #
+      # branching.rb carries every kind CRuby records one for and the
+      # ones it records none for: `||` and `&&` are not branches, an
+      # `elsif` is a nested :if at the outer :else's location, `unless`
+      # lists :else before :then, a `case/in` gets an :else at the
+      # case's own location with nothing in the source to put there,
+      # and `&.` puts both sides where the call stands.
+      #
+      # A method row is made where the `def` runs and carries the owner,
+      # so an `attr_reader` and a `def` under a branch that did not run
+      # are absent, while a `define_method` block is a row of its own.
+      # CRuby lists them newest first.
+      require "coverage"
+      Coverage.start(branches: true, methods: true)
+      require_relative "coverage/branching"
+
+      cov_ladder(20)
+      cov_ladder(7)
+      cov_unless(nil)
+      cov_ternary(2)
+      cov_when(1)
+      cov_in(1)
+      cov_while(1)
+      cov_until(0)
+      cov_safe("a")
+      cov_ops(1, 2)
+      CovShapes.new.instance_one
+
+      measured = Coverage.result.find { |path, _| File.basename(path) == "branching.rb" }.last
+      measured[:branches].each do |root, sides|
+        puts root.inspect
+        sides.each { |side, count| puts "  #{side.inspect} => #{count}" }
+      end
+      puts "--"
+      measured[:methods].each { |key, count| puts "#{key.inspect} => #{count}" }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:if, 0, 6, 2, 12, 5]
+        [:then, 1, 7, 4, 7, 8] => 1
+        [:else, 2, 8, 2, 12, 5] => 1
+      [:if, 3, 8, 2, 12, 5]
+        [:then, 4, 9, 4, 9, 8] => 1
+        [:else, 5, 11, 4, 11, 10] => 0
+      [:unless, 6, 16, 2, 16, 16]
+        [:else, 7, 16, 2, 16, 16] => 0
+        [:then, 8, 16, 2, 16, 7] => 1
+      [:if, 9, 19, 21, 19, 43]
+        [:then, 10, 19, 31, 19, 36] => 1
+        [:else, 11, 19, 39, 19, 43] => 0
+      [:case, 12, 22, 2, 26, 5]
+        [:when, 13, 23, 14, 23, 18] => 1
+        [:when, 14, 24, 14, 24, 18] => 0
+        [:else, 15, 25, 7, 25, 13] => 0
+      [:case, 16, 30, 2, 33, 5]
+        [:in, 17, 31, 18, 31, 22] => 1
+        [:in, 18, 32, 17, 32, 21] => 0
+        [:else, 19, 30, 2, 33, 5] => 0
+      [:while, 20, 37, 2, 39, 5]
+        [:body, 21, 38, 4, 38, 10] => 1
+      [:until, 22, 44, 2, 44, 21]
+        [:body, 23, 44, 2, 44, 8] => 2
+      [:"&.", 24, 48, 18, 48, 25]
+        [:then, 25, 48, 18, 48, 25] => 1
+        [:else, 26, 48, 18, 48, 25] => 0
+      [:if, 27, 66, 0, 68, 3]
+        [:then, 28, 67, 2, 67, 27] => 0
+        [:else, 29, 66, 0, 68, 3] => 1
+      --
+      [CovMixin, :mixed_one, 63, 2, 63, 19] => 0
+      [CovShapes, :defined_one, 58, 30, 58, 35] => 0
+      [#<Class:CovShapes>, :singleton_one, 57, 2, 57, 28] => 0
+      [CovShapes, :instance_one, 56, 2, 56, 22] => 1
+      [Object, :cov_uncalled, 53, 0, 53, 25] => 0
+      [Object, :cov_ops, 51, 0, 51, 33] => 1
+      [Object, :cov_safe, 48, 0, 48, 25] => 1
+      [Object, :cov_until, 43, 0, 46, 3] => 1
+      [Object, :cov_while, 36, 0, 41, 3] => 1
+      [Object, :cov_in, 29, 0, 34, 3] => 1
+      [Object, :cov_when, 21, 0, 27, 3] => 1
+      [Object, :cov_ternary, 19, 0, 19, 43] => 1
+      [Object, :cov_unless, 15, 0, 17, 3] => 1
+      [Object, :cov_ladder, 5, 0, 13, 3] => 2
+    OUT
+  end
 end

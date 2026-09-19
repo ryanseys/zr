@@ -42,7 +42,9 @@ class ProgramsTest < Minitest::Test
   # find out that one has is to ask, and asking should not mean editing
   # this file. A row that passes under it comes out, with what it now
   # answers in the commit.
-  WASM_DEFECTS = {}.freeze
+  WASM_DEFECTS = {
+    "core_batch" => "wasmtime holds 2325 MB to compile the 114 MB module and 2511 MB to run it, past the 2048 MB bound"
+  }.freeze
 
   # `[stdout, stderr, status]` of `argv` under `env`. A run that passes
   # a bound is killed, and its status says which bound rather than
