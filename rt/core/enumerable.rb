@@ -669,10 +669,14 @@ module Enumerable
     false
   end
 
-  def each_with_index(*args, &block)
-    return to_enum(:each_with_index, *args) { enumerable_size } unless block
-    # An Array that walks as Array does is walked by index.
-    return Primitive.zr_ary_each_with_index_m(self, block) if args.empty? && Primitive.zr_ary_plain_each_p(self)
+  def each_with_index(*args)
+    return to_enum(:each_with_index, *args) { enumerable_size } unless block_given?
+    # An Array that walks as Array does is walked by index, through a
+    # block of this frame's own that yields on: naming a `&block`
+    # parameter costs a Proc a call here even where the method only
+    # hands the block on, and the compiler asks this 8.8 million times
+    # in one cold runtime build.
+    return Primitive.zr_ary_each_with_index_m(self) { |x, i| yield(x, i) } if args.empty? && Primitive.zr_ary_plain_each_p(self)
 
     i = 0
     Primitive.zr_enum_each(self, args) do |x|
