@@ -36,10 +36,18 @@ class Array
   # rb_ary_any_p and its kin: how many elements meet the criterion, a
   # pattern's `===`, the block, or truthiness, counted no further than
   # `enough` asks.
-  def any?(*pattern, &block) = meeting(pattern, block, 1).positive?
-  def all?(*pattern, &block) = meeting(pattern, block, 1, negate: true).zero?
-  def none?(*pattern, &block) = meeting(pattern, block, 1).zero?
-  def one?(*pattern, &block) = meeting(pattern, block, 2) == 1
+  #
+  # One optional parameter and not a `*pattern`, and the block reached
+  # through a block of this frame's own rather than named, so asking an
+  # Array a question allocates nothing where it allocated two cells: the
+  # rest Array, and the Proc that naming a block parameter costs here
+  # even where the method only hands the block on. rb_ary_any_p pays
+  # neither, and the compiler asks these four 4.9 million times in one
+  # cold runtime build.
+  def any?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 1) { |x| yield x }.positive?
+  def all?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 1, negate: true) { |x| yield x }.zero?
+  def none?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 1) { |x| yield x }.zero?
+  def one?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 2) { |x| yield x } == 1
 
   def take_while
     return to_enum(:take_while) unless block_given?
@@ -1126,8 +1134,6 @@ class Array
     out
   end
 
-  # How many elements meet the criterion, or with `negate` how many fail
-  # it, counted until `enough` do.
   # Each element, by index, with the length read again each time round,
   # as the C walks an Array without `each`.
   def walked
@@ -1139,17 +1145,22 @@ class Array
     end
   end
 
-  def meeting(pattern, block, enough, negate: false)
+  # How many elements meet the criterion, or with `negate` how many fail
+  # it, counted until `enough` do. The criterion is `pattern`'s `===`,
+  # unless `bare` says none came; then the caller's block where
+  # `by_block` says one came, reached through the block this was given,
+  # which yields on; and an element's own truth where neither came. A
+  # second pattern is refused by the arity the parameter declares, in
+  # rb_ary_any_p's own words.
+  def meeting(pattern, bare, by_block, enough, negate: false)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
-
-    Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
+    Primitive.zr_warn_here_m("given block not used") if by_block && !bare
     count = 0
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       element = Primitive.zr_ary_aref1_m(self, i)
-      met = if !pattern.empty? then pattern[0] === element
-            elsif block then block.call(element)
+      met = if !bare then pattern === element
+            elsif by_block then yield(element)
             else element
             end
       if met ? !negate : negate
