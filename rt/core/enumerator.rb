@@ -136,7 +136,7 @@ class Enumerator
   def with_object(memo)
     return to_enum(:with_object, memo) { size } unless block_given?
 
-    each { |*values| yield(values.size <= 1 ? values[0] : values, memo) }
+    Primitive.zr_enum_each(self, nil) { |x| yield(x, memo) }
     memo
   end
 
@@ -216,12 +216,18 @@ class Enumerator
     raise ArgumentError, "uninitialized enumerator" unless @method
   end
 
+  # enumerator_with_index_i: the values `each` yields packed as
+  # rb_enum_values_pack packs them, with the index beside them, and the
+  # block's own answer handed back to `each`. The packing is the
+  # kernel's (`zr_enum_each`) and not a `|*values|` parameter, which
+  # made an Array of every element -- and the assembler walks every
+  # instruction of every function this way.
   def indexed(offset)
     Primitive.attr! :hidden
     i = offset - 1
-    each do |*values|
+    Primitive.zr_enum_each(self, nil) do |x|
       i += 1
-      yield(values.size <= 1 ? values[0] : values, i)
+      yield(x, i)
     end
   end
 
