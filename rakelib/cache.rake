@@ -8,6 +8,11 @@
 # removed the old ones, so a week of work left 9.5 GB of caches for
 # compilers that no longer exist.
 #
+# It also gains one `unit-<key>.marshal` per file any program was built
+# from (lib/ze0/unit_cache.rb): small each, thousands after a tier run,
+# and every one of them named after the compiler that made it, so a
+# prune takes them with everything else that compiler left.
+#
 #   rake cache:size                what is there, by kind
 #   rake cache:prune               all but what this checkout names
 #   rake 'cache:prune[3]'          ... keeping anything touched in 3 days

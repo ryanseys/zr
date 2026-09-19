@@ -31,7 +31,13 @@ module Ze0
                          :branches, :defs)
     # `hidden` when the unit loads only for the runtime's own use, as the
     # eval road's files do.
-    Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden)
+    # `source` is the bytes the unit was built from, and `activates`
+    # says the file took an activation row for a `using`: both are what
+    # the unit cache is keyed on (lib/ze0/unit_cache.rb). The bytes and
+    # not a digest of them, because the loader runs inside a program
+    # that evals as well, and nothing there may reach for a library the
+    # loader would then have to load.
+    Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.

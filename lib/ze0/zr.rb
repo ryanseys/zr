@@ -10,6 +10,7 @@ require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
 require_relative "zr/lower"
+require_relative "unit_cache"
 require_relative "clock"
 
 module Ze0
@@ -221,7 +222,12 @@ module Ze0
       # a program's rows must start past these or the road takes them.
       def activations = meta.fetch("activations")
 
-      def object_path = File.join(Zr.cache, "road-#{meta.fetch("key")}.o")
+      # What names this road: the runtime's digest and the bytes of
+      # every file the road holds. A program fixed against this road's
+      # symbol table is cached under it.
+      def key = meta.fetch("key")
+
+      def object_path = File.join(Zr.cache, "road-#{key}.o")
 
       def functions = lowered.fetch(:functions)
       def data = lowered.fetch(:data)
@@ -281,7 +287,12 @@ module Ze0
       # Every name the table already holds has an id no program can
       # move; every other name is the link's to number, which is what
       # keeps a unit's code free of the order it was compiled in.
-      lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze)
+      # A unit's code is the file's own, so an earlier build's is this
+      # one's: the table a unit's ids are fixed against names the cache
+      # beside the runtime, since a program that evals is fixed against
+      # the road's larger one.
+      units = finish && UnitCache.for(hir, dir: Zr.cache, runtime: rt.digest, table: hir.evals ? carried.key : "rt")
+      lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
       functions, data = Ze0.clock(finish ? "program lowered and assembled" : "program lowered") do
         finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       end

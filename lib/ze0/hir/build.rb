@@ -602,9 +602,13 @@ module Ze0
           @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value), root: result.value)
           build.within_method(method, scopes) if scopes && method
+          # An activation row is the program's, not the file's, so a
+          # file that takes one cannot be read back from the cache.
+          rows = @activations
           body = build.seq(result.value.statements, hoist: true)
           spots = Spots.of(result.value) unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
-          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots, @hiding)
+          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots, @hiding,
+                   source, @activations != rows)
         end
 
         # The SyntaxError an eval's string raises for a `yield` outside any

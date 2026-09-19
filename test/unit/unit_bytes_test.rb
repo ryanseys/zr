@@ -7,10 +7,10 @@ require_relative "../../lib/ze0/native/build"
 # A file's machine code may not depend on what was compiled before it.
 #
 # Two programs that both require the same file must write the same
-# names for it, and then the same bytes. Until that holds there is
-# nothing to cache, because a cached unit would carry names, symbol ids
-# and site indices that only the program it was first compiled in
-# agrees with (Phase 1.1 of the plan).
+# names for it, then the same code, then the same data. That is what
+# makes a unit cache possible at all (lib/ze0/unit_cache.rb): a cached
+# unit would otherwise carry names, symbol ids and literal slots that
+# only the program it was first compiled in agrees with.
 class UnitBytesTest < Minitest::Test
   # A file with one of each thing that names a symbol or takes a site:
   # a method, an ivar, a constant, a symbol literal, a keyword, a
@@ -47,37 +47,58 @@ class UnitBytesTest < Minitest::Test
     end
   RUBY
 
-  def test_the_same_file_names_its_functions_the_same_in_two_programs
-    alone, after = two_programs
-    refute_empty alone, "the probe named no function; the test no longer compiles what it thinks it does"
-    assert_equal alone.keys.sort, after.keys.sort
+  def test_the_same_file_writes_the_same_names_code_and_data_in_two_programs
+    Dir.mktmpdir("ze0-unit-bytes-") do |dir|
+      File.write(File.join(dir, "shared.rb"), SHARED)
+      File.write(File.join(dir, "earlier.rb"), BEFORE)
+      alone = unit_of(dir, "alone.rb", %(require_relative "shared"\np UnitBytesProbe::SHAPE\n))
+      after = unit_of(dir, "after.rb", %(require_relative "earlier"\nrequire_relative "shared"\n) +
+                                       %(p UnitBytesProbe::SHAPE\n))
+
+      # The code and nothing else. A unit's data holds the numbers the
+      # link chose -- the ids for the names this file introduced -- and
+      # the second program numbers more names before it, so those words
+      # are the program's and not the file's. The code is the file's,
+      # and it is what a cache would hand back.
+      refute_empty alone, "the probe named nothing; the test no longer compiles what it thinks it does"
+      assert_equal alone.keys.sort, after.keys.sort, "the file does not name what it makes the same way twice"
+      alone.each { |name, made| assert_equal made, after[name], "#{name} came out differently in the second program" }
+    end
   end
 
-  def test_the_same_file_writes_the_same_bytes_in_two_programs
-    alone, after = two_programs
-    alone.each { |name, bytes| assert_equal bytes, after[name], "#{name} assembled differently in the second program" }
+  # The same file compiled twice in a row: the second build reads the
+  # unit back from the cache, and must write what the first one wrote.
+  def test_a_build_that_reads_a_unit_back_writes_what_the_first_build_wrote
+    Dir.mktmpdir("ze0-unit-cache-") do |dir|
+      File.write(File.join(dir, "shared.rb"), SHARED)
+      main = %(require_relative "shared"\np UnitBytesProbe.new(1).named(kind: :k)\n)
+      cold = unit_of(dir, "cold.rb", main, data: true)
+      warm = unit_of(dir, "warm.rb", main, data: true)
+
+      refute_empty cold
+      assert_equal cold, warm
+    end
   end
 
   private
 
-  # The shared file's `{name => bytes}` in a program that requires it
-  # alone, and in one that requires another file before it.
-  def two_programs
-    Dir.mktmpdir("ze0-unit-bytes-") do |dir|
-      File.write(File.join(dir, "shared.rb"), SHARED)
-      File.write(File.join(dir, "earlier.rb"), BEFORE)
-      [compile(dir, "alone.rb", %(require_relative "shared"\np UnitBytesProbe::SHAPE\n)),
-       compile(dir, "after.rb", %(require_relative "earlier"\nrequire_relative "shared"\np UnitBytesProbe::SHAPE\n))]
-    end
-  end
-
-  # `{name => bytes}` for every function the shared file wrote, in a
-  # program whose main file is `main`.
-  def compile(dir, main, source)
+  # Everything the shared file made, by name: each function's machine
+  # code, and each data object's section, bytes and relocations. A unit
+  # names what it makes from a prefix of its own, which the probe's
+  # class body carries, so this tells the shared file's symbols from
+  # the program's own and from any other unit's.
+  def unit_of(dir, main, source, data: false)
     path = File.join(dir, main)
     File.write(path, source)
     program = Ze0::Native::Build.lower(source, path)
-    program.functions.select { |f| f.name.include?("UnitBytesProbe") || f.name.include?("named") }
-           .to_h { |f| [f.name, f.bytes] }
+    body = program.functions.map(&:name).grep(/UnitBytesProbe/).first
+    prefix = body&.slice(/zr_u[0-9a-f]+/) or return {}
+
+    made = program.functions.select { |f| f.name.include?(prefix) }.to_h { |f| [f.name, [f.bytes, f.relocs]] }
+    return made unless data
+
+    program.data.select { |d| d.name.include?(prefix) }
+           .each { |d| made[d.name] = [d.section, d.bytes, d.relocs] }
+    made
   end
 end

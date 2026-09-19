@@ -97,12 +97,13 @@ module Ze0
       # eval, whose toplevel is a file's, not a program's: it starts no
       # program and prints no parse warning.
       def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
-                     target: Target.default, fixed: nil)
+                     target: Target.default, fixed: nil, units: nil)
         @program = program
         @kernel = kernel
         @target = target
         @symbols = symbols
         @fixed = fixed
+        @units = units
         @entry = entry
         @internal = internal
         @ext = ext
@@ -113,7 +114,6 @@ module Ze0
         @warnings = program.warnings || []
         @data = []
         @functions = []
-        @spelled = {}
         open_unit
       end
 
@@ -128,6 +128,8 @@ module Ze0
         @lits = 0
         @sites = 0
         @pool = []
+        @spelled = {}
+        @file_bytes = {}
         @keyword_tables = {}
       end
 
@@ -159,6 +161,15 @@ module Ze0
         relocs = @pool.each_with_index.map { |(kind, name), i| Obj::Reloc.new(i * 8, kind, name) }
         @data << Obj::Data.new("#{@prefix}_pool", :data_const, "\0".b * (@pool.size * 8), relocs: relocs, align: 8)
         @pool = []
+      end
+
+      # The unit's code as an earlier build left it, with its data put
+      # back where this build's data stands.
+      def taken(unit)
+        kept = @units&.take(unit, @prefix) or return nil
+
+        @data.concat(kept[1])
+        kept[0]
       end
 
       # A read-only table of words, where a word given as a name is the
@@ -196,8 +207,17 @@ module Ze0
           @unit_internal = u.internal
           @unit_hidden = u.hidden
           open_unit(unit_entry(i))
+          kept = finish && taken(u)
+          next finished.concat(kept) if kept
+
+          from = @data.size
           Function.new(self, @prefix, u.locals, u.body, nil, :top).lower
-          finished.concat(finished_functions(&finish)) if finish
+          next unless finish
+
+          close_pool
+          made = finished_functions(&finish)
+          @units&.keep(u, @prefix, made, @data[from..])
+          finished.concat(made)
         end
         open_unit
         close_pool
@@ -295,10 +315,7 @@ module Ze0
       # class's, set here; a def or block carries its arity and its
       # parameter rows, and a block its function, so a Proc finds both.
       # The current unit's file name as bytes in the object.
-      def file_bytes
-        @file_bytes ||= {}
-        @file_bytes[@file] ||= literal(@file)
-      end
+      def file_bytes = @file_bytes[@file] ||= literal(@file)
 
       def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false,
                captures: false, node: 0, cover: nil)
