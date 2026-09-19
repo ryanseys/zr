@@ -138,6 +138,7 @@ describe "Coverage programs" do
       [true, false]
     OUT
   end
+
   it "names every branch the way the C extension names it" do
     result = ze0(<<~'RUBY', files: beside("coverage/branching.rb"))
       # Branch coverage over the AOT instrumentation, against the C
@@ -207,6 +208,60 @@ describe "Coverage programs" do
       [:if, 27, 66, 0, 68, 3]
         [:then, 28, 67, 2, 67, 27] => 0
         [:else, 29, 66, 0, 68, 3] => 1
+    OUT
+  end
+
+  it "names every method the way the C extension names it" do
+    result = ze0(<<~'RUBY', files: beside("coverage/branching.rb"))
+      # Method coverage over the AOT instrumentation, against the C
+      # extension row for row. A row is made where the definition runs,
+      # so it carries that run's owner and name and the span of the
+      # `def` or the block behind it; the key is [owner, name, start
+      # line, start column, end line, end column].
+      #
+      # branching.rb holds the shapes the rule turns on: an `attr_reader`
+      # is no row, a `def` under a branch that never ran is absent, a
+      # singleton def's owner is the singleton class, and
+      # `define_method` is located at the block, not at the call. The
+      # rows come out in the order the C extension walks the heap in, so
+      # they are sorted here by where each one was written.
+      require "coverage"
+      Coverage.start(methods: true)
+      require_relative "coverage/branching"
+
+      cov_ladder(20)
+      cov_ladder(7)
+      cov_unless(nil)
+      cov_ternary(2)
+      cov_when(1)
+      cov_in(1)
+      cov_while(1)
+      cov_until(0)
+      cov_safe("a")
+      cov_ops(1, 2)
+      CovShapes.new.instance_one
+
+      measured = Coverage.result.find { |path, _| File.basename(path) == "branching.rb" }.last
+      measured[:methods].sort_by { |(owner, name, *where), _| [where, name.to_s, owner.to_s] }.each do |key, count|
+        puts "#{key.inspect} => #{count}"
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Object, :cov_ladder, 5, 0, 13, 3] => 2
+      [Object, :cov_unless, 15, 0, 17, 3] => 1
+      [Object, :cov_ternary, 19, 0, 19, 43] => 1
+      [Object, :cov_when, 21, 0, 27, 3] => 1
+      [Object, :cov_in, 29, 0, 34, 3] => 1
+      [Object, :cov_while, 36, 0, 41, 3] => 1
+      [Object, :cov_until, 43, 0, 46, 3] => 1
+      [Object, :cov_safe, 48, 0, 48, 25] => 1
+      [Object, :cov_ops, 51, 0, 51, 33] => 1
+      [Object, :cov_uncalled, 53, 0, 53, 25] => 0
+      [CovShapes, :instance_one, 56, 2, 56, 22] => 1
+      [#<Class:CovShapes>, :singleton_one, 57, 2, 57, 28] => 0
+      [CovShapes, :defined_one, 58, 30, 58, 35] => 0
+      [CovMixin, :mixed_one, 63, 2, 63, 19] => 0
     OUT
   end
 end
