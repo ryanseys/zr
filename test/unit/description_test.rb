@@ -12,6 +12,28 @@ class DescriptionTest < Minitest::Test
 
   def path(target) = File.join(ROOT, "rt/ext/os", target.os_layer, "zr_description.rb")
 
+  # `immediate?` is `zr_special_p` (rt/kernel/value.rb) asked at compile
+  # time, so that a lowering can drop a test a word it made has already
+  # answered. The two must agree, and the kernel's own constants are
+  # what says whether they do.
+  def test_the_description_calls_a_word_immediate_where_the_kernel_would
+    carried = Ze0::Machine::Description.parse(File.read(path(TARGETS.first))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
+    special = ->(w) { (w & 7) != 0 || w == carried.const_for("QFALSE") || w == carried.const_for("QNIL") }
+
+    words = %w[QFALSE QNIL QTRUE QUNDEF].map { |name| carried.const_for(name) }
+    words += [1, 3, 85, -1 & ((1 << 64) - 1)]                   # fixnums, odd whatever the value
+    words << ((12 << 8) | carried.const_for("SYMBOL_TAG"))      # a symbol
+    words << carried.const_for("FLONUM_ZERO")                   # a flonum
+    words += [16, 4096, 1 << 40]                                # and cells, which are none of these
+
+    words.each do |word|
+      assert_equal special.call(word), carried.immediate?(word), format("%#x", word)
+    end
+
+    assert carried.immediate?(carried.const_for("QNIL")), "nil is an immediate"
+    refute carried.immediate?(1 << 40), "an aligned word above QNIL is a cell"
+  end
+
   TARGETS.each do |target|
     define_method("test_the_#{target.os_layer}_description_matches_its_kernel") do
       text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "test/support/oracle/description.rb"), target.triple], &:read)

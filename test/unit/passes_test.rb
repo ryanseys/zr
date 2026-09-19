@@ -19,6 +19,24 @@ class PassesTest < Minitest::Test
     Ze0::IR::Interp.new([f]).answer(f.name, args)
   end
 
+  # A lowering that wants to drop a sequence a constant operand has
+  # already decided -- the collector's write barrier, whose whole test a
+  # literal answers -- asks the function what a value holds. The function
+  # made its own constants, so it can say; anything else answers nil, and
+  # a caller that reads nil emits what it would have emitted before.
+  def test_a_function_says_which_of_its_values_are_constants
+    f = function("constants", ["i64"], "i64") do |f, arg|
+      eight = f.iconst("i64", 8)
+      assert_equal 8, f.iconst_of(eight)
+      assert_equal 8, f.iconst_of(f.iconst("i64", 8)), "the same constant is the same value"
+      assert_equal 0, f.iconst_of(f.iconst("i64", 0)), "zero is a constant, not an absence"
+      assert_nil f.iconst_of(arg), "a parameter holds no constant"
+      assert_nil f.iconst_of(f.iadd(arg, eight)), "nor does a value computed from one"
+      f.ret(f.iadd(arg, eight))
+    end
+    assert_equal 42, answer(f, [34])
+  end
+
   def test_constants_fold_through_the_integer_operations
     f = function("fold", [], "i64") do |f|
       a = f.iadd(f.iconst("i64", 40), f.iconst("i64", 2))

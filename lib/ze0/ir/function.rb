@@ -332,8 +332,17 @@ module Ze0
 
       # A constant, materialized once per function.
       def iconst(type, n)
-        hoisted(ICONST.fetch(type), n) { Inst.new(:iconst, type: type, args: [n]) }
+        v = hoisted(ICONST.fetch(type), n) { Inst.new(:iconst, type: type, args: [n]) }
+        @iconst_of[v] = n
+        v
       end
+
+      # The immediate `v` holds, where `v` came from `iconst`, and nil
+      # where it came from anything else. A function knows its own
+      # constants because it made them; `Passes::Fold` walks the
+      # instructions to learn the same thing, which a lowering has no
+      # reason to do.
+      def iconst_of(v) = @iconst_of[v]
 
       # A value that is the same everywhere, defined once in the entry block.
       #
@@ -407,6 +416,7 @@ module Ze0
         @block_of = {}
         @next_block = 0
         @hoisted = {}
+        @iconst_of = {}
         @next_value = 0
         @current = nil
         @args = []

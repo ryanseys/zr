@@ -9,6 +9,20 @@ module Ze0
     # Comparisons that read their operands as unsigned: pointers.
     UNSIGNED = %w[Ptr].freeze
 
+    # Whether a word is an immediate and not a pointer to a cell: a
+    # Fixnum, a flonum, a Symbol, nil, true or false. This is
+    # `zr_special_p` (rt/kernel/value.rb), spelled the same way and asked
+    # of a word the compiler already holds, so a lowering can drop a
+    # sequence the answer has already decided.
+    #
+    # Both the unit being lowered and the description a later build reads
+    # answer it, over whichever constants each of them keeps.
+    module Immediates
+      def immediate?(word)
+        (word & 7) != 0 || word == const_for("QFALSE") || word == const_for("QNIL")
+      end
+    end
+
     # `from`: the module a wasm import comes from, or nil for a symbol
     # the link finds.
     Import = Struct.new(:name, :params, :ret, :from)
@@ -58,6 +72,8 @@ module Ze0
     # instead of the kernel sources, and answers from it exactly as the
     # unit does.
     class Description
+      include Immediates
+
       attr_reader :defs, :consts, :structs
 
       # `unit` is a lowered kernel; every constant and layout is resolved

@@ -289,6 +289,10 @@ module Ze0
         @kernel.struct_for(name) or raise ArgumentError, "the kernel declares no #{name}"
       end
 
+      # Whether `word` is an immediate and not a cell, as the kernel
+      # spells it (rt/kernel/value.rb).
+      def immediate?(word) = @kernel.immediate?(word)
+
       # The kernel def named `name`, with the signature a call needs.
       def kernel_def(name)
         @kernel.def_for(name) or raise ArgumentError, "the kernel declares no #{name}"

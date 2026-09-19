@@ -47,6 +47,8 @@ module Ze0
     end
 
     class Lower
+      include Immediates
+
       attr_reader :functions, :data, :raw, :symbols
 
       def initialize(sources, symbols = Symbols.new)
@@ -685,9 +687,17 @@ module Ze0
       # four instructions of its fast path and not a call.
       def barrier(owner, value)
         callee = @unit.def_for("zr_write_barrier") or return
-        return if @inlining.include?(callee.name)
+        return if @inlining.include?(callee.name) || immediate?(value)
 
         inline(callee, [owner, value])
+      end
+
+      # Whether the compiler already knows `value` is an immediate, and
+      # so knows the barrier's own test fails. The kernel stores QNIL
+      # into a Value field oftener than it stores anything else.
+      def immediate?(value)
+        word = @f.iconst_of(value)
+        !word.nil? && @unit.immediate?(word)
       end
 
       # `a && b` and `a || b`, the right side lowered only when the left

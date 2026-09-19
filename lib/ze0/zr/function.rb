@@ -472,6 +472,8 @@ module Ze0
       # and the receiver for an element, which the site has already found
       # to be an Array.
       def cell_barrier(owner, v)
+        return if immediate?(v)
+
         head = @l.layout("ArenaHead")
         marks = @l.const("MARK_BYTES")
         arena = @f.band(owner, imm(~(@l.const("ARENA_BYTES") - 1)))
@@ -490,6 +492,16 @@ module Ze0
       end
 
       def ivar_barrier(v) = cell_barrier(@self, v)
+
+      # Whether the compiler already knows `v` is an immediate, and so
+      # knows the barrier's own test fails. Most of what a program
+      # stores into a local, an ivar or an Array is a literal, and every
+      # literal reaches `imm`: a Fixnum, a flonum, a Symbol, nil, true
+      # and false.
+      def immediate?(v)
+        word = @f.iconst_of(v)
+        !word.nil? && @l.immediate?(word)
+      end
 
       # The ivar table self keeps as its own: in its cell for a plain
       # object, in its extension for a class or module; `slow` for any
@@ -558,6 +570,8 @@ module Ze0
       # immediate, which a store of a Fixnum, of nil, of true or false or
       # of a Symbol fails; the kernel's own does the rest.
       def env_barrier(env, v)
+        return if immediate?(v)
+
         remember = @f.label
         done = @f.label
         @f.brif(@f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil)), remember, done)
