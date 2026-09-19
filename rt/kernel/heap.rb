@@ -9,7 +9,11 @@
 #
 # An arena is ARENA_CELLS cells of one size after a head that names it,
 # aligned to ARENA_BYTES, so a cell's arena is its address with the low
-# bits cleared; the arena's exivar slots follow its cells. Every size
+# bits cleared; the arena's exivar slots follow its cells, and its mark
+# bitmap follows those. A mark is a bit in that map and never a write
+# into the cell, so a collection leaves the pages a fork shares
+# untouched, and a sweep reads one word to step over sixty-four live
+# cells. Every size
 # has the same count, so the heap a program starts with, and what a
 # collection sweeps of it, is the 32,768 cells of four arenas: what the
 # one 128-byte arena of the heap before cost. An arena a sweep finds
@@ -23,6 +27,10 @@ ARENA_BYTES = 4194304
 ARENA_HEAD = 256
 ARENA_CELLS = 8192
 ARENA_TABLE = 64
+# The bytes of an arena's mark bitmap, one bit a cell, and the word of
+# that map whose every cell is live.
+MARK_BYTES = ARENA_CELLS >> 3
+ALL_MARKED = 0 - 1
 CELL_MIN = 32
 CELL_MAX = 256
 SIZE_CLASSES = 4
@@ -107,10 +115,18 @@ machine def zr_cell_bytes(v)
   ArenaHead.cell(zr_arena_of(v))
 end
 
-# The first cell of arena `a`, after its head.
+# Arena `a`'s mark bitmap, between its head and its cells: a fixed
+# offset, so reading a cell's bit asks the head for nothing but the
+# shift that turns its address into an index.
+sig [Ptr] => Ptr
+machine def zr_arena_marks(a)
+  a + ARENA_HEAD
+end
+
+# The first cell of arena `a`, after its head and its mark bitmap.
 sig [Ptr] => Ptr
 machine def zr_arena_first(a)
-  a + ARENA_HEAD
+  a + ARENA_HEAD + MARK_BYTES
 end
 
 # The exivar slots of arena `a`, one a cell, after its cells.
@@ -119,15 +135,72 @@ machine def zr_arena_exivars(a)
   zr_arena_first(a) + (ArenaHead.ncells(a) * ArenaHead.cell(a))
 end
 
+# The word of `a`'s bitmap that holds cell `i`'s bit, and that bit.
+sig [Ptr, Word] => Ptr
+machine def zr_marks_word(a, i)
+  zr_arena_marks(a) + ((i >> 6) * 8)
+end
+
+sig [Word] => Word
+machine def zr_marks_bit(i)
+  1 << (i & 63)
+end
+
+# The index of cell `v` among arena `a`'s.
+sig [Ptr, Value] => Word
+machine def zr_cell_index_in(a, v)
+  (Machine.word(v) - zr_arena_first(a)) >> ArenaHead.shift(a)
+end
+
 # The index of `v`'s cell among its arena's.
 sig [Value] => Word
 machine def zr_cell_index(v)
+  zr_cell_index_in(zr_arena_of(v), v)
+end
+
+# Whether `v` is marked, and the two writes to its bit. A Proc or an Env
+# on the machine stack is in no arena and has no bit of its own, so
+# every caller here tests FL_STACK before it asks.
+sig [Value] => Bool
+machine def zr_marked_p(v)
   a = zr_arena_of(v)
-  (Machine.word(v) - a - ARENA_HEAD) >> ArenaHead.shift(a)
+  i = zr_cell_index_in(a, v)
+  (Machine.load64(zr_marks_word(a, i), 0) & zr_marks_bit(i)) != 0
+end
+
+sig [Value] => Void
+machine def zr_mark_set(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  at = zr_marks_word(a, i)
+  Machine.store64(at, 0, Machine.load64(at, 0) | zr_marks_bit(i))
+end
+
+sig [Value] => Void
+machine def zr_mark_unset(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  at = zr_marks_word(a, i)
+  Machine.store64(at, 0, Machine.load64(at, 0) & (0 - 1 - zr_marks_bit(i)))
+end
+
+# Every arena's bitmap cleared, which a collection does once it has
+# swept: no cell is marked outside a collection, and ObjectSpace's walk
+# of what one object refers to (rt/kernel/objspace.rb) marks and unmarks
+# on that footing.
+sig [] => Void
+machine def zr_marks_clear
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    memset(zr_arena_marks(zr_arena_at(i)), Machine.i32(0), MARK_BYTES)
+    i += 1
+  end
 end
 
 # A new arena of size class `c`, reserved: its head written, its
-# poisoned cells linked in address order, its exivar slots clear.
+# poisoned cells linked in address order, its exivar slots and its mark
+# bitmap clear.
 sig [Word] => Void
 machine def zr_arena_add(c)
   h = zr_heap()
@@ -135,7 +208,7 @@ machine def zr_arena_add(c)
   n = Heap.arenas(h)
   bytes = CELL_MIN << c
   slot = Machine.slot(8)
-  if posix_memalign(slot, ARENA_BYTES, ARENA_HEAD + (ARENA_CELLS * (bytes + 8))) != Machine.i32(0)
+  if posix_memalign(slot, ARENA_BYTES, ARENA_HEAD + (ARENA_CELLS * (bytes + 8)) + MARK_BYTES) != Machine.i32(0)
     zr_memory_exhausted()
   end
   a = Machine.ptr(Machine.load64(slot, 0))
@@ -159,6 +232,7 @@ machine def zr_arena_add(c)
     head = cell
     i -= 1
   end
+  memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES)
   zr_arena_reserve(a, head)
 end
 
@@ -268,16 +342,15 @@ end
 # Mark `v` and queue it for tracing. Most references a collection reads
 # are immediates or cells it has marked already, so the test for those
 # is small enough to stand in each place a reference is read, and only
-# a cell still to mark costs a call.
+# a cell still to mark costs a call. A Proc or an Env on the machine
+# stack lives as long as the frame that holds it and has no bit in any
+# arena, so the flag it carries takes it out of the collection here.
 sig [Value] => Void
 machine def zr_mark(v)
-  unless zr_special_p(v) || (RBasic.flags(v) & MARKED) == MARKED
+  unless zr_special_p(v) || (RBasic.flags(v) & FL_STACK) != 0 || zr_marked_p(v)
     zr_mark_cell(v)
   end
 end
-
-# The flags of a live, marked cell.
-MARKED = FL_ALLOCATED | FL_MARK
 
 # Nonzero while ObjectSpace reads what one object refers to, which
 # needs every cell it marks on the queue.
@@ -307,10 +380,10 @@ machine def zr_mark_cell(v)
     zr_buf_byte(b, 10)
     zr_bug(Buf.ptr(b), Buf.len(b))
   end
-  if (flags & FL_MARK) != 0
+  if zr_marked_p(v)
     return
   end
-  RBasic.set_flags(v, flags | FL_MARK)
+  zr_mark_set(v)
   # A String or a Float holds no Value: in a collection its class is
   # marked here, and the queue never sees it. ObjectSpace's walk of one
   # object's references reads them back off the queue, so there every
@@ -617,34 +690,40 @@ machine def zr_poison_payload(cell, bytes)
 end
 
 # The cells of an arena from `stop` down to `start`, pushed in reverse
-# so the list pops in address order. A marked cell only loses its mark,
-# and a cell freed before keeps its poison and takes only the link, so
-# the loop calls out for a cell that dies in this collection alone. A
-# `whole` arena found with no live cell is reserved instead: its cells
-# went onto the list as one run, which comes off again as its chain.
+# so the list pops in address order. A live cell is never read: the
+# sweep takes a word of the mark bitmap and steps over the sixty-four
+# cells it covers wherever every one of them is marked, which in a heap
+# as full as a compiler's is most of them. A cell freed before keeps its
+# poison and takes only the link, so the loop calls out for a cell that
+# dies in this collection alone. A `whole` arena found with no live cell
+# is reserved instead: its cells went onto the list as one run, which
+# comes off again as its chain.
 sig [Ptr, Word, Word, Bool] => Void
 machine def zr_sweep_arena(a, start, stop, whole)
   sc = zr_size_class(ArenaHead.index(a))
   bytes = ArenaHead.cell(a)
   first = zr_arena_first(a)
+  marks = zr_arena_marks(a)
   before = SizeClass.free(sc)
   free = before
   freed = 0
   i = stop
   while i >= start
-    cell = first + (i * bytes)
-    flags = Machine.load64(cell, 0)
-    if (flags & FL_MARK) != 0
-      Machine.store64(cell, 0, flags & (0 - (FL_MARK + 1)))
+    word = Machine.load64(marks + ((i >> 6) * 8), 0)
+    if word == ALL_MARKED && (i & 63) == 63 && (i - 63) >= start
+      i -= 64
     else
-      if flags != POISON
-        zr_free_cell(cell, bytes)
+      if (word & zr_marks_bit(i)) == 0
+        cell = first + (i * bytes)
+        if Machine.load64(cell, 0) != POISON
+          zr_free_cell(cell, bytes)
+        end
+        Machine.store64(cell, 8, free)
+        free = cell
+        freed += 1
       end
-      Machine.store64(cell, 8, free)
-      free = cell
-      freed += 1
+      i -= 1
     end
-    i -= 1
   end
   if whole && freed == ARENA_CELLS
     Machine.store64(first + (stop * bytes), 8, 0)
@@ -713,6 +792,7 @@ machine def zr_collect(wanting)
   zr_mark_drain()
   zr_weak_prune()
   zr_sweep()
+  zr_marks_clear()
   total = 0
   c = 0
   while c < SIZE_CLASSES

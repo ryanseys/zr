@@ -269,7 +269,7 @@ sig [Value, Value, Value] => Value
 machine def zr_enum_each(recv, args, blk)
   d = Machine.slot(RProc.size)
   p = Machine.value(d)
-  RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_MARK | FL_STACK)
+  RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_STACK)
   RBasic.set_klass(p, zr_global(G_PROC))
   RProc.set_fn(p, Machine.addr(:zr_enum_each_block))
   RProc.set_meta(p, 0)

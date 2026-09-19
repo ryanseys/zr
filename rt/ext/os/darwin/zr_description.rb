@@ -837,7 +837,15 @@ module Ze0
         d zr_cell_bytes Word v:Value
         d zr_arena_first Ptr a:Ptr
         d zr_arena_exivars Ptr a:Ptr
+        d zr_arena_marks Ptr a:Ptr
+        d zr_marks_word Ptr a:Ptr i:Word
+        d zr_marks_bit Word i:Word
+        d zr_cell_index_in Word a:Ptr v:Value
         d zr_cell_index Word v:Value
+        d zr_marked_p Bool v:Value
+        d zr_mark_set Void v:Value
+        d zr_mark_unset Void v:Value
+        d zr_marks_clear Void
         d zr_arena_add Void c:Word
         d zr_arena_reserve Void a:Ptr chain:Ptr
         d zr_arena_unreserve Void sc:Ptr
@@ -2232,6 +2240,8 @@ module Ze0
         c ARENA_HEAD 256
         c ARENA_CELLS 8192
         c ARENA_TABLE 64
+        c MARK_BYTES 1024
+        c ALL_MARKED -1
         c CELL_MIN 32
         c CELL_MAX 256
         c SIZE_CLASSES 4
@@ -2251,7 +2261,6 @@ module Ze0
         c G_MAIN 11
         c G_NUMERIC 13
         c G_COUNT 63
-        c MARKED 96
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -2569,7 +2578,6 @@ module Ze0
         c T_FIXNUM 21
         c T_MASK 31
         c FL_ALLOCATED 32
-        c FL_MARK 64
         c FL_FREEZE 2048
         c FL_EXIVAR 1024
         c FL_SINGLETON 4096

@@ -284,7 +284,7 @@ module Ze0
       def env_image(parent)
         env = @f.stack_addr(@f.slot(@env_layout.size))
         basic = @l.layout("RBasic")
-        @f.store(imm(%w[T_ENV FL_ALLOCATED FL_MARK FL_STACK].sum { |c| @l.const(c) }), env, off(basic, "flags"))
+        @f.store(imm(%w[T_ENV FL_ALLOCATED FL_STACK].sum { |c| @l.const(c) }), env, off(basic, "flags"))
         @f.store(@qnil, env, off(basic, "klass"))
         fields = {
           "parent" => parent, "slots" => @f.iadd(@rec, imm(value_offset(1))), "nslots" => imm(@locals.size),

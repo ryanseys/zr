@@ -438,7 +438,7 @@ module Ze0
           }
           desc = @f.stack_addr(@f.slot(@proc_layout.size))
           basic = @l.layout("RBasic")
-          @f.store(imm(%w[T_PROC FL_ALLOCATED FL_MARK FL_STACK].sum { |c| @l.const(c) }), desc, off(basic, "flags"))
+          @f.store(imm(%w[T_PROC FL_ALLOCATED FL_STACK].sum { |c| @l.const(c) }), desc, off(basic, "flags"))
           @f.store(global("G_PROC"), desc, off(basic, "klass"))
           fields.each { |name, v| @f.store(v, desc, off(@proc_layout, name)) }
           [site, desc]

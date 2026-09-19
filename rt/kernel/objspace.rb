@@ -133,7 +133,7 @@ machine def zr_objspace_reachable(v)
   i = from
   while i < MarkStack.len(s)
     child = Machine.value(Machine.load64(MarkStack.ptr(s) + (i * 8), 0))
-    RBasic.set_flags(child, RBasic.flags(child) & (0 - FL_MARK - 1))
+    zr_mark_unset(child)
     if zr_objspace_visible_p(child)
       zr_ary_push(out, child)
     end

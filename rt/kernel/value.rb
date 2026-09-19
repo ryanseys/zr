@@ -89,7 +89,6 @@ T_FIXNUM = 21
 T_MASK = 31
 # Flag bits above the type.
 FL_ALLOCATED = 1 << 5
-FL_MARK = 1 << 6
 FL_FREEZE = 1 << 11
 # An object whose kind has no ivar table of its own keeps one beside
 # the arena, indexed by its cell.

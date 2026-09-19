@@ -60,7 +60,7 @@ end
 
 sig [Value] => Bool
 machine def zr_dead_p(v)
-  !zr_special_p(v) && (RBasic.flags(v) & FL_MARK) == 0
+  !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && !zr_marked_p(v)
 end
 
 # After marking: the live tables keep their place in the list, minus
