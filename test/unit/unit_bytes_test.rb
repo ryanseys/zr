@@ -24,7 +24,7 @@ class UnitBytesTest < Minitest::Test
       end
 
       def named(kind:, sides: 3)
-        [kind, sides, @edge, SHAPE, $unit_bytes_probe, /a(b)c/.match?("abc")]
+        [kind, sides, @edge, SHAPE, $unit_bytes_probe]
       end
     end
   RUBY
@@ -36,7 +36,7 @@ class UnitBytesTest < Minitest::Test
       FIRST = :earlier
 
       def self.count(over:)
-        over.map { |x| /\d+/.match?(x.to_s) ? x.to_i : 0 }.sum
+        over.map { |x| x.to_i }.sum
       end
     end
   RUBY
@@ -45,6 +45,11 @@ class UnitBytesTest < Minitest::Test
     alone, after = two_programs
     refute_empty alone, "the probe named no function; the test no longer compiles what it thinks it does"
     assert_equal alone.keys.sort, after.keys.sort
+  end
+
+  def test_the_same_file_writes_the_same_bytes_in_two_programs
+    alone, after = two_programs
+    alone.each { |name, bytes| assert_equal bytes, after[name], "#{name} assembled differently in the second program" }
   end
 
   private

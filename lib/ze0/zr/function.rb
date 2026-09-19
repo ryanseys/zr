@@ -206,7 +206,7 @@ module Ze0
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))
         line = @def ? @def.line : 1
-        name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
+        name = @def && %i[class module].include?(@kind) ? @def.name : 0
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
         node_id = @def ? @l.node_id(@def) : 0
@@ -409,7 +409,7 @@ module Ze0
       # inline path takes a plain object, class or module read outside
       # a ractor (a ractor's isolation rule is the kernel's), not frozen
       # when `writing`.
-      def guessed_ivar_row(ic, id, slow, writing:)
+      def guessed_ivar_row(ic, ivar, slow, writing:)
         table = @l.layout("IvTab")
         entry = @l.layout("IvEntry")
         plain = @f.label
@@ -437,7 +437,7 @@ module Ze0
           @f.brif(@f.band(@f.icmp("eq", i, len), in_cell), room, slow)
           switch(room)
           spare = @f.icmp("ult", len, @f.fetch("i64", t, off(table, "cap")))
-          unnamed = @f.icmp("eq", @f.band(@f.fetch("i64", t, off(table, "names")), imm(ivar_name_bit(id))), imm(0))
+          unnamed = @f.icmp("eq", @f.band(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), imm(0))
           @f.brif(@f.band(spare, unnamed), append, slow)
           switch(append)
           yield t, len
@@ -446,7 +446,7 @@ module Ze0
         end
         switch(indexed)
         row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(entry.size).to_i)))
-        @f.brif(@f.icmp("eq", @f.fetch("i64", row, off(entry, "id")), imm(id)), hit, slow)
+        @f.brif(@f.icmp("eq", @f.fetch("i64", row, off(entry, "id")), sym_word(ivar)), hit, slow)
         switch(hit)
         row
       end
@@ -581,15 +581,26 @@ module Ze0
         imm(@l.const("QUNDEF"))
       end
 
-      def sym_id(name)
-        @l.symbols.id(name)
-      end
+      # The program's id for `name`, as a value. Where the id is one no
+      # program can move -- a name the runtime already spells -- it is
+      # an immediate; every other name is a word in this unit's pool
+      # that the link fills in, which is what keeps the unit's code free
+      # of the order it was compiled in.
+      def sym_word(name) = pooled(:symid, name) { |id| imm(id) }
 
-      # The bit of an ivar table's `names` that stands for the name `id`
-      # (rt/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
-      def ivar_name_bit(id)
-        bit = 1 << (id & 63)
-        bit < 1 << 63 ? bit : bit - (1 << 64)
+      # `name` as a Symbol Value.
+      def sym_value(name) = pooled(:symval, name) { |id| imm(Lower.symbol_value(id, @l.const("SYMBOL_TAG"))) }
+
+      # The bit an ivar table's `names` keeps for `name`
+      # (rt/kernel/object.rb, zr_ivtab_name_bit).
+      def sym_bit(name) = pooled(:symbit, name) { |id| imm(Lower.ivar_name_bit(id)) }
+
+      def pooled(kind, name)
+        id = @l.fixed_id(name)
+        return yield(id) if id
+
+        data, at = @l.pool_word(kind, name)
+        @f.hoisted_fetch("i64", @f.symbol_addr(@f.symbol(data)), at)
       end
 
       def proc_field(name)

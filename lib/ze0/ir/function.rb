@@ -304,6 +304,17 @@ module Ze0
         hoisted(:symbol_value, gv) { Inst.new(:symbol_value, type: "i64", args: [gv]) }
       end
 
+      # A load materialized once per function: a word that never changes
+      # while the function runs, such as one of a unit's pooled symbol
+      # ids. It stands in the entry block, which dominates every other,
+      # so the value is in scope wherever the lowering wants it -- as an
+      # immediate was before the link started numbering the symbols.
+      def hoisted_fetch(type, addr, offset = 0)
+        hoisted(:hoisted_fetch, [addr, offset]) do
+          Inst.new(:load, type: type, args: [addr], offset: offset, flags: "notrap aligned")
+        end
+      end
+
       def func_addr(fn)
         v = value
         emit(Inst.new(:func_addr, type: "i64", results: [v], args: [fn]))

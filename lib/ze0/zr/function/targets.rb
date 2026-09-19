@@ -158,33 +158,33 @@ module Ze0
         # kernel's write, which a frozen receiver refuses at this line.
         def ivar_write(node, v)
           at_node(node)
-          id = sym_id(ivar_name(node.name))
+          ivar = ivar_name(node.name)
           ic = cache("iv", "IvarCache")
           slow = @f.label
           done = @f.label
-          row = guessed_ivar_row(ic, id, slow, writing: true) do |t, len|
-            append_ivar_row(t, len, id, v)
+          row = guessed_ivar_row(ic, ivar, slow, writing: true) do |t, len|
+            append_ivar_row(t, len, ivar, v)
             @f.jump(done)
           end
           @f.store(v, row, off(@l.layout("IvEntry"), "value"))
           @f.jump(done)
           switch(slow)
-          checked(kernel("zr_ivar_set_cached", @self, imm(id), v, ic))
+          checked(kernel("zr_ivar_set_cached", @self, sym_word(ivar), v, ic))
           @f.jump(done)
           switch(done)
           v
         end
 
-        # A row for `id` holding `v` past the last of table `t`, whose
+        # A row for `ivar` holding `v` past the last of table `t`, whose
         # length is `len`, and the name's bit in the table's names.
-        def append_ivar_row(t, len, id, v)
+        def append_ivar_row(t, len, ivar, v)
           table = @l.layout("IvTab")
           entry = @l.layout("IvEntry")
           row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(len, imm(Math.log2(entry.size).to_i)))
-          @f.store(imm(id), row, off(entry, "id"))
+          @f.store(sym_word(ivar), row, off(entry, "id"))
           @f.store(v, row, off(entry, "value"))
           @f.store(@f.iadd(len, imm(1)), t, off(table, "len"))
-          @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), imm(ivar_name_bit(id))), t, off(table, "names"))
+          @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), t, off(table, "names"))
         end
 
         def assign_target(target, v, prepared)
@@ -194,11 +194,11 @@ module Ze0
           when Hir::GvarWrite then gvar_write(target, v)
           when Hir::CvarWrite
             at_node(target)
-            checked(kernel("zr_cvar_set", @cref, imm(sym_id(target.name)), v))
+            checked(kernel("zr_cvar_set", @cref, sym_word(target.name), v))
           when Hir::ConstWrite
             scope = prepared.key?(target) ? @f.fetch("i64", @rec, value_offset(prepared[target])) : scope_class(target.scope)
             at_node(target)
-            checked(kernel("zr_const_set", scope, imm(sym_id(target.name)), v))
+            checked(kernel("zr_const_set", scope, sym_word(target.name), v))
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
             slot = prepared.fetch(target)

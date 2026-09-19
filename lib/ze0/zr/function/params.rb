@@ -320,7 +320,7 @@ module Ze0
 
           p.keywords.each_with_index do |(name, default), k|
             v = by_table(tab) do |from_table|
-              next kernel("zr_kw_get", hash.call, imm(sym_id(name))) unless from_table
+              next kernel("zr_kw_get", hash.call, sym_word(name)) unless from_table
 
               column = @f.fetch("i64", shape, 8 * (1 + k))
               absent = @f.label
@@ -377,7 +377,7 @@ module Ze0
 
         # The ids of `names` as a read-only table, and its length.
         def keyword_ids(names)
-          table = @l.keyword_table(names.map { |name| sym_id(name) })
+          table = @l.keyword_table(names)
           [@f.symbol_value(@f.symbol(table)), imm(names.size)]
         end
       end

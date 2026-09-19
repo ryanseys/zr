@@ -15,7 +15,7 @@ module Ze0
           when Hir::Cover then cover_branch(node)
           when Hir::Literal then literal(node)
           when Hir::SelfRef then @self
-          when Hir::Core then kernel("zr_core_class", imm(sym_id(node.name)))
+          when Hir::Core then kernel("zr_core_class", sym_word(node.name))
           when Hir::Once then once(node)
           when Hir::Send then call(node)
           when Hir::Local then read_local(slot_at(node), node.depth, node.name)
@@ -125,15 +125,15 @@ module Ze0
         # `@name`: the guessed row's value inline, nil for a row unset;
         # else the kernel's read.
         def ivar_read(node)
-          id = sym_id(ivar_name(node.name))
+          ivar = ivar_name(node.name)
           ic = cache("iv", "IvarCache")
           slow = @f.label
           merge, (v,) = @f.block(["i64"])
-          row = guessed_ivar_row(ic, id, slow, writing: false)
+          row = guessed_ivar_row(ic, ivar, slow, writing: false)
           found = @f.fetch("i64", row, off(@l.layout("IvEntry"), "value"))
           @f.jump(merge, [@f.csel(@f.icmp("eq", found, qundef), @qnil, found)])
           switch(slow)
-          @f.jump(merge, [checked(kernel("zr_ivar_get_cached", @self, imm(id), ic))])
+          @f.jump(merge, [checked(kernel("zr_ivar_get_cached", @self, sym_word(ivar), ic))])
           switch(merge)
           v
         end
@@ -222,9 +222,9 @@ module Ze0
           return kernel("zr_lastline_get") if node.name == :$_
 
           # `$<` is ARGF itself, whatever a program names ARGF.
-          return kernel("zr_core_class", imm(sym_id(:ARGF))) if node.name == :$<
+          return kernel("zr_core_class", sym_word(:ARGF)) if node.name == :$<
 
-          kernel("zr_gvar_get", imm(sym_id(node.name)))
+          kernel("zr_gvar_get", sym_word(node.name))
         end
 
         # The globals ruby hooks: a write checks the value, or refuses a
@@ -243,9 +243,9 @@ module Ze0
           return kernel("zr_lastline_set", v) if name == :$_
 
           at_node(node)
-          return checked(kernel("zr_gvar_assign", imm(sym_id(name)), v)) if @l.internal? || !HOOKED_GVARS.include?(name)
+          return checked(kernel("zr_gvar_assign", sym_word(name), v)) if @l.internal? || !HOOKED_GVARS.include?(name)
 
-          checked(kernel("zr_gvar_hooked", imm(sym_id(node.shown || name)), imm(sym_id(name)), v))
+          checked(kernel("zr_gvar_hooked", sym_word(node.shown || name), sym_word(name), v))
         end
 
         # `$1`, `$&`, `` $` ``, `$'` and `$+`: `$~`'s registers, nil
@@ -262,18 +262,18 @@ module Ze0
 
         def cvar_read(node)
           at_node(node)
-          checked(kernel("zr_cvar_get", @cref, imm(sym_id(node.name))))
+          checked(kernel("zr_cvar_get", @cref, sym_word(node.name)))
         end
 
         def undef_methods(node)
           at_node(node)
-          node.names.each { |name| checked(kernel("zr_undef", cref_class, imm(sym_id(name)))) }
+          node.names.each { |name| checked(kernel("zr_undef", cref_class, sym_word(name))) }
           @qnil
         end
 
         def alias_method(node)
           at_node(node)
-          checked(kernel("zr_alias", cref_class, imm(sym_id(node.new_name)), imm(sym_id(node.old_name))))
+          checked(kernel("zr_alias", cref_class, sym_word(node.new_name), sym_word(node.old_name)))
         end
 
         # The names wait in record slots, since making one may collect.
@@ -314,14 +314,14 @@ module Ze0
         end
 
         def alias_global(node)
-          kernel("zr_gvar_alias", imm(sym_id(node.new_name)), imm(sym_id(node.old_name)))
+          kernel("zr_gvar_alias", sym_word(node.new_name), sym_word(node.old_name))
           @qnil
         end
 
         def cvar_write(node)
           v = expr(node.value)
           at_node(node)
-          checked(kernel("zr_cvar_set", @cref, imm(sym_id(node.name)), v))
+          checked(kernel("zr_cvar_set", @cref, sym_word(node.name), v))
         end
 
         # `Name ||= value`: the constant when it is set and truthy, else
@@ -329,9 +329,9 @@ module Ze0
         def const_or_write(node)
           at_node(node)
           current = if node.scope.nil?
-                      kernel("zr_const_lookup", @cref, imm(sym_id(node.name)))
+                      kernel("zr_const_lookup", @cref, sym_word(node.name))
                     else
-                      kernel("zr_const_lookup_at", scope_class(node.scope), imm(sym_id(node.name)))
+                      kernel("zr_const_lookup_at", scope_class(node.scope), sym_word(node.name))
                     end
           have = @f.label
           set = @f.label
@@ -341,14 +341,14 @@ module Ze0
           @f.jump(merge, [current])
           switch(set)
           v = expr(node.value)
-          checked(kernel("zr_const_set", scope_class(node.scope), imm(sym_id(node.name)), v))
+          checked(kernel("zr_const_set", scope_class(node.scope), sym_word(node.name), v))
           @f.jump(merge, [v])
           switch(merge)
           result
         end
 
         def symbol(name)
-          imm((sym_id(name) << 8) | @l.const("SYMBOL_TAG"))
+          sym_value(name)
         end
       end
     end

@@ -23,7 +23,7 @@ module Ze0
           checked_arity = node.params.plain? ? node.params.required.size : -1
           at_node(node)
           entry = node.receiver || inside_method? ? "zr_define_method_public" : "zr_define_method"
-          checked(kernel(entry, owner, imm(sym_id(node.name)), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
+          checked(kernel(entry, owner, sym_word(node.name), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
           symbol(node.name)
         end
 
@@ -49,7 +49,7 @@ module Ze0
         def class_body(node)
           fn = @l.body(node)
           scope = scope_class(node.scope)
-          id = imm(sym_id(node.name))
+          id = sym_word(node.name)
           at_node(node)
           klass = if node.is_a?(Hir::ClassDef)
                     sup = node.superclass ? expr(node.superclass) : qundef
@@ -76,7 +76,7 @@ module Ze0
             return global(slot)
           end
 
-          id = imm(sym_id(node.name))
+          id = sym_word(node.name)
           # The scope is read first, so the row names this read's node.
           scope = scope_class(node.scope) if node.scope
           at_node(node)
@@ -114,7 +114,7 @@ module Ze0
           scope = scope_class(node.scope)
           v = expr(node.value)
           at_node(node)
-          checked(kernel("zr_const_set", scope, imm(sym_id(node.name)), v))
+          checked(kernel("zr_const_set", scope, sym_word(node.name), v))
           v
         end
       end

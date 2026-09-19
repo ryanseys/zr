@@ -218,8 +218,8 @@ module Ze0
 
         def keyword_argc(node, argc, argv)
           if node.kwargs && Scope.literal_keywords?(node.kwargs)
-            ids = node.kwargs.pairs.each_slice(2).map { |key, _| sym_id(key.value) }
-            @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([ids.size, *ids]))), @task_addr, off(@task, "kw"))
+            keys = node.kwargs.pairs.each_slice(2).map { |key, _| key.value }
+            @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"))
             return argc
           end
           return kernel("zr_kw_argc", argc, argv) if node.kwargs
@@ -295,7 +295,7 @@ module Ze0
           builtin = classes.map { |g| @f.icmp("eq", klass, global(g)) }.reduce { |a, b| @f.bor(a, b) }
           @f.brif(builtin, core, other)
           switch(core)
-          @f.jump(merge, [kernel(entry, recv, imm(sym_id(node.name)), argc, argv, imm(send_mode(node)))])
+          @f.jump(merge, [kernel(entry, recv, sym_word(node.name), argc, argv, imm(send_mode(node)))])
           switch(other)
           @f.jump(merge, [cached_send(node, recv, argc, argv, @qnil)])
           switch(merge)
@@ -349,7 +349,7 @@ module Ze0
         # the kernel every time: a refinement decides, never the cell.
         def cached_send(node, recv, argc, argv, blk, mode: send_mode(node))
           cc = cache("ic", "CallCache", CALL_WAYS)
-          slow = -> { kernel("zr_send_cached", cc, recv, imm(sym_id(node.name)), argc, argv, blk, imm(mode)) }
+          slow = -> { kernel("zr_send_cached", cc, recv, sym_word(node.name), argc, argv, blk, imm(mode)) }
           return slow.call if node.using
 
           cell = @l.layout("CallCache")

@@ -278,14 +278,49 @@ module Ze0
       carried = road(target)
       hir = Ze0.clock("hir built") { Hir.build(source, file, road: carried, target: target) }
       symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
-      lower = Lower.new(hir, rt.description, symbols, target: target)
+      # Every name the table already holds has an id no program can
+      # move; every other name is the link's to number, which is what
+      # keeps a unit's code free of the order it was compiled in.
+      lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze)
       functions, data = Ze0.clock(finish ? "program lowered and assembled" : "program lowered") do
         finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       end
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
+      number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
       tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                            branches: hir.branches || {}, defs: hir.defs || {}, target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)
+    end
+
+    # The relocation kinds a unit leaves for the link to number.
+    NUMBERED = %i[symid symval symbit].freeze
+
+    # What the link writes into one of those words.
+    def numbered(reloc, symbols, tag)
+      id = symbols.id(reloc.symbol)
+      case reloc.kind
+      when :symid then id
+      when :symval then Lower.symbol_value(id, tag)
+      when :symbit then Lower.ivar_name_bit(id)
+      end
+    end
+
+    # A unit spells a name and leaves the number to the link. This is
+    # where the numbers are chosen: over the program's data in order, so
+    # that one program always chooses the same ones, and written into
+    # the words that wait for them. Past here no relocation of these
+    # kinds is left, which is what every object writer and the wasm
+    # module rely on.
+    def number_symbols(data, symbols, tag)
+      data.each do |d|
+        waiting, keep = d.relocs.partition { |r| NUMBERED.include?(r.kind) }
+        next if waiting.empty?
+
+        bytes = d.bytes.dup
+        waiting.each { |r| bytes[r.offset, 8] = [numbered(r, symbols, tag)].pack("q<") }
+        d.bytes = bytes
+        d.relocs = keep
+      end
     end
 
     # The runtime for `target`, lowered once per process.

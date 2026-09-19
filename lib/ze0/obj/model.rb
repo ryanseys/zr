@@ -8,6 +8,14 @@ module Ze0
   module Obj
     # `kind`: :branch26, :page21, :pageoff12, :got_page21, :got_pageoff12,
     # :abs64. `offset` is from the start of the owning function or data.
+    #
+    # Three more kinds stand only in data, and only until the link
+    # numbers the program's symbols: :symid writes the id the program
+    # gives `symbol`, :symval writes that id as a tagged Symbol, and
+    # :symbit the bit an ivar table's `names` keeps for it. A unit
+    # spells a name and leaves the number to the link, so that its code
+    # does not depend on what was compiled before it; no object writer
+    # ever sees one of these (`Zr.number_symbols`).
     Reloc = Struct.new(:offset, :kind, :symbol, :addend) do
       def initialize(offset, kind, symbol, addend = 0)
         super

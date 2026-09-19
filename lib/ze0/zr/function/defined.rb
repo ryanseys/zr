@@ -34,12 +34,12 @@ module Ze0
 
         def defined_test(node)
           case node.kind
-          when :ivar then truth(checked(kernel("zr_ivar_defined", @self, imm(sym_id(ivar_name(node.target))))))
-          when :gvar then truth(kernel("zr_gvar_defined", imm(sym_id(node.target))))
+          when :ivar then truth(checked(kernel("zr_ivar_defined", @self, sym_word(ivar_name(node.target)))))
+          when :gvar then truth(kernel("zr_gvar_defined", sym_word(node.target)))
           when :backref then @f.icmp("ne", expr(node.target), @qnil)
           when :cvar
             at_node(node)
-            truth(checked(kernel("zr_cvar_defined", @cref, imm(sym_id(node.target)))))
+            truth(checked(kernel("zr_cvar_defined", @cref, sym_word(node.target))))
           when :const then const_defined(node.target)
           when :method, :attrasgn then method_defined(node.target)
           when :list then all_defined(node.target) { imm_bool(true) }
@@ -80,10 +80,10 @@ module Ze0
         # own failure means nil.
         def const_defined(read)
           if read.scope.nil?
-            truthy(kernel("zr_const_defined", @cref, imm(sym_id(read.name))))
+            truthy(kernel("zr_const_defined", @cref, sym_word(read.name)))
           else
             scope = read.scope == :top ? global("G_OBJECT") : expr(read.scope)
-            truthy(kernel("zr_const_defined_at", scope, imm(sym_id(read.name))))
+            truthy(kernel("zr_const_defined_at", scope, sym_word(read.name)))
           end
         end
 
@@ -97,7 +97,7 @@ module Ze0
         def method_defined(send)
           all_defined([send.recv, *send.args].compact) do
             recv = send.recv ? expr(send.recv) : @self
-            truth(kernel("zr_method_defined", recv, imm(sym_id(send.name)), imm_bool(!send.recv.nil?)))
+            truth(kernel("zr_method_defined", recv, sym_word(send.name), imm_bool(!send.recv.nil?)))
           end
         end
 

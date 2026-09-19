@@ -41,6 +41,17 @@ module Ze0
     class Lower
       class Refused < StandardError; end
 
+      # `id` as the Value a Symbol is: the id above the tag the kernel
+      # reads it by (rt/kernel/object.rb).
+      def self.symbol_value(id, tag) = (id << 8) | tag
+
+      # The bit an ivar table's `names` keeps for the name `id`
+      # (rt/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
+      def self.ivar_name_bit(id)
+        bit = 1 << (id & 63)
+        bit < 1 << 63 ? bit : bit - (1 << 64)
+      end
+
       attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings
 
       # The id of the prism node `node` came from, or 0.
@@ -86,11 +97,12 @@ module Ze0
       # eval, whose toplevel is a file's, not a program's: it starts no
       # program and prints no parse warning.
       def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
-                     target: Target.default)
+                     target: Target.default, fixed: nil)
         @program = program
         @kernel = kernel
         @target = target
         @symbols = symbols
+        @fixed = fixed
         @entry = entry
         @internal = internal
         @ext = ext
@@ -110,10 +122,61 @@ module Ze0
       # file writes the same names whatever was compiled before it. The
       # program's own file keeps the entry it was given.
       def open_unit(prefix = @entry)
+        close_pool
         @prefix = prefix
         @next = 0
         @lits = 0
+        @pool = []
         @keyword_tables = {}
+      end
+
+      # The id the program gives `name`, where the program cannot move
+      # it: a name the runtime already spells, or any name at all in the
+      # lowering that owns the table -- the runtime's, the road's, an
+      # eval's. Every other name is the link's to number, and answers
+      # nil so that the caller leaves it a word and a relocation.
+      def fixed_id(name)
+        return @symbols.id(name) unless @fixed
+
+        @fixed[name.to_s]
+      end
+
+      # The word this unit's pool keeps for `name` under `kind`, as
+      # `[the pool's name, its offset]`. A unit's code loads it instead
+      # of carrying a number the compile order decided.
+      def pool_word(kind, name)
+        row = [kind, name.to_s]
+        at = @pool.index(row) || (@pool << row).size - 1
+        ["#{@prefix}_pool", at * 8]
+      end
+
+      # The pool as data: one zero word per row, each with the
+      # relocation that says what the link writes there.
+      def close_pool
+        return if @pool.nil? || @pool.empty?
+
+        relocs = @pool.each_with_index.map { |(kind, name), i| Obj::Reloc.new(i * 8, kind, name) }
+        @data << Obj::Data.new("#{@prefix}_pool", :data_const, "\0".b * (@pool.size * 8), relocs: relocs, align: 8)
+        @pool = []
+      end
+
+      # A read-only table of words, where a word given as a name is the
+      # program's id for it: baked where the id is fixed, and a word the
+      # link fills where it is not.
+      def id_table(name, words, section: :text_const)
+        relocs = []
+        filled = words.each_with_index.map do |word, i|
+          next word if word.is_a?(Integer)
+          next 0 if word.nil?
+
+          id = fixed_id(word)
+          next id if id
+
+          relocs << Obj::Reloc.new(i * 8, :symid, word.to_s)
+          0
+        end
+        @data << Obj::Data.new(name, section, filled.pack("q<*"), relocs: relocs, align: 8)
+        name
       end
 
       # `[functions, data]`: the program's toplevel, then one function
@@ -136,6 +199,7 @@ module Ze0
           finished.concat(finished_functions(&finish)) if finish
         end
         open_unit
+        close_pool
         @unit_internal = @ext
         @unit_hidden = false
         @file = @program.file
@@ -228,7 +292,7 @@ module Ze0
         file = file_bytes
         bytes = ("\0" * layout.size).b
         word = ->(field, value) { bytes[layout.fields.fetch(field).first, 8] = [value].pack("q<") }
-        word.call("name", name)
+        word.call("name", name.is_a?(Integer) ? name : (fixed_id(name) || 0))
         word.call("file_len", internal? ? 0 : @file.bytesize)
         word.call("kind", const(kind))
         word.call("line", line)
@@ -241,6 +305,7 @@ module Ze0
         word.call("ruby", ruby ? 1 : 0)
         word.call("hidden", @unit_hidden ? 1 : 0)
         relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
+        relocs << Obj::Reloc.new(layout.fields.fetch("name").first, :symid, name.to_s) if !name.is_a?(Integer) && !fixed_id(name)
         relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
         relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params
         relocs << Obj::Reloc.new(layout.fields.fetch("locals").first, :abs64, local_table(fn, locals))
@@ -257,9 +322,7 @@ module Ze0
       # The scope's locals as data: the row count, then a name id each,
       # in slot order. An eval and a Binding read the scope's names here.
       def local_table(fn, locals)
-        name = "zr_locals_#{fn}"
-        @data << Obj::Data.new(name, :text_const, [locals.size, *locals.map { |n| @symbols.id(n) }].pack("q<*"), align: 8)
-        name
+        id_table("zr_locals_#{fn}", [locals.size, *locals])
       end
 
       # The locals a scope reaches outside itself, as data: the row count,
@@ -274,11 +337,9 @@ module Ze0
       # follow the program -- the runtime spelled many names first -- so
       # the rows follow the order the program first declares each local.
       def captures_table(fn, rows)
-        name = "zr_captures_#{fn}"
         rows = rows.sort_by { |local, _, _| @spelled.fetch(local, @spelled.size) }
-        words = rows.flat_map { |local, written, rebound| [@symbols.id(local), (written ? 1 : 0) | (rebound ? 2 : 0)] }
-        @data << Obj::Data.new(name, :text_const, [rows.size, *words].pack("q<*"), align: 8)
-        name
+        words = rows.flat_map { |local, written, rebound| [local, (written ? 1 : 0) | (rebound ? 2 : 0)] }
+        id_table("zr_captures_#{fn}", [rows.size, *words])
       end
 
       # Each of `names` in the order the program first declares it.
@@ -291,22 +352,16 @@ module Ze0
       # `Method#parameters` as data: the row count, then a kind and a
       # name id per row, 0 for a row with no name.
       def param_table(fn, params)
-        rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name ? @symbols.id(name) : 0] }
-        name = "zr_params_#{fn}"
-        @data << Obj::Data.new(name, :text_const, [params.rows.size, *rows].pack("q<*"), align: 8)
-        name
+        rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name] }
+        id_table("zr_params_#{fn}", [params.rows.size, *rows])
       end
 
       # A read-only table of symbol ids: the keywords a def declares, or
-      # a call's keywords behind their count, shared by every site that
-      # passes the same keys in the same order, so a def's shape cell
-      # hits across them.
-      def keyword_table(ids)
-        @keyword_tables[ids] ||= begin
-          name = "#{@prefix}_kw_#{@keyword_tables.size}"
-          @data << Obj::Data.new(name, :text_const, ids.pack("Q<*"), align: 8)
-          name
-        end
+      # a call's keywords behind their count, shared by every site of
+      # the unit that passes the same keys in the same order, so a def's
+      # shape cell hits across them.
+      def keyword_table(words)
+        @keyword_tables[words] ||= id_table("#{@prefix}_kw_#{@keyword_tables.size}", words)
       end
 
       # The function a def becomes, lowered now and named for the site.
