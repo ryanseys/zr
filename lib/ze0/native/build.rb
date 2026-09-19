@@ -37,14 +37,19 @@ module Ze0
       PARALLEL_FLOOR = 200_000
 
       # How many workers a large unit assembles in: `ZE0_JOBS`, else one
-      # per core up to six. Each worker holds half a gigabyte or more of
-      # its own, and past six they take the memory from each other. The
-      # runtime object, timed on a twelve-core M2 Pro with 16 GB:
+      # per core up to six. Past six they take the memory from each
+      # other. The runtime object, timed on a twelve-core M2 Pro with
+      # 16 GB:
       #
       #     jobs      2      4      6      8     12
       #     seconds  17.4   11.4    9.5   11.8   26.9
       #
-      # `ZE0_JOBS` overrules it, which is how that row was measured.
+      # This is the ceiling. `Parallel.afforded` lowers it at the moment
+      # of the fork by what the parent holds, which is what one more
+      # worker costs and is a hundredfold apart between the compiler
+      # under ruby and the compiled compiler.
+      #
+      # `ZE0_JOBS` overrules both, which is how that row was measured.
       def jobs = Integer(ENV.fetch("ZE0_JOBS") { [Etc.nprocessors, 6].min })
 
       # The native backend for `target`.

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "etc"
+
 module Ze0
   module Native
     # A map over many items in forked workers, for work that only computes
@@ -21,6 +23,7 @@ module Ze0
 
         answers = Array.new(items.size)
         warmed
+        jobs = afforded(jobs)
         failures = dealt(weights, jobs).map { |bin| started(items, bin, work) }.filter_map do |pid, reader, bin|
           collected(pid, reader, bin, answers)
         end
@@ -40,6 +43,53 @@ module Ze0
       # all of the worker's was marking what the fork had given it.
       def warmed
         Process.warmup if Process.respond_to?(:warmup)
+      end
+
+      # No more workers than this machine will hold.
+      #
+      # Memory bounds this and not cores. A worker inherits the parent's
+      # heap -- which the fork shares, page by page, until one of them
+      # writes -- and then grows a heap of its own of about the same size
+      # again while it works through its bin. So what the parent holds,
+      # which `warmed` has just settled to the live set, is what one more
+      # worker costs, and what this machine has over that is how many of
+      # them fit.
+      #
+      # The number this replaces was a flat six, and the comment beside
+      # it -- "each worker holds half a gigabyte or more" -- was measured
+      # of the compiler running under ruby. A worker of the *compiled*
+      # compiler holds ten gigabytes: six of them drove this sixteen
+      # gigabyte machine into 16.4 GB of swap, and `rake stage2` had not
+      # finished at seventeen minutes. A run that swaps does not fail, it
+      # takes ten times as long, which is the worst way for this to go
+      # wrong. Reading the live set covers both compilers with no
+      # constant to keep true.
+      #
+      # `ZE0_JOBS` overrules it, which is how a row of the table above
+      # `Build.jobs` is measured.
+      def afforded(jobs)
+        return jobs if ENV.key?("ZE0_JOBS")
+
+        held = held_bytes
+        return jobs if held.zero?
+
+        [[(machine_bytes - held) / held, jobs].min, 1].max
+      end
+
+      # What this process holds: its heap pools, each at its own slot
+      # size. Ruby and a ze0 program both answer it.
+      def held_bytes
+        GC.stat_heap.sum { |_, pool| pool[:heap_eden_slots].to_i * pool[:slot_size].to_i }
+      rescue StandardError, NotImplementedError
+        0
+      end
+
+      # What this machine has. POSIX answers on macOS and on musl alike;
+      # a machine that will not say is treated as a small one.
+      def machine_bytes
+        Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE)
+      rescue StandardError, NotImplementedError
+        8 * (1 << 30)
       end
 
       # The item indexes of each bin: the heaviest item first, each to the
