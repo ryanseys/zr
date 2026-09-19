@@ -5,7 +5,7 @@
 # does, sees every element.
 module Enumerable
   def map
-    return to_enum(:map) unless block_given?
+    return to_enum(:map) { enumerable_size } unless block_given?
 
     out = []
     each do |*x|
@@ -16,7 +16,7 @@ module Enumerable
   end
 
   def select
-    return to_enum(__callee__) unless block_given?
+    return to_enum(__callee__) { enumerable_size } unless block_given?
 
     out = []
     Primitive.zr_enum_each(self, nil) do |x|
@@ -27,7 +27,7 @@ module Enumerable
   end
 
   def reject
-    return to_enum(:reject) unless block_given?
+    return to_enum(:reject) { enumerable_size } unless block_given?
 
     out = []
     Primitive.zr_enum_each(self, nil) do |x|
@@ -38,7 +38,7 @@ module Enumerable
   end
 
   def filter_map
-    return to_enum(:filter_map) unless block_given?
+    return to_enum(:filter_map) { enumerable_size } unless block_given?
 
     out = []
     each do |*x|
@@ -153,7 +153,7 @@ module Enumerable
   end
 
   def sort_by
-    return to_enum(:sort_by) unless block_given?
+    return to_enum(:sort_by) { enumerable_size } unless block_given?
 
     pairs = []
     Primitive.zr_enum_each(self, nil) do |x|
@@ -190,7 +190,7 @@ module Enumerable
   end
 
   def each_with_object(memo)
-    return to_enum(:each_with_object, memo) { respond_to?(:size) ? size : nil } unless block_given?
+    return to_enum(:each_with_object, memo) { enumerable_size } unless block_given?
 
     Primitive.zr_enum_each(self, nil) do |x|
       yield(x, memo)
@@ -200,7 +200,7 @@ module Enumerable
   end
 
   def flat_map
-    return to_enum(__callee__) unless block_given?
+    return to_enum(__callee__) { enumerable_size } unless block_given?
 
     out = []
     each do |*x|
@@ -215,7 +215,7 @@ module Enumerable
   # flat_map is not called, and an Enumerator made from it names
   # `collect_concat`.
   def collect_concat
-    return to_enum(:collect_concat) unless block_given?
+    return to_enum(:collect_concat) { enumerable_size } unless block_given?
 
     out = []
     each do |*x|
@@ -227,7 +227,7 @@ module Enumerable
   end
 
   def group_by
-    return to_enum(:group_by) unless block_given?
+    return to_enum(:group_by) { enumerable_size } unless block_given?
 
     out = {}
     Primitive.zr_enum_each(self, nil) do |x|
@@ -239,7 +239,7 @@ module Enumerable
   end
 
   def partition
-    return to_enum(:partition) unless block_given?
+    return to_enum(:partition) { enumerable_size } unless block_given?
 
     yes = []
     no = []
@@ -253,9 +253,24 @@ module Enumerable
   # The count an enumerator reports: the receiver's own, so an endless
   # source answers without being walked. A receiver with no size, or
   # one whose size is unknown, leaves the enumerator's unknown too.
+  # `enum_size` asks with rb_check_funcall, which calls a method the
+  # receiver keeps private, and takes whatever it answers as it stands.
   def enumerable_size
     Primitive.attr! :hidden
-    respond_to?(:size) ? size : nil
+    respond_to?(:size, true) ? size : nil
+  end
+
+  # What a cycle counts: nothing, where the receiver counts nothing or
+  # has no count to give; endlessly, where no round was asked for; and
+  # otherwise the rounds asked for, none of them being none at all.
+  def cycle_size(rounds, endless)
+    Primitive.attr! :hidden
+    total = enumerable_size
+    return total if total.nil? || total == 0
+    return Float::INFINITY if endless || rounds.nil?
+
+    rounds = Primitive.zr_index_operand_m(rounds)
+    rounds <= 0 ? 0 : total * rounds
   end
 
   def each_cons(n)
@@ -299,7 +314,7 @@ module Enumerable
   end
 
   def each_entry(*args)
-    return to_enum(:each_entry, *args) { respond_to?(:size) ? size : nil } unless block_given?
+    return to_enum(:each_entry, *args) { enumerable_size } unless block_given?
 
     Primitive.zr_enum_each(self, args) do |x|
       yield x
@@ -308,8 +323,8 @@ module Enumerable
     self
   end
 
-  def min_by(n = nil, &block)
-    return to_enum(:min_by, n) unless block
+  def min_by(n = (no_count = true; nil), &block)
+    return to_enum(:min_by, *([n] unless no_count)) { enumerable_size } unless block
     return nmin_run(n, true, false, block, false) unless n.nil?
 
     best = nil
@@ -327,8 +342,8 @@ module Enumerable
     best
   end
 
-  def max_by(n = nil, &block)
-    return to_enum(:max_by, n) unless block
+  def max_by(n = (no_count = true; nil), &block)
+    return to_enum(:max_by, *([n] unless no_count)) { enumerable_size } unless block
     return nmin_run(n, true, true, block, false) unless n.nil?
 
     best = nil
@@ -755,7 +770,7 @@ module Enumerable
   # Its own body, so an Enumerator made from it names `collect`, and a
   # subclass's `map` is not called.
   def collect
-    return to_enum(:collect) unless block_given?
+    return to_enum(:collect) { enumerable_size } unless block_given?
 
     out = []
     each do |*x|
@@ -793,14 +808,14 @@ module Enumerable
   end
 
   def reverse_each(*args, &block)
-    return to_enum(:reverse_each, *args) unless block
+    return to_enum(:reverse_each, *args) { enumerable_size } unless block
 
     elements(*args).reverse_each(&block)
     self
   end
 
-  def cycle(n = nil)
-    return to_enum(:cycle, n) unless block_given?
+  def cycle(n = (endless = true; nil))
+    return to_enum(:cycle, *([n] unless endless)) { cycle_size(n, endless) } unless block_given?
 
     items = elements
     return nil if items.empty?
@@ -939,7 +954,7 @@ module Enumerable
   end
 
   def chunk
-    return to_enum(:chunk) unless block_given?
+    return to_enum(:chunk) { enumerable_size } unless block_given?
 
     source = self
     Enumerator.new do |y|

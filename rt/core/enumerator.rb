@@ -171,6 +171,11 @@ class Enumerator
 
   def rewind
     initialized!
+    # The object is asked first: one that knows how to start again says
+    # so, and `enumerator_rewind` asks with rb_check_funcall, which
+    # reaches a method the object keeps private and lets an object with
+    # no such method alone.
+    @receiver.__send__(:rewind) if @receiver.respond_to?(:rewind, true)
     @fiber = nil
     @lookahead = nil
     @stop = nil
