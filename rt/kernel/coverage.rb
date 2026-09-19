@@ -6,7 +6,7 @@
 
 # `rows` holds one CovRow per file seen; `last` is the row the last
 # event counted in, which the next event is most likely to share.
-Machine.struct :Coverage, rows: Ptr, len: Word, capa: Word, setup: Word, running: Word, last: Ptr
+Machine.struct :Coverage, rows: Ptr, len: Word, capa: Word, setup: Word, running: Word, last: Ptr, branches: Ptr, branch_size: Word
 # `file` is the FrameMeta's file bytes, one address per file a lowering
 # made. `counts` holds `size` words, a count for each line from 1.
 Machine.struct :CovRow, file: Ptr, file_len: Word, counts: Ptr, size: Word, measured: Word
@@ -48,6 +48,11 @@ machine def zr_coverage_forget(c)
   end
   Coverage.set_len(c, 0)
   Coverage.set_last(c, 0)
+  if Coverage.branches(c) != 0
+    zr_xfree(Coverage.branches(c))
+  end
+  Coverage.set_branches(c, 0)
+  Coverage.set_branch_size(c, 0)
 end
 
 # The row of the file whose bytes are at `file`, made now when the file
@@ -118,6 +123,52 @@ machine def zr_coverage_line(rec)
   end
   slot = CovRow.counts(row) + ((line - 1) * 8)
   Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
+end
+
+# One run of branch `id`, while coverage runs. The branches of every
+# file share one array, and the branch table a program carries says
+# which of them are whose, so the count is a store and no lookup: this
+# stands on every side of every branch a measured file holds.
+#
+# Whether the file took part is decided once, where its lines are
+# counted (`measured`), and the Ruby half leaves out the branches of a
+# file whose lines it left out.
+sig [Word] => Void
+machine def zr_coverage_branch(id)
+  c = zr_coverage()
+  if Coverage.running(c) == 0
+    return
+  end
+  if id >= Coverage.branch_size(c)
+    size = (id + 1) * 2
+    counts = zr_xmalloc(size * 8)
+    memset(counts, Machine.i32(0), size * 8)
+    if Coverage.branches(c) != 0
+      zr_memcpy(counts, Coverage.branches(c), Coverage.branch_size(c) * 8)
+      zr_xfree(Coverage.branches(c))
+    end
+    Coverage.set_branches(c, counts)
+    Coverage.set_branch_size(c, size)
+  end
+  slot = Coverage.branches(c) + (id * 8)
+  Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
+end
+
+# Every branch counter, by id, up to the last one that ran; `clear`
+# zeroes them after.
+sig [Value] => Value
+machine def zr_coverage_branch_counts(clear)
+  c = zr_coverage()
+  out = zr_ary_new(Coverage.branch_size(c))
+  i = 0
+  while i < Coverage.branch_size(c)
+    zr_ary_push(out, zr_fix(Machine.load64(Coverage.branches(c) + (i * 8), 0)))
+    i += 1
+  end
+  if clear == QTRUE && Coverage.branches(c) != 0
+    memset(Coverage.branches(c), Machine.i32(0), Coverage.branch_size(c) * 8)
+  end
+  out
 end
 
 # Every measured file as `[path, counts]`, a count for each line from 1

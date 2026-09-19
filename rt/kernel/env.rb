@@ -624,10 +624,11 @@ end
 
 # What the compiler lays out for a require whose name the program
 # computes (lib/ze0/zr.rb, `load_tables`): the count of files compiled
-# in, their rows, and five (bytes, length) texts.
+# in, their rows, and eight (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
                            preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,
-                           prefix: Ptr, prefix_len: Word, coverable: Ptr, coverable_len: Word
+                           prefix: Ptr, prefix_len: Word, coverable: Ptr, coverable_len: Word,
+                           branches: Ptr, branches_len: Word
 
 sig [] => Ptr
 machine def zr_load_table
@@ -673,6 +674,8 @@ machine def zr_load_names(which)
     return zr_str_new(LoadTable.prefix(t), LoadTable.prefix_len(t))
   elsif w == 6
     return zr_str_new(LoadTable.coverable(t), LoadTable.coverable_len(t))
+  elsif w == 7
+    return zr_str_new(LoadTable.branches(t), LoadTable.branches_len(t))
   end
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end

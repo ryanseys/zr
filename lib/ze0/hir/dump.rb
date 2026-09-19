@@ -271,6 +271,8 @@ module Ze0
           lines[-1] += ")"
         when Trace
           lines << "#{pad}(trace #{n.event})"
+        when Cover
+          lines << "#{pad}(cover #{n.id})"
         when Stop
           lines << "#{pad}(stop #{n.what.inspect})"
         when Using

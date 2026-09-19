@@ -81,31 +81,34 @@ module Ze0
       # `yield` has a block to reach only inside a method, and a bare
       # `super` passes those parameters on.
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
-        built = lambda do |external, trace, evals|
-          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, evals: evals, activations: activations)
+        built = lambda do |external, trace, evals, covers|
+          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, evals: evals,
+                              covers: covers, activations: activations)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
-        # Two things a build learns only by reading every file: that the
-        # program evals, and that it names TracePoint. Each asks for a
-        # build of its own -- one over the road, where a file the road
-        # holds is named rather than read, and one with the events armed
-        # -- and a prelude read here is what asks for either, since
+        # Three things a build learns only by reading every file: that
+        # the program evals, that it names TracePoint, and that it names
+        # Coverage. Each asks for a build of its own -- one over the
+        # road, where a file the road holds is named rather than read,
+        # one with the events armed, and one with the branch counters --
+        # and a prelude read here is what asks for any of them, since
         # `binding.irb` loads fileutils and fileutils evals. So the
-        # build settles: read, take the preludes, and go again while
-        # either answer has moved. Both answers only ever turn on, so
-        # this stops.
+        # build settles: read, take the preludes, and go again while any
+        # answer has moved. Each answer only ever turns on, so this
+        # stops.
         loader = main = preludes = nil
-        evals = trace = false
+        evals = trace = covers = false
         external = nil
         loop do
-          loader, main = built.call(external, trace, evals)
+          loader, main = built.call(external, trace, evals, covers)
           preludes = road ? Build.preludes(loader, target) : []
           over = loader.evals? && road.respond_to?(:units) ? road : nil
-          break if over.equal?(external) && loader.traces? == trace
+          break if over.equal?(external) && loader.traces? == trace && loader.covers? == covers
 
           evals = loader.evals?
           external = over
           trace = loader.traces?
+          covers = loader.covers?
         end
         # A program that evals numbers its `using` rows here, but a
         # build it makes while it runs cannot see how far they reach --
@@ -117,7 +120,7 @@ module Ze0
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
         Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?,
-                    loader.node_ids, spots, coverable, loader.activations)
+                    loader.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {})
       end
 
       # Each prelude under the loader flag that asks for it, in the order
@@ -286,8 +289,8 @@ module Ze0
         # there: in one, a require inside a method waits for the run, which
         # finds the file then and compiles it, and so does an autoload of
         # a file outside `booted`, the files the boot reads.
-        def initialize(roots, eval: false, external: nil, trace: false, evals: false, activations: nil, deferred: [], preloaded: PRELOADED,
-                       ahead: AHEAD, booted: BOOTED)
+        def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
+                       deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED)
           @deferred = deferred
           @preloaded = preloaded
           @ahead = ahead
@@ -297,8 +300,10 @@ module Ze0
           @eval = eval
           @trace = trace
           @traces = false
-          @covers = false
+          @covers = covers
           @coverable = {}
+          @branches = {}
+          @branch_count = 0
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = external ? external.units.dup : {}
@@ -376,6 +381,23 @@ module Ze0
 
         def line_event!(file, line)
           @coverable[file]&.last&.push(line)
+        end
+
+        # The branch rows of each measured file, in the order Coverage
+        # numbers them: a root, then its sides, then the next root.
+        attr_reader :branches
+
+        # A row for branch `kind` over `span`, answering `[id, row]`: the
+        # id its `Cover` carries, which is the program's since one
+        # counter array holds every file's, and the row's place in its
+        # own file, which is what Coverage shows and what a side names
+        # its root by. `under` is that place for a side, nil for a root.
+        def branch!(file, kind, span, under: nil)
+          rows = (@branches[file] ||= [])
+          id = @branch_count
+          @branch_count += 1
+          rows << [kind, id, under, *span]
+          [id, rows.size - 1]
         end
 
         # How many `using` rows stand taken once this build is done, and
@@ -1142,6 +1164,74 @@ module Ze0
         Trace.new(:line, line)
       end
 
+      # A `Cover` for each side of a branch Coverage measures, or nils
+      # where it measures nothing. `sides` are `[kind, span]` in the
+      # order ruby lists them, which is the source's order except that
+      # an `unless` puts its else first; the root is numbered ahead of
+      # them, as CRuby numbers a branch and then its sides.
+      def branch_covers(kind, span, sides)
+        return [nil] * sides.size unless @loader&.covers? && !Build.runtime_file?(@file)
+
+        _, root = @loader.branch!(@file, kind, span)
+        sides.map do |side, where|
+          id, = @loader.branch!(@file, side, where, under: root)
+          Cover.new(id, where[0])
+        end
+      end
+
+      # The four numbers Coverage names a branch by: where it starts and
+      # where it ends, the columns 0-based as ruby counts them.
+      def span(location) = [location.start_line, location.start_column, location.end_line, location.end_column]
+
+      # The sides of an `if`, a ternary or an `elsif`. A then with no
+      # statements stands in the empty width just past the predicate,
+      # and an else nobody wrote stands over the whole `if`, which is
+      # what CRuby records for each.
+      def if_sides(node)
+        [[:then, node.statements ? span(node.statements.location) : after(node.predicate.location)],
+         [:else, node.subsequent ? span(else_location(node.subsequent)) : span(node.location)]]
+      end
+
+      # An `unless` writes its then first and ruby numbers its else
+      # first, so the two are read back the other way round.
+      def unless_sides(node)
+        [[:else, node.else_clause ? span(else_location(node.else_clause)) : span(node.location)],
+         [:then, node.statements ? span(node.statements.location) : after(node.predicate.location)]]
+      end
+
+      # Each `when` or `in` clause, then the else -- which a `case`
+      # always has, standing over the whole `case` where the source
+      # wrote none, so a subject that matched nothing is still counted.
+      def case_sides(node, kind)
+        sides = node.conditions.map { |c| [kind, span(c.statements&.location || c.location)] }
+        sides << [:else, span(node.else_clause ? else_location(node.else_clause) : node.location)]
+      end
+
+      # A loop has one side, its body, or the whole loop where it has
+      # none.
+      def loop_sides(node) = [[:body, span(node.statements&.location || node.location)]]
+
+      # An `else` stands where its statements do and over the whole
+      # clause where it holds none; an `elsif` is a branch of its own and
+      # stands over itself.
+      def else_location(node)
+        return node.location unless node.is_a?(Prism::ElseNode)
+
+        node.statements&.location || node.location
+      end
+
+      # The empty width just past `location`.
+      def after(location) = [location.end_line, location.end_column, location.end_line, location.end_column]
+
+      # `body` with its branch counted first, or `body` alone. A nil
+      # body counts and answers nil, as the side ruby writes nothing for
+      # answers nil.
+      def covered(cover, body, line)
+        return body if cover.nil?
+
+        Seq.new([cover, body || Literal.new(nil, line)], line)
+      end
+
       # The `using` rows a statement holds below its top, which a
       # condition may skip.
       def usings_in(node, seen, out = [])
@@ -1262,22 +1352,37 @@ module Ze0
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
         when Prism::IfNode
           chosen = chooses?(node.predicate)
-          If.new(expr(node.predicate), node.statements && seq(node.statements, taken: taken && chosen != false),
-                 node.subsequent && expr(node.subsequent, taken: taken && chosen != true), line)
+          # The predicate is numbered first, as ruby's compiler writes it
+          # first; a predicate ruby decides is the whole branch dropped,
+          # and Coverage records nothing for it.
+          predicate = expr(node.predicate)
+          then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
+          If.new(predicate,
+                 covered(then_cover, node.statements && seq(node.statements, taken: taken && chosen != false), line),
+                 covered(else_cover, node.subsequent && expr(node.subsequent, taken: taken && chosen != true), line), line)
         when Prism::CaseMatchNode then case_match(node, taken)
         when Prism::MatchRequiredNode then match_required(node)
         when Prism::MatchPredicateNode then match_predicate(node)
         when Prism::MatchWriteNode then match_write(node)
         when Prism::UnlessNode
           chosen = chooses?(node.predicate)
-          If.new(expr(node.predicate), node.else_clause && seq(node.else_clause.statements, taken: taken && chosen != false),
-                 node.statements && seq(node.statements, taken: taken && chosen != true), line)
+          # ruby lists an `unless`'s else ahead of its then, and numbers
+          # them that way, though the branch still tests the same way.
+          predicate = expr(node.predicate)
+          else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
+          If.new(predicate,
+                 covered(else_cover, node.else_clause && seq(node.else_clause.statements, taken: taken && chosen != false), line),
+                 covered(then_cover, node.statements && seq(node.statements, taken: taken && chosen != true), line), line)
         when Prism::ElseNode then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
         # A loop answers nil, so nothing takes the value of its body.
         when Prism::WhileNode
-          While.new(expr(node.predicate), node.statements && seq(node.statements, taken: false), line, node.begin_modifier?)
+          body, = branch_covers(:while, span(node.location), loop_sides(node))
+          While.new(expr(node.predicate), covered(body, node.statements && seq(node.statements, taken: false), line), line,
+                    node.begin_modifier?)
         when Prism::UntilNode
-          While.new(falsy(expr(node.predicate), line), node.statements && seq(node.statements, taken: false), line, node.begin_modifier?)
+          body, = branch_covers(:until, span(node.location), loop_sides(node))
+          While.new(falsy(expr(node.predicate), line), covered(body, node.statements && seq(node.statements, taken: false), line), line,
+                    node.begin_modifier?)
         when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
         # The left decides, so its value is always taken; the right is
         # the pair's answer and stands where the pair does.
@@ -1410,11 +1515,13 @@ module Ze0
             Literal.new(nil, line)
           end
         when Prism::CaseNode
-          clauses = node.conditions.map do |w|
+          covers = branch_covers(:case, span(node.location), case_sides(node, :when))
+          clauses = node.conditions.map.with_index do |w, i|
             values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? splat(c, line) : expr(c) }
-            [values, w.statements ? seq(w.statements, taken: taken) : Literal.new(nil, line)]
+            [values, covered(covers[i], w.statements ? seq(w.statements, taken: taken) : Literal.new(nil, line), line)]
           end
-          Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause, taken: taken), line)
+          other = node.else_clause && expr(node.else_clause, taken: taken)
+          Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
           refuse(node, "a block in an index target is not lowered yet") if node.block
           args = index_args(node, line)
@@ -1813,8 +1920,13 @@ module Ze0
         # A refinement is in use inside its own block, so a sibling
         # refined method is reachable there by bare name.
         blk = node.block ? in_refine(node.name) { block(node.block) } : forwarded
+        safe = node.call_operator == "&."
+        # Both sides of a safe call stand where the call does, which is
+        # what CRuby records for one. `branch_covers` answers a row of
+        # nils where nothing is measured, and a Send carries none.
+        covers = safe ? branch_covers(:"&.", span(node.location), [[:then, span(node.location)], [:else, span(node.location)]]) : nil
         Send.new(recv, node.name, args, message_line(node), node.variable_call?, opt,
-                 blk, kwargs, node.call_operator == "&.", node.attribute_write?)
+                 blk, kwargs, safe, node.attribute_write?, nil, covers&.first && covers)
       end
 
       def in_refine(name)

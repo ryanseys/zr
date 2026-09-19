@@ -283,7 +283,8 @@ module Ze0
         finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       end
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-      tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, target: target)
+      tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
+                           branches: hir.branches || {}, target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)
     end
 
@@ -454,7 +455,7 @@ module Ze0
     # file and the compiling ruby's install layout, which every program
     # carries. `units` are `[path, entry]`
     # pairs; a unit that only stops has no path.
-    def load_tables(units = [], evals: false, spots: {}, coverable: {}, target: Target.default)
+    def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
       # A name ruby carries that no root here holds, and after a tab the
       # reason where there is one to give, so a require the program
@@ -470,6 +471,12 @@ module Ze0
       # The lines Coverage counts in each file, a row a file: its path,
       # its line count, and the lines, tab-separated.
       names << coverable.map { |file, (count, lines)| "#{file}\t#{count}\t#{lines.uniq.join(',')}" }
+      # The branches Coverage names in each file, a row a file: its path,
+      # then one `kind,id,root,start line,start column,end line,end column`
+      # a branch, in the order Coverage numbers them. `id` is the counter
+      # this branch bumps, and `root` the side's own root by its place in
+      # the file, empty for a root.
+      names << branches.map { |file, rows| "#{file}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

@@ -24,7 +24,10 @@ module Ze0
     # the file name its frames carry.
     # `activations` is how many `using` rows this program holds, which a
     # build at run time takes its own rows after.
-    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable, :activations)
+    # `branches` holds each measured file's branch rows, by file name, in
+    # the order Coverage numbers them.
+    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable, :activations,
+                         :branches)
     # `hidden` when the unit loads only for the runtime's own use, as the
     # eval road's files do.
     Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden)
@@ -59,7 +62,10 @@ module Ze0
     # or nil; `block` is a Block literal, a BlockPass, or nil.
     # `using` is the activation row in force where the call is written,
     # nil where no refinement is.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using)
+    # `covers` is a safe call's two branches, `[then, else]`, which
+    # Coverage counts where a receiver was and was not nil; nil for
+    # every other call.
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers)
 
     # `using mod`: row `id` holds what row `from` held plus every
     # refinement `mod` carries. `from` is -1 where nothing was in use.
@@ -172,6 +178,12 @@ module Ze0
     # `:line` event, as ruby's compiler places one where a statement
     # starts a new line.
     Trace = Struct.new(:event, :line)
+    # One run of branch `id` in a program Coverage measures. The id is
+    # the program's, not the file's: every branch of every file shares
+    # one counter array, and `Program#branches` says which rows belong
+    # to which file. Its value is nil, so it stands wherever a statement
+    # may, including as the else a source never wrote.
+    Cover = Struct.new(:id, :line)
     Assign = Struct.new(:name, :depth, :value, :line)
     # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
     MultiAssign = Struct.new(:target, :value, :line)

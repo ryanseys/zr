@@ -21,9 +21,7 @@ module Coverage
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
     mode = mode_of(args)
-    %i[branches methods].each do |target|
-      Primitive.zr_unimplemented("Coverage of #{target}") if mode[target]
-    end
+    Primitive.zr_unimplemented("Coverage of methods") if mode[:methods]
     Primitive.zr_hidden_set(self, :__mode__, mode)
     shift(:suspended)
     nil
@@ -98,7 +96,9 @@ module Coverage
       Primitive.zr_coverage_state_set(STATES.fetch(to))
     end
 
-    # The lines each measured file ran, as the mode shapes them.
+    # The lines each measured file ran, as the mode shapes them. A file
+    # coverage did not measure is left out whatever the mode, so its
+    # branches go with its lines.
     def measured(clear)
       mode = Primitive.zr_hidden_get(self, :__mode__)
       totals = Hash.new { |hash, path| hash[path] = [] }
@@ -106,6 +106,7 @@ module Coverage
         into = totals[path]
         counts.each_with_index { |count, i| into[i] = (into[i] || 0) + count }
       end
+      runs = mode[:branches] ? Primitive.zr_coverage_branch_counts(clear) : nil
       totals.to_h do |path, counts|
         lines = lines_of(path, counts)
         next [path, lines.freeze] if mode.empty?
@@ -113,8 +114,44 @@ module Coverage
         shaped = {}
         shaped[:lines] = lines.freeze if mode[:lines]
         shaped[:oneshot_lines] = lines.each_index.select { |i| lines[i]&.positive? }.map { |i| i + 1 }.freeze if mode[:oneshot_lines]
+        shaped[:branches] = branches_of(path, runs).freeze if runs
         [path, shaped]
       end.freeze
+    end
+
+    # A file's branches: each root, and under it each of its sides with
+    # the times that side ran. The key is `[kind, id, start line, start
+    # column, end line, end column]` with the id counted from 0 a file,
+    # which is what the rows are already in the order of.
+    def branches_of(path, runs)
+      rows = branch_table[path] or return {}
+
+      out = {}
+      roots = {}
+      rows.each_with_index do |(kind, counter, root, *where), i|
+        key = [kind, i, *where].freeze
+        if root.nil?
+          roots[i] = (out[key] = {})
+        else
+          roots[root][key] = runs[counter] || 0
+        end
+      end
+      out
+    end
+
+    # The branch rows the compiler wrote down, by file.
+    def branch_table
+      Primitive.zr_hidden_get(self, :__branches__) || Primitive.zr_hidden_set(self, :__branches__, compiled_branches)
+    end
+
+    def compiled_branches
+      Primitive.zr_load_names(7).lines(chomp: true).to_h do |row|
+        path, *rows = row.split("\t")
+        [path, rows.map do |cells|
+          kind, counter, root, *where = cells.split(",")
+          [kind.to_sym, Integer(counter), root.empty? ? nil : Integer(root), *where.map { |n| Integer(n) }]
+        end]
+      end
     end
 
     # The file's line array: a count for each line that runs a :line

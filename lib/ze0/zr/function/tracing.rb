@@ -28,6 +28,16 @@ module Ze0
           @qnil
         end
 
+        # `Hir::Cover`: one more run of a branch Coverage measures. The
+        # kernel holds the counters, so this is a call and no more.
+        def cover_branch(node)
+          at_node(node)
+          cover(node.id)
+          @qnil
+        end
+
+        def cover(id) = kernel("zr_coverage_branch", imm(id))
+
         # The scope's opening event, once its parameters are bound.
         def trace_open
           event = OPENING[@kind]

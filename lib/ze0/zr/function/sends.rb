@@ -100,8 +100,12 @@ module Ze0
         # left unevaluated; else the send.
         def safe_call(node)
           # `self&.x` is `self.x`: self is never nil, and the receiver
-          # stays a literal self for the visibility rule.
-          return call(node.dup.tap { |n| n.safe = false }) if node.recv.is_a?(Hir::SelfRef)
+          # stays a literal self for the visibility rule. Coverage still
+          # counts the call, and never counts the nil side.
+          if node.recv.is_a?(Hir::SelfRef)
+            cover(node.covers.first.id) if node.covers
+            return call(node.dup.tap { |n| n.safe = false })
+          end
 
           base = @sp
           slot = reserve(1)
@@ -112,8 +116,10 @@ module Ze0
           merge, (result,) = @f.block(["i64"])
           @f.brif(@f.icmp("eq", @f.fetch("i64", @rec, value_offset(slot)), @qnil), is_nil, go)
           switch(is_nil)
+          cover(node.covers.last.id) if node.covers
           @f.jump(merge, [@qnil])
           switch(go)
+          cover(node.covers.first.id) if node.covers
           v = call(plain)
           @f.jump(merge, [v]) unless @f.terminated?
           switch(merge)

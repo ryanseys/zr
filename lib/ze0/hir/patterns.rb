@@ -34,14 +34,18 @@ module Ze0
         # `case value; in pattern [if guard] then body; ...; else other; end`
         def case_match(node, taken = true)
           line = node.location.start_line
+          # Numbered before the chain is built, since the chain is built
+          # from the last clause back and ruby numbers from the first.
+          covers = branch_covers(:case, span(node.location), case_sides(node, :in))
           subject = temp(:subject)
           single = node.conditions.size == 1 && node.else_clause.nil?
           match = Match.new(self, single ? temp(:why) : nil, single ? temp(:key) : nil, single ? temp(:matchee) : nil)
           chain = node.else_clause ? expr(node.else_clause, taken: taken) : no_match(subject, match, line)
-          node.conditions.reverse_each do |clause|
+          chain = covered(covers.last, chain, line)
+          node.conditions.each_with_index.reverse_each do |clause, i|
             test = match.clause(clause.pattern, subject)
             body = clause.statements ? seq(clause.statements, taken: taken) : Literal.new(nil, clause.location.start_line)
-            chain = If.new(test, body, chain, clause.location.start_line)
+            chain = If.new(test, covered(covers[i], body, clause.location.start_line), chain, clause.location.start_line)
           end
           Seq.new([set(subject, expr(node.predicate), line), *match.resets(line), chain], line)
         end

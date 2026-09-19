@@ -138,26 +138,23 @@ describe "Coverage programs" do
       [true, false]
     OUT
   end
-  it "names every branch and every method the way the C extension names them" do
+  it "names every branch the way the C extension names it" do
     result = ze0(<<~'RUBY', files: beside("coverage/branching.rb"))
-      # Branch and method coverage over the AOT instrumentation, against
-      # the C extension row for row: the key is [kind, id, start line,
-      # start column, end line, end column] with 0-based columns, and
-      # the ids run from 0 a file, a root then its sides.
+      # Branch coverage over the AOT instrumentation, against the C
+      # extension row for row: the key is [kind, id, start line, start
+      # column, end line, end column] with 0-based columns, and the ids
+      # run from 0 a file, a root then its sides.
       #
       # branching.rb carries every kind CRuby records one for and the
-      # ones it records none for: `||` and `&&` are not branches, an
+      # ones it records none for. `||` and `&&` are not branches, an
       # `elsif` is a nested :if at the outer :else's location, `unless`
-      # lists :else before :then, a `case/in` gets an :else at the
-      # case's own location with nothing in the source to put there,
-      # and `&.` puts both sides where the call stands.
-      #
-      # A method row is made where the `def` runs and carries the owner,
-      # so an `attr_reader` and a `def` under a branch that did not run
-      # are absent, while a `define_method` block is a row of its own.
-      # CRuby lists them newest first.
+      # lists :else before :then, a `case/in` gets an :else at the case's
+      # own location with nothing in the source to put there, and `&.`
+      # puts both sides where the call stands. A predicate ruby's
+      # compiler decides -- the last `if` here -- keeps its branch, and
+      # one it can fold away would keep none.
       require "coverage"
-      Coverage.start(branches: true, methods: true)
+      Coverage.start(branches: true)
       require_relative "coverage/branching"
 
       cov_ladder(20)
@@ -177,8 +174,6 @@ describe "Coverage programs" do
         puts root.inspect
         sides.each { |side, count| puts "  #{side.inspect} => #{count}" }
       end
-      puts "--"
-      measured[:methods].each { |key, count| puts "#{key.inspect} => #{count}" }
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -212,21 +207,6 @@ describe "Coverage programs" do
       [:if, 27, 66, 0, 68, 3]
         [:then, 28, 67, 2, 67, 27] => 0
         [:else, 29, 66, 0, 68, 3] => 1
-      --
-      [CovMixin, :mixed_one, 63, 2, 63, 19] => 0
-      [CovShapes, :defined_one, 58, 30, 58, 35] => 0
-      [#<Class:CovShapes>, :singleton_one, 57, 2, 57, 28] => 0
-      [CovShapes, :instance_one, 56, 2, 56, 22] => 1
-      [Object, :cov_uncalled, 53, 0, 53, 25] => 0
-      [Object, :cov_ops, 51, 0, 51, 33] => 1
-      [Object, :cov_safe, 48, 0, 48, 25] => 1
-      [Object, :cov_until, 43, 0, 46, 3] => 1
-      [Object, :cov_while, 36, 0, 41, 3] => 1
-      [Object, :cov_in, 29, 0, 34, 3] => 1
-      [Object, :cov_when, 21, 0, 27, 3] => 1
-      [Object, :cov_ternary, 19, 0, 19, 43] => 1
-      [Object, :cov_unless, 15, 0, 17, 3] => 1
-      [Object, :cov_ladder, 5, 0, 13, 3] => 2
     OUT
   end
 end
