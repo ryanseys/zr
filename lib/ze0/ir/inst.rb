@@ -2,10 +2,20 @@
 
 module Ze0
   module IR
+    # The byte a value's name starts with. Every entity is named by a
+    # sigil and a number, and only a value's is `v`.
+    VALUE_SIGIL = "v".ord
+
     # Whether `name` names a value. A value is the only entity the
     # builder names with a leading `v`: a block is `block0`, a global
     # `gv0`, a slot `ss0`, a callee `fn0` and a signature `sig0`.
-    def self.value?(name) = name.is_a?(String) && name.start_with?("v")
+    #
+    # The byte, and not `start_with?`, which takes a `*prefixes`
+    # parameter and so makes an Array of every call. This is the
+    # compiler's most asked question -- 19 million times in one cold
+    # runtime build, more than any other method reaches in the whole of
+    # one -- and it is asked of one byte.
+    def self.value?(name) = name.is_a?(String) && name.getbyte(0) == VALUE_SIGIL
 
     # One instruction, restricted to the opcodes ze0 emits: an
     # opcode, the type written on it (`iadd.i64`, or none), its operands,

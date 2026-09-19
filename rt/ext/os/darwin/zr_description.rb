@@ -1834,6 +1834,7 @@ module Ze0
         d zr_opt_ltlt Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_str_bytesize Value s:Value
         d zr_str_byte_at Value s:Value i:Value
+        d zr_str_bytes_at_m Value s:Value at:Value other:Value
         d zr_str_byteslice Value s:Value off:Value len:Value
         d zr_str_replace Value s:Value other:Value
         d zr_str_setbyte Value s:Value i:Value byte:Value

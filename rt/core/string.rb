@@ -104,7 +104,7 @@ class String
         return true if match
       else
         prefix = joined(Primitive.zr_str_operand(prefix))
-        return true if prefix.bytesize <= Primitive.zr_str_bytesize(self) && char_boundary?(prefix.bytesize) && byteslice_of(0, prefix.bytesize) == prefix
+        return true if char_boundary?(Primitive.zr_str_bytesize(prefix)) && Primitive.zr_str_bytes_at_m(self, 0, prefix)
       end
       i += 1
     end
@@ -115,7 +115,8 @@ class String
     i = 0
     while i < Primitive.zr_ary_len_m(suffixes)
       suffix = joined(Primitive.zr_str_operand(Primitive.zr_ary_at_m(suffixes, i)))
-      return true if suffix.bytesize <= Primitive.zr_str_bytesize(self) && char_boundary?(Primitive.zr_str_bytesize(self) - suffix.bytesize) && byteslice_of(Primitive.zr_str_bytesize(self) - suffix.bytesize, suffix.bytesize) == suffix
+      at = Primitive.zr_str_bytesize(self) - Primitive.zr_str_bytesize(suffix)
+      return true if at >= 0 && char_boundary?(at) && Primitive.zr_str_bytes_at_m(self, at, suffix)
 
       i += 1
     end

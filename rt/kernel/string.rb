@@ -1863,6 +1863,23 @@ machine def zr_str_byte_at(s, i)
   zr_fix(Machine.word(Machine.load8(RString.ptr(s) + n, 0)))
 end
 
+# Whether `other`'s bytes are the receiver's from byte `at`: the
+# comparison rb_str_start_with and rb_str_end_with make once the two
+# encodings have joined and the offset lands on a character boundary.
+# The bytes are read where they stand, so the receiver's front or its
+# tail is not cut into a String of its own only to be compared and
+# dropped -- a cell, a malloc and a copy a call, and `start_with?` is
+# the compiler's most called method by a wide margin.
+sig [Value, Value, Value] => Value
+machine def zr_str_bytes_at_m(s, at, other)
+  off = zr_fix2long(at)
+  n = RString.len(other)
+  if off < 0 || off + n > RString.len(s)
+    return Machine.value(QFALSE)
+  end
+  zr_bool(zr_bytes_eq(RString.ptr(s) + off, n, RString.ptr(other), n))
+end
+
 # A new String of `len` bytes from `off`, both already in range.
 sig [Value, Value, Value] => Value
 machine def zr_str_byteslice(s, off, len)

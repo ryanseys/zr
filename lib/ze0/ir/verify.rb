@@ -30,7 +30,7 @@ module Ze0
             raise Error, "#{f.name}: #{b.name} has an instruction after its terminator" if n < b.insts.size - 1 && i.terminator?
 
             i.args.each do |a|
-              next unless a.is_a?(String) && a.start_with?("v")
+              next unless IR.value?(a)
               raise Error, "#{f.name}: #{b.name} uses #{a}, which nothing defines" unless defined.key?(a)
             end
             (i.targets || []).each do |name, args|
