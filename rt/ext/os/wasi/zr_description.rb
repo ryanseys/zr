@@ -837,16 +837,25 @@ module Ze0
         d zr_size_class_for Word bytes:Word
         d zr_cell_bytes Word v:Value
         d zr_arena_marks Ptr a:Ptr
+        d zr_arena_ages Ptr a:Ptr
+        d zr_arena_remembered Ptr a:Ptr
         d zr_arena_first Ptr a:Ptr
         d zr_arena_exivars Ptr a:Ptr
         d zr_marks_word Ptr a:Ptr i:Word
+        d zr_ages_word Ptr a:Ptr i:Word
+        d zr_remembered_word Ptr a:Ptr i:Word
         d zr_marks_bit Word i:Word
         d zr_cell_index_in Word a:Ptr v:Value
         d zr_cell_index Word v:Value
         d zr_marked_p Bool v:Value
         d zr_mark_set Void v:Value
         d zr_mark_unset Void v:Value
+        d zr_aged_p Bool v:Value
+        d zr_old_p Bool v:Value
+        d zr_remember Void v:Value
+        d zr_write_barrier Void owner:Value value:Value
         d zr_marks_clear Void
+        d zr_ages_keep Void
         d zr_arena_bytes Word c:Word
         d zr_live_bytes Word
         d zr_heap_bytes Word
@@ -2876,7 +2885,7 @@ module Ze0
         s RFloat 24 8 basic:0:RBasic bits:16:Word
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
-        s ArenaHead 56 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word chain:40:Ptr next:48:Ptr
+        s ArenaHead 64 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word remembered:40:Word chain:48:Ptr next:56:Ptr
         s SizeClass 48 8 free:0:Ptr last:8:Ptr freed:16:Word arenas:24:Word reserve:32:Ptr allocated:40:Word
         s Heap 80 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word slow:72:Word
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value

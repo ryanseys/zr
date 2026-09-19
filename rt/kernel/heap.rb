@@ -41,7 +41,7 @@ POISON = 57005 << 8
 # A reserved arena is one whose cells are all free and linked among
 # themselves from `chain`, on its size class's list of them through
 # `next`; no sweep reads it.
-Machine.struct :ArenaHead, cell: Word, shift: Word, ncells: Word, index: Word, reserved: Word, chain: Ptr, next: Ptr
+Machine.struct :ArenaHead, cell: Word, shift: Word, ncells: Word, index: Word, reserved: Word, remembered: Word, chain: Ptr, next: Ptr
 
 # One cell size: its free list, the last cell handed out (0 before the
 # first), the cells the last sweep found free, its arena count, its
@@ -153,10 +153,30 @@ machine def zr_arena_marks(a)
   a + ARENA_HEAD
 end
 
-# The first cell of arena `a`, after its head and its mark bitmap.
+# Arena `a`'s age bitmap, beside its marks: the marks the last
+# collection finished with, which is to say the cells that survived it.
+# Those are the old objects, and this is the map the write barrier and a
+# minor collection read. The marks themselves go back to zero at the end
+# of every collection, so nothing outside one is marked and ObjectSpace's
+# walk of what an object refers to (rt/kernel/objspace.rb) still reads
+# the mark bitmap as its own scratch.
+sig [Ptr] => Ptr
+machine def zr_arena_ages(a)
+  a + ARENA_HEAD + MARK_BYTES
+end
+
+# Arena `a`'s remembered bitmap, beside its ages. A cell's bit is set
+# where the cell is old and has come to hold a young object, so a minor
+# collection has to read it again although it would stop at it.
+sig [Ptr] => Ptr
+machine def zr_arena_remembered(a)
+  a + ARENA_HEAD + (MARK_BYTES * 2)
+end
+
+# The first cell of arena `a`, after its head and its three bitmaps.
 sig [Ptr] => Ptr
 machine def zr_arena_first(a)
-  a + ARENA_HEAD + MARK_BYTES
+  a + ARENA_HEAD + (MARK_BYTES * 3)
 end
 
 # The exivar slots of arena `a`, one a cell, after its cells.
@@ -165,10 +185,21 @@ machine def zr_arena_exivars(a)
   zr_arena_first(a) + (ArenaHead.ncells(a) * ArenaHead.cell(a))
 end
 
-# The word of `a`'s bitmap that holds cell `i`'s bit, and that bit.
+# The word of each of `a`'s bitmaps that holds cell `i`'s bit, and that
+# bit. The three maps have the same shape, so one bit serves all three.
 sig [Ptr, Word] => Ptr
 machine def zr_marks_word(a, i)
   zr_arena_marks(a) + ((i >> 6) * 8)
+end
+
+sig [Ptr, Word] => Ptr
+machine def zr_ages_word(a, i)
+  zr_arena_ages(a) + ((i >> 6) * 8)
+end
+
+sig [Ptr, Word] => Ptr
+machine def zr_remembered_word(a, i)
+  zr_arena_remembered(a) + ((i >> 6) * 8)
 end
 
 sig [Word] => Word
@@ -214,6 +245,61 @@ machine def zr_mark_unset(v)
   Machine.store64(at, 0, Machine.load64(at, 0) & (0 - 1 - zr_marks_bit(i)))
 end
 
+# Whether `v` survived a collection, which is what "old" means here. An
+# immediate has no cell, and a Proc or an Env on the machine stack is in
+# no arena, so neither has a bit to read.
+sig [Value] => Bool
+machine def zr_aged_p(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  (Machine.load64(zr_ages_word(a, i), 0) & zr_marks_bit(i)) != 0
+end
+
+sig [Value] => Bool
+machine def zr_old_p(v)
+  !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && zr_aged_p(v)
+end
+Machine.inline :zr_old_p
+
+# `v`'s bit set in its arena's remembered map, and the arena flagged, so
+# a minor collection reads the map of that arena alone. The bits are a
+# map and not a list: there is nothing to allocate, nothing to
+# de-duplicate and nothing to overflow, which is what
+# `rgengc_rememberset_mark` gets out of CRuby's `remembered_bits`.
+sig [Value] => Void
+machine def zr_remember(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  at = zr_remembered_word(a, i)
+  Machine.store64(at, 0, Machine.load64(at, 0) | zr_marks_bit(i))
+  ArenaHead.set_remembered(a, 1)
+end
+
+# `owner` has come to hold `value`.
+#
+# A minor collection starts from the roots and from what is remembered
+# and stops at every object already marked, so an old object that comes
+# to refer to a young one has to be written down or the young one is
+# swept from under it. Nothing is owed where the owner is young -- a
+# minor collection reaches that one from the roots anyway -- nor where
+# the value is an immediate, or is old itself.
+#
+# CRuby needs this same barrier and cannot check it: every C function
+# that stores a VALUE into an object must call `RB_OBJ_WRITE` by hand,
+# which is why it carries wb-unprotected objects that are never promoted
+# and a whole second collector (gc/wbcheck) whose only job is to find
+# the calls that are missing. Here the compiler emits the store, so it
+# emits the barrier with it: `Machine::Lower#field` writes one after
+# every store into a Value field of a struct that begins with an
+# RBasic, which is to say into a cell.
+sig [Value, Value] => Void
+machine def zr_write_barrier(owner, value)
+  if zr_old_p(owner) && !zr_old_p(value)
+    zr_remember(owner)
+  end
+end
+Machine.inline :zr_write_barrier
+
 # Every arena's bitmap cleared, which a collection does once it has
 # swept: no cell is marked outside a collection, and ObjectSpace's walk
 # of what one object refers to (rt/kernel/objspace.rb) marks and unmarks
@@ -228,11 +314,28 @@ machine def zr_marks_clear
   end
 end
 
-# The bytes an arena of size class `c` takes: its head, its mark bitmap,
-# its cells and the exivar slot each of them carries.
+# What a collection finished marking kept as the ages, and the
+# remembered bits emptied: the cells that survived this collection are
+# the old ones from here on, and what the barrier wrote down has been
+# read.
+sig [] => Void
+machine def zr_ages_keep
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_ages(a), zr_arena_marks(a), MARK_BYTES)
+    memset(zr_arena_remembered(a), Machine.i32(0), MARK_BYTES)
+    ArenaHead.set_remembered(a, 0)
+    i += 1
+  end
+end
+
+# The bytes an arena of size class `c` takes: its head, its three
+# bitmaps, its cells and the exivar slot each of them carries.
 sig [Word] => Word
 machine def zr_arena_bytes(c)
-  ARENA_HEAD + MARK_BYTES + (ARENA_CELLS * ((CELL_MIN << c) + 8))
+  ARENA_HEAD + (MARK_BYTES * 3) + (ARENA_CELLS * ((CELL_MIN << c) + 8))
 end
 
 # The bytes of live cells the heap holds, which the sweep has counted.
@@ -310,7 +413,7 @@ machine def zr_arena_add(c)
     head = cell
     i -= 1
   end
-  memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES)
+  memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES * 3)
   zr_arena_reserve(a, head)
 end
 
@@ -863,6 +966,7 @@ machine def zr_collect(wanting)
   zr_mark_drain()
   zr_weak_prune()
   zr_sweep()
+  zr_ages_keep()
   zr_marks_clear()
   zr_heap_grow(wanting)
   zr_malloc_limit_set()

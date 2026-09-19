@@ -661,10 +661,33 @@ module Ze0
           value, vt = expr(args[1], type)
           refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
           @f.store(value, ptr, off)
+          barrier(ptr, value) if type == "Value" && cell?(layout)
           [nil, "Void"]
         else
           [@f.fetch(ir_type(type), ptr, off), type]
         end
+      end
+
+      # Whether a store into a field of `layout` is a store into a cell.
+      # A cell begins with its RBasic header and nothing else does, so
+      # the first field's type says it; RBasic itself is the header, and
+      # a write to its `klass` is a write to the cell that carries it.
+      def cell?(layout)
+        layout.name == "RBasic" || layout.fields.first&.last&.last == "RBasic"
+      end
+
+      # The collector's write barrier where the kernel has just stored a
+      # Value into a cell. This is what Part 2.1 of the collector plan is
+      # about: CRuby writes `RB_OBJ_WRITE` by hand at every such store in
+      # C and carries a second collector to find the ones it forgot,
+      # where here the compiler emits the store and so emits the barrier
+      # with it. `zr_write_barrier` is `Machine.inline`, so this is the
+      # four instructions of its fast path and not a call.
+      def barrier(owner, value)
+        callee = @unit.def_for("zr_write_barrier") or return
+        return if @inlining.include?(callee.name)
+
+        inline(callee, [owner, value])
       end
 
       # `a && b` and `a || b`, the right side lowered only when the left
