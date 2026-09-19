@@ -355,6 +355,7 @@ machine def zr_const_write(klass, id, v)
     end
   end
   CEntry.set_value(e, v)
+  zr_write_barrier(klass, v)
   zr_consts_changed()
   # An anonymous class takes its name here, for good under a scope that
   # has one for good (and then so does all it holds), else for now.

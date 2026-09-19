@@ -854,6 +854,7 @@ module Ze0
         d zr_old_p Bool v:Value
         d zr_remember Void v:Value
         d zr_write_barrier Void owner:Value value:Value
+        d zr_write_barrier_all Void owner:Value
         d zr_marks_clear Void
         d zr_ages_keep Void
         d zr_arena_bytes Word c:Word

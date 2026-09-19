@@ -187,6 +187,7 @@ machine def zr_mod_class_variable_set(recv, argc, argv, cref, blk)
   return r if r == QUNDEF
   v = Machine.value(Machine.load64(argv, 8))
   zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)
+  zr_write_barrier(owner, v)
   v
 end
 

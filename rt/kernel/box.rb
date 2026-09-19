@@ -123,6 +123,7 @@ machine def zr_box_bind(klass, slot, shadow)
   if a == QNIL
     a = zr_ary_new(4)
     ClassExt.set_boxed(ext, a)
+    zr_write_barrier(klass, a)
   end
   i = zr_fix2long(slot)
   while RArray.len(a) <= i
@@ -130,6 +131,7 @@ machine def zr_box_bind(klass, slot, shadow)
   end
   zr_ary_store(a, i, shadow)
   ClassExt.set_shadow(RClass.ext(shadow), klass)
+  zr_write_barrier(shadow, klass)
   zr_methods_changed()
   Machine.value(QNIL)
 end

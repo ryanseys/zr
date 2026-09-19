@@ -300,6 +300,18 @@ machine def zr_write_barrier(owner, value)
 end
 Machine.inline :zr_write_barrier
 
+# `owner` remembered where it is old, whatever it has come to hold: what
+# a bulk write into a buffer it keeps owes the collector, where naming
+# each value one at a time would cost more than reading the cell again
+# will.
+sig [Value] => Void
+machine def zr_write_barrier_all(owner)
+  if zr_old_p(owner)
+    zr_remember(owner)
+  end
+end
+Machine.inline :zr_write_barrier_all
+
 # Every arena's bitmap cleared, which a collection does once it has
 # swept: no cell is marked outside a collection, and ObjectSpace's walk
 # of what one object refers to (rt/kernel/objspace.rb) marks and unmarks

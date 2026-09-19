@@ -384,6 +384,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   e = zr_ivar_row_guessed(obj, id, ic)
   if e != 0 && (RBasic.flags(obj) & FL_FREEZE) == 0
     IvEntry.set_value(e, v)
+    zr_write_barrier(obj, v)
     return v
   end
   # A plain object outside a ractor, not frozen, whose guess is the row
@@ -394,6 +395,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
     t = RObject.iv(obj)
     if IvarCache.index(ic) == IvTab.len(t) && zr_ivtab_row(t, id) == 0
       zr_ivtab_append(t, id, v, obj)
+      zr_write_barrier(obj, v)
       return v
     end
   end
@@ -413,6 +415,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   else
     IvEntry.set_value(e, v)
   end
+  zr_write_barrier(obj, v)
   v
 end
 

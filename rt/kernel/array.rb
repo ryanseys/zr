@@ -151,6 +151,7 @@ machine def zr_ary_push(a, v)
   zr_ary_reserve(a, n + 1)
   Machine.store64(RArray.ptr(a) + (n * 8), 0, Machine.word(v))
   RArray.set_len(a, n + 1)
+  zr_write_barrier(a, v)
 end
 
 sig [Value, Value] => Void
@@ -160,6 +161,7 @@ machine def zr_ary_unshift(a, v)
   zr_memmove(RArray.ptr(a) + 8, RArray.ptr(a), n * 8)
   Machine.store64(RArray.ptr(a), 0, Machine.word(v))
   RArray.set_len(a, n + 1)
+  zr_write_barrier(a, v)
 end
 
 # `a[i] = v`, filling with nil past the end.
@@ -195,6 +197,7 @@ machine def zr_ary_store(a, i, v)
     RArray.set_len(a, i + 1)
   end
   Machine.store64(RArray.ptr(a) + (i * 8), 0, Machine.word(v))
+  zr_write_barrier(a, v)
   v
 end
 
@@ -204,6 +207,7 @@ machine def zr_ary_of(argc, argv)
   a = zr_ary_new(argc)
   zr_memcpy(RArray.ptr(a), argv, argc * 8)
   RArray.set_len(a, argc)
+  zr_write_barrier_all(a)
   a
 end
 
@@ -712,6 +716,7 @@ machine def zr_ary_unshift_m(recv, argc, argv, cref, blk)
     zr_memmove(RArray.ptr(recv) + (argc * 8), RArray.ptr(recv), n * 8)
   end
   zr_memcpy(RArray.ptr(recv), argv, argc * 8)
+  zr_write_barrier_all(recv)
   RArray.set_len(recv, n + argc)
   recv
 end
@@ -963,6 +968,7 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
     RArray.set_capa(a, RArray.capa(a) - (len - m))
     zr_memcpy(RArray.ptr(a), RArray.ptr(vals), m * 8)
     RArray.set_len(a, n - len + m)
+    zr_write_barrier_all(a)
     return a
   end
   if beg == 0 && (m - len) <= (RArray.ptr(a) - RArray.base(a)) / 8
@@ -970,6 +976,7 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
     RArray.set_capa(a, RArray.capa(a) + (m - len))
     zr_memcpy(RArray.ptr(a), RArray.ptr(vals), m * 8)
     RArray.set_len(a, n - len + m)
+    zr_write_barrier_all(a)
     return a
   end
   tail = n - beg - len
@@ -980,6 +987,7 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
   end
   zr_memcpy(p + (beg * 8), RArray.ptr(vals), m * 8)
   RArray.set_len(a, n - len + m)
+  zr_write_barrier_all(a)
   a
 end
 

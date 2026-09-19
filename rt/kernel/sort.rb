@@ -294,6 +294,7 @@ machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
   n = RArray.len(tmp)
   zr_ary_reserve(recv, n)
   zr_memcpy(RArray.ptr(recv), RArray.ptr(tmp), n * 8)
+  zr_write_barrier_all(recv)
   RArray.set_len(recv, n)
   recv
 end

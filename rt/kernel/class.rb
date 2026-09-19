@@ -614,6 +614,7 @@ machine def zr_cvar_set(cref, id, v)
   frozen = zr_class_modify_check(owner)
   return frozen if frozen == QUNDEF
   zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)
+  zr_write_barrier(owner, v)
   v
 end
 
@@ -1169,6 +1170,7 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_kind(e, kind)
   MEntry.set_meta(e, meta)
   MEntry.set_cref(e, cref)
+  zr_write_barrier(klass, cref)
   MEntry.set_vis(e, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
@@ -1374,6 +1376,7 @@ machine def zr_method_copy(klass, mid, e, meta, vis, found)
   e = zr_find_method_at(zr_origin(klass), mid)
   MEntry.set_orig(e, orig)
   MEntry.set_from(e, from)
+  zr_write_barrier(klass, from)
   # An alias counts where the method it was made from counts, which is
   # what rb_resolve_me_location gives the :call event.
   MEntry.set_cover(e, cover)
@@ -2126,8 +2129,10 @@ machine def zr_refinement_new(klass, active)
   h = zr_class_alloc(T_MODULE, Machine.value(QNIL), zr_global(G_REFINEMENT))
   ext = RClass.ext(h)
   ClassExt.set_refined(ext, klass)
+  zr_write_barrier(h, klass)
   zr_ary_push(active, h)
   ClassExt.set_active(ext, active)
+  zr_write_barrier(h, active)
   h
 end
 

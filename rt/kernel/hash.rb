@@ -471,6 +471,7 @@ machine def zr_hash_store(h, key, value)
   end
   if e != 0
     HEntry.set_value(e, value)
+    zr_write_barrier(h, value)
     return value
   end
   if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
@@ -492,6 +493,8 @@ machine def zr_hash_append(h, key, code, value)
   e = RHash.entries(h) + (n * HEntry.size)
   HEntry.set_key(e, key)
   HEntry.set_value(e, value)
+  zr_write_barrier(h, key)
+  zr_write_barrier(h, value)
   HEntry.set_live(e, 1)
   HEntry.set_hash(e, code)
   RHash.set_len(h, n + 1)

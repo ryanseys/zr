@@ -243,6 +243,7 @@ end
 sig [Value, Value, Value] => Value
 machine def zr_state_set(obj, name, v)
   zr_ivtab_set_in(zr_ivtab_for_write(obj), zr_sym2id(name), v, zr_ivtab_owner(obj))
+  zr_write_barrier(obj, v)
   v
 end
 
@@ -290,6 +291,7 @@ machine def zr_obj_object_id(recv, argc, argv, cref, blk)
   Machine.store64(counter, 0, n)
   id = zr_fix(n)
   zr_ivtab_set_in(t, Machine.id(:__object_id__), id, zr_ivtab_owner(recv))
+  zr_write_barrier(recv, id)
   id
 end
 
@@ -306,6 +308,7 @@ machine def zr_ivar_set(obj, id, v)
   end
   t = zr_ivtab_for_write(obj)
   zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
+  zr_write_barrier(obj, v)
   v
 end
 

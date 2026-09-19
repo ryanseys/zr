@@ -31,6 +31,7 @@ machine def zr_copy_payload(copy, orig)
     # The cell's bytes came over, rows pointer and all.
     zr_obj_ivtab_init(copy)
     zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig), copy)
+    zr_write_barrier_all(copy)
   elsif t == T_STRING
     zr_str_buf_new(copy, 0)
     Machine.store8(RString.ptr(copy), 0, Machine.i8(0))
@@ -83,6 +84,7 @@ machine def zr_copy_payload(copy, orig)
   end
   if (RBasic.flags(orig) & FL_EXIVAR) != 0
     zr_ivtab_copy(zr_exivar_tab_for_write(copy), zr_exivar_tab(orig), Machine.value(QNIL))
+  zr_write_barrier_all(copy)
   end
   copy
 end
@@ -182,6 +184,7 @@ machine def zr_hash_copy_from(recv, other)
   RHash.set_default(recv, RHash.default(other))
   RHash.set_default_proc(recv, RHash.default_proc(other))
   RHash.set_gen(recv, RHash.gen(recv) + 1)
+  zr_write_barrier_all(recv)
   if (RBasic.flags(other) & FL_IDENTITY) != 0
     RBasic.set_flags(recv, RBasic.flags(recv) | FL_IDENTITY)
   else
@@ -227,6 +230,7 @@ machine def zr_class_copy(orig)
   end
   zr_ivtab_copy(ClassExt.iv(ext), ClassExt.iv(from), Machine.value(QNIL))
   zr_ivtab_copy(ClassExt.cv(ext), ClassExt.cv(from), Machine.value(QNIL))
+  zr_write_barrier_all(copy)
   if zr_type(orig) == T_CLASS
     zr_make_metaclass(copy)
   end

@@ -76,6 +76,7 @@ machine def zr_env_escape(env)
   n = REnv.nslots(env)
   e = zr_env_new(parent, n, REnv.names(env))
   zr_memcpy(REnv.slots(e), REnv.slots(env), n * 8)
+  zr_write_barrier_all(e)
   REnv.set_slots(env, REnv.slots(e))
   REnv.set_cell(env, e)
   Machine.store64(REnv.home(env) + Frame.size, 0, Machine.word(e))
@@ -100,6 +101,7 @@ end
 sig [Value, Word, Value] => Value
 machine def zr_env_set(env, i, v)
   Machine.store64(REnv.slots(env) + (i * 8), 0, Machine.word(v))
+  zr_write_barrier(env, v)
   v
 end
 
