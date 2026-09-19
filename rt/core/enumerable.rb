@@ -36,8 +36,8 @@ module Enumerable
     return to_enum(:filter_map) { enumerable_size } unless block_given?
 
     out = []
-    each do |*x|
-      v = yield(*x)
+    Primitive.zr_enum_each(self, nil) do |x|
+      v = yield(x)
       out << v if v
       nil
     end
@@ -62,8 +62,8 @@ module Enumerable
         nil
       end
     elsif block_given?
-      each do |*x|
-        return true if yield(*x)
+      Primitive.zr_enum_each(self, nil) do |x|
+        return true if yield(x)
         nil
       end
     else
@@ -83,8 +83,8 @@ module Enumerable
         nil
       end
     elsif block_given?
-      each do |*x|
-        return false unless yield(*x)
+      Primitive.zr_enum_each(self, nil) do |x|
+        return false unless yield(x)
         nil
       end
     else
@@ -104,8 +104,8 @@ module Enumerable
         nil
       end
     elsif block_given?
-      each do |*x|
-        return false if yield(*x)
+      Primitive.zr_enum_each(self, nil) do |x|
+        return false if yield(x)
         nil
       end
     else
@@ -125,8 +125,8 @@ module Enumerable
         nil
       end
     elsif block_given?
-      each do |*x|
-        n += 1 if yield(*x)
+      Primitive.zr_enum_each(self, nil) do |x|
+        n += 1 if yield(x)
         nil
       end
     else
@@ -162,10 +162,10 @@ module Enumerable
     return to_enum(:take_while) unless block_given?
 
     out = []
-    each do |*x|
-      break unless yield(*x)
+    Primitive.zr_enum_each(self, nil) do |x|
+      break unless yield(x)
 
-      out << Primitive.zr_enum_value(x)
+      out << x
       nil
     end
     out
@@ -198,8 +198,8 @@ module Enumerable
     return to_enum(__callee__) { enumerable_size } unless block_given?
 
     out = []
-    each do |*x|
-      v = yield(*x)
+    Primitive.zr_enum_each(self, nil) do |x|
+      v = yield(x)
       v.is_a?(Array) ? out.concat(v) : out << v
       nil
     end
@@ -213,8 +213,8 @@ module Enumerable
     return to_enum(:collect_concat) { enumerable_size } unless block_given?
 
     out = []
-    each do |*x|
-      v = yield(*x)
+    Primitive.zr_enum_each(self, nil) do |x|
+      v = yield(x)
       v.is_a?(Array) ? out.concat(v) : out << v
       nil
     end
@@ -453,8 +453,8 @@ module Enumerable
         i += 1
       end
     else
-      each do |*x|
-        add.call(Primitive.zr_enum_value(x))
+      Primitive.zr_enum_each(self, nil) do |x|
+        add.call(x)
         nil
       end
     end
@@ -480,8 +480,8 @@ module Enumerable
   def elements(*args)
     Primitive.attr! :hidden
     out = []
-    each(*args) do |*x|
-      out << Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, args) do |x|
+      out << x
       nil
     end
     out
@@ -545,8 +545,8 @@ module Enumerable
         nil
       end
     elsif block_given?
-      each do |*x|
-        seen += 1 if yield(*x)
+      Primitive.zr_enum_each(self, nil) do |x|
+        seen += 1 if yield(x)
         nil
       end
     else
@@ -614,8 +614,8 @@ module Enumerable
     return to_enum(:find_index) if v.nil? && !block_given?
 
     i = 0
-    each do |*x|
-      return i if block_given? ? yield(*x) : Primitive.zr_rb_equal(Primitive.zr_enum_value(x), v)
+    Primitive.zr_enum_each(self, nil) do |x|
+      return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
 
       i += 1
       nil
@@ -733,8 +733,8 @@ module Enumerable
     acc = init
     c = 0.0
     mode = acc.is_a?(Float) ? :float : :exact
-    each do |*x|
-      v = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
+      v = x
       v = yield(v) if block_given?
       if mode == :exact && v.is_a?(Float) && (acc.is_a?(Integer) || acc.is_a?(Rational))
         acc = acc.to_f
@@ -776,8 +776,8 @@ module Enumerable
 
   def to_h(*args, &block)
     out = {}
-    each(*args) do |*x|
-      pair = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, args) do |x|
+      pair = x
       pair = yield(pair) if block
       raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
       raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
@@ -909,8 +909,7 @@ module Enumerable
     source = self
     Enumerator.new do |y|
       slice = nil
-      source.each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(source, nil) do |x|
         if slice.nil? || test.call(x)
           y << slice if slice
           slice = [x]
@@ -930,8 +929,7 @@ module Enumerable
     source = self
     Enumerator.new do |y|
       slice = nil
-      source.each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(source, nil) do |x|
         slice = slice ? slice << x : [x]
         if test.call(x)
           y << slice
@@ -950,8 +948,7 @@ module Enumerable
     Enumerator.new do |y|
       key = nil
       slice = nil
-      source.each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(source, nil) do |x|
         k = yield(x)
         if k.nil? || k == :_separator
           y << [key, slice] if slice
@@ -983,8 +980,7 @@ module Enumerable
     Enumerator.new do |y|
       slice = nil
       before = nil
-      source.each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(source, nil) do |x|
         if slice.nil?
           slice = [x]
         elsif part.call(before, x)
