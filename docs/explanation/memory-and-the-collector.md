@@ -47,6 +47,15 @@ call: a `&block` parameter, `proc` or `lambda`, a Binding, a Fiber, a
 `define_method` body. At that point, the runtime copies the image to
 the heap. So no heap object ever points into a stack.
 
+The parameter is bound in the prologue, so a method that names one pays
+that cell whatever the body does with the block -- handing it straight
+on costs as much as keeping it. A core method that only hands its block
+on therefore relays it through a block of its own:
+`meeting(...) { |x| yield x }` costs nothing where
+`meeting(..., &block)` costs a Proc a call. `Array#any?` and
+`Enumerable#each_with_index` are written that way, and so should be any
+method the compiler reaches a million times.
+
 Locals that a block captures follow the same pattern. They start in the
 frame's record, and move to a heap Env the first time the scope escapes.
 
