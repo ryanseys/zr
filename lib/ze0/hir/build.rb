@@ -81,40 +81,69 @@ module Ze0
       # `yield` has a block to reach only inside a method, and a bare
       # `super` passes those parameters on.
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
-        built = lambda do |external, trace|
-          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, activations: activations)
+        built = lambda do |external, trace, evals|
+          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, evals: evals, activations: activations)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
-        loader, main = built.call(nil, false)
-        # The first build reads every file, so it alone knows whether one
-        # evals: built again over the road, a file the road holds is
-        # named and never read.
-        evals = loader.evals?
-        over_road = road.respond_to?(:units) && evals
-        # A program that names TracePoint is built again with its events.
-        if over_road || loader.traces?
-          loader, main = built.call(over_road ? road : nil, loader.traces?)
-          evals ||= loader.evals?
+        # Two things a build learns only by reading every file: that the
+        # program evals, and that it names TracePoint. Each asks for a
+        # build of its own -- one over the road, where a file the road
+        # holds is named rather than read, and one with the events armed
+        # -- and a prelude read here is what asks for either, since
+        # `binding.irb` loads fileutils and fileutils evals. So the
+        # build settles: read, take the preludes, and go again while
+        # either answer has moved. Both answers only ever turn on, so
+        # this stops.
+        loader = main = preludes = nil
+        evals = trace = false
+        external = nil
+        loop do
+          loader, main = built.call(external, trace, evals)
+          preludes = road ? Build.preludes(loader, target) : []
+          over = loader.evals? && road.respond_to?(:units) ? road : nil
+          break if over.equal?(external) && loader.traces? == trace
+
+          evals = loader.evals?
+          external = over
+          trace = loader.traces?
         end
-        preludes = []
-        preludes << rbconfig(loader) if road && loader.configures?
-        preludes << eval_road(loader, target) if road && evals
-        preludes.concat(rubygems(loader)) if road && loader.gems?
-        preludes << normalizer(loader) if road && loader.normalizes?
-        preludes << pretty_printer(loader) if road && loader.pretty_prints?
-        preludes << irb_session(loader) if road && loader.irbs?
-        preludes << ast_translator(loader) if road && loader.asts?
         # A program that evals numbers its `using` rows here, but a
         # build it makes while it runs cannot see how far they reach --
         # a row under a condition is made only where the condition
         # holds. So the rows are all taken before the first line, and a
         # build at run time starts after the last of them.
-        preludes << Activations.new(loader.activations, 0) if road && evals && loader.activations.positive?
+        preludes += [Activations.new(loader.activations, 0)] if road && loader.evals? && loader.activations.positive?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && evals, loader.entries, loader.tracing?, loader.node_ids, spots,
-                    coverable, loader.activations)
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?,
+                    loader.node_ids, spots, coverable, loader.activations)
+      end
+
+      # Each prelude under the loader flag that asks for it, in the order
+      # a program loads them: rbconfig ahead of the gems that read it,
+      # and the compiler ahead of whatever a compile at run time reaches.
+      #
+      # A prelude is read as it is taken, and what it reads can ask for
+      # another -- `irb_session` requires irb, which requires fileutils,
+      # which evals -- so the table is walked again until a walk takes
+      # nothing. What comes back is in the table's order and not in the
+      # order the flags turned on.
+      def self.preludes(loader, target)
+        asking = {
+          configures?: -> { [rbconfig(loader)] },
+          evals?: -> { [eval_road(loader, target)] },
+          gems?: -> { rubygems(loader) },
+          normalizes?: -> { [normalizer(loader)] },
+          pretty_prints?: -> { [pretty_printer(loader)] },
+          irbs?: -> { [irb_session(loader)] },
+          asts?: -> { [ast_translator(loader)] }
+        }
+        taken = {}
+        while (flag = asking.each_key.find { |name| !taken.key?(name) && loader.public_send(name) })
+          taken[flag] = asking.fetch(flag).call
+        end
+        asking.each_key.flat_map { |flag| taken.fetch(flag, []) }
       end
 
       # The compiler alone, as the units a road holds: the loader has
@@ -175,9 +204,18 @@ module Ze0
         Require.new(:eval_road, "ze0/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
       end
 
+      # The messages irb loads for the locale it runs under. irb finds
+      # this file by walking $LOAD_PATH and reading the first one it
+      # lands on, which a program that carries its files rather than
+      # standing beside them cannot answer. So the program carries it:
+      # added and not required, since irb loads it and a load leaves
+      # $LOADED_FEATURES alone.
+      IRB_MESSAGES = File.join(VENDOR, "irb/lc/error.rb")
+
       # The file that arms Binding#irb's load of irb, as CRuby's prelude
       # requires it on the first call.
       def self.irb_session(loader)
+        loader.add(IRB_MESSAGES)
         Require.new(:eval_road, "ze0/irb_session", IRB_SESSION, loader.add(IRB_SESSION), 0)
       end
 
@@ -248,7 +286,7 @@ module Ze0
         # there: in one, a require inside a method waits for the run, which
         # finds the file then and compiles it, and so does an autoload of
         # a file outside `booted`, the files the boot reads.
-        def initialize(roots, eval: false, external: nil, trace: false, activations: nil, deferred: [], preloaded: PRELOADED,
+        def initialize(roots, eval: false, external: nil, trace: false, evals: false, activations: nil, deferred: [], preloaded: PRELOADED,
                        ahead: AHEAD, booted: BOOTED)
           @deferred = deferred
           @preloaded = preloaded
@@ -264,7 +302,10 @@ module Ze0
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = external ? external.units.dup : {}
-          @evals = false
+          # A build that has already read the program knows it evals; a
+          # build over the road never learns it again, because the files
+          # that told it are the road's and are named rather than read.
+          @evals = evals
           @normalizes = external&.normalizes? || false
           @pretty_prints = external&.pretty_prints? || false
           @irbs = external&.irbs? || false
