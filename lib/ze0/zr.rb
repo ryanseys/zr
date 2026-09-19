@@ -293,10 +293,13 @@ module Ze0
     end
 
     # The relocation kinds a unit leaves for the link to number.
-    NUMBERED = %i[symid symval symbit].freeze
+    NUMBERED = %i[symid symval symbit site].freeze
 
-    # What the link writes into one of those words.
+    # What the link writes into one of those words. A site is a place
+    # and not a name, so it takes the next slot rather than naming one.
     def numbered(reloc, symbols, tag)
+      return symbols.site if reloc.kind == :site
+
       id = symbols.id(reloc.symbol)
       case reloc.kind
       when :symid then id

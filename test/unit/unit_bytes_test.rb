@@ -13,8 +13,10 @@ require_relative "../../lib/ze0/native/build"
 # agrees with (Phase 1.1 of the plan).
 class UnitBytesTest < Minitest::Test
   # A file with one of each thing that names a symbol or takes a site:
-  # a method, an ivar, a constant, a symbol literal, a keyword, a global
-  # and a regexp literal, which holds a slot in the run-time table.
+  # a method, an ivar, a constant, a symbol literal, a keyword, a
+  # global, a block that reaches a local outside it, and the three
+  # literals that hold a slot in the run-time table -- a regexp, a
+  # range and an integer too wide for a Fixnum.
   SHARED = <<~'RUBY'
     class UnitBytesProbe
       SHAPE = :round
@@ -24,7 +26,9 @@ class UnitBytesTest < Minitest::Test
       end
 
       def named(kind:, sides: 3)
-        [kind, sides, @edge, SHAPE, $unit_bytes_probe]
+        seen = []
+        (1..sides).each { |n| seen << [n, kind, @edge, SHAPE, $unit_bytes_probe] }
+        [seen, /a(b)c/.match?("abc"), 12_345_678_901_234_567_890_123]
       end
     end
   RUBY
@@ -36,7 +40,9 @@ class UnitBytesTest < Minitest::Test
       FIRST = :earlier
 
       def self.count(over:)
-        over.map { |x| x.to_i }.sum
+        total = 0
+        over.each { |x| total += (/\d+/.match?(x.to_s) ? x.to_i : 0) }
+        [total, (0...9), 98_765_432_109_876_543_210_987]
       end
     end
   RUBY

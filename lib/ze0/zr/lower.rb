@@ -126,6 +126,7 @@ module Ze0
         @prefix = prefix
         @next = 0
         @lits = 0
+        @sites = 0
         @pool = []
         @keyword_tables = {}
       end
@@ -264,8 +265,21 @@ module Ze0
       end
 
       # Each regexp or range literal site's slot in the runtime's table
-      # of them.
+      # of them, where this lowering owns the counter.
       def literal_index = @symbols.site
+
+      # The pool word this unit keeps for its next literal site, or nil
+      # where the lowering owns the counter and can take a slot now. A
+      # site is a place and not a name, so each call takes a row of its
+      # own.
+      def pool_site
+        return nil unless @fixed
+
+        at = @pool.size
+        @pool << [:site, "#{@prefix}##{@sites}"]
+        @sites += 1
+        ["#{@prefix}_pool", at * 8]
+      end
 
       # A zeroed cell of `bytes` for one site's cache (rt/kernel/cache.rb),
       # named from the site count so no two lowerings that share a symbol

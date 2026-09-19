@@ -595,6 +595,15 @@ module Ze0
       # (rt/kernel/object.rb, zr_ivtab_name_bit).
       def sym_bit(name) = pooled(:symbit, name) { |id| imm(Lower.ivar_name_bit(id)) }
 
+      # This literal site's slot in the run-time table of literal
+      # objects: a word the link numbers, as a symbol id is, so that a
+      # unit carries no counter the whole program shares.
+      def site_word
+        row = @l.pool_site or return imm(@l.literal_index)
+
+        @f.hoisted_fetch("i64", @f.symbol_addr(@f.symbol(row.first)), row.last)
+      end
+
       def pooled(kind, name)
         id = @l.fixed_id(name)
         return yield(id) if id
