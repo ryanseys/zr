@@ -92,6 +92,7 @@ machine def zr_fiber_current
     RFiber.set_yielding(f, 0)
     RFiber.set_transferred(f, 0)
     RFiber.set_home(f, f)
+    zr_fiber_register(f)
     Machine.store64(slot, 0, Machine.word(f))
     Machine.store64(Machine.static(:root_fiber, 8), 0, Machine.word(f))
   end
@@ -120,6 +121,7 @@ machine def zr_fiber_alloc(klass)
   RFiber.set_yielding(f, 0)
   RFiber.set_transferred(f, 0)
   RFiber.set_home(f, Machine.value(QNIL))
+  zr_fiber_register(f)
   f
 end
 
@@ -433,10 +435,108 @@ machine def zr_mark_fiber(f)
   zr_mark(RFiber.resuming(f))
   zr_mark(RFiber.value(f))
   zr_mark(RFiber.home(f))
-  if RFiber.task(f) != 0 && Machine.word(f) != Machine.load64(Machine.static(:current_fiber, 8), 0)
-    zr_mark_task(RFiber.task(f))
-    zr_mark_kernel_roots_from(RFiber.kroots(f))
+end
+
+# Every fiber the program has made, so that a collection can read the
+# frames and the kernel roots of each one that is live.
+#
+# Those are a running stack and not ordinary references: they change
+# with no store the write barrier could see, so a minor collection that
+# stopped at an old fiber would sweep what the stack alone holds.
+#
+# CRuby answers the same problem twice. A running thread is reached from
+# `vm->ractor.set`, which is a root (vm.c, rb_vm_mark); a suspended
+# Fiber is **wb-unprotected** -- `fiber_data_type` (cont.c:2049) asks for
+# no `RUBY_TYPED_WB_PROTECTED`, so `gc_aging` (default.c:4390) never
+# promotes it and every minor collection traces it again, and
+# `rgengc_check_relation` remembers any old object that points at one.
+#
+# One list does both here. A collection marks the object graph, then
+# reads the stack of every fiber in this list the graph reached, and
+# repeats while that reaches more. A fiber nothing refers to is never
+# read and is swept like anything else; a fiber that is live has its
+# stack read whether it is old or young.
+Machine.struct :FiberList, ptr: Ptr, len: Word, capa: Word
+
+sig [] => Ptr
+machine def zr_fiber_list
+  Machine.static(:fiber_list, FiberList.size)
+end
+
+sig [Value] => Void
+machine def zr_fiber_register(f)
+  l = zr_fiber_list()
+  n = FiberList.len(l)
+  if n == FiberList.capa(l)
+    capa = n == 0 ? 8 : n * 2
+    grown = zr_xmalloc(capa * 8)
+    if n > 0
+      zr_memcpy(grown, FiberList.ptr(l), n * 8)
+      zr_sized_xfree(FiberList.ptr(l), n * 8)
+    end
+    FiberList.set_ptr(l, grown)
+    FiberList.set_capa(l, capa)
   end
+  Machine.store64(FiberList.ptr(l) + (n * 8), 0, Machine.word(f))
+  FiberList.set_len(l, n + 1)
+end
+
+# The stacks of the live fibers, read until reading them reaches no
+# more. An entry carries a bit that says its stack has been read in this
+# collection: the low bit of the address, which a cell never has.
+#
+# The fiber running now is left out, as it was before: its task is the
+# one `zr_mark_roots` walks, and its kernel roots are the live chain and
+# not the copy the fiber holds.
+sig [] => Void
+machine def zr_mark_fibers
+  l = zr_fiber_list()
+  n = FiberList.len(l)
+  i = 0
+  while i < n
+    at = FiberList.ptr(l) + (i * 8)
+    Machine.store64(at, 0, Machine.load64(at, 0) & (0 - 2))
+    i += 1
+  end
+  more = true
+  while more
+    more = false
+    i = 0
+    while i < FiberList.len(l)
+      at = FiberList.ptr(l) + (i * 8)
+      w = Machine.load64(at, 0)
+      if (w & 1) == 0 && zr_marked_p(Machine.value(w))
+        Machine.store64(at, 0, w | 1)
+        more = true
+        if RFiber.task(Machine.value(w)) != 0 && w != Machine.load64(Machine.static(:current_fiber, 8), 0)
+          zr_mark_task(RFiber.task(Machine.value(w)))
+          zr_mark_kernel_roots_from(RFiber.kroots(Machine.value(w)))
+          zr_mark_drain()
+        end
+      end
+      i += 1
+    end
+  end
+end
+
+# The entries of fibers the collection did not mark dropped, and the
+# read bits taken off the rest. This runs beside `zr_weak_prune`, before
+# the sweep frees a dead fiber's stack and its task.
+sig [] => Void
+machine def zr_fiber_prune
+  l = zr_fiber_list()
+  n = FiberList.len(l)
+  i = 0
+  kept = 0
+  while i < n
+    f = Machine.value(Machine.load64(FiberList.ptr(l) + (i * 8), 0) & (0 - 2))
+    if zr_marked_p(f)
+      Machine.store64(FiberList.ptr(l) + (kept * 8), 0, Machine.word(f))
+      kept += 1
+    end
+    i += 1
+  end
+  FiberList.set_len(l, kept)
 end
 
 sig [Value] => Void

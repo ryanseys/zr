@@ -333,6 +333,7 @@ module Ze0
           else
             value = @f.fetch("i64", argv, 8)
             @f.store(value, at)
+            cell_barrier(recv, value)
             @f.jump(merge, [value])
           end
         end

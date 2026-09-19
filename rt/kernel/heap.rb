@@ -53,7 +53,7 @@ Machine.struct :SizeClass, free: Ptr, last: Ptr, freed: Word, arenas: Word, rese
 # payload bytes held (zr_xmalloc, zr_xfree), the count of them that
 # runs the collector, and whether an allocation takes the slow path
 # (zr_heap_slow_update).
-Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word
+Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word
 
 # The payload a collection lets the heap take on before the next one
 # runs on that account, and the bounds on that increment. CRuby holds
@@ -81,6 +81,21 @@ MALLOC_GROWTH = 140
 FREE_FLOOR = 20
 FREE_GOAL = 50
 GROWTH = 180
+
+# What the old generation may grow to before a major collection runs,
+# as a multiple of what the last major found live, and the least that
+# multiple may stand for. A minor frees what died young and steps over
+# everything older, so nothing else frees an old graph that has gone
+# dead, nor the floating garbage a minor leaves behind; this is what
+# bounds both. It is CRuby's `old_objects_limit`, which is likewise
+# twice what the last major counted.
+OLD_LIMIT_FACTOR = 2
+OLD_LIMIT_MIN = 16777216
+
+# A backstop under that: minor collections that run before a major one
+# whatever the old set has done. A program whose old generation never
+# grows still wants its weak references and its finalizers looked at.
+MAJOR_EVERY = 16
 
 # The share of the machine's memory the cells may reach before growth
 # falls back to the floor, in hundredths. Past it a collection costs
@@ -504,6 +519,7 @@ sig [] => Void
 machine def zr_heap_init
   h = zr_heap()
   Heap.set_malloc_limit(h, MALLOC_LIMIT)
+  Heap.set_old_limit(h, OLD_LIMIT_MIN)
   c = 0
   while c < SIZE_CLASSES
     zr_arena_add(c)
@@ -512,6 +528,9 @@ machine def zr_heap_init
   zr_arena_add(1)
   if getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
     Heap.set_stress(h, 1)
+  end
+  if getenv(Machine.bytes("ZR_GC_VERIFY\0")) != 0
+    Heap.set_verify(h, 1)
   end
   zr_heap_slow_update()
 end
@@ -577,6 +596,9 @@ machine def zr_mark_cell(v)
     return
   end
   zr_mark_set(v)
+  if Heap.verifying(zr_heap()) != 0
+    zr_verify_reached(v)
+  end
   # A String or a Float holds no Value: in a collection its class is
   # marked here, and the queue never sees it. ObjectSpace's walk of one
   # object's references reads them back off the queue, so there every
@@ -967,23 +989,238 @@ machine def zr_sweep
 end
 
 # Collect for an allocation in size class `wanting` (SIZE_CLASSES when
-# none asked), then grow what the sweep left short.
+# none asked). A major collection runs where the minors before it have
+# had their turn, or where the heap has reached its share of the machine
+# and only a major can give any of it back; every other one is minor.
 sig [Word] => Void
 machine def zr_collect(wanting)
   h = zr_heap()
+  major = Heap.live(h) > Heap.old_limit(h) || Heap.minors(h) >= MAJOR_EVERY || zr_heap_pressed()
+  zr_collect_kind(wanting, major)
+  # A minor that has left the class that ran out still short did not
+  # free what the program had finished with: what filled the heap was
+  # not the young dead, and only a major collection can give any of it
+  # back. CRuby forces one on the same footing
+  # (GPR_FLAG_MAJOR_BY_NOFREE), and the alternative is to grow the heap
+  # around objects that have been dead for sixteen collections.
+  if !major && zr_heap_short(wanting)
+    zr_collect_kind(wanting, true)
+  end
+  zr_heap_grow(wanting)
+  zr_malloc_limit_set()
+  zr_heap_slow_update()
+end
+
+# Whether the cells have reached their share of the machine.
+sig [] => Bool
+machine def zr_heap_pressed
+  zr_heap_bytes() * 100 > zr_machine_bytes() * HEAP_SHARE
+end
+
+# Whether the sweep has left size class `c` under its floor of free
+# cells. SIZE_CLASSES is no class, which is what a collection nothing
+# asked for passes.
+sig [Word] => Bool
+machine def zr_heap_short(c)
+  if c >= SIZE_CLASSES
+    return false
+  end
+  sc = zr_size_class(c)
+  SizeClass.freed(sc) * 100 < SizeClass.arenas(sc) * ARENA_CELLS * FREE_FLOOR
+end
+
+# A collection of one kind or the other, then the growth the sweep asks
+# for.
+#
+# A **major** one marks from nothing, so it reaches every live object and
+# the sweep frees everything else.
+#
+# A **minor** one starts its marks from the ages -- the marks the last
+# collection finished with -- so the trace stops at every object that
+# survived it, and reaches only what has been allocated since. The
+# remembered arenas make up the difference: an old object that has come
+# to hold a young one is read again although the trace would step over
+# it. The sweep is the same sweep, and frees exactly the young dead.
+#
+# What a minor accepts is floating garbage, an old object that died after
+# the collection that marked it and waits for the next major, and no
+# demotion. Both are the ordinary generational trade.
+sig [Word, Bool] => Void
+machine def zr_collect_kind(wanting, major)
+  h = zr_heap()
   started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
   Heap.set_collections(h, Heap.collections(h) + 1)
+  Heap.set_minors(h, major ? 0 : Heap.minors(h) + 1)
   Machine.store64(zr_marking(), 0, QNIL)
+  unless major
+    zr_marks_from_ages()
+  end
   zr_mark_roots()
+  unless major
+    zr_mark_remembered()
+  end
   zr_mark_drain()
+  zr_mark_fibers()
+  if !major && Heap.verify(h) != 0
+    zr_verify_minor()
+  end
+  zr_fiber_prune()
   zr_weak_prune()
   zr_sweep()
   zr_ages_keep()
   zr_marks_clear()
-  zr_heap_grow(wanting)
-  zr_malloc_limit_set()
-  zr_heap_slow_update()
+  live = zr_live_bytes()
+  Heap.set_live(h, live)
+  if major
+    limit = live * OLD_LIMIT_FACTOR
+    Heap.set_old_limit(h, limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit)
+  end
   Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
+end
+
+# Every arena's marks started from its ages, which is what makes the
+# trace of a minor collection stop at what the last one kept.
+sig [] => Void
+machine def zr_marks_from_ages
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_marks(a), zr_arena_ages(a), MARK_BYTES)
+    i += 1
+  end
+end
+
+# The references of every remembered cell read again. Only the arenas
+# the barrier flagged are walked, and a word of the map with no bit in it
+# steps over sixty-four cells -- which is what CRuby's
+# `rgengc_rememberset_mark` gets from its `remembered_bits`.
+sig [] => Void
+machine def zr_mark_remembered
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    if ArenaHead.remembered(a) != 0
+      first = zr_arena_first(a)
+      bytes = ArenaHead.cell(a)
+      map = zr_arena_remembered(a)
+      j = 0
+      while j < ARENA_CELLS
+        word = Machine.load64(map + ((j >> 6) * 8), 0)
+        if word == 0 && (j & 63) == 0
+          j += 64
+        else
+          if (word & zr_marks_bit(j)) != 0
+            v = Machine.value(first + (j * bytes))
+            Machine.store64(zr_marking(), 0, Machine.word(v))
+            zr_mark(RBasic.klass(v))
+            zr_mark_children(v)
+            if (RBasic.flags(v) & FL_EXIVAR) != 0
+              zr_mark_ivtab(zr_exivar_tab(v))
+            end
+          end
+          j += 1
+        end
+      end
+    end
+    i += 1
+  end
+end
+
+# Under ZR_GC_VERIFY, what a minor collection marked is held against a
+# full trace: an object the full trace reaches and the minor did not is a
+# reference into the young that the barrier failed to write down, and it
+# is named here, where it was made, instead of turning up as a freed cell
+# some collections later. This is the job CRuby gives a whole second
+# collector, gc/wbcheck, and it is short here because the barrier is
+# emitted and not written by hand.
+#
+# The remembered map stands in as the scratch: a minor has read it by
+# now, and `zr_ages_keep` empties it either way.
+sig [] => Void
+machine def zr_verify_minor
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_remembered(a), zr_arena_marks(a), MARK_BYTES)
+    memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES)
+    i += 1
+  end
+  Machine.store64(zr_marking(), 0, QNIL)
+  Heap.set_verifying(zr_heap(), 1)
+  zr_mark_roots()
+  zr_mark_drain()
+  zr_mark_fibers()
+  Heap.set_verifying(zr_heap(), 0)
+  i = 0
+  while i < n
+    zr_verify_arena(zr_arena_at(i))
+    i += 1
+  end
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_marks(a), zr_arena_remembered(a), MARK_BYTES)
+    i += 1
+  end
+end
+
+# A cell the full trace has just marked. Where the minor collection did
+# not mark it, the reference that reached it here is one the write
+# barrier failed to write down, and the object that holds it is what
+# `zr_marking` names.
+sig [Value] => Void
+machine def zr_verify_reached(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  if (Machine.load64(zr_remembered_word(a, i), 0) & zr_marks_bit(i)) != 0
+    return
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("the write barrier missed a store of a cell of type "), 51)
+  zr_buf_long(b, RBasic.flags(v) & T_MASK)
+  zr_buf_push(b, Machine.bytes(" into "), 6)
+  parent = Machine.value(Machine.load64(zr_marking(), 0))
+  if zr_fixnum_p(parent)
+    zr_buf_push(b, Machine.bytes("root "), 5)
+    zr_buf_long(b, zr_fix2long(parent))
+  elsif zr_special_p(parent)
+    zr_buf_push(b, Machine.bytes("a root"), 6)
+  else
+    zr_buf_push(b, Machine.bytes("a cell of type "), 15)
+    zr_buf_long(b, RBasic.flags(parent) & T_MASK)
+  end
+  zr_buf_byte(b, 10)
+  zr_bug(Buf.ptr(b), Buf.len(b))
+end
+
+# Every cell of `a` the full trace reached and the minor did not.
+sig [Ptr] => Void
+machine def zr_verify_arena(a)
+  marks = zr_arena_marks(a)
+  minor = zr_arena_remembered(a)
+  first = zr_arena_first(a)
+  bytes = ArenaHead.cell(a)
+  j = 0
+  while j < ARENA_CELLS
+    missed = Machine.load64(marks + ((j >> 6) * 8), 0) & (0 - 1 - Machine.load64(minor + ((j >> 6) * 8), 0))
+    if missed == 0 && (j & 63) == 0
+      j += 64
+    else
+      if (missed & zr_marks_bit(j)) != 0
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("a minor collection did not reach a live cell of type "), 53)
+        zr_buf_long(b, Machine.load64(first + (j * bytes), 0) & T_MASK)
+        zr_buf_push(b, Machine.bytes(": the write barrier missed a store into it\n"), 43)
+        zr_bug(Buf.ptr(b), Buf.len(b))
+      end
+      j += 1
+    end
+  end
 end
 
 # A size class is grown where the sweep left it under FREE_FLOOR
@@ -1020,7 +1257,7 @@ machine def zr_heap_grow(wanting)
   # the amortization: the collector runs more often instead of asking
   # for memory the host must find somewhere, and a collection costs less
   # than a page-in does.
-  pressed = zr_heap_bytes() * 100 > zr_machine_bytes() * HEAP_SHARE
+  pressed = zr_heap_pressed()
   goal = pressed ? FREE_FLOOR : FREE_GOAL
   live_bytes = zr_live_bytes()
   c = 0
@@ -1078,7 +1315,10 @@ end
 # heap grows when the cells run out, as CRuby's does.
 sig [] => Value
 machine def zr_gc_start
-  zr_collect(SIZE_CLASSES)
+  zr_collect_kind(SIZE_CLASSES, true)
+  zr_heap_grow(SIZE_CLASSES)
+  zr_malloc_limit_set()
+  zr_heap_slow_update()
   zr_finalizers_run()
 end
 
@@ -1256,6 +1496,7 @@ end
 # Every kernel function that may run the collector keeps its Values in
 # a root frame (`prev, n, values...`) the compiler links from here.
 Machine.collects :zr_collect
+Machine.collects :zr_collect_kind
 
 sig [] => Ptr
 machine def zr_kroots

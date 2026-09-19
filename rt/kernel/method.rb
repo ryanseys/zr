@@ -96,6 +96,7 @@ machine def zr_method_new(recv, klass, mid)
   RMethod.set_klass(m, klass)
   RMethod.set_owner(m, owner)
   zr_memcpy(RMethod.entry(m), e, MEntry.size)
+  zr_write_barrier_all(m)
   m
 end
 

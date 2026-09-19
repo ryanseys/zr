@@ -451,6 +451,46 @@ module Ze0
         row
       end
 
+      # The collector's write barrier, where a site has stored `v` into
+      # `owner` without going through the kernel: a row of self's ivar
+      # table, or an element of an Array.
+      #
+      # A minor collection starts from the roots and from what the barrier
+      # remembered, and stops at every object it finds already marked, so
+      # an old object that has come to hold a young one must be written
+      # down or the young one is swept from under it.
+      #
+      # What is emitted here is the cheap half of `zr_write_barrier`: self
+      # old, and `v` a cell rather than an immediate. The kernel's own
+      # does the rest and is reached only where both hold, which a store
+      # of a Fixnum, of nil, of true or false or of a Symbol never does.
+      #
+      # `owner` is a cell in an arena, so its age bit is where its
+      # address says it is: self for an ivar, which is a plain object, a
+      # class or a module -- `own_ivar_table` sent every other kind to
+      # the kernel, and a Proc or an Env on the machine stack with it --
+      # and the receiver for an element, which the site has already found
+      # to be an Array.
+      def cell_barrier(owner, v)
+        head = @l.layout("ArenaHead")
+        marks = @l.const("MARK_BYTES")
+        arena = @f.band(owner, imm(~(@l.const("ARENA_BYTES") - 1)))
+        first = @f.iadd(arena, imm(@l.const("ARENA_HEAD") + (marks * 3)))
+        index = @f.ushr(@f.isub(owner, first), @f.fetch("i64", arena, off(head, "shift")))
+        at = @f.iadd(@f.iadd(arena, imm(@l.const("ARENA_HEAD") + marks)), @f.ishl(@f.ushr(index, imm(6)), imm(3)))
+        aged = @f.icmp("ne", @f.band(@f.fetch("i64", at, 0), @f.ishl(imm(1), @f.band(index, imm(63)))), imm(0))
+        cell = @f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil))
+        remember = @f.label
+        done = @f.label
+        @f.brif(@f.band(aged, cell), remember, done)
+        switch(remember)
+        kernel("zr_write_barrier", owner, v)
+        @f.jump(done)
+        switch(done)
+      end
+
+      def ivar_barrier(v) = cell_barrier(@self, v)
+
       # The ivar table self keeps as its own: in its cell for a plain
       # object, in its extension for a class or module; `slow` for any
       # other kind, or a frozen one when `writing`.
@@ -500,9 +540,31 @@ module Ze0
         if depth.zero? && !@has_env
           @f.store(v, @rec, value_offset(i))
         else
-          @f.store(v, *env_slot(i, depth))
+          env = env_at(depth)
+          @f.store(v, @f.fetch("i64", env, off(@env_layout, "slots")), 8 * i)
+          env_barrier(env, v)
         end
         v
+      end
+
+      # The collector's write barrier where a scope has written an outer
+      # local. An Env that has escaped to the heap outlives the frame
+      # that made it, so a store into its slots is a store into a cell
+      # like any other; one still on the machine stack has its slots in
+      # the frame, which every collection reads as a root, and the
+      # kernel's barrier steps over it by its FL_STACK.
+      #
+      # The test emitted here is that `v` is a cell rather than an
+      # immediate, which a store of a Fixnum, of nil, of true or false or
+      # of a Symbol fails; the kernel's own does the rest.
+      def env_barrier(env, v)
+        remember = @f.label
+        done = @f.label
+        @f.brif(@f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil)), remember, done)
+        switch(remember)
+        kernel("zr_write_barrier", env, v)
+        @f.jump(done)
+        switch(done)
       end
 
       # A local this scope reads or writes in a scope outside itself. A

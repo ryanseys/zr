@@ -156,6 +156,7 @@ machine def zr_backtrace_capture(exc, top)
   end
   RException.set_rows(exc, rows)
   RException.set_nrows(exc, i)
+  zr_write_barrier_all(exc)
 end
 
 sig [Value, Value] => Value

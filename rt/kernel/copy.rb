@@ -54,6 +54,7 @@ machine def zr_copy_payload(copy, orig)
       rows = zr_xmalloc(RException.nrows(orig) * BtRow.size)
       zr_memcpy(rows, RException.rows(orig), RException.nrows(orig) * BtRow.size)
       RException.set_rows(copy, rows)
+      zr_write_barrier_all(copy)
     end
   elsif t == T_FIBER
     # CRuby copies a Fiber's fields and not its machine stack, so the copy

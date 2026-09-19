@@ -167,6 +167,7 @@ module Ze0
             @f.jump(done)
           end
           @f.store(v, row, off(@l.layout("IvEntry"), "value"))
+          ivar_barrier(v)
           @f.jump(done)
           switch(slow)
           checked(kernel("zr_ivar_set_cached", @self, sym_word(ivar), v, ic))
@@ -183,6 +184,7 @@ module Ze0
           row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(len, imm(Math.log2(entry.size).to_i)))
           @f.store(sym_word(ivar), row, off(entry, "id"))
           @f.store(v, row, off(entry, "value"))
+          ivar_barrier(v)
           @f.store(@f.iadd(len, imm(1)), t, off(table, "len"))
           @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), t, off(table, "names"))
         end

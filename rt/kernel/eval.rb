@@ -323,6 +323,13 @@ machine def zr_bmethod_cref(e)
   c = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(MEntry.cref(e)))
   RCref.set_entry(c, e)
   IvarCache.set_index(MEntry.ivar(e), Machine.word(c))
+  # The cref goes into the entry's `ivar` word, which the dialect calls
+  # a Word, so the barrier the compiler places after a store into a
+  # Value field does not see it. The entry is a row of the owner's
+  # method table (`zr_method_add_row` writes rows into
+  # `RClass.ext(klass)`), and `zr_mark_entry` reads the cref back out of
+  # it, so the owner is what has come to hold this cref.
+  zr_write_barrier(FrameMeta.owner(MEntry.meta(e)), c)
   c
 end
 

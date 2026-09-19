@@ -665,6 +665,10 @@ module Ze0
         d zr_fiber_terminate Value recv:Value
         d zr_fiber_rehome Value recv:Value
         d zr_mark_fiber Void f:Value
+        d zr_fiber_list Ptr
+        d zr_fiber_register Void f:Value
+        d zr_mark_fibers Void
+        d zr_fiber_prune Void
         d zr_release_fiber Void f:Value
         d zr_fiber_scheduler_switch Value to:Value
         d zr_flonum_p Bool v:Value
@@ -902,6 +906,14 @@ module Ze0
         d zr_sweep_arena Void a:Ptr start:Word stop:Word whole:Bool
         d zr_sweep Void
         d zr_collect Void wanting:Word
+        d zr_heap_pressed Bool
+        d zr_heap_short Bool c:Word
+        d zr_collect_kind Void wanting:Word major:Bool
+        d zr_marks_from_ages Void
+        d zr_mark_remembered Void
+        d zr_verify_minor Void
+        d zr_verify_reached Void v:Value
+        d zr_verify_arena Void a:Ptr
         d zr_heap_grow Void wanting:Word
         d zr_malloc_limit_set Void
         d zr_gc_malloced Value
@@ -2283,6 +2295,9 @@ module Ze0
         c FREE_FLOOR 20
         c FREE_GOAL 50
         c GROWTH 180
+        c OLD_LIMIT_FACTOR 2
+        c OLD_LIMIT_MIN 16777216
+        c MAJOR_EVERY 16
         c HEAP_SHARE 50
         c G_BASIC_OBJECT 0
         c G_OBJECT 1
@@ -2844,12 +2859,13 @@ module Ze0
         s BtRow 40 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word node:32:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 112 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word home:104:Value
+        s FiberList 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RFloat 24 8 basic:0:RBasic bits:16:Word
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s ArenaHead 64 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word remembered:40:Word chain:48:Ptr next:56:Ptr
         s SizeClass 48 8 free:0:Ptr last:8:Ptr freed:16:Word arenas:24:Word reserve:32:Ptr allocated:40:Word
-        s Heap 80 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word slow:72:Word
+        s Heap 120 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word slow:72:Word minors:80:Word verify:88:Word verifying:96:Word live:104:Word old_limit:112:Word
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
