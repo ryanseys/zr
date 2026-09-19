@@ -725,11 +725,16 @@ class Enumerator::Lazy < Enumerator
       @receiver.__send__(@method, *@args, **@kwargs) { |*values| yield(*values); nil }
     end
 
-    def run_map
-      block = @block
-      @receiver.each { |*values| yield block.call(*values); nil }
-      nil
-    end
+    # The four stages that keep no state go through the kernel's
+    # adapter (zr_lazy_stage), which reads an element without the
+    # `|*values|` Array the others pay once an element.
+    def run_map(&out) = Primitive.zr_lazy_map(@receiver, @block, out)
+
+    def run_select(&out) = Primitive.zr_lazy_select(@receiver, @block, out)
+
+    def run_reject(&out) = Primitive.zr_lazy_reject(@receiver, @block, out)
+
+    def run_filter_map(&out) = Primitive.zr_lazy_filter_map(@receiver, @block, out)
 
     def run_flat_map
       block = @block
@@ -742,28 +747,6 @@ class Enumerator::Lazy < Enumerator
         end
         nil
       end
-      nil
-    end
-
-    def run_select
-      block = @block
-      @receiver.each { |*values| yield(*values) if block.call(*values); nil }
-      nil
-    end
-
-    def run_filter_map
-      block = @block
-      @receiver.each do |*values|
-        result = block.call(*values)
-        yield result if result
-        nil
-      end
-      nil
-    end
-
-    def run_reject
-      block = @block
-      @receiver.each { |*values| yield(*values) unless block.call(*values); nil }
       nil
     end
 

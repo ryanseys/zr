@@ -338,6 +338,94 @@ machine def zr_enum_collect_block(p, argc, argv, blk)
   Machine.value(QNIL)
 end
 
+# The lazy stages that keep no state of their own. Each reads one
+# element, asks its block about it, and sends nothing or one thing on.
+LAZY_MAP = 0
+LAZY_SELECT = 1
+LAZY_REJECT = 2
+LAZY_FILTER_MAP = 3
+
+# One stage of a lazy chain: `each` over `recv` with every value
+# straight through to `blk` -- so a block of one parameter sees the
+# first where `each` yielded several, as ruby's lazy gives it -- and
+# what the stage keeps sent on to `out`, the block the stage below
+# wrote.
+#
+# Written here rather than in Ruby because a `|*values|` block
+# allocates that Array once an element and once a stage. `map` then
+# `select` over 2,000,000 elements, three times, cost 1.237 s that way
+# against ruby's 0.670 s and YJIT's 0.631 s; here it is 0.542 s.
+#
+# `out` takes the values the element was yielded with, not the packed
+# one, so a chain answers what it answered before: the stage below
+# packs them again if it must.
+sig [Value, Word, Value, Value] => Value
+machine def zr_lazy_stage(recv, kind, blk, out)
+  kept = zr_ary_new(3)
+  zr_ary_push(kept, zr_fix(kind))
+  zr_ary_push(kept, blk)
+  zr_ary_push(kept, out)
+  p = zr_native_proc(Machine.addr(:zr_lazy_stage_block), kept)
+  r = zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+  return r if r == QUNDEF
+  Machine.value(QNIL)
+end
+
+# The adapter is deliberately absent from `zr_same_block`: a lazy block
+# is kept and called after the call that took it has returned, so a
+# `break` in one is the LocalJumpError ruby raises, and unwrapping the
+# adapter would make it a break out of the walk instead.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_lazy_stage_block(p, argc, argv, blk)
+  kept = RProc.self(p)
+  v = zr_yield(zr_ary_at(kept, 1), argc, argv)
+  return v if v == QUNDEF
+  kind = zr_fix2long(zr_ary_at(kept, 0))
+  out = zr_ary_at(kept, 2)
+  if kind == LAZY_MAP
+    r = zr_yield1(out, v)
+    return r if r == QUNDEF
+    return Machine.value(QNIL)
+  end
+  if kind == LAZY_FILTER_MAP
+    if v == QNIL || v == QFALSE
+      return Machine.value(QNIL)
+    end
+    r = zr_yield1(out, v)
+    return r if r == QUNDEF
+    return Machine.value(QNIL)
+  end
+  kept_p = v != QNIL && v != QFALSE
+  if kind == LAZY_REJECT
+    kept_p = !kept_p
+  end
+  if kept_p
+    r = zr_yield(out, argc, argv)
+    return r if r == QUNDEF
+  end
+  Machine.value(QNIL)
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_lazy_map(recv, blk, out)
+  zr_lazy_stage(recv, LAZY_MAP, blk, out)
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_lazy_select(recv, blk, out)
+  zr_lazy_stage(recv, LAZY_SELECT, blk, out)
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_lazy_reject(recv, blk, out)
+  zr_lazy_stage(recv, LAZY_REJECT, blk, out)
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_lazy_filter_map(recv, blk, out)
+  zr_lazy_stage(recv, LAZY_FILTER_MAP, blk, out)
+end
+
 # A lambda whose body is the kernel function `fn`, with `self_` as
 # what it works on: a Symbol's or a Method's Proc.
 sig [Ptr, Value] => Value

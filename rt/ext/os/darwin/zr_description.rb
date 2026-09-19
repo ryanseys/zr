@@ -1365,6 +1365,12 @@ module Ze0
         d zr_enum_each_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_enum_collect Value recv:Value args:Value blk:Value
         d zr_enum_collect_block Value p:Value argc:Word argv:Ptr blk:Value
+        d zr_lazy_stage Value recv:Value kind:Word blk:Value out:Value
+        d zr_lazy_stage_block Value p:Value argc:Word argv:Ptr blk:Value
+        d zr_lazy_map Value recv:Value blk:Value out:Value
+        d zr_lazy_select Value recv:Value blk:Value out:Value
+        d zr_lazy_reject Value recv:Value blk:Value out:Value
+        d zr_lazy_filter_map Value recv:Value blk:Value out:Value
         d zr_native_proc Value fn:Ptr self_:Value
         d zr_proc_lambda Value p:Value
         d zr_proc_call Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -2483,6 +2489,10 @@ module Ze0
         c PENDING_RETURN 2
         c PENDING_THROW 3
         c G_SYM_PROCS 61
+        c LAZY_MAP 0
+        c LAZY_SELECT 1
+        c LAZY_REJECT 2
+        c LAZY_FILTER_MAP 3
         c GUARD_ROW 3
         c T_REGEXP 31
         c G_REGEXP 42
