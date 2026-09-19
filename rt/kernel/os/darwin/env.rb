@@ -61,6 +61,10 @@ end
 # `_SC_NPROCESSORS_ONLN`.
 SC_NPROCESSORS_ONLN = 58
 
+# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`, which say what the machine has.
+SC_PAGESIZE = 29
+SC_PHYS_PAGES = 200
+
 # The clock that never jumps, as clock_gettime(2) numbers it.
 CLOCK_MONOTONIC = 6
 

@@ -55,11 +55,41 @@ Machine.struct :SizeClass, free: Ptr, last: Ptr, freed: Word, arenas: Word, rese
 # (zr_heap_slow_update).
 Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word
 
-# Payload the heap holds before a collection on that account: four
-# times CRuby's malloc_limit_min, since a collection here marks
-# everything where CRuby's marks the young. After each collection the
-# limit is twice the payload found live, as the cells are, or this.
+# The payload a collection lets the heap take on before the next one
+# runs on that account, and the bounds on that increment. CRuby holds
+# the same counter between GC_MALLOC_LIMIT_MIN and GC_MALLOC_LIMIT_MAX,
+# 16 and 32 megabytes, and grows it by 1.4 of what was found live;
+# these are four times its bounds, since a collection here marks
+# everything where CRuby's marks the young.
+#
+# The rule these replace was a flat `malloced * 2` with no ceiling at
+# all, so a build holding four gigabytes of payload would not collect on
+# that account until it held eight.
 MALLOC_LIMIT = 67108864
+MALLOC_LIMIT_MAX = 134217728
+MALLOC_GROWTH = 140
+
+# The free cells a size class should hold once a collection has swept
+# it, as hundredths of its capacity, and the most one collection may
+# grow it by. The shape is CRuby's, whose
+# `heap_allocatable_slots_expand` grows a heap only where the sweep
+# left it under the floor free, grows it to the goal, and never by more
+# than the factor in one step (0.20, 0.40 and 1.8 in
+# gc/default/default.c). The goal here is half and not two fifths,
+# since every collection is major: a class this one grows is left
+# holding twice its live set, as the rule before this held every class.
+FREE_FLOOR = 20
+FREE_GOAL = 50
+GROWTH = 180
+
+# The share of the machine's memory the cells may reach before growth
+# falls back to the floor, in hundredths. Past it a collection costs
+# less than a page-in does, so the collector runs more often rather than
+# asking for memory the machine has to find somewhere: six compiler
+# workers that each grew without a bound took a sixteen-gigabyte machine
+# into 16.4 GB of swap, and a run that swaps does not fail -- it takes
+# ten times as long.
+HEAP_SHARE = 50
 
 sig [] => Ptr
 machine def zr_heap
@@ -198,6 +228,54 @@ machine def zr_marks_clear
   end
 end
 
+# The bytes an arena of size class `c` takes: its head, its mark bitmap,
+# its cells and the exivar slot each of them carries.
+sig [Word] => Word
+machine def zr_arena_bytes(c)
+  ARENA_HEAD + MARK_BYTES + (ARENA_CELLS * ((CELL_MIN << c) + 8))
+end
+
+# The bytes of live cells the heap holds, which the sweep has counted.
+sig [] => Word
+machine def zr_live_bytes
+  bytes = 0
+  c = 0
+  while c < SIZE_CLASSES
+    sc = zr_size_class(c)
+    bytes += ((SizeClass.arenas(sc) * ARENA_CELLS) - SizeClass.freed(sc)) * (CELL_MIN << c)
+    c += 1
+  end
+  bytes
+end
+
+# The bytes of arenas the heap holds, live cells and free alike.
+sig [] => Word
+machine def zr_heap_bytes
+  bytes = 0
+  c = 0
+  while c < SIZE_CLASSES
+    bytes += SizeClass.arenas(zr_size_class(c)) * zr_arena_bytes(c)
+    c += 1
+  end
+  bytes
+end
+
+# What this machine has to hold a heap in, asked of the host once. A
+# machine that will not say is treated as one of four gigabytes.
+sig [] => Word
+machine def zr_machine_bytes
+  at = Machine.static(:machine_bytes, 8)
+  known = Machine.load64(at, 0)
+  if known != 0
+    return known
+  end
+  pages = sysconf(Machine.i32(SC_PHYS_PAGES))
+  size = sysconf(Machine.i32(SC_PAGESIZE))
+  bytes = pages == 0 - 1 || size == 0 - 1 ? 4294967296 : pages * size
+  Machine.store64(at, 0, bytes)
+  bytes
+end
+
 # A new arena of size class `c`, reserved: its head written, its
 # poisoned cells linked in address order, its exivar slots and its mark
 # bitmap clear.
@@ -208,7 +286,7 @@ machine def zr_arena_add(c)
   n = Heap.arenas(h)
   bytes = CELL_MIN << c
   slot = Machine.slot(8)
-  if posix_memalign(slot, ARENA_BYTES, ARENA_HEAD + (ARENA_CELLS * (bytes + 8)) + MARK_BYTES) != Machine.i32(0)
+  if posix_memalign(slot, ARENA_BYTES, zr_arena_bytes(c)) != Machine.i32(0)
     zr_memory_exhausted()
   end
   a = Machine.ptr(Machine.load64(slot, 0))
@@ -774,14 +852,7 @@ machine def zr_sweep
 end
 
 # Collect for an allocation in size class `wanting` (SIZE_CLASSES when
-# none asked); then grow each size class to twice its live set and one
-# arena more, the capacity that leaves half its cells free for the round
-# after this one. The class that ran out gets free cells for the whole
-# heap's live set and four arenas more: a collection marks every live
-# object, of every size, so the allocations it pays for are counted
-# against all of them, as they were when the heap had one size. The
-# sweep counted what came free, so the live sets are known and the heap
-# reaches the size it wants in one step, with nothing to overshoot.
+# none asked), then grow what the sweep left short.
 sig [Word] => Void
 machine def zr_collect(wanting)
   h = zr_heap()
@@ -793,31 +864,79 @@ machine def zr_collect(wanting)
   zr_weak_prune()
   zr_sweep()
   zr_marks_clear()
-  total = 0
+  zr_heap_grow(wanting)
+  zr_malloc_limit_set()
+  zr_heap_slow_update()
+  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
+end
+
+# A size class is grown where the sweep left it under FREE_FLOOR
+# hundredths of its capacity free, and then to FREE_GOAL free. The
+# sweep has counted what came free, so every live set is known and the
+# heap reaches the size it wants in one step, with nothing to
+# overshoot.
+#
+# `wanting` -- the class whose empty free list ran this collection --
+# is grown whatever the sweep left it, and to free cells worth the
+# whole heap's live *bytes*. A collection marks every live object, of
+# every size, so the allocations it pays for are counted against all of
+# them, as they were when the heap had one size. That amortization is
+# what the rule before this one argued for and it is right; what was
+# wrong was its unit. It counted the heap's live **cells** across four
+# classes that hold 32, 64, 128 and 256 bytes, so the 256-byte class
+# was handed eight times the room the 32-byte class would have been for
+# the same count.
+#
+# The other half of that rule grew every class to twice its live set on
+# every collection whether or not the sweep had already left it room.
+# Measured on a program that builds a tree, a collection that freed
+# nothing and found the same 141,880 cells live grew that class from 23
+# arenas to 36.
+#
+# Reserved arenas are counted free, so a class holding one is a class
+# the last collection already paid for and this one leaves alone. That
+# is CRuby's tomb, which `gc_sweep_finish_heap` empties before it asks
+# the host for a page.
+sig [Word] => Void
+machine def zr_heap_grow(wanting)
+  # The machine bounds the heap. Once the cells reach their share of it
+  # every class is grown to the floor and no further, and none is given
+  # the amortization: the collector runs more often instead of asking
+  # for memory the host must find somewhere, and a collection costs less
+  # than a page-in does.
+  pressed = zr_heap_bytes() * 100 > zr_machine_bytes() * HEAP_SHARE
+  goal = pressed ? FREE_FLOOR : FREE_GOAL
+  live_bytes = zr_live_bytes()
   c = 0
   while c < SIZE_CLASSES
     sc = zr_size_class(c)
-    total += (SizeClass.arenas(sc) * ARENA_CELLS) - SizeClass.freed(sc)
-    c += 1
-  end
-  c = 0
-  while c < SIZE_CLASSES
-    sc = zr_size_class(c)
-    live = (SizeClass.arenas(sc) * ARENA_CELLS) - SizeClass.freed(sc)
-    cells = (live * 2) + ARENA_CELLS
-    if c == wanting
-      cells = live + total + (ARENA_CELLS * SIZE_CLASSES)
+    capacity = SizeClass.arenas(sc) * ARENA_CELLS
+    free = SizeClass.freed(sc)
+    live = capacity - free
+    want = capacity
+    if c == wanting && !pressed
+      want = live + (live_bytes / (CELL_MIN << c))
+    elsif free * 100 < capacity * FREE_FLOOR
+      want = (live * 100) / (100 - goal)
     end
-    want = (cells + (ARENA_CELLS - 1)) / ARENA_CELLS
-    while SizeClass.arenas(sc) < want
+    most = (capacity * GROWTH) / 100
+    cells = want < most ? want : most
+    while SizeClass.arenas(sc) * ARENA_CELLS < cells
       zr_arena_add(c)
     end
     c += 1
   end
-  limit = Heap.malloced(h) * 2
-  Heap.set_malloc_limit(h, limit < MALLOC_LIMIT ? MALLOC_LIMIT : limit)
-  zr_heap_slow_update()
-  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
+end
+
+# The payload the heap may hold before the next collection runs on that
+# account: what it holds now, and a bounded increment over it.
+sig [] => Void
+machine def zr_malloc_limit_set
+  h = zr_heap()
+  malloced = Heap.malloced(h)
+  grown = (malloced * (MALLOC_GROWTH - 100)) / 100
+  step = grown < MALLOC_LIMIT ? MALLOC_LIMIT : grown
+  Heap.set_malloc_limit(h, malloced + (step > MALLOC_LIMIT_MAX ? MALLOC_LIMIT_MAX : step))
 end
 
 # The payload bytes held, and the count that runs the collector, for

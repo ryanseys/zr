@@ -159,6 +159,11 @@ end
 # musl's sysconf name and utsname: six fields of 65 bytes, sysname,
 # nodename, release, version, machine and domainname.
 SC_NPROCESSORS_ONLN = 84
+
+# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`. wasi has no sysconf for either,
+# so the heap's bound reads -1 here and falls back to its own floor.
+SC_PAGESIZE = 30
+SC_PHYS_PAGES = 85
 UTSNAME_LEN = 390
 UTSNAME_FIELD = 65
 

@@ -835,9 +835,9 @@ module Ze0
         d zr_size_class Ptr c:Word
         d zr_size_class_for Word bytes:Word
         d zr_cell_bytes Word v:Value
+        d zr_arena_marks Ptr a:Ptr
         d zr_arena_first Ptr a:Ptr
         d zr_arena_exivars Ptr a:Ptr
-        d zr_arena_marks Ptr a:Ptr
         d zr_marks_word Ptr a:Ptr i:Word
         d zr_marks_bit Word i:Word
         d zr_cell_index_in Word a:Ptr v:Value
@@ -846,6 +846,10 @@ module Ze0
         d zr_mark_set Void v:Value
         d zr_mark_unset Void v:Value
         d zr_marks_clear Void
+        d zr_arena_bytes Word c:Word
+        d zr_live_bytes Word
+        d zr_heap_bytes Word
+        d zr_machine_bytes Word
         d zr_arena_add Void c:Word
         d zr_arena_reserve Void a:Ptr chain:Ptr
         d zr_arena_unreserve Void sc:Ptr
@@ -887,6 +891,8 @@ module Ze0
         d zr_sweep_arena Void a:Ptr start:Word stop:Word whole:Bool
         d zr_sweep Void
         d zr_collect Void wanting:Word
+        d zr_heap_grow Void wanting:Word
+        d zr_malloc_limit_set Void
         d zr_gc_malloced Value
         d zr_gc_malloc_limit Value
         d zr_gc_nanoseconds Value
@@ -2307,6 +2313,12 @@ module Ze0
         c SIZE_CLASSES 4
         c POISON 14593280
         c MALLOC_LIMIT 67108864
+        c MALLOC_LIMIT_MAX 134217728
+        c MALLOC_GROWTH 140
+        c FREE_FLOOR 20
+        c FREE_GOAL 50
+        c GROWTH 180
+        c HEAP_SHARE 50
         c G_BASIC_OBJECT 0
         c G_OBJECT 1
         c G_MODULE 2
@@ -2795,6 +2807,8 @@ module Ze0
         c TR_DTREE 1
         c TR_BLTREE 2
         c SC_NPROCESSORS_ONLN 84
+        c SC_PAGESIZE 30
+        c SC_PHYS_PAGES 85
         c UTSNAME_LEN 390
         c UTSNAME_FIELD 65
         c SPAWN_ACTIONS_LEN 16

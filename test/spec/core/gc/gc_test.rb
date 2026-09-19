@@ -1946,6 +1946,28 @@ describe "GC programs" do
     _(result).must_answer "#<struct S x=#<struct S:...>>\n"
   end
 
+  it "asks the host for nothing when a collection frees nothing" do
+    result = ze0(<<~'RUBY')
+      # A collection that finds the same objects live as the one before
+      # it has nothing to say about how big the heap should be. It must
+      # leave the heap where it found it, and not grow it again for
+      # having run.
+
+      def pages = GC.stat_heap.sum { |_, pool| pool[:heap_eden_pages] }
+
+      held = Array.new(20_000) { |i| { i => "row #{i}" } }
+      before = pages
+      GC.start
+      puts pages <= before
+      puts held.size
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      20000
+    OUT
+  end
+
   it "weakmap prunes a collected key at gc" do
     result = ze0(<<~'RUBY')
       # A key with no other strong reference is pruned once collected.
