@@ -68,7 +68,11 @@ class WasmFloorTest < Minitest::Test
     found.uniq.sort
   end
 
+  # A runtime of this test's own. `Zr.runtime` is the process's, and
+  # `Native::Build.lower` lets its IR go as soon as the runtime object
+  # is named, so a build anywhere earlier in the process would leave
+  # this test no call graph to walk.
   def by_name
-    @by_name ||= Ze0::Zr.runtime(TARGET).functions.to_h { |f| [f.name, f] }
+    @by_name ||= Ze0::Zr::Runtime.new(TARGET).functions.to_h { |f| [f.name, f] }
   end
 end

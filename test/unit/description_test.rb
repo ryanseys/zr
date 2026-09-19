@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "ze0/zr"
+require "ze0/native/build"
 
 # The kernel description a program carries for its evals, one per OS
 # layer. A stale one is a miscompile, so the check writes each again and
@@ -11,6 +12,15 @@ class DescriptionTest < Minitest::Test
   TARGETS = Ze0::Target.all.select { |target| target.os_layer == target.os.to_s }.uniq(&:os_layer)
 
   def path(target) = File.join(ROOT, "rt/ext/os", target.os_layer, "zr_description.rb")
+
+  # The kernel lowered for this file alone, and never `Zr.runtime`,
+  # which the whole process shares. `Native::Build.lower` lets the
+  # shared one's IR go as soon as the runtime object is named
+  # (lib/ze0/native/build.rb:105), and it does so on a warm cache too,
+  # where nothing was lowered to let go of. What the IR answered is
+  # refused from then on rather than lowered again, which is right for
+  # a build and leaves a test that reads it holding nothing.
+  def kernel(target) = Ze0::Zr::Runtime.new(target).unit
 
   # `immediate?` is `zr_special_p` (rt/kernel/value.rb) asked at compile
   # time, so that a lowering can drop a test a word it made has already
@@ -47,7 +57,7 @@ class DescriptionTest < Minitest::Test
     end
 
     define_method("test_the_#{target.os_layer}_description_answers_as_its_kernel_unit_does") do
-      unit = Ze0::Zr.runtime(target).unit
+      unit = kernel(target)
       carried = Ze0::Machine::Description.parse(File.read(path(target))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
       live = Ze0::Machine::Description.of(unit)
 
@@ -59,5 +69,14 @@ class DescriptionTest < Minitest::Test
                      [carried.struct_for(name).fields, carried.struct_for(name).size, carried.struct_for(name).align], name
       end
     end
+  end
+
+  # A build before this file left it nothing to read: under seed 55324
+  # on 2026-09-19 the darwin row failed with "the runtime's IR was
+  # released", and every other seed passed. This runs the build first,
+  # so the order that broke it is the order it is held to.
+  def test_a_build_leaves_this_file_a_kernel_to_read
+    Ze0::Native::Build.lower("p 1\n", "description_test.rb", target: TARGETS.first)
+    assert_predicate Ze0::Machine::Description.of(kernel(TARGETS.first)).defs, :any?
   end
 end
