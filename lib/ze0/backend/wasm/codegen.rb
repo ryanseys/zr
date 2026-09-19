@@ -128,7 +128,17 @@ module Ze0
           out << section(10, vec(bodies))
           placed = (pre ? pre.segments : []) + @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }
           out << section(11, vec(segments(placed).map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
+          out << names_section if ENV["ZE0_WASM_NAMES"]
           out
+        end
+
+        # The names of the functions, as a custom section. Nothing at run
+        # time reads it: wasmtime does, and a trap that says
+        # `<wasm function 1097>` says `zr_ivtab_append` instead. It is
+        # the size of every symbol name, so it waits to be asked for.
+        def names_section
+          rows = @index.sort_by(&:last).map { |symbol, index| leb(index) + name(symbol) }
+          section(0, name("name") + section(1, vec(rows)))
         end
 
         # The active data segments for `[address, bytes]` objects: objects
