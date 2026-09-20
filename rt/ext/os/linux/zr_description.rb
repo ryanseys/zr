@@ -919,6 +919,7 @@ module Ze0
         d zr_gc_malloced Value
         d zr_gc_malloc_limit Value
         d zr_gc_nanoseconds Value
+        d zr_gc_phases Value
         d zr_gc_start Value
         d zr_gc_count Value
         d zr_gc_allocated Value
@@ -2868,7 +2869,7 @@ module Ze0
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s ArenaHead 64 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word remembered:40:Word chain:48:Ptr next:56:Ptr
         s SizeClass 48 8 free:0:Ptr last:8:Ptr freed:16:Word arenas:24:Word reserve:32:Ptr allocated:40:Word
-        s Heap 120 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word slow:72:Word minors:80:Word verify:88:Word verifying:96:Word live:104:Word old_limit:112:Word
+        s Heap 144 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word slow:72:Word minors:80:Word verify:88:Word verifying:96:Word live:104:Word old_limit:112:Word majors:120:Word marking:128:Word sweeping:136:Word
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word

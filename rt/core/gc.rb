@@ -17,8 +17,11 @@ module GC
   end
 
   # Every key CRuby's collector answers, in its order. One arena here is
-  # a page; every collection is a major one, and nothing is moved, aged
-  # or finalized later.
+  # a page, and nothing is moved or finalized later. A collection is
+  # minor or major as `zr_collect` decides, and the counts and the two
+  # phase times say which ran and what each cost -- the trace and the
+  # sweep are asked apart because a minor traces only the young while
+  # its sweep still walks every arena.
   def self.stat(hash_or_key = nil)
     Primitive.attr! :ruby
     total, free = Primitive.zr_objspace_census
@@ -26,14 +29,16 @@ module GC
     live = total - free
     allocated = Primitive.zr_gc_allocated
     count = Primitive.zr_gc_count
+    majors, marking, sweeping = Primitive.zr_gc_phases
     stats = {
-      count: count, time: Primitive.zr_gc_nanoseconds / 1_000_000, marking_time: 0, sweeping_time: 0,
+      count: count, time: Primitive.zr_gc_nanoseconds / 1_000_000,
+      marking_time: marking / 1_000_000, sweeping_time: sweeping / 1_000_000,
       heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_slots: 0, heap_available_slots: total,
       heap_live_slots: live, heap_free_slots: free, heap_final_slots: 0, heap_marked_slots: 0, heap_eden_pages: pages,
       total_allocated_pages: pages, total_freed_pages: 0, total_allocated_objects: allocated,
       total_freed_objects: [allocated - live, 0].max, malloc_increase_bytes: Primitive.zr_gc_malloced,
       malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
-      minor_gc_count: 0, major_gc_count: count, compact_count: 0, read_barrier_faults: 0, total_moved_objects: 0,
+      minor_gc_count: count - majors, major_gc_count: majors, compact_count: 0, read_barrier_faults: 0, total_moved_objects: 0,
       remembered_wb_unprotected_objects: 0, remembered_wb_unprotected_objects_limit: 0, old_objects: 0,
       old_objects_limit: 0, oldmalloc_increase_bytes: 0, oldmalloc_increase_bytes_limit: 16 * 1024 * 1024
     }

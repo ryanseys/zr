@@ -53,7 +53,7 @@ Machine.struct :SizeClass, free: Ptr, last: Ptr, freed: Word, arenas: Word, rese
 # payload bytes held (zr_xmalloc, zr_xfree), the count of them that
 # runs the collector, and whether an allocation takes the slow path
 # (zr_heap_slow_update).
-Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word
+Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word, majors: Word, marking: Word, sweeping: Word
 
 # The payload a collection lets the heap take on before the next one
 # runs on that account, and the bounds on that increment. CRuby holds
@@ -1057,6 +1057,12 @@ machine def zr_collect_kind(wanting, major)
   started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
   Heap.set_collections(h, Heap.collections(h) + 1)
   Heap.set_minors(h, major ? 0 : Heap.minors(h) + 1)
+  # `minors` is what is left before the next major and a major resets
+  # it, so it cannot say how many minors have run. The majors are
+  # counted, and the minors are the rest of `collections`.
+  if major
+    Heap.set_majors(h, Heap.majors(h) + 1)
+  end
   Machine.store64(zr_marking(), 0, QNIL)
   unless major
     zr_marks_from_ages()
@@ -1072,7 +1078,16 @@ machine def zr_collect_kind(wanting, major)
   end
   zr_fiber_prune()
   zr_weak_prune()
+  # What the trace cost and what the sweep cost, kept apart, as CRuby
+  # reports them beside the total. They answer different questions here:
+  # a minor traces only what has been allocated since the last
+  # collection, but the sweep walks every arena whatever the kind, so
+  # the two do not move together. The prunes read the marks, so they are
+  # counted with the trace.
+  marked = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
+  Heap.set_marking(h, Heap.marking(h) + (marked - started))
   zr_sweep()
+  Heap.set_sweeping(h, Heap.sweeping(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - marked))
   zr_ages_keep()
   zr_marks_clear()
   live = zr_live_bytes()
@@ -1314,6 +1329,19 @@ end
 sig [] => Value
 machine def zr_gc_nanoseconds
   zr_fix(Heap.nanoseconds(zr_heap()))
+end
+
+# The major collections so far, and the nanoseconds the traces and the
+# sweeps have taken: the three numbers behind `major_gc_count`,
+# `minor_gc_count`, `marking_time` and `sweeping_time`.
+sig [] => Value
+machine def zr_gc_phases
+  h = zr_heap()
+  out = zr_ary_new(3)
+  zr_ary_push(out, zr_fix(Heap.majors(h)))
+  zr_ary_push(out, zr_fix(Heap.marking(h)))
+  zr_ary_push(out, zr_fix(Heap.sweeping(h)))
+  out
 end
 
 # The GC module's view of the heap. `disable` and `enable` answer
