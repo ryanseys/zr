@@ -186,22 +186,75 @@ end
 
 # An accessor has no frame, so its arity error is the caller's. The
 # ivar's id is the entry's `fn`, and the row guess is the entry's own.
+#
+# The guessed row is read here rather than asked of
+# `zr_ivar_get_cached`, which asks `zr_ivar_row_guessed` for it. A site
+# that reads `@name` of its own tests the guess inline (the lowering's
+# `guessed_ivar_row`); a site that calls a reader pays a call for the
+# same three loads, and two more under it. Sampling bm_attr_accessor
+# put 261 of 389 samples in these three frames, 131 of them in
+# `zr_ivar_row_guessed` alone. So the test stands here, where the
+# entry already is, and only a receiver the guess does not settle --
+# a class, a module, a special constant, a ractor's object, a wrong
+# guess -- goes on to the kernel's own read, which sets the guess.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_attr_reader_fn(recv, argc, argv, e, blk, found)
   if argc != 0
     return zr_wrong_arity(argc, 0)
   end
-  Task.set_kw(zr_task(), 0)
-  zr_ivar_get_cached(recv, Machine.word(MEntry.fn(e)), MEntry.ivar(e))
+  t = zr_task()
+  Task.set_kw(t, 0)
+  id = Machine.word(MEntry.fn(e))
+  ic = MEntry.ivar(e)
+  w = Machine.word(recv)
+  if (w & 7) == 0 && w > QNIL && (RBasic.flags(recv) & T_MASK) == T_OBJECT && Task.ractor(t) == 0
+    row = zr_ivar_guess_row(RObject.iv(recv), id, ic)
+    if row != 0
+      v = IvEntry.value(row)
+      return v == QUNDEF ? Machine.value(QNIL) : v
+    end
+  end
+  zr_ivar_get_cached(recv, id, ic)
 end
 
+# The frozen bit rides with the type here, as it does in
+# `zr_ivar_set_cached`: a frozen receiver is not a plain unfrozen
+# object, so it takes the kernel's write, which raises at the caller's
+# line.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_attr_writer_fn(recv, argc, argv, e, blk, found)
   if argc != 1
     return zr_wrong_arity(argc, 1)
   end
-  Task.set_kw(zr_task(), 0)
-  zr_ivar_set_cached(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)), MEntry.ivar(e))
+  t = zr_task()
+  Task.set_kw(t, 0)
+  id = Machine.word(MEntry.fn(e))
+  ic = MEntry.ivar(e)
+  v = Machine.value(Machine.load64(argv, 0))
+  w = Machine.word(recv)
+  if (w & 7) == 0 && w > QNIL && (RBasic.flags(recv) & (T_MASK | FL_FREEZE)) == T_OBJECT && Task.ractor(t) == 0
+    row = zr_ivar_guess_row(RObject.iv(recv), id, ic)
+    if row != 0
+      IvEntry.set_value(row, v)
+      zr_write_barrier(recv, v)
+      return v
+    end
+  end
+  zr_ivar_set_cached(recv, id, v, ic)
+end
+
+# The row of table `t` the cell `ic` guesses, when the table is long
+# enough and that row holds `id`; else 0. What `zr_ivar_row_guessed`
+# does once it knows the table, and small enough that an accessor
+# carries a copy rather than a call.
+sig [Ptr, Word, Ptr] => Ptr
+machine def zr_ivar_guess_row(t, id, ic)
+  i = IvarCache.index(ic)
+  if i >= IvTab.len(t)
+    return 0
+  end
+  e = IvTab.rows(t) + (i * IvEntry.size)
+  IvEntry.id(e) == id ? e : 0
 end
 
 # A send through the site's cell, for a site whose own test of the cell
@@ -437,12 +490,7 @@ machine def zr_ivar_row_guessed(obj, id, ic)
   else
     return 0
   end
-  i = IvarCache.index(ic)
-  if i >= IvTab.len(t)
-    return 0
-  end
-  e = IvTab.rows(t) + (i * IvEntry.size)
-  IvEntry.id(e) == id ? e : 0
+  zr_ivar_guess_row(t, id, ic)
 end
 
 # The row for `id` in the table `t`, or 0: the guessed one when it holds

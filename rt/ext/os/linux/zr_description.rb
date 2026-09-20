@@ -122,6 +122,7 @@ module Ze0
         d zr_builtin_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_attr_reader_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_attr_writer_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_ivar_guess_row Ptr t:Ptr id:Word ic:Ptr
         d zr_send_cached Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr blk:Value mode:Word
         d zr_call_cache_slot Ptr cc:Ptr
         d zr_new_cached Value cc:Ptr recv:Value argc:Word argv:Ptr mode:Word
