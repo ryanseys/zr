@@ -907,6 +907,7 @@ module Ze0
         d zr_sweep Void
         d zr_collect Void wanting:Word
         d zr_heap_pressed Bool
+        d zr_major_every Word
         d zr_heap_short Bool c:Word
         d zr_collect_kind Void wanting:Word major:Bool
         d zr_marks_from_ages Void
@@ -2349,6 +2350,7 @@ module Ze0
         c OLD_LIMIT_FACTOR 2
         c OLD_LIMIT_MIN 16777216
         c MAJOR_EVERY 16
+        c MAJOR_EVERY_PRESSED 4
         c HEAP_SHARE 50
         c G_BASIC_OBJECT 0
         c G_OBJECT 1

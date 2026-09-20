@@ -95,7 +95,18 @@ OLD_LIMIT_MIN = 16777216
 # A backstop under that: minor collections that run before a major one
 # whatever the old set has done. A program whose old generation never
 # grows still wants its weak references and its finalizers looked at.
+#
+# A heap that has reached its share of the machine asks for a major
+# sooner, since only a major gives an old dead graph back and the
+# machine has no more to give. Sooner, and not always: making every
+# collection past that line a major left the collector
+# non-generational exactly where its heap was largest and a trace cost
+# the most. Measured on a cold self-compile of the compiler, the line
+# was crossed at collection 166 of 265 and every one of the 100 after
+# it was a major -- 100 of the run's 114, and most of the 231.1 s it
+# spent marking.
 MAJOR_EVERY = 16
+MAJOR_EVERY_PRESSED = 4
 
 # The share of the machine's memory the cells may reach before growth
 # falls back to the floor, in hundredths. Past it a collection costs
@@ -1001,7 +1012,7 @@ end
 sig [Word] => Void
 machine def zr_collect(wanting)
   h = zr_heap()
-  major = Heap.live(h) > Heap.old_limit(h) || Heap.minors(h) >= MAJOR_EVERY || zr_heap_pressed()
+  major = Heap.live(h) > Heap.old_limit(h) || Heap.minors(h) >= zr_major_every()
   zr_collect_kind(wanting, major)
   # A minor that has left the class that ran out still short did not
   # free what the program had finished with: what filled the heap was
@@ -1021,6 +1032,12 @@ end
 sig [] => Bool
 machine def zr_heap_pressed
   zr_heap_bytes() * 100 > zr_machine_bytes() * HEAP_SHARE
+end
+
+# The minors a major waits behind, which a pressed heap shortens.
+sig [] => Word
+machine def zr_major_every
+  zr_heap_pressed() ? MAJOR_EVERY_PRESSED : MAJOR_EVERY
 end
 
 # Whether the sweep has left size class `c` under its floor of free

@@ -2126,8 +2126,11 @@ describe "GC programs" do
       p later[:sweeping_time] >= first[:sweeping_time]
       p later[:marking_time] + later[:sweeping_time] <= later[:time]
 
-      # Each key answers on its own as well, and each is an Integer.
-      p GC.stat(:major_gc_count) == later[:major_gc_count]
+      # Each key answers on its own as well, and each is an Integer. The
+      # count only ever goes up, and a collection may have run since the
+      # Hash above was filled -- under `GC.stress` one runs at every
+      # allocation, here and on ruby alike.
+      p GC.stat(:major_gc_count) >= later[:major_gc_count]
       p [later[:minor_gc_count], later[:major_gc_count], later[:marking_time], later[:sweeping_time]].map(&:class)
       p GC.stat(:minor_gc_count) >= 0
     RUBY
