@@ -117,6 +117,7 @@ module Ze0
         d zr_consts_changed Void
         d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
         d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word
+        d zr_entry_shape Word e:Ptr
         d zr_entry_fn Ptr e:Ptr
         d zr_invoke_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_builtin_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
@@ -2228,6 +2229,9 @@ module Ze0
         c G_MASTER_GVARS 48
         c G_BOX 49
         c CALL_WAYS 4
+        c SHAPE_NONE 0
+        c SHAPE_READER 1
+        c SHAPE_WRITER 2
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
@@ -2889,7 +2893,7 @@ module Ze0
         s BufTail 64 8 w0:0:Word w1:8:Word w2:16:Word w3:24:Word w4:32:Word w5:40:Word w6:48:Word w7:56:Word
         s Buf 88 8 ptr:0:Ptr len:8:Word capa:16:Word tail:24:BufTail
         s IvarCache 8 8 index:0:Word
-        s CallCache 40 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value fn:32:Ptr
+        s CallCache 48 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value fn:32:Ptr shape:40:Word
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s SuperCache 48 8 node:0:Value mid:8:Word stamp:16:Word entry:24:Ptr found:32:Value fn:40:Ptr
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value

@@ -34,8 +34,15 @@ Machine.struct :IvarCache, index: Word
 # CALL_WAYS cells in a row: the first it tests itself, the rest the
 # kernel tests when the first misses, so a site whose receivers come
 # from a few classes hits on each.
-Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr
+# `shape` says what a site may do in place of the call: an accessor's
+# ivar the site reads or writes itself (`Zr::Function::Sends
+# #accessor_in_place`), and SHAPE_NONE every other kind, which is
+# what a cell holds until a fill says otherwise.
+Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word
 CALL_WAYS = 4
+SHAPE_NONE = 0
+SHAPE_READER = 1
+SHAPE_WRITER = 2
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # A `super` site's cell: the chain node the method runs from and the
 # name, which together decide the next method, and what the lookup
@@ -101,6 +108,23 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode)
   CallCache.set_entry(cc, e)
   CallCache.set_found(cc, zr_entry_found(e))
   CallCache.set_fn(cc, zr_entry_fn(e))
+  CallCache.set_shape(cc, zr_entry_shape(e))
+end
+
+# What a site may do in place of the call to `e`. An accessor is the
+# only entry whose whole body a site can carry: one guessed row read
+# or written, which is what `zr_attr_reader_fn` and
+# `zr_attr_writer_fn` do and nothing more.
+sig [Ptr] => Word
+machine def zr_entry_shape(e)
+  kind = MEntry.kind(e)
+  if kind == KIND_ATTR_READER
+    return SHAPE_READER
+  end
+  if kind == KIND_ATTR_WRITER
+    return SHAPE_WRITER
+  end
+  SHAPE_NONE
 end
 
 # What a hit on entry `e` calls with the method signature: a compiled

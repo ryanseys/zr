@@ -354,41 +354,115 @@ module Ze0
           return slow.call if node.using
 
           cell = @l.layout("CallCache")
+          shape = accessor_shape(node)
           fixnum = @f.label
           other = @f.label
           heap = @f.label
-          have, (klass,) = @f.block(["i64"])
+          # A site that may carry an accessor takes a second word at the
+          # join: whether the receiver is a cell. A fixnum and a flonum
+          # reach here too, and an accessor of Integer's or Float's would
+          # be read through a receiver that is no address at all.
+          have, (klass, cellular) = @f.block(shape ? %w[i64 i64] : %w[i64])
+          reach = ->(k, own) { @f.jump(have, shape ? [k, imm(own)] : [k]) }
           direct = @f.label
           miss = @f.label
           merge, (result,) = @f.block(["i64"])
           @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
           switch(fixnum)
-          @f.jump(have, [global("G_INTEGER")])
+          reach.call(global("G_INTEGER"), 0)
           switch(other)
           if FLONUM_NAMES.include?(node.name)
             flonum = @f.label
             rest = @f.label
             @f.brif(@f.icmp("eq", @f.band(recv, imm(3)), imm(2)), flonum, rest)
             switch(flonum)
-            @f.jump(have, [global("G_FLOAT")])
+            reach.call(global("G_FLOAT"), 0)
             switch(rest)
           end
           pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
           @f.brif(pointer, heap, miss)
           switch(heap)
-          @f.jump(have, [@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))])
+          reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
           switch(have)
           same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
                          @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))
           @f.brif(same, direct, miss)
           switch(direct)
+          entry = @f.fetch("i64", cc, off(cell, "entry"))
+          if shape
+            in_place = @f.label
+            call = @f.label
+            wanted = @l.const(shape == :writer ? "SHAPE_WRITER" : "SHAPE_READER")
+            @f.brif(@f.band(cellular, @f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(wanted))), in_place, call)
+            switch(in_place)
+            accessor_in_place(shape, recv, entry, argv, merge, miss)
+            switch(call)
+          end
           fn = @f.fetch("i64", cc, off(cell, "fn"))
-          args = [recv, argc, argv, @f.fetch("i64", cc, off(cell, "entry")), blk, @f.fetch("i64", cc, off(cell, "found"))]
+          args = [recv, argc, argv, entry, blk, @f.fetch("i64", cc, off(cell, "found"))]
           @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(:def), "i64"), fn, args)])
           switch(miss)
           @f.jump(merge, [slow.call])
           switch(merge)
           result
+        end
+
+        # Whether this site's own shape lets it carry an accessor's body:
+        # a call with no block, no keywords and no splat, of no arguments
+        # for a reader and of one for a writer, since an accessor takes
+        # exactly that many and raises at any other count. Whether the
+        # entry the cell holds really is an accessor is the cell's
+        # `shape` to say, at run time. A traced program keeps the call,
+        # as `opt_send` does.
+        def accessor_shape(node)
+          return nil if node.block || node.kwargs || node.args.any?(Hir::Splat) || traced?
+          return :writer if node.args.size == 1 && node.name.end_with?("=")
+          return :reader if node.args.empty?
+
+          nil
+        end
+
+        # An accessor's whole body at the site. The cell said its entry is
+        # one, and the site has already found the receiver's class to be
+        # the cell's, so what is left is the receiver's kind, the ractor
+        # and the row the entry guesses -- the three tests
+        # `guessed_ivar_row` makes for `@name` of this frame's own. A
+        # receiver that is not a plain object, a ractor, a frozen receiver
+        # under the writer, or a guess that does not hold goes to `slow`,
+        # the kernel's send, which calls the accessor as it always did and
+        # is what sets the guess.
+        #
+        # The keyword word is cleared as the accessor clears it: a hit
+        # here is the call that would have.
+        def accessor_in_place(shape, recv, entry, argv, merge, slow)
+          table = @l.layout("IvTab")
+          row = @l.layout("IvEntry")
+          meta = @l.layout("MEntry")
+          plain = @f.label
+          indexed = @f.label
+          hit = @f.label
+          @f.store(imm(0), @task_addr, off(@task, "kw"))
+          mask = @l.const("T_MASK") | (shape == :writer ? @l.const("FL_FREEZE") : 0)
+          kind = @f.band(@f.fetch("i64", recv, off(@l.layout("RBasic"), "flags")), imm(mask))
+          outside = @f.icmp("eq", @f.fetch("i64", @task_addr, off(@task, "ractor")), imm(0))
+          @f.brif(@f.band(@f.icmp("eq", kind, imm(@l.const("T_OBJECT"))), outside), plain, slow)
+          switch(plain)
+          t = @f.iadd(recv, imm(off(@l.layout("RObject"), "iv")))
+          i = @f.fetch("i64", @f.iadd(entry, imm(off(meta, "ivar"))), off(@l.layout("IvarCache"), "index"))
+          @f.brif(@f.icmp("ult", i, @f.fetch("i64", t, off(table, "len"))), indexed, slow)
+          switch(indexed)
+          at = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(row.size).to_i)))
+          @f.brif(@f.icmp("eq", @f.fetch("i64", at, off(row, "id")), @f.fetch("i64", entry, off(meta, "fn"))), hit, slow)
+          switch(hit)
+          if shape == :writer
+            v = @f.fetch("i64", argv, 0)
+            @f.store(v, at, off(row, "value"))
+            cell_barrier(recv, v)
+            @f.jump(merge, [v])
+          else
+            held = @f.fetch("i64", at, off(row, "value"))
+            @f.jump(merge, [@f.csel(@f.icmp("eq", held, qundef), @qnil, held)])
+          end
         end
 
         # The send with a block: a descriptor for a block literal, with
