@@ -9,8 +9,8 @@
 #
 # An arena is ARENA_CELLS cells of one size after a head that names it,
 # aligned to ARENA_BYTES, so a cell's arena is its address with the low
-# bits cleared; the arena's exivar slots follow its cells, and its mark
-# bitmap follows those. A mark is a bit in that map and never a write
+# bits cleared, and its three bitmaps sit between that head and its
+# cells. A mark is a bit in the first of them and never a write
 # into the cell, so a collection leaves the pages a fork shares
 # untouched, and a sweep reads one word to step over sixty-four live
 # cells. Every size
@@ -41,7 +41,7 @@ POISON = 57005 << 8
 # A reserved arena is one whose cells are all free and linked among
 # themselves from `chain`, on its size class's list of them through
 # `next`; no sweep reads it.
-Machine.struct :ArenaHead, cell: Word, shift: Word, ncells: Word, index: Word, reserved: Word, remembered: Word, chain: Ptr, next: Ptr
+Machine.struct :ArenaHead, cell: Word, shift: Word, ncells: Word, index: Word, reserved: Word, remembered: Word, chain: Ptr, next: Ptr, exivars: Ptr
 
 # One cell size: its free list, the last cell handed out (0 before the
 # first), the cells the last sweep found free, its arena count, its
@@ -205,10 +205,31 @@ machine def zr_arena_first(a)
   a + ARENA_HEAD + (MARK_BYTES * 3)
 end
 
-# The exivar slots of arena `a`, one a cell, after its cells.
+# The exivar slots of arena `a`, one a cell, or 0 where nothing in it
+# has taken a generic ivar yet. Every cell carried eight bytes of slot
+# before this -- a quarter of a 32-byte-cell arena, and resident from
+# the moment the arena was made, since the loop that poisons the cells
+# zeroed the slots beside them. But a generic ivar is reached only
+# where the kind has no ivar table of its own (`zr_ivtab_for_write`,
+# rt/kernel/object.rb): an ivar on a String, an Array, a Float or a
+# Proc, and what a clone carries. Most arenas never hold one.
 sig [Ptr] => Ptr
 machine def zr_arena_exivars(a)
-  zr_arena_first(a) + (ArenaHead.ncells(a) * ArenaHead.cell(a))
+  ArenaHead.exivars(a)
+end
+
+# The same, made now where the arena has none. CRuby keeps generic
+# ivars in a table off to the side for the same reason.
+sig [Ptr] => Ptr
+machine def zr_arena_exivars_for_write(a)
+  slots = ArenaHead.exivars(a)
+  if slots == 0
+    bytes = ArenaHead.ncells(a) * 8
+    slots = zr_xmalloc(bytes)
+    memset(slots, Machine.i32(0), bytes)
+    ArenaHead.set_exivars(a, slots)
+  end
+  slots
 end
 
 # The word of each of `a`'s bitmaps that holds cell `i`'s bit, and that
@@ -370,10 +391,11 @@ machine def zr_ages_keep
 end
 
 # The bytes an arena of size class `c` takes: its head, its three
-# bitmaps, its cells and the exivar slot each of them carries.
+# bitmaps and its cells. The exivar slots are not among them; an
+# arena that comes to want them mallocs them itself.
 sig [Word] => Word
 machine def zr_arena_bytes(c)
-  ARENA_HEAD + (MARK_BYTES * 3) + (ARENA_CELLS * ((CELL_MIN << c) + 8))
+  ARENA_HEAD + (MARK_BYTES * 3) + (ARENA_CELLS * (CELL_MIN << c))
 end
 
 # The bytes of live cells the heap holds, which the sweep has counted.
@@ -424,8 +446,9 @@ machine def zr_machine_bytes
 end
 
 # A new arena of size class `c`, reserved: its head written, its
-# poisoned cells linked in address order, its exivar slots and its mark
-# bitmap clear.
+# poisoned cells linked in address order, and its three bitmaps clear.
+# It holds no exivar slots; the first generic ivar taken in it makes
+# them.
 sig [Word] => Void
 machine def zr_arena_add(c)
   h = zr_heap()
@@ -445,15 +468,14 @@ machine def zr_arena_add(c)
   Heap.set_arenas(h, n + 1)
   sc = zr_size_class(c)
   SizeClass.set_arenas(sc, SizeClass.arenas(sc) + 1)
+  ArenaHead.set_exivars(a, 0)
   first = zr_arena_first(a)
-  slots = zr_arena_exivars(a)
   head = 0
   i = ARENA_CELLS - 1
   while i >= 0
     cell = first + (i * bytes)
     Machine.store64(cell, 0, POISON)
     Machine.store64(cell, 8, head)
-    Machine.store64(slots + (i * 8), 0, 0)
     head = cell
     i -= 1
   end
@@ -659,30 +681,44 @@ machine def zr_mark_drain
 end
 
 # The ivar tables of objects whose kind has none of its own: one slot
-# per cell after its arena's cells, holding a table or 0.
+# a cell in its arena's slot array, holding a table or 0. The array
+# itself may not be there, and then no cell of that arena holds a
+# table; `zr_exivar_slot_for_write` is what makes it.
 sig [Value] => Ptr
 machine def zr_exivar_slot(v)
-  zr_arena_exivars(zr_arena_of(v)) + (zr_cell_index(v) * 8)
+  slots = zr_arena_exivars(zr_arena_of(v))
+  slots == 0 ? Machine.ptr(0) : slots + (zr_cell_index(v) * 8)
+end
+
+sig [Value] => Ptr
+machine def zr_exivar_slot_for_write(v)
+  zr_arena_exivars_for_write(zr_arena_of(v)) + (zr_cell_index(v) * 8)
 end
 
 sig [Value] => Ptr
 machine def zr_exivar_tab(v)
-  Machine.ptr(Machine.load64(zr_exivar_slot(v), 0))
+  at = zr_exivar_slot(v)
+  at == 0 ? Machine.ptr(0) : Machine.ptr(Machine.load64(at, 0))
 end
 
-# The table for `v`, made on first use.
+# The table for `v`, made on first use, and with it the slot array of
+# the arena `v` sits in. The slot is found after the malloc and not
+# before, so no pointer into that array is held across a call that
+# may collect.
 sig [Value] => Ptr
 machine def zr_exivar_tab_for_write(v)
   t = zr_exivar_tab(v)
   if t == 0
     t = zr_xmalloc(IvTab.size)
     zr_ivtab_init(t)
-    Machine.store64(zr_exivar_slot(v), 0, Machine.word(t))
+    Machine.store64(zr_exivar_slot_for_write(v), 0, Machine.word(t))
     RBasic.set_flags(v, RBasic.flags(v) | FL_EXIVAR)
   end
   t
 end
 
+# Only a cell whose FL_EXIVAR is set reaches this, and that flag is
+# set with the table, so the arena has its slots.
 sig [Value] => Void
 machine def zr_exivar_free(v)
   t = zr_exivar_tab(v)
