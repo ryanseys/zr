@@ -83,11 +83,27 @@ The collector runs only inside an allocation:
 - at `GC.start`;
 - at every allocation, under `ZR_GC_STRESS=1`.
 
-A collection marks from the roots: every task's frame chain, the
-kernel's root frames, the globals, the constant and symbol tables, and
-the finalizer queue. It then sweeps every arena, and grows each size
-to twice what it found live. Finalizers run later, at a safe point,
-never inside the sweep.
+A collection is minor or major. A **major** one marks from the roots:
+every task's frame chain, the kernel's root frames, the globals, the
+constant and symbol tables, and the finalizer queue. A **minor** one
+starts its marks from the ages -- what the last collection finished
+with -- so the trace stops at everything that survived it and reaches
+only what has been allocated since; the arenas the write barrier
+flagged are read again, for an old object that has come to hold a young
+one. A minor accepts floating garbage and frees no old dead graph, and
+both wait for the next major. That is the ordinary generational trade.
+
+A major runs when the old generation has doubled, when sixteen minors
+have gone by, or -- where the cells have reached their share of the
+machine, and only a major can give any of it back -- when four have.
+A minor that leaves the size class that ran out still short of free
+cells is followed by a major at once, since what filled the heap was
+then not the young dead.
+
+Either kind sweeps every arena, and the growth that follows takes each
+size class to half free, or to a fifth where the heap has reached its
+share of the machine. Finalizers run later, at a safe point, never
+inside the sweep.
 
 ## Making a missed root loud
 
@@ -99,6 +115,8 @@ object. A constructor that forgets a field reads the poison too.
 
 ## What ze0 does not do
 
-There is no generational collection, no compaction, and no parallel
-marking. These are possible later, because the roots are precise. For
-now, ze0 chooses a simple collector that is easy to verify.
+There is no compaction, no parallel marking, and no nursery: a minor
+collection here is the sticky-mark-bit kind, which reaches the young by
+starting from the last collection's marks rather than by keeping them
+in a space of their own. Nothing is moved, so nothing needs a read
+barrier. These are possible later, because the roots are precise.
