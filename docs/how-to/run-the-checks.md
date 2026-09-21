@@ -37,9 +37,9 @@ GVL lets one thread at a time hold it -- and it is also what bounds
 memory, because ruby never gives heap pages back. A worker that grows
 past `ZE0_RECYCLE_MB` is closed and another is forked in its place.
 
-`MT_CPU` says how many workers. The default leaves two cores alone,
-because a worker's own child -- the program it built -- wants one while
-the worker waits for it.
+`MT_CPU` says how many workers. The default is one per core, or one per
+2 GB of the machine's memory when that is fewer: a cold build inside a
+worker is what a worker's memory is sized for.
 
 ## Run one file, or one example
 

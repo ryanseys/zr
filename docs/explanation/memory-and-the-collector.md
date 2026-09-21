@@ -68,8 +68,9 @@ takes the smallest size that holds the object and its contents. Short
 Strings and small Arrays live whole in their cell; larger payloads go
 to a malloc'd block that the sweep frees.
 
-Allocation is inline at each site: it takes the head of the size's free
-list and writes the header. Every constructor then writes every field
+Allocation is inline in each kernel constructor: the test for an empty
+free list and for a slow heap is there, and two short calls pick the
+size and take the list's head and write the header. Every constructor then writes every field
 of its object before anything can collect or read it, so the heap never
 spends time zeroing cells.
 

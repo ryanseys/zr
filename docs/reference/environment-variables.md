@@ -13,6 +13,7 @@ These change what `ze0` and the rake tasks do.
 | `ZE0_VERIFY` | `1` | Checks dominance and types in every IR function before it is assembled. |
 | `ZE0_YJIT` | `0` | Runs the compiler without YJIT. |
 | `ZE0_GC` | `0` | Starts the compiler with ruby's own collector settings, and not with ze0's. |
+| `ZE0_WASM_NAMES` | any value | A wasm module carries a `name` section, so wasmtime's traps and profiles name ze0's functions. It changes the module's bytes. |
 | `ZE0_WASM_WIDTH` | a number | Past this many blocks, a wasm function dispatches to its blocks in two steps, in groups of this size (default 256). |
 
 ## Compiled programs
@@ -34,7 +35,7 @@ These change the rake test tasks.
 |---|---|---|
 | `ZE0_BLESS` | `1` | Writes a snapshot check's expected file again instead of comparing: HIR dumps, the disassembly listing, the eval descriptions, the libSystem list. |
 | `ZE0_STRESS` | `1` | Adds a `ZR_GC_STRESS=1` run to each program in `programs_test`. |
-| `MT_CPU` | a number | How many workers a tier forks (default: one per core, less two). Minitest's own name for this. |
+| `MT_CPU` | a number | How many workers a tier forks (default: one per core, or one per 2 GB of memory when that is fewer). Minitest's own name for this. |
 | `ZE0_RECYCLE_MB` | megabytes | What a worker may reside in before it is closed and forked again (default 600). |
 | `N`, `X`, `A` | minitest switches | `N=/utf8/` runs the examples whose name matches, `X=` leaves some out, `A=` passes anything else to minitest. |
 | `ZE0_LIMIT` | seconds | The time bound for a program a check runs (default 60). |
