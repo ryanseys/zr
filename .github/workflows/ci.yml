@@ -18,8 +18,11 @@ jobs:
       - uses: bytecodealliance/actions/wasmtime/setup@v1
       - name: Run every test
         run: bundle exec rake test
+      # rubygems stamps a gem's files with SOURCE_DATE_EPOCH where it is
+      # set, and with the clock where not; the commit's own time makes
+      # the same commit build the same .gem.
       - name: Build the gem
-        run: gem build ze0.gemspec
+        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build ze0.gemspec
       # The same install path on both hosts: the runtime carries its
       # source paths, so equal bytes need equal paths.
       - name: Install the gem
