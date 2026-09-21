@@ -45,7 +45,7 @@ module Ze0
         @root = root
         @runs = runs
         @show = show
-        @runner = Runner.new(root, target)
+        @runner = Runner.new(root, target, compiler: "cranelift")
       end
 
       # Every program under `test/bench`, or the ones a filter names.

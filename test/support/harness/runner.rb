@@ -4,6 +4,7 @@ require "rbconfig"
 require "tmpdir"
 require_relative "../../../lib/ze0/cli"
 require_relative "../../../lib/ze0/target"
+require_relative "wasmtime"
 
 module Ze0
   module Harness
@@ -27,9 +28,12 @@ module Ze0
       end
 
 
-      def initialize(root, target = Target.default)
+      # `compiler` is wasmtime's, for a module: the checks' choice, or
+      # Cranelift where the speed of what runs is the answer (`rake bench`).
+      def initialize(root, target = Target.default, compiler: Wasmtime.compiler)
         @root = root
         @target = target
+        @compiler = compiler
       end
 
       def platform = PLATFORMS.fetch(@target.os)
@@ -39,7 +43,7 @@ module Ze0
       # nil when this host runs what the target builds, else why not.
       def refusal
         if wasm?
-          return nil if Target.tool?("wasmtime")
+          return nil if Wasmtime.installed?
 
           return "#{@target.triple} modules run under wasmtime, which is not on the PATH"
         end
@@ -70,8 +74,8 @@ module Ze0
       def run(out, args, env)
         return [[out, *args], env] unless wasm?
 
-        named = env.flat_map { |key, value| ["--env", "#{key}=#{value}"] }
-        [["wasmtime", "run", "--dir", ".", "--dir", "#{Dir.tmpdir}::/tmp", "--env", "TMPDIR=/tmp", *named, out, *args], {}]
+        dirs = { "." => ".", Dir.tmpdir => "/tmp" }
+        [Wasmtime.run(out, *args, dirs: dirs, env: { "TMPDIR" => "/tmp" }.merge(env), compiler: @compiler), {}]
       end
 
       # wasmtime's report of a trap, which ends the module as abort(3)

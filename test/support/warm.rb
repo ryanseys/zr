@@ -3,6 +3,7 @@
 require "tmpdir"
 require_relative "../../lib/ze0/zr"
 require_relative "../../lib/ze0/native/build"
+require_relative "harness/wasmtime"
 
 module Ze0
   module Test
@@ -65,7 +66,7 @@ module Ze0
         [Target.default, *(Target::WASM32_WASI if wasm && wasmtime?)].uniq
       end
 
-      def self.wasmtime? = system(ENV["WASMTIME"] || "wasmtime", "--version", out: File::NULL, err: File::NULL)
+      def self.wasmtime? = Harness::Wasmtime.installed?
 
       # `call` for each of `targets`; the seconds all of it took.
       def self.all(targets, cold: true, say: $stderr)

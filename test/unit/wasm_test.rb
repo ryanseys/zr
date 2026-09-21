@@ -17,7 +17,7 @@ class WasmTest < Minitest::Test
   def run_module(wasm, expected, *args, status: 0)
     skip "wasmtime is not installed" unless Checks.wasmtime?
 
-    out, why = Checks.bounded({}, [WASMTIME, *WASM_FLAGS, wasm, *args], err: %i[child out])
+    out, why = Checks.bounded({}, Ze0::Harness::Wasmtime.run(wasm, *args), err: %i[child out])
     refute why, "wasmtime was killed at #{why}: #{out}"
     assert_equal status, $?.exitstatus, "wasmtime exited #{$?.exitstatus}: #{out}"
     assert_equal expected, out
@@ -127,7 +127,8 @@ class WasmTest < Minitest::Test
       program = Ze0::Zr.program(HOST, File.join(dir, "host.rb"), target: Ze0::Target::WASM32_WASI)
       wasm = File.join(dir, "host.wasm")
       assert_nil Ze0::Native::Build.wasm_program(program, wasm)
-      out, why = Checks.bounded({}, [WASMTIME, "run", *WASM_FLAGS, "--dir", ".", "--env", "X=1", wasm, "a", "b"], err: %i[child out], chdir: dir)
+      argv = Ze0::Harness::Wasmtime.run(wasm, "a", "b", dirs: { "." => "." }, env: { "X" => "1" })
+      out, why = Checks.bounded({}, argv, err: %i[child out], chdir: dir)
       refute why, "wasmtime was killed at #{why}: #{out}"
       assert_equal <<~'OUT', out
         ["a", "b"]

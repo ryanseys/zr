@@ -73,7 +73,7 @@ class WasmLocalsTest < Minitest::Test
     Dir.mktmpdir("ze0-wasm-locals-") do |dir|
       wasm = File.join(dir, "search.wasm")
       assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
-      out, why = Checks.bounded({}, [WASMTIME, *WASM_FLAGS, wasm], err: %i[child out])
+      out, why = Checks.bounded({}, Ze0::Harness::Wasmtime.run(wasm), err: %i[child out])
       refute why, "wasmtime was killed at #{why}: #{out}"
       assert_equal IN_RANGES, $?.exitstatus, out
     end

@@ -103,7 +103,7 @@ class ProgramsTest < Minitest::Test
         # The program's directory at its own path, as ruby sees it:
         # error_highlight reads the source line it points at from there.
         here = File.dirname(rb)
-        check(name, {}, [WASMTIME, "run", *WASM_FLAGS, "--dir", "#{here}::#{here}", wasm], want, rb)
+        check(name, {}, Ze0::Harness::Wasmtime.run(wasm, dirs: { here => here }), want, rb)
       end
     end
   end

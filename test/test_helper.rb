@@ -35,8 +35,7 @@ end
 
 ROOT = File.expand_path("..", __dir__)
 
-WASMTIME = ENV["WASMTIME"] || "wasmtime"
-WASM_FLAGS = ["-W", "max-memory-size=#{ENV.fetch("ZE0_WASM_MEMORY", 1 << 30)}"].freeze
+require_relative "support/harness/wasmtime"
 
 # What the checks share. A module and not the top level: a method
 # defined there is a method on `Object`, which is exactly the collision
@@ -56,7 +55,7 @@ module Checks
 
   module_function
 
-  def wasmtime? = system(WASMTIME, "--version", out: File::NULL, err: File::NULL)
+  def wasmtime? = Ze0::Harness::Wasmtime.installed?
 
   # `[stdout, why]` of `argv` under `env`, `why` naming the bound it
   # passed and nil when it stopped on its own. `$?` is the child's, as
