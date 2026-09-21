@@ -259,7 +259,7 @@ module Ze0
       # for: it is carried so that `rake oracle` can ask ruby the same
       # question this example asked ze0.
       def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
-        phases = (metadata[Test::Slow::KEY] ||= {}) if Test::Slow.asked
+        phases = (metadata[Test::Slow::KEY] ||= {}) if Test::Slow.asked?
         out = Spec.build_and_run(source, path: path || default_path, argv: argv, env: env,
                                          stdin: stdin, files: files, seconds: seconds, phases: phases)
         return out if out.is_a?(Spec::Result)

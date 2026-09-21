@@ -18,29 +18,50 @@ module Ze0
     # `ZE0_SLOW=30` prints thirty; `ZE0_SLOW=1`, or `SLOW=1`, prints
     # twenty. Unset, the run reports as it always did.
     module Slow
-      # The key an example leaves its build's parts under, in seconds:
-      # `{ lower:, link:, run: }`.
+      # The key an example leaves its build's parts under, in seconds.
       KEY = :ze0_phases
       PARTS = %i[lower link run].freeze
+      DEFAULT = 20
 
-      def self.asked = ENV["ZE0_SLOW"] || ENV["SLOW"]
+      def self.asked? = ENV.key?("ZE0_SLOW") || ENV.key?("SLOW")
 
-      def self.count
-        n = ENV["ZE0_SLOW"].to_i
-        n > 1 ? n : 20
-      end
+      def self.count = ENV["ZE0_SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
 
       def self.minitest_plugin_init(options)
-        Minitest.reporter << Reporter.new(options[:io], count) if asked
+        Minitest.reporter << Reporter.new(options[:io], count) if asked?
       end
 
-      # Runs `part` and adds what it took to `into`, which is the
-      # example's own row: an example that builds twice counts both.
-      def self.clock(into, part)
-        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        yield
-      ensure
-        into[part] = into.fetch(part, 0.0) + (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) if into
+      # Runs the block and adds what it took to `row[part]`. `row` is
+      # the example's own, so an example that builds twice counts both;
+      # nil, where nobody asked, only runs the block.
+      def self.clock(row, part)
+        return yield unless row
+
+        started = now
+        begin
+          yield
+        ensure
+          row[part] = row.fetch(part, 0.0) + (now - started)
+        end
+      end
+
+      def self.now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      Timed = Data.define(:seconds, :name)
+
+      # What one directory's examples spent, part by part.
+      Spent = Struct.new(:examples, :whole, *PARTS) do
+        def self.zero = new(0, 0.0, *PARTS.map { 0.0 })
+
+        def add(seconds, parts)
+          self.examples += 1
+          self.whole += seconds
+          PARTS.each { |part| self[part] += parts.fetch(part, 0.0) }
+        end
+
+        def +(other) = self.class.new(*to_a.zip(other.to_a).map(&:sum))
+
+        def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *values_at(*PARTS), whole)
       end
 
       class Reporter < Minitest::AbstractReporter
@@ -49,54 +70,44 @@ module Ze0
           @io = io
           @count = count
           @tests = []
-          @parts = Hash.new { |h, dir| h[dir] = Hash.new(0.0) }
+          @spent = Hash.new { |h, directory| h[directory] = Spent.zero }
         end
 
         def record(result)
-          file = result.source_location&.first.to_s
-          @tests << [result.time, "#{result.klass}##{result.name}", file]
-          row = result.metadata[KEY] if result.metadata?
-          return unless row
-
-          into = @parts[directory(file)]
-          into[:examples] += 1
-          into[:whole] += result.time
-          PARTS.each { |part| into[part] += row.fetch(part, 0.0) }
+          @tests << Timed.new(result.time, "#{result.klass}##{result.name}")
+          parts = result.metadata[KEY] if result.metadata?
+          @spent[directory(result)].add(result.time, parts) if parts
         end
 
         def report
           return if @tests.empty?
 
-          @io.puts format("\nThe %d slowest of %d tests, %.1f s of %.1f s in all:", [@count, @tests.size].min, @tests.size,
-                          slowest.sum(&:first), @tests.sum(&:first))
-          slowest.each { |time, name, _| @io.puts format("%8.2f s  %s", time, name) }
-          parts
+          report_tests
+          report_parts unless @spent.empty?
         end
 
         private
 
-        def slowest = @slowest ||= @tests.max_by(@count, &:first)
-
-        # `test/spec/core/string`, from a file under it; a file's own
-        # path where it is not that deep.
-        def directory(file)
-          file[%r{test/(?:spec|e2e)/[^/]+/[^/]+}] || file[%r{test/.*\z}] || file
+        def report_tests
+          slowest = @tests.max_by(@count, &:seconds)
+          @io.puts format("\nThe %d slowest of %d tests, %.1f s of %.1f s in all:",
+                          slowest.size, @tests.size, slowest.sum(&:seconds), @tests.sum(&:seconds))
+          slowest.each { |test| @io.puts format("%8.2f s  %s", test.seconds, test.name) }
         end
 
-        def parts
-          return if @parts.empty?
-
+        def report_parts
+          rows = @spent.sort_by { |_, spent| -spent.whole }
           @io.puts "\nWhat the examples that build a program spent, in seconds:"
-          @io.puts format("%-36s %8s %8s %8s %8s %8s", "directory", "examples", "lower", "link", "run", "whole")
-          rows = @parts.sort_by { |_, row| -row[:whole] }
-          rows.first(@count).each { |dir, row| @io.puts line(dir, row) }
-          @io.puts line("all #{rows.size} directories", rows.map(&:last).each_with_object(Hash.new(0.0)) do |row, sum|
-            row.each { |part, n| sum[part] += n }
-          end)
+          @io.puts format("%-36s %8s %8s %8s %8s %8s", "directory", "examples", *PARTS, "whole")
+          rows.first(@count).each { |name, spent| @io.puts format("%-36s %s", name, spent) }
+          @io.puts format("%-36s %s", "all #{rows.size} directories", rows.sum(Spent.zero, &:last))
         end
 
-        def line(name, row)
-          format("%-36s %8d %8.1f %8.1f %8.1f %8.1f", name, row[:examples], row[:lower], row[:link], row[:run], row[:whole])
+        # `test/spec/core/string`, from a file under it; the file's own
+        # path where it is not that deep.
+        def directory(result)
+          file = result.source_location.first.to_s
+          file[%r{test/(?:spec|e2e)/[^/]+/[^/]+}] || file[%r{test/.*\z}] || file
         end
       end
     end
