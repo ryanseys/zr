@@ -188,12 +188,21 @@ machine def zr_frozen_error(v)
   zr_buf_push(b, Machine.bytes("can't modify frozen "), 20)
   zr_buf_class_of(b, v)
   zr_buf_push(b, Machine.bytes(": "), 2)
-  s = zr_inspect(v)
-  if s == QUNDEF
-    zr_buf_free(b)
-    return s
+  # An `inspect` that writes to its own frozen receiver comes back here
+  # for the same object; that second error shows ` ...` and does not
+  # inspect again (rb_error_frozen_object runs inspect_frozen_obj under
+  # rb_exec_recursive).
+  if zr_guard_enter(v, Machine.id(:__frozen_error__))
+    zr_buf_push(b, Machine.bytes(" ..."), 4)
+  else
+    s = zr_inspect(v)
+    zr_guard_leave(v, Machine.id(:__frozen_error__))
+    if s == QUNDEF
+      zr_buf_free(b)
+      return s
+    end
+    zr_buf_str(b, s)
   end
-  zr_buf_str(b, s)
   e = zr_exc_new(zr_global(G_FROZEN_ERROR), zr_buf_take(b))
   zr_exc_detail(e, Machine.id(:receiver), v)
   zr_raise(e)

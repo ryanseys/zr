@@ -1221,4 +1221,32 @@ describe "Object: frozen literals" do
       true
     OUT
   end
+
+  it "a frozen error met again while it inspects its receiver shows ' ...' and ends" do
+    result = ze0(<<~'RUBY')
+      class C
+        def inspect
+          @memo ||= "a C"
+        end
+      end
+      c = C.new.freeze
+      begin
+        c.instance_variable_set(:@x, 1)
+      rescue => e
+        p e.class, e.message, e.receiver.equal?(c)
+      end
+      begin
+        c.instance_variable_set(:@y, 2)
+      rescue => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+      "can't modify frozen C:  ..."
+      true
+      "can't modify frozen C:  ..."
+    OUT
+  end
 end
