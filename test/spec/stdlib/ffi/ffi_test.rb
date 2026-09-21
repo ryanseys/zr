@@ -2715,7 +2715,6 @@ describe "FFI programs" do
   end
 
   it "toplevel runs on the process main thread" do
-    skip "the top level does not yet run on the process main thread, which Apple's frameworks insist on"
     skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
 
     result = ze0(<<~'RUBY')
@@ -2761,14 +2760,29 @@ describe "FFI programs" do
       r[:size][:height] = 480
       win = AK.send_init_rect(AK.send_id(AK.objc_getClass("NSWindow"), sel("alloc")), sel("initWithContentRect:styleMask:backing:defer:"), r, 15, 2, false)
       puts "window: #{win.null? ? "NULL" : "ok"}"
-      puts "worker: #{Thread.new { AK.pthread_main_np }.value}"
     RUBY
 
     _(result).must_answer <<~'OUT'
       main thread: 1
       Thread.main: true
       window: ok
-      worker: 0
     OUT
+  end
+
+  it "a Thread runs off the process main thread" do
+    skip "a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it"
+    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+
+    result = ze0(<<~'RUBY')
+      require "ffi"
+      module PT
+        extend FFI::Library
+        ffi_lib FFI::Library::LIBC
+        attach_function :pthread_main_np, [], :int
+      end
+      puts "worker: #{Thread.new { PT.pthread_main_np }.value}"
+    RUBY
+
+    _(result).must_answer "worker: 0\n"
   end
 end
