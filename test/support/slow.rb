@@ -61,7 +61,7 @@ module Ze0
 
         def +(other) = self.class.new(*to_a.zip(other.to_a).map(&:sum))
 
-        def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *values_at(*PARTS), whole)
+        def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *PARTS.map { |part| self[part] }, whole)
       end
 
       class Reporter < Minitest::AbstractReporter
