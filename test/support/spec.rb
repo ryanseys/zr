@@ -8,6 +8,7 @@ require_relative "fixtures"
 require_relative "reader"
 require_relative "harness/child"
 require_relative "harness/runner"
+require_relative "slow"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/zr"
 
@@ -113,7 +114,10 @@ module Ze0
     # name the program answers to -- its backtraces carry it -- and is
     # relative to the directory the program runs in. `files` writes the
     # program's own fixtures beside it.
-    def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, seconds: nil)
+    #
+    # `phases` is a row the build's parts add their seconds to, for the
+    # report `ZE0_SLOW` asks for (`Ze0::Test::Slow`).
+    def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, phases: nil)
       Dir.mktmpdir("ze0-spec-") do |work|
         # The resolved path, not the one `mktmpdir` hands back: on macOS
         # `/var` is a link to `/private/var`, and a program that prints a
@@ -145,20 +149,22 @@ module Ze0
         # an absolute path would name the temporary directory instead.
         # The chdir is safe because a worker is a process of its own and
         # runs the examples it is handed one at a time.
-        program = Dir.chdir(run) { lower(source, path, target) }
+        program = Test::Slow.clock(phases, :lower) { Dir.chdir(run) { lower(source, path, target) } }
         return program if program.is_a?(Symbol) || program.is_a?(Array)
 
         bin = File.join(work, "p")
-        if (why = Native::Build.program(program, bin, work: work))
+        if (why = Test::Slow.clock(phases, :link) { Native::Build.program(program, bin, work: work) })
           return [:backend, why]
         end
 
         # A binary starts on its own host; a wasm module starts under
         # wasmtime, with the directory it runs in preopened.
         command, child_env = runner.run(bin, argv, env)
-        out, = Harness::Child.run(command, cwd: run, stdin: stdin, env: child_env,
-                                           seconds: seconds || Spec.limit,
-                                           megabytes: Harness::Child::RUN_MB)
+        out, = Test::Slow.clock(phases, :run) do
+          Harness::Child.run(command, cwd: run, stdin: stdin, env: child_env,
+                                      seconds: seconds || Spec.limit,
+                                      megabytes: Harness::Child::RUN_MB)
+        end
         verdict(Harness::Normalize.answer(out, rb, run))
       end
     end
@@ -253,8 +259,9 @@ module Ze0
       # for: it is carried so that `rake oracle` can ask ruby the same
       # question this example asked ze0.
       def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
+        phases = (metadata[Test::Slow::KEY] ||= {}) if Test::Slow.asked
         out = Spec.build_and_run(source, path: path || default_path, argv: argv, env: env,
-                                         stdin: stdin, files: files, seconds: seconds)
+                                         stdin: stdin, files: files, seconds: seconds, phases: phases)
         return out if out.is_a?(Spec::Result)
 
         bucket, why = out

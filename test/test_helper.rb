@@ -16,6 +16,7 @@ require "fileutils"
 # which every later worker then inherits, because a fork starts from
 # whatever this process has become. The parent stays a dispatcher.
 Minitest.parallel_executor = Ze0::Test::ForkPool.new
+require_relative "support/slow"
 Minitest::Test.parallelize_me!
 
 # Minitest's own report, and nothing over it. A progress bar stood here
