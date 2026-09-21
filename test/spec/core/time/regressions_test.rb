@@ -214,4 +214,38 @@ describe "Time: regressions" do
       [1, 2]
     OUT
   end
+
+  it "a frozen Time answers utc when it is already UTC, and names itself when a change is refused" do
+    result = ze0(<<~'RUBY')
+      t = Time.at(0).utc.freeze
+      p t.utc.equal?(t), t.gmtime.equal?(t), t.year, t.inspect
+      begin; t.localtime; rescue => e; p e.class, e.message; end
+      l = Time.at(0).localtime("+09:00").freeze
+      begin; l.localtime("+09:00"); rescue => e; p e.class, e.message; end
+      begin; l.utc; rescue => e; p e.class, e.message; end
+      p l.hour, l.to_a.size, l.strftime("%Y")
+      u = Time.utc(2000, 1, 2).freeze
+      p u.utc.year, u.getlocal("+01:00").hour, (u + 1).frozen?, u.round.frozen?
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      1970
+      "1970-01-01 00:00:00 UTC"
+      FrozenError
+      "can't modify frozen Time: 1970-01-01 00:00:00 UTC"
+      FrozenError
+      "can't modify frozen Time: 1970-01-01 09:00:00 +0900"
+      FrozenError
+      "can't modify frozen Time: 1970-01-01 09:00:00 +0900"
+      9
+      10
+      "1970"
+      2000
+      1
+      false
+      false
+    OUT
+  end
 end

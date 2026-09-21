@@ -502,7 +502,11 @@ class Time
   def friday? = wday == 5
   def saturday? = wday == 6
 
+  # time_gmtime: a Time that is UTC already is answered as it stands,
+  # before anything asks whether it is frozen.
   def utc
+    return self if kind == :utc
+
     set(ns, :utc)
     self
   end
@@ -512,7 +516,11 @@ class Time
   def getutc = dup.utc
   alias getgm getutc
 
+  # time_localtime answers a local Time as it stands; with a zone,
+  # time_zonelocal changes it, and a frozen one refuses.
   def localtime(zone = nil)
+    return self if zone.nil? && kind == :local
+
     set(ns, zone.nil? ? :local : Time.send(:parse_zone, zone))
     self
   end
@@ -707,7 +715,9 @@ class Time
     y, m, d = Time.send(:civil_from_days, days)
     row = [y, m, d, rem / 3600, (rem % 3600) / 60, rem % 60, (days + 4) % 7,
            days - Time.send(:days_from_civil, y, 1, 1) + 1]
-    Primitive.zr_hidden_set(self, :__fields__, row)
+    # The row is a memo and not the Time's value: a frozen Time still
+    # reads its fields, as CRuby's fills `tm` in a frozen one.
+    Primitive.zr_state_set(self, :__fields__, row)
     row
   end
 
