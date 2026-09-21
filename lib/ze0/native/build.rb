@@ -242,10 +242,17 @@ module Ze0
 
       # The runtime's wasm prelude, emitted once per digest and the
       # symbols it waits on, and kept under the cache.
+      #
+      # Kept for the life of the process as well, as the prelink is: the
+      # prelude is 41 MB of Marshal, and a check tier that builds a
+      # module a row read and rebuilt it every time. A worker forked
+      # after the first build shares the one copy. Nothing a build does
+      # writes to it.
       def wasm_prelude(runtime, pending)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{pending.inspect}")
         path = File.join(Zr.cache, "wasm-#{key}.marshal")
-        return Marshal.load(File.binread(path)) if File.exist?(path)
+        kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
+        return kept if kept
 
         data = runtime.data.dup
         zero_words(runtime.functions, data, pending[:data])
@@ -253,7 +260,7 @@ module Ze0
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         pre = Backend::Wasm.prelude(functions, data, pending: pending)
         Zr.write_cache(path, Marshal.dump(pre))
-        pre
+        @wasm_preludes[path] = pre
       end
 
       # The data symbols `functions` name that `data` does not define.
