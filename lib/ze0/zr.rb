@@ -501,8 +501,9 @@ module Ze0
     # of native halves, one name a line. Only a program that carries the
     # compiler can reach a require by a computed name, so only one of
     # those gets the lines. Last come error_highlight's spots for each
-    # file and the compiling ruby's install layout, which every program
-    # carries. `units` are `[path, entry]`
+    # file, which every program carries, and Coverage's tables. Nothing
+    # here is read off the machine that builds: a binary carries no path
+    # or flag of the ruby that compiled it. `units` are `[path, entry]`
     # pairs; a unit that only stops has no path.
     def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
@@ -514,9 +515,6 @@ module Ze0
       # error_highlight's spots, a file at a time: its name, a newline,
       # then its rows, and a form feed before the next file.
       names << [spots.map { |file, rows| "#{file}\n#{rows}" }.join("\f")]
-      # The install layout of the ruby that compiles the program, which
-      # RbConfig names as the program's own, a `key=value` line each.
-      names << (defined?(::RbConfig) ? %w[prefix ENABLE_SHARED].filter_map { |key| "#{key}=#{::RbConfig::CONFIG[key]}" if ::RbConfig::CONFIG[key] } : [])
       # The lines Coverage counts in each file, a row a file: its path,
       # its line count, and the lines, tab-separated.
       names << coverable.map { |file, (count, lines)| "#{file}\t#{count}\t#{lines.uniq.join(',')}" }

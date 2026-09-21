@@ -624,11 +624,10 @@ end
 
 # What the compiler lays out for a require whose name the program
 # computes (lib/ze0/zr.rb, `load_tables`): the count of files compiled
-# in, their rows, and nine (bytes, length) texts.
+# in, their rows, and eight (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
                            preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,
-                           prefix: Ptr, prefix_len: Word, coverable: Ptr, coverable_len: Word,
-                           branches: Ptr, branches_len: Word, defs: Ptr, defs_len: Word
+                           coverable: Ptr, coverable_len: Word, branches: Ptr, branches_len: Word, defs: Ptr, defs_len: Word
 
 sig [] => Ptr
 machine def zr_load_table
@@ -657,9 +656,9 @@ end
 # it searches after $LOAD_PATH; 1 for the features ruby carries that this
 # runtime has no file for; 2 for the features ruby loaded before the
 # program; 3 for the directory of this runtime's native halves; 4 for
-# error_highlight's spots; 5 for the compiling ruby's install layout;
-# 6 for the lines Coverage counts; 7 for the branches it names; 8 for
-# the def and block spans a method row is named by.
+# error_highlight's spots; 5 for the lines Coverage counts; 6 for the
+# branches it names; 7 for the def and block spans a method row is named
+# by.
 sig [Value] => Value
 machine def zr_load_names(which)
   t = zr_load_table()
@@ -673,12 +672,10 @@ machine def zr_load_names(which)
   elsif w == 4
     return zr_str_new(LoadTable.spots(t), LoadTable.spots_len(t))
   elsif w == 5
-    return zr_str_new(LoadTable.prefix(t), LoadTable.prefix_len(t))
-  elsif w == 6
     return zr_str_new(LoadTable.coverable(t), LoadTable.coverable_len(t))
-  elsif w == 7
+  elsif w == 6
     return zr_str_new(LoadTable.branches(t), LoadTable.branches_len(t))
-  elsif w == 8
+  elsif w == 7
     return zr_str_new(LoadTable.defs(t), LoadTable.defs_len(t))
   end
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))

@@ -172,7 +172,7 @@ module Coverage
 
     def compiled_defs
       sites = {}
-      Primitive.zr_load_names(8).lines(chomp: true).each do |row|
+      Primitive.zr_load_names(7).lines(chomp: true).each do |row|
         path, *cells = row.split("\t")
         cells.each do |cell|
           id, *span = cell.split(",").map { |n| Integer(n) }
@@ -188,7 +188,7 @@ module Coverage
     end
 
     def compiled_branches
-      Primitive.zr_load_names(7).lines(chomp: true).to_h do |row|
+      Primitive.zr_load_names(6).lines(chomp: true).to_h do |row|
         path, *rows = row.split("\t")
         [path, rows.map do |cells|
           kind, counter, root, *where = cells.split(",")
@@ -211,7 +211,7 @@ module Coverage
     end
 
     def compiled_lines
-      Primitive.zr_load_names(6).lines(chomp: true).to_h do |row|
+      Primitive.zr_load_names(5).lines(chomp: true).to_h do |row|
         path, count, lines = row.split("\t", 3)
         [path, [Integer(count), lines.to_s.split(",").to_set { |line| Integer(line) }]]
       end

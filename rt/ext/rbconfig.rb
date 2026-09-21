@@ -33,12 +33,12 @@ module RbConfig
   # The two linkers spell `DLDFLAGS` differently -- see the key below.
   undefined_flag = darwin ? "-Wl,-undefined,dynamic_lookup" : "-Wl,--allow-shlib-undefined"
 
-  # The install layout is the ruby's that compiled the program, so
-  # rubygems finds the gems that ruby has installed, as ruby itself would.
-  # The environment names another; with neither, it is a directory under
-  # the home directory that ze0 owns, which rubygems may create.
-  compiled_by = Primitive.zr_load_names(5).lines(chomp: true).to_h { |line| line.split("=", 2) }
-  prefix = ENV["ZE0_PREFIX"] || compiled_by["prefix"]&.dup || File.join(ENV["HOME"] || "/tmp", ".ze0")
+  # The install layout is ze0's own: a directory under the home
+  # directory that ze0 owns, which rubygems may create, unless the
+  # environment names another. It is never the layout of the ruby that
+  # compiled the program: a binary carries nothing read off the machine
+  # that built it, so the same source builds the same bytes anywhere.
+  prefix = ENV["ZE0_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".ze0")
 
   # Where MRI's headers live for a C extension build. ze0 builds no C
   # extension yet, so these name the cache a later one would fill.
@@ -107,7 +107,7 @@ module RbConfig
     "localstatedir" => "/var",
 
     # Feature flags rubygems consults.
-    "ENABLE_SHARED" => compiled_by.fetch("ENABLE_SHARED", "yes").dup,
+    "ENABLE_SHARED" => +"yes",
     "host_os_version" => os.sub(/\A\D*/, ""),
     "CC" => ENV["CC"] || "cc",
     "CXX" => ENV["CXX"] || "c++",
