@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-# The stage ladder. `bootstrap/stage.rb` is the compiler as a program ze0
-# can compile; these two tasks are what hold it to itself.
+# The stage ladder. `exe/ze0` -- the compiler a user runs, and nothing
+# written for the ladder alone -- is the program ze0 compiles; these two
+# tasks are what hold it to itself.
 #
 #   rake stage1   # ruby compiles the compiler twice, to the same bytes
 #   rake stage2   # the compiler compiled by itself is a fixed point
@@ -15,7 +16,6 @@ require_relative "../lib/ze0/native/build"
 module Stages
   ROOT = Ze0::Paths::ROOT
   ZE0 = File.join(ROOT, "exe/ze0")
-  SOURCE = File.join(ROOT, "bootstrap/stage.rb")
 
   module_function
 
@@ -38,7 +38,7 @@ module Stages
       out = File.join(work, "#{n}.o")
       Ze0::CLI.step("self-compile #{n} -> #{out}") do
         system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
-               RbConfig.ruby, ZE0, "zr", "build", SOURCE, "-o", out, "--emit", "obj", chdir: ROOT) or
+               RbConfig.ruby, ZE0, "build", ZE0, "-o", out, "--emit", "obj", chdir: ROOT) or
           abort("rake stage1: the self-compile failed; its work is in #{work}")
       end
       runtime = Dir[File.join(cache, "rt-*.o")]
@@ -61,10 +61,15 @@ module Stages
   end
 
   # Stage 1 is the compiler compiled by ze0 under ruby; stage 2 is the
-  # same source compiled by stage 1. The two binaries must agree byte
-  # for byte, which is what says the compiler is a fixed point. Both are
-  # written under the same base name, since macOS's ad-hoc signature
-  # carries the output's base name.
+  # same source compiled by stage 1, called as a user calls `ze0`. The
+  # two binaries must agree byte for byte, which is what says the
+  # compiler is a fixed point. Both are written under the same base
+  # name, since macOS's ad-hoc signature carries the output's base name.
+  #
+  # Stage 1 builds in one process unless `ZE0_JOBS` says otherwise: a
+  # worker of the compiled compiler holds the compiler's whole heap, and
+  # six of them have driven this sixteen-gigabyte machine into swap
+  # (task #24).
   #
   # ze0's own linker links both, stage 2's inside the compiled compiler,
   # so the comparison holds the linker to the same fixed point. Its UUID
@@ -84,12 +89,12 @@ module Stages
 
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     Ze0::CLI.step("stage 1: ruby compiles the compiler -> #{stages[0]}") do
-      system(caches[0], RbConfig.ruby, ZE0, "zr", "build", SOURCE, "-o", stages[0]) or
+      system(caches[0], RbConfig.ruby, ZE0, "build", ZE0, "-o", stages[0]) or
         abort("rake stage2: stage 1 did not build")
     end
     puts "stage 1: #{File.size(stages[0])} bytes"
     Ze0::CLI.step("stage 2: stage 1 compiles the compiler -> #{stages[1]}") do
-      system(caches[1], stages[0], SOURCE, "-o", stages[1]) or
+      system({ "ZE0_JOBS" => ENV.fetch("ZE0_JOBS", "1") }.merge(caches[1]), stages[0], "build", ZE0, "-o", stages[1]) or
         abort("rake stage2: stage 1 did not compile the compiler")
     end
 

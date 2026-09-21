@@ -45,7 +45,6 @@ into programs, and the host ruby never loads them. A file such as
 |---|---|
 | `lib/ze0/prism_backend/` | makes `require "prism/prism"` load the port on the host |
 | `rakelib/` | every task's body, one file a subject; see [Tasks](tools.md) |
-| `bootstrap/stage.rb` | the compiler as a program ze0 compiles; `rake stage1` and `stage2` |
 | `docs/` | this documentation |
 | `test/test_helper.rb` | what every test file requires |
 | `test/spec_helper.rb` | what a spec file requires: the helper, plus `ze0` |

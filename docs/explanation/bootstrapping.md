@@ -8,8 +8,15 @@ This page explains why that matters, and what `rake stage1` and
 
 - **Stage 0** is ze0 running on CRuby: `exe/ze0`.
 - **Stage 1** is the compiler that stage 0 builds: a native binary of
-  `bootstrap/stage.rb`, which is ze0's compiler as a program.
-- **Stage 2** is the compiler that stage 1 builds from the same source.
+  `exe/ze0` itself. There is no second program written for the ladder;
+  the binary is the same `ze0` a user runs, with the same commands.
+- **Stage 2** is the compiler that stage 1 builds from the same source,
+  by running `tmp/stage1/ze0 build exe/ze0 -o tmp/stage2/ze0`.
+
+Under CRuby, `exe/ze0` starts itself again with the collector limits a
+compile wants (`Ze0::CLI.tune!`). A compiled `ze0` does not: only CRuby's
+collector reads those limits, and a ze0 binary's `RbConfig.ruby` names
+ze0's own interpreter, not the running process.
 
 If ze0 compiles its own source correctly, stage 1 behaves as stage 0
 does. Then stage 1 builds stage 2 with the same decisions that stage 0
@@ -44,7 +51,10 @@ linker. If compiled ze0 answers differently from ze0 on CRuby anywhere
 on that path, the bytes differ.
 
 It is also slow. Stage 1 runs the whole compiler as compiled code, and
-building stage 2 takes several minutes and several gigabytes.
+building stage 2 takes several minutes and several gigabytes. Stage 1
+builds stage 2 in one process: a forked worker of the compiled compiler
+holds the compiler's whole heap, and six of them have driven a
+sixteen-gigabyte machine into swap. Set `ZE0_JOBS` to let it fork.
 
 ## Why self-hosting is worth it
 

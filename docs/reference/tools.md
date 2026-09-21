@@ -70,4 +70,3 @@ the generators are not carried: `git log` finds them.
 | Task | Does |
 |---|---|
 | `rake 'codesize[--all]'` | counts the instructions the backend writes for the runtime |
-| `bootstrap/stage.rb` | the compiler as a program; `rake stage1` and `stage2` compile it |

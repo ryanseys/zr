@@ -50,14 +50,24 @@ module Ze0
     GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
 
     # A process that starts without the tuning starts again with it;
-    # one started with it (a harness child) goes straight on.
+    # one started with it (a harness child) goes straight on. Only
+    # CRuby's collector reads these limits, so only CRuby starts again:
+    # the compiler compiled by ze0 is this same file, and its
+    # `RbConfig.ruby` names ze0's own interpreter (rt/ext/rbconfig.rb),
+    # which is neither this process nor always a file that exists.
     def tune!(script)
-      if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
+      if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT") && cruby?
         ENV.update(GC_ENV)
         exec(RbConfig.ruby, script, *ARGV)
       end
       RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"
     end
+
+    # Whether this compiler runs on CRuby, rather than as a program ze0
+    # compiled. A ze0 binary answers RUBY_ENGINE, RUBY_DESCRIPTION and
+    # RubyVM as ruby 4.0.6 does, by design; its RbConfig names ze0 as the
+    # interpreter (rt/ext/rbconfig.rb), which is the one fact that says so.
+    def cruby? = RbConfig::CONFIG["ruby_install_name"] != "ze0"
 
     # The usage text, with `extra` commands before the rest, on stderr.
     def usage(extra = "")
@@ -187,13 +197,15 @@ module Ze0
       report = begin
         # ruby's report goes through syntax_suggest, which ruby's boot
         # loads and a process started with --disable-gems (a harness
-        # child) does not; rubygems first, so the bundled gem answers
-        # and not the older copy under lib/ruby.
-        begin
-          require "rubygems"
-          require "syntax_suggest/core_ext"
-        rescue LoadError
-          nil
+        # child) does not. The copy is ze0's own -- 3.0.0, as ruby 4.0.6
+        # loads it -- and never the host's: `api` by its path first,
+        # which spares `core_ext` its own require by name. Only CRuby
+        # asks, and by a computed path, so the compiler ze0 compiles
+        # carries none of it; there the report is the parser's.
+        if cruby?
+          syntax_suggest = File.join(Paths::VENDOR, "lib/syntax_suggest")
+          require File.join(syntax_suggest, "api")
+          require File.join(syntax_suggest, "core_ext")
         end
         RubyVM::InstructionSequence.compile_file(input)
         nil
