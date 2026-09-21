@@ -36,13 +36,20 @@ Machine.struct :IvarCache, index: Word
 # from a few classes hits on each.
 # `shape` says what a site may do in place of the call: an accessor's
 # ivar the site reads or writes itself (`Zr::Function::Sends
-# #accessor_in_place`), and SHAPE_NONE every other kind, which is
+# #accessor_in_place`), one of the core's type questions it answers
+# itself (`#in_place`), and SHAPE_NONE every other kind, which is
 # what a cell holds until a fill says otherwise.
 Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word
 CALL_WAYS = 4
 SHAPE_NONE = 0
 SHAPE_READER = 1
 SHAPE_WRITER = 2
+SHAPE_IS_A = 3
+SHAPE_INSTANCE_OF = 4
+SHAPE_NIL_P = 5
+SHAPE_FROZEN_P = 6
+SHAPE_ARY_LENGTH = 7
+SHAPE_MOD_EQQ = 8
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # A `super` site's cell: the chain node the method runs from and the
 # name, which together decide the next method, and what the lookup
@@ -111,10 +118,13 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode)
   CallCache.set_shape(cc, zr_entry_shape(e))
 end
 
-# What a site may do in place of the call to `e`. An accessor is the
-# only entry whose whole body a site can carry: one guessed row read
-# or written, which is what `zr_attr_reader_fn` and
-# `zr_attr_writer_fn` do and nothing more.
+# What a site may do in place of the call to `e`: an accessor's whole
+# body, one guessed row read or written, which is what
+# `zr_attr_reader_fn` and `zr_attr_writer_fn` do and nothing more;
+# or one of the core's type questions, named by the builtin that
+# answers it. The builtin is the test, not the name: a class that
+# defines its own `is_a?` finds another entry, and its cell holds
+# SHAPE_NONE.
 sig [Ptr] => Word
 machine def zr_entry_shape(e)
   kind = MEntry.kind(e)
@@ -124,7 +134,105 @@ machine def zr_entry_shape(e)
   if kind == KIND_ATTR_WRITER
     return SHAPE_WRITER
   end
+  if kind != KIND_BUILTIN
+    return SHAPE_NONE
+  end
+  fn = MEntry.fn(e)
+  if fn == Machine.addr(:zr_obj_is_a)
+    return SHAPE_IS_A
+  end
+  if fn == Machine.addr(:zr_obj_instance_of)
+    return SHAPE_INSTANCE_OF
+  end
+  if fn == Machine.addr(:zr_obj_nil_p)
+    return SHAPE_NIL_P
+  end
+  if fn == Machine.addr(:zr_obj_frozen_p)
+    return SHAPE_FROZEN_P
+  end
+  if fn == Machine.addr(:zr_ary_length)
+    return SHAPE_ARY_LENGTH
+  end
+  if fn == Machine.addr(:zr_mod_eqq)
+    return SHAPE_MOD_EQQ
+  end
   SHAPE_NONE
+end
+
+# `is_a?` at a site whose cell holds Kernel#is_a?, for a receiver of
+# class `klass`: where `mod` is a class and both chains are built, a
+# class's rank settles it in two loads, as `zr_class_inherits` does.
+# Anything else answers nil and the site calls the builtin, which
+# walks a module's chain, reads a box's view, and raises for what is
+# neither a class nor a module. A box shadow stands for the shared
+# class (`zr_is_a`), so a target that has one is the builtin's too.
+#
+# One test a line, each returning: an `||` chain is lowered as the
+# booleans it joins, where these want a branch each.
+sig [Value, Value] => Value
+machine def zr_is_a_fast(klass, mod)
+  w = Machine.word(mod)
+  if (w & 7) != 0
+    return Machine.value(QNIL)
+  end
+  if w <= QNIL
+    return Machine.value(QNIL)
+  end
+  if (RBasic.flags(mod) & T_MASK) != T_CLASS
+    return Machine.value(QNIL)
+  end
+  if (RBasic.flags(klass) & T_MASK) != T_CLASS
+    return Machine.value(QNIL)
+  end
+  ext = RClass.ext(klass)
+  target = RClass.ext(mod)
+  if ClassExt.supers(ext) == 0
+    return Machine.value(QNIL)
+  end
+  if ClassExt.supers(target) == 0
+    return Machine.value(QNIL)
+  end
+  if ClassExt.boxed(ext) != QNIL
+    return Machine.value(QNIL)
+  end
+  if ClassExt.shadow(target) != QNIL
+    return Machine.value(QNIL)
+  end
+  r = ClassExt.rank(target)
+  if r > ClassExt.rank(ext)
+    return Machine.value(QFALSE)
+  end
+  zr_bool(Machine.value(Machine.load64(ClassExt.supers(ext) + ((r - 1) * 8), 0)) == mod)
+end
+
+# `mod === obj` at a site whose cell holds Module#===, which is what
+# `case obj when mod` asks: `obj.is_a?(mod)` as the builtin answers
+# it (`zr_mod_eqq`), never through a method `obj` defines. A cell's
+# class is its header's; any other value's is `zr_class_of`'s.
+sig [Value, Value] => Value
+machine def zr_mod_eqq_fast(mod, obj)
+  w = Machine.word(obj)
+  if (w & 7) == 0 && w > QUNDEF
+    return zr_is_a_fast(RBasic.klass(obj), mod)
+  end
+  zr_is_a_fast(zr_class_of(obj), mod)
+end
+
+# `instance_of?` at a site whose cell holds Kernel#instance_of?, for
+# a receiver of class `klass`: whether its real class, past a
+# singleton class and the proxies of what it extends, is `c`
+# (`zr_real_class`). Nil where `c` is neither a class nor a module,
+# which the builtin raises for.
+sig [Value, Value] => Value
+machine def zr_instance_of_fast(klass, c)
+  if !zr_module_p(c)
+    return Machine.value(QNIL)
+  end
+  k = klass
+  while zr_singleton_p(k) || zr_type(k) == T_ICLASS
+    k = RClass.superclass(k)
+  end
+  zr_bool(k == c)
 end
 
 # What a hit on entry `e` calls with the method signature: a compiled

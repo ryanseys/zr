@@ -13,6 +13,23 @@ module Ze0
           :& => "GATE_AND", :| => "GATE_OR", :^ => "GATE_XOR", :>> => "GATE_SHR"
         }.freeze
 
+        # What a site may do in place of a call, by the kernel's name for the
+        # cell's shape (rt/kernel/cache.rb): an accessor's body, or one of the
+        # core's type questions. The two accessors read and write a cell's
+        # table, so their receiver must be a cell; the questions take any.
+        SHAPES = {
+          reader: "SHAPE_READER", writer: "SHAPE_WRITER", is_a: "SHAPE_IS_A", instance_of: "SHAPE_INSTANCE_OF",
+          nil_p: "SHAPE_NIL_P", frozen_p: "SHAPE_FROZEN_P", ary_length: "SHAPE_ARY_LENGTH", mod_eqq: "SHAPE_MOD_EQQ"
+        }.freeze
+        ACCESSOR_SHAPES = %i[reader writer].freeze
+        # The questions of no argument, and of one, a site answers by name.
+        # `nil?` and `frozen?` cannot name an attribute, so no reader is
+        # tested for them.
+        QUESTIONS = { nil?: [:nil_p], frozen?: [:frozen_p], size: %i[ary_length reader], length: %i[ary_length reader] }.freeze
+        # `===` is what `case` asks of each `when`, and Module's answers the
+        # class tests a `case` over objects is made of.
+        ARGUED = { is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": [:mod_eqq] }.freeze
+
         # The kernel entry of each operator with a core fast path, and
         # the classes it answers for.
         OPT_ENTRIES = {
@@ -354,7 +371,7 @@ module Ze0
           return slow.call if node.using
 
           cell = @l.layout("CallCache")
-          shape = accessor_shape(node)
+          shapes = site_shapes(node)
           fixnum = @f.label
           other = @f.label
           heap = @f.label
@@ -362,8 +379,9 @@ module Ze0
           # join: whether the receiver is a cell. A fixnum and a flonum
           # reach here too, and an accessor of Integer's or Float's would
           # be read through a receiver that is no address at all.
-          have, (klass, cellular) = @f.block(shape ? %w[i64 i64] : %w[i64])
-          reach = ->(k, own) { @f.jump(have, shape ? [k, imm(own)] : [k]) }
+          own = shapes.intersect?(ACCESSOR_SHAPES)
+          have, (klass, cellular) = @f.block(own ? %w[i64 i64] : %w[i64])
+          reach = ->(k, cell_p) { @f.jump(have, own ? [k, imm(cell_p)] : [k]) }
           direct = @f.label
           miss = @f.label
           merge, (result,) = @f.block(["i64"])
@@ -389,14 +407,18 @@ module Ze0
           @f.brif(same, direct, miss)
           switch(direct)
           entry = @f.fetch("i64", cc, off(cell, "entry"))
-          if shape
-            in_place = @f.label
+          unless shapes.empty?
             call = @f.label
-            wanted = @l.const(shape == :writer ? "SHAPE_WRITER" : "SHAPE_READER")
-            @f.brif(@f.band(cellular, @f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(wanted))), in_place, call)
-            switch(in_place)
-            accessor_in_place(shape, recv, entry, argv, merge, miss)
-            switch(call)
+            held = @f.fetch("i64", cc, off(cell, "shape"))
+            shapes.each_with_index do |shape, i|
+              here = @f.label
+              onward = i == shapes.size - 1 ? call : @f.label
+              wanted = @f.icmp("eq", held, imm(@l.const(SHAPES.fetch(shape))))
+              @f.brif(ACCESSOR_SHAPES.include?(shape) ? @f.band(cellular, wanted) : wanted, here, onward)
+              switch(here)
+              in_place(shape, recv, klass, entry, argv, merge, call, miss)
+              switch(onward)
+            end
           end
           fn = @f.fetch("i64", cc, off(cell, "fn"))
           args = [recv, argc, argv, entry, blk, @f.fetch("i64", cc, off(cell, "found"))]
@@ -407,20 +429,67 @@ module Ze0
           result
         end
 
-        # Whether this site's own shape lets it carry an accessor's body:
-        # a call with no block, no keywords and no splat, of no arguments
-        # for a reader and of one for a writer, since an accessor takes
-        # exactly that many and raises at any other count. Whether the
-        # entry the cell holds really is an accessor is the cell's
-        # `shape` to say, at run time. A traced program keeps the call,
-        # as `opt_send` does.
-        def accessor_shape(node)
-          return nil if node.block || node.kwargs || node.args.any?(Hir::Splat) || traced?
-          return :writer if node.args.size == 1 && node.name.end_with?("=")
-          return :reader if node.args.empty?
+        # The shapes a site may carry, in the order it tests them: what its
+        # own form allows, before the cell says at run time whether the
+        # entry it holds is one (rt/kernel/cache.rb, `zr_entry_shape`).
+        # Every one wants a call with no block, no keywords and no splat,
+        # and exactly the arguments the body takes -- none for a reader or
+        # a question, one for a writer, `is_a?` or `instance_of?` -- since
+        # any other count raises, and only the call raises it. A type
+        # question is picked by name, so only a site that spells it pays
+        # for its test; `size` and `length` may be Array's or a reader's,
+        # and test both. A traced program keeps the call, as `opt_send`
+        # does.
+        def site_shapes(node)
+          return [] if node.block || node.kwargs || node.args.any?(Hir::Splat) || traced?
 
-          nil
+          case node.args.size
+          when 0 then QUESTIONS.fetch(node.name) { [:reader] }
+          when 1 then ARGUED.fetch(node.name) { node.name.end_with?("=") ? [:writer] : [] }
+          else []
+          end
         end
+
+        # What a site does where the cell's shape is `shape`. An accessor's
+        # guard that fails goes to `miss`, the kernel's send (which sets the
+        # guess); a question the fast answer leaves open goes to `call`, the
+        # cell's own function, which the cell has already found to stand.
+        def in_place(shape, recv, klass, entry, argv, merge, call, miss)
+          case shape
+          when :reader, :writer then accessor_in_place(shape, recv, entry, argv, merge, miss)
+          when :nil_p then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @qnil))])
+          when :frozen_p then frozen_in_place(recv, merge)
+          when :ary_length then @f.jump(merge, [@f.bor(@f.ishl(array_len(recv), imm(1)), imm(1))])
+          when :is_a then answered(kernel("zr_is_a_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
+          when :instance_of then answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
+          when :mod_eqq then answered(kernel("zr_mod_eqq_fast", recv, @f.fetch("i64", argv, 0)), merge, call)
+          end
+        end
+
+        # `frozen?` as `zr_frozen_p` reads it: every special constant is
+        # frozen, and a cell says so in its flags. Written out here rather
+        # than called, since the kernel's answer is a Bool, which wasm
+        # carries as an i32 where every Value is an i64.
+        def frozen_in_place(recv, merge)
+          cell = @f.label
+          special = @f.label
+          @f.brif(@f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil)), cell, special)
+          switch(special)
+          @f.jump(merge, [imm(@l.const("QTRUE"))])
+          switch(cell)
+          flags = @f.fetch("i64", recv, off(@l.layout("RBasic"), "flags"))
+          @f.jump(merge, [ruby_bool(@f.icmp("ne", @f.band(flags, imm(@l.const("FL_FREEZE"))), imm(0)))])
+        end
+
+        # A fast answer, or nil where it leaves the question to the call.
+        def answered(v, merge, call)
+          settled = @f.label
+          @f.brif(@f.icmp("eq", v, @qnil), call, settled)
+          switch(settled)
+          @f.jump(merge, [v])
+        end
+
+        def ruby_bool(cond) = @f.csel(cond, imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
 
         # An accessor's whole body at the site. The cell said its entry is
         # one, and the site has already found the receiver's class to be

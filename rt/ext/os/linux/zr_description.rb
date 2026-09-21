@@ -118,6 +118,9 @@ module Ze0
         d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
         d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word
         d zr_entry_shape Word e:Ptr
+        d zr_is_a_fast Value klass:Value mod:Value
+        d zr_mod_eqq_fast Value mod:Value obj:Value
+        d zr_instance_of_fast Value klass:Value c:Value
         d zr_entry_fn Ptr e:Ptr
         d zr_invoke_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_builtin_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
@@ -2185,6 +2188,12 @@ module Ze0
         c SHAPE_NONE 0
         c SHAPE_READER 1
         c SHAPE_WRITER 2
+        c SHAPE_IS_A 3
+        c SHAPE_INSTANCE_OF 4
+        c SHAPE_NIL_P 5
+        c SHAPE_FROZEN_P 6
+        c SHAPE_ARY_LENGTH 7
+        c SHAPE_MOD_EQQ 8
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
