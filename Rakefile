@@ -55,9 +55,11 @@ ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # (which files fail when run alone) and `<tier>:cmd` beside each tier.
 # The runtime, the prelink and the eval road, built before a tier forks
 # rather than in every worker at once; `test/support/warm.rb` says what
-# that cost. `cold` is false for a run that names only files under
-# `test/unit`, which are the compiler's own Ruby: a narrow run of those
-# should not wait minutes for caches it will not use.
+# that cost. `cold` is false only for a run that names unit tests which
+# build nothing (`Warm.light?`): those are the compiler's own Ruby, and
+# a narrow run of them should not wait minutes for caches it will not
+# use. The unit tier itself warms, and warms wasm32-wasi too: a dozen of
+# its files build programs, and a third of those build modules.
 #
 # This runs in the tier's own process, ahead of its first fork, and not
 # beside it in a ruby of its own. Building the caches is only half of
@@ -72,7 +74,9 @@ ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # reach for after an edit under `lib` or `rt`: it takes minutes, and
 # taken here it is taken once, alone, rather than in the middle of a
 # run that is waiting for it.
-def ze0_warm_line(cold) = %(require "support/warm"; Ze0::Test::Warm.call(cold: #{cold}))
+def ze0_warm_line(cold, wasm: false)
+  %(require "support/warm"; Ze0::Test::Warm.all(Ze0::Test::Warm.targets(wasm: #{wasm}), cold: #{cold}))
+end
 
 desc "Build the runtime: its object, the prelinked image and the eval road"
 task("build") do
@@ -80,11 +84,11 @@ task("build") do
   sh(RbConfig.ruby, "-Ilib:test", "-e", ze0_warm_line(true), verbose: false)
 end
 
-def tier(name, glob, framework, what, cold: true)
+def tier(name, glob, framework, what, wasm: false)
   Minitest::TestTask.create(name) do |t|
     t.libs = %w[lib test]
     # The tests are the compiler's own Ruby, as `ze0` itself is.
-    t.test_prelude = "RubyVM::YJIT.enable; #{ze0_warm_line(cold)}"
+    t.test_prelude = "RubyVM::YJIT.enable; #{ze0_warm_line(true, wasm: wasm)}"
     t.framework = %(require "#{framework}")
     t.test_globs = [File.join(ROOT, glob)]
     t.warning = false
@@ -150,7 +154,9 @@ if ZE0_TEST_ARGV.empty?
 else
   task :test do
     require "rbconfig"
-    cold = ZE0_TEST_ARGV.any? { |path| !path.start_with?(File.join(ROOT, "test/unit", "")) }
+    require "support/warm"
+    cold = !Ze0::Test::Warm.light?(ZE0_TEST_ARGV)
+    wasm = ZE0_TEST_ARGV.any? { |path| path.start_with?(File.join(ROOT, "test/unit", "")) }
     # The tier's own switches, so one file answers to what a whole tier
     # answers to: `N=` matches an example, `X=` leaves one out, `A=`
     # passes anything else through.
@@ -159,7 +165,7 @@ else
     opts += ["-e", ENV["X"]] if ENV["X"]
     opts += ENV["A"].split if ENV["A"]
     ze0_test_files(ZE0_TEST_ARGV).each do |framework, files|
-      line = "RubyVM::YJIT.enable; #{ze0_warm_line(cold)}; " + %(require "#{framework}"; ) +
+      line = "RubyVM::YJIT.enable; #{ze0_warm_line(cold, wasm: wasm)}; " + %(require "#{framework}"; ) +
              files.map { |f| %(require "#{f}"; ) }.join
       sh(RbConfig.ruby, "-Ilib:test", "-e", line, "--", *opts)
     end
@@ -167,7 +173,7 @@ else
 end
 
 tier "test:unit", "test/unit/*_test.rb", "test_helper",
-     "ze0's own internals", cold: false
+     "ze0's own internals", wasm: true
 tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
      "Ruby held to ruby, program by program"
 tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",

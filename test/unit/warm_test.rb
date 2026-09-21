@@ -48,6 +48,32 @@ class WarmTest < Minitest::Test
     end
   end
 
+  # A run of unit tests alone may leave a cold cache cold only when none
+  # of them builds: the ones that do once had eight workers build one
+  # runtime at the same time.
+  def test_only_unit_tests_that_build_nothing_may_run_cold
+    unit = File.join(ROOT, "test/unit")
+
+    assert Warm.light?([File.join(unit, "passes_test.rb"), File.join(unit, "fork_pool_test.rb")])
+    %w[programs_test wasm_test exe_test rt_test zr_test aarch64_test description_test].each do |name|
+      refute Warm.light?([File.join(unit, "#{name}.rb")]), "#{name} builds, and would run cold"
+    end
+    refute Warm.light?([File.join(unit, "passes_test.rb"), File.join(ROOT, "test/spec/core/time")])
+  end
+
+  def test_the_unit_tier_warms_wasm_beside_this_host_where_wasmtime_is
+    standing_in(:wasmtime?, true) do
+      assert_equal [Ze0::Target.default, Ze0::Target::WASM32_WASI], Warm.targets(wasm: true)
+      assert_equal [Ze0::Target.default], Warm.targets
+    end
+    standing_in(:wasmtime?, false) { assert_equal [Ze0::Target.default], Warm.targets(wasm: true) }
+  end
+
+  def test_a_target_with_no_linker_is_marked_warm_by_its_last_warm_up
+    assert_match(/rt-\h+\.o\z/, Warm.mark(Ze0::Target.default))
+    assert_match(/warm-\h+\.ok\z/, Warm.mark(Ze0::Target::WASM32_WASI))
+  end
+
   private
 
   # The targets `Warm.build` was asked for while the block ran, with no
