@@ -376,7 +376,7 @@ module Ze0
       cli.rb
       native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
       obj/jit.rb obj/jit/fiddle.rb
-      obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb
+      obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb obj/macho/skeleton.rb
     ].map { |name| File.join(__dir__, name) }.freeze
 
     # The compiler's own files that belong to one target: an instruction

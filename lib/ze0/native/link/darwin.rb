@@ -36,7 +36,8 @@ module Ze0
         def link(image, out, work:, objects:, strip:, road:, target:)
           unless road == "cc"
             why = begin
-              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), exports: !strip)
+              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), exports: !strip,
+                                                       skeleton: Build.skeleton(objects))
             rescue Obj::MachO::Refused => e
               e.message
             end

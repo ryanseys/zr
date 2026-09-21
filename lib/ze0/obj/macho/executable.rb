@@ -5,6 +5,7 @@ require "digest"
 require_relative "block"
 require_relative "prelink"
 require_relative "libsystem"
+require_relative "skeleton"
 
 module Ze0
   module Obj
@@ -105,9 +106,11 @@ module Ze0
         # files `objects` (their bytes) linked now, and answers nil; or
         # answers why it cannot link them and writes nothing. `exports`
         # puts every global in the exports trie, where `dlsym` finds it.
-        def self.write(unit, out, objects: [], prelink: nil, exports: false, stack: STACK, entry: "main")
+        # `skeleton` is a file of the base's `Skeleton.bytes`, cloned and
+        # written into rather than written whole where the system allows.
+        def self.write(unit, out, objects: [], prelink: nil, exports: false, stack: STACK, entry: "main", skeleton: nil)
           prelink ||= Prelink.build(objects)
-          new(unit, prelink, out, exports: exports, stack: stack, entry: entry).write
+          new(unit, prelink, out, exports: exports, stack: stack, entry: entry, skeleton: skeleton).write
         rescue Refused => e
           e.message
         end
@@ -117,12 +120,13 @@ module Ze0
         # on every host; a name missing from the list is refused.
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
-        def initialize(unit, prelink, out, exports: false, stack: STACK, entry: "main")
+        def initialize(unit, prelink, out, exports: false, stack: STACK, entry: "main", skeleton: nil)
           @base = prelink
           @out = out
           @exports = exports
           @stack = stack
           @entry = entry
+          @skeleton = skeleton
           outside = prelink.empty? ? nil : ->(name) { prelink.global(name) }
           @top = Block.new([ObjectFile.of(unit)], outside: outside)
         end
@@ -143,8 +147,14 @@ module Ze0
           linkedit
           header
           signed = signature
-          File.open(@out, "wb") do |file|
-            @segments.each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
+          cloned = @base.empty? ? false : Skeleton.clone(@skeleton, @out, @segments.first.filesize)
+          File.open(@out, cloned ? "r+b" : "wb") do |file|
+            # A clone holds the first segment already, less its header.
+            if cloned
+              file.write(@header)
+              file.seek(@segments.first.filesize)
+            end
+            @segments.drop(cloned ? 1 : 0).each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
             file.write(@linkedit)
             file.write(signed)
           end

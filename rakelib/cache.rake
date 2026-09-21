@@ -50,7 +50,8 @@ module Caches
     object = File.join(Ze0::Zr.cache, "rt-#{runtime.digest}.o")
     meta = File.join(Ze0::Zr.cache, "road-#{runtime.digest}.json")
     road = road_object(meta)
-    [object, meta, road, prelink([object]), road && prelink([object, road])] +
+    images = [prelink([object]), road && prelink([object, road])].compact
+    [object, meta, road, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
       Dir[File.join(Ze0::Zr.cache, "*-#{runtime.digest}.*")]
   end
 
@@ -61,10 +62,7 @@ module Caches
   end
 
   # The image `Native::Build.prelink` writes for those objects.
-  def prelink(objects)
-    key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Ze0::Zr.link_digest].join("\n"))
-    File.join(Ze0::Zr.cache, "prelink-#{key}.bin")
-  end
+  def prelink(objects) = Ze0::Native::Build.prelink_path(objects)
 
   def megabytes(paths) = paths.sum { |path| File.size(path) } / (1 << 20)
 

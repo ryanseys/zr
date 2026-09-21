@@ -118,16 +118,9 @@ module Ze0
       # digest of what made them, so their base is kept under the names;
       # other objects are linked each time.
       def prelink(objects)
-        cache = File.expand_path(Zr.cache)
-        named = !objects.empty? && objects.all? { |o| File.dirname(File.expand_path(o)) == cache }
-        return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless named
+        path = prelink_path(objects)
+        return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless path
 
-        # The objects name themselves after the digest of what lowered
-        # them, and `Zr.link_digest` is the rest of what this image
-        # depends on: the linker's own files, which that digest leaves
-        # out on purpose.
-        key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
-        path = File.join(Zr.cache, "prelink-#{key}.bin")
         # Kept for the life of the process as well as on disk: reading
         # and parsing the 25 MB image was 21% of a link, and a check tier
         # links thousands of times. Nothing a link does writes to it.
@@ -137,6 +130,29 @@ module Ze0
         Ze0.clock("objects prelinked") do
           Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Zr.write_cache(path, base.dump) }
         end
+      end
+
+      # Where the prelink of `objects` is kept, or nil for objects that
+      # are not the cache's. The objects name themselves after the digest
+      # of what lowered them, and `Zr.link_digest` is the rest of what
+      # the image depends on: the linker's own files, which that digest
+      # leaves out on purpose.
+      def prelink_path(objects)
+        cache = File.expand_path(Zr.cache)
+        return nil if objects.empty? || objects.any? { |o| File.dirname(File.expand_path(o)) != cache }
+
+        key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
+        File.join(Zr.cache, "prelink-#{key}.bin")
+      end
+
+      # The skeleton of a binary linked beside `objects` -- the bytes every
+      # such binary begins with (`Obj::MachO::Skeleton`) -- as a file under
+      # the cache, beside the prelink it is cut from; nil where the prelink
+      # is not a cached one. Written once per prelink and kept.
+      def skeleton(objects)
+        path = prelink_path(objects) or return nil
+        path = path.sub(/prelink-(\h+)\.bin\z/, 'skeleton-\1.bin')
+        (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.write_cache(path, Obj::MachO::Skeleton.bytes(prelink(objects)))
       end
 
       # The compiler's object, built once per road.

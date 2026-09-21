@@ -255,6 +255,29 @@ class ExeTest < Minitest::Test
     end
   end
 
+  # A binary cloned from the base's skeleton holds the bytes a binary
+  # written whole holds: the skeleton is the header page and the text,
+  # and the link writes the header and everything after the text.
+  def test_a_binary_cloned_from_the_skeleton_is_the_binary_written_whole
+    base = Ze0::Obj::MachO::Prelink.build([calling_object])
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      skeleton = File.join(dir, "skeleton")
+      File.binwrite(skeleton, Ze0::Obj::MachO::Skeleton.bytes(base))
+      whole, cloned = [nil, skeleton].map do |road|
+        bin = File.join(dir, "hooked")
+        assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, bin, prelink: base, skeleton: road)
+        File.binread(bin)
+      end
+      assert_equal whole, cloned
+      # A skeleton of another size is somebody else's: the link writes whole.
+      File.binwrite(skeleton, "not a skeleton")
+      bin = File.join(dir, "hooked")
+      assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, bin, prelink: base, skeleton: skeleton)
+      assert_equal whole, File.binread(bin)
+      assert_equal [0, "hooks\n"], ran(bin)
+    end
+  end
+
   # The same program, both roads, one answer.
   def test_both_linkers_agree
     Dir.mktmpdir("ze0-exe-") do |dir|
