@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "fileutils"
+require "tmpdir"
 require_relative "../../lib/ze0/zr"
 
 # What the runtime's digest covers, and what it leaves out.
@@ -57,25 +59,42 @@ class DigestTest < Minitest::Test
   # a linker does. Both are asked of a copy of the compiler, since the
   # answer depends on the bytes on disk.
   def test_a_lowering_file_moves_the_runtime_digest_and_a_linker_does_not
-    was = digests
-    touching(File.join(LIB, "hir/build.rb")) do
-      refute_equal was.first, digests.first, "the runtime digest ignored the front end"
-    end
-    touching(File.join(LIB, "obj/macho/prelink.rb")) do
-      assert_equal was.first, digests.first, "the runtime digest followed the linker"
-      refute_equal was.last, digests.last, "the link digest ignored the linker"
-    end
-    touching(File.join(LIB, "backend/wasm/codegen.rb")) do
-      assert_equal was.first, digests.first, "the native runtime digest followed the wasm backend"
+    copied do |root|
+      was = digests(root)
+      touching(File.join(root, "lib/ze0/hir/build.rb")) do
+        refute_equal was.first, digests(root).first, "the runtime digest ignored the front end"
+      end
+      touching(File.join(root, "lib/ze0/obj/macho/prelink.rb")) do
+        assert_equal was.first, digests(root).first, "the runtime digest followed the linker"
+        refute_equal was.last, digests(root).last, "the link digest ignored the linker"
+      end
+      touching(File.join(root, "lib/ze0/backend/wasm/codegen.rb")) do
+        assert_equal was.first, digests(root).first, "the native runtime digest followed the wasm backend"
+      end
     end
   end
 
   private
 
-  # `[runtime digest, link digest]`, asked in a child so this process
-  # keeps neither answer.
-  def digests
-    said = IO.popen(Ze0::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY],
+  # A copy of the compiler to write into, with the runtime and the
+  # vendored libraries beside it as links and a cache of its own. The
+  # check never writes under `lib`: other workers of this run read those
+  # files for their own digests, and one that read a file mid-write took
+  # a runtime nobody had built and spent its deadline building it.
+  def copied
+    Dir.mktmpdir("ze0-digest-") do |dir|
+      root = File.realpath(dir)
+      FileUtils.cp_r(File.join(ROOT, "lib"), File.join(root, "lib"))
+      %w[rt vendor].each { |name| File.symlink(File.join(ROOT, name), File.join(root, name)) }
+      yield root
+    end
+  end
+
+  # `[runtime digest, link digest]` of the compiler under `root`, asked
+  # in a child so this process keeps neither answer.
+  def digests(root)
+    env = Ze0::Harness::Unbundled.env.merge("ZE0_CACHE" => File.join(root, "cache"))
+    said = IO.popen(env, [RbConfig.ruby, "-I#{root}/lib", "-e", <<~RUBY],
       require "ze0/zr"
       puts Ze0::Zr::Runtime.new(Ze0::Target.default).digest
       puts Ze0::Zr.link_digest
