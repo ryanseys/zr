@@ -33,7 +33,8 @@ require_relative "../lib/ze0/native/build"
 module Caches
   module_function
 
-  def files = Dir[File.join(Ze0::Zr.cache, "*")].select { |path| File.file?(path) }
+  # The cache's files, and the binaries the spec tier keeps under it.
+  def files = Dir[File.join(Ze0::Zr.cache, "{*,binaries/*}")].select { |path| File.file?(path) }
 
   # The names this checkout's compiler asks for, over every target it
   # builds: the runtime object, the eval road and its meta, and the
@@ -66,7 +67,11 @@ module Caches
 
   def megabytes(paths) = paths.sum { |path| File.size(path) } / (1 << 20)
 
-  def kind(path) = File.basename(path).sub(/-[0-9a-f]{64}/, "").sub(/\A[^.]*\./, "")
+  def kind(path)
+    return "binary" if File.basename(File.dirname(path)) == "binaries"
+
+    File.basename(path).sub(/-[0-9a-f]{64}/, "").sub(/\A[^.]*\./, "")
+  end
 end
 
 namespace :cache do

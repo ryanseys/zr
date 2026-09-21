@@ -9,6 +9,7 @@ require_relative "reader"
 require_relative "harness/child"
 require_relative "harness/runner"
 require_relative "slow"
+require_relative "binaries"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/zr"
 
@@ -149,12 +150,16 @@ module Ze0
         # an absolute path would name the temporary directory instead.
         # The chdir is safe because a worker is a process of its own and
         # runs the examples it is handed one at a time.
-        program = Test::Slow.clock(phases, :lower) { Dir.chdir(run) { lower(source, path, target) } }
-        return program if program.is_a?(Symbol) || program.is_a?(Array)
-
         bin = File.join(work, "p")
-        if (why = Test::Slow.clock(phases, :link) { Native::Build.program(program, bin, work: work) })
-          return [:backend, why]
+        kept = Binaries.path(target, source, path, files) if Binaries.asked?
+        unless Binaries.take(kept, bin)
+          program = Test::Slow.clock(phases, :lower) { Dir.chdir(run) { lower(source, path, target) } }
+          return program if program.is_a?(Symbol) || program.is_a?(Array)
+
+          if (why = Test::Slow.clock(phases, :link) { Native::Build.program(program, bin, work: work) })
+            return [:backend, why]
+          end
+          Binaries.keep(kept, bin)
         end
 
         # A binary starts on its own host; a wasm module starts under
