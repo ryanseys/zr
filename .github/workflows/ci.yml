@@ -9,6 +9,7 @@ jobs:
   macos:
     name: checks and gem (macOS arm64)
     runs-on: macos-15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -53,6 +54,7 @@ jobs:
     name: gem on a host without native builds (Linux)
     needs: macos
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: ruby/setup-ruby@v1
         with:
@@ -92,6 +94,7 @@ jobs:
   linux-musl:
     name: aarch64-linux-musl (Alpine)
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Start ruby 4.0.6 on Alpine
@@ -103,9 +106,9 @@ jobs:
           docker exec alpine bundle install
       - name: Run the units this target answers
         run: >-
-          docker exec alpine bundle exec minitest
+          docker exec alpine bundle exec rake test
           test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb
-          test/unit/os_api_test.rb test/unit/description_test.rb test/unit/case_format_test.rb
+          test/unit/os_api_test.rb test/unit/description_test.rb
       - name: Build and run whole programs for this target
         run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e
       - name: Write the linux tables again and compare
@@ -116,6 +119,7 @@ jobs:
   wasi:
     name: wasm32-wasi (wasmtime)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -125,9 +129,9 @@ jobs:
       - uses: bytecodealliance/actions/wasmtime/setup@v1
       - name: Run the units this target answers
         run: >-
-          bundle exec minitest
+          bundle exec rake test
           test/unit/wasm_test.rb test/unit/wasm_locals_test.rb test/unit/os_api_test.rb
-          test/unit/target_test.rb test/unit/description_test.rb test/unit/case_format_test.rb
+          test/unit/target_test.rb test/unit/description_test.rb
       - name: Build and run whole programs for this target
         run: TARGET=wasm32-wasi bundle exec rake test:e2e
 

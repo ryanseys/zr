@@ -123,7 +123,13 @@ def ze0_test_argv
 
     full = File.expand_path(word, ROOT)
     full = Dir[File.join(ROOT, "test/**", word)].min unless File.exist?(full)
-    next unless full && File.exist?(full) && full.start_with?(File.join(ROOT, "test", ""))
+    found = full && File.exist?(full) && full.start_with?(File.join(ROOT, "test", ""))
+    # A word that reads as a test path and names nothing stops the run.
+    # Left alone it named no file, so `test` ran all three tiers before
+    # rake found it had no such task -- and a CI step that lists a file
+    # someone deleted would go on passing.
+    abort "rake test: no test at #{word}" if !found && (word.start_with?("test/") || word.end_with?("_test.rb"))
+    next unless found
 
     task(word) {} # so rake does not go looking for a task by this name
     full
