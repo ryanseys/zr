@@ -39,10 +39,15 @@ module Ze0
 
       # The flags of a run: which compiler, and how much memory. Winch
       # compiles in a moment, so its output is not worth wasmtime's cache
-      # (67 GB of it stood on one machine); Cranelift's is kept.
+      # (67 GB of it stood on one machine), and it compiles on one thread:
+      # a tier runs a wasmtime in each of eight workers, and eight of
+      # them each compiling on every core took a row of two seconds to
+      # forty. One thread a row is 2.0 s of CPU against 3.0 s parallel,
+      # and the rows keep to a core each. Cranelift keeps both, since it
+      # runs one bench row at a time.
       def flags(compiler: self.compiler)
-        cache = compiler == "winch" ? ["-C", "cache=n"] : []
-        ["-C", "compiler=#{compiler}", *cache, "-W", "max-memory-size=#{memory}"]
+        own = compiler == "winch" ? ["-C", "cache=n", "-C", "parallel-compilation=n"] : []
+        ["-C", "compiler=#{compiler}", *own, "-W", "max-memory-size=#{memory}"]
       end
 
       # `wasmtime run` of `module_path` with `args`, the directories in
