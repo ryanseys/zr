@@ -344,4 +344,21 @@ describe "RubyGems programs" do
       "2.5.0"
     OUT
   end
+
+  it "a specification reads its date from the frozen source date epoch" do
+    result = ze0(<<~'RUBY', env: { "SOURCE_DATE_EPOCH" => "86400" })
+      require "rubygems"
+      e = Gem.source_date_epoch
+      p e.frozen?, e.utc.equal?(e)
+      s = Gem::Specification.new { |x| x.name = "a"; x.version = "1" }
+      p s.date, s.date.utc?
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      1970-01-02 00:00:00 UTC
+      true
+    OUT
+  end
 end
