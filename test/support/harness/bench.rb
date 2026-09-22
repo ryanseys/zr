@@ -37,11 +37,14 @@ module Ze0
       # row stands on, the process's start-up, and reads apart from it.
       RUNS = 5
 
-      # Where a run's report is kept, under `tmp`: the run just made,
-      # and the one before it, for `rake bench:check` to read the two.
-      DIR = "tmp/bench"
+      # Where a report goes. A run of the whole bank is written under
+      # `benchmark/results/` as `<revision>.txt`, named by the commit it
+      # measured, and committed with the code, so a later run reads
+      # against it by hash; a run of some rows goes under `tmp`, since
+      # a partial report says nothing about the rest.
+      RESULTS = "benchmark/results"
+      SCRATCH = "tmp/bench"
       LATEST = "latest.txt"
-      PREVIOUS = "previous.txt"
 
       # `build` is the compile, in seconds; the three others are the
       # program, each a `Benchmark::Tms` of the median run: its wall
@@ -81,7 +84,8 @@ module Ze0
       # Every program under `benchmark/`, or the ones a filter names.
       def matching(filters)
         rows = Dir[File.join(@root, "benchmark/*.rb")].sort
-        return rows if filters.empty?
+        @whole = filters.empty?
+        return rows if @whole
 
         rows.select { |rb| filters.any? { |f| File.basename(rb).include?(f) } }
       end
@@ -206,23 +210,39 @@ module Ze0
 
       # The report as the benchmark gem prints one -- `Benchmark::CAPTION`
       # over a `Tms#format` line a runner, under the program's name --
-      # written to `tmp/bench/latest.txt`, with the run before it moved
-      # to `previous.txt`, so `rake bench:check` can read the two. The
-      # file is not committed: a time is the machine's and the day's.
+      # at `benchmark/results/<revision>.txt` for the whole bank (with
+      # `-dirty` where the tree has changes the hash does not name), or
+      # `tmp/bench/latest.txt` for some of it.
       def save(rows)
-        dir = File.join(@root, DIR)
-        FileUtils.mkdir_p(dir)
-        latest = File.join(dir, LATEST)
-        FileUtils.mv(latest, File.join(dir, PREVIOUS)) if File.exist?(latest)
-        File.write(latest, text(rows))
-        latest
+        path = @whole ? File.join(@root, RESULTS, "#{revision}.txt") : File.join(@root, SCRATCH, LATEST)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, text(rows))
+        path
       end
+
+      # The short hash of HEAD, `-dirty` when the tree differs from it
+      # under `lib`, `rt` or `benchmark`, or `unknown` outside git.
+      def revision
+        rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
+        return "unknown" if rev.empty?
+
+        changed = `git -C #{@root} status --porcelain -- lib rt benchmark 2>/dev/null`.lines.reject { |l| l.include?(RESULTS) }
+        changed.empty? ? rev : "#{rev}-dirty"
+      end
+
+      # The reports under `benchmark/results/`, newest last by the time
+      # each says it was taken.
+      def self.results(root)
+        Dir[File.join(root, RESULTS, "*.txt")].sort_by { |path| taken(File.read(path)) }
+      end
+
+      # When a report was taken, from its first line.
+      def self.taken(text) = text[/\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/].to_s
 
       LABEL = "%-8n"
 
       def text(rows)
-        rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
-        lines = ["# ze0 bench, the median of #{@runs} run(s)#{rev.empty? ? "" : " at #{rev}"}, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"]
+        lines = ["# ze0 bench, the median of #{@runs} run(s) at #{revision}, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"]
         rows.each do |r|
           lines << ""
           unless r.timed?

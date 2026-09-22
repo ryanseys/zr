@@ -10,8 +10,10 @@
 # A benchmark is a whole program under `benchmark/` with ruby's answer
 # in `<name>.out` beside it, like any other program: the time is kept
 # only when the answer matched, so a miscompile never reads as a win.
-# The report goes to `tmp/bench/latest.txt`, in the benchmark gem's
-# own layout, and the run before it is kept as `previous.txt`.
+# A run of the whole bank writes its report, in the benchmark gem's
+# own layout, to `benchmark/results/<revision>.txt`, to be committed
+# beside the code it measured; a run of some rows writes
+# `tmp/bench/latest.txt`.
 
 require "optparse"
 require_relative "../lib/ze0/cli"
@@ -53,12 +55,12 @@ end
 desc "How long does what ze0 built take? rake 'bench[--runs 5 fib]'"
 task(:bench, [:filters]) { |_, args| Benchmarks.run(args[:filters].to_s.split) }
 
-# `rake bench:check` reads the run just saved against the one before it
-# -- `tmp/bench/latest.txt` against `previous.txt`, or the two reports
-# named, before then after: a program of 100 ms or more whose wall clock
-# moved by a tenth either way fails the check, and one below that is
-# only named, since a short row is noise to that order. The rows
-# compared are ze0's own.
+# `rake bench:check` reads the newest report under `benchmark/results/`
+# against the one before it, or the two reports named, before then
+# after (a path, or a revision's hash): a program of 100 ms or more
+# whose wall clock moved by a tenth either way fails the check, and one
+# below that is only named, since a short row is noise to that order.
+# The rows compared are ze0's own.
 module Benchmarks
   MOVED = 0.10
   SHORT = 0.1
@@ -66,11 +68,10 @@ module Benchmarks
   module_function
 
   def check(argv)
-    dir = File.join(ROOT, Ze0::Harness::Bench::DIR)
-    before, after = argv.empty? ? [Ze0::Harness::Bench::PREVIOUS, Ze0::Harness::Bench::LATEST].map { |f| File.join(dir, f) } : argv
-    abort("usage: rake 'bench:check[<before> <after>]', or none for the last two runs") unless after
-    abort("rake bench:check: no report at #{before}; run rake bench twice first") unless File.file?(before)
-    abort("rake bench:check: no report at #{after}; run rake bench first") unless File.file?(after)
+    before, after = argv.empty? ? Ze0::Harness::Bench.results(ROOT).last(2) : argv.map { |a| report(a) }
+    abort("usage: rake 'bench:check[<before> <after>]', or none for the two newest under benchmark/results") unless after
+    abort("rake bench:check: no report at #{before}") unless File.file?(before)
+    abort("rake bench:check: no report at #{after}") unless File.file?(after)
 
     was = Ze0::Harness::Bench.reals(File.read(before))
     now = Ze0::Harness::Bench.reals(File.read(after))
@@ -92,6 +93,14 @@ module Benchmarks
     failed.each { |line| puts line }
     puts(failed.empty? ? "bench:check: no timed row of #{SHORT}s or more moved by #{(MOVED * 100).to_i}%" : "bench:check: #{failed.size} row(s) moved")
     exit(failed.empty? ? 0 : 1)
+  end
+
+  # A report by its path, or by the revision that names it under
+  # `benchmark/results/`.
+  def report(name)
+    return name if File.file?(name)
+
+    File.join(ROOT, Ze0::Harness::Bench::RESULTS, "#{name}.txt")
   end
 end
 

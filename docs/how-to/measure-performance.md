@@ -21,19 +21,22 @@ other work does not move. Each run is clocked with `Benchmark.measure`
 from the [benchmark](https://github.com/ruby/benchmark) gem, a
 development dependency, and nothing forks beside a timed run.
 
-The report is also written, in that gem's own layout, to
-`tmp/bench/latest.txt`, and the run before it is kept as
-`tmp/bench/previous.txt`. `rake bench:check` reads the two: a program of
-100 ms or more whose wall clock moved by a tenth fails the check, and a
-shorter one is only named. Give it two reports to compare any pair:
+A run of the whole bank writes its report, in that gem's own layout, to
+`benchmark/results/<revision>.txt`, named by the commit it measured;
+commit it, so a later run can be read against it by hash. A run of some
+rows writes `tmp/bench/latest.txt` instead. `rake bench:check` reads the
+newest report against the one before it, or the two it is given, as
+paths or as revisions: a program of 100 ms or more whose wall clock
+moved by a tenth fails the check, and a shorter one is only named.
 
 ```console
 $ rake bench:check
-$ rake 'bench:check[tmp/bench/before.txt tmp/bench/latest.txt]'
+$ rake 'bench:check[caebda07 be347192]'
+$ rake 'bench:check[benchmark/results/caebda07.txt tmp/bench/latest.txt]'
 ```
 
-Nothing under `tmp/` is committed: a time is the machine's and the
-day's. Run benchmarks on a quiet machine, and not beside a test run.
+A time is one machine's: read two reports from the same machine, and
+run benchmarks on a quiet one, not beside a test run.
 
 ## Time a build
 
