@@ -134,7 +134,7 @@ module Ze0
         # ruby2_keywords rest (a def's or a block's function, `abi`)
         # flags the Hash it takes. The count the call has then.
         def drop_keywords(argc, argv, abi)
-          kw = take_keyword_word
+          kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
           fn = abi ? @f.func_addr(@f.callee(@name, ABI.fetch(abi), "i64")) : imm(0)
           quick = @f.label
           slow = @f.label
@@ -143,6 +143,10 @@ module Ze0
           switch(quick)
           @f.jump(merge, [argc])
           switch(slow)
+          # The word is cleared here and not on the way in: it is zero
+          # already at almost every call, and a store of zero over it
+          # costs each one.
+          @f.store(imm(0), @task_addr, off(@task, "kw"), region: :task)
           # The Hash a table becomes is allocated before the arity check
           # fills the slots the prologue left for the arguments.
           direct_params.each { |name| write_local(slot_of(name), 0, @qnil) }
