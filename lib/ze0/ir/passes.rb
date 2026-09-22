@@ -3,6 +3,7 @@
 require "set"
 
 require_relative "function"
+require_relative "statics"
 require_relative "types"
 require_relative "verify"
 
@@ -51,10 +52,13 @@ module Ze0
       # load whose value it forwards is a constant the first fold could
       # not see. It earns the second pass -- built without it, the
       # runtime's object grows by 223 KB, and the whole pass costs 0.6 s
-      # of the 9.3 s that object takes.
+      # of the 9.3 s that object takes. `Statics` runs after `Forward`,
+      # whose slot loads it need not walk, and before `Chains`, so the
+      # gate test it leaves as a value splits into the branch chain.
       def run(f)
         Fold.run(f)
         Forward.run(f)
+        Statics.run(f)
         Fold.run(f)
         Chains.run(f)
         Blocks.run(f)
@@ -324,8 +328,6 @@ module Ze0
       class Forward
         include Renaming
 
-        WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
-
         def self.run(f) = new(f).run
 
         def initialize(f)
@@ -388,7 +390,7 @@ module Ze0
           return known.clear unless at
 
           root, off = at
-          width = WIDTH.fetch(@types.fetch(v))
+          width = Types::WIDTH.fetch(@types.fetch(v))
           ((off - 7)...(off + width)).each do |o|
             held = known[[root, o]]
             known.delete([root, o]) if held && o + held[1] > off
@@ -403,7 +405,7 @@ module Ze0
           return false unless at && (held = known[at])
 
           v, width = held
-          return false unless WIDTH.fetch(i.type) == width && @types.fetch(v) == i.type
+          return false unless Types::WIDTH.fetch(i.type) == width && @types.fetch(v) == i.type
 
           @rename[i.results[0]] = v
           true
@@ -557,12 +559,20 @@ module Ze0
         # Every such block joined in one round, in layout order: a block
         # that takes another's instructions takes its edges out too, so a
         # later block whose predecessor was joined joins the block that
-        # took it.
+        # took it. A predecessor laid out after the block it takes moves
+        # up into that block's place: the layout keeps every definition
+        # ahead of the blocks it dominates, which `Types` walks it for.
         def merge
           into = edges
           joined = {}.compare_by_identity
+          laid = {}
+          at = 0
+          while at < @f.blocks.size
+            laid[@f.blocks[at].name] = at
+            at += 1
+          end
           @f.blocks.each do |b|
-            next if b.equal?(@f.entry_block) || into[b.name].size != 1
+            next if b.nil? || b.equal?(@f.entry_block) || into[b.name].size != 1
 
             p, = into[b.name][0]
             t = p.insts.last
@@ -575,10 +585,17 @@ module Ze0
               into[name].map! { |from, at| from.equal?(b) && at == k ? [p, k] : [from, at] }
             end
             joined[b] = true
+            at = laid.fetch(b.name)
+            from = laid.fetch(p.name)
+            next if from < at
+
+            @f.blocks[at] = p
+            @f.blocks[from] = nil
+            laid[p.name] = at
           end
           return false if joined.empty?
 
-          @f.blocks.reject! { |b| joined.key?(b) }
+          @f.blocks.reject! { |b| b.nil? || joined.key?(b) }
           @f.changed!(:cfg)
           true
         end

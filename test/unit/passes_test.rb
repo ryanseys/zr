@@ -221,6 +221,41 @@ class PassesTest < Minitest::Test
     assert_equal 6, answer(f, [5])
   end
 
+  # A block joined into a predecessor laid out after it: the joined
+  # instructions keep the block's place, ahead of the blocks that read
+  # what they define.
+  def test_a_block_joined_into_a_later_predecessor_keeps_its_place
+    f = function("place", %w[i8 i8 i64], "i64") do |f, c1, c2, x|
+      p, (y,) = f.block(%w[i64])
+      q = f.label
+      r = f.label
+      b = f.label
+      c = f.label
+      d = f.label
+      f.brif(c1, q, r)
+      f.switch(b)
+      z = f.iadd(y, f.iconst("i64", 1))
+      f.brif(c2, c, d)
+      f.switch(c)
+      f.ret(z)
+      f.switch(d)
+      f.jump(c)
+      f.switch(q)
+      f.jump(p, [f.iadd(x, x)])
+      f.switch(r)
+      f.jump(p, [x])
+      f.switch(p)
+      f.jump(b)
+    end
+    was = [[1, 0, 5], [0, 1, 5]].map { |args| answer(f, args) }
+    Ze0::IR::Passes.prepare(f, strict: true)
+    adds = f.blocks.index { |blk| blk.insts.any? { |i| i.op == :iadd && i.args.include?("v3") } }
+    returns = f.blocks.index { |blk| blk.insts.last.op == :return }
+    assert_operator adds, :<, returns, "the join's instructions stand ahead of the block that reads them"
+    assert_equal was, [[1, 0, 5], [0, 1, 5]].map { |args| answer(f, args) }
+    assert_equal [11, 6], was
+  end
+
   def test_a_select_between_one_value_is_that_value
     f = function("same", %w[i8 i64], "i64") do |f, c, x|
       f.ret(f.csel(c, x, x))
@@ -228,6 +263,116 @@ class PassesTest < Minitest::Test
     Ze0::IR::Passes.prepare(f, strict: true)
     assert_equal %i[return], ops(f)
     assert_equal ["v1"], f.entry_block.insts.first.args
+  end
+
+  # `Statics`: a word the kernel keeps in a static, `bss` here, and a
+  # program that answers with the words it read.
+  def static(name, bytes = "\0".b * 8) = Ze0::Obj::Data.new("zr_static_#{name}", :data, bytes, align: 16)
+
+  def answer_with(functions, data, args)
+    Ze0::IR::Interp.new(functions, data: data).answer(functions[0].name, args)
+  end
+
+  def loads(f) = f.blocks.flat_map { |b| b.insts.select { |i| i.op == :load } }
+
+  # The gate word, read at every turn of a loop with a call on one arm:
+  # one load at entry, a reload after the call, and the loop's head takes
+  # the word as a parameter; the turns with no call load nothing.
+  def test_a_guard_word_is_loaded_at_entry_and_again_after_a_call
+    bump = function("bump", [], nil) do |f|
+      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      f.store(f.iadd(f.fetch("i64", at), f.iconst("i64", 1)), at)
+      f.ret
+    end
+    f = function("tally", %w[i64], "i64") do |f, n|
+      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      head, (i, acc) = f.block(%w[i64 i64])
+      body = f.label
+      slow = f.label
+      go = f.label
+      done = f.label
+      f.jump(head, [f.iconst("i64", 0), f.iconst("i64", 0)])
+      f.switch(head)
+      f.brif(f.icmp("slt", i, n), body, done)
+      f.switch(body)
+      sum = f.iadd(acc, f.fetch("i64", at))
+      f.brif(f.icmp("eq", i, f.iconst("i64", 2)), slow, go)
+      f.switch(slow)
+      f.call(f.callee("bump", [], nil), [])
+      f.jump(go)
+      f.switch(go)
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), f.iadd(sum, f.fetch("i64", at))])
+      f.switch(done)
+      f.ret(acc)
+    end
+    was = answer_with([f, bump], [static("gates")], [5])
+    Ze0::IR::Passes.prepare(f, strict: true)
+    Ze0::IR::Passes.prepare(bump, strict: true)
+    assert_equal 2, loads(f).size
+    assert_equal 1, f.entry_block.insts.count { |i| i.op == :load }, "one load at entry"
+    slow = f.blocks.find { |b| b.insts.any? { |i| i.op == :call } }
+    assert_equal %i[call load jump], slow.insts.map(&:op), "the reload follows the call"
+    head = f.blocks.find { |b| b.params.size == 3 }
+    refute_nil head, "the loop's head takes the word as a parameter"
+    assert_equal was, answer_with([f, bump], [static("gates")], [5])
+    assert_equal 5, was
+  end
+
+  # A static that is not a promoted word keeps every load: the task
+  # slot, whose poll word the timer thread writes between any two
+  # instructions.
+  def test_a_static_that_is_not_promoted_keeps_its_loads
+    f = function("poll", [], "i64") do |f|
+      at = f.symbol_addr(f.symbol("zr_static_current_task"))
+      a = f.fetch("i64", at)
+      b = f.fetch("i64", at, 8)
+      c = f.fetch("i64", at)
+      d = f.fetch("i64", at, 8)
+      f.ret(f.iadd(f.iadd(a, b), f.iadd(c, d)))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal [0, 0, 8, 8], loads(f).map(&:offset).sort
+    assert_equal 20, answer_with([f], [static("current_task", [7, 3].pack("q<q<"))], [])
+  end
+
+  # A store the function makes is what a later read gets, until a
+  # call; a store through an address the pass cannot tell -- one a call
+  # answered -- is a write to every word.
+  def test_a_store_is_read_back_and_a_store_through_an_unknown_address_reloads
+    where = function("where", [], "i64") { |f| f.ret(f.symbol_value(f.symbol("zr_static_gates"))) }
+    f = function("stores", [], "i64") do |f|
+      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      f.store(f.iconst("i64", 4), at)
+      a = f.fetch("i64", at)
+      p = f.call_val(f.callee("where", [], "i64"), [])
+      f.store(f.iconst("i64", 9), p)
+      b = f.fetch("i64", at)
+      f.store(f.iconst("i64", 1), f.stack_addr(f.slot(8)))
+      c = f.fetch("i64", at)
+      f.ret(f.iadd(a, f.iadd(b, c)))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal %i[symbol_value iconst store call iconst store load iconst stack_addr store iadd iadd return], ops(f)
+    assert_equal 4 + 9 + 9, answer_with([f, where], [static("gates")], [])
+  end
+
+  # An address that reaches a call, a store of part of the word, or a
+  # load of it as another type keeps every load of the word.
+  def test_a_word_whose_address_escapes_or_that_is_written_in_part_keeps_its_loads
+    escapes = function("escapes", [], "i64") do |f|
+      gates = f.symbol_addr(f.symbol("zr_static_gates"))
+      f.call(f.callee("take", %w[i64], nil), [gates])
+      f.ret(f.iadd(f.fetch("i64", gates), f.fetch("i64", gates)))
+    end
+    part = function("part", [], "i64") do |f|
+      gates = f.symbol_addr(f.symbol("zr_static_gates"))
+      f.store(f.iconst("i32", 1), gates)
+      f.ret(f.iadd(f.fetch("i64", gates), f.fetch("i64", gates)))
+    end
+    [escapes, part].each do |f|
+      Ze0::IR::Passes.prepare(f, strict: true)
+      assert_equal 2, loads(f).size, f.name
+    end
   end
 def test_a_small_leaf_is_inlined_into_its_caller_and_a_cycle_is_left_as_calls
   plus = function("plus_one", %w[i64], "i64") { |f, x| f.ret(f.iadd(x, f.iconst("i64", 1))) }

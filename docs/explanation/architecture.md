@@ -53,7 +53,9 @@ argument path. And no call is variadic.
 
 Before a backend sees a function, `IR::Passes` runs the same pipeline
 for every emitter: small leaf functions inline into their callers, then
-constant folding, store-to-load forwarding, branch chains, block
+constant folding, store-to-load forwarding, the kernel's guard words
+(the gates, the stamps, the task pointer) promoted to values that a
+call or a store the pass cannot place reloads, branch chains, block
 merging and dead code removal. `IR::Verify` then checks the result.
 
 ## The backends
