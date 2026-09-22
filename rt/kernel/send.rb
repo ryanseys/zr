@@ -333,10 +333,12 @@ SEND_CORE = 8
 SEND_MODE = 7
 # A send written under `using`: the refinements in force at the site
 # are the site's own, told to the task before every send it makes
-# (the lowering's `activate`), so what the lookup answers under them
-# is the class's and the stamp's alone at that site, and its cells may
-# hold it. A refinement's definition moves the stamp as any does, and
-# so does a `using`.
+# (the lowering's `activate`, in place) and taken back after, so what
+# the lookup answers under them is the class's and the stamp's alone
+# at that site, and its cells may hold it; the site tests its cell and
+# takes an operator's road as any site does. A refinement's definition
+# moves the stamp as any does, and closes the gate of the name it
+# stands over (zr_method_add_row); so does a `using` move the stamp.
 SEND_USING = 16
 
 # `argv` points at `argc` Values the caller keeps rooted. `mode` is 0

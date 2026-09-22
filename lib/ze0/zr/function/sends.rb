@@ -211,13 +211,13 @@ module Ze0
             iterate(node, recv, argv, argc)
           elsif node.block
             call_with_block(node, recv, argv, argc)
-          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil? && !traced?
+          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && !owner_using?(node) && !traced?
             operator(node, recv, argv)
-          elsif node.args.empty? && node.kwargs.nil? && UNARY.key?(node.name) && explicit?(node) && node.using.nil? && !traced?
+          elsif node.args.empty? && node.kwargs.nil? && UNARY.key?(node.name) && explicit?(node) && !owner_using?(node) && !traced?
             unary(node, recv, argv)
           else
             dispatch(node, recv, argv, argc)
-          end
+          end.tap { deactivate(node) }
         end
 
         # `parts` pushed one by one into an Array kept in the record slot
@@ -276,15 +276,54 @@ module Ze0
         end
 
         # The refinements in force where this call is written, told to
-        # the task so the lookup sees them.
+        # the task so the lookup sees them -- and so a callee that looks
+        # up under them sees them too, as `send`, `respond_to?` and
+        # `&:name` do in ruby, whichever road the site takes. A `using`
+        # row is one element of the activation table, read here in
+        # place: the kernel is asked only for a row not made yet or one
+        # that forwards to the row before it (a `using` a condition
+        # skipped), and inside a `refine` block, where the list is the
+        # owner's and no row numbers it.
         def activate(node)
           return if node.using.nil?
+          return kernel("zr_activate_owner", @rec) if owner_using?(node)
 
-          if node.using == :owner
-            kernel("zr_activate_owner", @rec)
-          else
-            kernel("zr_activate", imm(node.using))
-          end
+          rows = global("G_ACTIVATIONS")
+          ask = @f.label
+          read = @f.label
+          have = @f.label
+          merge = @f.label
+          array = @l.layout("RArray")
+          @f.brif(@f.band(@f.icmp("eq", @f.band(rows, imm(7)), imm(0)), @f.icmp("ugt", rows, @qnil)), read, ask)
+          switch(read)
+          made = @f.icmp("slt", imm(node.using), @f.fetch("i64", rows, off(array, "len")))
+          @f.brif(made, have, ask)
+          switch(have)
+          row = @f.fetch("i64", @f.fetch("i64", rows, off(array, "ptr")), 8 * node.using)
+          plain = @f.label
+          @f.brif(@f.icmp("eq", @f.band(row, imm(1)), imm(0)), plain, ask)
+          switch(plain)
+          @f.store(row, @task_addr, off(@task, "refine"), region: :task)
+          @f.jump(merge, [])
+          switch(ask)
+          kernel("zr_activate", imm(node.using))
+          @f.jump(merge, [])
+          switch(merge)
+        end
+
+        # The refinements told for this send alone, taken back after it:
+        # a callee of the kernel's leaves the word as it found it, and
+        # the next plain site must not read it as its own.
+        def deactivate(node)
+          return if node.using.nil?
+
+          @f.store(@qnil, @task_addr, off(@task, "refine"), region: :task)
+        end
+
+        # Whether the site stands inside a `refine` block: its list is
+        # its owner's, which the kernel reads at every send it makes.
+        def owner_using?(node)
+          node.using == :owner
         end
 
         # The mode `zr_dispatch` takes: 0 for an implicit or `self`
@@ -300,9 +339,9 @@ module Ze0
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          if node.opt && node.using.nil? && !traced?
+          if node.opt && !owner_using?(node) && !traced?
             checked(opt_send(node, recv, argc, argv))
-          elsif node.name == :call && node.block.nil? && node.using.nil? && raw_block_recv?(node.recv)
+          elsif node.name == :call && node.block.nil? && !owner_using?(node) && raw_block_recv?(node.recv)
             checked(kernel("zr_opt_block_call", recv, sym_word(:call), argc, argv, imm(send_mode(node))))
           elsif node.name == :new
             checked(kernel("zr_new_cached", cache("ic", "CallCache", 2 * CALL_WAYS), recv, argc, argv, imm(send_mode(node))))
@@ -396,12 +435,15 @@ module Ze0
         # stamp, the cell's function is called with the method
         # signature. Anything else -- another special constant, a stale
         # cell, the cells off -- is the kernel's send, which tests the
-        # site's other cells and fills one. A site under `using` asks
-        # the kernel every time: a refinement decides, never the cell.
+        # site's other cells and fills one. A site under `using` tests
+        # its cell as any does (the cell holds what the lookup under its
+        # refinements answered, and the task holds the refinements for
+        # the callee); one inside a `refine` block asks the kernel every
+        # time.
         def cached_send(node, recv, argc, argv, blk, mode: send_mode(node))
           cc = site_cache(node, "ic", "CallCache", CALL_WAYS)
           slow = -> { kernel("zr_send_cached", cc, recv, sym_word(node.name), argc, argv, blk, imm(mode)) }
-          return slow.call if node.using
+          return slow.call if owner_using?(node)
 
           cell = @l.layout("CallCache")
           shapes = site_shapes(node)
@@ -837,7 +879,7 @@ module Ze0
           argc = keyword_argc(node, argc, argv)
           activate(node)
           call = -> { kernel("zr_super", cache("sc", "SuperCache"), @rec, argc, argv, blk) }
-          site ? catching_break(site, &call) : checked(call.call)
+          (site ? catching_break(site, &call) : checked(call.call)).tap { deactivate(node) }
         end
 
         # A bare `super` the builder could not expand, one with no def

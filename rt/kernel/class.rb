@@ -815,6 +815,10 @@ machine def zr_gate_bit(klass, mid)
       GATE_XOR
     elsif mid == Machine.id(:>>)
       GATE_SHR
+    elsif mid == Machine.id(:succ)
+      GATE_SUCC
+    elsif mid == Machine.id(:times)
+      GATE_TIMES
     else
       0
     end
@@ -856,8 +860,6 @@ machine def zr_gate_bit(klass, mid)
     GATE_GETBYTE
   elsif klass == zr_global(G_STRING) && mid == Machine.id(:setbyte)
     GATE_SETBYTE
-  elsif klass == zr_global(G_INTEGER) && mid == Machine.id(:succ)
-    GATE_SUCC
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:push)
     GATE_PUSH
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:pop)
@@ -870,8 +872,6 @@ machine def zr_gate_bit(klass, mid)
     GATE_PROC_CALL
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:each)
     GATE_EACH
-  elsif klass == zr_global(G_INTEGER) && mid == Machine.id(:times)
-    GATE_TIMES
   elsif klass == zr_global(G_RANGE) && mid == Machine.id(:each)
     GATE_RANGE_EACH
   elsif mid == Machine.id(:!) && zr_not_gated_p(klass)
@@ -1214,9 +1214,18 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   # asking the chain whether this is a redefinition. A builtin row the
   # runtime writes at boot stands where the kernel's own did: `freeze`
   # on String is Kernel's function, which the fast path stands in for.
-  bit = zr_gate_bit(klass, mid)
+  #
+  # A def inside `refine C` stands over C: the gate its name has on C
+  # closes as a definition on C would, at the definition and not at
+  # the `using` -- sooner than it must, and for every site -- which is
+  # what lets a site under `using` keep an operator's road.
+  over = klass
+  if zr_type(klass) == T_MODULE && ClassExt.refined(RClass.ext(klass)) != QNIL
+    over = ClassExt.refined(RClass.ext(klass))
+  end
+  bit = zr_gate_bit(over, mid)
   booting = kind == KIND_BUILTIN && !zr_program_started_p()
-  if bit != 0 && !booting && zr_find_method(klass, mid) != 0
+  if bit != 0 && !booting && zr_find_method(over, mid) != 0
     Machine.gates_set(Machine.gates | bit)
   end
   # The type questions have no class of their own: a definition of
