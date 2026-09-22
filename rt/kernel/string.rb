@@ -578,13 +578,18 @@ machine def zr_str_ascii_bytes_p(s)
     return false
   end
   n = RString.len(s)
+  p = RString.ptr(s)
   i = 0
-  while i < n
-    if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
-      RBasic.set_flags(s, flags | FL_SCANNED)
-      return false
-    end
+  # Eight bytes at a time: one has its high bit set, or none has.
+  while i + 8 <= n && (Machine.load64(p + i, 0) & 0x8080808080808080) == 0
+    i += 8
+  end
+  while i < n && Machine.word(Machine.load8(p + i, 0)) < 128
     i += 1
+  end
+  if i < n
+    RBasic.set_flags(s, flags | FL_SCANNED)
+    return false
   end
   RBasic.set_flags(s, flags | FL_SCANNED | FL_ASCII)
   true
@@ -785,11 +790,22 @@ machine def zr_str_concat_m(recv, argc, argv, cref, blk)
 end
 
 # Two byte strings compared bytewise, the shorter first on a shared
-# prefix: -1, 0 or 1.
+# prefix: -1, 0 or 1. Eight bytes at a time: in two words that differ,
+# the first byte that does is the lowest, the words being
+# little-endian, and its bit the first set in their difference.
 sig [Ptr, Word, Ptr, Word] => Word
 machine def zr_bytes_cmp(a, alen, b, blen)
   n = alen < blen ? alen : blen
   i = 0
+  while i + 8 <= n
+    x = Machine.load64(a + i, 0)
+    y = Machine.load64(b + i, 0)
+    if x != y
+      k = Machine.ctz(x ^ y) & 56
+      return ((x >> k) & 255) < ((y >> k) & 255) ? 0 - 1 : 1
+    end
+    i += 8
+  end
   while i < n
     x = Machine.word(Machine.load8(a + i, 0))
     y = Machine.word(Machine.load8(b + i, 0))
@@ -976,11 +992,37 @@ machine def zr_str_char_count(s)
   if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
     return n
   end
+  # Valid UTF-8, which one scan settles and the flag then remembers,
+  # is counted eight bytes at a time.
+  if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE
+    return zr_utf8_char_count(RString.ptr(s), n)
+  end
   count = 0
   i = 0
   while i < n
     i += zr_str_char_len_at(s, i)
     count += 1
+  end
+  count
+end
+
+# The characters in `n` bytes of valid UTF-8: every byte but the ones
+# that continue a character, which are `10xxxxxx`, counted eight bytes
+# at a time (`popcnt` of one bit a byte), then one at a time.
+sig [Ptr, Word] => Word
+machine def zr_utf8_char_count(p, n)
+  count = n
+  i = 0
+  while i + 8 <= n
+    w = Machine.load64(p + i, 0)
+    count -= Machine.popcnt((w >> 7) & ((w >> 6) ^ (0 - 1)) & 0x0101010101010101)
+    i += 8
+  end
+  while i < n
+    if (Machine.word(Machine.load8(p + i, 0)) & 0xC0) == 0x80
+      count -= 1
+    end
+    i += 1
   end
   count
 end
@@ -1196,10 +1238,16 @@ machine def zr_str_valid_scan(s)
   n = RString.len(s)
   i = 0
   while i < n
-    if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128 && zr_utf8_char_len(RString.ptr(s) + i, n - i) == 0
-      return Machine.value(QFALSE)
+    # A run of ASCII, eight bytes at a time, is valid as it stands.
+    while i + 8 <= n && (Machine.load64(RString.ptr(s) + i, 0) & 0x8080808080808080) == 0
+      i += 8
     end
-    i += zr_str_char_len_at(s, i)
+    if i < n
+      if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128 && zr_utf8_char_len(RString.ptr(s) + i, n - i) == 0
+        return Machine.value(QFALSE)
+      end
+      i += zr_str_char_len_at(s, i)
+    end
   end
   Machine.value(QTRUE)
 end
@@ -1359,6 +1407,9 @@ machine def zr_str_split_words(s, limit_v)
       break
     end
     stop = beg
+    while stop + 8 <= n && !zr_blank_word_p(Machine.load64(RString.ptr(s) + stop, 0))
+      stop += 8
+    end
     while stop < n && !zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + stop, 0)))
       stop += 1
     end
@@ -2062,15 +2113,28 @@ machine def zr_str_space_end(s, from, nul)
 end
 
 # The first offset at or after `from` whose byte splits words, or the
-# length.
+# length: eight bytes with none below 0x21 hold no blank
+# (`zr_blank_word_p`), the rest one at a time.
 sig [Value, Value] => Value
 machine def zr_str_word_end(s, from)
   n = RString.len(s)
   i = zr_fix2long(from)
-  while i < n && !zr_space_byte_p(Machine.word(Machine.load8(RString.ptr(s) + i, 0)), Machine.value(QFALSE))
+  p = RString.ptr(s)
+  while i + 8 <= n && !zr_blank_word_p(Machine.load64(p + i, 0))
+    i += 8
+  end
+  while i < n && !zr_space_byte_p(Machine.word(Machine.load8(p + i, 0)), Machine.value(QFALSE))
     i += 1
   end
   zr_fix(i)
+end
+
+# Whether any byte of the word `w` may be a blank: any below 0x21,
+# by the carry trick, which can also say yes of a byte at or above
+# 0x80 -- a reader then looks at the bytes.
+sig [Word] => Bool
+machine def zr_blank_word_p(w)
+  ((w - 0x2121212121212121) & (w ^ (0 - 1)) & 0x8080808080808080) != 0
 end
 
 # Where the whitespace that ends at offset `to` starts.

@@ -49,12 +49,20 @@ machine def zr_symbol_encoding_index(id)
   tag < 2 ? 1 - tag : tag
 end
 
+# Whether the `alen` bytes at `a` are the `blen` at `b`: eight at a
+# time, then the rest one at a time.
 sig [Ptr, Word, Ptr, Word] => Bool
 machine def zr_bytes_eq(a, alen, b, blen)
   if alen != blen
     return false
   end
   i = 0
+  while i + 8 <= alen
+    if Machine.load64(a + i, 0) != Machine.load64(b + i, 0)
+      return false
+    end
+    i += 8
+  end
   while i < alen
     if Machine.load8(a + i, 0) != Machine.load8(b + i, 0)
       return false

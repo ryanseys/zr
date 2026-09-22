@@ -1795,6 +1795,7 @@ module Ze0
         d zr_str_ascii_check Value s:Value
         d zr_str_char_len_at Word s:Value off:Word
         d zr_str_char_count Word s:Value
+        d zr_utf8_char_count Word p:Ptr n:Word
         d zr_str_char_offset Word s:Value index:Word
         d zr_str_char_offset_m Value s:Value index:Value
         d zr_str_byte_to_char Value s:Value off:Value
@@ -1863,6 +1864,7 @@ module Ze0
         d zr_space_byte_p Bool c:Word nul:Value
         d zr_str_space_end Value s:Value from:Value nul:Value
         d zr_str_word_end Value s:Value from:Value
+        d zr_blank_word_p Bool w:Word
         d zr_str_space_start Value s:Value to:Value nul:Value
         d zr_str_splice Value s:Value from:Value len:Value other:Value
         d zr_str_push_byte Value recv:Value byte:Value
@@ -3971,6 +3973,7 @@ module Ze0
         e zr_str_ascii_check 0
         e zr_str_char_len_at 0
         e zr_str_char_count 8
+        e zr_utf8_char_count 0
         e zr_str_char_offset 8
         e zr_str_char_offset_m 8
         e zr_str_byte_to_char 8
@@ -4039,6 +4042,7 @@ module Ze0
         e zr_space_byte_p 0
         e zr_str_space_end 0
         e zr_str_word_end 0
+        e zr_blank_word_p 0
         e zr_str_space_start 0
         e zr_str_splice 127
         e zr_str_push_byte 127

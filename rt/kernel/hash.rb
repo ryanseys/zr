@@ -231,14 +231,27 @@ machine def zr_hash_seed_init
   Machine.store64(zr_hash_seed(), 0, (zr_os_random() << 32) | zr_os_random())
 end
 
-# FNV-1a over the bytes.
+# A hash of the bytes, a word at a time: each word folded into the
+# state and mixed, the last one to seven bytes as one word, and the
+# length first, so that a string and one that only adds zero bytes to
+# it differ. Not a hash any spec can pin: the seed is the process's.
 sig [Ptr, Word] => Word
 machine def zr_bytes_hash(p, n)
-  x = 1469598103934665603
+  x = 1469598103934665603 ^ n
   i = 0
-  while i < n
-    x = (x ^ Machine.word(Machine.load8(p + i, 0))) * 1099511628211
-    i += 1
+  while i + 8 <= n
+    x = zr_hash_mix(x ^ Machine.load64(p + i, 0))
+    i += 8
+  end
+  if i < n
+    w = 0
+    shift = 0
+    while i < n
+      w = w | (Machine.word(Machine.load8(p + i, 0)) << shift)
+      shift += 8
+      i += 1
+    end
+    x = zr_hash_mix(x ^ w)
   end
   x
 end
