@@ -54,6 +54,9 @@ SHAPE_MOD_EQQ = 8
 # `==` is BasicObject's too: identity, answered at the site.
 SHAPE_EQ = 9
 SHAPE_NE = 10
+# Object's `===` where the class's `==` is BasicObject's: identity, a
+# `case` arm over a symbol, nil, true or false.
+SHAPE_EQQ = 11
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # A `super` site's cell: the chain node the method runs from and the
 # name, which together decide the next method, and what the lookup
@@ -71,8 +74,8 @@ end
 # holds none that stands. A heap receiver's class is its header's, as
 # `zr_class_of` reads it; a special constant's is asked for. The task is
 # read from its static word: every send comes through here.
-sig [Ptr, Value, Word] => Ptr
-machine def zr_call_cache_hit(cc, recv, mid)
+sig [Ptr, Value, Word, Word] => Ptr
+machine def zr_call_cache_hit(cc, recv, mid, mode)
   w = Machine.word(recv)
   if (w & 7) == 0 && w != QFALSE && w != QNIL
     klass = RBasic.klass(recv)
@@ -82,11 +85,11 @@ machine def zr_call_cache_hit(cc, recv, mid)
   if klass != CallCache.klass(cc) || CallCache.stamp(cc) != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
     return 0
   end
-  if Task.refine(Machine.ptr(Machine.load64(Machine.static(:current_task, 16), 0))) != QNIL
+  if Task.refine(Machine.ptr(Machine.load64(Machine.static(:current_task, 16), 0))) != QNIL && (mode & SEND_USING) == 0
     return 0
   end
   e = CallCache.entry(cc)
-  if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && e != zr_search_method(klass, mid)
+  if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && e != zr_fresh_method(klass, mid)
     zr_bug(Machine.bytes("a call cache answered what the chain does not\n"), 46)
   end
   e
@@ -100,7 +103,7 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
     return
   end
   t = zr_task()
-  if Task.refine(t) != QNIL || ClassExt.boxed(RClass.ext(klass)) != QNIL
+  if (Task.refine(t) != QNIL && (mode & SEND_USING) == 0) || ClassExt.boxed(RClass.ext(klass)) != QNIL
     return
   end
   # A private or protected method refuses an explicit receiver by who
@@ -111,7 +114,7 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   # A core send's own entry is not the chain's when the program has
   # redefined the method: the verifier, which asks the chain, leaves
   # such a cell empty rather than read it as wrong.
-  if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && (mode & SEND_CORE) != 0 && e != zr_search_method(klass, mid)
+  if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && (mode & SEND_CORE) != 0 && e != zr_fresh_method(klass, mid)
     return
   end
   CallCache.set_klass(cc, klass)
@@ -234,10 +237,10 @@ machine def zr_entry_shape(klass, e)
   if fn == Machine.addr(:zr_obj_eq)
     return SHAPE_EQ
   end
-  if fn == Machine.addr(:zr_obj_ne)
+  if fn == Machine.addr(:zr_obj_ne) || fn == Machine.addr(:zr_obj_eqq)
     eq = zr_search_method(klass, Machine.id(:==))
     if eq != 0 && MEntry.kind(eq) == KIND_BUILTIN && MEntry.fn(eq) == Machine.addr(:zr_obj_eq)
-      return SHAPE_NE
+      return fn == Machine.addr(:zr_obj_ne) ? SHAPE_NE : SHAPE_EQQ
     end
   end
   SHAPE_NONE
@@ -467,12 +470,14 @@ end
 # is a dispatch, which fills the cell.
 sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
 machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
-  if Task.refine(zr_task()) == QNIL
+  using = (mode & SEND_USING) != 0
+  if Task.refine(zr_task()) == QNIL || using
     # The class and the stamp once, then each way in place. The site
     # tested the first way itself, whatever the receiver, so the ways
     # after it are what is left; under ZR_MCACHE=verify no site's own
     # test hits, so the first way is tested here and every hit is held
-    # to the chain.
+    # to the chain. A site under `using` tests no way itself, and its
+    # cells hold what the lookup under its refinements answered.
     w = Machine.word(recv)
     verify = Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
     if (w & 7) == 0 && w > QUNDEF
@@ -482,21 +487,37 @@ machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
     else
       klass = zr_class_of(recv)
     end
-    i = verify ? 0 : 1
+    i = verify || using ? 0 : 1
     stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
     while i < CALL_WAYS
       way = cc + (i * CallCache.size)
       if CallCache.klass(way) == klass && CallCache.stamp(way) == stamp
         e = CallCache.entry(way)
-        if verify && e != zr_search_method(klass, mid)
+        if verify && e != zr_fresh_method(klass, mid)
           zr_bug(Machine.bytes("a call cache answered what the chain does not\n"), 46)
         end
-        return Machine.call(:method, CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
+        r = Machine.call(:method, CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
+        # The refinements the site activated were for this send alone,
+        # as zr_dispatch leaves them.
+        if using
+          Task.set_refine(zr_task(), Machine.value(QNIL))
+        end
+        return r
       end
       i += 1
     end
   end
   zr_dispatch(zr_call_cache_slot(cc), recv, mid, argc, argv, mode, blk)
+end
+
+# The chain's own answer, from no cache: under the refinements in
+# force, or the plain walk.
+sig [Value, Word] => Ptr
+machine def zr_fresh_method(klass, mid)
+  if Task.refine(zr_task()) != QNIL
+    return zr_refined_search(klass, mid)
+  end
+  zr_search_method(klass, mid)
 end
 
 # The cell a dispatch fills: the first that is empty or stale, else
@@ -522,7 +543,7 @@ end
 # the cell the lookup filled.
 sig [Ptr, Value, Word, Ptr, Word] => Value
 machine def zr_new_cached(cc, recv, argc, argv, mode)
-  e = zr_call_cache_hit(cc, recv, Machine.id(:new))
+  e = zr_call_cache_hit(cc, recv, Machine.id(:new), mode)
   if e == 0
     klass = zr_box_view(zr_class_of(recv))
     e = zr_find_method(klass, Machine.id(:new))
@@ -535,7 +556,7 @@ machine def zr_new_cached(cc, recv, argc, argv, mode)
   end
   o = zr_class_new_object(recv)
   return o if o == QUNDEF
-  r = zr_send_cached(cc + (CallCache.size * CALL_WAYS), o, Machine.id(:initialize), argc, argv, Machine.value(QNIL), 0)
+  r = zr_send_cached(cc + (CallCache.size * CALL_WAYS), o, Machine.id(:initialize), argc, argv, Machine.value(QNIL), mode & SEND_USING)
   return r if r == QUNDEF
   o
 end

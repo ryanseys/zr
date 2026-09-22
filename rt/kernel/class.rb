@@ -2391,6 +2391,9 @@ machine def zr_using_activate(id, mod, from)
   r = zr_using_holders(list, mod)
   return r if r == QUNDEF
   zr_ary_store(rows, id, list)
+  # A site under this row may hold cells filled under the row it
+  # replaces (SEND_USING).
+  zr_methods_changed()
   Machine.value(QNIL)
 end
 

@@ -786,6 +786,11 @@ machine def zr_obj_eqq(recv, argc, argv, cref, blk)
   if recv == Machine.value(Machine.load64(argv, 0))
     return Machine.value(QTRUE)
   end
+  # A receiver whose `==` is BasicObject's answers identity, with no
+  # send: a `case` over symbols asks this of every arm that misses.
+  if zr_key_builtin_p(recv, Machine.id(:==), Machine.addr(:zr_obj_eq))
+    return Machine.value(QFALSE)
+  end
   r = zr_send(recv, Machine.id(:==), 1, argv)
   return r if r == QUNDEF
   zr_bool(r != QNIL && r != QFALSE)

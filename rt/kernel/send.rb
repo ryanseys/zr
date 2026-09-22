@@ -331,6 +331,13 @@ end
 # runtime made, whatever the program wrote over it (zr_find_core_method).
 SEND_CORE = 8
 SEND_MODE = 7
+# A send written under `using`: the refinements in force at the site
+# are the site's own, told to the task before every send it makes
+# (the lowering's `activate`), so what the lookup answers under them
+# is the class's and the stamp's alone at that site, and its cells may
+# hold it. A refinement's definition moves the stamp as any does, and
+# so does a `using`.
+SEND_USING = 16
 
 # `argv` points at `argc` Values the caller keeps rooted. `mode` is 0
 # for an implicit or self receiver, 1 for a bare identifier, 2 for an

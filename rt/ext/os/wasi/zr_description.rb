@@ -119,7 +119,7 @@ module Ze0
         d zr_buf_take Value b:Ptr
         d zr_buf_take_at Value b:Ptr index:Word
         d zr_consts_changed Void
-        d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
+        d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word mode:Word
         d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word argc:Word
         d zr_direct_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_direct_arity Value recv:Value argc:Word e:Ptr blk:Value found:Value
@@ -134,6 +134,7 @@ module Ze0
         d zr_attr_writer_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_ivar_guess_row Ptr t:Ptr id:Word ic:Ptr
         d zr_send_cached Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr blk:Value mode:Word
+        d zr_fresh_method Ptr klass:Value mid:Word
         d zr_call_cache_slot Ptr cc:Ptr
         d zr_new_cached Value cc:Ptr recv:Value argc:Word argv:Ptr mode:Word
         d zr_const_cacheable Bool e:Ptr
@@ -2389,6 +2390,7 @@ module Ze0
         e zr_attr_writer_fn 127
         e zr_ivar_guess_row 0
         e zr_send_cached 127
+        e zr_fresh_method 120
         e zr_call_cache_slot 0
         e zr_new_cached 127
         e zr_const_cacheable 0
@@ -4530,6 +4532,7 @@ module Ze0
         c SHAPE_MOD_EQQ 8
         c SHAPE_EQ 9
         c SHAPE_NE 10
+        c SHAPE_EQQ 11
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
@@ -4949,6 +4952,7 @@ module Ze0
         c MISS_PROTECTED 5
         c SEND_CORE 8
         c SEND_MODE 7
+        c SEND_USING 16
         c PREEMPT_TICKS 20000
         c SIGNAL_DEFAULT 0
         c SIGNAL_IGNORE 1

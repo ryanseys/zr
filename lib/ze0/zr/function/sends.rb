@@ -20,7 +20,7 @@ module Ze0
         SHAPES = {
           reader: "SHAPE_READER", writer: "SHAPE_WRITER", is_a: "SHAPE_IS_A", instance_of: "SHAPE_INSTANCE_OF",
           nil_p: "SHAPE_NIL_P", frozen_p: "SHAPE_FROZEN_P", ary_length: "SHAPE_ARY_LENGTH", mod_eqq: "SHAPE_MOD_EQQ",
-          eq: "SHAPE_EQ", ne: "SHAPE_NE"
+          eq: "SHAPE_EQ", ne: "SHAPE_NE", eqq: "SHAPE_EQQ"
         }.freeze
         ACCESSOR_SHAPES = %i[reader writer].freeze
         # The questions of no argument, and of one, a site answers by name.
@@ -31,7 +31,7 @@ module Ze0
         # class tests a `case` over objects is made of. `==`, `equal?` and
         # `!=` are identity where the cell holds BasicObject's.
         ARGUED = {
-          is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": [:mod_eqq],
+          is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": %i[mod_eqq eqq],
           "==": [:eq], equal?: [:eq], "!=": [:ne]
         }.freeze
         # The type questions a site answers before its cell, while no
@@ -82,6 +82,9 @@ module Ze0
         ].to_set.freeze
         # The bit a send of the core library carries (SEND_CORE).
         SEND_CORE = 8
+        # The bit a send under `using` carries (SEND_USING): its cells
+        # hold what the lookup under the site's own refinements answered.
+        SEND_USING = 16
         # The cells a send site owns (rt/kernel/cache.rb, CALL_WAYS).
         CALL_WAYS = 4
         # The names a Float is sent in numeric code, whose sites find a
@@ -289,7 +292,8 @@ module Ze0
         # which visibility applies to.
         def send_mode(node)
           mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
-          @l.internal? && !PROTOCOL.include?(node.name) ? mode | SEND_CORE : mode
+          mode |= SEND_CORE if @l.internal? && !PROTOCOL.include?(node.name)
+          node.using ? mode | SEND_USING : mode
         end
 
         def dispatch(node, recv, argv, argc)
@@ -595,7 +599,7 @@ module Ze0
           when :is_a then answered(kernel("zr_is_a_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
           when :instance_of then answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
           when :mod_eqq then answered(kernel("zr_mod_eqq_fast", recv, @f.fetch("i64", argv, 0)), merge, call)
-          when :eq then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @f.fetch("i64", argv, 0)))])
+          when :eq, :eqq then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @f.fetch("i64", argv, 0)))])
           when :ne then @f.jump(merge, [ruby_bool(@f.icmp("ne", recv, @f.fetch("i64", argv, 0)))])
           end
         end
