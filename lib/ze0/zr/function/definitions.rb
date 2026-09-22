@@ -18,12 +18,21 @@ module Ze0
                   else
                     cref_class
                   end
-          addr = @f.func_addr(@f.callee(fn, ABI.fetch(:def), "i64"))
+          direct = Function.direct_def?(node, @l)
+          addr = @f.func_addr(@f.callee(fn, ABI.fetch(direct ? Function.direct_abi(node.params.required.size) : :def), "i64"))
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
           checked_arity = node.params.plain? ? node.params.required.size : -1
           at_node(node)
           entry = node.receiver || inside_method? ? "zr_define_method_public" : "zr_define_method"
-          checked(kernel(entry, owner, sym_word(node.name), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
+          if direct
+            # The generic entry is the kernel's, which checks what a site
+            # proves and calls the body; the body is the direct entry.
+            d = @l.kernel_def("zr_direct_fn")
+            generic = @f.func_addr(@f.callee("zr_direct_fn", d.params.map { |_, t| Machine::TYPES.fetch(t) }, "i64", effects: d.effects || IR::Effects::ALL))
+            checked(kernel("#{entry}_direct", owner, sym_word(node.name), generic, addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
+          else
+            checked(kernel(entry, owner, sym_word(node.name), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
+          end
           symbol(node.name)
         end
 

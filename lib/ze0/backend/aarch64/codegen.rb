@@ -1063,14 +1063,17 @@ module Ze0
         # The memory operand for `off` past the address `base` holds: sp
         # itself when `base` is a slot's address and the sum fits, else the
         # address in a register, read into `scratch` when it has none. A
-        # base folded away (`@derived`) is its root and a constant more.
+        # base folded away (`@derived`) is its root and a constant more,
+        # and one made as a value from sp (`@from_sp`) is read from sp
+        # the same: the argument vector a send passes is read through
+        # by the direct call's loads of the arguments.
         def through(base, scratch, off, width)
           root, k = @derived[base]
           if root
             base = root
             off += k
           end
-          at = @stack[base]
+          at = @stack[base] || @from_sp[base]
           return [SP, at + off] if at && immediate?(at + off, width)
 
           reach(value_in(base, scratch), off, width)

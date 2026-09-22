@@ -14,9 +14,16 @@ module Ze0
 
         def bind_params
           case @kind
-          when :def then bind_method(@def.params, @f.args[1], @f.args[2])
+          when :def then @direct ? bind_direct(@def.params) : bind_method(@def.params, @f.args[1], @f.args[2])
           when :block then bind_block(@def.params)
           end
+        end
+
+        # The direct ABI: the arguments in registers, as many as the def
+        # declares, which the site or zr_direct_fn has proved.
+        def bind_direct(p)
+          p.required.each_with_index { |name, i| bind(name, @f.args[4 + i]) }
+          bind(p.block, block_param(@blk)) if p.block
         end
 
         def bind_method(p, argc, argv)

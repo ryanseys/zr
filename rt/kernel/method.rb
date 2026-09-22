@@ -112,6 +112,7 @@ machine def zr_method_missing_new(recv, klass, mid)
   e = RMethod.entry(m)
   MEntry.set_mid(e, mid)
   MEntry.set_fn(e, 0)
+  MEntry.set_direct(e, 0)
   MEntry.set_arity(e, 0 - 1)
   MEntry.set_kind(e, KIND_MISSING)
   MEntry.set_meta(e, 0)
@@ -535,7 +536,7 @@ machine def zr_method_eq(recv, argc, argv, cref, blk)
   b = RMethod.entry(other)
   # A method `define_method` made keeps its body in the entry's cref:
   # two bodies are two methods.
-  zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && MEntry.fn(a) == MEntry.fn(b) && MEntry.kind(a) == MEntry.kind(b) &&
+  zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && zr_entry_body(a) == zr_entry_body(b) && MEntry.kind(a) == MEntry.kind(b) &&
           (MEntry.kind(a) != KIND_BMETHOD || MEntry.cref(a) == MEntry.cref(b)))
 end
 
@@ -546,7 +547,7 @@ machine def zr_method_hash(recv, argc, argv, cref, blk)
   e = RMethod.entry(recv)
   h = zr_hash_mix(Machine.word(RMethod.recv(recv)))
   h = zr_hash_mix(h ^ Machine.word(RMethod.owner(recv)))
-  h = zr_hash_mix(h ^ Machine.word(MEntry.fn(e)) ^ MEntry.kind(e))
+  h = zr_hash_mix(h ^ Machine.word(zr_entry_body(e)) ^ MEntry.kind(e))
   if MEntry.kind(e) == KIND_BMETHOD
     h = zr_hash_mix(h ^ Machine.word(MEntry.cref(e)))
   end

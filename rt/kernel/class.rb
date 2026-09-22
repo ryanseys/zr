@@ -33,13 +33,26 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # `define_method` body runs under, made at the first call (eval.rb,
 # `zr_bmethod_cref`). An entry is 88 bytes: a Method's cell embeds one
 # after three Values, and a 128-byte cell holds no more.
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word
+# `direct` is the second entry of a compiled def of required positionals
+# alone (Zr::Function, `direct?`): the same body, taking its arguments
+# in registers with no count to check, which a call site that hands it
+# exactly that many reaches through its cell (CallCache.direct). Such a
+# def's `fn` is `zr_direct_fn`, which takes the generic arguments and
+# checks what the site proved.
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word, direct: Ptr
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
 # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
 # own entry, whose name and cref its frame records, and the chain node
 # the lookup found it on. A builtin takes `(recv, argc, argv, cref, blk)`.
+# A direct entry takes `(recv, entry, blk, found, ...)`: its own count
+# of arguments in registers, up to four, and one signature a count.
 Machine.sig :method, [Value, Word, Ptr, Ptr, Value, Value] => Value
 Machine.sig :builtin, [Value, Word, Ptr, Value, Value] => Value
+Machine.sig :direct0, [Value, Ptr, Value, Value] => Value
+Machine.sig :direct1, [Value, Ptr, Value, Value, Value] => Value
+Machine.sig :direct2, [Value, Ptr, Value, Value, Value, Value] => Value
+Machine.sig :direct3, [Value, Ptr, Value, Value, Value, Value, Value] => Value
+Machine.sig :direct4, [Value, Ptr, Value, Value, Value, Value, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
 # ivar's id in `fn`.
 KIND_ATTR_READER = 3
@@ -877,7 +890,7 @@ machine def zr_gate_row(i, klass, mid, bit)
   GateRow.set_bit(row, bit)
   e = zr_search_method(zr_global(klass), mid)
   if e != 0
-    GateRow.set_fn(row, MEntry.fn(e))
+    GateRow.set_fn(row, zr_entry_body(e))
     GateRow.set_vis(row, MEntry.vis(e))
   end
   i + 1
@@ -947,7 +960,7 @@ machine def zr_gates_recheck(mid)
     row = rows + (i * GateRow.size)
     if (mid == 0 || GateRow.mid(row) == mid) && (Machine.gates & GateRow.bit(row)) == 0
       e = zr_search_method(zr_global(GateRow.klass(row)), GateRow.mid(row))
-      if e == 0 || MEntry.fn(e) != GateRow.fn(row) || MEntry.vis(e) != GateRow.vis(row)
+      if e == 0 || zr_entry_body(e) != GateRow.fn(row) || MEntry.vis(e) != GateRow.vis(row)
         Machine.gates_set(Machine.gates | GateRow.bit(row))
       end
     end
@@ -964,6 +977,37 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, cref))
 end
 
+# A def with a direct entry (MEntry.direct): `fn` is zr_direct_fn, and
+# `direct` the body. The entry waits in a static word for the row,
+# which zr_define_method_as reads and clears before any hook runs --
+# `method_added` may call the method it was told of -- since the row's
+# eight fields fill the argument registers already.
+sig [Value, Word, Ptr, Ptr, Word, Word, Ptr, Value] => Value
+machine def zr_define_method_direct(klass, mid, fn, direct, arity, kind, meta, cref)
+  Machine.store64(zr_direct_pending(), 0, Machine.word(direct))
+  zr_define_method(klass, mid, fn, arity, kind, meta, cref)
+end
+
+sig [Value, Word, Ptr, Ptr, Word, Word, Ptr, Value] => Value
+machine def zr_define_method_public_direct(klass, mid, fn, direct, arity, kind, meta, cref)
+  Machine.store64(zr_direct_pending(), 0, Machine.word(direct))
+  zr_define_method_public(klass, mid, fn, arity, kind, meta, cref)
+end
+
+sig [] => Ptr
+machine def zr_direct_pending
+  Machine.static(:direct_pending, 8)
+end
+
+# The body of `e`, what tells one method from another: its direct
+# entry where it has one, since every such def's `fn` is
+# zr_direct_fn, else its `fn`.
+sig [Ptr] => Ptr
+machine def zr_entry_body(e)
+  direct = MEntry.direct(e)
+  direct != 0 ? direct : MEntry.fn(e)
+end
+
 # `def obj.name`, and a def inside a method body: public whatever the
 # scope's visibility verb says, except the initialize family.
 sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
@@ -975,10 +1019,14 @@ sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Value
 machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   # Under `1.instance_eval` no singleton class can take the method.
   if cref != QNIL && RCref.eval(cref) == EVAL_NO_DEF
+    Machine.store64(zr_direct_pending(), 0, 0)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
   end
   frozen = zr_class_modify_check(klass)
-  return frozen if frozen == QUNDEF
+  if frozen == QUNDEF
+    Machine.store64(zr_direct_pending(), 0, 0)
+    return frozen
+  end
   klass = zr_origin(klass)
   if meta == 0
     meta = zr_xmalloc(FrameMeta.size)
@@ -1013,6 +1061,9 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   end
   zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis | core)
   zr_coverage_method_claim(klass, mid, meta)
+  # The rows have their direct entry (zr_define_method_direct); the
+  # hooks run under no pending one.
+  Machine.store64(zr_direct_pending(), 0, 0)
   # Under `module_function` one def makes two methods, and ruby reports
   # both of them.
   r = zr_method_added(klass, mid)
@@ -1197,6 +1248,7 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_from(e, Machine.value(QNIL))
   MEntry.set_core(e, core ? 1 : 0)
   MEntry.set_cover(e, 0)
+  MEntry.set_direct(e, Machine.ptr(Machine.load64(zr_direct_pending(), 0)))
   IvarCache.set_index(MEntry.ivar(e), 0)
   zr_gates_recheck(mid)
 end
@@ -1216,7 +1268,11 @@ machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
   end
   # The same definition again, as `alias_method :m, :m` or a second
   # `module_function :m` writes it: the same body, or the same Proc.
-  if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : MEntry.fn(e) == fn && !zr_word_entry_p(kind))
+  body = Machine.ptr(Machine.load64(zr_direct_pending(), 0))
+  if body == 0
+    body = fn
+  end
+  if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : zr_entry_body(e) == body && !zr_word_entry_p(kind))
     return
   end
   if zr_internal_meta_p(meta) && !zr_word_entry_p(kind)
@@ -1393,10 +1449,13 @@ machine def zr_method_copy(klass, mid, e, meta, vis, found)
     from = Task.found(zr_task())
   end
   cover = MEntry.cover(e)
+  direct = MEntry.direct(e)
   zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), meta, MEntry.cref(e), vis)
   e = zr_find_method_at(zr_origin(klass), mid)
   MEntry.set_orig(e, orig)
   MEntry.set_from(e, from)
+  # An alias or a visibility copy of a def with a direct entry keeps it.
+  MEntry.set_direct(e, direct)
   zr_write_barrier(klass, from)
   # An alias counts where the method it was made from counts, which is
   # what rb_resolve_me_location gives the :call event.

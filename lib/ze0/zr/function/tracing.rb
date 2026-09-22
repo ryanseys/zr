@@ -42,7 +42,7 @@ module Ze0
         # CRuby counts on the :call event. The entry a compiled method
         # is called with names the row, so an alias and a method a
         # `define_method` copied both count where their original does.
-        def cover_method = kernel("zr_coverage_method", @f.args[3])
+        def cover_method = kernel("zr_coverage_method", arg_entry)
 
         # The scope's opening event, once its parameters are bound.
         def trace_open

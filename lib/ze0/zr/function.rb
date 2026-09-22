@@ -43,7 +43,12 @@ module Ze0
       include Tracing
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
-      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64] }.freeze
+      # The most arguments a direct entry takes in registers; `direct0`
+      # to `direct4` are its ABIs, one a count (rt/kernel/class.rb).
+      DIRECT_ARGS = 4
+      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64],
+              **(0..DIRECT_ARGS).to_h { |n| [:"direct#{n}", %w[i64] * (4 + n)] } }.freeze
+      def self.direct_abi(n) = :"direct#{n}"
 
       # The `&b` parameter bound as the block it was given, a Proc still
       # on the caller's stack, or nil (`Params#raw_block?`).
@@ -54,6 +59,17 @@ module Ze0
         @def
       end
 
+      # Whether a def takes the direct ABI (`ABI[:direct]`): required
+      # positionals alone, four at most, none a pattern, so a site that
+      # hands it that many arguments proves its count and it reads them
+      # out of registers with no keyword word and no count to check
+      # (rt/kernel/class.rb, MEntry.direct). A traced program's defs keep
+      # the generic ABI, since its hooks read every frame the same way.
+      def self.direct_def?(node, lower)
+        p = node.params
+        !lower.traced? && p.plain? && p.required.size <= DIRECT_ARGS && p.required.none?(Hir::MultiTarget)
+      end
+
       def initialize(lower, name, locals, body, node, kind, outer: nil)
         @l = lower
         @name = name
@@ -61,6 +77,7 @@ module Ze0
         @body = body
         @def = node
         @kind = kind
+        @direct = kind == :def && Function.direct_def?(node, lower)
         @outer = outer
         @frame = lower.layout("Frame")
         @task = lower.layout("Task")
@@ -87,7 +104,7 @@ module Ze0
       end
 
       def lower
-        @f = IR::Function.new(@name, ABI.fetch(@kind), "i64")
+        @f = IR::Function.new(@name, ABI.fetch(@direct ? Function.direct_abi(@def.params.required.size) : @kind), "i64")
         enter
         bind_params
         # A method that only recurses has no back edge: its entry is
@@ -120,6 +137,11 @@ module Ze0
       def slot_at(node)
         scope_at(node.depth).slot_index(node)
       end
+
+      # A def's entry, block and found node, where its ABI puts them.
+      def arg_entry = @f.args[@direct ? 1 : 3]
+      def arg_blk = @f.args[@direct ? 2 : 4]
+      def arg_found = @f.args[@direct ? 3 : 5]
 
       # The function `depth` block scopes out from this one.
       def scope_at(depth)
@@ -206,8 +228,8 @@ module Ze0
         # off the entry, and both go into the record before the stack
         # check so that nothing holds them across it.
         if @kind == :def
-          @f.store(@f.args[3], @rec, off(@frame, "entry"))
-          @f.store(@f.args[5], @rec, off(@frame, "defined"))
+          @f.store(arg_entry, @rec, off(@frame, "entry"))
+          @f.store(arg_found, @rec, off(@frame, "defined"))
           cref = entry_field("cref")
         end
         stack_check
@@ -239,7 +261,7 @@ module Ze0
         # An eval's block is the one the scope it runs in was given, so a
         # `yield` in the string reaches the caller's block.
         @blk = case @kind
-               when :def then @f.args[4]
+               when :def then arg_blk
                when :block then proc_field("blk")
                when :eval then @f.args[3]
                else @qnil
@@ -727,7 +749,7 @@ module Ze0
 
       # In a method: a field of the entry it was called through.
       def entry_field(name)
-        @f.fetch("i64", @f.args[3], off(@l.layout("MEntry"), name))
+        @f.fetch("i64", arg_entry, off(@l.layout("MEntry"), name))
       end
 
       # In a block function: whether this Proc is a lambda.

@@ -120,7 +120,9 @@ module Ze0
         d zr_buf_take_at Value b:Ptr index:Word
         d zr_consts_changed Void
         d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
-        d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word
+        d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word argc:Word
+        d zr_direct_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_direct_arity Value recv:Value argc:Word e:Ptr blk:Value found:Value
         d zr_entry_shape Word e:Ptr
         d zr_is_a_fast Value klass:Value mod:Value
         d zr_mod_eqq_fast Value mod:Value obj:Value
@@ -192,6 +194,10 @@ module Ze0
         d zr_gates_snapshot Void
         d zr_gates_recheck Void mid:Word
         d zr_define_method Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
+        d zr_define_method_direct Value klass:Value mid:Word fn:Ptr direct:Ptr arity:Word kind:Word meta:Ptr cref:Value
+        d zr_define_method_public_direct Value klass:Value mid:Word fn:Ptr direct:Ptr arity:Word kind:Word meta:Ptr cref:Value
+        d zr_direct_pending Ptr
+        d zr_entry_body Ptr e:Ptr
         d zr_define_method_public Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_as Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
         d zr_meta_owned Ptr meta:Ptr owner:Value
@@ -2304,6 +2310,8 @@ module Ze0
         e zr_consts_changed 2
         e zr_call_cache_hit 120
         e zr_call_cache_fill 127
+        e zr_direct_fn 127
+        e zr_direct_arity 127
         e zr_entry_shape 127
         e zr_is_a_fast 0
         e zr_mod_eqq_fast 0
@@ -2375,6 +2383,10 @@ module Ze0
         e zr_gates_snapshot 120
         e zr_gates_recheck 121
         e zr_define_method 127
+        e zr_define_method_direct 127
+        e zr_define_method_public_direct 127
+        e zr_direct_pending 0
+        e zr_entry_body 0
         e zr_define_method_public 127
         e zr_define_method_as 127
         e zr_meta_owned 56
@@ -5049,12 +5061,12 @@ module Ze0
         s BufTail 64 8 w0:0:Word w1:8:Word w2:16:Word w3:24:Word w4:32:Word w5:40:Word w6:48:Word w7:56:Word
         s Buf 88 8 ptr:0:Ptr len:8:Word capa:16:Word tail:24:BufTail
         s IvarCache 8 8 index:0:Word
-        s CallCache 48 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value fn:32:Ptr shape:40:Word
+        s CallCache 56 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value fn:32:Ptr shape:40:Word direct:48:Ptr
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s SuperCache 48 8 node:0:Value mid:8:Word stamp:16:Word entry:24:Ptr found:32:Value fn:40:Ptr
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
         s ClassExt 232 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:80:IvTab serial:112:Word refined:120:Value active:128:Value boxed:136:Value shadow:144:Value alloc:152:Word cidx:160:Ptr cbins:168:Word saved:176:Ptr slen:184:Word supers:192:Ptr rank:200:Word midx:208:Ptr mbins:216:Word obj_bytes:224:Word
-        s MEntry 96 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache cover:88:Word
+        s MEntry 104 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache cover:88:Word direct:96:Ptr
         s CEntry 72 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value concealed:64:Word
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
@@ -5077,7 +5089,7 @@ module Ze0
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
-        s RMethod 136 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
+        s RMethod 144 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 32 8 rows:0:Ptr len:8:Word cap:16:Word names:24:Word
         s IvEntry 16 8 id:0:Word value:8:Value
         s RObject 48 8 basic:0:RBasic iv:16:IvTab

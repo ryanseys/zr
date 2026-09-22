@@ -39,7 +39,7 @@ Machine.struct :IvarCache, index: Word
 # #accessor_in_place`), one of the core's type questions it answers
 # itself (`#in_place`), and SHAPE_NONE every other kind, which is
 # what a cell holds until a fill says otherwise.
-Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word
+Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word, direct: Ptr
 CALL_WAYS = 4
 SHAPE_NONE = 0
 SHAPE_READER = 1
@@ -90,8 +90,8 @@ end
 
 # The answer `zr_dispatch` just found for `klass`, into the cell when
 # the class and the stamp alone decided it.
-sig [Ptr, Value, Ptr, Word, Word] => Void
-machine def zr_call_cache_fill(cc, klass, e, mid, mode)
+sig [Ptr, Value, Ptr, Word, Word, Word] => Void
+machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
     return
   end
@@ -116,6 +116,76 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode)
   CallCache.set_found(cc, zr_entry_found(e))
   CallCache.set_fn(cc, zr_entry_fn(e))
   CallCache.set_shape(cc, zr_entry_shape(e))
+  # The direct entry, for a site that hands the def exactly the
+  # arguments it declares: what zr_direct_fn would check is settled
+  # here, once.
+  direct = 0
+  if MEntry.kind(e) == KIND_DEF && MEntry.arity(e) == argc
+    direct = MEntry.direct(e)
+  end
+  CallCache.set_direct(cc, direct)
+end
+
+# The generic entry of a def that has a direct one: the keyword word
+# and the count checked, as the def's own prologue would, then the
+# body with the arguments in registers. A count the def did not
+# declare raises under a frame of the def's, as the prologue's check
+# did, so the backtrace names it.
+sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+machine def zr_direct_fn(recv, argc, argv, e, blk, found)
+  t = zr_task()
+  kw = Task.kw(t)
+  if kw != 0
+    Task.set_kw(t, 0)
+    argc = zr_kw_undeclared(kw, argc, argv, 0)
+  end
+  if argc != MEntry.arity(e)
+    return zr_direct_arity(recv, argc, e, blk, found)
+  end
+  direct = MEntry.direct(e)
+  if argc == 0
+    return Machine.call(:direct0, direct, recv, e, blk, found)
+  end
+  a = Machine.value(Machine.load64(argv, 0))
+  if argc == 1
+    return Machine.call(:direct1, direct, recv, e, blk, found, a)
+  end
+  b = Machine.value(Machine.load64(argv, 8))
+  if argc == 2
+    return Machine.call(:direct2, direct, recv, e, blk, found, a, b)
+  end
+  c = Machine.value(Machine.load64(argv, 16))
+  if argc == 3
+    return Machine.call(:direct3, direct, recv, e, blk, found, a, b, c)
+  end
+  Machine.call(:direct4, direct, recv, e, blk, found, a, b, c, Machine.value(Machine.load64(argv, 24)))
+end
+
+# The arity error of a def with a direct entry, raised under a frame
+# of the def's own: its meta, its line, its self and block.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_direct_arity(recv, argc, e, blk, found)
+  t = zr_task()
+  rec = Machine.slot(Frame.size)
+  if Machine.word(rec) < Machine.word(Task.stack_limit(t))
+    return zr_stack_overflow()
+  end
+  meta = MEntry.meta(e)
+  Frame.set_prev(rec, Task.top(t))
+  Frame.set_meta(rec, meta)
+  Frame.set_line(rec, FrameMeta.line(meta) | (FrameMeta.node(meta) << 32))
+  Frame.set_serial(rec, 0)
+  Frame.set_self(rec, recv)
+  Frame.set_cref(rec, MEntry.cref(e))
+  Frame.set_blk(rec, blk)
+  Frame.set_nvalues(rec, 0)
+  Frame.set_entry(rec, e)
+  Frame.set_svars(rec, Machine.value(QNIL))
+  Frame.set_defined(rec, found)
+  Task.set_top(t, rec)
+  r = zr_wrong_arity(argc, MEntry.arity(e))
+  Task.set_top(t, Frame.prev(rec))
+  r
 end
 
 # What a site may do in place of the call to `e`: an accessor's whole
@@ -455,7 +525,7 @@ machine def zr_new_cached(cc, recv, argc, argv, mode)
     klass = zr_box_view(zr_class_of(recv))
     e = zr_find_method(klass, Machine.id(:new))
     if e != 0
-      zr_call_cache_fill(cc, klass, e, Machine.id(:new), mode)
+      zr_call_cache_fill(cc, klass, e, Machine.id(:new), mode, 0 - 2)
     end
   end
   if e == 0 || MEntry.fn(e) != Machine.addr(:zr_class_new_instance) || MEntry.vis(e) != VIS_PUBLIC

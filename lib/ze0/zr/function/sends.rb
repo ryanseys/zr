@@ -448,13 +448,35 @@ module Ze0
               switch(onward)
             end
           end
+          found = @f.fetch("i64", cc, off(cell, "found"))
+          if direct_site?(node)
+            # The def's direct entry, where the cell holds one for this
+            # site's count: the staged arguments go in registers, with
+            # no count and no keyword word for the def to check.
+            fast = @f.label
+            generic = @f.label
+            direct = @f.fetch("i64", cc, off(cell, "direct"))
+            @f.brif(@f.icmp("ne", direct, imm(0)), fast, generic)
+            switch(fast)
+            n = node.args.size
+            given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
+            @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(Function.direct_abi(n)), "i64"), direct, [recv, entry, blk, found, *given])])
+            switch(generic)
+          end
           fn = @f.fetch("i64", cc, off(cell, "fn"))
-          args = [recv, argc, argv, entry, blk, @f.fetch("i64", cc, off(cell, "found"))]
+          args = [recv, argc, argv, entry, blk, found]
           @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(:def), "i64"), fn, args)])
           switch(miss)
           @f.jump(merge, [slow.call])
           switch(merge)
           result
+        end
+
+        # Whether a site may take a def's direct entry: positional
+        # arguments alone, four at most, so its count is its own to
+        # prove.
+        def direct_site?(node)
+          node.args.size <= DIRECT_ARGS && node.kwargs.nil? && node.args.none?(Hir::Splat)
         end
 
         # The shapes a site may carry, in the order it tests them: what its
