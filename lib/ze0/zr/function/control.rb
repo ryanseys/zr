@@ -75,7 +75,7 @@ module Ze0
             @f.store(n, count)
             @f.brif(@f.icmp("sle", n, imm(0)), expired, go)
           else
-            @f.brif(@f.icmp("ne", @f.fetch("i64", static("current_task"), 8), imm(0)), expired, go)
+            @f.brif(@f.icmp("ne", @f.fetch("i64", static("current_task"), 8, region: :volatile), imm(0)), expired, go)
           end
           switch(expired)
           checked(kernel("zr_preempt_expired"))

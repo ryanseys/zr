@@ -3,6 +3,7 @@
 require "set"
 
 require_relative "function"
+require_relative "gvn"
 require_relative "statics"
 require_relative "types"
 require_relative "verify"
@@ -54,11 +55,13 @@ module Ze0
       # runtime's object grows by 223 KB, and the whole pass costs 0.6 s
       # of the 9.3 s that object takes. `Statics` runs after `Forward`,
       # whose slot loads it need not walk, and before `Chains`, so the
-      # gate test it leaves as a value splits into the branch chain.
+      # gate test it leaves as a value splits into the branch chain;
+      # `GVN` after it, so the values it made are numbered with the rest.
       def run(f)
         Fold.run(f)
         Forward.run(f)
         Statics.run(f)
+        GVN.run(f)
         Fold.run(f)
         Chains.run(f)
         Blocks.run(f)
@@ -449,7 +452,10 @@ module Ze0
           return unless gate && (gate.op == :band || gate.op == :bor) && @uses.fetch(gate.results[0], 0) == 1
 
           first, second = gate.args
-          moved = chain_of(b, second, b.insts.index(gate))
+          # A second operand read elsewhere too (`GVN` makes one of two
+          # alike) stays where it is, computed ahead of both branches;
+          # only one read by the gate alone moves behind the first test.
+          moved = @uses.fetch(second, 0) == 1 ? chain_of(b, second, b.insts.index(gate)) : []
           return if moved.nil?
 
           yes, no = br.targets

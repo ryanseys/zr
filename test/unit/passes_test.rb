@@ -200,6 +200,26 @@ class PassesTest < Minitest::Test
     assert_equal [1, 1, 0], [[1, 1], [20, 9], [20, 1]].map { |args| answer(f, args) }
   end
 
+  # A conjunction's second test read elsewhere too stays ahead of the
+  # branch chain, since the other reader needs it whichever way the
+  # first test goes.
+  def test_a_second_test_read_elsewhere_stays_ahead_of_the_chain
+    f = function("shared", %w[i64 i64], "i64") do |f, x, y|
+      a = f.icmp("slt", x, f.iconst("i64", 10))
+      c = f.icmp("sgt", y, f.iconst("i64", 3))
+      yes = f.label
+      no = f.label
+      f.brif(f.band(a, c), yes, no)
+      f.switch(yes)
+      f.ret(f.iconst("i64", 1))
+      f.switch(no)
+      f.ret(f.uextend("i64", c))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 2, f.entry_block.insts.count { |i| i.op == :icmp }, "both tests stay in the entry"
+    assert_equal [1, 1, 0], [[1, 9], [20, 9], [20, 1]].map { |args| answer(f, args) }
+  end
+
   def test_blocks_fold_away
     f = function("blocks", %w[i64], "i64") do |f, x|
       # An unreachable arm, a block that only jumps on, and a join with
@@ -318,21 +338,25 @@ class PassesTest < Minitest::Test
     assert_equal 5, was
   end
 
-  # A static that is not a promoted word keeps every load: the task
-  # slot, whose poll word the timer thread writes between any two
-  # instructions.
-  def test_a_static_that_is_not_promoted_keeps_its_loads
+  # A static that is not a promoted word is still one load across a
+  # call that cannot write it (`GVN`): the task pointer, over an
+  # allocation. The poll word beside it is volatile: every load of it
+  # stays, even two with nothing between.
+  def test_a_static_that_is_not_promoted_is_numbered_and_a_volatile_word_never
     f = function("poll", [], "i64") do |f|
       at = f.symbol_addr(f.symbol("zr_static_current_task"))
       a = f.fetch("i64", at)
       b = f.fetch("i64", at, 8)
+      f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:heap)), [])
       c = f.fetch("i64", at)
       d = f.fetch("i64", at, 8)
-      f.ret(f.iadd(f.iadd(a, b), f.iadd(c, d)))
+      e = f.fetch("i64", at)
+      f.ret(f.iadd(f.iadd(a, b), f.iadd(f.iadd(c, d), e)))
     end
+    allocate = function("allocate", [], nil) { |g| g.ret }
     Ze0::IR::Passes.prepare(f, strict: true)
-    assert_equal [0, 0, 8, 8], loads(f).map(&:offset).sort
-    assert_equal 20, answer_with([f], [static("current_task", [7, 3].pack("q<q<"))], [])
+    assert_equal [0, 8, 8], loads(f).map(&:offset).sort
+    assert_equal 27, answer_with([f, allocate], [static("current_task", [7, 3].pack("q<q<"))], [])
   end
 
   # A store the function makes is what a later read gets, until a
@@ -377,18 +401,93 @@ class PassesTest < Minitest::Test
     assert_equal %i[symbol_value load call iconst store call load iconst store load iadd iadd iadd return], ops(f)
   end
 
+  # `GVN`: a value computed in a dominator is read there, in either
+  # order of a commutative opcode; one computed in one arm of a branch
+  # is not offered to the other.
+  def test_a_value_computed_by_a_dominator_is_not_computed_again
+    f = function("numbering", %w[i64 i64 i8], "i64") do |f, x, y, c|
+      a = f.iadd(x, y)
+      left = f.label
+      right = f.label
+      merge, (r,) = f.block(%w[i64])
+      f.brif(c, left, right)
+      f.switch(left)
+      f.jump(merge, [f.imul(f.iadd(y, x), f.iconst("i64", 3))])
+      f.switch(right)
+      f.jump(merge, [f.imul(f.iadd(x, y), f.iconst("i64", 3))])
+      f.switch(merge)
+      f.ret(f.iadd(r, a))
+    end
+    was = [[2, 3, 1], [2, 3, 0]].map { |args| answer(f, args) }
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 1, ops(f).count(:iadd) - 1, "one sum, and the return's"
+    assert_equal 2, ops(f).count(:imul), "an arm's product is its own"
+    assert_equal was, [[2, 3, 1], [2, 3, 0]].map { |args| answer(f, args) }
+    assert_equal [20, 20], was
+  end
+
+  # A load is read again only past what cannot write its region: a
+  # store to another region, a call that leaves it alone; a store to
+  # its region, on any path between, makes it load again.
+  def test_a_load_is_read_again_only_across_what_cannot_write_it
+    f = function("reloads", %w[i64 i8], "i64") do |f, p, c|
+      a = f.fetch("i64", p, 8, region: :heap)
+      f.store(f.iconst("i64", 1), p, 16, region: :malloc)
+      f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:malloc)), [])
+      b = f.fetch("i64", p, 8, region: :heap)
+      left = f.label
+      right = f.label
+      merge = f.label
+      f.brif(c, left, right)
+      f.switch(left)
+      f.store(f.iconst("i64", 2), p, 24, region: :heap)
+      f.jump(merge)
+      f.switch(right)
+      f.jump(merge)
+      f.switch(merge)
+      d = f.fetch("i64", p, 8, region: :heap)
+      f.ret(f.iadd(f.iadd(a, b), d))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 2, loads(f).size, "the second load is the first; the one past the arm's store is not"
+  end
+
+  # A loop's header loads again what its body stores, whatever the
+  # block before the loop loaded.
+  def test_a_loop_header_loads_again_what_the_body_writes
+    f = function("carried", %w[i64 i64], "i64") do |f, p, n|
+      before = f.fetch("i64", p, region: :heap)
+      head, (i, acc) = f.block(%w[i64 i64])
+      body = f.label
+      done = f.label
+      f.jump(head, [f.iconst("i64", 0), before])
+      f.switch(head)
+      here = f.fetch("i64", p, region: :heap)
+      f.brif(f.icmp("slt", i, n), body, done)
+      f.switch(body)
+      f.store(f.iadd(here, f.iconst("i64", 1)), p, region: :heap)
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), f.iadd(acc, here)])
+      f.switch(done)
+      f.ret(f.iadd(acc, here))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 2, loads(f).size
+  end
+
   # An address that reaches a call, a store of part of the word, or a
   # load of it as another type keeps every load of the word.
   def test_a_word_whose_address_escapes_or_that_is_written_in_part_keeps_its_loads
     escapes = function("escapes", [], "i64") do |f|
       gates = f.symbol_addr(f.symbol("zr_static_gates"))
+      a = f.fetch("i64", gates)
       f.call(f.callee("take", %w[i64], nil), [gates])
-      f.ret(f.iadd(f.fetch("i64", gates), f.fetch("i64", gates)))
+      f.ret(f.iadd(a, f.fetch("i64", gates)))
     end
     part = function("part", [], "i64") do |f|
       gates = f.symbol_addr(f.symbol("zr_static_gates"))
+      a = f.fetch("i64", gates)
       f.store(f.iconst("i32", 1), gates)
-      f.ret(f.iadd(f.fetch("i64", gates), f.fetch("i64", gates)))
+      f.ret(f.iadd(a, f.fetch("i64", gates)))
     end
     [escapes, part].each do |f|
       Ze0::IR::Passes.prepare(f, strict: true)
