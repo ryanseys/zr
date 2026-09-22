@@ -1157,6 +1157,7 @@ module Ze0
         d zr_site_literal Value g:Word index:Word
         d zr_site_literal_set Void g:Word index:Word v:Value
         d zr_range_literal Value index:Word low:Value high:Value excl:Word
+        d zr_range_fix_bounds Bool range:Value out:Ptr
         d zr_range_new Value low:Value high:Value excl:Word
         d zr_class_allocate Value recv:Value
         d zr_class_build Value recv:Value
@@ -1481,6 +1482,7 @@ module Ze0
         d zr_int_downto Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_enum_for Value recv:Value mid:Word argc:Word argv:Ptr size:Value
         d zr_ary_each Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_iter_enter Void recs:Ptr recv:Value mid:Word meta:Ptr
         d zr_ary_plain_each_p Value v:Value
         d zr_ary_each_with_index_m Value recv:Value blk:Value
         d zr_ary_each_with_index Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -3350,6 +3352,7 @@ module Ze0
         e zr_site_literal 127
         e zr_site_literal_set 127
         e zr_range_literal 127
+        e zr_range_fix_bounds 120
         e zr_range_new 127
         e zr_class_allocate 127
         e zr_class_build 126
@@ -3674,6 +3677,7 @@ module Ze0
         e zr_int_downto 127
         e zr_enum_for 127
         e zr_ary_each 127
+        e zr_iter_enter 120
         e zr_ary_plain_each_p 127
         e zr_ary_each_with_index_m 127
         e zr_ary_each_with_index 127
@@ -4412,7 +4416,7 @@ module Ze0
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
-        c GATE_ROWS 39
+        c GATE_ROWS 42
         c ROW_CORE 256
         c CORE_KEY 4611686018427387904
         c METHOD_INDEX_MIN 16
@@ -4580,6 +4584,9 @@ module Ze0
         c GATE_INSTANCE_OF 1099511627776
         c GATE_MOD_EQQ 2199023255552
         c GATE_NIL_P 4398046511104
+        c GATE_EACH 8796093022208
+        c GATE_TIMES 17592186044416
+        c GATE_RANGE_EACH 35184372088832
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4

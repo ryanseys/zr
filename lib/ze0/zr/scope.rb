@@ -87,6 +87,41 @@ module Ze0
         first.is_a?(Hir::Literal) && OPEN_FORMS.include?(first.value)
       end
 
+      # The iterators a site with a block literal runs in place
+      # (Function::Iterators), each with the most parameters its block
+      # may take.
+      ITERATORS = { each: 1, times: 1 }.freeze
+
+      # Whether `node` is a send of one of ITERATORS with a block literal
+      # a site may run in place: no arguments, an explicit receiver, a
+      # block of plain parameters (a name at most) that holds no block
+      # of its own, opens no binding, and is a body `loop_body?` takes.
+      # A template's block keeps its locals in the site's record, so a
+      # scope counts them among its slots (`staging`).
+      def iterator_template?(node)
+        return false unless node.is_a?(Hir::Send) && node.block.is_a?(Hir::Block) && ITERATORS.key?(node.name)
+        return false unless node.args.empty? && node.kwargs.nil? && node.recv && node.using.nil?
+
+        p = node.block.params
+        return false unless p.plain? && p.block.nil? && p.required.size <= ITERATORS.fetch(node.name) && p.required.all?(Symbol)
+
+        body = node.block.body
+        !holds_block?(body) && !opens_locals?(body) && loop_body?(body)
+      end
+
+      # Whether a block body may run in the frame of the scope that
+      # holds it: nothing in it names the block's own frame or defines
+      # under it -- no super, no def or class body, no trace or cover
+      # row (a traced program keeps every frame).
+      def loop_body?(node)
+        case node
+        when Hir::Super, Hir::ZSuper, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef, Hir::Trace, Hir::Cover then false
+        when Struct then node.to_a.all? { |v| loop_body?(v) }
+        when Array then node.all? { |v| loop_body?(v) }
+        else true
+        end
+      end
+
       # How many record slots the sends under `node` need at once, past
       # `base`: a send holds its receiver and arguments while an
       # argument's own sends run above them. An ensure body may run from
@@ -99,7 +134,10 @@ module Ze0
         when Hir::Send
           extra = keyword_slots(node.kwargs) + (node.safe ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
-          [top, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
+          # An iterator run in place keeps its block's locals and its
+          # index above the receiver, and the body stages above those.
+          inside = iterator_template?(node) ? staging(node.block.body, top + node.block.locals.size + 1) : top
+          [top, inside, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + keyword_slots(node.kwargs)
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max

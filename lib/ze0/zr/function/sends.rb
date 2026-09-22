@@ -204,7 +204,9 @@ module Ze0
 
         # A traced program sends every operator, so a :c_call sees it.
         def send_staged(node, recv, argv, argc)
-          if node.block
+          if node.block && iterator_template?(node)
+            iterate(node, recv, argv, argc)
+          elsif node.block
             call_with_block(node, recv, argv, argc)
           elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil? && !traced?
             operator(node, recv, argv)

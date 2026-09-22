@@ -13,6 +13,7 @@ require_relative "function/targets"
 require_relative "function/defined"
 require_relative "function/tracing"
 require_relative "function/inline"
+require_relative "function/iterators"
 
 module Ze0
   module Zr
@@ -43,6 +44,7 @@ module Ze0
       include Defined
       include Tracing
       include Inline
+      include Iterators
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
       # The most arguments a direct entry takes in registers; `direct0`
@@ -148,6 +150,13 @@ module Ze0
       # The function `depth` block scopes out from this one.
       def scope_at(depth)
         fn = self
+        # A block body run in place (`Iterators`): its own scope stands
+        # first, and this one is a level out.
+        if @inline_scope
+          return @inline_scope if depth.zero?
+
+          depth -= 1
+        end
         depth.times { fn = fn.outer }
         fn
       end
@@ -417,7 +426,7 @@ module Ze0
         return if word == @line
 
         @line = word
-        @f.store(imm(word), @rec, off(@frame, "line"))
+        @f.store(imm(word), @line_rec || @rec, off(@frame, "line"))
       end
 
       # The same for `node`, with the id of the prism node it came from in
@@ -584,6 +593,11 @@ module Ze0
       end
 
       def read_local(i, depth, name = nil)
+        if @inline_scope
+          return @f.fetch("i64", @rec, value_offset(i)) if depth.zero?
+
+          depth -= 1
+        end
         capture(name, depth, write: false)
         return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
 
@@ -591,6 +605,13 @@ module Ze0
       end
 
       def write_local(i, depth, v, name = nil)
+        if @inline_scope
+          if depth.zero?
+            @f.store(v, @rec, value_offset(i))
+            return v
+          end
+          depth -= 1
+        end
         capture(name, depth, write: true)
         if depth.zero? && !@has_env
           @f.store(v, @rec, value_offset(i))

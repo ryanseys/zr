@@ -409,6 +409,31 @@ machine def zr_range_literal(index, low, high, excl)
   r
 end
 
+# The first and the last fixnum of `range` into `out`, as fixnums,
+# where both ends are fixnums (an exclusive end one less): what a site
+# runs `each` over in place (Function::Iterators). False for any
+# other Range, which takes the call.
+sig [Value, Ptr] => Bool
+machine def zr_range_fix_bounds(range, out)
+  low = zr_ivar_get(range, Machine.id(:begin))
+  high = zr_ivar_get(range, Machine.id(:end))
+  if !zr_fixnum_p(low) || !zr_fixnum_p(high)
+    return false
+  end
+  Machine.store64(out, 0, Machine.word(low))
+  last = Machine.word(high)
+  if zr_ivar_get(range, Machine.id(:excl)) != QFALSE
+    last -= 2
+  end
+  # The site steps past the last value before it compares again; the
+  # greatest fixnum has no word past it.
+  if last == 9223372036854775807
+    return false
+  end
+  Machine.store64(out, 8, last)
+  true
+end
+
 sig [Value, Value, Word] => Value
 machine def zr_range_new(low, high, excl)
   if low != QNIL && high != QNIL && !(zr_fixnum_p(low) && zr_fixnum_p(high))

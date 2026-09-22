@@ -74,6 +74,24 @@ fills what the copy reads next time. A program sees no frame for the
 def, and so no `SystemStackError` from it; nothing in a copy raises,
 so no backtrace is ever taken inside one.
 
+## An iterator run at its site
+
+`ary.each { |x| ... }`, `n.times { |i| ... }` and `(a..b).each { |i|
+... }` with a block literal run in place (`Zr::Function::Iterators`):
+the loop at the site, and the block's body in the site's own function,
+where the block's locals are record slots of the site's. The receiver
+is tested once -- an Array, a fixnum or a Range of fixnums, with the
+method's gate clear -- and anything else takes the call with the block
+descriptor as before. What a block call cost a turn (the descriptor,
+the builtin's frame, the yield, the block's prologue and record) is
+paid once a loop: two frames, the builtin's and the block's, stand
+under the caller's for the loop's duration, and the body's lines go to
+the block's, so a backtrace from inside reads as before. A signal from
+the body lands in a region of the site's own, which puts the caller's
+frame back on top before passing it on. Only a block a parameter at
+most, with no block of its own inside, no binding, no super and no
+def, runs this way (`Scope.iterator_template?`).
+
 Constants and instance variables have cells of their own. A constant's
 cell keys on the scope and a constant stamp. An instance variable's
 cell holds a guess of the row the name was in last time, which every

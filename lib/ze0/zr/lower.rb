@@ -137,6 +137,7 @@ module Ze0
         @unit_body = body
         @inline_defs = nil
         @def_names = {}.compare_by_identity
+        @block_names = {}.compare_by_identity
         @site_cells = {}.compare_by_identity
       end
 
@@ -490,9 +491,11 @@ module Ze0
       # The function a block literal becomes; `outer` is the Function it
       # is written in.
       def block(node, outer)
-        name = "#{@prefix}_blk_#{number}"
-        Function.new(self, name, node.locals, node.body, node, :block, outer: outer).lower
-        name
+        @block_names[node] ||= begin
+          name = "#{@prefix}_blk_#{number}"
+          Function.new(self, name, node.locals, node.body, node, :block, outer: outer).lower
+          name
+        end
       end
 
       private

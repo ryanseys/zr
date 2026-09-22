@@ -1772,4 +1772,156 @@ describe "Blocks: control flow" do
       <body>
     OUT
   end
+  it "an each or a times with a block literal runs in place, and a program sees what the call gave it" do
+    result = ze0(<<~'RUBY')
+      # `ary.each { |x| }` and `n.times { |i| }` run in place at the site: the
+      # loop and the block's body in the caller's own function, with a frame
+      # for the builtin and one for the block linked under the caller's for
+      # the loop's duration. What a program sees is what the call gave it:
+      # the frames in a backtrace, `break`, `next`, `redo` and `return`, an
+      # exception rescued outside or inside, an ensure, the receiver mutated
+      # as it is walked, a block-local reset every turn, the answer, and a
+      # redefinition of the method, a subclass, or any other receiver, which
+      # take the call.
+      def frames = caller(0).map { |l| l[/in '(.*)'/, 1] }
+      def f
+        [1].each { |x| p frames }
+        2.times { |i| p frames if i == 1 }
+        [1].each { |x| [2].each { |y| p frames } }
+      end
+      f
+      def g
+        [1, 2, 3].each { |x| return x * 10 if x == 2 }
+        :never
+      end
+      p g
+      r = []
+      [1, 2, 3, 4].each { |x| next if x.odd?; r << x }
+      p r
+      p [1, 2, 3].each { |x| break x + 100 if x == 2 }
+      p 5.times { |i| break i if i == 3 }
+      seen = 0
+      [1, 2].each { |x| seen += 1; redo if seen == 1 }
+      p seen
+      a = [1]
+      a.each { |x| a << x + 1 if a.size < 4 }
+      p a
+      b = [1, 2, 3, 4]
+      b.each { |x| b.pop }
+      p b
+      p [1, 2].each { |x; y| y = (y || 0) + x; p y }
+      begin
+        [1, 2].each { |x| raise "in #{x}" if x == 2 }
+      rescue => e
+        p [e.message, e.backtrace.map { |l| l[/in '(.*)'/, 1] }]
+      end
+      p frames
+      x = [1, 2].each { |v| begin; raise "no" if v == 1; rescue; p [:rescued, v]; ensure; p [:ensured, v]; end }
+      p x
+      p((1..3).to_a.each { |i| "a#{i}" =~ /a(\d)/ && p($1) })
+      def h = yield 5
+      p h { |v| [1].each { |x| p [v, x] }; 3.times { |i| next i } }
+      class MyArray < Array; def each = :mine; end
+      p MyArray.new([1]).each { |x| raise }
+      p({ a: 1 }.each { |k, v| p [k, v] })
+      p (2**70).times { break :big }
+      p [1, 2].each.next
+      p 3.times.to_a
+      t = 0
+      th = Thread.new { 200_000.times { |i| t += 1 } }
+      Thread.pass
+      th.join
+      p t
+      n = 0
+      100_000.times { |i| [1, 2].each { |x| n += x } }
+      p n
+      class Array; def each = :redefined; end
+      p [1].each { |x| raise }
+      class Integer; def times = :redefined; end
+      p 3.times { raise }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["Object#frames", "block in Object#f", "Array#each", "Object#f", "<main>"]
+      ["Object#frames", "block in Object#f", "Integer#times", "Object#f", "<main>"]
+      ["Object#frames", "block (2 levels) in Object#f", "Array#each", "block in Object#f", "Array#each", "Object#f", "<main>"]
+      20
+      [2, 4]
+      102
+      3
+      3
+      [1, 2, 3, 4]
+      [1, 2]
+      1
+      2
+      [1, 2]
+      ["in 2", ["block in <main>", "Array#each", "<main>"]]
+      ["Object#frames", "<main>"]
+      [:rescued, 1]
+      [:ensured, 1]
+      [:ensured, 2]
+      [1, 2]
+      "1"
+      "2"
+      "3"
+      [1, 2, 3]
+      [5, 1]
+      3
+      :mine
+      [:a, 1]
+      {a: 1}
+      :big
+      1
+      [0, 1, 2]
+      200000
+      300000
+      :redefined
+      :redefined
+    OUT
+  end
+  it "a Range of fixnums runs each in place, to the last fixnum but not past it" do
+    result = ze0(<<~'RUBY')
+      s = 0
+      (1..5).each { |i| s += i }
+      p s
+      p (1...4).each { |i| s += i }
+      p s
+      p (3..1).each { raise }
+      p (1...1).each { raise }
+      p (1..2).each { |i| break i * 100 if i == 2 }
+      p (2**62 - 2..2**62 - 1).each { |i| p i }
+      p (2**62 - 3...2**62 - 1).each { |i| p i }
+      p (1.0..2).each { } rescue p $!.class
+      p ("a".."c").each { |c| print c }
+      p (1..).each { |i| break i if i > 2 }
+      p (1..3).each { |i| p caller(0)[1][/in '(.*)'/, 1] if i == 1 }
+      n = 0
+      (1..1_000_000).each { |i| n += i & 1 }
+      p n
+      class Range; def each = :redefined; end
+      p (1..3).each { raise }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      15
+      1...4
+      21
+      3..1
+      1...1
+      200
+      4611686018427387902
+      4611686018427387903
+      4611686018427387902..4611686018427387903
+      4611686018427387901
+      4611686018427387902
+      4611686018427387901...4611686018427387903
+      TypeError
+      abc"a".."c"
+      3
+      "Range#each"
+      1..3
+      500000
+      :redefined
+    OUT
+  end
 end

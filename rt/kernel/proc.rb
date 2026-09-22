@@ -1099,6 +1099,44 @@ machine def zr_ary_each(recv, argc, argv, cref, blk)
   recv
 end
 
+# The two frames of an iterator a site runs in place (the lowering's
+# Function::Iterators): the builtin's, as zr_builtin_fn makes it, and
+# the block's, as the block's own prologue would, both in `recs` on
+# the caller's stack and linked under the caller's frame, which is the
+# top. The site stores the caller's frame back when the loop ends,
+# and its landing does the same on a signal. The gate the site tested
+# says `mid` is the builtin the receiver's class finds.
+sig [Ptr, Value, Word, Ptr] => Void
+machine def zr_iter_enter(recs, recv, mid, meta)
+  t = zr_task()
+  home = Task.top(t)
+  e = zr_search_method(zr_class_of(recv), mid)
+  Frame.set_prev(recs, home)
+  Frame.set_meta(recs, MEntry.meta(e))
+  Frame.set_line(recs, 0)
+  Frame.set_serial(recs, 0)
+  Frame.set_self(recs, recv)
+  Frame.set_cref(recs, Machine.value(QNIL))
+  Frame.set_blk(recs, Machine.value(QNIL))
+  Frame.set_nvalues(recs, 0)
+  Frame.set_entry(recs, e)
+  Frame.set_svars(recs, Machine.value(QNIL))
+  Frame.set_defined(recs, Machine.value(QNIL))
+  b = recs + Frame.size
+  Frame.set_prev(b, recs)
+  Frame.set_meta(b, meta)
+  Frame.set_line(b, 0)
+  Frame.set_serial(b, 0)
+  Frame.set_self(b, Frame.self(home))
+  Frame.set_cref(b, Frame.cref(home))
+  Frame.set_blk(b, Frame.blk(home))
+  Frame.set_nvalues(b, 0)
+  Frame.set_entry(b, 0)
+  Frame.set_svars(b, Machine.value(QNIL))
+  Frame.set_defined(b, Machine.value(QNIL))
+  Task.set_top(t, b)
+end
+
 # Whether `v` is an Array whose `each` is Array's own, so a method of
 # Enumerable may walk it by index and answer as `each` would.
 sig [Value] => Value
