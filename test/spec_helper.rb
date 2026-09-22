@@ -12,3 +12,9 @@ require_relative "support/spec"
 Minitest::Spec.include(Ze0::Spec::DSL)
 Minitest::Expectation.include(Ze0::Spec::Expectation)
 
+
+# Ahead of the workers: the kept binaries fit their bound, and the
+# directory the workers write their binaries under is this process's
+# to remove.
+Ze0::Spec::Binaries.trim
+Ze0::Spec.binaries_dir

@@ -41,7 +41,8 @@ These change the rake test tasks.
 | `ZE0_LIMIT` | seconds | The time bound for a program a check runs (default 60). |
 | `ZE0_RESIDENT` | megabytes | The memory bound for a program a check runs (default 2048). |
 | `ZE0_WASM_MEMORY` | bytes | wasmtime's `max-memory-size` in the checks (default 1 GiB). |
-| `ZE0_BINARIES` | `1` | The spec tier keeps each example's binary under the cache, named by every input of its bytes, and a later run of an unchanged example skips its build. Tens of gigabytes for the whole tier; `rake cache:prune` sweeps them. |
+| `ZE0_BINARIES` | `0` or `1` | The spec tier keeps each example's binary under the cache, named by every input of its bytes, and a later run of an unchanged example skips its build. On by default for a native target, where a kept binary is the program's own few hundred kilobytes and the runtime's are put back from the prelink; `1` keeps wasm modules too, whole; `0` keeps nothing. `rake cache:prune` sweeps them. |
+| `ZE0_BINARIES_GB` | gigabytes | How much the kept binaries may hold (default 8); a tier drops the ones used longest ago before it starts. |
 | `ZE0_WASM_COMPILER` | `winch` or `cranelift` | The wasmtime compiler the checks run a module under (default `winch`, the baseline compiler: a test wants the answer, not the speed, and Cranelift spends ten times the CPU on the same 35 MB runtime for every program). `rake bench` keeps Cranelift. |
 | `ZE0_BUILD_MB` | megabytes | The memory bound for a build (default 2048). A program can raise it with a `build_mb:` row in `Ze0::E2E::HOW`. |
 | `ZE0_RUN_MB` | megabytes | The memory bound for a run (default 1024). |

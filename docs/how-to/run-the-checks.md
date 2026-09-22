@@ -16,6 +16,12 @@ at once and says so; no tier builds it for you.
 $ rake build
 ```
 
+The spec tier keeps what it builds. Each example's binary is kept
+under the cache, named by everything its bytes came from, and the next
+run of an example nothing has changed takes the binary and runs it: a
+directory of specs reruns in a third of the time. `ZE0_BINARIES=0`
+turns that off; `rake cache:size` says how much is kept.
+
 Three tiers, in the order you reach for them:
 
 | Tier | Holds | Costs |

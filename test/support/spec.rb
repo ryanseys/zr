@@ -150,8 +150,8 @@ module Ze0
         # an absolute path would name the temporary directory instead.
         # The chdir is safe because a worker is a process of its own and
         # runs the examples it is handed one at a time.
-        bin = File.join(work, "p")
-        kept = Binaries.path(target, source, path, files) if Binaries.asked?
+        bin = binary_path
+        kept = Binaries.path(target, source, path, files) if Binaries.wanted?(target)
         unless Binaries.take(kept, bin)
           program = Test::Slow.clock(phases, :lower) { Dir.chdir(run) { lower(source, path, target) } }
           return program if program.is_a?(Symbol) || program.is_a?(Array)
@@ -159,7 +159,7 @@ module Ze0
           if (why = Test::Slow.clock(phases, :link) { Native::Build.program(program, bin, work: work) })
             return [:backend, why]
           end
-          Binaries.keep(kept, bin)
+          Binaries.keep(kept, bin, program, work)
         end
 
         # A binary starts on its own host; a wasm module starts under
@@ -172,6 +172,23 @@ module Ze0
         end
         verdict(Harness::Normalize.answer(out, rb, run))
       end
+    end
+
+    # Where this worker writes each example's binary: over the last one.
+    # A binary written over the last one's file keeps the runtime's text
+    # pages in memory, where a fresh file's are read from disk at every
+    # exec (`Obj::MachO::Skeleton`): 40 ms a run, and eight workers
+    # reading at once wait on each other. The directory is the tier's,
+    # made ahead of the workers (`binaries_dir`) and removed when the
+    # tier ends; each worker writes under its own pid.
+    def binary_path
+      dir = File.join(binaries_dir, Process.pid.to_s)
+      FileUtils.mkdir_p(dir)
+      File.join(dir, "p")
+    end
+
+    def binaries_dir
+      @binaries_dir ||= Dir.mktmpdir("ze0-bins-").tap { |dir| at_exit { FileUtils.rm_rf(dir) } }
     end
 
     # The program, or `[bucket, why]` when ze0 would not build it.
