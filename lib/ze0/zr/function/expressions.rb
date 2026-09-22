@@ -56,7 +56,7 @@ module Ze0
             checked(kernel("zr_regexp_literal", site_word, @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
           when Hir::IvarRead then ivar_read(node)
-          when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
+          when Hir::FrozenString then checked(string_literal(node.value, node.shared ? "zr_str_literal_shared" : "zr_str_literal_freeze"))
           when Hir::GvarRead then gvar_read(node)
           when Hir::BackRef then back_ref(node)
           when Hir::GvarWrite then gvar_write(node, expr(node.value))
@@ -111,13 +111,46 @@ module Ze0
           kernel("zr_proc_lambda", block)
         end
 
+        # `[a, b]`: the elements staged in the record and copied into a
+        # new Array, or, where every one is an immediate, copied from
+        # data the link wrote once (`word_table`). A splat pushes as it
+        # goes. A frozen literal (a shareable constant's) takes the flag
+        # and no send, as compile.c freezes what it built.
         def array_literal(node)
-          return staged(node.elements) { |argv| kernel("zr_ary_of", imm(node.elements.size), argv) } unless node.elements.any?(Hir::Splat)
+          elements = node.elements
+          ary = if (words = immediate_words(elements))
+                  kernel("zr_ary_of", imm(words.size), @f.symbol_value(@f.symbol(@l.word_table(words))))
+                elsif elements.none?(Hir::Splat)
+                  staged(elements) { |argv| kernel("zr_ary_of", imm(elements.size), argv) }
+                else
+                  slot = reserve(1)
+                  gathered = gather(elements, slot)
+                  @sp = slot
+                  gathered
+                end
+          node.frozen ? kernel("zr_literal_freeze", ary) : ary
+        end
 
-          slot = reserve(1)
-          ary = gather(node.elements, slot)
-          @sp = slot
-          ary
+        # The words of `nodes` where each is an immediate literal -- a
+        # fixnum, a flonum, a Symbol (its name, for the link), nil, true
+        # or false -- else nil.
+        def immediate_words(nodes)
+          return nil if nodes.empty?
+
+          nodes.map do |n|
+            return nil unless n.is_a?(Hir::Literal)
+
+            v = n.value
+            case v
+            when Integer then v.bit_length < 63 ? (v << 1) | 1 : (return nil)
+            when Float then flonum_word(v) || (return nil)
+            when Symbol then v
+            when nil then @l.const("QNIL")
+            when true then @l.const("QTRUE")
+            when false then @l.const("QFALSE")
+            else return nil
+            end
+          end
         end
 
         # `{k => v, **h}`: pairs stored one by one into a Hash kept in a
@@ -139,7 +172,14 @@ module Ze0
         end
 
         def hash_literal(node)
-          return staged(node.pairs) { |argv| checked(kernel("zr_hash_of", imm(node.pairs.size / 2), argv)) } unless node.pairs.any?(Hir::HashSplat)
+          if (words = immediate_words(node.pairs))
+            hash = checked(kernel("zr_hash_of", imm(words.size / 2), @f.symbol_value(@f.symbol(@l.word_table(words)))))
+            return node.frozen ? kernel("zr_literal_freeze", hash) : hash
+          end
+          unless node.pairs.any?(Hir::HashSplat)
+            hash = staged(node.pairs) { |argv| checked(kernel("zr_hash_of", imm(node.pairs.size / 2), argv)) }
+            return node.frozen ? kernel("zr_literal_freeze", hash) : hash
+          end
 
           slot = reserve(1)
           at = value_offset(slot)
@@ -187,15 +227,22 @@ module Ze0
         # now, exactly as zr_float_new would make it; +0.0 is the flonum
         # zero; any other double is a heap cell made at run time.
         def float_literal(v)
+          word = flonum_word(v)
+          return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
+
+          imm(word)
+        end
+
+        # The flonum word of `v` as a signed 64-bit value, or nil where
+        # the double does not fit one.
+        def flonum_word(v)
           b = [v].pack("E").unpack1("Q<")
           top = (b >> 60) & 7
           word = if b.zero? then @l.const("FLONUM_ZERO")
                  elsif b != 0x3000000000000000 && (top == 3 || top == 4)
                    ((((b << 3) | (b >> 61)) & 0xFFFF_FFFF_FFFF_FFFE) | 2)
                  end
-          return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
-
-          imm([word].pack("Q<").unpack1("q<"))
+          word && [word].pack("Q<").unpack1("q<")
         end
 
         # `"a#{b}c"`. The pieces between the embedded expressions are

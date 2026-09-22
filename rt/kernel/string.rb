@@ -1602,6 +1602,15 @@ machine def zr_obj_freeze(recv, argc, argv, cref, blk)
   recv
 end
 
+# An Array or Hash literal a `# shareable_constant_value: literal`
+# constant holds, frozen as it is built: the flag alone and no send,
+# as compile.c freezes the object it made at compile time.
+sig [Value] => Value
+machine def zr_literal_freeze(v)
+  RBasic.set_flags(v, RBasic.flags(v) | FL_FREEZE)
+  v
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_frozen_p(recv, argc, argv, cref, blk)
   zr_bool(zr_frozen_p(recv))

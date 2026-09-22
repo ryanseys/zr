@@ -180,7 +180,7 @@ module Ze0
           node(n.high, depth + 1, lines)
           lines[-1] += ")"
         when HashLit
-          lines << "#{pad}(hash"
+          lines << "#{pad}(hash#{' frozen' if n.frozen}"
           n.pairs.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when KwSplatElement
@@ -192,13 +192,13 @@ module Ze0
           lines << "#{pad}(regexp-once"
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
-        when FrozenString then lines << "#{pad}(frozen #{n.value.inspect})"
+        when FrozenString then lines << "#{pad}(frozen#{' shared' if n.shared} #{n.value.inspect})"
         when Interp
           lines << "#{pad}(interp"
           n.parts.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when ArrayLit
-          lines << "#{pad}(array"
+          lines << "#{pad}(array#{' frozen' if n.frozen}"
           n.elements.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when IvarRead

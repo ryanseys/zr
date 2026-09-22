@@ -1831,6 +1831,7 @@ module Ze0
         d zr_str_uplus Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_uminus Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_freeze Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_literal_freeze Value v:Value
         d zr_obj_frozen_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_succ_ascii Value recv:Value
         d zr_alnum_p Bool c:Word
@@ -4070,6 +4071,7 @@ module Ze0
         e zr_str_uplus 126
         e zr_str_uminus 127
         e zr_obj_freeze 8
+        e zr_literal_freeze 8
         e zr_obj_frozen_p 0
         e zr_str_succ_ascii 126
         e zr_alnum_p 0

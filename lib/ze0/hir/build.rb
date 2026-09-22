@@ -965,11 +965,12 @@ module Ze0
       # value must be shareable already, an interpolated String once it is
       # deduplicated. `top` is the constant's own value, not an element.
       def literally_shareable(node, value, name, line, top: true)
+        node, value = unparenthesized(node, value)
+        return frozen_literal(node, value, line) if shareable_literal?(node)
+
         ractor = ConstRead.new(nil, :Ractor, line)
         whole = ->(built) { top ? Send.new(ractor, :make_shareable, [built], line, false) : built }
-        if shareable_literal?(node)
-          whole.(value)
-        elsif node.is_a?(Prism::ArrayNode) && node.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) }
+        if node.is_a?(Prism::ArrayNode) && node.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) }
           value.elements = node.elements.zip(value.elements).map { |e, v| literally_shareable(e, v, name, line, top: false) }
           whole.(value)
         elsif node.is_a?(Prism::HashNode) && node.elements.all?(Prism::AssocNode)
@@ -983,24 +984,64 @@ module Ze0
         end
       end
 
+      # `(value)`: the one statement inside, with what it built, as
+      # compile.c reads through the parentheses of `X = (1..2)`.
+      def unparenthesized(node, value)
+        while node.is_a?(Prism::ParenthesesNode) && node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 &&
+              value.is_a?(Seq) && value.stmts.size == 1
+          node = node.body.body[0]
+          value = value.stmts[0]
+        end
+        [node, value]
+      end
+
+      # A value built only of literals (`shareable_literal?`), frozen as
+      # it is built and sent nothing, as compile.c freezes the object it
+      # makes at compile time: an Array or Hash literal is marked frozen
+      # and holds its elements so built, a String is the shared frozen
+      # one of its text, a Range's ends are frozen, and every other
+      # literal is frozen by nature.
+      def frozen_literal(node, value, line)
+        case node
+        when Prism::ArrayNode
+          value.elements = node.elements.zip(value.elements).map { |e, v| frozen_literal(e, v, line) }
+          value.frozen = true
+        when Prism::HashNode
+          value.pairs = value.pairs.each_slice(2).zip(node.elements).flat_map do |(key, v), e|
+            [frozen_literal(e.key, key, line), frozen_literal(e.value, v, line)]
+          end
+          value.frozen = true
+        when Prism::RangeNode
+          value.low = frozen_literal(node.left, value.low, line) if node.left
+          value.high = frozen_literal(node.right, value.high, line) if node.right
+        when Prism::StringNode, Prism::SourceFileNode
+          text = value.value
+          return FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
+        end
+        value
+      end
+
       # The name a shareable constant write names, for the error.
       def constant_written(write)
         write.respond_to?(:name) ? write.name.to_s : write.target.name.to_s
       end
 
       # Whether a value is built only of literals, so freezing it can hurt
-      # nothing that the program still holds.
-      def shareable_literal?(node)
+      # nothing that the program still holds. A Range of literal ends is
+      # one as the constant's own value and not as an element: compile.c's
+      # static_literal_node_p, which reads an Array's or a Hash's
+      # elements, has no case for one, so `[(1..2)]` takes make_shareable.
+      def shareable_literal?(node, top: true)
         case node
         when Prism::IntegerNode, Prism::FloatNode, Prism::RationalNode, Prism::ImaginaryNode,
              Prism::SymbolNode, Prism::StringNode, Prism::NilNode, Prism::TrueNode, Prism::FalseNode,
              Prism::RegularExpressionNode, Prism::SourceFileNode, Prism::SourceLineNode, Prism::SourceEncodingNode
           true
-        when Prism::ArrayNode then node.elements.all? { |e| shareable_literal?(e) }
+        when Prism::ArrayNode then node.elements.all? { |e| shareable_literal?(e, top: false) }
         when Prism::HashNode
-          node.elements.all? { |e| e.is_a?(Prism::AssocNode) && shareable_literal?(e.key) && shareable_literal?(e.value) }
+          node.elements.all? { |e| e.is_a?(Prism::AssocNode) && shareable_literal?(e.key, top: false) && shareable_literal?(e.value, top: false) }
         when Prism::RangeNode
-          (node.left.nil? || shareable_literal?(node.left)) && (node.right.nil? || shareable_literal?(node.right))
+          top && (node.left.nil? || shareable_literal?(node.left, top: false)) && (node.right.nil? || shareable_literal?(node.right, top: false))
         else false
         end
       end

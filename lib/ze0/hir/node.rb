@@ -266,13 +266,17 @@ module Ze0
     # clause is `[values, body]`; a nil subject tests each value itself.
     Case = Struct.new(:subject, :clauses, :else_body, :line)
     IvarWrite = Struct.new(:name, :value, :line)
-    ArrayLit = Struct.new(:elements, :line)
+    # `[a, b]`; `frozen` where a `# shareable_constant_value: literal`
+    # constant holds it, built frozen with no send (compile.c freezes it
+    # in the compiler).
+    ArrayLit = Struct.new(:elements, :line, :frozen)
     # The keywords of an array literal made only of double splats, as an
     # Array to splat: `[h]`, or `[]` when they come out empty, so `[**{}]`
     # adds no element (CRuby's pushtoarraykwsplat).
     KwSplatElement = Struct.new(:pairs, :line)
-    # `{k => v, ...}`: `pairs` is a flat list, key then value.
-    HashLit = Struct.new(:pairs, :line)
+    # `{k => v, ...}`: `pairs` is a flat list, key then value; `frozen`
+    # as an ArrayLit's.
+    HashLit = Struct.new(:pairs, :line, :frozen)
     # `low..high` / `low...high`; a missing bound is nil.
     # `$1` and the other numbered groups (`kind` :nth, `number` the
     # group, 0 for `$&`), `` $` `` (:pre), `$'` (:post) and `$+` (:last),
@@ -288,8 +292,10 @@ module Ze0
     RegexpOnce = Struct.new(:value, :line)
 
     RegexpLit = Struct.new(:source, :options, :pinned, :line)
-    # `"text".freeze`: the one frozen String of that text.
-    FrozenString = Struct.new(:value, :line)
+    # `"text".freeze`: the one frozen String of that text; `shared` where
+    # a shareable constant holds it, the shared String with no send, as
+    # the compiler's own fstring.
+    FrozenString = Struct.new(:value, :line, :shared)
     # `begin body rescue ... else else_body ensure ensure_body end`. The
     # else arm runs after a body that raised nothing; the ensure arm on
     # every way out. `rescues` are Rescue nodes in order; `else_body` and

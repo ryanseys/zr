@@ -173,22 +173,33 @@ module Ze0
       end
 
       # A read-only table of words, where a word given as a name is the
-      # program's id for it: baked where the id is fixed, and a word the
-      # link fills where it is not.
-      def id_table(name, words, section: :text_const)
+      # program's id for it, or the Symbol Value of that id when `tagged`:
+      # baked where the id is fixed, and a word the link fills where it
+      # is not.
+      def id_table(name, words, section: :text_const, tagged: false)
         relocs = []
         filled = words.each_with_index.map do |word, i|
           next word if word.is_a?(Integer)
           next 0 if word.nil?
 
           id = fixed_id(word)
-          next id if id
+          next(tagged ? Lower.symbol_value(id, const("SYMBOL_TAG")) : id) if id
 
-          relocs << Obj::Reloc.new(i * 8, :symid, word.to_s)
+          relocs << Obj::Reloc.new(i * 8, tagged ? :symval : :symid, word.to_s)
           0
         end
         @data << Obj::Data.new(name, section, filled.pack("q<*"), relocs: relocs, align: 8)
         name
+      end
+
+      # The words of an Array or Hash literal of immediates alone, as
+      # data zr_ary_of and zr_hash_of read where the record's slots would
+      # have been written: each an Integer, or a name whose Symbol the
+      # link writes.
+      def word_table(words)
+        name = "#{@prefix}_lit_#{@lits}"
+        @lits += 1
+        id_table(name, words, tagged: true)
       end
 
       # `[functions, data]`: the program's toplevel, then one function
