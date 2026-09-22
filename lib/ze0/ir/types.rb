@@ -14,6 +14,10 @@ module Ze0
     class Types
       class Refused < StandardError; end
 
+      # The bytes a value of each type takes in memory: what a load of
+      # the type reads and a store of one writes.
+      WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
+
       # Which rule an opcode's result follows. A table and not a `case`
       # over the opcodes: that case compared an opcode against twenty
       # entries in turn, eleven of them the float opcodes spread out of

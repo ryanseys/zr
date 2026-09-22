@@ -19,7 +19,6 @@ module Ze0
     class Interp
       MASK = { 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
       BITS = { "i8" => 8, "i32" => 32, "i64" => 64, "f64" => 64 }.freeze
-      WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
       # The stack every program gets, and the deepest call chain Ruby's
       # own stack will carry for us.
       STACK = 1 << 22
@@ -367,12 +366,12 @@ module Ze0
       def slot_index(name) = Integer(name.delete_prefix("ss"))
 
       def step_load(frame, i)
-        width = WIDTH.fetch(i.type) { raise Refused, "load.#{i.type}" }
+        width = Types::WIDTH.fetch(i.type) { raise Refused, "load.#{i.type}" }
         assign(frame, i.results[0], @memory.read(read(frame, i.args[0]) + i.offset, width))
       end
 
       def step_store(frame, i)
-        width = WIDTH.fetch(frame.types.of(i.args[0]))
+        width = Types::WIDTH.fetch(frame.types.of(i.args[0]))
         @memory.write(read(frame, i.args[1]) + i.offset, width, read(frame, i.args[0]) & MASK[width * 8])
       end
 
