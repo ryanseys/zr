@@ -88,7 +88,7 @@ module Ze0
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, evals: evals,
-                              covers: covers, activations: activations)
+                              covers: covers, activations: activations, ahead_road: road.respond_to?(:units) ? road : nil)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         # Three things a build learns only by reading every file: that
@@ -296,8 +296,9 @@ module Ze0
         # finds the file then and compiles it, and so does an autoload of
         # a file outside `booted`, the files the boot reads.
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED)
+                       deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED, ahead_road: nil)
           @deferred = deferred
+          @ahead_road = external ? nil : ahead_road
           @preloaded = preloaded
           @ahead = ahead
           @booted = booted
@@ -666,6 +667,15 @@ module Ze0
         # false and the first one finishes.
         def add(path)
           return @index[path] if @index.key?(path)
+          # A build that has learned the program evals is a build the
+          # road will be built over again (`Build.program` reads it
+          # again with the road as `external`), so from here on it names
+          # every file the road holds as that build will, and reads
+          # none of them: `require "rubygems"` evals at its first line,
+          # and its hundred files were read, built and thrown away.
+          if @ahead_road && @evals && (entry = @ahead_road.units[path])
+            return @index[path] = entry
+          end
 
           i = @units.size
           @index[path] = i
