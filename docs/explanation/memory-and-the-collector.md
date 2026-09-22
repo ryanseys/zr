@@ -47,14 +47,18 @@ call: a `&block` parameter, `proc` or `lambda`, a Binding, a Fiber, a
 `define_method` body. At that point, the runtime copies the image to
 the heap. So no heap object ever points into a stack.
 
-The parameter is bound in the prologue, so a method that names one pays
-that cell whatever the body does with the block -- handing it straight
-on costs as much as keeping it. A core method that only hands its block
-on therefore relays it through a block of its own:
-`meeting(...) { |x| yield x }` costs nothing where
-`meeting(..., &block)` costs a Proc a call. `Array#any?` and
-`Enumerable#each_with_index` are written that way, and so should be any
-method the compiler reaches a million times.
+A `&block` parameter pays that cell only when the method keeps the
+block. The compiler reads every use of the name (`Hir::Escape`): a
+method that only calls it (`block.call(x)`), hands it on (`each(&block)`,
+`super`) or tests it (`if block`, `block && ...`) binds the parameter
+to the block as it came, still on the caller's stack, and a
+`block.call` runs it as `yield` would while `Proc#call` is the
+program's own. Any other use -- stored, returned, passed as a plain
+argument, the receiver of another method -- makes the Proc in the
+prologue as before. A block nested in such a method may read the
+parameter too: when the method's scope escapes to a heap Env, the Env
+takes a Proc cell in the parameter's place (`zr_env_escape`), so no
+heap object ever points into a stack.
 
 Locals that a block captures follow the same pattern. They start in the
 frame's record, and move to a heap Env the first time the scope escapes.

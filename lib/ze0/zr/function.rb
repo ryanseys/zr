@@ -45,7 +45,9 @@ module Ze0
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
       ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64] }.freeze
 
-      attr_reader :meta, :outer, :kind
+      # The `&b` parameter bound as the block it was given, a Proc still
+      # on the caller's stack, or nil (`Params#raw_block?`).
+      attr_reader :meta, :outer, :kind, :raw_block
 
       # The Def, Block or body node this function came from.
       def def_node
@@ -77,6 +79,7 @@ module Ze0
         @has_env = %i[eval main].include?(@kind) || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
                    default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) } ||
                    (lower.traced? && !lower.internal? && %i[def block top].include?(@kind))
+        @raw_block = raw_block?(node.params) ? node.params.block : nil if %i[def block].include?(@kind)
         @sites = 0
         @loops = []
         @regions = []
@@ -115,9 +118,14 @@ module Ze0
 
       # The record slot of the local `node` names, `node.depth` scopes up.
       def slot_at(node)
+        scope_at(node.depth).slot_index(node)
+      end
+
+      # The function `depth` block scopes out from this one.
+      def scope_at(depth)
         fn = self
-        node.depth.times { fn = fn.outer }
-        fn.slot_index(node)
+        depth.times { fn = fn.outer }
+        fn
       end
 
       # The data object the meta emitted for this scope's local names.

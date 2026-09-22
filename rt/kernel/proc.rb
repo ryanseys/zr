@@ -76,6 +76,16 @@ machine def zr_env_escape(env)
   n = REnv.nslots(env)
   e = zr_env_new(parent, n, REnv.names(env))
   zr_memcpy(REnv.slots(e), REnv.slots(env), n * 8)
+  # A `&b` parameter bound as the block it was given is a Proc on its
+  # caller's stack (Params#raw_block?); the cell outlives that frame.
+  i = 0
+  while i < n
+    v = Machine.value(Machine.load64(REnv.slots(e) + (i * 8), 0))
+    if !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) != 0 && zr_type(v) == T_PROC
+      Machine.store64(REnv.slots(e) + (i * 8), 0, Machine.word(zr_block_proc(v)))
+    end
+    i += 1
+  end
   zr_write_barrier_all(e)
   REnv.set_slots(env, REnv.slots(e))
   REnv.set_cell(env, e)
@@ -484,6 +494,19 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_call(recv, argc, argv, cref, blk)
   Machine.call(:block, RProc.fn(recv), recv, argc, argv, blk)
+end
+
+# `b.call(args)` on a `&b` parameter bound as the block it was given, a
+# Proc that may still be on its caller's stack (Params#raw_block?): the
+# block runs as Proc#call would run it while that is the program's own
+# and the receiver is a plain Proc; else the Proc is made and asked, as
+# any receiver is. Nil takes the send, which raises as it would.
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_block_call(recv, mid, argc, argv, mode)
+  if recv != QNIL && (Machine.gates & GATE_PROC_CALL) == 0 && RBasic.klass(recv) == zr_global(G_PROC)
+    return Machine.call(:block, RProc.fn(recv), recv, argc, argv, Machine.value(QNIL))
+  end
+  zr_dispatch(0, zr_block_proc(recv), mid, argc, argv, mode, Machine.value(QNIL))
 end
 
 # Where a block came from, as rb_block_to_s writes it after the address:

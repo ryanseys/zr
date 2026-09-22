@@ -288,11 +288,19 @@ module Ze0
           activate(node)
           if node.opt && node.using.nil? && !traced?
             checked(opt_send(node, recv, argc, argv))
+          elsif node.name == :call && node.block.nil? && node.using.nil? && raw_block_recv?(node.recv)
+            checked(kernel("zr_opt_block_call", recv, sym_word(:call), argc, argv, imm(send_mode(node))))
           elsif node.name == :new
             checked(kernel("zr_new_cached", cache("ic", "CallCache", 2 * CALL_WAYS), recv, argc, argv, imm(send_mode(node))))
           else
             checked(cached_send(node, recv, argc, argv, @qnil))
           end
+        end
+
+        # Whether `recv` reads a `&b` parameter bound as the block it was
+        # given (`Params#raw_block?`), here or in a scope around this one.
+        def raw_block_recv?(recv)
+          recv.is_a?(Hir::Local) && scope_at(recv.depth).raw_block == recv.name
         end
 
         # `recv[i]`, `recv[i] = v` and `recv << v`: a receiver of a core

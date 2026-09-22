@@ -33,6 +33,9 @@ GATE_PUSH = 1 << 34
 GATE_POP = 1 << 35
 GATE_SHIFT = 1 << 36
 GATE_EMPTY_P = 1 << 37
+# Proc#call, for a `&b` parameter bound as the block it was given
+# (zr_opt_block_call).
+GATE_PROC_CALL = 1 << 38
 
 # The decimal digits of `n` into `buf`, answering how many bytes they
 # take, ahead of a buffer of 24.

@@ -1432,6 +1432,7 @@ module Ze0
         d zr_native_proc Value fn:Ptr self_:Value
         d zr_proc_lambda Value p:Value
         d zr_proc_call Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_opt_block_call Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_buf_block_where Bool b:Ptr blk:Value
         d zr_proc_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_proc_lambda_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -2246,13 +2247,13 @@ module Ze0
         e zr_eval_cref_under 126
         e zr_wrap_cref 126
         e zr_local_names 126
-        e zr_frame_env 126
-        e zr_eval_env 126
+        e zr_frame_env 127
+        e zr_eval_env 127
         e zr_eval_parameters 126
         e zr_binding_parameters 126
         e zr_meta_parameters 126
         e zr_meta_in_method 0
-        e zr_eval_scopes 126
+        e zr_eval_scopes 127
         e zr_binding 127
         e zr_proc_binding 127
         e zr_proc_scope 126
@@ -3582,7 +3583,7 @@ module Ze0
         e zr_onig_word_ranges 0
         e zr_onig_fold_rows 0
         e zr_env_new 126
-        e zr_env_escape 126
+        e zr_env_escape 127
         e zr_env_up 0
         e zr_env_get 0
         e zr_env_barrier 120
@@ -3610,6 +3611,7 @@ module Ze0
         e zr_native_proc 126
         e zr_proc_lambda 127
         e zr_proc_call 127
+        e zr_opt_block_call 127
         e zr_buf_block_where 127
         e zr_proc_inspect 127
         e zr_proc_lambda_p 0
@@ -4380,7 +4382,7 @@ module Ze0
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
-        c GATE_ROWS 38
+        c GATE_ROWS 39
         c ROW_CORE 256
         c CORE_KEY 4611686018427387904
         c METHOD_INDEX_MIN 16
@@ -4542,6 +4544,7 @@ module Ze0
         c GATE_POP 34359738368
         c GATE_SHIFT 68719476736
         c GATE_EMPTY_P 137438953472
+        c GATE_PROC_CALL 274877906944
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4

@@ -28,7 +28,7 @@ module Ze0
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p)
-          bind(p.block, kernel("zr_block_proc", @blk)) if p.block
+          bind(p.block, block_param(@blk)) if p.block
         end
 
         # A lambda checks its arity and never spreads; the same function
@@ -61,7 +61,23 @@ module Ze0
           argv = @f.fetch("i64", out)
           bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p)
-          bind(p.block, kernel("zr_block_proc", @f.args[3])) if p.block
+          bind(p.block, block_param(@f.args[3])) if p.block
+        end
+
+        # The value a `&b` parameter takes: the block as it came, a Proc
+        # that may still be on the caller's stack, where the scope only
+        # calls it, hands it on or tests it (`Hir::Escape`); else a cell
+        # of its own, since the scope keeps it.
+        def block_param(blk)
+          @raw_block ? blk : kernel("zr_block_proc", blk)
+        end
+
+        # A `&b` parameter stays a stack block when every use in the body
+        # and the parameter defaults is one (`Hir::Escape`), nothing opens
+        # the scope's locals (a Binding or an eval reads the Proc), and no
+        # hook can ask for a Binding of the frame.
+        def raw_block?(p)
+          p.block && !@l.traced? && !Scope.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], p.block)
         end
 
         # A block with no parameters takes anything, unless it is a lambda
