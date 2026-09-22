@@ -8,10 +8,17 @@ module Ze0
       # takes its element; a nested target takes its element apart again.
       # A target that is a send (`h[k]`, `o.attr`) stages its receiver
       # and arguments before the value is evaluated, as CRuby orders it.
+      #
+      # `a, b = x, y` where nothing takes the value makes no Array: the
+      # elements go into slots and each target takes its own, as CRuby's
+      # compiler does for a popped `masgn`. A rest still gets its Array
+      # of what is left after the targets before it.
       module Targets
         private
 
         def multi_assign(node)
+          return spread_assign(node) if spread_assign?(node)
+
           base = @sp
           prepared = prepare(node.target)
           at = value_offset(reserve(1))
@@ -20,6 +27,30 @@ module Ze0
           value = @f.fetch("i64", @rec, at)
           @sp = base
           value
+        end
+
+        def spread_assign?(node)
+          value = node.value
+          !node.taken && value.is_a?(Hir::ArrayLit) && value.elements.none?(Hir::Splat) && node.target.rights.empty?
+        end
+
+        def spread_assign(node)
+          base = @sp
+          target = node.target
+          prepared = prepare(target)
+          elements = node.value.elements
+          staged(elements) do |_, at|
+            target.lefts.each_with_index do |t, i|
+              assign_target(t, i < elements.size ? @f.fetch("i64", @rec, value_offset(at + i)) : @qnil, prepared)
+            end
+            rest = target.rest
+            next if rest.nil? || rest == :implicit
+
+            n = [elements.size - target.lefts.size, 0].max
+            assign_target(rest, kernel("zr_ary_of", imm(n), @f.iadd(@rec, imm(value_offset(at + elements.size - n)))), prepared)
+          end
+          @sp = base
+          @qnil
         end
 
         # The send targets' receivers and arguments into slots: each

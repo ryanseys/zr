@@ -1351,7 +1351,7 @@ module Ze0
         when Prism::DefNode then define(node)
         when Prism::LocalVariableReadNode then Local.new(node.name, node.depth, line)
         when Prism::LocalVariableWriteNode then Assign.new(node.name, node.depth, expr(node.value), line)
-        when Prism::MultiWriteNode then MultiAssign.new(multi_target(node), expr(node.value), line)
+        when Prism::MultiWriteNode then MultiAssign.new(multi_target(node), expr(node.value), line, taken)
         when Prism::LocalVariableOperatorWriteNode
           Assign.new(node.name, node.depth, noted(Send.new(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line, false), node), line)
         when Prism::LocalVariableAndWriteNode

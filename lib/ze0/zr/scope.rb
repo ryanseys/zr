@@ -136,7 +136,10 @@ module Ze0
           [top + 2, staging(node.recv, top), staging(node.value, top + 2)].max
         when Hir::MultiAssign
           top = base + 1 + prepared(node.target)
-          [staging(node.value, top), top + targets(node.target), *staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }].max
+          # A literal list whose value nothing takes stays in its slots
+          # while the targets, nested ones taking theirs apart, read it.
+          spread = node.value.is_a?(Hir::ArrayLit) && !spread?(node.value.elements) ? node.value.elements.size : 0
+          [staging(node.value, top), top + spread + targets(node.target), *staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)

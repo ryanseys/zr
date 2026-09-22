@@ -193,7 +193,9 @@ module Ze0
     Cover = Struct.new(:id, :line)
     Assign = Struct.new(:name, :depth, :value, :line)
     # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
-    MultiAssign = Struct.new(:target, :value, :line)
+    # `taken` is false where nothing takes that value: a statement before
+    # the last of a sequence, a loop body.
+    MultiAssign = Struct.new(:target, :value, :line, :taken)
     # The targets before the rest, the rest (a target, `:implicit` for a
     # bare `*`, or nil) and the targets after it. A target is an Assign
     # or IvarWrite with a nil value, a Send with the value to append
