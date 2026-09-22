@@ -166,7 +166,7 @@ module Ze0
             append_ivar_row(t, len, ivar, v)
             @f.jump(done)
           end
-          @f.store(v, row, off(@l.layout("IvEntry"), "value"))
+          @f.store(v, row, off(@l.layout("IvEntry"), "value"), region: :malloc)
           ivar_barrier(v)
           @f.jump(done)
           switch(slow)
@@ -182,11 +182,11 @@ module Ze0
           table = @l.layout("IvTab")
           entry = @l.layout("IvEntry")
           row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(len, imm(Math.log2(entry.size).to_i)))
-          @f.store(sym_word(ivar), row, off(entry, "id"))
-          @f.store(v, row, off(entry, "value"))
+          @f.store(sym_word(ivar), row, off(entry, "id"), region: :malloc)
+          @f.store(v, row, off(entry, "value"), region: :malloc)
           ivar_barrier(v)
-          @f.store(@f.iadd(len, imm(1)), t, off(table, "len"))
-          @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), t, off(table, "names"))
+          @f.store(@f.iadd(len, imm(1)), t, off(table, "len"), region: :malloc)
+          @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), sym_bit(ivar)), t, off(table, "names"), region: :malloc)
         end
 
         def assign_target(target, v, prepared)

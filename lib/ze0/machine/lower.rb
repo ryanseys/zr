@@ -90,7 +90,132 @@ module Ze0
         @collects = collecting_defs
         static(nil, ROOTS, 8) unless @collects.empty?
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
+        assign_effects
         [@functions, @data, @raw]
+      end
+
+      # Every def's effects (`IR::Effects`): what its own stores write,
+      # by the region the lowering gave each or by where its address
+      # came from, closed over the defs it calls. An import writes what
+      # `Effects.import` says; a raw function and a call through a
+      # pointer write everything. A store
+      # through an address that cannot be placed writes `UNKNOWN`, and
+      # a guard word too once its address is seen escaping as a value
+      # anywhere in the unit -- passed, stored, compared -- since a
+      # pointer to it may then be anywhere. Each function's callees are
+      # told the answer, and the description carries it to the program
+      # lowering and the eval road.
+      def assign_effects
+        placed = @functions.to_h { |f| [f.name, placements(f)] }
+        escaped = @functions.reduce(0) { |bits, f| bits | escaping_statics(f, placed.fetch(f.name)) }
+        local = @functions.to_h { |f| [f.name, local_effects(f, placed.fetch(f.name), escaped)] }
+        calls = @functions.to_h { |f| [f.name, f.callees.filter_map { |c| c.symbol if @defs.key?(c.symbol) }] }
+        effects = local.dup
+        loop do
+          moved = false
+          effects.each_key do |name|
+            was = effects[name]
+            now = calls.fetch(name).reduce(was) { |bits, callee| bits | effects.fetch(callee, IR::Effects::ALL) }
+            next if now == was
+
+            effects[name] = now
+            moved = true
+          end
+          break unless moved
+        end
+        @defs.each_value { |d| d.effects = effects.fetch(d.name, IR::Effects::ALL) }
+        @functions.each do |f|
+          f.callees.each { |c| c.effects = effects.fetch(c.symbol, IR::Effects::ALL) }
+        end
+      end
+
+      # `{ value => [root, offset] }` for every value of `f` that is a
+      # slot's address (root `:slot`) or a symbol's, or a constant past
+      # one.
+      def placements(f)
+        symbol_of = f.globals.to_h { |g| [g.gv, g.symbol] }
+        const = {}
+        placed = {}
+        f.blocks.each do |b|
+          b.insts.each do |i|
+            case i.op
+            when :iconst then const[i.results[0]] = i.args[0]
+            when :stack_addr then placed[i.results[0]] = [:slot, 0]
+            when :symbol_value then placed[i.results[0]] = [symbol_of.fetch(i.args[0]), 0]
+            when :iadd
+              a, k = i.args
+              a, k = k, a if const.key?(a)
+              placed[i.results[0]] = [placed[a][0], placed[a][1] + const.fetch(k)] if placed.key?(a) && const.key?(k)
+            end
+          end
+        end
+        placed
+      end
+
+      # The region bits of every guard word (a gate, a stamp, the task)
+      # whose address `f` uses as anything but the base of a load or a
+      # store, or a constant's other addend. A def the inliner takes
+      # (`zr_gates`, `zr_current_task_slot`) answers the address to no
+      # caller in this unit, so its `return` is not an escape: a caller
+      # elsewhere stores through what it answered in a function of its
+      # own, whose passes place no store through a pointer.
+      def escaping_statics(f, placed)
+        bits = 0
+        answers = inline?(@defs.fetch(f.name))
+        f.blocks.each do |b|
+          b.insts.each do |i|
+            next if i.op == :iadd && placed.key?(i.results[0])
+            next if i.op == :return && answers
+
+            i.args.each_with_index do |a, k|
+              next unless (root = placed[a]&.first) && root != :slot
+              next if (i.op == :load && k.zero?) || (i.op == :store && k == 1)
+
+              region = IR::Effects.static_region(root)
+              bits |= IR::Effects.bit(region) if region && region != :statics
+            end
+            i.targets&.each do |(_, args)|
+              args.each do |a|
+                root = placed[a]&.first
+                region = root && root != :slot && IR::Effects.static_region(root)
+                bits |= IR::Effects.bit(region) if region && region != :statics
+              end
+            end
+          end
+        end
+        bits
+      end
+
+      # What `f`'s own instructions write.
+      def local_effects(f, placed, escaped)
+        bits = 0
+        by_fn = f.callees.to_h { |c| [c.fn, c] }
+        f.blocks.each do |b|
+          b.insts.each do |i|
+            case i.op
+            when :store then bits |= store_effects(i, placed, escaped)
+            when :call_indirect then bits |= IR::Effects::ALL
+            when :call
+              symbol = by_fn.fetch(i.callee).symbol
+              bits |= IR::Effects.import(symbol) unless @defs.key?(symbol)
+            end
+          end
+        end
+        bits
+      end
+
+      # What one store writes: its region where the lowering gave one,
+      # else the region of the static or slot its address is placed in,
+      # else whatever a pointer can reach.
+      def store_effects(i, placed, escaped)
+        return IR::Effects.bit(i.region) if i.region
+
+        root, at = placed[i.args[1]]
+        return IR::Effects::UNKNOWN | escaped if root.nil?
+        return 0 if root == :slot
+
+        region = IR::Effects.static_region(root, at + i.offset)
+        IR::Effects.bit(region || :statics)
       end
 
       # The static word that heads the chain of kernel root frames.
@@ -684,11 +809,12 @@ module Ze0
         elsif writer
           value, vt = expr(args[1], type)
           refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
-          @f.store(value, ptr, off)
+          region = cell?(layout) ? :heap : :malloc
+          @f.store(value, ptr, off, region: region)
           barrier(ptr, value) if type == "Value" && cell?(layout)
           [nil, "Void"]
         else
-          [@f.fetch(ir_type(type), ptr, off), type]
+          [@f.fetch(ir_type(type), ptr, off, region: cell?(layout) ? :heap : :malloc), type]
         end
       end
 

@@ -356,6 +356,27 @@ class PassesTest < Minitest::Test
     assert_equal 4 + 9 + 9, answer_with([f, where], [static("gates")], [])
   end
 
+  # A call whose callee's effects leave the word alone does not make
+  # the reader load it again; one whose effects may write it does. A
+  # store through a pointer with a region of its own is the same as
+  # such a call; one with no region is a write to everything.
+  def test_a_write_that_cannot_reach_the_word_leaves_its_value_alone
+    f = function("effects", %w[i64], "i64") do |f, p|
+      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      a = f.fetch("i64", at)
+      f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:heap) | Ze0::IR::Effects.bit(:malloc)), [])
+      f.store(f.iconst("i64", 1), p, 8, region: :heap)
+      b = f.fetch("i64", at)
+      f.call(f.callee("send", [], nil), [])
+      c = f.fetch("i64", at)
+      f.store(f.iconst("i64", 2), p, 16)
+      d = f.fetch("i64", at)
+      f.ret(f.iadd(f.iadd(a, b), f.iadd(c, d)))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal %i[symbol_value load call iconst store call load iconst store load iadd iadd iadd return], ops(f)
+  end
+
   # An address that reaches a call, a store of part of the word, or a
   # load of it as another type keeps every load of the word.
   def test_a_word_whose_address_escapes_or_that_is_written_in_part_keeps_its_loads

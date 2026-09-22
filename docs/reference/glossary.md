@@ -12,9 +12,16 @@ Ruby over the kernel.
 **Cref.** The lexical scope a method or block runs in: where a `def`
 lands and where constants are looked up.
 
-**Description.** The kernel's signatures, constants and struct layouts
-as text (`rt/ext/os/<os>/zr_description.rb`). A program that evals
-carries it instead of the kernel's sources.
+**Description.** The kernel's signatures, effects, constants and struct
+layouts as text (`rt/ext/os/<os>/zr_description.rb`). A program that
+evals carries it instead of the kernel's sources.
+
+**Effects.** What a call may write, as a bit a region of memory: the
+gate word, the stamps, the task, the heap's cells, the payloads, the
+other statics, and the volatile words a timer or a signal writes
+(`IR::Effects`). A kernel def's effects are computed over its body and
+closed over the defs it calls; an optimizer pass keeps a loaded value
+across a call only when the callee's effects leave its region alone.
 
 **Diverged.** A program whose binary answered something other than
 ruby's recording.

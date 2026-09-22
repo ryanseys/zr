@@ -137,7 +137,7 @@ module Ze0
 
         def take_keyword_word
           kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
-          @f.store(imm(0), @task_addr, off(@task, "kw"))
+          @f.store(imm(0), @task_addr, off(@task, "kw"), region: :task)
           kw
         end
 

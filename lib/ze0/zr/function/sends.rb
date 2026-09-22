@@ -245,7 +245,7 @@ module Ze0
         def keyword_argc(node, argc, argv)
           if node.kwargs && Scope.literal_keywords?(node.kwargs)
             keys = node.kwargs.pairs.each_slice(2).map { |key, _| key.value }
-            @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"))
+            @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"), region: :task)
             return argc
           end
           return kernel("zr_kw_argc", argc, argv) if node.kwargs
@@ -360,7 +360,7 @@ module Ze0
             @f.jump(merge, [@f.fetch("i64", at)])
           else
             value = @f.fetch("i64", argv, 8)
-            @f.store(value, at)
+            @f.store(value, at, region: :malloc)
             cell_barrier(recv, value)
             @f.jump(merge, [value])
           end
@@ -530,7 +530,7 @@ module Ze0
           plain = @f.label
           indexed = @f.label
           hit = @f.label
-          @f.store(imm(0), @task_addr, off(@task, "kw"))
+          @f.store(imm(0), @task_addr, off(@task, "kw"), region: :task)
           mask = @l.const("T_MASK") | (shape == :writer ? @l.const("FL_FREEZE") : 0)
           kind = @f.band(@f.fetch("i64", recv, off(@l.layout("RBasic"), "flags")), imm(mask))
           outside = @f.icmp("eq", @f.fetch("i64", @task_addr, off(@task, "ractor")), imm(0))
@@ -545,7 +545,7 @@ module Ze0
           switch(hit)
           if shape == :writer
             v = @f.fetch("i64", argv, 0)
-            @f.store(v, at, off(row, "value"))
+            @f.store(v, at, off(row, "value"), region: :malloc)
             cell_barrier(recv, v)
             @f.jump(merge, [v])
           else

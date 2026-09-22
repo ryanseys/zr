@@ -62,7 +62,11 @@ class DescriptionTest < Minitest::Test
       live = Ze0::Machine::Description.of(unit)
 
       assert_equal live.defs.keys.sort, carried.defs.keys.sort
-      live.defs.each { |name, d| assert_equal [d.params, d.ret], [carried.def_for(name).params, carried.def_for(name).ret], name }
+      live.defs.each do |name, d|
+        assert_equal [d.params, d.ret, d.effects],
+                     [carried.def_for(name).params, carried.def_for(name).ret, carried.def_for(name).effects], name
+      end
+      assert live.defs.values.all? { |d| d.effects.is_a?(Integer) }, "every def has its effects"
       live.consts.each { |name, value| assert_equal value, carried.const_for(name), name }
       live.structs.each do |name, layout|
         assert_equal [layout.fields, layout.size, layout.align],

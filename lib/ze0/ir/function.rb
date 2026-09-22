@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "analysis"
+require_relative "effects"
 require_relative "inst"
 
 module Ze0
@@ -15,7 +16,8 @@ module Ze0
     Global = Struct.new(:gv, :symbol, :colocated)
     Sig = Struct.new(:sig, :params, :ret)
     # `from`: the wasm module an imported callee comes from, or nil.
-    Callee = Struct.new(:fn, :symbol, :sig, :colocated, :from)
+    # `effects`: the `IR::Effects` bits a call may write.
+    Callee = Struct.new(:fn, :symbol, :sig, :colocated, :from, :effects)
 
     # A basic block: its parameters as `[value, type]` pairs, and its
     # instructions in order.
@@ -66,12 +68,13 @@ module Ze0
       end
 
       # A function this program defines, or one it imports `from` a wasm
-      # module.
-      def callee(symbol, params, ret, colocated: true, from: nil)
+      # module. `effects` is what a call may write: everything, unless
+      # the kernel's description says less.
+      def callee(symbol, params, ret, colocated: true, from: nil, effects: Effects::ALL)
         @callee_of[symbol] ||= begin
           sig = signature(params, ret)
           fn = "fn#{@callees.size}"
-          @callees << Callee.new(fn, symbol, sig, colocated, from)
+          @callees << Callee.new(fn, symbol, sig, colocated, from, effects)
           fn
         end
       end
@@ -162,17 +165,19 @@ module Ze0
       end
 
       # A store of `value` to `addr` (+`offset`), untrapped and aligned: the
-      # only flags the lowering ever writes.
-      def store(value, addr, offset = 0)
-        emit(Inst.new(:store, args: [value, addr], offset: offset, flags: "notrap aligned"))
+      # only flags the lowering ever writes. `region` is the word's
+      # `IR::Effects` region where the lowering can say.
+      def store(value, addr, offset = 0, region: nil)
+        emit(Inst.new(:store, args: [value, addr], offset: offset, flags: "notrap aligned", region: region))
         nil
       end
 
       # A load of `type` from `addr` (+`offset`), answered. Named `fetch`,
       # not `load`: `Kernel#load` already exists.
-      def fetch(type, addr, offset = 0)
+      def fetch(type, addr, offset = 0, region: nil)
         v = value
-        emit(Inst.new(:load, type: type, results: [v], args: [addr], offset: offset, flags: "notrap aligned"))
+        emit(Inst.new(:load, type: type, results: [v], args: [addr], offset: offset, flags: "notrap aligned",
+                      region: region))
         v
       end
 
@@ -310,9 +315,9 @@ module Ze0
       # ids. It stands in the entry block, which dominates every other,
       # so the value is in scope wherever the lowering wants it -- as an
       # immediate was before the link started numbering the symbols.
-      def hoisted_fetch(type, addr, offset = 0)
+      def hoisted_fetch(type, addr, offset = 0, region: nil)
         hoisted(:hoisted_fetch, [addr, offset]) do
-          Inst.new(:load, type: type, args: [addr], offset: offset, flags: "notrap aligned")
+          Inst.new(:load, type: type, args: [addr], offset: offset, flags: "notrap aligned", region: region)
         end
       end
 

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "effects"
 require_relative "promotion"
 require_relative "types"
 
@@ -21,12 +22,13 @@ module Ze0
     # writes it between any two instructions, and a load of it hoisted
     # out of a loop is a loop nothing can interrupt.
     #
-    # What writes a word: a store to it in this function; any call,
-    # since nearly every call in compiled Ruby is a send, which may define
-    # a method, and the collector moves a stamp when it frees a class;
-    # and a store through an address the pass cannot tell -- a pointer a
-    # call answered or a field holds -- since a def that answers a
-    # static's address is a call when the inliner leaves it one. A slot's
+    # What writes a word: a store to it in this function; a call whose
+    # callee's effects (`IR::Effects`, from the kernel's description)
+    # include the word's region -- a send may define a method, and the
+    # collector moves a stamp when it frees a class, so most calls do;
+    # a call through a pointer; and a store whose region can hold the
+    # word, or that has none and goes through an address the pass cannot
+    # tell -- a pointer a call answered or a field holds. A slot's
     # address and a symbol's, with a constant added, it can tell. So a
     # load reads the value of the last store or the reload after the
     # last write on the way there, or the load at entry when nothing
@@ -54,6 +56,7 @@ module Ze0
 
       def initialize(f)
         super
+        @effects = f.callees.to_h { |c| [c.fn, c] }
         @address = {}
         @initial = {}
         @reload = {}
@@ -227,12 +230,17 @@ module Ze0
             if symbol
               last[symbol] = i.args[0] if keys.key?(symbol) && at == PROMOTED.fetch(symbol)
             elsif !@known.include?(addr)
-              keys.each_key { |s| last[s] = i }
+              kill(keys, last, i, i.region ? Effects.bit(i.region) : Effects::ALL)
             end
-          when :call, :call_indirect
-            keys.each_key { |symbol| last[symbol] = i }
+          when :call then kill(keys, last, i, @effects.fetch(i.callee).effects)
+          when :call_indirect then kill(keys, last, i, Effects::ALL)
           end
         end
+      end
+
+      # The words `bits` can write are read afresh after `inst`.
+      def kill(keys, last, inst, bits)
+        keys.each_key { |symbol| last[symbol] = inst if Effects.writes?(bits, Effects.static_region(symbol)) }
       end
 
       # The word's value after the write `inst`: a reload, placed after

@@ -58,10 +58,13 @@ module Ze0
       # The conversions between i64 and f64: by value, and by bits.
       CONVERSIONS = %i[fcvt_from_sint fcvt_to_sint_sat bitcast].freeze
 
-      attr_accessor :op, :type, :args, :results, :cond, :offset, :targets, :callee, :flags
+      # `region`: for a load or a store, the `IR::Effects` region of the
+      # word, or nil when the lowering could not place it.
+      attr_accessor :op, :type, :args, :results, :cond, :offset, :targets, :callee, :flags, :region
 
       # rubocop:disable Metrics/ParameterLists
-      def initialize(op, type: nil, args: [], results: [], cond: nil, offset: 0, targets: nil, callee: nil, flags: nil)
+      def initialize(op, type: nil, args: [], results: [], cond: nil, offset: 0, targets: nil, callee: nil, flags: nil,
+                     region: nil)
         @op = op
         @type = type
         @args = args
@@ -71,6 +74,7 @@ module Ze0
         @targets = targets
         @callee = callee
         @flags = flags
+        @region = region
       end
       # rubocop:enable Metrics/ParameterLists
 

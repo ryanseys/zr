@@ -748,7 +748,7 @@ module Ze0
           end
           target.callees.each do |c|
             sig = target.sigs.find { |s| s.sig == c.sig }
-            names[c.fn] = f.callee(c.symbol, sig.params, sig.ret, colocated: c.colocated, from: c.from)
+            names[c.fn] = f.callee(c.symbol, sig.params, sig.ret, colocated: c.colocated, from: c.from, effects: c.effects)
           end
           entry = target.entry_block
           passed = target.blocks.none? { |cb| cb.insts.last.targets&.any? { |(blk, _)| blk == entry.name } }
@@ -774,7 +774,8 @@ module Ze0
 
           Inst.new(i.op, type: i.type, args: i.args.map { |a| renamed(a, names) }, results: i.results.map { |r| names.fetch(r) },
                    cond: i.cond, offset: i.offset, callee: i.callee && names.fetch(i.callee, i.callee), flags: i.flags,
-                   targets: i.targets&.map { |(blk, args)| [names.fetch(blk), args.map { |a| renamed(a, names) }] })
+                   targets: i.targets&.map { |(blk, args)| [names.fetch(blk), args.map { |a| renamed(a, names) }] },
+                   region: i.region)
         end
 
         def renamed(a, names) = a.is_a?(String) ? names.fetch(a, a) : a

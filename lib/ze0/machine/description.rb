@@ -26,7 +26,9 @@ module Ze0
     # `from`: the module a wasm import comes from, or nil for a symbol
     # the link finds.
     Import = Struct.new(:name, :params, :ret, :from)
-    Def = Struct.new(:name, :params, :ret, :node, :file)
+    # `effects`: the `IR::Effects` bits a call of the def may write,
+    # closed over the defs it calls; nil until the unit's fixpoint says.
+    Def = Struct.new(:name, :params, :ret, :node, :file, :effects)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
     Raw = Struct.new(:name, :params, :ret)
     # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
@@ -79,16 +81,17 @@ module Ze0
       # `unit` is a lowered kernel; every constant and layout is resolved
       # here, so the tables the rows come from are plain data.
       def self.of(unit)
-        defs = unit.declared_defs.to_h { |name, d| [name, Def.new(name, d.params, d.ret)] }
+        defs = unit.declared_defs.to_h { |name, d| [name, Def.new(name, d.params, d.ret, nil, nil, d.effects)] }
         consts = unit.declared_consts.to_h { |name| [name, unit.const_for(name)] }
         structs = unit.declared_structs.to_h { |name| [name, unit.struct_for(name)] }
         new(defs, consts, structs)
       end
 
       # One line per row: a def names its return type then its parameters,
-      # a const its value, a layout its size and align then its fields.
-      # Text, because a program carries this as one frozen literal and
-      # reads it back with nothing but String#split.
+      # an `e` row a def's effects, a const its value, a layout its size
+      # and align then its fields. Text, because a program carries this
+      # as one frozen literal and reads it back with nothing but
+      # String#split.
       def self.parse(text)
         defs = {}
         consts = {}
@@ -97,6 +100,7 @@ module Ze0
           kind, name, *rest = line.split(" ")
           case kind
           when "d" then defs[name] = Def.new(name, rest.drop(1).map { |f| f.split(":") }, rest.first)
+          when "e" then defs.fetch(name).effects = Integer(rest.first)
           when "c" then consts[name] = Integer(rest.first)
           when "s"
             fields = rest.drop(2).to_h { |f| n, at, type = f.split(":"); [n, [Integer(at), type]] }
@@ -108,6 +112,7 @@ module Ze0
 
       def to_text
         rows = @defs.map { |name, d| ["d", name, d.ret, *d.params.map { |n, t| "#{n}:#{t}" }] }
+        rows += @defs.map { |name, d| ["e", name, d.effects] }
         rows += @consts.map { |name, value| ["c", name, value] }
         rows += @structs.map { |name, l| ["s", name, l.size, l.align, *l.fields.map { |n, (at, type)| "#{n}:#{at}:#{type}" }] }
         rows.map { |row| "#{row.join(" ")}\n" }.join

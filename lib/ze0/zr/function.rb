@@ -253,7 +253,7 @@ module Ze0
         @f.store(@qnil, @rec, off(@frame, "svars"))
         # A refinement in use belongs to the call site, not to what the
         # site called: a ruby frame of its own starts with none.
-        @f.store(@qnil, @task_addr, off(@task, "refine"))
+        @f.store(@qnil, @task_addr, off(@task, "refine"), region: :task)
         program_start if @kind == :main && !@l.internal?
         parse_warnings if %i[main top eval].include?(@kind) && !@l.internal?
         # A required parameter's slot takes the argument straight from
@@ -355,7 +355,7 @@ module Ze0
       # unless it never opened: an arity error leaves before the event.
       def leave(value, unwinding: false, opened: true, line: nil)
         value = trace_close(value, unwinding, line) if opened
-        @f.store(@prev, @task_addr, off(@task, "top"))
+        @f.store(@prev, @task_addr, off(@task, "top"), region: :task)
         @f.ret(value)
       end
 
@@ -653,7 +653,7 @@ module Ze0
         ret = Machine::TYPES.fetch(d.ret)
         raise ArgumentError, "#{name} takes #{params.size} arguments, not #{args.size}" if params.size != args.size
 
-        fn = @f.callee(name, params, ret)
+        fn = @f.callee(name, params, ret, effects: d.effects || IR::Effects::ALL)
         ret ? @f.call_val(fn, args) : @f.call(fn, args)
       end
 
