@@ -35,15 +35,15 @@ machine def zr_objspace_objects(mod)
     base = zr_arena_at(a)
     first = zr_arena_first(base)
     bytes = ArenaHead.cell(base)
-    i = 0
-    while i < ArenaHead.ncells(base)
+    i = zr_arena_next_allocated(base, 0)
+    while i < ARENA_CELLS
       v = Machine.value(first + (i * bytes))
-      if (RBasic.flags(v) & FL_ALLOCATED) != 0 && Machine.word(v) != Machine.word(out) && zr_objspace_visible_p(v)
+      if Machine.word(v) != Machine.word(out) && zr_objspace_visible_p(v)
         if mod == QNIL || zr_is_a(v, mod)
           zr_ary_push(out, v)
         end
       end
-      i += 1
+      i = zr_arena_next_allocated(base, i + 1)
     end
     a += 1
   end
@@ -56,28 +56,25 @@ sig [] => Value
 machine def zr_objspace_census
   counts = Machine.slot(32 * 8)
   memset(counts, Machine.i32(0), 32 * 8)
-  free_cells = 0
+  live_cells = 0
   a = 0
   while a < Heap.arenas(zr_heap())
     base = zr_arena_at(a)
     first = zr_arena_first(base)
     bytes = ArenaHead.cell(base)
-    i = 0
-    while i < ArenaHead.ncells(base)
+    i = zr_arena_next_allocated(base, 0)
+    while i < ARENA_CELLS
       flags = Machine.load64(first + (i * bytes), 0)
-      if (flags & FL_ALLOCATED) == 0
-        free_cells += 1
-      else
-        slot = counts + ((flags & T_MASK) * 8)
-        Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
-      end
-      i += 1
+      slot = counts + ((flags & T_MASK) * 8)
+      Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
+      live_cells += 1
+      i = zr_arena_next_allocated(base, i + 1)
     end
     a += 1
   end
   out = zr_ary_new(34)
   zr_ary_push(out, zr_fix(zr_heap_cells()))
-  zr_ary_push(out, zr_fix(free_cells))
+  zr_ary_push(out, zr_fix(zr_heap_cells() - live_cells))
   t = 0
   while t < 32
     zr_ary_push(out, zr_fix(Machine.load64(counts + (t * 8), 0)))
@@ -95,16 +92,16 @@ machine def zr_objspace_id2ref(id)
     base = zr_arena_at(a)
     first = zr_arena_first(base)
     bytes = ArenaHead.cell(base)
-    i = 0
-    while i < ArenaHead.ncells(base)
+    i = zr_arena_next_allocated(base, 0)
+    while i < ARENA_CELLS
       v = Machine.value(first + (i * bytes))
-      if (RBasic.flags(v) & FL_ALLOCATED) != 0 && zr_objspace_visible_p(v)
+      if zr_objspace_visible_p(v)
         t = zr_ivtab(v)
         if t != 0 && zr_ivtab_get(t, Machine.id(:__object_id__)) == id
           return v
         end
       end
-      i += 1
+      i = zr_arena_next_allocated(base, i + 1)
     end
     a += 1
   end

@@ -485,7 +485,7 @@ module Ze0
         head = @l.layout("ArenaHead")
         marks = @l.const("MARK_BYTES")
         arena = @f.band(owner, imm(~(@l.const("ARENA_BYTES") - 1)))
-        first = @f.iadd(arena, imm(@l.const("ARENA_HEAD") + (marks * 3)))
+        first = @f.iadd(arena, imm(@l.const("ARENA_HEAD") + (marks * @l.const("ARENA_MAPS"))))
         index = @f.ushr(@f.isub(owner, first), @f.fetch("i64", arena, off(head, "shift")))
         at = @f.iadd(@f.iadd(arena, imm(@l.const("ARENA_HEAD") + marks)), @f.ishl(@f.ushr(index, imm(6)), imm(3)))
         aged = @f.icmp("ne", @f.band(@f.fetch("i64", at, 0), @f.ishl(imm(1), @f.band(index, imm(63)))), imm(0))

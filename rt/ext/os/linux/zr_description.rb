@@ -852,7 +852,10 @@ module Ze0
         d zr_arena_marks Ptr a:Ptr
         d zr_arena_ages Ptr a:Ptr
         d zr_arena_remembered Ptr a:Ptr
+        d zr_arena_allocated Ptr a:Ptr
         d zr_arena_first Ptr a:Ptr
+        d zr_arena_next_allocated Word a:Ptr i:Word
+        d zr_arena_live Word a:Ptr
         d zr_arena_exivars Ptr a:Ptr
         d zr_arena_exivars_for_write Ptr a:Ptr
         d zr_marks_word Ptr a:Ptr i:Word
@@ -869,15 +872,15 @@ module Ze0
         d zr_remember Void v:Value
         d zr_write_barrier Void owner:Value value:Value
         d zr_write_barrier_all Void owner:Value
-        d zr_marks_clear Void
-        d zr_ages_keep Void
         d zr_arena_bytes Word c:Word
         d zr_live_bytes Word
         d zr_heap_bytes Word
         d zr_machine_bytes Word
         d zr_arena_add Void c:Word
-        d zr_arena_reserve Void a:Ptr chain:Ptr
-        d zr_arena_unreserve Void sc:Ptr
+        d zr_arena_reserve Void a:Ptr
+        d zr_full Ptr
+        d zr_cursor_set Void sc:Ptr a:Ptr at:Ptr
+        d zr_cursor_advance Bool sc:Ptr
         d zr_globals Ptr
         d zr_global Value i:Word
         d zr_set_global Void i:Word v:Value
@@ -914,7 +917,7 @@ module Ze0
         d zr_mark_task Void t:Ptr
         d zr_free_cell Void cell:Ptr bytes:Word
         d zr_poison_payload Void cell:Ptr bytes:Word
-        d zr_sweep_arena Void a:Ptr start:Word stop:Word whole:Bool
+        d zr_sweep_arena Word a:Ptr
         d zr_sweep Void
         d zr_collect Void wanting:Word
         d zr_heap_pressed Bool
@@ -942,7 +945,7 @@ module Ze0
         d zr_gc_set_stress Value flag:Value
         d zr_gc_stress Value
         d zr_alloc Value type:Word klass:Value bytes:Word
-        d zr_cell_take Value sc:Ptr cell:Ptr type:Word klass:Value
+        d zr_cell_take Value sc:Ptr bits:Word type:Word klass:Value
         d zr_heap_slow_update Void
         d zr_alloc_slow Value type:Word klass:Value bytes:Word
         d zr_kroots Ptr
@@ -3045,7 +3048,10 @@ module Ze0
         e zr_arena_marks 0
         e zr_arena_ages 0
         e zr_arena_remembered 0
+        e zr_arena_allocated 0
         e zr_arena_first 0
+        e zr_arena_next_allocated 0
+        e zr_arena_live 0
         e zr_arena_exivars 0
         e zr_arena_exivars_for_write 56
         e zr_marks_word 0
@@ -3062,15 +3068,15 @@ module Ze0
         e zr_remember 120
         e zr_write_barrier 120
         e zr_write_barrier_all 120
-        e zr_marks_clear 56
-        e zr_ages_keep 56
         e zr_arena_bytes 0
         e zr_live_bytes 0
         e zr_heap_bytes 0
         e zr_machine_bytes 56
         e zr_arena_add 120
         e zr_arena_reserve 16
-        e zr_arena_unreserve 16
+        e zr_full 0
+        e zr_cursor_set 16
+        e zr_cursor_advance 16
         e zr_globals 0
         e zr_global 0
         e zr_set_global 120
@@ -4515,6 +4521,7 @@ module Ze0
         c ARENA_CELLS 8192
         c ARENA_TABLE 64
         c MARK_BYTES 1024
+        c ARENA_MAPS 4
         c ALL_MARKED -1
         c CELL_MIN 32
         c CELL_MAX 256
@@ -5105,8 +5112,8 @@ module Ze0
         s RFloat 24 8 basic:0:RBasic bits:16:Word
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
-        s ArenaHead 72 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word remembered:40:Word chain:48:Ptr next:56:Ptr exivars:64:Ptr
-        s SizeClass 48 8 free:0:Ptr last:8:Ptr freed:16:Word arenas:24:Word reserve:32:Ptr allocated:40:Word
+        s ArenaHead 64 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word remembered:40:Word next:48:Ptr exivars:56:Ptr
+        s SizeClass 64 8 cursor:0:Ptr origin:8:Ptr shift:16:Word room:24:Ptr freed:32:Word arenas:40:Word reserve:48:Ptr allocated:56:Word
         s Heap 144 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word slow:72:Word minors:80:Word verify:88:Word verifying:96:Word live:104:Word old_limit:112:Word majors:120:Word marking:128:Word sweeping:136:Word
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word

@@ -233,17 +233,16 @@ machine def zr_proxies_of(mod)
     base = zr_arena_at(a)
     first = zr_arena_first(base)
     bytes = ArenaHead.cell(base)
-    i = 0
-    while i < ArenaHead.ncells(base)
+    i = zr_arena_next_allocated(base, 0)
+    while i < ARENA_CELLS
       cell = first + (i * bytes)
-      flags = Machine.load64(cell, 0)
-      if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_ICLASS
+      if (Machine.load64(cell, 0) & T_MASK) == T_ICLASS
         ic = Machine.value(cell)
         if RClass.attached(ic) == mod && RClass.origin(mod) != ic
           zr_ary_unshift(out, ic)
         end
       end
-      i += 1
+      i = zr_arena_next_allocated(base, i + 1)
     end
     a += 1
   end

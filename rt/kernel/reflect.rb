@@ -579,17 +579,17 @@ machine def zr_class_subclasses(recv, argc, argv, cref, blk)
     base = zr_arena_at(a)
     first = zr_arena_first(base)
     bytes = ArenaHead.cell(base)
-    i = 0
-    while i < ArenaHead.ncells(base)
+    i = zr_arena_next_allocated(base, 0)
+    while i < ARENA_CELLS
       cell = first + (i * bytes)
       flags = Machine.load64(cell, 0)
-      if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_CLASS && (flags & FL_SINGLETON) == 0
+      if (flags & T_MASK) == T_CLASS && (flags & FL_SINGLETON) == 0
         k = Machine.value(cell)
         if k != recv && zr_real_superclass(k) == recv
           zr_ary_insert_by_serial(out, k)
         end
       end
-      i += 1
+      i = zr_arena_next_allocated(base, i + 1)
     end
     a += 1
   end

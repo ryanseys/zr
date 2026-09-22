@@ -72,17 +72,28 @@ takes the smallest size that holds the object and its contents. Short
 Strings and small Arrays live whole in their cell; larger payloads go
 to a malloc'd block that the sweep frees.
 
-Allocation is inline in each kernel constructor: the test for an empty
-free list and for a slow heap is there, and two short calls pick the
-size and take the list's head and write the header. Every constructor then writes every field
-of its object before anything can collect or read it, so the heap never
-spends time zeroing cells.
+Each arena carries four bitmaps ahead of its cells, a bit a cell: the
+marks, the ages, the remembered set, and the cells allocated. A cell's
+state is in the maps and never in the cell, so a new arena costs its
+maps and none of its pages, a collection leaves the pages a fork
+shares untouched, and every walk of the heap's objects steps by the
+allocated map.
+
+Allocation is inline in each kernel constructor: each size class has a
+cursor at a word of an allocated map, and the constructor takes the
+word's first clear bit -- `ctz` of its complement -- sets it, and
+writes the header at the cell the bit names. The test for a full word
+and for a slow heap is there, and the slow path moves the cursor on:
+along its arena, then through the arenas the last sweep left with
+room, then a reserved arena, and only then a collection. Every
+constructor writes every field of its object before anything can
+collect or read it, so the heap never spends time zeroing cells.
 
 ## When the collector runs
 
 The collector runs only inside an allocation:
 
-- when a size's free list and its spare arenas are empty;
+- when a size's arenas have no free cell left and none is reserved;
 - when the malloc'd payload passes its limit (64 MiB, or twice the
   payload found live at the last collection);
 - at `GC.start`;
@@ -105,18 +116,22 @@ A minor that leaves the size class that ran out still short of free
 cells is followed by a major at once, since what filled the heap was
 then not the young dead.
 
-Either kind sweeps every arena, and the growth that follows takes each
-size class to half free, or to a fifth where the heap has reached its
-share of the machine. Finalizers run later, at a safe point, never
-inside the sweep.
+Either kind sweeps every arena a word of its maps at a time: the cells
+allocated and not marked died in this collection, and each is released
+by its bit; the marks become the allocated map and the ages, and go to
+zero with the remembered set. A cell that was free is never touched,
+and a word of live cells costs four stores. The growth that follows
+takes each size class to half free, or to a fifth where the heap has
+reached its share of the machine. Finalizers run later, at a safe
+point, never inside the sweep.
 
 ## Making a missed root loud
 
 A freed cell is poisoned, and marking stops the program if it reaches
 one: a live object that points at a freed cell is a root the compiler
-missed. Under `ZR_GC_STRESS=1`, each free list starts past the last
-cell handed out, so a stale pointer meets the poison and not a new
-object. A constructor that forgets a field reads the poison too.
+missed. Under `ZR_GC_STRESS=1`, allocation goes on past the last cell
+handed out, so a stale pointer meets the poison and not a new object.
+A constructor that forgets a field reads the poison too.
 
 ## What ze0 does not do
 
