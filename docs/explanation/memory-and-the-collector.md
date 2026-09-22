@@ -111,10 +111,16 @@ both wait for the next major. That is the ordinary generational trade.
 
 A major runs when the old generation has doubled, when sixteen minors
 have gone by, or -- where the cells have reached their share of the
-machine, and only a major can give any of it back -- when four have.
+machine, and only a major can give any of it back -- when four have,
+for as long as the last major freed a sixteenth of what stayed live;
+one that freed less says the heap is full of what the program holds,
+and the next waits the sixteen.
 A minor that leaves the size class that ran out still short of free
 cells is followed by a major at once, since what filled the heap was
-then not the young dead.
+then not the young dead -- unless a major ran within the last three
+collections, which has already shown what fills the class live: the
+class then grows by its whole step instead, as CRuby holds a NOFREE
+major off for `RVALUE_OLD_AGE` collections.
 
 Either kind sweeps every arena a word of its maps at a time: the cells
 allocated and not marked died in this collection, and each is released
@@ -132,6 +138,24 @@ one: a live object that points at a freed cell is a root the compiler
 missed. Under `ZR_GC_STRESS=1`, allocation goes on past the last cell
 handed out, so a stale pointer meets the poison and not a new object.
 A constructor that forgets a field reads the poison too.
+
+## Reading the collector
+
+`ZR_GC_TRACE=1` prints one line to stderr a collection, as it ends:
+
+    zr_gc 61 major every malloc pressed heap 8123 live 7900 -> 6100 malloced 3001 of 3129 MB mark 3870 sweep 210 ms
+
+The number is `GC.count`; `major` or `minor` is the kind, and a major
+says why (`old`: the old generation doubled, `every`: the minors
+before it ran, `short`: the minor before it left the size class short,
+`asked`: `GC.start` or stress); `room` or `malloc` is what ran it (a
+size class out of cells, or the payload past its limit), and
+`pressed` says the cells have reached their share of the machine. Then
+the arenas held, the live bytes the last collection found and this one
+leaves, the payload against the limit the collection set, and what the
+trace and the sweep took. `GC.stat` holds the same totals
+(`marking_time`, `sweeping_time`, `major_gc_count`), and `ZE0_TIMING=1`
+prints them a phase of a build.
 
 ## What ze0 does not do
 

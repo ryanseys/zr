@@ -23,6 +23,8 @@ A binary that ze0 built reads these as it starts.
 | Variable | Values | Effect |
 |---|---|---|
 | `ZR_GC_STRESS` | `1` | Collects at every allocation, and poisons freed cells, so a value the collector does not see fails at once. |
+| `ZR_GC_VERIFY` | `1` | Holds every minor collection to a full trace, and names the store the write barrier missed. |
+| `ZR_GC_TRACE` | `1` | Prints one line to stderr a collection: its kind and reasons, the heap, the live bytes before and after, the payload against its limit, and the marking and sweeping milliseconds. |
 | `ZR_MCACHE` | `0` | Fills no call-site cache: every send looks its method up. |
 | `ZR_MCACHE` | `verify` | Checks every cache hit against a fresh lookup, and stops at the first that differs. |
 | `OPENSSL_DIR` | a prefix | `require "openssl"` opens `libssl.3.dylib` in its `lib` directory and looks nowhere else. |

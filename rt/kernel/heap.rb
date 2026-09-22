@@ -66,9 +66,11 @@ Machine.struct :SizeClass, cursor: Ptr, origin: Ptr, shift: Word, room: Ptr, fre
 # Heap state: collections, stress flag, the arena count,
 # the time collecting, the arena table and its capacity, the malloc'd
 # payload bytes held (zr_xmalloc, zr_xfree), the count of them that
-# runs the collector, and whether an allocation takes the slow path
-# (zr_heap_slow_update).
-Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word, majors: Word, marking: Word, sweeping: Word
+# runs the collector, whether an allocation takes the slow path
+# (zr_heap_slow_update), the collections and the majors and what each
+# kind cost, whether ZR_GC_TRACE is on, the collection number of the
+# last major and what it freed.
+Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word, majors: Word, marking: Word, sweeping: Word, trace: Word, last_major: Word, reclaimed: Word
 
 # The payload a collection lets the heap take on before the next one
 # runs on that account, and the bounds on that increment. CRuby holds
@@ -120,8 +122,27 @@ OLD_LIMIT_MIN = 16777216
 # was crossed at collection 166 of 265 and every one of the 100 after
 # it was a major -- 100 of the run's 114, and most of the 231.1 s it
 # spent marking.
+#
+# Sooner only while it pays: a pressed heap keeps the short cadence
+# while its last major freed at least this fraction of what stayed
+# live, and falls back to the plain one when it did not. The cold
+# self-compile under the compiled compiler held six gigabytes live and
+# nothing old dead, and every fourth collection traced the six
+# gigabytes in three seconds to free fifteen megabytes.
 MAJOR_EVERY = 16
 MAJOR_EVERY_PRESSED = 4
+MAJOR_YIELD = 16
+
+# The collections a major must be behind before a minor that left a
+# size class short may force another. Inside that window the class is
+# grown instead: the major just run has shown what fills it live, and
+# a second trace of the same heap would show the same. CRuby's
+# `gc_sweep_finish_heap` holds NOFREE majors off for RVALUE_OLD_AGE
+# collections the same way. Measured on the cold self-compile of the
+# compiler under the compiled compiler: 60 of the object phase's 62
+# majors were forced by a short class, each traced six gigabytes live
+# in four seconds to free four megabytes, and the class grew three.
+MAJOR_AGE = 3
 
 # The share of the machine's memory the cells may reach before growth
 # falls back to the floor, in hundredths. Past it a collection costs
@@ -631,6 +652,9 @@ machine def zr_heap_init
   if getenv(Machine.bytes("ZR_GC_VERIFY\0")) != 0
     Heap.set_verify(h, 1)
   end
+  if getenv(Machine.bytes("ZR_GC_TRACE\0")) != 0
+    Heap.set_trace(h, 1)
+  end
   zr_heap_slow_update()
 end
 
@@ -1125,11 +1149,15 @@ machine def zr_collect(wanting)
   # not the young dead, and only a major collection can give any of it
   # back. CRuby forces one on the same footing
   # (GPR_FLAG_MAJOR_BY_NOFREE), and the alternative is to grow the heap
-  # around objects that have been dead for sixteen collections.
-  if !major && zr_heap_short(wanting)
+  # around objects that have been dead for sixteen collections -- unless
+  # a major has just run, in which case the class is full of what it
+  # found live, and the room has to come from growth.
+  short = zr_heap_short(wanting)
+  if !major && short && Heap.collections(h) - Heap.last_major(h) >= MAJOR_AGE
     zr_collect_kind(wanting, true)
+    short = zr_heap_short(wanting)
   end
-  zr_heap_grow(wanting)
+  zr_heap_grow(wanting, short)
   zr_malloc_limit_set()
   zr_heap_slow_update()
 end
@@ -1140,10 +1168,15 @@ machine def zr_heap_pressed
   zr_heap_bytes() * 100 > zr_machine_bytes() * HEAP_SHARE
 end
 
-# The minors a major waits behind, which a pressed heap shortens.
+# The minors a major waits behind, which a pressed heap shortens while
+# its majors pay.
 sig [] => Word
 machine def zr_major_every
-  zr_heap_pressed() ? MAJOR_EVERY_PRESSED : MAJOR_EVERY
+  h = zr_heap()
+  if zr_heap_pressed() && Heap.reclaimed(h) * MAJOR_YIELD >= Heap.live(h)
+    return MAJOR_EVERY_PRESSED
+  end
+  MAJOR_EVERY
 end
 
 # Whether the sweep has left size class `c` under its floor of free
@@ -1178,6 +1211,11 @@ sig [Word, Bool] => Void
 machine def zr_collect_kind(wanting, major)
   h = zr_heap()
   started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
+  was = Heap.live(h)
+  why = 0
+  if Heap.trace(h) != 0
+    why = zr_gc_why(wanting)
+  end
   Heap.set_collections(h, Heap.collections(h) + 1)
   Heap.set_minors(h, major ? 0 : Heap.minors(h) + 1)
   # `minors` is what is left before the next major and a major resets
@@ -1185,6 +1223,7 @@ machine def zr_collect_kind(wanting, major)
   # counted, and the minors are the rest of `collections`.
   if major
     Heap.set_majors(h, Heap.majors(h) + 1)
+    Heap.set_last_major(h, Heap.collections(h))
   end
   Machine.store64(zr_marking(), 0, QNIL)
   unless major
@@ -1210,14 +1249,100 @@ machine def zr_collect_kind(wanting, major)
   marked = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
   Heap.set_marking(h, Heap.marking(h) + (marked - started))
   zr_sweep()
-  Heap.set_sweeping(h, Heap.sweeping(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - marked))
+  swept = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
+  Heap.set_sweeping(h, Heap.sweeping(h) + (swept - marked))
   live = zr_live_bytes()
   Heap.set_live(h, live)
   if major
     limit = live * OLD_LIMIT_FACTOR
     Heap.set_old_limit(h, limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit)
+    Heap.set_reclaimed(h, was > live ? was - live : 0)
   end
-  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
+  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (swept - started))
+  if Heap.trace(h) != 0
+    zr_gc_trace(why, major, was, marked - started, swept - marked)
+  end
+end
+
+# Why a collection is about to run, as bits: the payload is past its
+# limit (1), the live set is past the old limit (2), the minors before a
+# major have run (4), the heap is pressed (8), and nothing asked for
+# room (16: GC.start, or stress).
+sig [Word] => Word
+machine def zr_gc_why(wanting)
+  h = zr_heap()
+  why = 0
+  if Heap.malloced(h) > Heap.malloc_limit(h)
+    why = why | 1
+  end
+  if Heap.live(h) > Heap.old_limit(h)
+    why = why | 2
+  end
+  if Heap.minors(h) >= zr_major_every()
+    why = why | 4
+  end
+  if zr_heap_pressed()
+    why = why | 8
+  end
+  if wanting >= SIZE_CLASSES
+    why = why | 16
+  end
+  why
+end
+
+# Under ZR_GC_TRACE, one line to stderr a collection: its number and
+# kind, why it ran and why it was major, the heap's cells, the live
+# bytes before and after, the payload against its limit, and what the
+# trace and the sweep took. A major with none of the reasons in `why`
+# is the one zr_collect forces when a minor left the class short.
+sig [Word, Bool, Word, Word, Word] => Void
+machine def zr_gc_trace(why, major, was, mark_ns, sweep_ns)
+  h = zr_heap()
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("zr_gc "), 6)
+  zr_buf_long(b, Heap.collections(h))
+  if major
+    zr_buf_push(b, Machine.bytes(" major"), 6)
+    if (why & 2) != 0
+      zr_buf_push(b, Machine.bytes(" old"), 4)
+    end
+    if (why & 4) != 0
+      zr_buf_push(b, Machine.bytes(" every"), 6)
+    end
+    if (why & 22) == 0
+      zr_buf_push(b, Machine.bytes(" short"), 6)
+    end
+  else
+    zr_buf_push(b, Machine.bytes(" minor"), 6)
+  end
+  if (why & 16) != 0
+    zr_buf_push(b, Machine.bytes(" asked"), 6)
+  elsif (why & 1) != 0
+    zr_buf_push(b, Machine.bytes(" malloc"), 7)
+  else
+    zr_buf_push(b, Machine.bytes(" room"), 5)
+  end
+  if (why & 8) != 0
+    zr_buf_push(b, Machine.bytes(" pressed"), 8)
+  end
+  zr_buf_push(b, Machine.bytes(" heap "), 6)
+  zr_buf_long(b, zr_heap_bytes() >> 20)
+  zr_buf_push(b, Machine.bytes(" live "), 6)
+  zr_buf_long(b, was >> 20)
+  zr_buf_push(b, Machine.bytes(" -> "), 4)
+  zr_buf_long(b, Heap.live(h) >> 20)
+  zr_buf_push(b, Machine.bytes(" malloced "), 10)
+  zr_buf_long(b, Heap.malloced(h) >> 20)
+  zr_buf_push(b, Machine.bytes(" of "), 4)
+  zr_buf_long(b, Heap.malloc_limit(h) >> 20)
+  zr_buf_push(b, Machine.bytes(" MB mark "), 9)
+  zr_buf_long(b, mark_ns / 1000000)
+  zr_buf_push(b, Machine.bytes(" sweep "), 7)
+  zr_buf_long(b, sweep_ns / 1000000)
+  zr_buf_push(b, Machine.bytes(" ms\n"), 4)
+  write(2, Buf.ptr(b), Buf.len(b))
+  zr_buf_free(b)
 end
 
 # Every arena's marks started from its ages, which is what makes the
@@ -1392,8 +1517,15 @@ end
 # the last collection already paid for and this one leaves alone. That
 # is CRuby's tomb, which `gc_sweep_finish_heap` empties before it asks
 # the host for a page.
-sig [Word] => Void
-machine def zr_heap_grow(wanting)
+#
+# `short` says the class that ran out is still under its floor after
+# the collection, and the collector did not (or could not) run a major
+# for it: what fills the class is live, and the class takes the whole
+# step of growth, pressed or not. Twenty percent free of a small class
+# in a large heap is a few megabytes, and a collection that sweeps the
+# whole heap for them runs again at once.
+sig [Word, Bool] => Void
+machine def zr_heap_grow(wanting, short)
   # The machine bounds the heap. Once the cells reach their share of it
   # every class is grown to the floor and no further, and none is given
   # the amortization: the collector runs more often instead of asking
@@ -1409,12 +1541,14 @@ machine def zr_heap_grow(wanting)
     free = SizeClass.freed(sc)
     live = capacity - free
     want = capacity
+    most = (capacity * GROWTH) / 100
     if c == wanting && !pressed
       want = live + (live_bytes / (CELL_MIN << c))
+    elsif c == wanting && short
+      want = most
     elsif free * 100 < capacity * FREE_FLOOR
       want = (live * 100) / (100 - goal)
     end
-    most = (capacity * GROWTH) / 100
     cells = want < most ? want : most
     while SizeClass.arenas(sc) * ARENA_CELLS < cells
       zr_arena_add(c)
@@ -1471,7 +1605,7 @@ end
 sig [] => Value
 machine def zr_gc_start
   zr_collect_kind(SIZE_CLASSES, true)
-  zr_heap_grow(SIZE_CLASSES)
+  zr_heap_grow(SIZE_CLASSES, false)
   zr_malloc_limit_set()
   zr_heap_slow_update()
   zr_finalizers_run()
