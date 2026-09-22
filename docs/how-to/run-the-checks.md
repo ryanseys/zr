@@ -22,6 +22,13 @@ run of an example nothing has changed takes the binary and runs it: a
 directory of specs reruns in a third of the time. `ZE0_BINARIES=0`
 turns that off; `rake cache:size` says how much is kept.
 
+After an edit, `rake affected` runs the specs the edit can reach --
+the class's own directory and every spec that spells the class, for a
+file under `rt/core`; the stdlib directory and every spec that
+requires the library, for a vendored one -- and says to run `rake
+test` when the edit reaches everything (the compiler, the kernel, the
+checks' own support). It reads the diff against `main`, or `BASE=`.
+
 Three tiers, in the order you reach for them:
 
 | Tier | Holds | Costs |
