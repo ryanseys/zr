@@ -47,21 +47,28 @@ module Ze0
 
       def self.now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-      Timed = Data.define(:seconds, :name)
+      # What one directory's examples spent, part by part: a count and
+      # the seconds, whole and by part.
+      class Spent
+        attr_reader :examples, :whole, :parts
 
-      # What one directory's examples spent, part by part.
-      Spent = Struct.new(:examples, :whole, *PARTS) do
-        def self.zero = new(0, 0.0, *PARTS.map { 0.0 })
+        def self.zero = new(0, 0.0, PARTS.to_h { |part| [part, 0.0] })
 
-        def add(seconds, parts)
-          self.examples += 1
-          self.whole += seconds
-          PARTS.each { |part| self[part] += parts.fetch(part, 0.0) }
+        def initialize(examples, whole, parts)
+          @examples = examples
+          @whole = whole
+          @parts = parts
         end
 
-        def +(other) = self.class.new(*to_a.zip(other.to_a).map(&:sum))
+        def add(seconds, spent)
+          @examples += 1
+          @whole += seconds
+          PARTS.each { |part| @parts[part] += spent.fetch(part, 0.0) }
+        end
 
-        def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *PARTS.map { |part| self[part] }, whole)
+        def +(other) = Spent.new(examples + other.examples, whole + other.whole, PARTS.to_h { |part| [part, parts[part] + other.parts[part]] })
+
+        def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *PARTS.map { |part| parts[part] }, whole)
       end
 
       class Reporter < Minitest::AbstractReporter
@@ -74,7 +81,7 @@ module Ze0
         end
 
         def record(result)
-          @tests << Timed.new(result.time, "#{result.klass}##{result.name}")
+          @tests << [result.time, "#{result.klass}##{result.name}"]
           parts = result.metadata[KEY] if result.metadata?
           @spent[directory(result)].add(result.time, parts) if parts
         end
@@ -88,11 +95,12 @@ module Ze0
 
         private
 
+        # `@tests` holds `[seconds, name]` pairs.
         def report_tests
-          slowest = @tests.max_by(@count, &:seconds)
+          slowest = @tests.max_by(@count, &:first)
           @io.puts format("\nThe %d slowest of %d tests, %.1f s of %.1f s in all:",
-                          slowest.size, @tests.size, slowest.sum(&:seconds), @tests.sum(&:seconds))
-          slowest.each { |test| @io.puts format("%8.2f s  %s", test.seconds, test.name) }
+                          slowest.size, @tests.size, slowest.sum(&:first), @tests.sum(&:first))
+          slowest.each { |seconds, name| @io.puts format("%8.2f s  %s", seconds, name) }
         end
 
         def report_parts
