@@ -33,7 +33,7 @@ module Ze0
       # The opcodes with one result and no effect, where the same
       # operands give the same answer.
       PURE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast
-                 fcvt_from_sint fcvt_to_sint_sat] + Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
+                 fcvt_from_sint fcvt_to_sint_sat] + Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
 
       def self.run(f) = new(f).run
 

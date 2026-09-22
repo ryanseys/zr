@@ -36,7 +36,7 @@ class DisasmTest < Minitest::Test
   # can go stale without saying so.
   def test_the_snapshot_covers_every_opcode
     lowered = Ze0::Native::Ops.all.values.flat_map { |f| f.blocks.flat_map { |b| b.insts.map(&:op) } }.uniq
-    missing = (Ze0::IR::Inst::BINOPS + Ze0::IR::Inst::FBINOPS + Ze0::IR::Inst::FUNOPS +
+    missing = (Ze0::IR::Inst::BINOPS + Ze0::IR::Inst::BITOPS + Ze0::IR::Inst::FBINOPS + Ze0::IR::Inst::FUNOPS +
       Ze0::IR::Inst::CONVERSIONS + Ze0::IR::Inst::PAIRS +
       %i[iconst load store stack_addr symbol_value func_addr call call_indirect
          icmp fcmp select ireduce uextend sextend jump brif return]) - lowered

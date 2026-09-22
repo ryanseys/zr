@@ -682,6 +682,32 @@ module Ze0
             ahead.positive? ? ahead : @outer
           end
 
+          WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze
+          NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze
+
+          # wasm has no byte swap: the bytes trade places in pairs, then
+          # the pairs, then the halves -- `(x & m) << k | (x >> k) & m`
+          # for each mask, and a rotate for the halves. Each step reads
+          # the result's own local.
+          def emit_bswap(i)
+            v = i.results[0]
+            wide = wide?(i.args[0])
+            const, and_, or_, shl, shr, rotl = wide ? ["\x42", "\x83", "\x84", "\x86", "\x88", "\x89"] : ["\x41", "\x71", "\x72", "\x74", "\x76", "\x77"]
+            steps = wide ? [[0x00FF00FF00FF00FF, 8], [0x0000FFFF0000FFFF, 16]] : [[0x00FF00FF, 8]]
+            from = i.args[0]
+            steps.each do |mask, k|
+              get(from)
+              @code << const.b << @m.sleb(mask) << and_.b << const.b << @m.sleb(k) << shl.b
+              get(from)
+              @code << const.b << @m.sleb(k) << shr.b << const.b << @m.sleb(mask) << and_.b << or_.b
+              set(v)
+              from = v
+            end
+            get(from)
+            @code << const.b << @m.sleb(wide ? 32 : 16) << rotl.b
+            set(v)
+          end
+
           def emit_inst(i)
             case i.op
             when *CONSTANTS
@@ -697,6 +723,11 @@ module Ze0
               @code << "\xA7".b
               get(i.args[0])
               @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << @m.leb(i.offset)
+            when :ctz, :clz, :popcnt
+              get(i.args[0])
+              @code << (wide?(i.args[0]) ? WIDE_BITOPS : NARROW_BITOPS).fetch(i.op)
+              set(i.results[0])
+            when :bswap then emit_bswap(i)
             # The gate word is global 2: read as it is when read, since
             # a call may set it before a later read of the value.
             when :gates

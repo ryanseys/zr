@@ -130,6 +130,8 @@ module Ze0
           when :fcmp, *Inst::FBINOPS then i.args.each { |a| typed(i, b, a, "f64") }
           when *Inst::FUNOPS, :fcvt_to_sint_sat then typed(i, b, i.args[0], "f64")
           when :fcvt_from_sint, :brif then integer(i, b, i.args[0])
+          when *Inst::BITOPS
+            raise Error, "#{@f.name}: #{b.name} #{i.op} of an i8" if type_of(i.args[0]) == "i8"
           when :select
             integer(i, b, i.args[0])
             typed(i, b, i.args[2], type_of(i.args[1]))

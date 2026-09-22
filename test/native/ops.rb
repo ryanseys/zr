@@ -121,6 +121,11 @@ module Ze0
             ops["#{op}.#{t}"] = build("#{op}_#{t}", [t, t], t) { |f, a, b| f.binop(op, a, b) }
           end
         end
+        IR::Inst::BITOPS.each do |op|
+          %w[i64 i32].each do |t|
+            ops["#{op}.#{t}"] = build("#{op}_#{t}", [t], t) { |f, a| f.bitop(op, a) }
+          end
+        end
         IR::Inst::CONDS.each do |cond|
           ops["icmp.#{cond}"] = build("icmp_#{cond}", %w[i64 i64], "i8") { |f, a, b| f.icmp(cond, a, b) }
         end

@@ -182,6 +182,7 @@ module Ze0
           case i.op
           when :iconst then @const[i.results[0]] = [i.args[0], i.type]
           when *Inst::BINOPS then fold_binop(i)
+          when *Inst::BITOPS then fold_bitop(i)
           when :icmp then fold_compare(i)
           when :select then fold_select(i)
           when :uextend, :ireduce, :sextend then fold_width(i)
@@ -298,6 +299,23 @@ module Ze0
 
           k = constant(c)
           become(i, k.zero? ? b : a) if k
+        end
+
+        # The bit tricks over a constant, as `IR::Interp` answers them.
+        def fold_bitop(i)
+          k = constant(i.args[0])
+          return unless k
+
+          type = constant_type(i.args[0])
+          bits = bits_of(type)
+          k &= MASK.fetch(type)
+          answer = case i.op
+                   when :ctz then k.zero? ? bits : (k & -k).bit_length - 1
+                   when :clz then bits - k.bit_length
+                   when :popcnt then k.to_s(2).count("1")
+                   when :bswap then [k].pack(bits == 64 ? "Q>" : "L>").unpack1(bits == 64 ? "Q<" : "L<")
+                   end
+          become_constant(i, answer, type)
         end
 
         def fold_width(i)
@@ -433,7 +451,7 @@ module Ze0
       class Chains
         MOVABLE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast
                       fcvt_from_sint fcvt_to_sint_sat] +
-                   Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
+                   Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
 
         def self.run(f) = new(f).run
 
@@ -625,7 +643,7 @@ module Ze0
       class DCE
         PURE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast load
                    fcvt_from_sint fcvt_to_sint_sat] +
-                Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS + Inst::PAIRS).to_set.freeze
+                Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS + Inst::PAIRS).to_set.freeze
 
         # Each value's readers counted once; an instruction found dead
         # takes one reader off each of its operands, and an operand's

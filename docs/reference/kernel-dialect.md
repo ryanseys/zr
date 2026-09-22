@@ -75,6 +75,7 @@ For `Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr`:
 | `Machine.to_f64(w)` | a `Word`'s value as a double |
 | `Machine.to_int(f)` | a double's value as a `Word`, saturated |
 | `Machine.sqrt(f)`, `floor`, `ceil`, `trunc`, `nearest`, `fabs` | the `F64` operation |
+| `Machine.ctz(x)`, `clz`, `popcnt`, `bswap` | the trailing or leading zeros of `x` (its width, for zero), its set bits, its bytes turned round; `x` a `Word` or an `I32`, and so the answer |
 | `Machine.slot(n)` | the address of `n` bytes of the frame |
 | `Machine.static(:name, n)` | the address of `n` zeroed bytes that every def naming `:name` shares |
 | `Machine.gates` | the gate word, out of the register it lives in (`x28`; a global on wasm) |

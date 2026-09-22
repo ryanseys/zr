@@ -70,8 +70,8 @@ module Ze0
         # them. A compare, a select made with its own `cmp`, an overflow
         # check and a call all write the flags; a terminator ends the block.
         FLAG_NEUTRAL = (%i[iconst load store stack_addr symbol_value func_addr ireduce uextend sextend bitcast
-                           fcvt_from_sint fcvt_to_sint_sat] +
-                        IR::Inst::BINOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze
+                           fcvt_from_sint fcvt_to_sint_sat gates] +
+                        IR::Inst::BINOPS + IR::Inst::BITOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze
 
         # The mnemonics the one-operand float instructions go by.
         FUNOPS = { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm,
@@ -80,6 +80,9 @@ module Ze0
         # that makes or loads it and the ones in the same block that read
         # it: caller-saved, so a call empties them, and never saved.
         DOUBLES = [D16, D17, D18, D19, D20, D21, D22, D23].freeze
+        # The register `popcnt` counts in: outside `DOUBLES`, so it
+        # displaces nothing held there.
+        COUNTER = D24
 
         class Refused < Backend::Refused; end
 
@@ -842,6 +845,8 @@ module Ze0
             end
             emit_binop(i)
           when :urem, :srem then emit_rem(i)
+          when :ctz, :clz, :bswap then emit_bitop(i)
+          when :popcnt then emit_popcnt(i)
           when :ireduce, :uextend
             # A narrower value reads the low bits of its slot; a wider one
             # needs the high bits clear, which the narrow load gives.
@@ -1192,6 +1197,34 @@ module Ze0
           when :sshr then @asm.asr d, a, b
           end
           store_value(i.results[0], dest)
+        end
+
+        # `clz` is its own instruction, `ctz` the bits reversed and then
+        # `clz`, `bswap` is `rev`.
+        def emit_bitop(i)
+          dest = result_in(i.results[0], X11)
+          d, a = [dest, value_in(i.args[0], X9)].map { |x| reg_for(i.args[0], x) }
+          case i.op
+          when :clz then @asm.clz d, a
+          when :bswap then @asm.rev d, a
+          when :ctz
+            @asm.rbit d, a
+            @asm.clz d, d
+          end
+          store_value(i.results[0], dest)
+        end
+
+        # The set bits, counted a byte at a time in a d register: the
+        # word moved in (`fmov s, w` for an i32, which clears the rest),
+        # each byte's count (`cnt`), their sum in the low byte (`addv`),
+        # and the register read back whole.
+        def emit_popcnt(i)
+          @asm.fmov COUNTER, reg_for(i.args[0], value_in(i.args[0], X9))
+          @asm.cnt COUNTER, COUNTER
+          @asm.addv COUNTER, COUNTER
+          d = result_in(i.results[0], X11)
+          @asm.fmov d, COUNTER
+          store_value(i.results[0], d)
         end
 
         # `add`/`sub` of twelve bits, a shift by a number in the register,

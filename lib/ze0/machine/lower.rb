@@ -1109,6 +1109,10 @@ module Ze0
         when :f64, :bits, :to_f64, :to_int
           value, type = expr(args.first)
           float_convert(node, node.name, value, type)
+        when :ctz, :clz, :popcnt, :bswap
+          value, type = expr(args.first)
+          refuse(node, "Machine.#{node.name} of a #{type}") unless %w[i32 i64].include?(ir_type(type)) && args.one?
+          [@f.bitop(node.name, value), type]
         when :sqrt, :floor, :ceil, :trunc, :nearest, :fabs
           value, type = expr(args.first)
           refuse(node, "Machine.#{node.name} of a #{type}") unless type == "F64"

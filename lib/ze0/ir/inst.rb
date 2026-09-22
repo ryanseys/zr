@@ -34,6 +34,9 @@ module Ze0
     # - The most negative number `sdiv` -1 wraps to itself, and `srem` -1
     #   answers 0.
     # - A shift takes its amount modulo the width.
+    # - `ctz` and `clz` of zero answer the width; `popcnt` counts the set
+    #   bits; `bswap` reverses the bytes of the word, all four as wide
+    #   as their operand, which is i32 or i64.
     # - A function takes, and a call passes, at most `REGISTER_ARGS` values;
     #   a call to a wasm import passes what the import takes, since no
     #   native backend makes one.
@@ -48,6 +51,8 @@ module Ze0
       SHIFTS = %i[ishl ushr sshr].freeze
       # The ones whose operands may trade places.
       COMMUTATIVE = %i[iadd imul band bor bxor].freeze
+      # The one-operand integer opcodes: the bit tricks.
+      BITOPS = %i[ctz clz popcnt bswap].freeze
       # The comparison conditions.
       CONDS = %w[eq ne slt sle sgt sge ult ule ugt uge].freeze
       # The two-operand and one-operand f64 opcodes.

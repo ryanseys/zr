@@ -518,6 +518,94 @@ block0:
   ldp x29, x30, [sp], #16
   ret
 
+# ctz.i64
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  rbit x13, x8
+  clz x13, x13
+  mov x0, x13
+  ldp x29, x30, [sp], #16
+  ret
+
+# ctz.i32
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  rbit w13, w8
+  clz w13, w13
+  mov w0, w13
+  ldp x29, x30, [sp], #16
+  ret
+
+# clz.i64
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  clz x13, x8
+  mov x0, x13
+  ldp x29, x30, [sp], #16
+  ret
+
+# clz.i32
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  clz w13, w8
+  mov w0, w13
+  ldp x29, x30, [sp], #16
+  ret
+
+# popcnt.i64
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  fmov d24, x8
+  cnt d24, d24
+  addv d24, d24
+  fmov x13, d24
+  mov x0, x13
+  ldp x29, x30, [sp], #16
+  ret
+
+# popcnt.i32
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  fmov d24, w8
+  cnt d24, d24
+  addv d24, d24
+  fmov x13, d24
+  mov w0, w13
+  ldp x29, x30, [sp], #16
+  ret
+
+# bswap.i64
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  rev x13, x8
+  mov x0, x13
+  ldp x29, x30, [sp], #16
+  ret
+
+# bswap.i32
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  rev w13, w8
+  mov w0, w13
+  ldp x29, x30, [sp], #16
+  ret
+
 # icmp.eq
   stp x29, x30, [sp, #-16]!
   mov x29, sp

@@ -51,6 +51,22 @@ class PassesTest < Minitest::Test
     assert_equal (42 - 3 + 2) & 0xFFFF_FFFF_FFFF_FFFF, was
   end
 
+  # The bit tricks over constants fold as the interpreter answers them,
+  # as wide as the constant: a count of zero's zeros is the width.
+  def test_the_bit_tricks_fold_over_constants
+    f = function("bits", [], "i64") do |f|
+      ctz = f.bitop(:ctz, f.iconst("i64", 0x50))
+      none = f.bitop(:clz, f.iconst("i32", 0))
+      count = f.bitop(:popcnt, f.iconst("i64", 0xF0F0_0000_0000_0001))
+      turned = f.bitop(:bswap, f.iconst("i32", 0x0102_0304))
+      f.ret(f.iadd(f.iadd(ctz, f.uextend("i64", none)), f.iadd(count, f.uextend("i64", turned))))
+    end
+    was = answer(f, [])
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal %i[iconst return], ops(f)
+    assert_equal was, answer(f, [])
+    assert_equal 4 + 32 + 9 + 0x0403_0201, was
+  end
   # `x * 8`, `x / 8` and `x % 8` unsigned are a shift, a shift and a
   # mask; a signed division is not, and a multiply by 6 is a multiply.
   def test_a_multiply_division_or_remainder_by_a_power_of_two_is_a_shift_or_a_mask

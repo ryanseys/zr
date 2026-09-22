@@ -355,6 +355,7 @@ module Ze0
           bits = BITS.fetch(frame.types.of(i.args[0]))
           assign(frame, i.results[0], signed(read(frame, i.args[0]), bits == 8 ? 8 : 32))
         when *Inst::BINOPS then assign(frame, i.results[0], binop(frame, i))
+        when *Inst::BITOPS then assign(frame, i.results[0], bitop(frame, i))
         when :sadd_overflow, :ssub_overflow, :smul_overflow then step_overflow(frame, i)
         when *Inst::FBINOPS, *Inst::FUNOPS, :fcvt_from_sint, :fcvt_to_sint_sat
           assign(frame, i.results[0], float_op(frame, i))
@@ -442,6 +443,19 @@ module Ze0
         top = 1 << (bits - 1)
         assign(frame, i.results[0], exact & MASK[bits])
         assign(frame, i.results[1], exact < -top || exact >= top ? 1 : 0)
+      end
+
+      # The bit tricks, as wide as the operand: a count of zero's zeros
+      # is the width.
+      def bitop(frame, i)
+        bits = width_of(frame, i.args[0])
+        a = read(frame, i.args[0]) & MASK[bits]
+        case i.op
+        when :ctz then a.zero? ? bits : (a & -a).bit_length - 1
+        when :clz then bits - a.bit_length
+        when :popcnt then a.to_s(2).count("1")
+        when :bswap then [a].pack(bits == 64 ? "Q>" : "L>").unpack1(bits == 64 ? "Q<" : "L<")
+        end
       end
 
       # `fcvt_to_sint_sat` saturates and answers zero for NaN, as `fcvtzs`

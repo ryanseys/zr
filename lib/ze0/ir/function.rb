@@ -221,6 +221,16 @@ module Ze0
         v
       end
 
+      # The one-operand integer instructions, by opcode: `ctz`, `clz`,
+      # `popcnt`, `bswap`, as wide as `a`.
+      def bitop(op, a)
+        raise ArgumentError, "not a bit opcode: #{op}" unless Inst::BITOPS.include?(op)
+
+        v = value
+        emit(Inst.new(op, results: [v], args: [a]))
+        v
+      end
+
       # The f64 instructions: arithmetic, one-operand math, comparison
       # (an i8), and the conversions to and from i64.
       def fbinop(op, a, b)

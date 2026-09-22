@@ -42,7 +42,7 @@ a form that ze0 cannot compile is refused, by name, at its line.
 ## The IR: one form for every backend
 
 `lib/ze0/zr/` lowers the HIR to the IR (`lib/ze0/ir/`), a control-flow
-graph in SSA form with block parameters. It has 50 opcodes and four
+graph in SSA form with block parameters. It has 54 opcodes and four
 types: `i8`, `i32`, `i64` and `f64`. The kernel dialect
 (`lib/ze0/machine/`) lowers to the same IR. So every backend reads one
 form, whether the code came from a program or from the runtime.

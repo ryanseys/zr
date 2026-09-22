@@ -11,7 +11,7 @@ module Ze0
     # checks becomes one bit of the exit status, so a wrong answer names
     # itself.
     module Fixtures
-      NAMES = %w[arith divide hello indirect loops table].freeze
+      NAMES = %w[arith bits divide hello indirect loops table].freeze
 
       module_function
 
@@ -117,6 +117,43 @@ module Ze0
          holds.call(f.srem(wide.call(-(2**63)), wide.call(-1)), 0),
          holds.call(f.ishl(wide.call(1), wide.call(65)), 2),
          holds.call(f.sdiv(narrow.call(-(2**31)), narrow.call(-1)), -(2**31), "i32")].each do |bit|
+          bits = bits.nil? ? bit : f.iadd(f.iadd(bits, bits), bit)
+        end
+
+        f.call(exit, [bits])
+        f.ret(f.iconst("i32", 0))
+        [[same, same32, f], []]
+      end
+
+      # What the IR says the bit tricks answer (lib/ze0/ir/inst.rb): a
+      # count of zero's zeros is the width, `popcnt` counts, `bswap`
+      # turns the bytes round, each as wide as its operand. The operands
+      # pass through a call, so no backend sees a constant it could fold.
+      def bits
+        same = IR::Function.new("same", %w[i64], "i64")
+        same.ret(same.args[0])
+        same32 = IR::Function.new("same32", %w[i32], "i32")
+        same32.ret(same32.args[0])
+
+        f = IR::Function.new("main", %w[i32 i64], "i32")
+        id = f.callee("same", %w[i64], "i64")
+        id32 = f.callee("same32", %w[i32], "i32")
+        exit = f.callee("exit", %w[i64], nil, colocated: false)
+        zero = f.iconst("i64", 0)
+        one = f.iconst("i64", 1)
+        wide = ->(n) { f.call_val(id, [f.iconst("i64", n)]) }
+        narrow = ->(n) { f.call_val(id32, [f.iconst("i32", n)]) }
+        holds = ->(value, want, type = "i64") { f.csel(f.icmp("eq", value, f.iconst(type, want)), zero, one) }
+
+        bits = nil
+        [holds.call(f.bitop(:ctz, wide.call(0x50)), 4),
+         holds.call(f.bitop(:ctz, wide.call(0)), 64),
+         holds.call(f.bitop(:clz, wide.call(1)), 63),
+         holds.call(f.bitop(:clz, narrow.call(0)), 32, "i32"),
+         holds.call(f.bitop(:popcnt, wide.call(0xF0F0_0000_0000_0001)), 9),
+         holds.call(f.bitop(:popcnt, narrow.call(-1)), 32, "i32"),
+         holds.call(f.bitop(:bswap, wide.call(0x0102_0304_0506_0708)), 0x0807_0605_0403_0201),
+         holds.call(f.bitop(:bswap, narrow.call(0x0102_0304)), 0x0403_0201, "i32")].each do |bit|
           bits = bits.nil? ? bit : f.iadd(f.iadd(bits, bits), bit)
         end
 

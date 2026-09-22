@@ -171,6 +171,22 @@ module Ze0
         def sxtw(d, n) = sbfm(d, n, 0, 31)
         def uxtb(d, n) = ubfm(d, n, 0, 7)
 
+        # --- bits ---------------------------------------------------------
+
+        # The one-source forms: the bits reversed, the bytes reversed
+        # (`rev` of a w register turns four, of an x register eight), and
+        # the leading zeros counted.
+        def rbit(d, n) = one_source(0b000000, d, n)
+        def rev(d, n) = one_source(d.wide? ? 0b000011 : 0b000010, d, n)
+        def clz(d, n) = one_source(0b000100, d, n)
+        def one_source(opcode, d, n) = emit(0x5AC0_0000 | d.sf << 31 | opcode << 10 | n.to_i << 5 | d.to_i)
+
+        # `cnt v.8b, v.8b` counts the set bits of each of a double's eight
+        # bytes; `addv b, v.8b` sums them into the low byte and clears
+        # the rest of the register.
+        def cnt(d, n) = emit(0x0E20_5800 | n.to_i << 5 | d.to_i)
+        def addv(d, n) = emit(0x0E31_B800 | n.to_i << 5 | d.to_i)
+
         # --- moves --------------------------------------------------------
 
         # The stack pointer has no place in a logical instruction, so a move
@@ -198,9 +214,11 @@ module Ze0
         # --- SIMD&FP, doubles only ----------------------------------------
 
         # `fmov d, x`, `fmov x, d` or `fmov d, d`: the registers say which.
+        # `fmov d, x` and `fmov s, w` (the rest of the register cleared),
+        # `fmov d, d` and `fmov x, d`.
         def fmov(d, n)
           if d.float? && n.float? then emit(0x1E60_4000 | n.to_i << 5 | d.to_i)
-          elsif d.float? then emit(0x9E67_0000 | n.to_i << 5 | d.to_i)
+          elsif d.float? then emit((n.wide? ? 0x9E67_0000 : 0x1E27_0000) | n.to_i << 5 | d.to_i)
           else emit(0x9E66_0000 | n.to_i << 5 | d.to_i)
           end
         end
