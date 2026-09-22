@@ -84,7 +84,14 @@ task("build") do
   sh(RbConfig.ruby, "-Ilib:test", "-e", ze0_warm_line(true), verbose: false)
 end
 
+# The tiers run under the collector tuning a build runs under
+# (`CLI::GC_ENV`): a worker is a compiler, and it allocates as one. Set
+# in this process, the tier's ruby inherits it. Measured over 510
+# examples of three spec directories: 20.1 s -> 18.6 s.
+alias ze0_tuned ze0_tune!
+
 def tier(name, glob, framework, what, wasm: false)
+  task("#{name}:tune") { ze0_tuned }
   Minitest::TestTask.create(name) do |t|
     t.libs = %w[lib test]
     # The tests are the compiler's own Ruby, as `ze0` itself is.
@@ -109,7 +116,7 @@ def tier(name, glob, framework, what, wasm: false)
   # one TestTask wrote comes off before ours goes on.
   Rake::Task[name].clear_comments
   desc what
-  task name
+  task name => "#{name}:tune"
 end
 
 # `rake test test/unit/prism_test.rb` -- or a bare `prism_test.rb`, or a
@@ -154,6 +161,7 @@ if ZE0_TEST_ARGV.empty?
 else
   task :test do
     require "rbconfig"
+    ze0_tuned
     require "support/warm"
     cold = !Ze0::Test::Warm.light?(ZE0_TEST_ARGV)
     wasm = ZE0_TEST_ARGV.any? { |path| path.start_with?(File.join(ROOT, "test/unit", "")) }
