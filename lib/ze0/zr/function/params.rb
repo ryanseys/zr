@@ -61,11 +61,16 @@ module Ze0
           check_arity(p, argc)
           @f.jump(go)
           switch(go)
-          out = @f.stack_addr(@f.slot(8))
+          # A block that spreads (`|a, b|`) asks the kernel to take one
+          # Array argument apart; one that does not (`|x|`) takes the
+          # arguments as they came, with no call.
           keep = p.spread? ? value_offset(reserve(1)) : nil
-          spread = keep ? @f.csel(lambda?, imm(0), imm(p.optional.empty? ? 1 : 2)) : imm(0)
-          argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out, keep ? @f.iadd(@rec, imm(keep)) : imm(0))), imm(1))
-          argv = @f.fetch("i64", out)
+          if keep
+            out = @f.stack_addr(@f.slot(8))
+            spread = @f.csel(lambda?, imm(0), imm(p.optional.empty? ? 1 : 2))
+            argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out, @f.iadd(@rec, imm(keep)))), imm(1))
+            argv = @f.fetch("i64", out)
+          end
           bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p)
           bind(p.block, block_param(@f.args[3])) if p.block

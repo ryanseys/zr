@@ -172,7 +172,7 @@ module Ze0
             at_node(node)
             argc = array_len(ary)
             argc = kernel("zr_kw_argc", argc, array_ptr(ary)) if node.kwargs
-            r = checked(kernel("zr_yield", @blk, argc, array_ptr(ary)))
+            r = checked(block_call(argc, array_ptr(ary)))
             @sp = slot
             return r
           end
@@ -181,8 +181,32 @@ module Ze0
             at_node(node)
             argc = imm(parts.size)
             argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
-            checked(kernel("zr_yield", @blk, argc, argv))
+            checked(block_call(argc, argv))
           end
+        end
+
+        # The block called as zr_yield calls it, at the site: the test
+        # that there is one, then its function through the Proc. The
+        # kernel's own yield polls for preemption first, which a
+        # program's function does at its entry and at every back edge
+        # -- the core's functions poll nowhere (`preempt`), so a core
+        # iterator's `yield` keeps the kernel's, or `loop { }` would
+        # never hand the turn on. No block given takes the kernel's road
+        # too, which raises.
+        def block_call(argc, argv)
+          return kernel("zr_yield", @blk, argc, argv) if @l.internal?
+
+          none = @f.label
+          some = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", @blk, @qnil), none, some)
+          switch(none)
+          @f.jump(merge, [kernel("zr_yield", @blk, argc, argv)])
+          switch(some)
+          fn = @f.fetch("i64", @blk, off(@proc_layout, "fn"))
+          @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(:block), "i64"), fn, [@blk, argc, argv, @qnil])])
+          switch(merge)
+          result
         end
 
         # `return`: out of the method, or from a block through the runtime
