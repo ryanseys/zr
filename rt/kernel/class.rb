@@ -833,6 +833,20 @@ machine def zr_gate_bit(klass, mid)
     GATE_LTLT
   elsif klass == zr_global(G_STRING) && mid == Machine.id(:freeze)
     GATE_FREEZE
+  elsif klass == zr_global(G_STRING) && mid == Machine.id(:getbyte)
+    GATE_GETBYTE
+  elsif klass == zr_global(G_STRING) && mid == Machine.id(:setbyte)
+    GATE_SETBYTE
+  elsif klass == zr_global(G_INTEGER) && mid == Machine.id(:succ)
+    GATE_SUCC
+  elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:push)
+    GATE_PUSH
+  elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:pop)
+    GATE_POP
+  elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:shift)
+    GATE_SHIFT
+  elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:empty?)
+    GATE_EMPTY_P
   elsif mid == Machine.id(:!) && zr_not_gated_p(klass)
     GATE_NOT
   else
@@ -852,7 +866,7 @@ end
 # it started: the class the gate guards (a global's index), the name,
 # the gate bit, and the body and visibility that class found then.
 Machine.struct :GateRow, klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-GATE_ROWS = 31
+GATE_ROWS = 38
 
 sig [Word, Word, Word, Word] => Word
 machine def zr_gate_row(i, klass, mid, bit)
@@ -902,7 +916,14 @@ machine def zr_gates_snapshot
   i = zr_gate_row(i, G_FLOAT, Machine.id(:<=), GATE_FLO_LE)
   i = zr_gate_row(i, G_FLOAT, Machine.id(:>), GATE_FLO_GT)
   i = zr_gate_row(i, G_FLOAT, Machine.id(:>=), GATE_FLO_GE)
-  zr_gate_row(i, G_FLOAT, Machine.id(:==), GATE_FLO_EQ)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:==), GATE_FLO_EQ)
+  i = zr_gate_row(i, G_STRING, Machine.id(:getbyte), GATE_GETBYTE)
+  i = zr_gate_row(i, G_STRING, Machine.id(:setbyte), GATE_SETBYTE)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:succ), GATE_SUCC)
+  i = zr_gate_row(i, G_ARRAY, Machine.id(:push), GATE_PUSH)
+  i = zr_gate_row(i, G_ARRAY, Machine.id(:pop), GATE_POP)
+  i = zr_gate_row(i, G_ARRAY, Machine.id(:shift), GATE_SHIFT)
+  zr_gate_row(i, G_ARRAY, Machine.id(:empty?), GATE_EMPTY_P)
   Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
 end
 

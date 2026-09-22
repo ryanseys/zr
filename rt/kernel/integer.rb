@@ -21,6 +21,15 @@ GATE_XOR = 262144
 GATE_SHR = 524288
 GATE_HASH_AREF = 1048576
 GATE_HASH_ASET = 2097152
+# The named calls with a fast path of their own (zr_opt_getbyte and
+# the rest): bits above the operators', in the same word.
+GATE_GETBYTE = 1 << 31
+GATE_SETBYTE = 1 << 32
+GATE_SUCC = 1 << 33
+GATE_PUSH = 1 << 34
+GATE_POP = 1 << 35
+GATE_SHIFT = 1 << 36
+GATE_EMPTY_P = 1 << 37
 
 sig [] => Ptr
 machine def zr_gates

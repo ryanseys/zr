@@ -37,6 +37,11 @@ module Ze0
       # The runtime's own Ruby, the core library and the extensions: code
       # a TracePoint never sees.
       RUNTIME = Paths::RT
+      # The named calls a site lowers to a kernel entry with a core fast
+      # path (Zr::Function::Sends::OPT_ENTRIES), by the arguments each
+      # takes. A call of any other count, or with a block, keywords or a
+      # splat, raises or means something else, and only the call says.
+      OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
 
       def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
 
@@ -1942,7 +1947,12 @@ module Ze0
         @loader.normalizes!(node.name, args)
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
         # call does, so a literal `self` dispatches, private methods and all.
-        opt = ((%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)) &&
+        # A named call with a fast path (OPT_CALLS) is one on an explicit
+        # receiver, plain, with the arguments the body takes.
+        opt = ((%i[[] []=].include?(node.name) && node.opening == "[") ||
+               (node.name == :<< && node.call_operator.nil? && args.size == 1) ||
+               (OPT_CALLS[node.name] == args.size && node.call_operator == "." && kwargs.nil? && node.block.nil? && forwarded.nil? &&
+                args.none?(Splat))) &&
               !node.receiver.is_a?(Prism::SelfNode)
         recv = node.receiver && expr(node.receiver)
         # A refinement is in use inside its own block, so a sibling

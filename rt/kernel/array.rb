@@ -853,6 +853,42 @@ machine def zr_opt_aref(recv, mid, argc, argv, mode)
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
+# `recv.push(v)`, `recv.pop`, `recv.shift` and `recv.empty?` on an Array
+# whose method is its own: the builtin's body at once, with no frame,
+# as `<<` takes. The builtin road (zr_builtin_fn) was a third of
+# `bm_so_lists`, which is these four on two lists.
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_push(recv, mid, argc, argv, mode)
+  if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_PUSH) == 0
+    return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+  end
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
+end
+
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_pop(recv, mid, argc, argv, mode)
+  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_POP) == 0
+    return zr_ary_pop(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+  end
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
+end
+
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_shift(recv, mid, argc, argv, mode)
+  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_SHIFT) == 0
+    return zr_ary_shift(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+  end
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
+end
+
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_empty_p(recv, mid, argc, argv, mode)
+  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_EMPTY_P) == 0
+    return zr_bool(RArray.len(recv) == 0)
+  end
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
+end
+
 # `recv[k] = v` likewise: an Array for an Integer index, a Hash for any
 # key.
 sig [Value, Word, Word, Ptr, Word] => Value

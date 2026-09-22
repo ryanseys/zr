@@ -30,11 +30,18 @@ module Ze0
         # class tests a `case` over objects is made of.
         ARGUED = { is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": [:mod_eqq] }.freeze
 
-        # The kernel entry of each operator with a core fast path, and
-        # the classes it answers for.
+        # The kernel entry of each operator and named call with a core
+        # fast path, and the classes it answers for. The named ones are
+        # `Hir::Build::OPT_CALLS`, which marks the call.
         OPT_ENTRIES = {
-          :[] => ["zr_opt_aref", %w[G_ARRAY G_HASH]], :[]= => ["zr_opt_aset", %w[G_ARRAY G_HASH]], :<< => ["zr_opt_ltlt", %w[G_ARRAY G_STRING]]
+          :[] => ["zr_opt_aref", %w[G_ARRAY G_HASH]], :[]= => ["zr_opt_aset", %w[G_ARRAY G_HASH]], :<< => ["zr_opt_ltlt", %w[G_ARRAY G_STRING]],
+          getbyte: ["zr_opt_getbyte", %w[G_STRING]], setbyte: ["zr_opt_setbyte", %w[G_STRING]],
+          push: ["zr_opt_push", %w[G_ARRAY]], pop: ["zr_opt_pop", %w[G_ARRAY]], shift: ["zr_opt_shift", %w[G_ARRAY]],
+          empty?: ["zr_opt_empty_p", %w[G_ARRAY]]
         }.freeze
+        # The unary Integer calls with an inline fixnum fast path, and
+        # their gates.
+        UNARY = { succ: "GATE_SUCC" }.freeze
         # The operators with a flonum path: the f64 instruction or the
         # fcmp condition, and the gate of Float's method.
         FLOAT_OPS = {
@@ -193,6 +200,8 @@ module Ze0
             call_with_block(node, recv, argv, argc)
           elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil? && !traced?
             operator(node, recv, argv)
+          elsif node.args.empty? && node.kwargs.nil? && UNARY.key?(node.name) && explicit?(node) && node.using.nil? && !traced?
+            unary(node, recv, argv)
           else
             dispatch(node, recv, argv, argc)
           end
@@ -322,6 +331,8 @@ module Ze0
         # `recv[i]` and `recv[i] = v` with one plain index: an Array
         # receiver reads or writes the element in place.
         def array_element?(node)
+          return false unless %i[[] []=].include?(node.name)
+
           plain = node.kwargs.nil? && node.block.nil? && node.args.none? { |a| a.is_a?(Hir::Splat) }
           plain && node.args.size == (node.name == :[] ? 1 : 2)
         end
@@ -683,6 +694,25 @@ module Ze0
           end
           switch(slow)
           @f.jump(merge, [dispatch(node, recv, argv, imm(1))])
+          switch(merge)
+          result
+        end
+
+        # `recv.succ` on a fixnum while Integer's `succ` is its own: the
+        # sum inline, the call past the fixnums or under a redefinition.
+        # `bm_ruby_xor` counts with `i.succ`, and every call of it was a
+        # send.
+        def unary(node, recv, argv)
+          fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
+          ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
+          fast = @f.label
+          slow = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(ok, fast, slow)
+          switch(fast)
+          @f.jump(merge, [overflow_or(@f.sadd_overflow(recv, imm(2)), slow)])
+          switch(slow)
+          @f.jump(merge, [dispatch(node, recv, argv, imm(0))])
           switch(merge)
           result
         end
