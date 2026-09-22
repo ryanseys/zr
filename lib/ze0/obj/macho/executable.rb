@@ -23,9 +23,12 @@ module Ze0
       # unit is the whole image, in `__TEXT`, `__DATA_CONST` and `__DATA`.
       #
       # What is added is the Mach-O container, chained fixups so a
-      # position-independent image can be rebased and bound, an exports
-      # trie for a program whose JIT finds symbols by name, and the ad-hoc
-      # code signature Apple Silicon will not run a binary without.
+      # position-independent image can be rebased and bound, a symbol
+      # table sorted by name, which a program's JIT searches in place for
+      # the runtime's functions (`zr_os_symbol`) -- an exports trie over a
+      # third of a million names was six megabytes and a second a link --
+      # and the ad-hoc code signature Apple Silicon will not run a binary
+      # without.
       #
       # It does not strip: nearly all of the runtime is reachable from its
       # dispatch tables, and `ld -dead_strip` removed less than one percent.
@@ -108,9 +111,9 @@ module Ze0
         # puts every global in the exports trie, where `dlsym` finds it.
         # `skeleton` is a file of the base's `Skeleton.bytes`, cloned and
         # written into rather than written whole where the system allows.
-        def self.write(unit, out, objects: [], prelink: nil, exports: false, stack: STACK, entry: "main", skeleton: nil)
+        def self.write(unit, out, objects: [], prelink: nil, stack: STACK, entry: "main", skeleton: nil)
           prelink ||= Prelink.build(objects)
-          new(unit, prelink, out, exports: exports, stack: stack, entry: entry, skeleton: skeleton).write
+          new(unit, prelink, out, stack: stack, entry: entry, skeleton: skeleton).write
         rescue Refused => e
           e.message
         end
@@ -120,10 +123,9 @@ module Ze0
         # on every host; a name missing from the list is refused.
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
-        def initialize(unit, prelink, out, exports: false, stack: STACK, entry: "main", skeleton: nil)
+        def initialize(unit, prelink, out, stack: STACK, entry: "main", skeleton: nil)
           @base = prelink
           @out = out
-          @exports = exports
           @stack = stack
           @entry = entry
           @skeleton = skeleton
@@ -360,8 +362,8 @@ module Ze0
           @link_vm = Patch.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
           fixups = chained_fixups
           trie = exports_trie
-          words, strings = @top.symbols(@ordinals, @base.strings.bytesize)
-          symbols = @base.symbols + words.pack("Q<*")
+          words, strings, names = @top.symbols(@ordinals, @base.strings.bytesize)
+          symbols = merged_symbols(words, names)
           strings = @base.strings + strings
           strings = "\0".b if strings.empty?
           strings += "\0".b * (-strings.bytesize % 8)
@@ -386,19 +388,33 @@ module Ze0
           @linkedit = out
         end
 
+        # The program's symbol table entries merged into the base's, both
+        # sorted by name (`Block#symbols`), so the image's whole table is:
+        # the runtime finds any global in it by a binary search
+        # (rt/kernel/os/darwin/jit.rb, `zr_os_symbol`). The base's names
+        # are the table's order, and a program's name never equals one of
+        # them (`write` refuses that first).
+        def merged_symbols(words, names)
+          out = +"".b
+          at = 0
+          names.each_with_index do |name, n|
+            i = @base.names.bsearch_index { |candidate| candidate >= name } || @base.names.size
+            out << @base.symbols.byteslice(at * 16, (i - at) * 16) if i > at
+            out << words[n * 2, 2].pack("Q<2")
+            at = i
+          end
+          out << @base.symbols.byteslice(at * 16, @base.symbols.bytesize - (at * 16))
+        end
+
         # The exports trie: the image's own header at offset zero, which is
-        # all `-no_exported_symbols` leaves behind, and with `exports` every
-        # global besides. Each node is its terminal (flags and address, if a
-        # name ends there) and its edges, each an edge's bytes and the
-        # offset of the node it leads to. An offset's size depends on where
-        # the nodes land, so the layout runs until no offset moves.
+        # all `-no_exported_symbols` leaves behind; every other name is
+        # found in the symbol table. Each node is its terminal (flags and
+        # address, if a name ends there) and its edges, each an edge's
+        # bytes and the offset of the node it leads to. An offset's size
+        # depends on where the nodes land, so the layout runs until no
+        # offset moves.
         def exports_trie
           entries = [["__mh_execute_header", 0]]
-          if @exports
-            @base.names.each_with_index { |name, n| entries << [name, @base.addresses[n] - BASE] }
-            @top.exports.each { |name, address| entries << [name, address - BASE] }
-          end
-          entries.sort_by!(&:first)
           nodes = []
           trie_node(entries, 0, entries.size, 0, nodes)
           # Each node's size less its offsets, which is all that moves.

@@ -66,7 +66,13 @@ For each string, the carried compiler:
    can read and write them;
 3. assembles it with the aarch64 backend; and
 4. loads the machine code into the process with `Obj::JIT`, over the
-   runtime's own calls to map and protect memory.
+   runtime's own calls to map and protect memory. The snippet's calls
+   into the runtime and the program are resolved by name: the image's
+   own symbol table is sorted by name (`Obj::MachO::Executable`), so the
+   kernel finds each one by a binary search of it (`zr_os_symbol`,
+   rt/kernel/os/darwin/jit.rb), and asks dlsym only for a name of
+   libSystem's -- or for everything, in an image `ld` linked, whose
+   table is in no order and whose exports trie holds every name.
 
 An eval must agree with the code around it about the kernel's
 functions, layouts and symbol ids. The program carries the kernel's

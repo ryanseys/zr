@@ -15,6 +15,8 @@ module Ze0
           __ioctl
           __open
           __sinpi
+          _dyld_get_image_header
+          _dyld_get_image_vmaddr_slide
           _exit
           abort
           accept
@@ -203,6 +205,7 @@ module Ze0
           socket
           socketpair
           stat
+          strcmp
           strerror
           strtod
           symlink

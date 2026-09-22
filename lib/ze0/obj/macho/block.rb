@@ -149,12 +149,15 @@ module Ze0
         end
 
         # Every defined symbol as a local `nlist_64`, two words each, at its
-        # address, in the image section `ordinals` gives its part; and the
-        # names, the inputs' own string tables one after another, whose
-        # offsets start at `strings_at`.
+        # address, in the image section `ordinals` gives its part, **in the
+        # order of their names**; the names, the inputs' own string tables
+        # one after another, whose offsets start at `strings_at`; and the
+        # names in the words' order. A table sorted by name is one the
+        # runtime searches in place (`zr_os_symbol`), which is what lets
+        # an image carry no exports trie.
         def symbols(ordinals, strings_at)
           strings = +"".b
-          words = []
+          rows = []
           @inputs.each_with_index do |o, i|
             base = strings_at + strings.bytesize
             strings << o.strings
@@ -162,10 +165,11 @@ module Ze0
               next unless (o.type(s) & (N_STAB | N_TYPE)) == N_SECT
 
               ordinal = ordinals.fetch(@part_of[i][o.sect(s) - 1])
-              words << ((o.strx(s) + base) | (N_SECT << 32) | (ordinal << 40)) << @addr[i][s]
+              rows << [o.name(s), (o.strx(s) + base) | (N_SECT << 32) | (ordinal << 40), @addr[i][s]]
             end
           end
-          [words, strings]
+          rows.sort_by!(&:first)
+          [rows.flat_map { |_, strx, address| [strx, address] }, strings, rows.map(&:first)]
         end
 
         private

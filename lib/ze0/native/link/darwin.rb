@@ -21,8 +21,9 @@ module Ze0
 
         # A program that does not eval reaches the runtime only through
         # calls the linker can see, so what nothing calls is left out. An
-        # executable exports every global, and ld keeps what is exported,
-        # so the exports go too.
+        # executable `ld` links exports every global, and ld keeps what is
+        # exported, so the exports go too; one that evals keeps them, since
+        # its JIT falls back on dlsym where the symbol table is not sorted.
         STRIP_FLAGS = ["-Wl,-dead_strip", "-Wl,-no_exported_symbols"].freeze
 
         module_function
@@ -31,13 +32,12 @@ module Ze0
         # picks the linker: `auto` takes `Obj::MachO::Executable` and `cc`
         # for what it refuses, `ruby` answers what it refused rather than
         # reaching for `cc`, and `cc` skips it. A program that does not
-        # strip evals, and its JIT finds the runtime's functions by name,
-        # so every global is exported.
+        # strip evals, and its JIT finds the runtime's functions by name
+        # in the symbol table, which `Obj::MachO::Executable` sorts.
         def link(image, out, work:, objects:, strip:, road:, target:)
           unless road == "cc"
             why = begin
-              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), exports: !strip,
-                                                       skeleton: Build.skeleton(objects))
+              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), skeleton: Build.skeleton(objects))
             rescue Obj::MachO::Refused => e
               e.message
             end

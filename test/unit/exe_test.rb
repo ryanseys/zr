@@ -184,14 +184,19 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A program whose JIT finds symbols with `dlsym` has them in the
-  # exports trie; one that does not exports its header alone.
-  def test_exports_put_every_global_in_the_trie
+  # A program's JIT finds symbols by a binary search of the image's own
+  # symbol table, so the table holds every global sorted by name, and the
+  # exports trie holds the header alone whatever the program does.
+  def test_the_symbol_table_holds_every_global_sorted_by_name
     Dir.mktmpdir("ze0-exe-") do |dir|
-      bin = File.join(dir, "exported")
-      assert_nil Ze0::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object], exports: true)
+      bin = File.join(dir, "sorted")
+      assert_nil Ze0::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object])
+      names = IO.popen(["nm", "-p", bin], err: %i[child out], &:read).lines.map { |l| l.split.last }
+      assert_includes names, "_shout"
+      assert_includes names, "_b_msg"
+      assert_equal names.sort, names, "the symbol table is in the order of its names"
       exports = IO.popen(["dyld_info", "-exports", bin], err: %i[child out], &:read).scan(/^\s+0x\h+\s+(\S+)$/).flatten
-      assert_equal %w[__mh_execute_header _b_msg _main _shout], exports.sort
+      assert_equal ["__mh_execute_header"], exports
       assert_equal [0, "from b\nunused "], ran(bin)
     end
   end

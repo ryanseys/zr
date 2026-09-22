@@ -1,7 +1,10 @@
 # darwin's half of loading code into this process: MAP_JIT mappings,
-# the write-protect flip each write to one needs, and dlsym over every
-# loaded image.
+# the write-protect flip each write to one needs, and a name's address
+# from this image's own symbol table, then dlsym over every loaded image.
 Machine.import "dlsym", [Ptr, Ptr] => Ptr
+Machine.import "_dyld_get_image_header", [I32] => Ptr
+Machine.import "_dyld_get_image_vmaddr_slide", [I32] => Word
+Machine.import "strcmp", [Ptr, Ptr] => I32
 Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "munmap", [Ptr, Word] => I32
 Machine.import "pthread_jit_write_protect_np", [I32] => Void
@@ -60,19 +63,91 @@ machine def zr_os_jit_map(size, exec, at)
   zr_fix(Machine.word(got))
 end
 
-# The address a name already in this process answers to, or nil.
+# The address a name already in this process answers to, or nil: from
+# this image's own symbol table, else from dlsym (a name of libSystem's,
+# or an image `ld` linked, whose table is not sorted).
 sig [Value] => Value
 machine def zr_os_symbol(name)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
+  # The table's names carry the C underscore; dlsym's do not.
+  zr_buf_byte(b, 95)
   zr_buf_str(b, name)
   zr_buf_byte(b, 0)
-  at = dlsym(Machine.ptr(RTLD_DEFAULT), Buf.ptr(b))
+  at = zr_symtab_find(Buf.ptr(b))
+  if at == 0
+    at = Machine.word(dlsym(Machine.ptr(RTLD_DEFAULT), Buf.ptr(b) + 1))
+  end
   zr_buf_free(b)
-  if Machine.word(at) == 0
+  if at == 0
     return Machine.value(QNIL)
   end
-  zr_fix(Machine.word(at))
+  zr_fix(at)
+end
+
+# The Mach-O of this image as dyld left it: the load commands after the
+# 32-byte header, each its kind and size; LC_SEGMENT_64 with its name at
+# 8, vmaddr at 24 and fileoff at 40; LC_SYMTAB with symoff, nsyms and
+# stroff at 8, 12 and 16; an nlist_64 of 16 bytes, its name's offset
+# first and its address at 8, unslid.
+LC_SEGMENT_64 = 25
+LC_SYMTAB = 2
+# "__LINKEDIT" as the two little-endian words of a 16-byte segment name.
+LINKEDIT_LOW = 0x44454B4E494C5F5F
+LINKEDIT_HIGH = 0x5449
+
+# The address `cname` (with its underscore) has in this image's symbol
+# table, or 0. The table is sorted by name (`Obj::MachO::Executable`),
+# so this is a binary search over a third of a million names; a table
+# another linker wrote is in no order, and the search misses, which is
+# what dlsym is left for.
+sig [Ptr] => Word
+machine def zr_symtab_find(cname)
+  header = _dyld_get_image_header(Machine.i32(0))
+  slide = _dyld_get_image_vmaddr_slide(Machine.i32(0))
+  ncmds = Machine.word(Machine.load32(header, 16))
+  cmd = header + 32
+  link_vm = 0
+  link_off = 0
+  symoff = 0
+  nsyms = 0
+  stroff = 0
+  i = 0
+  while i < ncmds
+    kind = Machine.word(Machine.load32(cmd, 0))
+    if kind == LC_SEGMENT_64 && Machine.load64(cmd, 8) == LINKEDIT_LOW && Machine.load64(cmd, 16) == LINKEDIT_HIGH
+      link_vm = Machine.load64(cmd, 24)
+      link_off = Machine.load64(cmd, 40)
+    elsif kind == LC_SYMTAB
+      symoff = Machine.word(Machine.load32(cmd, 8))
+      nsyms = Machine.word(Machine.load32(cmd, 12))
+      stroff = Machine.word(Machine.load32(cmd, 16))
+    end
+    cmd += Machine.word(Machine.load32(cmd, 4))
+    i += 1
+  end
+  if nsyms == 0 || link_vm == 0
+    return 0
+  end
+  # A file offset in __LINKEDIT is that far past where the segment starts.
+  linkedit = Machine.ptr(link_vm + slide - link_off)
+  nlist = linkedit + symoff
+  strings = linkedit + stroff
+  lo = 0
+  hi = nsyms
+  while lo < hi
+    mid = (lo + hi) / 2
+    entry = nlist + (mid * 16)
+    c = strcmp(strings + Machine.word(Machine.load32(entry, 0)), cname)
+    if c == 0
+      return Machine.load64(entry, 8) + slide
+    elsif c < 0
+      lo = mid + 1
+    else
+      hi = mid
+    end
+  end
+  0
 end
 
 # The write into the code mapping: unprotected, copied, protected

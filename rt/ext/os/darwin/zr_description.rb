@@ -2185,6 +2185,7 @@ module Ze0
         d zr_os_jit_release Value at:Value size:Value
         d zr_os_jit_map Value size:Value exec:Value at:Value
         d zr_os_symbol Value name:Value
+        d zr_symtab_find Word cname:Ptr
         d zr_os_jit_write Value at:Value bytes:Value
         d zr_os_libffi_path Ptr
         d zr_os_sort Void st:Ptr n:Word
@@ -4385,6 +4386,7 @@ module Ze0
         e zr_os_jit_release 56
         e zr_os_jit_map 56
         e zr_os_symbol 127
+        e zr_symtab_find 56
         e zr_os_jit_write 56
         e zr_os_libffi_path 0
         e zr_os_sort 127
@@ -5084,6 +5086,10 @@ module Ze0
         c MAP_JIT 2048
         c PROT_NONE 0
         c RTLD_DEFAULT -2
+        c LC_SEGMENT_64 25
+        c LC_SYMTAB 2
+        c LINKEDIT_LOW 4919420967581409119
+        c LINKEDIT_HIGH 21577
         c NSIG 32
         c EPROTOTYPE 41
         c EAI_SYSTEM 11

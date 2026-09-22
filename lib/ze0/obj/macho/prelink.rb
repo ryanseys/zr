@@ -94,8 +94,12 @@ module Ze0
             end
             [segment, chain]
           end
-          words, strings = block.symbols(ORDINALS, 0)
-          globals = block.exports.sort_by(&:first)
+          # The names are the words' own order: the base's table is sorted
+          # by name, and a link merges a program's entries into it by
+          # these (`Executable#merged_symbols`).
+          words, strings, names = block.symbols(ORDINALS, 0)
+          addresses = block.exports.to_h
+          globals = names.map { |name| [name, addresses.fetch(name)] }
           parts = Block::PARTS.to_h { |part| [part, [block.at(part), block.size(part), block.align(part)]] }
           new(parts: parts, text_size: text_size, got_vm: got_vm, got_size: got_size, data_vm: data_vm,
               data_filesize: data_filesize, data_vmsize: data_vmsize, externals: externals, late: late,
