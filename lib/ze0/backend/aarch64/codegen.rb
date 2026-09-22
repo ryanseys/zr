@@ -94,10 +94,14 @@ module Ze0
         # unit names thousands of them and this is asked once per symbol in
         # every function; `to_set` on a Set is the Set, so a caller that
         # already made one pays nothing here.
-        def initialize(function, defined: [], assembler: Assembler, far: false)
+        # `allocate: false` leaves every value in its frame home, the
+        # road the allocator's own answers are checked against: the two
+        # must run alike, and the checks hold them to it.
+        def initialize(function, defined: [], assembler: Assembler, far: false, allocate: true)
           @f = function
           @defined = defined.to_set
           @far = far
+          @allocate = allocate
           @asm = assembler.new
           @relocs = []
           @reg = {}
@@ -114,7 +118,7 @@ module Ze0
           plan_bytes
           plan_fusion
           plan_pairs
-          @reg = Regalloc.of(@f, skip: @silent, via: @via)
+          @reg = @allocate ? Regalloc.of(@f, skip: @silent, via: @via) : {}
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
           @epilogue = @asm.make_label("epilogue") if @returns > 1

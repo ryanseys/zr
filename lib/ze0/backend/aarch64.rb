@@ -18,10 +18,10 @@ module Ze0
       # link, for an object another refers to. A block given assembles the
       # functions itself, in order, from the functions and the unit's
       # defined names (`Native::Build.unit` assembles in workers).
-      def unit(functions, data, raw: [], export: false)
+      def unit(functions, data, raw: [], export: false, allocate: true)
         out = Obj::Unit.new
         defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
-        out.functions.concat(block_given? ? yield(functions, defined) : functions.map { |f| assemble(f, defined) })
+        out.functions.concat(block_given? ? yield(functions, defined) : functions.map { |f| assemble(f, defined, allocate: allocate) })
         raw.each { |r| out.functions << r }
         data.each { |d| out.data << (export ? exported(d) : d) }
         out
@@ -29,11 +29,11 @@ module Ze0
 
       # One function's machine code. `defined` answers whether a symbol is
       # the unit's own.
-      def assemble(function, defined)
+      def assemble(function, defined, allocate: true)
         imported = function.callees.find(&:from)
         raise Refused, "#{imported.symbol} is a wasm import from #{imported.from}, which no native link has" if imported
 
-        Codegen.new(function, defined: defined).compile
+        Codegen.new(function, defined: defined, allocate: allocate).compile
       end
 
       # The names a lowering gives what it makes: its entry, and every
