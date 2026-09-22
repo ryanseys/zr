@@ -17,6 +17,8 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - name: Build the runtime for the checks
+        run: bundle exec rake build
       - name: Run every test
         run: bundle exec rake test
       # rubygems stamps a gem's files with SOURCE_DATE_EPOCH where it is
@@ -104,6 +106,8 @@ jobs:
           docker exec alpine git config --global --add safe.directory /ze0
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
+      - name: Build the runtime for the checks
+        run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers
         run: >-
           docker exec alpine bundle exec rake test
@@ -127,6 +131,8 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - name: Build the runtime for the checks
+        run: bundle exec rake build
       - name: Run the units this target answers
         run: >-
           bundle exec rake test

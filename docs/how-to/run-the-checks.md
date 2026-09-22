@@ -5,6 +5,17 @@ units, the specs, the end-to-end programs and the bootstrap. Run the
 smallest set that covers your change, and the full set before you
 merge.
 
+Build first. The checks run on a runtime that `rake build` writes
+ahead of time -- the runtime object, its prelinked image and the eval
+road for this host, and the module prelude for wasm32-wasi where
+wasmtime is installed. It takes about three minutes for this host and
+five more for wasm, once, and again after any edit under `lib` or `rt`. A tier that finds it missing stops
+at once and says so; no tier builds it for you.
+
+```console
+$ rake build
+```
+
 Three tiers, in the order you reach for them:
 
 | Tier | Holds | Costs |
@@ -38,8 +49,8 @@ memory, because ruby never gives heap pages back. A worker that grows
 past `ZE0_RECYCLE_MB` is closed and another is forked in its place.
 
 `MT_CPU` says how many workers. The default is one per core, or one per
-2 GB of the machine's memory when that is fewer: a cold build inside a
-worker is what a worker's memory is sized for.
+2 GB of the machine's memory when that is fewer: a compile and the
+program it built is what a worker's memory is sized for.
 
 ## Run one file, or one example
 

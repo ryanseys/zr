@@ -243,9 +243,7 @@ module Ze0
         road = program.evals
         functions = road ? program.functions + road.functions : program.functions
         data = road ? program.data + road.data : program.data
-        pending = { functions: rt.wants[:functions] & functions.map(&:name),
-                    data: rt.wants[:data] & data.map(&:name) }
-        pre = wasm_prelude(rt, pending)
+        pre = wasm_prelude(rt, pending_for(program))
         data = data.dup
         zero_words(functions, data, pre.data_at.keys)
         functions += stops(functions, [], data, pre.functions)
@@ -254,6 +252,16 @@ module Ze0
         nil
       rescue Backend::Refused => e
         e.message
+      end
+
+      # The symbols of the runtime's that `program` (with its road)
+      # defines: what the runtime's prelude waits on.
+      def pending_for(program)
+        rt = program.runtime
+        road = program.evals
+        functions = road ? program.functions + road.functions : program.functions
+        data = road ? program.data + road.data : program.data
+        { functions: rt.wants[:functions] & functions.map(&:name), data: rt.wants[:data] & data.map(&:name) }
       end
 
       # The runtime's wasm prelude, emitted once per digest and the
