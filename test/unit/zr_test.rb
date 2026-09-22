@@ -60,6 +60,17 @@ class ZrTest < Minitest::Test
     end
   end
 
+  # A small def that opens with a guard clause is lowered in place: main
+  # of `guards.rb` calls only the two imports, though it names every def.
+  def test_a_guard_clause_does_not_keep_a_small_def_from_being_inlined
+    rb = File.join(ROOT, "test/zr/guards.rb")
+    functions, = Ze0::Machine.compile(File.read(rb), rb)
+    main = functions.find { |f| f.name == "main" }
+    called = main.blocks.flat_map(&:insts).select { |i| i.op == :call }.map { |i| main.callees.find { |c| c.fn == i.callee }.symbol }.uniq.sort
+
+    assert_equal %w[exit write], called
+  end
+
   Dir[File.join(ROOT, "test/zr/refused/*.rb")].sort.each do |rb|
     define_method("test_refused_#{File.basename(rb, ".rb")}") do
       source = File.read(rb)

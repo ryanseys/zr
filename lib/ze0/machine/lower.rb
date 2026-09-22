@@ -110,7 +110,7 @@ module Ze0
       # the collector makes such calls for every reference it reads.
       #
       # Only a small body that cannot run the collector, and has no
-      # `return`, `while` or `break` to mean something else in the caller.
+      # `while` or `break` to mean something else in the caller.
       # The def is still lowered on its own, so its symbol stays for every
       # caller the kernel does not see: an eval, and a `Machine.addr`.
       def inline?(callee)
@@ -142,6 +142,9 @@ module Ze0
         when Prism::IfNode
           !collecting?(node.predicate) && tail_collecting?(node.statements) && tail_collecting?(node.subsequent)
         when Prism::ElseNode then tail_collecting?(node.statements)
+        # `return f(x)` ends an arm as `f(x)` does: the jump carries the
+        # answer and nothing of the body is live after it.
+        when Prism::ReturnNode then tail_collecting?(node.arguments&.arguments&.first)
         when Prism::CallNode then jumpless?(node) && !collecting?(node.receiver) && !collecting?(node.arguments)
         else jumpless?(node) && !collecting?(node)
         end
@@ -149,10 +152,10 @@ module Ze0
 
       def collecting?(node) = calls_in(node).any? { |name| collects?(name) }
 
-      # No `return`, `while` or `break`, which would mean something else
-      # in the caller.
+      # No `while` or `break`, which would mean something else in the
+      # caller.
       def jumpless?(node)
-        return false if node.is_a?(Prism::ReturnNode) || node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
+        return false if node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
 
         node.compact_child_nodes.all? { |c| jumpless?(c) }
       end
@@ -160,10 +163,13 @@ module Ze0
       # Prism nodes an inlined body may have, at most.
       INLINE_NODES = 32
 
+      # A `return` is fine: inlined, it is a jump to the end of the body
+      # (`Function#ret`). A `while` or a `break` is not, since a loop's
+      # roots and a break's target are the def's own.
       def small?(node, budget)
         budget[0] -= 1
         return false if budget[0].negative?
-        return false if node.is_a?(Prism::ReturnNode) || node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
+        return false if node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
 
         node.compact_child_nodes.all? { |c| small?(c, budget) }
       end
@@ -466,6 +472,9 @@ module Ze0
         @loops = []
         @roots = nil
         @inlining = [d.name]
+        # Where a `return` goes while a body is inlined: the block after
+        # it, made by the first return that asks. Nil in the def's own body.
+        @exit = nil
       end
 
       def lower
@@ -512,10 +521,23 @@ module Ze0
         at
       end
 
-      # `return`: the root frame is unlinked first.
+      # `return`: the root frame is unlinked first. In an inlined body a
+      # return is a jump to the block after the body, carrying the value;
+      # a `ret` there would leave the caller.
       def ret(value)
+        return @f.jump(inline_exit, [value].compact) if @exit
+
         @f.store(@f.fetch("i64", @roots[:addr]), @head, 0) if @roots
         @f.ret(value)
+      end
+
+      # The block an inlined body's returns meet at, taking its value.
+      def inline_exit
+        @exit[:block] ||= begin
+          block, params = @exit[:type] == "Void" ? @f.block : @f.block([ir_type(@exit[:type])])
+          @exit[:value] = params.first
+          block
+        end
       end
 
       private
@@ -842,21 +864,34 @@ module Ze0
       # The body cannot collect, so nothing in it goes in the root frame:
       # a Value there lives in a slot of its own, as the call would have
       # kept it, and `IR::Mem2Reg` can make it a register.
+      #
+      # A `return` in the body -- the guard clause most small defs open
+      # with -- jumps to a block after the body with its value, where the
+      # body's own last value arrives by the same road; the value the
+      # call answers is that block's parameter.
       def inline(d, values)
-        outer = [@locals, @d, @roots]
+        outer = [@locals, @d, @roots, @exit]
         @locals = {}
         @d = d
         @roots = nil
+        @exit = { type: d.ret }
         @inlining << d.name
         d.params.each_with_index do |(name, type), i|
           @f.store(values[i], declare_local(d.node, name, type)[:addr])
         end
         value, type = d.node.body ? statements(d.node.body, d.ret) : [nil, "Void"]
-        refuse(d.node, "the body ends in #{type}, and the sig says #{d.ret}") unless d.ret == "Void" || fits?(d.ret, type)
+        unless @f.terminated?
+          refuse(d.node, "the body ends in #{type}, and the sig says #{d.ret}") unless d.ret == "Void" || fits?(d.ret, type)
+          ret(d.ret == "Void" ? nil : value) if @exit[:block]
+        end
+        if @exit[:block]
+          @f.switch(@exit[:block], open: true)
+          value = @exit[:value]
+        end
         d.ret == "Void" ? [nil, "Void"] : [value, d.ret]
       ensure
         @inlining.pop
-        @locals, @d, @roots = outer
+        @locals, @d, @roots, @exit = outer
       end
 
       # A Value a call answered stays alive across the calls that follow
