@@ -33,8 +33,18 @@ require_relative "../lib/ze0/native/build"
 module Caches
   module_function
 
-  # The cache's files, and the binaries the spec tier keeps under it.
-  def files = Dir[File.join(Ze0::Zr.cache, "{*,binaries/*}")].select { |path| File.file?(path) }
+  # The cache's files, the binaries the spec tier keeps under it, and
+  # the parsed trees (lib/ze0/parse_cache.rb): one a file ever parsed,
+  # seventy thousand after a season, and named by their source alone,
+  # so only age says which are done with.
+  def files = Dir[File.join(Ze0::Zr.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
+
+  # wasmtime's own cache of compiled modules, which `rake bench` and a
+  # `ze0 run` under Cranelift fill (the tiers run Winch with the cache
+  # off): not this cache's to sweep, but worth naming, since it grew to
+  # 67 GB on one machine. `wasmtime config new` writes the file that
+  # bounds it.
+  def wasmtime_cache = File.expand_path("~/Library/Caches/BytecodeAlliance.wasmtime")
 
   # The names this checkout's compiler asks for, over every target it
   # builds: the runtime object, the eval road and its meta, and the
@@ -69,6 +79,7 @@ module Caches
 
   def kind(path)
     return "binary" if File.basename(File.dirname(path)) == "binaries"
+    return "parse" if File.basename(File.dirname(path)) == "parse"
 
     File.basename(path).sub(/-[0-9a-f]{64}/, "").sub(/\A[^.]*\./, "")
   end
@@ -83,6 +94,11 @@ namespace :cache do
     end
     puts format("%6d MB  %4d  in all, of which %d MB is named by this checkout",
                 Caches.megabytes(files), files.size, Caches.megabytes(Caches.live & files))
+    if Dir.exist?(Caches.wasmtime_cache)
+      held = Dir[File.join(Caches.wasmtime_cache, "**/*")].select { |path| File.file?(path) }
+      puts format("%6d MB  %4d  wasmtime's own cache at %s; rm -r it, or bound it with `wasmtime config new`",
+                  Caches.megabytes(held), held.size, Caches.wasmtime_cache)
+    end
   end
 
   desc "Which files this checkout names, and whether they are built"
