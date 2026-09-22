@@ -68,24 +68,28 @@ module Ze0
         [Answer.new(stdout, stderr, status.exitstatus || -1, status.termsig), seconds]
       end
 
+      # How often the bounds are looked at while the child runs.
+      LOOK = 0.05
+
       # Waits for `pid`: its status, or nil and the bound it went past.
+      # A thread blocks in `wait2`, so the answer comes the moment the
+      # child ends; polling it on a grid of up to 20 ms added that much
+      # to every one of a tier's runs. This thread looks at the bounds
+      # between joins.
       def watch(pid, deadline, megabytes)
         Watch.add(pid)
-        pause = 0.001
+        waiter = Thread.new { Process.wait2(pid).last }
         loop do
-          _, status = Process.wait2(pid, Process::WNOHANG)
-          return [status, nil] if status
+          return [waiter.value, nil] if waiter.join(LOOK)
 
           over = if now >= deadline then :timeout
                  elsif Watch.resident_kb(pid) > megabytes * 1024 then :memory
                  end
-          if over
-            Process.kill("KILL", -pid) rescue nil
-            Process.wait(pid) rescue nil
-            return [nil, over]
-          end
-          sleep pause
-          pause = [pause * 2, 0.02].min
+          next unless over
+
+          Process.kill("KILL", -pid) rescue nil
+          waiter.join
+          return [nil, over]
         end
       ensure
         Watch.drop(pid)

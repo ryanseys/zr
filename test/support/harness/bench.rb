@@ -29,9 +29,11 @@ module Ze0
       # that loops does not hold the suite.
       LIMIT = 300
 
-      # Three runs and the middle one: enough that one scheduling
+      # Five runs and the middle one: enough that one scheduling
       # accident is not the answer, few enough that the suite is minutes.
-      RUNS = 3
+      # `bm_startup` prints one line: its row is the floor every other
+      # row stands on, the process's start-up, and reads apart from it.
+      RUNS = 5
 
       # `build` is the compile; the three others are the program, in
       # seconds. A row with no time carries `why` instead.
