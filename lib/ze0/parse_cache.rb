@@ -135,8 +135,10 @@ module Ze0
       nil
     end
 
-    # The file written whole: a parallel build never reads half of one.
+    # The file written whole: a parallel build never reads half of one;
+    # nothing while a source has moved under the build (`Zr.settled!`).
     def write(path, bytes)
+      Zr.settled! if defined?(Zr)
       FileUtils.mkdir_p(directory)
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
       File.binwrite(fresh, bytes)

@@ -63,10 +63,12 @@ module Ze0
       nil
     end
 
-    # What this build made for `unit`, for the next one to read.
+    # What this build made for `unit`, for the next one to read; nothing
+    # while a source has moved under the build (`Zr.settled!`).
     def keep(unit, prefix, functions, data)
       key = key(unit, prefix) or return nil
 
+      Zr.settled!
       FileUtils.mkdir_p(@dir)
       tmp = "#{path(key)}.#{Process.pid}"
       File.binwrite(tmp, Marshal.dump([functions, data]))

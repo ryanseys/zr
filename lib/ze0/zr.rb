@@ -81,7 +81,28 @@ module Ze0
         # The target goes in first: two targets never share a built form.
         # A path goes in beside its bytes: the runtime object carries the
         # core's file names, so two checkouts never share one either.
-        @digest ||= digest_of(sources.keys + gem_prelude_files)
+        @digest ||= begin
+          files = sources.keys + gem_prelude_files
+          @stamps = files.to_h { |path| [path, Zr.stamp_of(path)] }
+          digest_of(files)
+        end
+      end
+
+      # The file the digest covers that has changed on disk since the
+      # digest was taken, or nil. The digest is taken once and the
+      # bytes it covers are kept, so a build reads one form of the
+      # runtime; but a road, a prelude and the harness read files again
+      # from disk, and an edit while a build runs would put the new
+      # form of what they read under the old digest's name in every
+      # cache. So nothing is cached while a file has moved
+      # (`Zr.write_cache`, `UnitCache#keep`, the parse cache, the
+      # harness's binaries): the build stops naming the file. A stat a
+      # file is what it costs, which is nothing beside a cache write.
+      def moved
+        return nil unless @stamps
+
+        @stamps.each { |path, stamp| return path if Zr.stamp_of(path) != stamp }
+        nil
       end
 
       # The files the gem prelude loads, which only its loader knows:
@@ -418,9 +439,36 @@ module Ze0
       end.hexdigest
     end
 
+    # What a file is on disk, as far as a stat says: its mtime to the
+    # nanosecond and its size; nil for a file that is gone.
+    def stamp_of(path)
+      stat = File.stat(path)
+      [stat.mtime.to_r, stat.size]
+    rescue SystemCallError
+      nil
+    end
+
+    # The source file that has changed under this process since a
+    # runtime's digest was taken, or nil (`Runtime#moved`).
+    def moved
+      (@runtimes || {}).each_value.filter_map(&:moved).first
+    end
+
+    # A build whose sources moved under it stops before it caches
+    # anything: what it built came from a mix of the bytes the digest
+    # covers and the bytes now on disk, and no cache key names that.
+    class Moved < StandardError; end
+
+    def settled!
+      file = moved
+      raise Moved, "#{file} changed while this build ran; nothing it built is kept -- run it again" if file
+    end
+
     # `content` at `path` under the cache, written whole: a parallel
-    # build never reads a half-written file.
+    # build never reads a half-written file. Nothing is written while
+    # a source has moved (`settled!`).
     def write_cache(path, content)
+      settled!
       FileUtils.mkdir_p(Zr.cache)
       Dir.mktmpdir("ze0-rt-", Zr.cache) do |work|
         fresh = File.join(work, File.basename(path))

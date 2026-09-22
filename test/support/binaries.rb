@@ -105,6 +105,11 @@ module Ze0
         bytes = File.binread(bin)
         return if bytes.include?(work)
 
+        # A binary built while a source moved under the tier is a
+        # function of two versions of the tree, and its key names one:
+        # kept, it would answer for that key until the source moved
+        # again. The tier stops on the file's name instead.
+        Zr.settled!
         FileUtils.mkdir_p(directory)
         tmp = "#{kept}.#{Process.pid}"
         objects = objects_of(program)
