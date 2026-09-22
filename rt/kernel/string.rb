@@ -80,7 +80,15 @@ FL_ASCII = 1 << 21
 # A String a scan found valid in its encoding, CRuby's valid coderange.
 # The same writes clear it, and so does a new encoding.
 FL_VALID = 1 << 23
-FL_ASCII_CLEAR = 0 - FL_ASCII - 1
+# A String whose bytes the ASCII scan has read, whatever it found:
+# with FL_ASCII the bytes are all below 0x80, without it one is not.
+# FL_ASCII alone remembered only a scan that succeeded, so a text with
+# one byte past ASCII was read again on every question -- every match
+# of a Regexp over it. Every write to the bytes clears it, and so does
+# an encoding that cannot hold ASCII text (bits 24 to 31 hold the
+# encoding, FL_ENC_SHIFT, and 32 the snapshot; this is above them).
+FL_SCANNED = 1 << 33
+FL_ASCII_CLEAR = 0 - FL_ASCII - FL_SCANNED - 1
 # A String whose frozen copy MatchData keeps (MatchData.snapshot) is
 # still the copy: nothing has changed it since. Every change clears it,
 # and asks the frozen check first (zr_modify_frozen_p), which clears it
@@ -88,7 +96,7 @@ FL_ASCII_CLEAR = 0 - FL_ASCII - 1
 # (FL_ENC_SHIFT); nothing above them is taken.
 FL_SNAPSHOT = 1 << 32
 FL_SNAPSHOT_CLEAR = 0 - FL_SNAPSHOT - 1
-FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - FL_SNAPSHOT - 1
+FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - FL_SNAPSHOT - FL_SCANNED - 1
 
 # The bytes of `s` changed: what a scan found about them is gone.
 sig [Value] => Void
@@ -555,10 +563,16 @@ machine def zr_str_join_incompatible(a, b)
   zr_send(klass, Machine.id(:incompatible), 2, slot)
 end
 
+# Whether every byte of `s` is below 0x80, scanned once: the answer
+# is kept in FL_ASCII under FL_SCANNED, either way it went.
 sig [Value] => Bool
 machine def zr_str_ascii_bytes_p(s)
-  if (RBasic.flags(s) & FL_ASCII) != 0
+  flags = RBasic.flags(s)
+  if (flags & FL_ASCII) != 0
     return true
+  end
+  if (flags & FL_SCANNED) != 0
+    return false
   end
   if !zr_enc_ascii_compat_p(zr_str_encoding_index(s))
     return false
@@ -567,11 +581,12 @@ machine def zr_str_ascii_bytes_p(s)
   i = 0
   while i < n
     if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
+      RBasic.set_flags(s, flags | FL_SCANNED)
       return false
     end
     i += 1
   end
-  RBasic.set_flags(s, RBasic.flags(s) | FL_ASCII)
+  RBasic.set_flags(s, flags | FL_SCANNED | FL_ASCII)
   true
 end
 
@@ -1870,6 +1885,33 @@ machine def zr_opt_ltlt(recv, mid, argc, argv, mode)
     end
     if k == zr_global(G_ARRAY)
       return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+    end
+  end
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
+end
+
+# `recv.getbyte(i)` and `recv.setbyte(i, b)` on a String whose method
+# is its own, with fixnum arguments: the primitive at once, with no
+# frame. `bm_ruby_xor` spent two fifths of its time entering the two
+# through the builtin road. Any other receiver or argument dispatches.
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_getbyte(recv, mid, argc, argv, mode)
+  if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.load64(zr_gates(), 0) & GATE_GETBYTE) == 0
+    i = Machine.value(Machine.load64(argv, 0))
+    if zr_fixnum_p(i)
+      return zr_str_byte_at(recv, i)
+    end
+  end
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
+end
+
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_setbyte(recv, mid, argc, argv, mode)
+  if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.load64(zr_gates(), 0) & GATE_SETBYTE) == 0
+    i = Machine.value(Machine.load64(argv, 0))
+    b = Machine.value(Machine.load64(argv, 8))
+    if zr_fixnum_p(i) && zr_fixnum_p(b)
+      return zr_str_setbyte(recv, i, b)
     end
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))

@@ -172,23 +172,36 @@ class Regexp
   # that asks for it raises again.
   def program_for(text)
     Primitive.attr! :hidden
-    pattern
-    text_encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
+    index = Primitive.zr_str_encoding_index_m(text)
     ascii = Primitive.zr_str_ascii_only_m(text)
-    raise ArgumentError, "invalid byte sequence in #{text_encoding}" unless ascii || Primitive.zr_str_valid_p(text)
+    raise ArgumentError, "invalid byte sequence in #{Encoding.at(index)}" unless ascii || Primitive.zr_str_valid_p(text)
 
+    # The road a text like the last one takes -- the same encoding, ASCII
+    # or not, with the engine still the one that call ended with -- is
+    # the answer that call kept. A `scan` over a text asks this once a
+    # match, and the choosing below is a dozen sends.
     programs = Primitive.zr_regexp_alt(self)
-    engine = programs ? programs[:engine] : encoding
+    last = programs && programs[:last]
+    return last[3] if last && last[0] == index && last[1] == ascii && last[2].equal?(programs[:engine])
+
+    pattern
+    text_encoding = Encoding.at(index)
+    Primitive.zr_regexp_alt_set(self, programs = { engine: encoding }) unless programs
+    engine = programs[:engine]
+    warning = nil
     unless engine == text_encoding || (ascii && engine == Encoding::US_ASCII)
       enc, warning = Pattern.prepared_encoding(engine, encoding, options, text_encoding, ascii)
       Primitive.zr_warn_here_m(warning) if warning
       unless enc == engine
         program_in(enc, warns: true)
         engine = enc
-        Primitive.zr_regexp_alt(self)[:engine] = engine
+        programs[:engine] = engine
       end
     end
-    engine == encoding ? nil : Primitive.zr_regexp_alt(self)[engine][0]
+    program = engine == encoding ? nil : programs[engine][0]
+    # A road that warns is not kept: ruby warns on every match of it.
+    programs[:last] = [index, ascii, engine, program] unless warning
+    program
   end
 
   # The program of the pattern compiled again for `enc` (nil for the
