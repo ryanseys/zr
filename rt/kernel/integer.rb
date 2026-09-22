@@ -46,6 +46,9 @@ GATE_INSTANCE_OF = 1 << 40
 # Class, Object, Kernel or BasicObject, which every such receiver
 # finds it through.
 GATE_MOD_EQQ = 1 << 41
+# `nil?`, Kernel's and NilClass's: closes when a method of the name
+# is defined anywhere, since a site answers it by the receiver alone.
+GATE_NIL_P = 1 << 42
 
 # The decimal digits of `n` into `buf`, answering how many bytes they
 # take, ahead of a buffer of 24.

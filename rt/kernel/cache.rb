@@ -50,6 +50,10 @@ SHAPE_NIL_P = 5
 SHAPE_FROZEN_P = 6
 SHAPE_ARY_LENGTH = 7
 SHAPE_MOD_EQQ = 8
+# BasicObject's `==` (and `equal?`), and its `!=` where the class's
+# `==` is BasicObject's too: identity, answered at the site.
+SHAPE_EQ = 9
+SHAPE_NE = 10
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # A `super` site's cell: the chain node the method runs from and the
 # name, which together decide the next method, and what the lookup
@@ -115,7 +119,7 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   CallCache.set_entry(cc, e)
   CallCache.set_found(cc, zr_entry_found(e))
   CallCache.set_fn(cc, zr_entry_fn(e))
-  CallCache.set_shape(cc, zr_entry_shape(e))
+  CallCache.set_shape(cc, zr_entry_shape(klass, e))
   # The direct entry, for a site that hands the def exactly the
   # arguments it declares: what zr_direct_fn would check is settled
   # here, once.
@@ -194,9 +198,10 @@ end
 # or one of the core's type questions, named by the builtin that
 # answers it. The builtin is the test, not the name: a class that
 # defines its own `is_a?` finds another entry, and its cell holds
-# SHAPE_NONE.
-sig [Ptr] => Word
-machine def zr_entry_shape(e)
+# SHAPE_NONE. `!=` is identity only where `klass` answers `==` by
+# identity as well, since BasicObject's `!=` asks `==`.
+sig [Value, Ptr] => Word
+machine def zr_entry_shape(klass, e)
   kind = MEntry.kind(e)
   if kind == KIND_ATTR_READER
     return SHAPE_READER
@@ -226,16 +231,26 @@ machine def zr_entry_shape(e)
   if fn == Machine.addr(:zr_mod_eqq)
     return SHAPE_MOD_EQQ
   end
+  if fn == Machine.addr(:zr_obj_eq)
+    return SHAPE_EQ
+  end
+  if fn == Machine.addr(:zr_obj_ne)
+    eq = zr_search_method(klass, Machine.id(:==))
+    if eq != 0 && MEntry.kind(eq) == KIND_BUILTIN && MEntry.fn(eq) == Machine.addr(:zr_obj_eq)
+      return SHAPE_NE
+    end
+  end
   SHAPE_NONE
 end
 
 # `is_a?` at a site whose cell holds Kernel#is_a?, for a receiver of
-# class `klass`: where `mod` is a class and both chains are built, a
-# class's rank settles it in two loads, as `zr_class_inherits` does.
-# Anything else answers nil and the site calls the builtin, which
-# walks a module's chain, reads a box's view, and raises for what is
-# neither a class nor a module. A box shadow stands for the shared
-# class (`zr_is_a`), so a target that has one is the builtin's too.
+# class `klass`: where both are ranked classes (FL_RANKED), a class's
+# rank settles it in one load, as `zr_class_inherits` does. Anything
+# else answers nil and the site calls the builtin, which builds the
+# tables, walks a module's chain, reads a box's view, and raises for
+# what is neither a class nor a module. A box shadow stands for the
+# shared class (`zr_is_a`), so a target that has one is the builtin's
+# too. A site writes the same tests out (`Sends#is_a_in_place`).
 #
 # One test a line, each returning: an `||` chain is lowered as the
 # booleans it joins, where these want a branch each.
@@ -248,34 +263,14 @@ machine def zr_is_a_fast(klass, mod)
   if w <= QNIL
     return Machine.value(QNIL)
   end
-  if (RBasic.flags(mod) & T_MASK) != T_CLASS
+  if (RBasic.flags(mod) & FL_RANKED) == 0
     return Machine.value(QNIL)
   end
-  if (RBasic.flags(klass) & T_MASK) != T_CLASS
+  if (RBasic.flags(klass) & FL_RANKED) == 0
     return Machine.value(QNIL)
   end
   ext = RClass.ext(klass)
-  target = RClass.ext(mod)
-  if ClassExt.supers(ext) == 0
-    return Machine.value(QNIL)
-  end
-  if ClassExt.supers(target) == 0
-    return Machine.value(QNIL)
-  end
-  if ClassExt.boxed(ext) != QNIL
-    return Machine.value(QNIL)
-  end
-  if ClassExt.shadow(target) != QNIL
-    return Machine.value(QNIL)
-  end
-  # An object that is no Object -- a BasicObject's -- has no `is_a?`
-  # to answer, and a site under GATE_IS_A asks before any cell.
-  o = zr_global(G_OBJECT)
-  ro = ClassExt.rank(RClass.ext(o))
-  if ro > ClassExt.rank(ext) || Machine.value(Machine.load64(ClassExt.supers(ext) + ((ro - 1) * 8), 0)) != o
-    return Machine.value(QNIL)
-  end
-  r = ClassExt.rank(target)
+  r = ClassExt.rank(RClass.ext(mod))
   if r > ClassExt.rank(ext)
     return Machine.value(QFALSE)
   end

@@ -131,6 +131,8 @@ machine def zr_box_bind(klass, slot, shadow)
   end
   zr_ary_store(a, i, shadow)
   ClassExt.set_shadow(RClass.ext(shadow), klass)
+  RBasic.set_flags(klass, RBasic.flags(klass) & FL_RANKED_CLEAR)
+  RBasic.set_flags(shadow, RBasic.flags(shadow) & FL_RANKED_CLEAR)
   zr_write_barrier(shadow, klass)
   zr_methods_changed()
   Machine.value(QNIL)

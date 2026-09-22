@@ -101,6 +101,13 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
   RClass.set_ext(c, ext)
   zr_methods_changed()
+  # The rank table at birth, once Object exists to be found in it:
+  # a site's type question then answers from the table at its first
+  # ask. A class made by `Class.allocate` has no chain yet (its rank
+  # stays 0) and gets its table when its superclass is set.
+  if type == T_CLASS && sup != QNIL && zr_global(G_OBJECT) != QFALSE
+    zr_class_rank(c)
+  end
   c
 end
 
@@ -1225,6 +1232,8 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
       Machine.gates_set(Machine.gates | GATE_IS_A)
     elsif mid == Machine.id(:instance_of?)
       Machine.gates_set(Machine.gates | GATE_INSTANCE_OF)
+    elsif mid == Machine.id(:nil?)
+      Machine.gates_set(Machine.gates | GATE_NIL_P)
     elsif mid == Machine.id(:===) && zr_mod_eqq_owner_p(klass)
       Machine.gates_set(Machine.gates | GATE_MOD_EQQ)
     end
@@ -2018,7 +2027,25 @@ machine def zr_class_rank(klass)
   end
   ClassExt.set_supers(ext, s)
   ClassExt.set_rank(ext, n)
+  zr_class_ranked(klass)
   n
+end
+
+# FL_RANKED on `klass` where its table holds Object and no box has
+# touched it (zr_box_bind clears the flag again): what lets a site
+# answer a type question by two ranks and one load, and a `nil?` by
+# the flag alone -- a BasicObject's has neither.
+sig [Value] => Void
+machine def zr_class_ranked(klass)
+  ext = RClass.ext(klass)
+  o = zr_global(G_OBJECT)
+  if o == QFALSE || ClassExt.boxed(ext) != QNIL || ClassExt.shadow(ext) != QNIL
+    return
+  end
+  ro = zr_class_rank(o)
+  if ro != 0 && ro <= ClassExt.rank(ext) && Machine.value(Machine.load64(ClassExt.supers(ext) + ((ro - 1) * 8), 0)) == o
+    RBasic.set_flags(klass, RBasic.flags(klass) | FL_RANKED)
+  end
 end
 
 # Whether `target` is in `klass`'s chain: two classes answer from the

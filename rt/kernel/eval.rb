@@ -76,6 +76,7 @@ machine def zr_class_initialize(recv, argc, argv, cref, blk)
   end
   RClass.set_superclass(recv, sup)
   zr_methods_changed()
+  zr_class_rank(recv)
   zr_make_metaclass(recv)
   r = zr_hook(sup, Machine.id(:inherited), recv)
   return r if r == QUNDEF

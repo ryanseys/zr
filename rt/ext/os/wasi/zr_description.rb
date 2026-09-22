@@ -123,7 +123,7 @@ module Ze0
         d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word argc:Word
         d zr_direct_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_direct_arity Value recv:Value argc:Word e:Ptr blk:Value found:Value
-        d zr_entry_shape Word e:Ptr
+        d zr_entry_shape Word klass:Value e:Ptr
         d zr_is_a_fast Value klass:Value mod:Value
         d zr_mod_eqq_fast Value mod:Value obj:Value
         d zr_instance_of_fast Value klass:Value c:Value
@@ -255,6 +255,7 @@ module Ze0
         d zr_basic_method_m Value recv:Value name:Value
         d zr_class_of Value v:Value
         d zr_class_rank Word klass:Value
+        d zr_class_ranked Void klass:Value
         d zr_class_inherits Bool klass:Value target:Value
         d zr_is_a Bool v:Value klass:Value
         d zr_mark_mtab Void ext:Ptr
@@ -2507,6 +2508,7 @@ module Ze0
         e zr_basic_method_m 120
         e zr_class_of 0
         e zr_class_rank 120
+        e zr_class_ranked 120
         e zr_class_inherits 120
         e zr_is_a 120
         e zr_mark_mtab 120
@@ -4522,6 +4524,8 @@ module Ze0
         c SHAPE_FROZEN_P 6
         c SHAPE_ARY_LENGTH 7
         c SHAPE_MOD_EQQ 8
+        c SHAPE_EQ 9
+        c SHAPE_NE 10
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
@@ -4695,6 +4699,7 @@ module Ze0
         c GATE_IS_A 549755813888
         c GATE_INSTANCE_OF 1099511627776
         c GATE_MOD_EQQ 2199023255552
+        c GATE_NIL_P 4398046511104
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4
@@ -5013,6 +5018,8 @@ module Ze0
         c SYM_TAG_SHIFT 56
         c FL_IDENTITY 131072
         c FL_RUBY2 262144
+        c FL_RANKED 17179869184
+        c FL_RANKED_CLEAR -17179869185
         c FL_WEAK 524288
         c FL_WEAKKEY 1048576
         c WEAK_BOTH 1

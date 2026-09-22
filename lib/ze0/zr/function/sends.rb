@@ -19,7 +19,8 @@ module Ze0
         # table, so their receiver must be a cell; the questions take any.
         SHAPES = {
           reader: "SHAPE_READER", writer: "SHAPE_WRITER", is_a: "SHAPE_IS_A", instance_of: "SHAPE_INSTANCE_OF",
-          nil_p: "SHAPE_NIL_P", frozen_p: "SHAPE_FROZEN_P", ary_length: "SHAPE_ARY_LENGTH", mod_eqq: "SHAPE_MOD_EQQ"
+          nil_p: "SHAPE_NIL_P", frozen_p: "SHAPE_FROZEN_P", ary_length: "SHAPE_ARY_LENGTH", mod_eqq: "SHAPE_MOD_EQQ",
+          eq: "SHAPE_EQ", ne: "SHAPE_NE"
         }.freeze
         ACCESSOR_SHAPES = %i[reader writer].freeze
         # The questions of no argument, and of one, a site answers by name.
@@ -27,8 +28,12 @@ module Ze0
         # tested for them.
         QUESTIONS = { nil?: [:nil_p], frozen?: [:frozen_p], size: %i[ary_length reader], length: %i[ary_length reader] }.freeze
         # `===` is what `case` asks of each `when`, and Module's answers the
-        # class tests a `case` over objects is made of.
-        ARGUED = { is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": [:mod_eqq] }.freeze
+        # class tests a `case` over objects is made of. `==`, `equal?` and
+        # `!=` are identity where the cell holds BasicObject's.
+        ARGUED = {
+          is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": [:mod_eqq],
+          "==": [:eq], equal?: [:eq], "!=": [:ne]
+        }.freeze
         # The type questions a site answers before its cell, while no
         # class has defined the name (rt/kernel/integer.rb).
         QUESTION_GATES = { is_a?: "GATE_IS_A", kind_of?: "GATE_IS_A", instance_of?: "GATE_INSTANCE_OF" }.freeze
@@ -407,6 +412,19 @@ module Ze0
           direct = @f.label
           miss = @f.label
           merge, (result,) = @f.block(["i64"])
+          # `x.nil?` while no class has defined the name (GATE_NIL_P):
+          # true for nil here, before any class is read; false at `have`
+          # for a receiver whose class is ranked (Object's family, which
+          # is where Kernel's answer holds); the cell for the rest.
+          nil_p = node.name == :nil? && node.args.empty? && node.block.nil? && node.kwargs.nil? && !traced?
+          if nil_p
+            is_nil = @f.label
+            not_nil = @f.label
+            @f.brif(@f.band(gate_clear("GATE_NIL_P"), @f.icmp("eq", recv, @qnil)), is_nil, not_nil)
+            switch(is_nil)
+            @f.jump(merge, [imm(@l.const("QTRUE"))])
+            switch(not_nil)
+          end
           @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
           switch(fixnum)
           reach.call(global("G_INTEGER"), 0)
@@ -433,6 +451,14 @@ module Ze0
           switch(special)
           reach.call(kernel("zr_class_of", recv), 0)
           switch(have)
+          if nil_p
+            not_nil = @f.label
+            cell_road = @f.label
+            @f.brif(@f.band(gate_clear("GATE_NIL_P"), ranked?(klass)), not_nil, cell_road)
+            switch(not_nil)
+            @f.jump(merge, [imm(@l.const("QFALSE"))])
+            switch(cell_road)
+          end
           # `recv.is_a?(K)` answers by the receiver's class alone while
           # no class has defined the name (GATE_IS_A): no cell to hit,
           # which a site whose receivers are of a dozen classes thrashed.
@@ -441,25 +467,36 @@ module Ze0
             cell_road = @f.label
             @f.brif(gate_clear(gate), gated, cell_road)
             switch(gated)
-            fast = node.name == :instance_of? ? "zr_instance_of_fast" : "zr_is_a_fast"
-            answered(kernel(fast, klass, @f.fetch("i64", argv, 0)), merge, cell_road)
+            if node.name == :instance_of?
+              answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, cell_road)
+            else
+              is_a_in_place(klass, @f.fetch("i64", argv, 0), merge, cell_road)
+            end
             switch(cell_road)
           end
-          # `Mod === obj`, a `case` arm: Module's answer for a class or
-          # module receiver while none has a `===` of its own
-          # (GATE_MOD_EQQ), with no cell an arm.
+          # `Mod === obj`, a `case` arm: Module's answer for a ranked
+          # class receiver while none has a `===` of its own
+          # (GATE_MOD_EQQ), with no cell and no call an arm; a module
+          # receiver, or a class not yet ranked, asks the kernel.
           if node.name == :=== && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
             typed = @f.label
+            classed = @f.label
             gated = @f.label
             cell_road = @f.label
+            obj = @f.fetch("i64", argv, 0)
             cellp = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
             @f.brif(@f.band(cellp, gate_clear("GATE_MOD_EQQ")), typed, cell_road)
             switch(typed)
+            @f.brif(ranked?(recv), classed, gated)
+            switch(classed)
+            is_a_in_place(class_of(obj), recv, merge, cell_road)
+            switch(gated)
             kind = @f.band(@f.fetch("i64", recv, off(@l.layout("RBasic"), "flags")), imm(@l.const("T_MASK")))
             modular = @f.bor(@f.icmp("eq", kind, imm(@l.const("T_CLASS"))), @f.icmp("eq", kind, imm(@l.const("T_MODULE"))))
-            @f.brif(modular, gated, cell_road)
-            switch(gated)
-            answered(kernel("zr_mod_eqq_fast", recv, @f.fetch("i64", argv, 0)), merge, cell_road)
+            asked = @f.label
+            @f.brif(modular, asked, cell_road)
+            switch(asked)
+            answered(kernel("zr_mod_eqq_fast", recv, obj), merge, cell_road)
             switch(cell_road)
           end
           same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
@@ -545,7 +582,57 @@ module Ze0
           when :is_a then answered(kernel("zr_is_a_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
           when :instance_of then answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
           when :mod_eqq then answered(kernel("zr_mod_eqq_fast", recv, @f.fetch("i64", argv, 0)), merge, call)
+          when :eq then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @f.fetch("i64", argv, 0)))])
+          when :ne then @f.jump(merge, [ruby_bool(@f.icmp("ne", recv, @f.fetch("i64", argv, 0)))])
           end
+        end
+
+        # Whether `klass`, a class, is ranked (FL_RANKED): in Object's
+        # family with its rank table built, and in no box.
+        def ranked?(klass)
+          @f.icmp("ne", @f.band(@f.fetch("i64", klass, off(@l.layout("RBasic"), "flags")), imm(@l.const("FL_RANKED"))), imm(0))
+        end
+
+        # The class of any value: a cell's from its header, the rest from
+        # the kernel.
+        def class_of(v)
+          cell = @f.label
+          special = @f.label
+          have, (klass,) = @f.block(["i64"])
+          @f.brif(@f.band(@f.icmp("eq", @f.band(v, imm(7)), imm(0)), @f.icmp("ugt", v, @qnil)), cell, special)
+          switch(cell)
+          @f.jump(have, [@f.fetch("i64", v, off(@l.layout("RBasic"), "klass"))])
+          switch(special)
+          @f.jump(have, [kernel("zr_class_of", v)])
+          switch(have)
+          klass
+        end
+
+        # `klass.is_a?(mod)` written out, as `zr_is_a_fast` answers it:
+        # where `mod` is a ranked class too, `mod`'s rank names the one
+        # place in `klass`'s table it can be. Anything else -- a module,
+        # a class whose table is not built yet, a box's view -- goes to
+        # `open`, the road that calls, which builds the tables.
+        def is_a_in_place(klass, mod, merge, open)
+          ext_of = @l.layout("RClass")
+          ext = @l.layout("ClassExt")
+          cell = @f.label
+          ranked = @f.label
+          within = @f.label
+          above = @f.label
+          cellp = @f.band(@f.icmp("eq", @f.band(mod, imm(7)), imm(0)), @f.icmp("ugt", mod, @qnil))
+          @f.brif(cellp, cell, open)
+          switch(cell)
+          @f.brif(@f.band(ranked?(mod), ranked?(klass)), ranked, open)
+          switch(ranked)
+          r = @f.fetch("i64", @f.fetch("i64", mod, off(ext_of, "ext")), off(ext, "rank"))
+          mine = @f.fetch("i64", klass, off(ext_of, "ext"))
+          @f.brif(@f.icmp("ule", r, @f.fetch("i64", mine, off(ext, "rank"))), within, above)
+          switch(within)
+          at = @f.iadd(@f.fetch("i64", mine, off(ext, "supers")), @f.ishl(@f.isub(r, imm(1)), imm(3)))
+          @f.jump(merge, [ruby_bool(@f.icmp("eq", @f.fetch("i64", at, 0), mod))])
+          switch(above)
+          @f.jump(merge, [imm(@l.const("QFALSE"))])
         end
 
         # `frozen?` as `zr_frozen_p` reads it: every special constant is

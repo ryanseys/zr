@@ -146,6 +146,12 @@ SYM_TAG_SHIFT = 56
 FL_IDENTITY = 1 << 17
 # A Hash a `ruby2_keywords` method took from keywords into its rest.
 FL_RUBY2 = 1 << 18
+# A class in Object's family with its rank table built
+# (zr_class_rank), neither boxed nor a box's shadow: the type
+# questions -- `is_a?`, `===`, `nil?` -- answer from its table and
+# its flags alone, with no walk, at the site.
+FL_RANKED = 1 << 34
+FL_RANKED_CLEAR = 0 - FL_RANKED - 1
 
 Machine.struct :RBasic, flags: Word, klass: Value
 
