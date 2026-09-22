@@ -7,14 +7,19 @@ merge.
 
 Build first. The checks run on a runtime that `rake build` writes
 ahead of time -- the runtime object, its prelinked image and the eval
-road for this host, and the module prelude for wasm32-wasi where
-wasmtime is installed. It takes about three minutes for this host and
-five more for wasm, once, and again after any edit under `lib` or `rt`. A tier that finds it missing stops
-at once and says so; no tier builds it for you.
+road for this host, about three minutes; once, and again after any
+edit under `lib` or `rt`, since every byte of both is in the runtime's
+digest. A tier that finds it missing stops at once and says so; no
+tier builds it for you.
 
 ```console
 $ rake build
 ```
+
+wasm32-wasi is not this host's road and is built apart, about five
+minutes: `rake build:wasm`, or `rake build:all` for both at once where
+the machine has the memory (12 GB). Until it has run, the unit files
+that build modules skip by name, and say so.
 
 The spec tier keeps what it builds. Each example's binary is kept
 under the cache, named by everything its bytes came from, and the next
@@ -51,6 +56,11 @@ A tier also defines three tasks beside it: `rake test:spec:slow` names
 the slowest 25 files, `rake test:unit:isolated` says which files
 fail when run on their own, and `rake test:spec:cmd` prints the command
 without running it.
+
+A tier writes where it stands to `tmp/test-progress.txt` as it goes --
+how many examples of how many, what failed so far, the rate and what
+is left at it -- and `rake test:progress` prints it, so a run left in
+the background can be looked in on.
 
 ## How a tier runs
 
@@ -104,7 +114,8 @@ $ bundle exec minitest test/unit/hygiene_test.rb test/unit/exe_test.rb
 $ rake test:unit N=/Hygiene|Exe|Target/
 ```
 
-A check that needs wasmtime skips when wasmtime is not installed.
+A check that builds a wasm module skips when wasmtime is not installed
+or `rake build:wasm` has not run, and names which.
 
 ## Accept a new snapshot
 

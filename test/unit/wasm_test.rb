@@ -34,6 +34,23 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # Every hand-written module is well-formed by the specification's
+  # own validator, which reads the types wasmtime may forgive: a value
+  # the backend typed otherwise than the IR did would show here first.
+  def test_the_modules_validate
+    skip "wasm-tools is not installed" unless system("wasm-tools", "--version", out: File::NULL, err: File::NULL)
+
+    Dir.mktmpdir("ze0-wasm-") do |dir|
+      Ze0::Native::Fixtures::NAMES.each do |name|
+        functions, data = Ze0::Native::Fixtures.build(name)
+        wasm = File.join(dir, "#{name}.wasm")
+        assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
+        report = IO.popen(["wasm-tools", "validate", wasm], err: %i[child out], &:read)
+        assert_predicate $?, :success?, "#{name}: #{report}"
+      end
+    end
+  end
+
   # A dialect import that names its wasm module reaches the host's own
   # call, and a native build refuses it by name.
   IMPORTED = <<~RUBY
@@ -120,7 +137,7 @@ class WasmTest < Minitest::Test
   RUBY
 
   def test_a_program_reads_its_host
-    skip "wasmtime is not installed" unless Checks.wasmtime?
+    skip Checks.wasm_missing if Checks.wasm_missing
 
     Dir.mktmpdir("ze0-wasm-") do |dir|
       File.write(File.join(dir, "host.rb"), HOST)
@@ -167,6 +184,8 @@ class WasmTest < Minitest::Test
   RtPrograms::FILES.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_rt_#{name}") do
+      skip Checks.wasm_missing if Checks.wasm_missing
+
       want, status = RtPrograms.expected(rb)
       program = RtPrograms.compile(rb, Ze0::Target::WASM32_WASI)
       Dir.mktmpdir("ze0-wasm-") do |dir|

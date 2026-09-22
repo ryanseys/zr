@@ -3,6 +3,7 @@
 require "tmpdir"
 require_relative "../../lib/ze0/zr"
 require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/ze0/native/parallel"
 require_relative "harness/wasmtime"
 
 module Ze0
@@ -52,25 +53,28 @@ module Ze0
       end
 
       # Stops the run where a target's caches are not built, else loads
-      # them into this process for the workers to share.
+      # them into this process for the workers to share. `ZE0_BUILT=0`
+      # asks for neither: for a file that builds no program -- the IR,
+      # the encoders, the parsers -- while the runtime is being built
+      # for something else. A file that does build then builds the
+      # runtime for itself, cold, as `ze0 build` would.
       def ready!(wasm: false)
+        return if ENV["ZE0_BUILT"] == "0"
+
         targets(wasm: wasm).each do |target|
           abort("ze0 is not built for #{target.triple}: run `rake build` first") unless built?(target)
           load(target)
         end
       end
 
-      # Whether `target`'s caches are there. A native target's runtime
-      # object names them all: the prelink and the road follow it. A wasm
-      # target has no object -- its runtime is a prelude named after the
-      # symbols a program waits on, which only a build can say -- so a
-      # build leaves a mark under the runtime's digest instead.
+      # Whether `target`'s caches are there: a build leaves a mark under
+      # the runtime's digest once the last of them is written. The
+      # runtime object alone would not do -- the prelink and the road
+      # follow it by minutes, and a tier that started between the two
+      # ran a road half written.
       def built?(target) = File.exist?(mark(target))
 
-      def mark(target)
-        name = target.link ? "rt-#{Zr.runtime(target).digest}.o" : "built-#{Zr.runtime(target).digest}.ok"
-        File.join(Zr.cache, name)
-      end
+      def mark(target) = File.join(Zr.cache, "built-#{Zr.runtime(target).digest}.ok")
 
       # The caches of `target`, read into this process once.
       def load(target)
@@ -81,13 +85,33 @@ module Ze0
         Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Zr.program(PLAIN, "built.rb", target: target)))
       end
 
-      # Builds every cache of each of `targets`, and says how long it took.
+      # Builds every cache of each of `targets`, and says how long each
+      # took. The targets build at once, each in a child of its own
+      # with half the jobs, where the machine has the memory for two
+      # builds (12 GB: a build holds three to four); else one after
+      # another. Two at once on the M2 Pro: 5 minutes, not 7.5.
       def build(targets, say: $stderr)
-        targets.each do |target|
-          say&.puts("building ze0 for #{target.triple}: the runtime, its image and the eval road")
+        at_once = targets.size > 1 && Native::Parallel.machine_bytes >= 12 * (1 << 30)
+        jobs = at_once ? [Native::Build.jobs / 2, 1].max : Native::Build.jobs
+        statuses = if at_once
+                     targets.map { |target| start(target, jobs: jobs, say: say) }.map { |pid| Process.wait2(pid).last }
+                   else
+                     targets.map { |target| Process.wait2(start(target, jobs: jobs, say: say)).last }
+                   end
+        failed = statuses.count { |status| !status.success? }
+        abort("#{failed} of #{targets.size} builds did not finish") unless failed.zero?
+      end
+
+      # A child that builds `target`'s caches, and its pid. `ZE0_JOBS` is
+      # how a build is told its workers, and the child is the build's
+      # alone.
+      def start(target, jobs:, say:)
+        say&.puts("building ze0 for #{target.triple}: the runtime, its image and the eval road")
+        Process.fork do
+          ENV["ZE0_JOBS"] = jobs.to_s
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           target.link ? build_binary(target) : build_module(target)
-          say&.puts(format("built in %.1f s", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began))
+          say&.puts(format("built ze0 for %s in %.1f s", target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began))
         end
       end
 
@@ -97,6 +121,7 @@ module Ze0
           why = Native::Build.program(program, File.join(work, "built"), work: work)
           raise "the build did not finish: #{why}" if why
         end
+        Zr.write_cache(mark(target), "")
       end
 
       # A module with no linker: a plain program and one that evals, since

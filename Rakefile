@@ -55,25 +55,34 @@ ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # (which files fail when run alone) and `<tier>:cmd` beside each tier.
 # The runtime a tier runs on is built ahead of time by `rake build`,
 # once, on purpose: the runtime object, the prelinked image and the eval
-# road for this host, and the module prelude for wasm32-wasi where
-# wasmtime is installed. A tier only asks whether they are there, and
+# road for this host. A tier only asks whether they are there, and
 # stops at once where one is not (`test/support/built.rb`). After an
 # edit under `lib` or `rt`, `rake build` is what to reach for.
+#
+# wasm32-wasi is not this host's road and is built apart, by `rake
+# build:wasm`: the unit files that build modules skip by name until it
+# has run (`Checks.wasm_missing`), and `TARGET=wasm32-wasi` runs a tier
+# for that triple.
 #
 # The asking runs in the tier's own process, ahead of its first fork,
 # and loads what it finds: the runtime's description, its symbol table
 # and the prelinked image, about as much again as the caches themselves.
 # Every worker is a fork of that process, so all of them share one copy
-# rather than reading and parsing it each. The unit tier asks for wasm
-# too: a dozen of its files build programs, and a third of those build
-# modules.
+# rather than reading and parsing it each.
 def ze0_ready_line(wasm: false) = %(require "support/built"; Ze0::Test::Built.ready!(wasm: #{wasm}))
 
-desc "Build the runtime for the checks: its object, the prelinked image, the eval road and the wasm prelude"
-task("build") do
+desc "Build the runtime for the checks on this host: its object, the prelinked image and the eval road"
+task("build") { ze0_build("Ze0::Test::Built.targets") }
+
+desc "Build the wasm32-wasi runtime and its preludes, for the checks that build modules"
+task("build:wasm") { ze0_build("[Ze0::Target::WASM32_WASI]") }
+
+desc "Build both: this host, then wasm32-wasi"
+task("build:all") { ze0_build("Ze0::Test::Built.targets(wasm: true)") }
+
+def ze0_build(targets)
   require "rbconfig"
-  sh(RbConfig.ruby, "-Ilib:test", "-e",
-     %(require "support/built"; Ze0::Test::Built.build(Ze0::Test::Built.targets(wasm: true))), verbose: false)
+  sh(RbConfig.ruby, "-Ilib:test", "-e", %(require "support/built"; Ze0::Test::Built.build(#{targets})), verbose: false)
 end
 
 # The tiers run under the collector tuning a build runs under
@@ -147,6 +156,12 @@ end
 
 ZE0_TEST_ARGV = ze0_test_argv
 
+desc "Where the tier running now stands, or the last one stood (tmp/test-progress.txt)"
+task("test:progress") do
+  require_relative "test/support/progress"
+  puts(Ze0::Test::Progress.read || "no tier has run yet")
+end
+
 desc "Every test: the units, the specs and the end-to-end programs"
 if ZE0_TEST_ARGV.empty?
   task test: %w[test:unit test:spec test:e2e]
@@ -154,7 +169,6 @@ else
   task :test do
     require "rbconfig"
     ze0_tuned
-    wasm = ZE0_TEST_ARGV.any? { |path| path.start_with?(File.join(ROOT, "test/unit", "")) }
     # The tier's own switches, so one file answers to what a whole tier
     # answers to: `N=` matches an example, `X=` leaves one out, `A=`
     # passes anything else through.
@@ -163,7 +177,7 @@ else
     opts += ["-e", ENV["X"]] if ENV["X"]
     opts += ENV["A"].split if ENV["A"]
     ze0_test_files(ZE0_TEST_ARGV).each do |framework, files|
-      line = "RubyVM::YJIT.enable; #{ze0_ready_line(wasm: wasm)}; " + %(require "#{framework}"; ) +
+      line = "RubyVM::YJIT.enable; #{ze0_ready_line}; " + %(require "#{framework}"; ) +
              files.map { |f| %(require "#{f}"; ) }.join
       sh(RbConfig.ruby, "-Ilib:test", "-e", line, "--", *opts)
     end
@@ -171,7 +185,7 @@ else
 end
 
 tier "test:unit", "test/unit/*_test.rb", "test_helper",
-     "ze0's own internals", wasm: true
+     "ze0's own internals"
 tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
      "Ruby held to ruby, program by program"
 tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",

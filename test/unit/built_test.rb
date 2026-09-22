@@ -9,6 +9,16 @@ require_relative "../support/built"
 class BuiltTest < Minitest::Test
   Built = Ze0::Test::Built
 
+  # `ZE0_BUILT=0` on the command that runs this file would make `ready!`
+  # ask for nothing; the asking is what is pinned here.
+  def setup
+    @built = ENV.delete("ZE0_BUILT")
+  end
+
+  def teardown
+    ENV["ZE0_BUILT"] = @built if @built
+  end
+
   def test_a_tier_stops_at_once_where_a_target_is_not_built
     standing_in(:built?, false) do
       error = assert_raises(SystemExit) { capture_io { Built.ready! } }
@@ -36,9 +46,12 @@ class BuiltTest < Minitest::Test
     end
   end
 
-  def test_a_target_with_no_linker_is_marked_built_by_its_build
-    assert_match(/rt-\h+\.o\z/, Built.mark(Ze0::Target.default))
+  # The mark is the build's last write, not its runtime object: the
+  # prelink and the road follow the object by minutes.
+  def test_every_target_is_marked_built_by_its_build_under_its_digest
+    assert_match(/built-\h+\.ok\z/, Built.mark(Ze0::Target.default))
     assert_match(/built-\h+\.ok\z/, Built.mark(Ze0::Target::WASM32_WASI))
+    refute_equal Built.mark(Ze0::Target.default), Built.mark(Ze0::Target::WASM32_WASI)
   end
 
   private

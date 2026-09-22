@@ -17,6 +17,7 @@ require "fileutils"
 # whatever this process has become. The parent stays a dispatcher.
 Minitest.parallel_executor = Ze0::Test::ForkPool.new
 require_relative "support/slow"
+require_relative "support/progress"
 Minitest::Test.parallelize_me!
 
 # Minitest's own report, and nothing over it. A progress bar stood here
@@ -36,6 +37,7 @@ end
 ROOT = File.expand_path("..", __dir__)
 
 require_relative "support/harness/wasmtime"
+require_relative "support/built"
 
 # What the checks share. A module and not the top level: a method
 # defined there is a method on `Object`, which is exactly the collision
@@ -56,6 +58,18 @@ module Checks
   module_function
 
   def wasmtime? = Ze0::Harness::Wasmtime.installed?
+
+  # Why a check that builds a module for wasm32-wasi cannot run, or nil
+  # with that target's caches loaded into this process. wasm is not
+  # this host's road: `rake build:wasm` builds it on purpose, and a
+  # check that finds it missing skips by name rather than builds.
+  def wasm_missing
+    return "wasmtime is not installed" unless wasmtime?
+    return "wasm32-wasi is not built: run rake build:wasm" unless Ze0::Test::Built.built?(Ze0::Target::WASM32_WASI)
+
+    Ze0::Test::Built.load(Ze0::Target::WASM32_WASI)
+    nil
+  end
 
   # `[stdout, why]` of `argv` under `env`, `why` naming the bound it
   # passed and nil when it stopped on its own. `$?` is the child's, as

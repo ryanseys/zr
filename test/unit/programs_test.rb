@@ -92,7 +92,7 @@ class ProgramsTest < Minitest::Test
     next unless BOTH_ROADS.include?(rb)
 
     define_method("test_wasm_#{name}") do
-      skip "wasmtime is not installed" unless Checks.wasmtime?
+      skip Checks.wasm_missing if Checks.wasm_missing
       skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZE0_WASM_DEFECTS"] != "0"
 
       want = oracle(rb)
