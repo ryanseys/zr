@@ -48,6 +48,10 @@ module Ze0
         d zr_ary_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_opt_aref Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_push Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_pop Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_shift Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_empty_p Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_opt_aset Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_masgn_ary Value v:Value
         d zr_masgn_rest Value ary:Value nlefts:Word nrights:Word
@@ -1846,6 +1850,8 @@ module Ze0
         d zr_str_literal_shared Value bytes:Ptr len:Word
         d zr_str_intern Value s:Value
         d zr_opt_ltlt Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_getbyte Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_setbyte Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_str_bytesize Value s:Value
         d zr_str_byte_at Value s:Value i:Value
         d zr_str_bytes_at_m Value s:Value at:Value other:Value
@@ -1866,6 +1872,7 @@ module Ze0
         d zr_struct_writers Value klass:Value members:Value
         d zr_struct_aref_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_struct_aset_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_struct_values_guessed Value recv:Value e:Ptr t:Ptr
         d zr_struct_get Value recv:Value e:Ptr
         d zr_struct_set Value recv:Value e:Ptr v:Value
         d zr_struct_values_new Value recv:Value
@@ -2194,7 +2201,7 @@ module Ze0
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
-        c GATE_ROWS 31
+        c GATE_ROWS 38
         c ROW_CORE 256
         c CORE_KEY 4611686018427387904
         c METHOD_INDEX_MIN 16
@@ -2349,6 +2356,13 @@ module Ze0
         c GATE_SHR 524288
         c GATE_HASH_AREF 1048576
         c GATE_HASH_ASET 2097152
+        c GATE_GETBYTE 2147483648
+        c GATE_SETBYTE 4294967296
+        c GATE_SUCC 8589934592
+        c GATE_PUSH 17179869184
+        c GATE_POP 34359738368
+        c GATE_SHIFT 68719476736
+        c GATE_EMPTY_P 137438953472
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4
@@ -2602,10 +2616,11 @@ module Ze0
         c FL_EMBED_CLEAR -129
         c FL_ASCII 2097152
         c FL_VALID 8388608
-        c FL_ASCII_CLEAR -2097153
+        c FL_SCANNED 8589934592
+        c FL_ASCII_CLEAR -8592031745
         c FL_SNAPSHOT 4294967296
         c FL_SNAPSHOT_CLEAR -4294967297
-        c FL_SCANS_CLEAR -4305453057
+        c FL_SCANS_CLEAR -12895387649
         c G_FROZEN_ERROR 27
         c FL_CHILLED 32768
         c FL_CHILLED_SYMBOL 65536
