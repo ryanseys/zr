@@ -147,22 +147,29 @@ module Ze0
           linkedit
           header
           signed = signature
-          cloned = @base.empty? ? false : Skeleton.clone(@skeleton, @out, @segments.first.filesize)
-          File.open(@out, cloned ? "r+b" : "wb") do |file|
-            # A clone holds the first segment already, less its header.
-            if cloned
+          if @base.empty?
+            File.open(@out, "wb") { |file| write_after(file, 0, signed) }
+            File.chmod(0o755, @out)
+          else
+            # The first segment is the header page and the base's text:
+            # what the file at `out`, or the skeleton, holds already.
+            Skeleton.write_over(@out, @skeleton, @base.blobs.fetch(:text)) do |file, kept|
               file.write(@header)
-              file.seek(@segments.first.filesize)
+              kept ? file.seek(@segments.first.filesize) : file.write(@base.blobs.fetch(:text))
+              write_after(file, 1, signed)
             end
-            @segments.drop(cloned ? 1 : 0).each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
-            file.write(@linkedit)
-            file.write(signed)
           end
-          File.chmod(0o755, @out)
           nil
         end
 
         private
+
+        # The segments from the `first`th on, the linkedit and the signature.
+        def write_after(file, first, signed)
+          @segments.drop(first).each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
+          file.write(@linkedit)
+          file.write(signed)
+        end
 
         # --- layout --------------------------------------------------------
 

@@ -255,20 +255,37 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A binary cloned from the base's skeleton holds the bytes a binary
-  # written whole holds: the skeleton is the header page and the text,
-  # and the link writes the header and everything after the text.
-  def test_a_binary_cloned_from_the_skeleton_is_the_binary_written_whole
+  # A binary cloned from the base's skeleton, or written over the last
+  # binary at its path, holds the bytes a binary written whole holds:
+  # the skeleton is the header page and the text, the last binary holds
+  # the same text, and the link writes the header and everything after
+  # the text.
+  def test_a_binary_cloned_or_written_over_is_the_binary_written_whole
     base = Ze0::Obj::MachO::Prelink.build([calling_object])
     Dir.mktmpdir("ze0-exe-") do |dir|
       skeleton = File.join(dir, "skeleton")
       File.binwrite(skeleton, Ze0::Obj::MachO::Skeleton.bytes(base))
-      whole, cloned = [nil, skeleton].map do |road|
-        bin = File.join(dir, "hooked")
+      # One name in every directory: the signature carries the name.
+      whole, cloned = %w[whole cloned].zip([nil, skeleton]).map do |road_name, road|
+        bin = File.join(dir, road_name, "hooked")
+        Dir.mkdir(File.dirname(bin))
         assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, bin, prelink: base, skeleton: road)
         File.binread(bin)
       end
       assert_equal whole, cloned
+
+      # Over the last binary: a longer one first, so the end is cut.
+      over = File.join(dir, "hooked")
+      File.binwrite(over, whole + ("\xAA".b * 1000))
+      assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, over, prelink: base, skeleton: nil)
+      assert_equal whole, File.binread(over)
+      # A file whose text is not the base's is nobody's to write over.
+      torn = whole.dup
+      torn.setbyte(Ze0::Obj::MachO::Prelink::PAGE + 100, torn.getbyte(Ze0::Obj::MachO::Prelink::PAGE + 100) ^ 1)
+      File.binwrite(over, torn)
+      assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, over, prelink: base, skeleton: skeleton)
+      assert_equal whole, File.binread(over)
+
       # A skeleton of another size is somebody else's: the link writes whole.
       File.binwrite(skeleton, "not a skeleton")
       bin = File.join(dir, "hooked")
