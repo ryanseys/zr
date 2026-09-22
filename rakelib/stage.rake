@@ -32,19 +32,29 @@ module Stages
     work = Dir.mktmpdir("ze0-stage1-")
     puts "work (kept if this fails): #{work}"
 
-    outs = %w[a b].map do |n|
+    # The two self-compiles share nothing -- a cache and an output each,
+    # and the tree read only -- so they run at once, with half the
+    # assembly workers each, where the machine has the memory for two:
+    # each is a gigabyte or two under ruby, and its workers as much
+    # again. Serial, they were 2 x 66 s.
+    at_once = Ze0::Native::Parallel.machine_bytes >= 12 * (1 << 30)
+    jobs = at_once ? [Ze0::Native::Build.jobs / 2, 1].max.to_s : nil
+    started = %w[a b].map do |n|
       cache = File.join(work, "#{n}-cache")
       FileUtils.mkdir_p(cache)
       out = File.join(work, "#{n}.o")
-      Ze0::CLI.step("self-compile #{n} -> #{out}") do
-        system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
-               RbConfig.ruby, ZE0, "build", ZE0, "-o", out, "--emit", "obj", chdir: ROOT) or
-          abort("rake stage1: the self-compile failed; its work is in #{work}")
-      end
-      runtime = Dir[File.join(cache, "rt-*.o")]
+      puts "self-compile #{n} -> #{out}#{" (at once, #{jobs} jobs each)" if at_once}"
+      env = { "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil, "ZE0_JOBS" => jobs }
+      pid = spawn(env, RbConfig.ruby, ZE0, "build", ZE0, "-o", out, "--emit", "obj", chdir: ROOT)
+      [n, at_once ? pid : Process.wait2(pid).last]
+    end
+    outs = started.map do |n, pid_or_status|
+      status = pid_or_status.is_a?(Integer) ? Process.wait2(pid_or_status).last : pid_or_status
+      abort("rake stage1: self-compile #{n} failed; its work is in #{work}") unless status.success?
+      runtime = Dir[File.join(work, "#{n}-cache", "rt-*.o")]
       abort("rake stage1: the runtime object was not cached; the work is in #{work}") unless runtime.size == 1
 
-      [File.binread(out), File.binread(runtime.first)]
+      [File.binread(File.join(work, "#{n}.o")), File.binread(runtime.first)]
     end
 
     a, b = outs
