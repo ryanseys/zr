@@ -19,6 +19,7 @@ module Ze0
     # runtime's own over the same libSystem functions.
     class JIT
       MAP_ANON_PRIVATE = 0x1002
+      MAP_FIXED = 0x10
       MAP_JIT = 0x800
       PAGE = 16_384
       # `ldr x16, [pc, #8]; br x16; .quad address`
@@ -54,8 +55,22 @@ module Ze0
         got = imports.each_with_index.to_h { |name, i| [name, data[:size] + (i * 8)] }
         data_size = [align(data[:size] + (imports.size * 8), PAGE), PAGE].max
 
-        code_base = map(code_size, exec: true, near: 0)
-        data_base = map(data_size, exec: false, near: code_base + code_size)
+        # One reservation holds both halves, so the data is within adrp's
+        # reach of the code: a hint alone left the kernel free to put the
+        # data anywhere, and in a busy process it did. The data is mapped
+        # into the reservation at its address; a MAP_JIT mapping may not
+        # be (EINVAL), so its half is released first and mapped by hint,
+        # which the kernel honours into a hole it has just been handed.
+        # A host with no reservation maps by hint alone. Either way the
+        # reach is checked.
+        if (base = @host.reserve(code_size + data_size))
+          data_base = map(data_size, exec: false, at: base + code_size)
+          @host.release(base, code_size)
+          code_base = map(code_size, exec: true, near: base)
+        else
+          code_base = map(code_size, exec: true)
+          data_base = map(data_size, exec: false, near: code_base + code_size)
+        end
         reach = (data_base - code_base).abs
         raise "the data mapping is #{reach} bytes from the code, past adrp's reach" if reach >= (1 << 32)
 
@@ -93,8 +108,8 @@ module Ze0
       def layout(items, item_align) = Patch.layout(items, item_align)
       def align(n, a) = Patch.align(n, a)
 
-      def map(size, exec:, near:)
-        @host.map(size, exec: exec, near: near) or raise "mmap of #{size} bytes failed"
+      def map(size, exec:, at: nil, near: 0)
+        @host.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"
       end
 
       # `item`'s bytes with every relocation applied, for the item at

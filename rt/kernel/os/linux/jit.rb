@@ -20,6 +20,17 @@ MAP_FIXED_NOREPLACE = 1048576
 JIT_GAP = 1073741824
 PAGE_MASK = 0 - 4096
 
+# No reservation: the cursor below keeps the halves together.
+sig [Value] => Value
+machine def zr_os_jit_reserve(size)
+  Machine.value(QNIL)
+end
+
+sig [Value, Value] => Value
+machine def zr_os_jit_release(at, size)
+  Machine.value(QNIL)
+end
+
 # A mapping of `size` bytes, near `hint` when it can be.
 sig [Value, Value, Value] => Value
 machine def zr_os_jit_map(size, exec, hint)

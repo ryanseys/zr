@@ -2,6 +2,16 @@
 # symbol, so eval's JIT has nothing to write into.
 RTLD_DEFAULT = 0
 
+sig [Value] => Value
+machine def zr_os_jit_reserve(size)
+  Machine.value(QNIL)
+end
+
+sig [Value, Value] => Value
+machine def zr_os_jit_release(at, size)
+  Machine.value(QNIL)
+end
+
 sig [Value, Value, Value] => Value
 machine def zr_os_jit_map(size, exec, hint)
   Machine.value(QNIL)

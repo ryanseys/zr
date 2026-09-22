@@ -1328,6 +1328,8 @@ module Ze0
         d zr_onig_op_call Word m:Ptr op:Word
         d zr_onig_step Word m:Ptr op:Word
         d zr_onig_match_at Word m:Ptr sstart:Ptr sprev:Ptr
+        d zr_onig_scratch Ptr row:Word bytes:Word
+        d zr_onig_scratch_free Void row:Word p:Ptr
         d zr_onig_msa_init Void m:Ptr prog:Ptr str:Ptr text_end:Ptr region:Ptr limit:Word
         d zr_onig_msa_free Void m:Ptr
         d zr_onig_region_clear Void region:Ptr num_mem:Word
@@ -1570,6 +1572,7 @@ module Ze0
         d zr_regexp_captures Value re:Value
         d zr_regexp_names Value re:Value
         d zr_regexp_region_new Ptr prog:Ptr
+        d zr_regexp_region_free Void region:Ptr
         d zr_regexp_search Value re:Value program:Value str:Value start:Value backward:Value
         d zr_regexp_failed Value r:Word
         d zr_regexp_match_at Value re:Value program:Value str:Value start:Value
@@ -1796,6 +1799,8 @@ module Ze0
         d zr_str_char_len_at_m Value s:Value off:Value
         d zr_cesu8_point Word p:Ptr width:Word
         d zr_str_ord Value s:Value
+        d zr_str_ord_at_m Value s:Value off:Value
+        d zr_str_ord_at Value s:Value off:Word
         d zr_str_valid_p Value s:Value
         d zr_str_valid_scan Value s:Value
         d zr_non_ascii_stop Value s:Value what:Ptr len:Word
@@ -2146,7 +2151,9 @@ module Ze0
         d zr_select_fn Ptr
         d zr_os_wait_fds Value fds:Value events:Value milliseconds:Value
         d zr_os_wait_fd Value fd:Value events:Value milliseconds:Value
-        d zr_os_jit_map Value size:Value exec:Value hint:Value
+        d zr_os_jit_reserve Value size:Value
+        d zr_os_jit_release Value at:Value size:Value
+        d zr_os_jit_map Value size:Value exec:Value at:Value
         d zr_os_symbol Value name:Value
         d zr_os_jit_write Value at:Value bytes:Value
         d zr_os_libffi_path Ptr
@@ -2530,6 +2537,7 @@ module Ze0
         c ONIG_ANCHOR_ANYCHAR_STAR 16384
         c ONIG_ANCHOR_ANYCHAR_STAR_ML 32768
         c ONIG_MAX_PTR_NUM 100
+        c SCRATCH_ROW 24
         c STK_ALT 1
         c STK_LOOK_BEHIND_NOT 2
         c STK_POS_NOT 3
@@ -2818,7 +2826,9 @@ module Ze0
         c PROT_READ_WRITE 3
         c PROT_READ_WRITE_EXEC 7
         c MAP_ANON_PRIVATE 4098
+        c MAP_FIXED 16
         c MAP_JIT 2048
+        c PROT_NONE 0
         c RTLD_DEFAULT -2
         c NSIG 32
         c EPROTOTYPE 41

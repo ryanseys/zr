@@ -50,6 +50,8 @@
 #   zr_os_stack_low      [] => Word
 #   zr_os_stack_high     [] => Word
 #   zr_os_stack_map      [Word] => Ptr
+#   zr_os_jit_reserve    [Value] => Value
+#   zr_os_jit_release    [Value, Value] => Value
 #   zr_os_jit_map        [Value, Value, Value] => Value
 #   zr_os_jit_write      [Value, Value] => Value
 #   zr_os_symbol         [Value] => Value
