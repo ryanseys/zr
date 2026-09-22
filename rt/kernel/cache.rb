@@ -268,6 +268,13 @@ machine def zr_is_a_fast(klass, mod)
   if ClassExt.shadow(target) != QNIL
     return Machine.value(QNIL)
   end
+  # An object that is no Object -- a BasicObject's -- has no `is_a?`
+  # to answer, and a site under GATE_IS_A asks before any cell.
+  o = zr_global(G_OBJECT)
+  ro = ClassExt.rank(RClass.ext(o))
+  if ro > ClassExt.rank(ext) || Machine.value(Machine.load64(ClassExt.supers(ext) + ((ro - 1) * 8), 0)) != o
+    return Machine.value(QNIL)
+  end
   r = ClassExt.rank(target)
   if r > ClassExt.rank(ext)
     return Machine.value(QFALSE)
@@ -295,7 +302,7 @@ end
 # which the builtin raises for.
 sig [Value, Value] => Value
 machine def zr_instance_of_fast(klass, c)
-  if !zr_module_p(c)
+  if !zr_module_p(c) || !zr_class_inherits(klass, zr_global(G_OBJECT))
     return Machine.value(QNIL)
   end
   k = klass

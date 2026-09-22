@@ -36,6 +36,16 @@ GATE_EMPTY_P = 1 << 37
 # Proc#call, for a `&b` parameter bound as the block it was given
 # (zr_opt_block_call).
 GATE_PROC_CALL = 1 << 38
+# `is_a?`, `kind_of?` and `instance_of?`, Kernel's for every object:
+# these two close when a method of the name is defined anywhere,
+# since a site answers them by the receiver's class alone.
+GATE_IS_A = 1 << 39
+GATE_INSTANCE_OF = 1 << 40
+# Module#===, what `case obj when Mod` asks: closes when `===` is
+# defined on a class's or module's singleton class, or on Module,
+# Class, Object, Kernel or BasicObject, which every such receiver
+# finds it through.
+GATE_MOD_EQQ = 1 << 41
 
 # The decimal digits of `n` into `buf`, answering how many bytes they
 # take, ahead of a buffer of 24.

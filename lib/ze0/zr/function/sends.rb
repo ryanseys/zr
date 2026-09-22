@@ -29,6 +29,9 @@ module Ze0
         # `===` is what `case` asks of each `when`, and Module's answers the
         # class tests a `case` over objects is made of.
         ARGUED = { is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": [:mod_eqq] }.freeze
+        # The type questions a site answers before its cell, while no
+        # class has defined the name (rt/kernel/integer.rb).
+        QUESTION_GATES = { is_a?: "GATE_IS_A", kind_of?: "GATE_IS_A", instance_of?: "GATE_INSTANCE_OF" }.freeze
 
         # The kernel entry of each operator and named call with a core
         # fast path, and the classes it answers for. The named ones are
@@ -430,6 +433,35 @@ module Ze0
           switch(special)
           reach.call(kernel("zr_class_of", recv), 0)
           switch(have)
+          # `recv.is_a?(K)` answers by the receiver's class alone while
+          # no class has defined the name (GATE_IS_A): no cell to hit,
+          # which a site whose receivers are of a dozen classes thrashed.
+          if (gate = QUESTION_GATES[node.name]) && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
+            gated = @f.label
+            cell_road = @f.label
+            @f.brif(gate_clear(gate), gated, cell_road)
+            switch(gated)
+            fast = node.name == :instance_of? ? "zr_instance_of_fast" : "zr_is_a_fast"
+            answered(kernel(fast, klass, @f.fetch("i64", argv, 0)), merge, cell_road)
+            switch(cell_road)
+          end
+          # `Mod === obj`, a `case` arm: Module's answer for a class or
+          # module receiver while none has a `===` of its own
+          # (GATE_MOD_EQQ), with no cell an arm.
+          if node.name == :=== && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
+            typed = @f.label
+            gated = @f.label
+            cell_road = @f.label
+            cellp = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
+            @f.brif(@f.band(cellp, gate_clear("GATE_MOD_EQQ")), typed, cell_road)
+            switch(typed)
+            kind = @f.band(@f.fetch("i64", recv, off(@l.layout("RBasic"), "flags")), imm(@l.const("T_MASK")))
+            modular = @f.bor(@f.icmp("eq", kind, imm(@l.const("T_CLASS"))), @f.icmp("eq", kind, imm(@l.const("T_MODULE"))))
+            @f.brif(modular, gated, cell_road)
+            switch(gated)
+            answered(kernel("zr_mod_eqq_fast", recv, @f.fetch("i64", argv, 0)), merge, cell_road)
+            switch(cell_road)
+          end
           same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
                          @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))
           @f.brif(same, direct, miss)
