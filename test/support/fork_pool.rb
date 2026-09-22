@@ -170,10 +170,12 @@ module Ze0
             back.first.close
             serve(jobs.first, back.last)
           end
-          # Both sides set it, because either may run first.
+          # Both sides set it, because either may run first -- and the
+          # child may be gone already, which the system reports as any
+          # of these.
           begin
             Process.setpgid(pid, pid)
-          rescue Errno::ESRCH, Errno::EACCES
+          rescue Errno::ESRCH, Errno::EACCES, Errno::EPERM
             nil
           end
           jobs.first.close
