@@ -2,6 +2,8 @@
 
 require "digest"
 require "fileutils"
+require "stringio"
+require "zlib"
 require_relative "../../lib/ze0/zr"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/obj/macho/skeleton"
@@ -23,12 +25,13 @@ module Ze0
     # `__DATA` segment, and the base's symbol and string tables, which
     # every binary linked beside one prelink holds byte for byte. A kept
     # binary leaves those out and says where they went, and a take puts
-    # them back from the prelink in memory -- the text by cloning the
-    # skeleton, as the link does. A whole spec tier is then three
-    # gigabytes, not two hundred, and `trim` keeps the directory under
-    # `ZE0_BINARIES_GB` by dropping what was used longest ago. A module
-    # has no prelink to draw on and is kept whole, so it is kept only
-    # when asked (`ZE0_BINARIES=1`); `ZE0_BINARIES=0` keeps nothing.
+    # them back from the prelink in memory -- the text as the link
+    # leaves it -- and what is kept is deflated. A whole spec tier is
+    # then five gigabytes, not two hundred, and `trim` keeps the
+    # directory under `ZE0_BINARIES_GB` by dropping what was used
+    # longest ago. A module has no prelink to draw on and is kept whole,
+    # so it is kept only when asked (`ZE0_BINARIES=1`); `ZE0_BINARIES=0`
+    # keeps nothing.
     #
     # The key fails closed. It holds the runtime's digest for the target
     # (everything that lowers and emits the runtime), the link digest,
@@ -40,7 +43,7 @@ module Ze0
     # take that cannot put a binary back whole answers false, and the
     # example builds.
     module Binaries
-      VERSION = 2
+      VERSION = 3
       # The environment a build reads that decides its bytes -- and
       # `ZE0_VERIFY`, which decides whether the lowering checks itself,
       # so a verifying run lowers rather than takes.
@@ -82,7 +85,7 @@ module Ze0
         File.utime(now, now, kept)
         kept.end_with?(".wasm") ? copy(kept, bin) : restore(kept, bin)
         true
-      rescue SystemCallError, TypeError, ArgumentError, KeyError
+      rescue SystemCallError, TypeError, ArgumentError, KeyError, Zlib::Error
         File.unlink(bin) if File.exist?(bin)
         false
       end
@@ -140,18 +143,21 @@ module Ze0
 
       # `bytes` of a binary linked beside `objects`, less every hole
       # whose bytes are the prelink's: a head that says the binary's
-      # size, the objects and the holes, then the bytes between them.
+      # size, the objects and the holes, then the bytes between them,
+      # deflated. Machine code deflates by half at the fastest level,
+      # in 10 ms a megabyte; inflating is a third of that.
       def sparse(bytes, objects)
         base = Native::Build.prelink(objects)
         holes = cuts(bytes, base).select { |at, size, name| bytes[at, size] == filling(base, name) }
         head = Marshal.dump({ size: bytes.bytesize, objects: objects.map { |o| File.basename(o) }, holes: holes })
-        out = [head.bytesize].pack("Q<") + head
+        body = +"".b
         at = 0
         holes.each do |hole_at, size, _|
-          out << bytes[at, hole_at - at]
+          body << bytes[at, hole_at - at]
           at = hole_at + size
         end
-        out << bytes[at..]
+        body << bytes[at..]
+        [head.bytesize].pack("Q<") + head + Zlib::Deflate.deflate(body, Zlib::BEST_SPEED)
       end
 
       # Where the holes of a binary linked beside `base` would be, each
@@ -198,8 +204,9 @@ module Ze0
       # (`Skeleton.write_over`), every other hole written from the
       # prelink.
       def restore(kept, bin)
-        File.open(kept, "rb") do |src|
-          head = Marshal.load(src.read(src.read(8).to_s.unpack1("Q<").to_i))
+        File.open(kept, "rb") do |file|
+          head = Marshal.load(file.read(file.read(8).to_s.unpack1("Q<").to_i))
+          src = StringIO.new(Zlib::Inflate.inflate(file.read))
           objects = head.fetch(:objects).map { |name| File.join(Zr.cache, name) }
           base = Native::Build.prelink(objects)
           holes = head.fetch(:holes)
