@@ -76,10 +76,10 @@ module Stages
   # compiler is a fixed point. Both are written under the same base
   # name, since macOS's ad-hoc signature carries the output's base name.
   #
-  # Stage 1 builds in one process unless `ZE0_JOBS` says otherwise: a
-  # worker of the compiled compiler holds the compiler's whole heap, and
-  # six of them have driven this sixteen-gigabyte machine into swap
-  # (task #24).
+  # Stage 1 builds with the workers it affords (`Parallel.afforded`,
+  # from what it resides in: a worker of the compiled compiler holds
+  # the compiler's whole heap, 7.6 GB here, and six of them once drove
+  # this sixteen-gigabyte machine into swap), unless `ZE0_JOBS` says.
   #
   # ze0's own linker links both, stage 2's inside the compiled compiler,
   # so the comparison holds the linker to the same fixed point. Its UUID
@@ -104,7 +104,7 @@ module Stages
     end
     puts "stage 1: #{File.size(stages[0])} bytes"
     Ze0::CLI.step("stage 2: stage 1 compiles the compiler -> #{stages[1]}") do
-      system({ "ZE0_JOBS" => ENV.fetch("ZE0_JOBS", "1") }.merge(caches[1]), stages[0], "build", ZE0, "-o", stages[1]) or
+      system(caches[1], stages[0], "build", ZE0, "-o", stages[1]) or
         abort("rake stage2: stage 1 did not compile the compiler")
     end
 

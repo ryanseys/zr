@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "../../lib/ze0/native/resident"
 require "etc"
 require "io/wait"
 require "minitest"
@@ -259,46 +260,12 @@ module Ze0
           error.class.new(error.message).tap { |flat| flat.set_backtrace(backtrace) }
         end
 
-        # What this process resides in, in megabytes. Ruby has no
-        # portable way to ask -- macOS has no `/proc` -- so the system
-        # is asked directly where Fiddle can reach it: `proc_pidinfo`
-        # on macOS, in a microsecond, where `ps` was a child of 2 ms for
-        # every example, sixteen seconds of a spec tier. Elsewhere `ps`
-        # still answers.
+        # What this process resides in, in megabytes (Native::Resident);
+        # where the system will not say, `ps` still answers.
         def self.resident = resident_of(Process.pid)
 
         def self.resident_of(pid)
-          Resident.of(pid) || `ps -o rss= -p #{pid}`.to_i / 1024
-        end
-
-        # `proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size)` answers
-        # how many bytes of `info` it filled -- a proc_taskinfo is 96 --
-        # and the task's resident size is the second word of them.
-        module Resident
-          TASKINFO = 4
-          SIZE = 96
-
-          def self.of(pid)
-            return nil unless (ask = asker)
-
-            info = ::Fiddle::Pointer.malloc(SIZE, ::Fiddle::RUBY_FREE)
-            return nil unless ask.call(pid, TASKINFO, 0, info, SIZE) == SIZE
-
-            info[8, 8].unpack1("Q<") / (1 << 20)
-          end
-
-          def self.asker
-            return @asker if defined?(@asker)
-
-            @asker = begin
-              require "fiddle"
-              ::Fiddle::Function.new(::Fiddle::Handle::DEFAULT["proc_pidinfo"],
-                                     [::Fiddle::TYPE_INT, ::Fiddle::TYPE_INT, ::Fiddle::TYPE_UINT64_T, ::Fiddle::TYPE_VOIDP, ::Fiddle::TYPE_INT],
-                                     ::Fiddle::TYPE_INT)
-            rescue LoadError, ::Fiddle::DLError
-              nil
-            end
-          end
+          Ze0::Native::Resident.of(pid) || `ps -o rss= -p #{pid}`.to_i / 1024
         end
 
         def initialize(pid, jobs, back)

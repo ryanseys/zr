@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "etc"
+require_relative "resident"
 
 module Ze0
   module Native
@@ -76,10 +77,20 @@ module Ze0
         [[(machine_bytes - held) / held, jobs].min, 1].max
       end
 
-      # What this process holds: its heap pools, each at its own slot
-      # size. Ruby and a ze0 program both answer it.
+      # What this process holds, which a worker forked from it starts
+      # with and grows from: what it resides in, where the system says
+      # (`Resident`); else its heap, the cells of every pool and the
+      # payload they hold (`malloc_increase_bytes` is ze0's live payload,
+      # and under ruby what grew since the last collection -- the floor
+      # ruby reads without Fiddle). The compiled compiler's bytes are
+      # mostly payload: a worker of it held ten gigabytes where its
+      # cells said one.
       def held_bytes
-        GC.stat_heap.sum { |_, pool| pool[:heap_eden_slots].to_i * pool[:slot_size].to_i }
+        Resident.bytes_of(Process.pid) || heap_bytes
+      end
+
+      def heap_bytes
+        GC.stat_heap.sum { |_, pool| pool[:heap_eden_slots].to_i * pool[:slot_size].to_i } + GC.stat(:malloc_increase_bytes).to_i
       rescue StandardError, NotImplementedError
         0
       end
