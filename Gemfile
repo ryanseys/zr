@@ -22,6 +22,10 @@ group :development, :test do
   # Obj::JIT's in-process host for the checks. A bundled gem, not a default
   # one, in ruby 4.
   gem "fiddle", "~> 1.1"
+  # The clock `rake bench` and `rake compile` measure with: `Benchmark.measure`
+  # gives a child's user and system time beside the wall clock. A bundled
+  # gem too, so it is named here to be required under bundler.
+  gem "benchmark", "~> 0.5"
 end
 
 # Never part of a build or a check: the sampling profiler the compiler's

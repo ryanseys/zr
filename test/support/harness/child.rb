@@ -40,7 +40,10 @@ module Ze0
       module_function
 
       # The answer and the seconds it took. The answer's code is :timeout
-      # past `seconds` and :memory past `megabytes`.
+      # past `seconds` and :memory past `megabytes`. With `megabytes` nil
+      # nothing samples the group's memory, and nothing forks beside
+      # the child: what a benchmark asks, since its CPU time is read
+      # from the process's children as a whole.
       def run(argv, cwd:, seconds:, megabytes:, stdin: nil, env: {})
         env = Unbundled.env(env)
         out_r, out_w = IO.pipe
@@ -77,13 +80,13 @@ module Ze0
       # to every one of a tier's runs. This thread looks at the bounds
       # between joins.
       def watch(pid, deadline, megabytes)
-        Watch.add(pid)
+        Watch.add(pid) if megabytes
         waiter = Thread.new { Process.wait2(pid).last }
         loop do
           return [waiter.value, nil] if waiter.join(LOOK)
 
           over = if now >= deadline then :timeout
-                 elsif Watch.resident_kb(pid) > megabytes * 1024 then :memory
+                 elsif megabytes && Watch.resident_kb(pid) > megabytes * 1024 then :memory
                  end
           next unless over
 
@@ -92,7 +95,7 @@ module Ze0
           return [nil, over]
         end
       ensure
-        Watch.drop(pid)
+        Watch.drop(pid) if megabytes
       end
 
       # One reader of every group's memory: a thread that runs `ps` once

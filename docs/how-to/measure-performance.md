@@ -15,7 +15,14 @@ $ rake 'bench[--runs 5 fib]'
 ```
 
 A row with a wrong answer fails, and has no time. The report gives the
-median of the runs. The full run writes `test/bench/results.tsv`.
+median of the runs: `ze0` is the binary's wall clock, and `cpu` beside it
+is the user and system time the binary itself spent, which the machine's
+other work does not move. Each run is clocked with `Benchmark.measure`
+from the [benchmark](https://github.com/ruby/benchmark) gem, a
+development dependency, and nothing forks beside a timed run. The full
+run writes `test/bench/results.tsv`, one row a group (`build`, `ze0`,
+`cpu`, `ruby`, `yjit`) a program, and `rake bench:check` reads the
+`ze0` rows against the committed file.
 
 Run benchmarks on a quiet machine, and not beside a test run.
 

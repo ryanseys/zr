@@ -19,6 +19,7 @@
 # What this measures is therefore the program's own compile, which is
 # what Phase 1 is about.
 
+require "benchmark"
 require "optparse"
 require "rbconfig"
 require "tmpdir"
@@ -59,15 +60,16 @@ module CompileBench
   # not cover the process's own start.
   def build(rb, out)
     env = { "ZE0_TIMING" => "1", "ZE0_GC" => "0" }
-    began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    read, write = IO.pipe
-    pid = Process.spawn(env, RbConfig.ruby, File.join(ROOT, "exe/ze0"), "build", rb, "-o", out,
-                        out: File::NULL, err: write, chdir: ROOT)
-    write.close
-    lines = read.read
-    read.close
-    _, status = Process.waitpid2(pid)
-    took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - began
+    lines = status = nil
+    took = Benchmark.realtime do
+      read, write = IO.pipe
+      pid = Process.spawn(env, RbConfig.ruby, File.join(ROOT, "exe/ze0"), "build", rb, "-o", out,
+                          out: File::NULL, err: write, chdir: ROOT)
+      write.close
+      lines = read.read
+      read.close
+      _, status = Process.waitpid2(pid)
+    end
     abort("rake compile: #{rb} did not build\n#{lines}") unless status.success?
 
     phases = lines.lines.filter_map { |line| LINE.match(line.strip)&.captures }.to_h { |l, s| [l, s.to_f] }
