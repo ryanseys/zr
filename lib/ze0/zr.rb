@@ -291,7 +291,8 @@ module Ze0
       # one's: the table a unit's ids are fixed against names the cache
       # beside the runtime, since a program that evals is fixed against
       # the road's larger one.
-      units = finish && UnitCache.for(hir, dir: Zr.cache, runtime: rt.digest, table: hir.evals ? carried.key : "rt")
+      units = finish && UnitCache.for(hir, dir: Zr.cache, runtime: rt.digest, table: hir.evals ? carried.key : "rt",
+                                           entries: Lower.entries_of("zr_toplevel", hir.units))
       lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
       functions, data = Ze0.clock(finish ? "program lowered and assembled" : "program lowered") do
         finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run

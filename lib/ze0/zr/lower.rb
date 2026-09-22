@@ -264,11 +264,21 @@ module Ze0
       def unit_entry(index)
         return index if index.is_a?(String)
 
-        file = @program.units[index]&.file
-        return "#{@entry}_unit_#{index}" unless file&.start_with?("/")
-
-        "zr_u#{Digest::SHA256.hexdigest("#{@entry}\0#{file}")[0, 16]}"
+        self.class.entry_of(@entry, index, @program.units[index]&.file)
       end
+
+      # The entry of the `index`th unit, at `file`, of a program lowered
+      # from `entry`.
+      def self.entry_of(entry, index, file)
+        return "#{entry}_unit_#{index}" unless file&.start_with?("/")
+
+        "zr_u#{Digest::SHA256.hexdigest("#{entry}\0#{file}")[0, 16]}"
+      end
+
+      # Every unit's entry, in order: what a require or an autoload in
+      # any unit spells for its target, and so an input of that unit's
+      # bytes (`UnitCache`).
+      def self.entries_of(entry, units) = (units || []).each_with_index.map { |u, i| entry_of(entry, i, u.file) }
 
       # The FrameMeta kind a function of `kind` gets here.
       # Whether the code goes to the wasm backend, where the preemption
