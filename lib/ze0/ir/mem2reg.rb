@@ -48,7 +48,7 @@ module Ze0
         split_edges
         plan(slots)
         apply(slots)
-        @f
+        @f.changed!(:cfg)
       end
 
       private

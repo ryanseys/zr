@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "analysis"
 require_relative "inst"
 
 module Ze0
@@ -399,6 +400,30 @@ module Ze0
         v
       end
 
+      # What the passes ask about this function's shape -- predecessors,
+      # order, dominators, uses, loops -- answered once and kept until a
+      # pass says the function changed. See `IR::Analysis`.
+      def analysis
+        @analysis ||= Analysis.new(self)
+      end
+
+      # Whether an analysis is kept: what the strict check asks before
+      # it holds one to the function.
+      def analysis? = !@analysis.nil?
+
+      # A pass that edited the function says so: `:cfg` for a block or
+      # an edge added, removed or re-targeted, `:insts` for instructions
+      # alone. The strict check refuses a kept analysis a change was not
+      # reported to.
+      def changed!(what)
+        case what
+        when :cfg then @analysis = nil
+        when :insts then @analysis&.insts_changed!
+        else raise ArgumentError, "changed!(:cfg) or changed!(:insts), not #{what.inspect}"
+        end
+        self
+      end
+
       private
 
       def reset(name, params, ret)
@@ -420,6 +445,7 @@ module Ze0
         @next_value = 0
         @current = nil
         @args = []
+        @analysis = nil
       end
 
       # An instruction after the current block's terminator is a bug in the

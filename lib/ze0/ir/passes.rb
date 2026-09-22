@@ -97,6 +97,7 @@ module Ze0
           @f = f
           @const = {}
           @rename = {}
+          @jumped = false
         end
 
         # Blocks in layout order. A block whose predecessors all come
@@ -109,7 +110,7 @@ module Ze0
         def run
           arriving = Hash.new { |h, name| h[name] = [] }
           laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
-          before = predecessors
+          before = @f.analysis.preds
           @f.blocks.each_with_index do |b, at|
             settled = !b.equal?(@f.entry_block) && before[b.name].all? { |p| laid.fetch(p) < at }
             edges = arriving[b.name]
@@ -122,7 +123,8 @@ module Ze0
           # A use laid out before its definition, which a loop can do,
           # is renamed on a second pass.
           rename_uses unless @rename.empty?
-          @f
+          # A `brif` folded to a `jump` took an edge away.
+          @f.changed!(@jumped ? :cfg : :insts)
         end
 
         private
@@ -144,14 +146,6 @@ module Ze0
           @added << [@at, Inst.new(:iconst, type: type, args: [n], results: [v])]
           @const[v] = [n, type]
           v
-        end
-
-        # Each block's predecessors by name, from the terminators as they
-        # stand before any folds.
-        def predecessors
-          into = Hash.new { |h, name| h[name] = [] }
-          @f.blocks.each { |b| b.insts.last&.targets&.each { |(name, _)| into[name] << b.name } }
-          into
         end
 
         # Each parameter of `b` that every edge in `edges` gives the same
@@ -313,6 +307,7 @@ module Ze0
           i.op = :jump
           i.args = []
           i.targets = [k.nil? || k != 0 ? yes : no]
+          @jumped = true
         end
       end
 
@@ -344,7 +339,7 @@ module Ze0
         def run
           @f.blocks.each { |b| forward(b) }
           rename_uses unless @rename.empty?
-          @f
+          @f.changed!(:insts)
         end
 
         private
@@ -437,15 +432,9 @@ module Ze0
         end
 
         def run
-          @uses = Hash.new(0)
-          @f.blocks.each do |b|
-            b.insts.each do |i|
-              i.args.each { |a| @uses[a] += 1 if IR.value?(a) }
-              i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 } }
-            end
-          end
+          @uses = @f.analysis.uses
           @f.blocks.dup.each { |b| split(b) }
-          @f
+          @f.changed!(:cfg)
         end
 
         private
@@ -455,7 +444,7 @@ module Ze0
           return unless br.op == :brif
 
           gate = b.insts.find { |i| i.results[0] == br.args[0] }
-          return unless gate && (gate.op == :band || gate.op == :bor) && @uses[gate.results[0]] == 1
+          return unless gate && (gate.op == :band || gate.op == :bor) && @uses.fetch(gate.results[0], 0) == 1
 
           first, second = gate.args
           moved = chain_of(b, second, b.insts.index(gate))
@@ -491,7 +480,7 @@ module Ze0
             moved[i.object_id] = i
             i.args.each do |a|
               d = by_result[a]
-              work << d if d && @uses[a] == 1 && IR.value?(a)
+              work << d if d && @uses.fetch(a, 0) == 1 && IR.value?(a)
             end
           end
           # Only what the chain alone reads may move: a value read once
@@ -519,14 +508,10 @@ module Ze0
         def run
           loop { break unless unreachable | bypass | merge }
           rename_uses unless @rename.empty?
-          @f
+          @f.changed!(:cfg)
         end
 
         private
-
-        def by_name = @f.blocks.to_h { |b| [b.name, b] }
-
-        def successors(b) = (b.insts.last&.targets || []).map(&:first)
 
         # `{ name => [[block, k], ...] }`: each edge into a block, as the
         # predecessor and which of its targets.
@@ -538,21 +523,14 @@ module Ze0
           into
         end
 
+        # The blocks in reverse postorder are the reached ones.
         def unreachable
-          named = by_name
-          seen = { @f.entry_block.name => true }
-          work = [@f.entry_block]
-          until work.empty?
-            successors(work.pop).each do |s|
-              next if seen[s]
+          reached = @f.analysis.rpo
+          return false if reached.size == @f.blocks.size
 
-              seen[s] = true
-              work << named.fetch(s)
-            end
-          end
-          before = @f.blocks.size
-          @f.blocks.select! { |b| seen[b.name] }
-          @f.blocks.size != before
+          @f.blocks.replace(@f.blocks & reached)
+          @f.changed!(:cfg)
+          true
         end
 
         def bypass
@@ -572,6 +550,7 @@ module Ze0
               changed = true
             end
           end
+          @f.changed!(:cfg) if changed
           changed
         end
 
@@ -597,8 +576,11 @@ module Ze0
             end
             joined[b] = true
           end
-          @f.blocks.reject! { |b| joined.key?(b) } unless joined.empty?
-          !joined.empty?
+          return false if joined.empty?
+
+          @f.blocks.reject! { |b| joined.key?(b) }
+          @f.changed!(:cfg)
+          true
         end
       end
 
@@ -614,15 +596,10 @@ module Ze0
         # takes one reader off each of its operands, and an operand's
         # instruction left with none is dead in turn.
         def self.run(f)
-          readers = Hash.new(0)
+          readers = f.analysis.uses.dup
+          readers.default = 0
           defined = {}
-          f.blocks.each do |b|
-            b.insts.each do |i|
-              i.args.each { |a| readers[a] += 1 if IR.value?(a) }
-              i.targets&.each { |(_, args)| args.each { |a| readers[a] += 1 } }
-              i.results.each { |r| defined[r] = i }
-            end
-          end
+          f.blocks.each { |b| b.insts.each { |i| i.results.each { |r| defined[r] = i } } }
           dead = {}.compare_by_identity
           work = f.blocks.flat_map { |b| b.insts.select { |i| unread?(i, readers) } }
           while (i = work.pop)
@@ -637,8 +614,10 @@ module Ze0
               work << d if d && readers[a].zero? && unread?(d, readers)
             end
           end
-          f.blocks.each { |b| b.insts.reject! { |i| dead.key?(i) } } unless dead.empty?
-          f
+          return f if dead.empty?
+
+          f.blocks.each { |b| b.insts.reject! { |i| dead.key?(i) } }
+          f.changed!(:insts)
         end
 
         def self.unread?(i, readers) = PURE.include?(i.op) && i.results.none? { |r| readers[r].positive? }
@@ -707,9 +686,12 @@ module Ze0
         def slot_of(f, name) = f.slots.fetch(name.delete_prefix("ss").to_i)
 
         def inline_into(f)
+          expanded = false
           while (site = site_in(f))
             expand(f, *site)
+            expanded = true
           end
+          f.changed!(:cfg) if expanded
         end
 
         # A call in `f` to a function this pass inlines: its block, the

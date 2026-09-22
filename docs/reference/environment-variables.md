@@ -10,7 +10,7 @@ These change what `ze0` and the rake tasks do.
 | `ZE0_LINK` | `auto` (default), `ruby`, `cc` | The macOS linker. `auto`: ze0's own Mach-O linker, and `cc` for a link it refuses. `ruby`: ze0's linker only; it names what it cannot link. `cc`: the system linker always. |
 | `ZE0_JOBS` | a number | How many worker processes assemble a large unit (default: one per core, at most 6). |
 | `ZE0_TIMING` | `1` | Prints the seconds each phase of a build takes to stderr. |
-| `ZE0_VERIFY` | `1` | Checks dominance and types in every IR function before it is assembled. |
+| `ZE0_VERIFY` | `1` | Checks dominance and types in every IR function before it is assembled, and that every pass reported the changes it made to the kept analysis (`IR::Analysis`). |
 | `ZE0_YJIT` | `0` | Runs the compiler without YJIT. |
 | `ZE0_GC` | `0` | Starts the compiler with ruby's own collector settings, and not with ze0's. |
 | `ZE0_WASM_NAMES` | any value | A wasm module carries a `name` section, so wasmtime's traps and profiles name ze0's functions. It changes the module's bytes. |

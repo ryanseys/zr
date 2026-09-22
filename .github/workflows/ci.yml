@@ -31,10 +31,14 @@ jobs:
             tmp/rt/wasm-*.marshal
             tmp/rt/built-*.ok
           key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'rt/**', '.ruby-version') }}
+      # Under ZE0_VERIFY=1 every IR function is checked for dominance and
+      # operand types before it is assembled, and a pass that changed a
+      # function without saying so is refused: the runtime's forty
+      # thousand functions on the build, every program's on the tiers.
       - name: Build the runtime for the checks
-        run: bundle exec rake build
+        run: ZE0_VERIFY=1 bundle exec rake build
       - name: Run every test
-        run: bundle exec rake test
+        run: ZE0_VERIFY=1 bundle exec rake test
       # Every hit of the method cache checked against a fresh lookup,
       # over the specs that exercise dispatch.
       - name: Run the dispatch specs with the method cache verified

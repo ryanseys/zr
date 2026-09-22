@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "analysis"
 require_relative "function"
 require_relative "types"
 
@@ -53,9 +54,11 @@ module Ze0
         defined[v] = block
       end
 
-      # Dominance and types. The dominator tree is Cooper, Harvey and
-      # Kennedy's iterative one over a reverse postorder; a use in a block
-      # the entry does not reach is not checked, since nothing runs it.
+      # Dominance and types, over `IR::Analysis`; a use in a block the
+      # entry does not reach is not checked, since nothing runs it. An
+      # analysis the function kept is held to one built afresh: a pass
+      # that changed the function and did not say `changed!` is refused
+      # here, so the kept answers can be trusted everywhere else.
       class Strict
         INTEGERS = %w[i8 i32 i64].freeze
 
@@ -68,9 +71,8 @@ module Ze0
         def check
           @typer = Types.new(@f)
           @typer.all
-          order = postorder.reverse
-          number = order.each_with_index.to_h
-          idom = dominators(order, number)
+          @analysis = fresh
+          order = @analysis.rpo
           defined_in = {}
           at = {}
           @f.blocks.each do |b|
@@ -84,12 +86,12 @@ module Ze0
           end
           order.each do |b|
             b.insts.each_with_index do |i, n|
-              i.args.each { |a| dominated(a, b, n, defined_in, at, idom, number) if IR.value?(a) }
+              i.args.each { |a| dominated(a, b, n, defined_in, at) if IR.value?(a) }
               operands(i, b)
               (i.targets || []).each do |name, args|
                 params = @blocks.fetch(name).params
                 args.each_with_index do |a, k|
-                  dominated(a, b, n, defined_in, at, idom, number) if IR.value?(a)
+                  dominated(a, b, n, defined_in, at) if IR.value?(a)
                   typed(i, b, a, params[k][1], to: name)
                 end
               end
@@ -98,6 +100,16 @@ module Ze0
         end
 
         private
+
+        # An analysis built now, and the function's kept one held to it.
+        def fresh
+          built = Analysis.new(@f)
+          if @f.analysis? && !@f.analysis.same_as?(built)
+            raise Error, "#{@f.name}: the kept analysis is stale; a pass changed the function and did not say changed!"
+          end
+
+          built
+        end
 
         # The types an opcode's operands must have, checked against
         # what `Types` says each value is. An immediate operand has no
@@ -171,76 +183,16 @@ module Ze0
         # Whether the definition of `v` reaches its use at instruction
         # `n` of block `b`: in the same block before it, or in a block
         # that dominates `b`.
-        def dominated(v, b, n, defined_in, at, idom, number)
+        def dominated(v, b, n, defined_in, at)
           home = defined_in.fetch(v)
           if home == b.name
             return if at[v].nil? || at[v] < n
 
             raise Error, "#{@f.name}: #{b.name} uses #{v} before it is defined"
           end
-          d = b.name
-          d = idom[d] while d && d != home
-          return if d
+          return if @analysis.dominates?(home, b.name)
 
           raise Error, "#{@f.name}: #{b.name} uses #{v}, defined in #{home}, which does not dominate it"
-        end
-
-        def successors(b) = (b.insts.last&.targets || []).map(&:first)
-
-        def postorder
-          seen = {}
-          out = []
-          stack = [[@f.entry_block, 0]]
-          seen[@f.entry_block.name] = true
-          until stack.empty?
-            b, k = stack.last
-            next_names = successors(b)
-            if k < next_names.size
-              stack.last[1] += 1
-              s = @blocks.fetch(next_names[k])
-              next if seen[s.name]
-
-              seen[s.name] = true
-              stack << [s, 0]
-            else
-              stack.pop
-              out << b
-            end
-          end
-          out
-        end
-
-        # `{ block name => immediate dominator's name }`, the entry's nil.
-        def dominators(order, number)
-          preds = Hash.new { |h, k| h[k] = [] }
-          order.each { |b| successors(b).each { |s| preds[s] << b.name } }
-          idom = { @f.entry_block.name => @f.entry_block.name }
-          changed = true
-          while changed
-            changed = false
-            order.drop(1).each do |b|
-              new = nil
-              preds[b.name].each do |p|
-                next unless idom.key?(p)
-
-                new = new ? intersect(new, p, idom, number) : p
-              end
-              next if new.nil? || idom[b.name] == new
-
-              idom[b.name] = new
-              changed = true
-            end
-          end
-          idom[@f.entry_block.name] = nil
-          idom
-        end
-
-        def intersect(a, b, idom, number)
-          until a == b
-            a = idom[a] while number.fetch(@blocks.fetch(a)) > number.fetch(@blocks.fetch(b))
-            b = idom[b] while number.fetch(@blocks.fetch(b)) > number.fetch(@blocks.fetch(a))
-          end
-          a
         end
       end
     end
