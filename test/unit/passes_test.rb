@@ -51,6 +51,25 @@ class PassesTest < Minitest::Test
     assert_equal (42 - 3 + 2) & 0xFFFF_FFFF_FFFF_FFFF, was
   end
 
+  # `x * 8`, `x / 8` and `x % 8` unsigned are a shift, a shift and a
+  # mask; a signed division is not, and a multiply by 6 is a multiply.
+  def test_a_multiply_division_or_remainder_by_a_power_of_two_is_a_shift_or_a_mask
+    f = function("reduce", %w[i64], "i64") do |f, x|
+      a = f.imul(x, f.iconst("i64", 8))
+      b = f.udiv(x, f.iconst("i64", 8))
+      c = f.urem(x, f.iconst("i64", 8))
+      d = f.sdiv(x, f.iconst("i64", 8))
+      e = f.imul(x, f.iconst("i64", 6))
+      f.ret(f.iadd(f.iadd(f.iadd(a, b), f.iadd(c, d)), e))
+    end
+    was = answer(f, [1_000_003])
+    Ze0::IR::Passes.prepare(f, strict: true)
+
+    assert_equal %i[ishl ushr band sdiv imul], ops(f).select { |op| Ze0::IR::Inst::BINOPS.include?(op) && op != :iadd }
+    assert_equal was, answer(f, [1_000_003])
+    assert_equal 1_000_003 * 8 + 125_000 + 3 + 125_000 + 1_000_003 * 6, was
+  end
+
   def test_an_identity_is_its_operand_and_a_branch_on_a_constant_is_a_jump
     f = function("identity", %w[i64], "i64") do |f, x|
       y = f.iadd(x, f.iconst("i64", 0))
@@ -230,4 +249,29 @@ def test_a_small_leaf_is_inlined_into_its_caller_and_a_cycle_is_left_as_calls
   assert_equal was, Ze0::IR::Interp.new(functions).answer("caller", [20])
   assert_equal 43, was
 end
+
+  # A leaf that keeps a value in a slot of its own is inlined with the
+  # slot made the caller's; one whose slots are large stays a call.
+  def test_a_leaf_with_a_small_slot_is_inlined_and_a_large_one_stays_a_call
+    through = function("through_slot", %w[i64], "i64") do |f, x|
+      at = f.stack_addr(f.slot(8))
+      f.store(x, at)
+      f.ret(f.iadd(f.fetch("i64", at), f.iconst("i64", 1)))
+    end
+    buffer = function("through_buffer", %w[i64], "i64") do |f, x|
+      at = f.stack_addr(f.slot(Ze0::IR::Passes::Inline::SLOT_BYTES + 8))
+      f.store(x, at)
+      f.ret(f.fetch("i64", at))
+    end
+    caller = function("caller", %w[i64], "i64") do |f, x|
+      a = f.call_val(f.callee("through_slot", %w[i64], "i64"), [x])
+      f.ret(f.iadd(a, f.call_val(f.callee("through_buffer", %w[i64], "i64"), [x])))
+    end
+    functions = [through, buffer, caller]
+    Ze0::IR::Passes.inline(functions).each { |f| Ze0::IR::Passes.prepare(f, strict: true) }
+
+    assert_equal 1, ops(caller).count(:call)
+    assert_equal 1, caller.slots.size
+    assert_equal 41, Ze0::IR::Interp.new(functions).answer("caller", [20])
+  end
 end

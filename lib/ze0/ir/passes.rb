@@ -76,11 +76,12 @@ module Ze0
       # `i64` runs 32 bits wide, a shift takes its amount modulo the
       # width, a division by zero answers zero and a remainder by zero
       # the dividend. An identity (`x + 0`, `x * 1`, `x & 0`) is its
-      # operand or its constant, a `select` on a constant is the arm
-      # taken, a widening of a constant is a constant, and a `brif` on a
-      # constant is a `jump`. Uses are renamed in place; the block the
-      # untaken arm named may then be unreachable, which is `Blocks`'s to
-      # remove.
+      # operand or its constant, a multiply, unsigned division or
+      # remainder by a power of two is a shift or a mask, a `select` on
+      # a constant is the arm taken, a widening of a constant is a
+      # constant, and a `brif` on a constant is a `jump`. Uses are
+      # renamed in place; the block the untaken arm named may then be
+      # unreachable, which is `Blocks`'s to remove.
       class Fold
         include Renaming
 
@@ -127,10 +128,22 @@ module Ze0
         private
 
         def fold_insts(b)
-          b.insts.each do |i|
+          @added = []
+          b.insts.each_with_index do |i, at|
+            @at = at
             rename(i)
             fold(i)
           end
+          @added.reverse_each { |at, inst| b.insts.insert(at, inst) }
+        end
+
+        # A constant operand made where the instruction being folded
+        # stands, for a fold that needs one the function does not hold.
+        def constant_before(n, type)
+          v = @f.value
+          @added << [@at, Inst.new(:iconst, type: type, args: [n], results: [v])]
+          @const[v] = [n, type]
+          v
         end
 
         # Each block's predecessors by name, from the terminators as they
@@ -212,11 +225,26 @@ module Ze0
           when :imul
             become(i, a) if kb == 1
             become_constant(i, 0, type) if kb.zero?
-          when :udiv, :sdiv then become(i, a) if kb == 1
+            reduce(i, :ishl, a, kb.bit_length - 1, type) if kb > 1 && power_of_two?(kb)
+          when :udiv
+            become(i, a) if kb == 1
+            reduce(i, :ushr, a, kb.bit_length - 1, type) if kb > 1 && power_of_two?(kb)
+          when :urem then reduce(i, :band, a, kb - 1, type) if kb > 1 && power_of_two?(kb)
+          when :sdiv then become(i, a) if kb == 1
           when :band
             become_constant(i, 0, type) if kb.zero?
             become(i, a) if kb == MASK.fetch(type)
           end
+        end
+
+        def power_of_two?(n) = (n & (n - 1)).zero?
+
+        # `i` as the cheaper `op` of `a` and the constant `n`: a multiply,
+        # an unsigned division or remainder by a power of two is a shift
+        # or a mask.
+        def reduce(i, op, a, n, type)
+          i.op = op
+          i.args = [a, constant_before(n, type)]
         end
 
         def binop(op, a, b, bits)
@@ -616,17 +644,21 @@ module Ze0
         def self.unread?(i, readers) = PURE.include?(i.op) && i.results.none? { |r| readers[r].positive? }
       end
       # The small leaf functions of a unit, inlined where they are called:
-      # a callee with no call, no slot and at most LIMIT instructions (a
-      # value's type or class, a frozen test, which the kernel's own
-      # inlining leaves as calls when they return early or loop) is copied
-      # into the caller, its parameters standing for the arguments and
-      # each `return` a jump to the block after the call, which takes the
-      # answer as its parameter. A callee's own calls are inlined first,
-      # so what is then a leaf (zr_class_of after zr_fixnum_p) serves its
-      # callers as one; a cycle is left as calls. A function stays in the
-      # unit whatever was copied out of it, since the unit exports it.
+      # a callee with no call, at most LIMIT instructions and at most
+      # SLOT_BYTES of stack (a value's type or class, a frozen test, which
+      # the kernel's own inlining leaves as calls when they loop) is
+      # copied into the caller, its parameters standing for the arguments,
+      # its slots made the caller's own, and each `return` a jump to the
+      # block after the call, which takes the answer as its parameter. A
+      # callee's own calls are inlined first, so what is then a leaf
+      # (zr_class_of after zr_fixnum_p) serves its callers as one; a cycle
+      # is left as calls. A function stays in the unit whatever was copied
+      # out of it, since the unit exports it.
       class Inline
         LIMIT = 24
+        # Every site the callee is copied to holds its slots, so a large
+        # buffer stays behind a call.
+        SLOT_BYTES = 128
 
         def self.run(functions) = new(functions).run
 
@@ -656,19 +688,23 @@ module Ze0
           @state[name] == :leaf
         end
 
-        # No call, no slot read (a slot Mem2Reg promoted away is none),
-        # and few enough instructions.
+        # No call, few enough instructions, and little stack in the slots
+        # still read (a slot Mem2Reg promoted away is none).
         def leaf?(f)
           count = 0
+          read = []
           f.blocks.each do |b|
             b.insts.each do |i|
-              return false if %i[call call_indirect stack_addr].include?(i.op)
+              return false if %i[call call_indirect].include?(i.op)
 
+              read << i.args[0] if i.op == :stack_addr
               count += 1
             end
           end
-          count <= LIMIT
+          count <= LIMIT && read.uniq.sum { |slot| slot_of(f, slot).bytes } <= SLOT_BYTES
         end
+
+        def slot_of(f, name) = f.slots.fetch(name.delete_prefix("ss").to_i)
 
         def inline_into(f)
           while (site = site_in(f))
@@ -708,6 +744,9 @@ module Ze0
           rest.params.concat(call.results.zip([target.ret_type]))
           names = {}
           target.globals.each { |g| names[g.gv] = f.symbol(g.symbol, colocated: g.colocated) }
+          target.blocks.each do |cb|
+            cb.insts.each { |i| names[i.args[0]] ||= f.slot(slot_of(target, i.args[0]).bytes) if i.op == :stack_addr }
+          end
           target.callees.each do |c|
             sig = target.sigs.find { |s| s.sig == c.sig }
             names[c.fn] = f.callee(c.symbol, sig.params, sig.ret, colocated: c.colocated, from: c.from)
