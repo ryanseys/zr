@@ -72,6 +72,29 @@ class Integer
       big.freeze
     end
 
+    # `n.bit_length` for a bignum `n`: the limbs below the top one are
+    # full, and the top one's own bits count; a negative reads through
+    # its complement, as a fixnum's does.
+    def big_bit_length(n)
+      Primitive.attr! :hidden
+      return big_bit_length(big_sub(big_negate(n), 1)) if big_neg?(n)
+
+      mag = big_mag(n)
+      (mag.size - 1) * LIMB_BITS + mag.last.bit_length
+    end
+
+    # Bit `bit` of a bignum `n` (`n[bit]`): a limb's bit for one at or
+    # above zero, the shift for one below, whose bits are its
+    # complement's.
+    def big_bit_at(n, bit)
+      Primitive.attr! :hidden
+      return (n >> bit) & 1 if big_neg?(n)
+      return 0 unless Primitive.zr_fixnum_p_m(bit)
+
+      limb = big_mag(n)[bit / LIMB_BITS]
+      limb.nil? ? 0 : (limb >> (bit % LIMB_BITS)) & 1
+    end
+
     # The limbs of |n|, n any Integer.
     def big_mag(n)
       Primitive.attr! :hidden

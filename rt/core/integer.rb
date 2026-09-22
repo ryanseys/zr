@@ -141,8 +141,9 @@ class Integer
   def bit_at(bit)
     Primitive.attr! :hidden
     return 0 if bit < 0
+    return Integer.send(:big_bit_at, self, bit) unless Primitive.zr_fixnum_p_m(self)
     # Past the last bit every bit reads as the sign.
-    return negative? ? 1 : 0 if bit >= bit_length
+    return negative? ? 1 : 0 if bit >= 62
 
     (self >> bit) & 1
   end
@@ -279,14 +280,12 @@ class Integer
     (self * other).abs / gcd(other)
   end
 
+  # A fixnum's from its highest bit (zr_fix_bit_length); a bignum's
+  # from its limbs.
   def bit_length
-    n = self < 0 ? -self - 1 : self
-    bits = 0
-    while n > 0
-      n >>= 1
-      bits += 1
-    end
-    bits
+    return Primitive.zr_fix_bit_length(self) if Primitive.zr_fixnum_p_m(self)
+
+    Integer.send(:big_bit_length, self)
   end
 
   def digits(base = 10)

@@ -1458,6 +1458,7 @@ machine def zr_find_core_method(klass, mid)
   MCache.set_entry(row, e)
   MCache.set_found(row, e == 0 ? Machine.value(QNIL) : Task.found(zr_task()))
   MCache.set_stamp(row, stamp)
+  MCache.set_refine(row, Machine.value(QNIL))
   e
 end
 
@@ -1841,7 +1842,10 @@ end
 
 # The answer a walk of the chain gave for one (class, name): the entry
 # and the chain node it sat on, and the stamp the answer held under.
-Machine.struct :MCache, klass: Value, mid: Word, entry: Ptr, found: Value, stamp: Word
+# `refine` is the activation list the lookup ran under (Task.refine), or
+# nil: a refined lookup is a row of its own, and never answers a plain
+# one. A `using` and a refinement's definition move the stamp.
+Machine.struct :MCache, klass: Value, mid: Word, entry: Ptr, found: Value, stamp: Word, refine: Value
 MCACHE_ROWS = 2048
 # `ZR_MCACHE=0` answers every send from the walk, and `ZR_MCACHE=verify`
 # takes both answers and stops on a disagreement, which is what says no
@@ -1908,35 +1912,36 @@ end
 # are used: a helper for each would cost more than it saves.
 sig [Value, Word] => Ptr
 machine def zr_find_method(klass, mid)
-  # A refinement in use is asked at its own place in the chain, and
-  # never from the cache: the cache is keyed by class and name alone.
-  if Task.refine(zr_task()) != QNIL
-    return zr_refined_search(klass, mid)
-  end
+  # A refinement in use is asked at its own place in the chain
+  # (zr_refined_search), and the answer is kept under the activation
+  # list it ran under: a site that sees a hundred node classes under
+  # `using` (the prism port's `node.reify`) probes as a plain one does.
+  refine = Task.refine(zr_task())
   mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
   if mode == MCACHE_OFF
-    return zr_search_method(klass, mid)
+    return refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid)
   end
   # A cell is CELL_MIN-aligned, so its low bits carry nothing.
-  h = ((Machine.word(klass) / CELL_MIN) ^ (mid * 31)) & (MCACHE_ROWS - 1)
+  h = ((Machine.word(klass) / CELL_MIN) ^ (mid * 31) ^ (Machine.word(refine) / CELL_MIN)) & (MCACHE_ROWS - 1)
   row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
   stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
-  if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == mid
+  if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == mid && MCache.refine(row) == refine
     e = MCache.entry(row)
     if e != 0
       Task.set_found(zr_task(), MCache.found(row))
     end
-    if mode == MCACHE_VERIFY && e != zr_search_method(klass, mid)
+    if mode == MCACHE_VERIFY && e != (refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid))
       zr_bug(Machine.bytes("the method cache answered what the chain does not\n"), 50)
     end
     return e
   end
-  e = zr_search_method(klass, mid)
+  e = refine == QNIL ? zr_search_method(klass, mid) : zr_refined_search(klass, mid)
   MCache.set_klass(row, klass)
   MCache.set_mid(row, mid)
   MCache.set_entry(row, e)
   MCache.set_found(row, e == 0 ? Machine.value(QNIL) : Task.found(zr_task()))
   MCache.set_stamp(row, stamp)
+  MCache.set_refine(row, refine)
   e
 end
 

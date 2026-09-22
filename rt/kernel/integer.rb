@@ -479,6 +479,20 @@ machine def zr_int_lshift(recv, argc, argv, cref, blk)
   zr_int_result(a << n)
 end
 
+# `Integer#bit_length` of a fixnum: the bits past the sign, which is
+# the place of the highest bit of `n` (of `-n - 1` below zero).
+sig [Value] => Value
+machine def zr_fix_bit_length(v)
+  n = zr_fix2long(v)
+  if n < 0
+    n = 0 - n - 1
+  end
+  if n == 0
+    return zr_fix(0)
+  end
+  zr_fix(64 - Machine.clz(n))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_rshift(recv, argc, argv, cref, blk)
   if !zr_fixnum_p(recv)

@@ -988,6 +988,7 @@ module Ze0
         d zr_int_xor Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_not Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_lshift Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fix_bit_length Value v:Value
         d zr_int_rshift Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bool Value b:Bool
         d zr_int_lt Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -3196,6 +3197,7 @@ module Ze0
         e zr_int_xor 127
         e zr_int_not 127
         e zr_int_lshift 127
+        e zr_fix_bit_length 0
         e zr_int_rshift 127
         e zr_bool 0
         e zr_int_lt 127
@@ -5134,7 +5136,7 @@ module Ze0
         s MEntry 104 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache cover:88:Word direct:96:Ptr
         s CEntry 72 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value concealed:64:Word
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
-        s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
+        s MCache 48 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word refine:40:Value
         s RCref 72 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value
         s ContState 56 8 low:0:Word high:8:Word bytes:16:Ptr ctx:24:Ptr task:32:Ptr kroots:40:Ptr resumed:48:Word
         s Coverage 64 8 rows:0:Ptr len:8:Word capa:16:Word setup:24:Word running:32:Word last:40:Ptr branches:48:Ptr branch_size:56:Word
