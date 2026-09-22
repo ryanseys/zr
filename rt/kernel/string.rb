@@ -1943,6 +1943,11 @@ machine def zr_opt_ltlt(recv, mid, argc, argv, mode)
     if k == zr_global(G_STRING) && !zr_special_p(other) && RBasic.klass(other) == zr_global(G_STRING)
       return zr_str_concat(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
+    # An ASCII codepoint appended: nothing in it can raise but a
+    # frozen receiver, which the builtin's own frame is not needed for.
+    if k == zr_global(G_STRING) && zr_fixnum_p(other) && Machine.word(other) < 257 && Machine.word(other) > 0
+      return zr_str_concat(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+    end
     if k == zr_global(G_ARRAY)
       return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end

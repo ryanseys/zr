@@ -1720,6 +1720,8 @@ module Ze0
         d zr_sort_at Value st:Ptr i:Word
         d zr_sort_swap Void st:Ptr i:Word j:Word
         d zr_sort_vecswap Void st:Ptr i:Word j:Word n:Word
+        d zr_core_cmp_p Bool klass:Word
+        d zr_sort_plain Word
         d zr_sort_cmp Word st:Ptr i:Word j:Word
         d zr_sort_med3 Word st:Ptr a:Word b:Word c:Word
         d zr_sort_insertion Void st:Ptr a:Word n:Word
@@ -3976,6 +3978,8 @@ module Ze0
         e zr_sort_at 0
         e zr_sort_swap 120
         e zr_sort_vecswap 120
+        e zr_core_cmp_p 120
+        e zr_sort_plain 120
         e zr_sort_cmp 127
         e zr_sort_med3 127
         e zr_sort_insertion 127
@@ -5256,7 +5260,7 @@ module Ze0
         s REnv 64 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr cell:48:Value home:56:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
         s RRegexp 64 8 basic:0:RBasic source:16:Value options:24:Word program:32:Value names:40:Value alt:48:Value limit:56:Word
-        s Sort 32 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word
+        s Sort 40 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word plain:32:Word
         s Pair 16 8 key:0:Value elem:8:Value
         s RString 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr
         s Symtab 40 8 rows:0:Ptr len:8:Word capa:16:Word bins:24:Ptr nbins:32:Word

@@ -7,7 +7,10 @@
 # The comparator runs Ruby. Once a comparison raises, every later one
 # answers 0 without running Ruby, the sort finishes on the copy it was
 # given, and the signal leaves after it.
-Machine.struct :Sort, base: Ptr, stride: Word, blk: Value, failed: Word
+# `plain` says the core's own `<=>` stands on Integer and on String
+# when the sort began, so two fixnums or two Strings compare with no
+# send (zr_sort_plain).
+Machine.struct :Sort, base: Ptr, stride: Word, blk: Value, failed: Word, plain: Word
 
 # `x <=> y` as -1, 0 or 1, the way CRuby reads a comparison's answer:
 # an Integer's sign, else `> 0` then `< 0`; nil fails.
@@ -89,6 +92,20 @@ machine def zr_sort_vecswap(st, i, j, n)
   end
 end
 
+# Whether `klass` finds the core's own `<=>`: a row the core wrote
+# (MEntry.core), as it stood when the sort began.
+sig [Word] => Bool
+machine def zr_core_cmp_p(klass)
+  e = zr_find_method(zr_global(klass), Machine.id(:<=>))
+  e != 0 && MEntry.core(e) != 0
+end
+
+# Whether two fixnums or two Strings compare with no send.
+sig [] => Word
+machine def zr_sort_plain
+  zr_core_cmp_p(G_INTEGER) && zr_core_cmp_p(G_STRING) ? 1 : 0
+end
+
 # The elements at `i` and `j` compared through the block, or `<=>`.
 sig [Ptr, Word, Word] => Word
 machine def zr_sort_cmp(st, i, j)
@@ -98,6 +115,16 @@ machine def zr_sort_cmp(st, i, j)
   x = zr_sort_at(st, i)
   y = zr_sort_at(st, j)
   if Sort.blk(st) == QNIL
+    if Sort.plain(st) != 0
+      if zr_fixnum_p(x) && zr_fixnum_p(y)
+        return x < y ? 0 - 1 : (x > y ? 1 : 0)
+      end
+      if !zr_special_p(x) && !zr_special_p(y) && RBasic.klass(x) == zr_global(G_STRING) && RBasic.klass(y) == zr_global(G_STRING)
+        slot = Machine.slot(8)
+        Machine.store64(slot, 0, Machine.word(y))
+        return zr_fix2long(zr_str_cmp(x, 1, slot, Machine.value(QNIL), Machine.value(QNIL)))
+      end
+    end
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(y))
     r = zr_send(x, Machine.id(:<=>), 1, slot)
@@ -269,6 +296,7 @@ machine def zr_ary_sort_copy(ary, blk)
   Sort.set_stride(st, 8)
   Sort.set_blk(st, blk)
   Sort.set_failed(st, 0)
+  Sort.set_plain(st, blk == QNIL ? zr_sort_plain() : 0)
   zr_os_sort(st, n)
   if Sort.failed(st) != 0
     return Machine.value(QUNDEF)
@@ -558,6 +586,7 @@ machine def zr_sort_by(pairs)
     Sort.set_stride(st, Pair.size)
     Sort.set_blk(st, Machine.value(QNIL))
     Sort.set_failed(st, 0)
+    Sort.set_plain(st, zr_sort_plain())
     zr_os_sort(st, n)
     if Sort.failed(st) != 0
       return Machine.value(QUNDEF)
