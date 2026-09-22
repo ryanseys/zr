@@ -425,9 +425,11 @@ module Ze0
       # What moves into `mid` is `c`'s own chain: the instructions of the
       # block that nothing but that chain reads, all of them without
       # effect. A load moves only when no call or store follows it in
-      # the block, since it would then read after them. `Zr::Function`
-      # writes this shape at every gated operator: the fixnum test and
-      # the gate test joined.
+      # the block, since it would then read after them; a chain that
+      # cannot move, or a `c` made elsewhere, stays computed ahead of
+      # both branches, which it was. Both halves are split in turn, so
+      # `a || b || c` is three branches. `Zr::Function` writes this shape at
+      # every gated operator: the fixnum test and the gate test joined.
       class Chains
         MOVABLE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast
                       fcvt_from_sint fcvt_to_sint_sat] +
@@ -441,12 +443,20 @@ module Ze0
 
         def run
           @uses = @f.analysis.uses
-          @f.blocks.dup.each { |b| split(b) }
+          # A split leaves two branches to look at again: the block's,
+          # now on the first operand, and `mid`'s on the second.
+          work = @f.blocks.dup
+          until work.empty?
+            b = work.pop
+            mid = split(b)
+            work.push(b, mid) if mid
+          end
           @f.changed!(:cfg)
         end
 
         private
 
+        # The block the second test went to, or nil.
         def split(b)
           br = b.insts.last
           return unless br.op == :brif
@@ -458,9 +468,7 @@ module Ze0
           # A second operand read elsewhere too (`GVN` makes one of two
           # alike) stays where it is, computed ahead of both branches;
           # only one read by the gate alone moves behind the first test.
-          moved = @uses.fetch(second, 0) == 1 ? chain_of(b, second, b.insts.index(gate)) : []
-          return if moved.nil?
-
+          moved = (@uses.fetch(second, 0) == 1 && chain_of(b, second, b.insts.index(gate))) || []
           yes, no = br.targets
           mid = @f.block_after(b)
           mid.insts.concat(moved)
@@ -470,6 +478,7 @@ module Ze0
           # when it does not.
           to_mid = [mid.name, []]
           b.insts[-1] = Inst.new(:brif, args: [first], targets: gate.op == :band ? [to_mid, no] : [yes, to_mid])
+          mid
         end
 
         # The instructions of `b` before index `stop` that make `v` and

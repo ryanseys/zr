@@ -200,6 +200,32 @@ class PassesTest < Minitest::Test
     assert_equal [1, 1, 0], [[1, 1], [20, 9], [20, 1]].map { |args| answer(f, args) }
   end
 
+  # Three tests in one are three branches, the second and third each
+  # behind the one before it, whichever way the disjunction nests.
+  def test_a_branch_on_three_tests_is_three_branches
+    f = function("three", %w[i64 i64 i64], "i64") do |f, x, y, z|
+      a = f.icmp("slt", x, f.iconst("i64", 10))
+      b = f.icmp("sgt", y, f.iconst("i64", 3))
+      c = f.icmp("eq", z, f.iconst("i64", 0))
+      yes = f.label
+      no = f.label
+      f.brif(f.bor(f.bor(a, b), c), yes, no)
+      f.switch(yes)
+      f.ret(f.iconst("i64", 1))
+      f.switch(no)
+      f.ret(f.iconst("i64", 0))
+    end
+    args = [[1, 1, 1], [20, 9, 1], [20, 1, 0], [20, 1, 1]]
+    was = args.map { |a| answer(f, a) }
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 0, ops(f).count(:bor)
+    tests = f.blocks.select { |b| b.insts.last.op == :brif }
+    assert_equal 3, tests.size
+    assert_equal [1, 1, 1], tests.map { |b| b.insts.count { |i| i.op == :icmp } }, "one compare a branch"
+    assert_equal was, args.map { |a| answer(f, a) }
+    assert_equal [1, 1, 1, 0], was
+  end
+
   # A conjunction's second test read elsewhere too stays ahead of the
   # branch chain, since the other reader needs it whichever way the
   # first test goes.
@@ -506,6 +532,36 @@ class PassesTest < Minitest::Test
     end
     assert_equal was, answer_with([f], data, [4, 5])
     assert_equal 88, was
+  end
+
+  # A compare that only a branch reads stays in the loop, where the
+  # backend folds it into the branch; the sum it guards, which the arm
+  # reads, moves out.
+  def test_a_test_only_a_branch_reads_stays_in_the_loop
+    f = function("tested", %w[i64 i64], "i64") do |f, n, m|
+      head, (i, acc) = f.block(%w[i64 i64])
+      body = f.label
+      big = f.label
+      small = f.label
+      done = f.label
+      f.jump(head, [f.iconst("i64", 0), f.iconst("i64", 0)])
+      f.switch(head)
+      f.brif(f.icmp("slt", i, n), body, done)
+      f.switch(body)
+      f.brif(f.icmp("sgt", m, f.iconst("i64", 2)), big, small)
+      f.switch(big)
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), f.iadd(acc, f.iadd(m, f.iconst("i64", 4)))])
+      f.switch(small)
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), acc])
+      f.switch(done)
+      f.ret(acc)
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    body = f.analysis.loops[0].body
+    inside = f.blocks.select { |b| body.include?(b.name) }.flat_map(&:insts).map(&:op)
+    assert_equal 2, inside.count(:icmp), "the loop's own test and the branch's"
+    assert_equal 3, inside.count(:iadd), "two counts and the accumulation; `m + 4` moved out"
+    assert_equal [21, 0], [[3, 3], [3, 1]].map { |args| answer(f, args) }
   end
 
   # A load the loop's test guards -- a word behind a pointer the head

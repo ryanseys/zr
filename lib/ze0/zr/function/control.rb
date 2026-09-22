@@ -13,12 +13,30 @@ module Ze0
           @f.icmp("ne", @f.band(v, imm(-9)), imm(0))
         end
 
+        # `node`, a test, as a branch: to `yes` when it is truthy, to
+        # `no` when it is not. An `&&` or `||` branches on its left side
+        # and asks its right side only when the left decided nothing;
+        # the value it would have answered is never made, so a test of
+        # several parts is a chain of branches with no join between.
+        # Anything else is tested as a value.
+        def jump_if(node, yes, no)
+          case node
+          when Hir::And, Hir::Or
+            rest = @f.label
+            node.is_a?(Hir::And) ? jump_if(node.left, rest, no) : jump_if(node.left, yes, rest)
+            switch(rest)
+            jump_if(node.right, yes, no)
+          else
+            v = expr(node)
+            @f.brif(truthy(v), yes, no) unless @f.terminated?
+          end
+        end
+
         def branch(node)
-          cond = truthy(expr(node.cond))
           then_b = @f.label
           else_b = @f.label
           merge, (result,) = @f.block(["i64"])
-          @f.brif(cond, then_b, else_b)
+          jump_if(node.cond, then_b, else_b)
           switch(then_b)
           v = node.yes ? expr(node.yes) : @qnil
           @f.jump(merge, [v]) unless @f.terminated?
@@ -40,7 +58,7 @@ module Ze0
           @loops << { head: head, body: body, done: done, depth: @regions.size }
           @f.jump(node.body_first ? body : head)
           switch(head)
-          @f.brif(truthy(expr(node.cond)), body, out)
+          jump_if(node.cond, body, out)
           switch(out)
           @f.jump(done, [@qnil])
           switch(body)

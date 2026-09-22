@@ -13,7 +13,11 @@ module Ze0
     # no effect and one result (`GVN::PURE`) whose operands are all
     # defined outside the loop, or by an instruction already moved, is
     # invariant; one that reads no value (a constant, an address)
-    # stays, since a backend makes those where they are used.
+    # stays, since a backend makes those where they are used, and so
+    # does one that only a branch reads, itself or through a `band` or
+    # `bor` that only a branch reads: a backend folds a compare or a
+    # bit test into its branch, and moved out it would hold a register
+    # through every turn for what one instruction answers.
     #
     # A load is invariant when its address is and nothing in the loop
     # can write its region (`Regions`: a store to it, a store placed
@@ -54,6 +58,7 @@ module Ze0
         return @f if loops.empty?
 
         @placed = placements
+        @tested = tested_only
         @order = @analysis.rpo.map(&:name)
         @body = loops.to_h { |l| [l, l.body.to_h { |b| [b, true] }] }
         entry = @f.entry_block.name
@@ -159,7 +164,7 @@ module Ze0
       def invariant?(i, at)
         return load_invariant?(i, at) if i.op == :load
 
-        return false if i.results.size != 1 || !GVN::PURE.include?(i.op)
+        return false if i.results.size != 1 || !GVN::PURE.include?(i.op) || @tested.key?(i.results[0])
 
         args = i.args
         reads = false
@@ -184,6 +189,51 @@ module Ze0
         return false unless (@written & (region ? Effects.bit(region) : Effects::ALL)).zero?
 
         @placed.key?(addr) || @read.key?([addr, i.offset]) || dominates_exits?(at)
+      end
+
+      # `{ value => true }` for every value that only branches read,
+      # itself or through the `band`s and `bor`s that only branches
+      # read, which `Chains` turns into branches of their own. A round
+      # over those can make the next one's answers.
+      def tested_only
+        uses = @analysis.uses
+        reads = Hash.new(0)
+        blocks = @f.blocks
+        bi = 0
+        while bi < blocks.size
+          br = blocks[bi].insts.last
+          reads[br.args[0]] += 1 if br.op == :brif
+          bi += 1
+        end
+        tested = {}
+        loop do
+          moved = false
+          bi = 0
+          while bi < blocks.size
+            insts = blocks[bi].insts
+            n = 0
+            while n < insts.size
+              i = insts[n]
+              n += 1
+              v = i.results[0]
+              next if tested.key?(v) || reads[v].zero? || reads[v] != uses.fetch(v, 0)
+
+              tested[v] = true
+              moved = true
+              next unless i.op == :band || i.op == :bor
+
+              args = i.args
+              k = 0
+              while k < args.size
+                reads[args[k]] += 1 if IR.value?(args[k])
+                k += 1
+              end
+            end
+            bi += 1
+          end
+          break unless moved
+        end
+        tested
       end
 
       def dominates_exits?(at)

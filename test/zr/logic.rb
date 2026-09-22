@@ -54,7 +54,17 @@ machine def main(argc, argv)
   # unless as a value
   m = unless n > 5 then 1 else 2 end
   code = code | 65536 if m != 2
-  exit(Machine.i32(code & 255))
-  exit(Machine.i32(code >> 8))
+  # a loop whose test is a conjunction asks the right side each turn,
+  # and not on the turn the left side ends
+  i = 0
+  while i < 3 && probe(true)
+    i += 1
+  end
+  code = code | 131072 if i != 3 || Machine.load64(calls(), 0) != 7
+  # three tests in one, the last decided by the middle one
+  code = code | 262144 if i == 0 || (i == 3 && probe(false)) || i != 3
+  code = code | 524288 if Machine.load64(calls(), 0) != 8
+  # The status holds eight bits: the facts past them fold onto the low ones.
+  exit(Machine.i32((code & 255) | (code >> 8)))
   0
 end

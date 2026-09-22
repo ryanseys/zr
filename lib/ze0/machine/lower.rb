@@ -848,8 +848,10 @@ module Ze0
         !word.nil? && @unit.immediate?(word)
       end
 
-      # `a && b` and `a || b`, the right side lowered only when the left
-      # decides nothing; the result is a Bool.
+      # `a && b` and `a || b` as a value, the right side lowered only when
+      # the left decides nothing; the result is a Bool. One that is a
+      # test -- an `if`'s, a `while`'s -- is `jump_if`'s, and makes no
+      # value at all.
       #
       # A right side that is `plain?` is lowered either way, and the two
       # bits are joined with no branch at all: reading it can change
@@ -1141,8 +1143,31 @@ module Ze0
         end
       end
 
-      def condition(node)
-        condition_value(node.predicate).first
+      # `node`, a test, as a branch: to `yes` when it holds, to `no` when
+      # it does not. An `&&` or `||` branches on its left side and asks
+      # its right side only when the left decided nothing; a `!` trades
+      # the arms; anything else is tested as a value. So a test never
+      # makes a bit to test -- no set, no widening, no join carrying a
+      # byte -- and each compare is the branch's own.
+      def jump_if(node, yes, no)
+        case node
+        when Prism::AndNode, Prism::OrNode
+          rest = @f.label
+          node.is_a?(Prism::AndNode) ? jump_if(node.left, rest, no) : jump_if(node.left, yes, rest)
+          @f.switch(rest)
+          jump_if(node.right, yes, no)
+        when Prism::ParenthesesNode
+          body = node.body
+          return jump_if(body.body[0], yes, no) if body.is_a?(Prism::StatementsNode) && body.body.one?
+
+          @f.brif(condition_value(node).first, yes, no)
+        when Prism::CallNode
+          return jump_if(node.receiver, no, yes) if node.name == :! && node.arguments.nil? && node.receiver
+
+          @f.brif(condition_value(node).first, yes, no)
+        else
+          @f.brif(condition_value(node).first, yes, no)
+        end
       end
 
       # `[value, type]` of an expression a branch may test: any integer.
@@ -1157,10 +1182,9 @@ module Ze0
       # jumps are written last. `then_stmts` is the then arm; `else_part`
       # is the else arm's statements, an elsif, or nil.
       def branch(node, want, then_stmts, else_part)
-        cond = condition(node)
         then_b = @f.label
         else_b = @f.label
-        @f.brif(cond, then_b, else_b)
+        jump_if(node.predicate, then_b, else_b)
         @f.switch(then_b)
         tv, tt = then_stmts ? statements(then_stmts, want) : [nil, "Void"]
         then_open = !@f.terminated?
@@ -1186,8 +1210,7 @@ module Ze0
         done = @f.label
         @f.jump(head)
         @f.switch(head)
-        cond = condition(node)
-        @f.brif(cond, body, done)
+        jump_if(node.predicate, body, done)
         @f.switch(body)
         @loops.push(done)
         statements(node.statements) if node.statements
