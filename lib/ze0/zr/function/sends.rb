@@ -393,7 +393,7 @@ module Ze0
         # site's other cells and fills one. A site under `using` asks
         # the kernel every time: a refinement decides, never the cell.
         def cached_send(node, recv, argc, argv, blk, mode: send_mode(node))
-          cc = cache("ic", "CallCache", CALL_WAYS)
+          cc = site_cache(node, "ic", "CallCache", CALL_WAYS)
           slow = -> { kernel("zr_send_cached", cc, recv, sym_word(node.name), argc, argv, blk, imm(mode)) }
           return slow.call if node.using
 
@@ -529,6 +529,17 @@ module Ze0
             switch(fast)
             n = node.args.size
             given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
+            # The def of the unit the name guesses at, where the direct
+            # entry is its body: the body's copy here, bailing to the
+            # call (`Inline`).
+            if (d = inline_candidate(node))
+              copy = @f.label
+              plain = @f.label
+              @f.brif(@f.icmp("eq", direct, @f.func_addr(@f.callee(@l.def_name(d), ABI.fetch(Function.direct_abi(n)), "i64"))), copy, plain)
+              switch(copy)
+              @f.jump(merge, [inline_body(d, recv, given, plain)])
+              switch(plain)
+            end
             @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(Function.direct_abi(n)), "i64"), direct, [recv, entry, blk, found, *given])])
             switch(generic)
           end

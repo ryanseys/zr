@@ -12,6 +12,7 @@ require_relative "function/params"
 require_relative "function/targets"
 require_relative "function/defined"
 require_relative "function/tracing"
+require_relative "function/inline"
 
 module Ze0
   module Zr
@@ -41,6 +42,7 @@ module Ze0
       include Targets
       include Defined
       include Tracing
+      include Inline
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
       # The most arguments a direct entry takes in registers; `direct0`
@@ -407,6 +409,10 @@ module Ze0
 
       # The line a backtrace reports for what runs next.
       def at_line(line, node_id = 0)
+        # An inlined body's lines are its def's, and nothing in a copy
+        # raises or polls: the record keeps the caller's line.
+        return if @inlining
+
         word = line | (node_id << 32)
         return if word == @line
 
@@ -430,6 +436,13 @@ module Ze0
       # kernel's `layout` (rt/kernel/cache.rb).
       def cache(prefix, layout, count = 1)
         @f.symbol_value(@f.symbol(@l.cache_cell(prefix, @l.layout(layout).size * count)))
+      end
+
+      # The same for the site `node`, one cell however many times the
+      # node is lowered: its def's function and every copy inlined at a
+      # call site (`Inline`) share it.
+      def site_cache(node, prefix, layout, count = 1)
+        @f.symbol_value(@f.symbol(@l.site_cell(node, prefix, @l.layout(layout).size * count)))
       end
 
       # `@name` and `@name = v` at their sites: the row of self's table

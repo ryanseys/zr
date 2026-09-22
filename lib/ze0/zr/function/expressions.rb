@@ -159,7 +159,7 @@ module Ze0
         # else the kernel's read.
         def ivar_read(node)
           ivar = ivar_name(node.name)
-          ic = cache("iv", "IvarCache")
+          ic = site_cache(node, "iv", "IvarCache")
           slow = @f.label
           merge, (v,) = @f.block(["i64"])
           row = guessed_ivar_row(ic, ivar, slow, writing: false)

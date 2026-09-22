@@ -121,7 +121,7 @@ module Ze0
       # own prefix and is numbered from its own counters, so the same
       # file writes the same names whatever was compiled before it. The
       # program's own file keeps the entry it was given.
-      def open_unit(prefix = @entry)
+      def open_unit(prefix = @entry, body = nil)
         close_pool
         @prefix = prefix
         @next = 0
@@ -131,6 +131,35 @@ module Ze0
         @spelled = {}
         @file_bytes = {}
         @keyword_tables = {}
+        # The unit's own tree: what a site may inline a def of
+        # (`Function::Inline`), the name each def's function takes, and
+        # the cells a site and its inlined copies share.
+        @unit_body = body
+        @inline_defs = nil
+        @def_names = {}.compare_by_identity
+        @site_cells = {}.compare_by_identity
+      end
+
+      # The def of the unit a send of `name` may inline: one written
+      # once in the unit, of the shape `Function::Inline` takes; else
+      # nil. A def's name is only a guess at what the site calls -- the
+      # site's cell decides at run time.
+      def inline_def(name)
+        @inline_defs ||= Function::Inline.candidates(@unit_body)
+        @inline_defs[name]
+      end
+
+      # The function name of the def `node`, made once whether the def
+      # or a site that inlines it asks first.
+      def def_name(node)
+        @def_names[node] ||= "#{@prefix}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
+      end
+
+      # The cell of the site `node`, shared by every lowering of the
+      # node: the def's own function and each copy inlined at a call
+      # site read one cell, which the def's run fills.
+      def site_cell(node, prefix, bytes)
+        @site_cells[node] ||= cache_cell(prefix, bytes)
       end
 
       # The id the program gives `name`, where the program cannot move
@@ -210,6 +239,7 @@ module Ze0
       # thousand files then never holds the IR of them all at once.
       def run(&finish)
         finished = []
+        open_unit(@entry, @program.body)
         Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
         finished.concat(finished_functions(&finish)) if finish
         (@program.units || []).each_with_index do |u, i|
@@ -217,7 +247,7 @@ module Ze0
           @warnings = u.warnings || []
           @unit_internal = u.internal
           @unit_hidden = u.hidden
-          open_unit(unit_entry(i))
+          open_unit(unit_entry(i), u.body)
           kept = finish && taken(u)
           if kept
             spent(u)
@@ -444,7 +474,7 @@ module Ze0
 
       # The function a def becomes, lowered now and named for the site.
       def define(node)
-        name = "#{@prefix}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
+        name = def_name(node)
         Function.new(self, name, node.locals, node.body, node, :def).lower
         name
       end

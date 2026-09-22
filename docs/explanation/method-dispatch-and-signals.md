@@ -45,6 +45,34 @@ Some operations skip the send when nobody changed them:
 - `recv[i]`, `recv[i] = v` and `recv << v` test for a core Array, Hash
   or String at the site.
 - `!` answers inline for nil, true and false.
+- `is_a?`, `kind_of?`, `Mod === obj` (a `case` arm) and `nil?` answer
+  from the classes alone while no class defines the name (a gate
+  each). A class carries a rank table of its ancestors from birth, and
+  a flag (`FL_RANKED`) that says it is in Object's family and no box
+  has touched it; then `klass.is_a?(mod)` is two ranks and one load,
+  written out at the site. A module, or a class not yet ranked, takes
+  the call.
+- A cell whose entry is an attribute reader or writer, `nil?`,
+  `frozen?`, `Array#size`, BasicObject's `==`/`!=` or one of the type
+  questions carries a *shape*, and the site does the body in place
+  with the entry's own guards.
+
+## A small def inlined at its site
+
+A def of the same file with required positionals alone and a body of
+reads -- self's instance variables, readers and type questions of its
+arguments, fixnum arithmetic, branches and a return -- is copied into
+each site that calls it (`Zr::Function::Inline`). The site keeps its
+cell and its class-and-stamp test; when the hit's direct entry is the
+def's own body, the copy runs with no frame. Every guard inside the
+copy -- a cell that misses, a receiver of another kind, an operator
+past the fixnums, a gate closed -- jumps to the ordinary call, which
+runs the def from its start, so the copy may hold nothing that leaves
+a trace: no call, no store, no allocation. The copy and the def's
+function share the def's site cells, so the call that a miss takes
+fills what the copy reads next time. A program sees no frame for the
+def, and so no `SystemStackError` from it; nothing in a copy raises,
+so no backtrace is ever taken inside one.
 
 Constants and instance variables have cells of their own. A constant's
 cell keys on the scope and a constant stamp. An instance variable's
