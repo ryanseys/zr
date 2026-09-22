@@ -2,6 +2,7 @@
 
 require_relative "../../backend"
 require_relative "../../ir/function"
+require_relative "../../ir/types"
 require_relative "../../obj/model"
 require_relative "locals"
 
@@ -446,14 +447,15 @@ module Ze0
           def assign
             n = 0
             @const = {}
-            @f.blocks.each { |b| b.params.each { |v, t| @type[v] = t } }
+            # Every value's type is the IR's to say (`IR::Types`), so this
+            # backend cannot read a value as anything the others do not.
+            @type = IR::Types.of(@f)
             @f.blocks.first.params.each { |v, _| @local[v] = n; n += 1 }
             values = []
             @f.blocks.each_with_index do |b, bi|
               b.params.each { |v, t| values << [v, Codegen::TYPE.fetch(t)] unless bi.zero? }
               b.insts.each do |i|
-                i.results.each_with_index do |v, k|
-                  @type[v] = result_type(i, k)
+                i.results.each do |v|
                   if CONSTANTS.include?(i.op)
                     @const[v] = i
                   else
@@ -471,20 +473,6 @@ module Ze0
             off = 0
             @slot_at = @f.slots.map { |s| off = @m.align(off, [s.align, 8].max); at = off; off += s.bytes; at }
             @frame = @m.align(off, 16)
-          end
-
-          def result_type(i, k)
-            case i.op
-            when :iconst, :load, :ireduce, :uextend, :sextend then i.type
-            when :call then sig_named(callee(i.callee).sig).ret
-            when :call_indirect then sig_named(i.callee).ret
-            when :icmp, :fcmp then "i8"
-            when :stack_addr, :symbol_value, :func_addr then "i64"
-            when *IR::Inst::FBINOPS, *IR::Inst::FUNOPS then "f64"
-            when :select then @type[i.args[1]]
-            when :sadd_overflow, :ssub_overflow, :smul_overflow then k.zero? ? @type[i.args[0]] : "i8"
-            else i.type || @type[i.args[0]]
-            end
           end
 
           # Each by its key, the first row winning as `find` would.

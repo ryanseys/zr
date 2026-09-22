@@ -8,9 +8,10 @@ module Ze0
     # The checks every function passes before an emitter sees it: every
     # block ends in a terminator, every branch names a block and passes as
     # many arguments as it takes, and every value used is defined once.
-    # Under `strict` also: every use is dominated by its definition, and
-    # every argument a jump carries has its parameter's type. A failure
-    # names the function and the instruction.
+    # Under `strict` also: every use is dominated by its definition,
+    # every argument a jump carries has its parameter's type, and every
+    # operand has the type its opcode takes (`Strict::OPERANDS`). A
+    # failure names the function and the instruction.
     module Verify
       class Error < StandardError; end
 
@@ -56,13 +57,17 @@ module Ze0
       # Kennedy's iterative one over a reverse postorder; a use in a block
       # the entry does not reach is not checked, since nothing runs it.
       class Strict
+        INTEGERS = %w[i8 i32 i64].freeze
+
         def initialize(f, blocks)
           @f = f
           @blocks = blocks
+          @typer = nil
         end
 
         def check
-          types = Types.new(@f).all
+          @typer = Types.new(@f)
+          @typer.all
           order = postorder.reverse
           number = order.each_with_index.to_h
           idom = dominators(order, number)
@@ -80,12 +85,12 @@ module Ze0
           order.each do |b|
             b.insts.each_with_index do |i, n|
               i.args.each { |a| dominated(a, b, n, defined_in, at, idom, number) if IR.value?(a) }
+              operands(i, b)
               (i.targets || []).each do |name, args|
+                params = @blocks.fetch(name).params
                 args.each_with_index do |a, k|
                   dominated(a, b, n, defined_in, at, idom, number) if IR.value?(a)
-                  want = @blocks.fetch(name).params[k][1]
-                  got = types.fetch(a)
-                  raise Error, "#{@f.name}: #{b.name} passes #{a} (#{got}) to #{name}, whose parameter is #{want}" if got != want
+                  typed(i, b, a, params[k][1], to: name)
                 end
               end
             end
@@ -93,6 +98,75 @@ module Ze0
         end
 
         private
+
+        # The types an opcode's operands must have, checked against
+        # what `Types` says each value is. An immediate operand has no
+        # type and is not checked. A binary integer opcode takes its
+        # result's type on both sides -- an `i8` compared with an `i64`
+        # is what #43 was, and no backend reads it the same way; a shift
+        # takes any integer amount. A call's arguments have the
+        # signature's parameter types, a return the function's.
+        def operands(i, b)
+          case i.op
+          when *Inst::BINOPS, *Inst::PAIRS
+            want = @typer.of(i.results[0])
+            typed(i, b, i.args[0], want)
+            Inst::SHIFTS.include?(i.op) ? integer(i, b, i.args[1]) : typed(i, b, i.args[1], want)
+          when :icmp
+            integer(i, b, i.args[0])
+            typed(i, b, i.args[1], type_of(i.args[0]) || type_of(i.args[1]))
+          when :fcmp, *Inst::FBINOPS then i.args.each { |a| typed(i, b, a, "f64") }
+          when *Inst::FUNOPS, :fcvt_to_sint_sat then typed(i, b, i.args[0], "f64")
+          when :fcvt_from_sint, :brif then integer(i, b, i.args[0])
+          when :select
+            integer(i, b, i.args[0])
+            typed(i, b, i.args[2], type_of(i.args[1]))
+          when :load then typed(i, b, i.args[0], "i64")
+          when :store then typed(i, b, i.args[1], "i64")
+          when :call then arguments(i, b, i.args, @typer.sig_of(i.callee).params)
+          when :call_indirect
+            typed(i, b, i.args[0], "i64")
+            arguments(i, b, i.args.drop(1), @typer.sig_named(i.callee).params)
+          when :return
+            typed(i, b, i.args[0], @f.ret_type) unless i.args.empty? || @f.ret_type.nil?
+          when :ireduce then narrower(i, b, i.type, i.args[0])
+          when :uextend, :sextend then narrower(i, b, type_of(i.args[0]), i.args[0], to: i.type)
+          when :bitcast then typed(i, b, i.args[0], i.type == "f64" ? "i64" : "f64")
+          end
+        end
+
+        def arguments(i, b, args, params)
+          raise Error, "#{@f.name}: #{b.name} passes #{args.size} argument(s) to #{i.callee}, which takes #{params.size}" if args.size != params.size
+
+          args.zip(params) { |a, want| typed(i, b, a, want) }
+        end
+
+        # `a` has type `want`, or is an immediate. `to` names the block
+        # a jump passes `a` to.
+        def typed(i, b, a, want, to: nil)
+          got = type_of(a) or return
+          return if want.nil? || got == want
+
+          raise Error, "#{@f.name}: #{b.name} #{i.op} takes #{a} (#{got}) where #{want} is wanted" unless to
+          raise Error, "#{@f.name}: #{b.name} passes #{a} (#{got}) to #{to}, whose parameter is #{want}"
+        end
+
+        def integer(i, b, a)
+          got = type_of(a) or return
+          raise Error, "#{@f.name}: #{b.name} #{i.op} takes #{a} (#{got}) where an integer is wanted" unless INTEGERS.include?(got)
+        end
+
+        # `a`'s width is more than `type`'s (a reduce), or less than
+        # `to`'s (an extend).
+        def narrower(i, b, type, a, to: nil)
+          got = type_of(a) or return
+          from, into = to ? [got, to] : [type, got]
+          ok = INTEGERS.index(from) && INTEGERS.index(into) && INTEGERS.index(from) < INTEGERS.index(into)
+          raise Error, "#{@f.name}: #{b.name} #{i.op} takes #{a} (#{got}) to #{i.type}, which is not narrower" unless ok
+        end
+
+        # The type of a value operand, or nil for an immediate.
+        def type_of(a) = IR.value?(a) ? @typer.of(a) : nil
 
         # Whether the definition of `v` reaches its use at instruction
         # `n` of block `b`: in the same block before it, or in a block

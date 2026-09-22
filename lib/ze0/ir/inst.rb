@@ -44,6 +44,8 @@ module Ze0
       PAIRS = %i[sadd_overflow ssub_overflow smul_overflow].freeze
       # The two-operand integer opcodes with one result.
       BINOPS = %i[iadd isub imul udiv sdiv urem srem band bor bxor ishl ushr sshr].freeze
+      # The shifts, whose amount may be any integer width.
+      SHIFTS = %i[ishl ushr sshr].freeze
       # The ones whose operands may trade places.
       COMMUTATIVE = %i[iadd imul band bor bxor].freeze
       # The comparison conditions.
