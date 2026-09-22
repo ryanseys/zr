@@ -399,6 +399,35 @@ module Marshal
 
   # The reader, over the bytes a writer made.
   class Reader
+    # The tags, as bytes: a tag is read once as a byte and compared as
+    # one, since a tree of any size is a byte a value and a compare a
+    # kind.
+    NIL = 0x30       # "0"
+    TRUE = 0x54      # "T"
+    FALSE = 0x46     # "F"
+    FIXNUM = 0x69    # "i"
+    SYMBOL = 0x3a    # ":"
+    SYMLINK = 0x3b   # ";"
+    LINK = 0x40      # "@"
+    IVARS = 0x49     # "I"
+    EXTENDED = 0x65  # "e"
+    BIGNUM = 0x6c    # "l"
+    FLOAT = 0x66     # "f"
+    STRING = 0x22    # '"'
+    REGEXP = 0x2f    # "/"
+    ARRAY = 0x5b     # "["
+    HASH = 0x7b      # "{"
+    HASH_DEF = 0x7d  # "}"
+    CLASS = 0x63     # "c"
+    MODULE = 0x6d    # "m"
+    MODULE_OLD = 0x4d # "M"
+    STRUCT = 0x53    # "S"
+    OBJECT = 0x6f    # "o"
+    UCLASS = 0x43    # "C"
+    DATA = 0x64      # "d"
+    USRDEF = 0x75    # "u"
+    USRMARSHAL = 0x55 # "U"
+
     # The bytes, or a stream to take them from. A stream hands over only
     # the bytes one value asks for, so the value after it starts where
     # this one stopped.
@@ -410,6 +439,9 @@ module Marshal
       @freeze = freeze
       @objects = []
       @symbols = []
+      # The class or module each name resolved to: a tree of a thousand
+      # nodes names its few classes a thousand times.
+      @constants = {}
     end
 
     def run
@@ -437,35 +469,35 @@ module Marshal
       value
     end
 
+    # The kinds a tree dump is mostly made of come first: an object, a
+    # symbol link, a small integer, nil, a string with its encoding.
     def read_value
-      tag = byte.chr
-      case tag
-      when "0" then nil
-      when "T" then true
-      when "F" then false
-      when "i" then long
-      when ":" then new_symbol(text)
-      when ";" then @symbols.fetch(long)
-      when "@" then @objects.fetch(long)
-      when "I" then with_ivars
-      when "e" then extended
-      when "l" then keep(bignum)
-      when "f" then keep(float(text))
-      when '"' then keep(text)
-      when "/" then keep(regexp)
-      when "[" then array(Array)
-      when "{" then hash(Hash, false)
-      when "}" then hash(Hash, true)
-      when "c" then keep(constant(text, Class))
-      when "m" then keep(constant(text, Module))
-      when "M" then keep(constant(text, Module))
-      when "S" then struct
-      when "o" then object
-      when "C" then subclass
-      when "d" then data
-      when "u" then user_dump
-      when "U" then user_marshal
-      else raise ArgumentError, "dump format error(0x#{tag.ord.to_s(16)})"
+      tag = byte
+      if tag == OBJECT then object
+      elsif tag == SYMLINK then @symbols.fetch(long)
+      elsif tag == FIXNUM then long
+      elsif tag == NIL then nil
+      elsif tag == IVARS then with_ivars
+      elsif tag == STRING then keep(text)
+      elsif tag == ARRAY then array(Array)
+      elsif tag == TRUE then true
+      elsif tag == FALSE then false
+      elsif tag == LINK then @objects.fetch(long)
+      elsif tag == SYMBOL then new_symbol(text)
+      elsif tag == HASH then hash(Hash, false)
+      elsif tag == HASH_DEF then hash(Hash, true)
+      elsif tag == FLOAT then keep(float(text))
+      elsif tag == BIGNUM then keep(bignum)
+      elsif tag == STRUCT then struct
+      elsif tag == USRDEF then user_dump
+      elsif tag == USRMARSHAL then user_marshal
+      elsif tag == UCLASS then subclass
+      elsif tag == EXTENDED then extended
+      elsif tag == REGEXP then keep(regexp)
+      elsif tag == CLASS then keep(constant(text, Class))
+      elsif tag == MODULE || tag == MODULE_OLD then keep(constant(text, Module))
+      elsif tag == DATA then data
+      else raise ArgumentError, "dump format error(0x#{tag.to_s(16)})"
       end
     end
 
@@ -473,12 +505,12 @@ module Marshal
     # object must be built before they can be read.
     def with_ivars
       need(1)
-      tag = @bytes.getbyte(@pos).chr
-      return deferred(tag) if tag == "/" || tag == "u"
-      return encoded_symbol if tag == ":"
+      tag = @bytes.getbyte(@pos)
+      return deferred(tag) if tag == REGEXP || tag == USRDEF
+      return encoded_symbol if tag == SYMBOL
 
       value = read_value
-      ivars.each { |name, item| apply_ivar(value, name, item) }
+      each_ivar { |name, item| apply_ivar(value, name, item) }
       value
     end
 
@@ -488,11 +520,11 @@ module Marshal
       @pos += 1
       here = @objects.size
       @objects << nil
-      klass = tag == "u" ? constant(symbol_or_link.to_s, Class) : nil
+      klass = tag == USRDEF ? constant(symbol_or_link, Class) : nil
       payload = text
-      options = tag == "/" ? byte : nil
-      ivars.each { |name, item| apply_ivar(payload, name, item) }
-      built = tag == "/" ? Regexp.new(payload, options) : loaded(klass, payload)
+      options = tag == REGEXP ? byte : nil
+      each_ivar { |name, item| apply_ivar(payload, name, item) }
+      built = tag == REGEXP ? Regexp.new(payload, options) : loaded(klass, payload)
       @objects[here] = built
       built
     end
@@ -504,8 +536,14 @@ module Marshal
       klass == Encoding ? Encoding.find(built) : built
     end
 
-    def ivars
-      long.times.map { [symbol_or_link, read] }
+    # The ivars a record lists: each name and its value, as they come.
+    def each_ivar
+      n = long
+      while n > 0
+        name = symbol_or_link
+        yield name, read
+        n -= 1
+      end
     end
 
     def apply_ivar(value, name, item)
@@ -521,14 +559,14 @@ module Marshal
     end
 
     def extended
-      mod = constant(symbol_or_link.to_s, Module)
+      mod = constant(symbol_or_link, Module)
       value = read_value
       value.extend(mod)
       value
     end
 
     def subclass
-      klass = constant(symbol_or_link.to_s, Class)
+      klass = constant(symbol_or_link, Class)
       value = read_value
       built = Primitive.zr_class_allocate(klass)
       case value
@@ -565,8 +603,7 @@ module Marshal
     end
 
     def struct
-      name = symbol_or_link
-      klass = constant(name.to_s, Class)
+      klass = constant(symbol_or_link, Class)
       values = {}
       here = @objects.size
       @objects << nil
@@ -587,22 +624,36 @@ module Marshal
       built
     end
 
+    # A plain object takes each ivar as it is read, which is the order
+    # ruby sets them in; a Range or a Set is built from its parts once
+    # they are all in hand.
     def object
-      klass = constant(symbol_or_link.to_s, Class)
+      klass = constant(symbol_or_link, Class)
       here = @objects.size
-      @objects << Primitive.zr_class_allocate(klass)
-      parts = {}
-      long.times do
-        name = symbol_or_link
-        parts[name] = read
+      built = Primitive.zr_class_allocate(klass)
+      @objects << built
+      n = long
+      if klass <= Range || klass <= Set
+        parts = {}
+        while n > 0
+          name = symbol_or_link
+          parts[name] = read
+          n -= 1
+        end
+        if klass <= Range
+          built = klass.new(parts[:begin], parts[:end], parts[:excl])
+        else
+          built.send(:marshal_load_hash, parts[:@hash])
+        end
+        @objects[here] = built
+      else
+        while n > 0
+          name = symbol_or_link
+          set_part(built, name, read)
+          n -= 1
+        end
       end
-      built = klass <= Range ? klass.new(parts[:begin], parts[:end], parts[:excl]) : @objects[here]
-      if klass <= Set
-        built.send(:marshal_load_hash, parts[:@hash])
-      elsif !(klass <= Range)
-        parts.each { |name, value| set_part(built, name, value) }
-      end
-      @objects[here] = built
+      built
     end
 
     # A name without an `@` is one of the parts ruby keeps of its own.
@@ -617,12 +668,12 @@ module Marshal
     end
 
     def user_dump
-      klass = constant(symbol_or_link.to_s, Class)
+      klass = constant(symbol_or_link, Class)
       keep(loaded(klass, text))
     end
 
     def user_marshal
-      klass = constant(symbol_or_link.to_s, Class)
+      klass = constant(symbol_or_link, Class)
       built = keep(Primitive.zr_class_allocate(klass))
       built.send(:marshal_load, read)
       built
@@ -640,16 +691,16 @@ module Marshal
     # unreachable in both, and writing the call would answer where ruby
     # refuses. The payload is left unread, as marshal.c leaves it.
     def data
-      constant(symbol_or_link.to_s, Class)
+      constant(symbol_or_link, Class)
       raise ArgumentError, "dump format error"
     end
 
     def symbol_or_link
-      tag = byte.chr
-      return @symbols.fetch(long) if tag == ";"
-      return new_symbol(text) if tag == ":"
+      tag = byte
+      return @symbols.fetch(long) if tag == SYMLINK
+      return new_symbol(text) if tag == SYMBOL
 
-      raise ArgumentError, "dump format error for symbol(0x#{tag.ord.to_s(16)})"
+      raise ArgumentError, "dump format error for symbol(0x#{tag.to_s(16)})"
     end
 
     # A symbol's name takes its encoding before it is interned, since a
@@ -660,7 +711,7 @@ module Marshal
       here = @symbols.size
       @symbols << nil
       name = text
-      ivars.each { |key, item| apply_ivar(name, key, item) }
+      each_ivar { |key, item| apply_ivar(name, key, item) }
       @symbols[here] = name.to_sym
     end
 
@@ -670,11 +721,16 @@ module Marshal
       sym
     end
 
+    # The class or module `path` names, a String or a Symbol; a name
+    # asked before answers what it answered, kind and all.
     def constant(path, kind)
-      value = namespace(path)
+      found = @constants[path]
+      return found if found && found.is_a?(kind)
+
+      value = namespace(path.to_s)
       raise ArgumentError, "#{path} does not refer to #{kind == Class ? "class" : "module"}" unless value.is_a?(kind)
 
-      value
+      @constants[path] = value
     end
 
     # `rb_path_to_class` (variable.c): the path walked from Object one
@@ -733,10 +789,9 @@ module Marshal
     end
 
     def byte
-      need(1)
-      short! if @pos >= @bytes.bytesize
-
+      need(1) if @io
       b = @bytes.getbyte(@pos)
+      short! if b.nil?
       @pos += 1
       b
     end
