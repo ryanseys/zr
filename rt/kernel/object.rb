@@ -1679,6 +1679,14 @@ machine def zr_rb_equal(a, b)
   if a == b
     return Machine.value(QTRUE)
   end
+  # Two fixnums that differ, or a receiver whose `==` is BasicObject's
+  # (a Symbol's, an Object's), differ with no send.
+  if zr_fixnum_p(a) && zr_fixnum_p(b)
+    return Machine.value(QFALSE)
+  end
+  if zr_key_builtin_p(a, Machine.id(:==), Machine.addr(:zr_obj_eq))
+    return Machine.value(QFALSE)
+  end
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(b))
   r = zr_send(a, Machine.id(:==), 1, slot)

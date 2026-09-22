@@ -431,31 +431,38 @@ module Ze0
             @f.jump(merge, [imm(@l.const("QTRUE"))])
             switch(not_nil)
           end
-          @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
-          switch(fixnum)
-          reach.call(global("G_INTEGER"), 0)
-          switch(other)
-          if FLONUM_NAMES.include?(node.name)
-            flonum = @f.label
-            rest = @f.label
-            @f.brif(@f.icmp("eq", @f.band(recv, imm(3)), imm(2)), flonum, rest)
-            switch(flonum)
-            reach.call(global("G_FLOAT"), 0)
-            switch(rest)
+          # A receiver written as a symbol, nil, true or false has the
+          # class the compiler knows: a `case` arm over a symbol asks
+          # `:sym === x` of the literal.
+          if (known = literal_class(node.recv))
+            reach.call(global(known), 0)
+          else
+            @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
+            switch(fixnum)
+            reach.call(global("G_INTEGER"), 0)
+            switch(other)
+            if FLONUM_NAMES.include?(node.name)
+              flonum = @f.label
+              rest = @f.label
+              @f.brif(@f.icmp("eq", @f.band(recv, imm(3)), imm(2)), flonum, rest)
+              switch(flonum)
+              reach.call(global("G_FLOAT"), 0)
+              switch(rest)
+            end
+            special = @f.label
+            pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
+            @f.brif(pointer, heap, special)
+            switch(heap)
+            reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
+            # nil, true, false, a symbol and a flonum have a class as a
+            # fixnum has, and a site that sends to one -- `x.nil?` on a
+            # nil, a symbol's `to_proc`, `respond_to?` on a flag -- hits
+            # its cell as a fixnum does. The kernel reads the class: one
+            # call on this side road, where the tests written out at every
+            # site cost the runtime a tenth of its code.
+            switch(special)
+            reach.call(kernel("zr_class_of", recv), 0)
           end
-          special = @f.label
-          pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
-          @f.brif(pointer, heap, special)
-          switch(heap)
-          reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
-          # nil, true, false, a symbol and a flonum have a class as a
-          # fixnum has, and a site that sends to one -- `x.nil?` on a
-          # nil, a symbol's `to_proc`, `respond_to?` on a flag -- hits
-          # its cell as a fixnum does. The kernel reads the class: one
-          # call on this side road, where the tests written out at every
-          # site cost the runtime a tenth of its code.
-          switch(special)
-          reach.call(kernel("zr_class_of", recv), 0)
           switch(have)
           if nil_p
             not_nil = @f.label
@@ -531,6 +538,20 @@ module Ze0
           @f.jump(merge, [slow.call])
           switch(merge)
           result
+        end
+
+        # The global of the class a literal receiver is an instance of, or
+        # nil: a Symbol has no singleton class, nor have nil, true and
+        # false.
+        def literal_class(recv)
+          return nil unless recv.is_a?(Hir::Literal)
+
+          case recv.value
+          when Symbol then "G_SYMBOL"
+          when nil then "G_NIL"
+          when true then "G_TRUE"
+          when false then "G_FALSE"
+          end
         end
 
         # Whether a site may take a def's direct entry: positional
