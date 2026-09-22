@@ -4,6 +4,7 @@ require "set"
 
 require_relative "function"
 require_relative "gvn"
+require_relative "licm"
 require_relative "statics"
 require_relative "types"
 require_relative "verify"
@@ -56,12 +57,14 @@ module Ze0
       # of the 9.3 s that object takes. `Statics` runs after `Forward`,
       # whose slot loads it need not walk, and before `Chains`, so the
       # gate test it leaves as a value splits into the branch chain;
-      # `GVN` after it, so the values it made are numbered with the rest.
+      # `GVN` after it, so the values it made are numbered with the rest,
+      # and `LICM` after that, so a loop's turns hold one of each value.
       def run(f)
         Fold.run(f)
         Forward.run(f)
         Statics.run(f)
         GVN.run(f)
+        LICM.run(f)
         Fold.run(f)
         Chains.run(f)
         Blocks.run(f)

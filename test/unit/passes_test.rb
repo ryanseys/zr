@@ -474,6 +474,69 @@ class PassesTest < Minitest::Test
     assert_equal 2, loads(f).size
   end
 
+  # `LICM`: what a loop computes the same at every turn -- a product of
+  # two values from outside it, a load of a word the loop cannot write
+  # -- is computed once, in a block before the loop's head, and the
+  # loop's turns read the values.
+  def test_what_a_loop_computes_the_same_at_every_turn_is_computed_before_it
+    f = function("hoisted", %w[i64 i64], "i64") do |f, n, m|
+      word = f.symbol_addr(f.symbol("zr_static_word"))
+      stamp = f.symbol_addr(f.symbol("zr_static_site_stamp"))
+      head, (i, acc) = f.block(%w[i64 i64])
+      body = f.label
+      done = f.label
+      f.jump(head, [f.iconst("i64", 0), f.iconst("i64", 0)])
+      f.switch(head)
+      f.brif(f.icmp("slt", i, n), body, done)
+      f.switch(body)
+      f.store(i, stamp)
+      step = f.iadd(f.imul(m, f.iconst("i64", 3)), f.fetch("i64", word))
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), f.iadd(acc, step)])
+      f.switch(done)
+      f.ret(acc)
+    end
+    data = [static("word", [7].pack("q<")), static("site_stamp")]
+    was = answer_with([f], data, [4, 5])
+    Ze0::IR::Passes.prepare(f, strict: true)
+    loops = f.analysis.loops
+    assert_equal 1, loops.size
+    %i[imul load].each do |op|
+      at = f.blocks.find { |b| b.insts.any? { |i| i.op == op } }
+      refute_includes loops[0].body, at.name, "the #{op} is before the loop"
+    end
+    assert_equal was, answer_with([f], data, [4, 5])
+    assert_equal 88, was
+  end
+
+  # A load the loop's test guards -- a word behind a pointer the head
+  # tests for null -- stays behind it, and a load of the volatile
+  # region stays where it is; a word a store before the loop proves is
+  # there is read before it.
+  def test_a_load_a_test_guards_and_a_volatile_load_stay_in_the_loop
+    f = function("guarded", %w[i64 i64], "i64") do |f, p, r|
+      poll = f.symbol_addr(f.symbol("zr_static_current_task"))
+      f.store(f.iconst("i64", 1), r, 16, region: :malloc)
+      head, (q, acc) = f.block(%w[i64 i64])
+      body = f.label
+      done = f.label
+      f.jump(head, [p, f.iconst("i64", 0)])
+      f.switch(head)
+      f.brif(f.icmp("ne", q, f.iconst("i64", 0)), body, done)
+      f.switch(body)
+      pending = f.fetch("i64", poll, 8)
+      sum = f.iadd(f.iadd(f.fetch("i64", q, region: :heap), pending), f.fetch("i64", r, 16, region: :malloc))
+      f.jump(head, [f.fetch("i64", q, 8, region: :heap), f.iadd(acc, sum)])
+      f.switch(done)
+      f.ret(acc)
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    loops = f.analysis.loops
+    assert_equal 1, loops.size
+    inside, outside = loads(f).partition { |i| loops[0].body.include?(f.blocks.find { |b| b.insts.include?(i) }.name) }
+    assert_equal [16], outside.map(&:offset), "the stored word"
+    assert_equal 3, inside.size, "the poll word and the two behind the tested pointer"
+  end
+
   # An address that reaches a call, a store of part of the word, or a
   # load of it as another type keeps every load of the word.
   def test_a_word_whose_address_escapes_or_that_is_written_in_part_keeps_its_loads
