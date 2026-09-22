@@ -48,4 +48,42 @@ describe "Math programs" do
       892.933959
     OUT
   end
+
+  it "a Float or an Integer argument is answered by the kernel at once, with the domain and the edges kept" do
+    result = ze0(<<~'RUBY')
+      # Math.sqrt, sin, cos, tan, atan, exp and cbrt answer a Float or a
+      # fixnum with no send of the check: the domain refusal, -0.0, an
+      # integer past 2**53, a negative integer and a bignum answer as
+      # ruby does, and a redefinition of the function is what runs.
+      p Math.sqrt(-0.0), Math.sqrt(0), Math.sqrt(1 << 62), Math.sqrt(9223372036854775807), Math.sqrt(Float::MAX), Math.sqrt(Float::INFINITY), Math.sqrt(Float::NAN).nan?
+      p Math.sin(1 << 61), Math.exp(-1000), Math.cbrt(-8), Math.tan(1), Math.atan(1).round(6), Math.cos(0)
+      p (Math.sqrt(-1.5) rescue $!.message), (Math.sqrt(-(1 << 62)) rescue $!.message), (Math.sin("1") rescue $!.message), (Math.exp(Rational(1, 2)) rescue $!.message).round(6)
+      module Math
+        remove_method :sqrt
+        def self.sqrt(x) = :mine
+      end
+      p Math.sqrt(4)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0.0
+      0.0
+      2147483648.0
+      3037000499.97605
+      1.3407807929942596e+154
+      Infinity
+      true
+      0.9250044602531619
+      0.0
+      -2.0
+      1.557407724654902
+      0.785398
+      1.0
+      "Numerical argument is out of domain - sqrt"
+      "Numerical argument is out of domain - sqrt"
+      "can't convert String into Float"
+      1.648721
+      :mine
+    OUT
+  end
 end

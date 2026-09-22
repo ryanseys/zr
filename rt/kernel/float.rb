@@ -1082,6 +1082,42 @@ machine def zr_math_sqrt(x)
   zr_float_new(Machine.sqrt(zr_float_value(x)))
 end
 
+# `Math.sqrt(x)` for a Float or fixnum `x` in the domain, else nil:
+# the send of `check`, the two compares and the call of the general
+# road, all in one. A zero answers +0.0, as CRuby's math_sqrt does
+# for -0.0.
+sig [Value] => Value
+machine def zr_math_sqrt_fast(x)
+  d = Machine.f64(0)
+  if zr_fixnum_p(x)
+    d = Machine.to_f64(zr_fix2long(x))
+  elsif zr_float_p(x)
+    d = zr_float_value(x)
+  else
+    return Machine.value(QNIL)
+  end
+  if d < Machine.f64(0)
+    return Machine.value(QNIL)
+  end
+  if d == Machine.f64(0)
+    return Machine.value(FLONUM_ZERO)
+  end
+  zr_float_new(Machine.sqrt(d))
+end
+
+# `zr_math_call(which, x)` for a Float or fixnum `x`, else nil: what
+# the functions with no domain to check take first.
+sig [Value, Value] => Value
+machine def zr_math_call_fast(which, x)
+  if zr_fixnum_p(x)
+    return zr_math_call(which, zr_float_new(Machine.to_f64(zr_fix2long(x))), Machine.value(QNIL))
+  end
+  if !zr_float_p(x)
+    return Machine.value(QNIL)
+  end
+  zr_math_call(which, x, Machine.value(QNIL))
+end
+
 # One libm function by number, over one or two doubles.
 sig [Value, Value, Value] => Value
 machine def zr_math_call(which, x, y)

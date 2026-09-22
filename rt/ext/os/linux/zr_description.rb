@@ -757,6 +757,8 @@ module Ze0
         d zr_buf_last_is_zero Bool b:Ptr
         d zr_float_quotient_value Value a:Value b:Value
         d zr_math_sqrt Value x:Value
+        d zr_math_sqrt_fast Value x:Value
+        d zr_math_call_fast Value which:Value x:Value
         d zr_math_call Value which:Value x:Value y:Value
         d zr_math_frexp Value x:Value
         d zr_math_lgamma Value x:Value
@@ -2960,6 +2962,8 @@ module Ze0
         e zr_buf_last_is_zero 0
         e zr_float_quotient_value 126
         e zr_math_sqrt 126
+        e zr_math_sqrt_fast 126
+        e zr_math_call_fast 126
         e zr_math_call 126
         e zr_math_frexp 126
         e zr_math_lgamma 126

@@ -108,7 +108,13 @@ module Math
   # Each function is a private method too, for `include Math`.
   module_function
 
+  # A Float or an Integer in the domain is answered by the kernel at
+  # once (zr_math_sqrt_fast); anything else takes the checks, which
+  # convert or refuse it.
   def sqrt(x)
+    r = Primitive.zr_math_sqrt_fast(x)
+    return r if r
+
     x = check(x)
     raise DomainError, "Numerical argument is out of domain - sqrt" if x < 0.0
     return 0.0 if x == 0.0
@@ -116,12 +122,12 @@ module Math
     Primitive.zr_math_sqrt(x)
   end
 
-  def cbrt(x) = Primitive.zr_math_call(1, check(x), 0.0)
-  def sin(x) = Primitive.zr_math_call(2, check(x), 0.0)
-  def cos(x) = Primitive.zr_math_call(3, check(x), 0.0)
-  def tan(x) = Primitive.zr_math_call(4, check(x), 0.0)
-  def atan(x) = Primitive.zr_math_call(5, check(x), 0.0)
-  def exp(x) = Primitive.zr_math_call(6, check(x), 0.0)
+  def cbrt(x) = Primitive.zr_math_call_fast(1, x) || Primitive.zr_math_call(1, check(x), 0.0)
+  def sin(x) = Primitive.zr_math_call_fast(2, x) || Primitive.zr_math_call(2, check(x), 0.0)
+  def cos(x) = Primitive.zr_math_call_fast(3, x) || Primitive.zr_math_call(3, check(x), 0.0)
+  def tan(x) = Primitive.zr_math_call_fast(4, x) || Primitive.zr_math_call(4, check(x), 0.0)
+  def atan(x) = Primitive.zr_math_call_fast(5, x) || Primitive.zr_math_call(5, check(x), 0.0)
+  def exp(x) = Primitive.zr_math_call_fast(6, x) || Primitive.zr_math_call(6, check(x), 0.0)
   def atan2(y, x) = Primitive.zr_math_call(7, check(y), check(x))
   def hypot(x, y) = Primitive.zr_math_call(8, check(x), check(y))
   def sinh(x) = Primitive.zr_math_call(9, check(x), 0.0)
