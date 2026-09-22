@@ -22,8 +22,9 @@ from the [benchmark](https://github.com/ruby/benchmark) gem, a
 development dependency, and nothing forks beside a timed run.
 
 A run of the whole bank writes its report, in that gem's own layout, to
-`benchmark/results/<revision>.txt`, named by the commit it measured;
-commit it, so a later run can be read against it by hash. A run of some
+`benchmark/results/<stamp>-<revision>.txt`, named by when it was taken
+and the commit it measured; commit it, so a later run can be read
+against it by hash. A run of some
 rows writes `tmp/bench/latest.txt` instead. `rake bench:check` reads the
 newest report against the one before it, or the two it is given, as
 paths or as revisions: a program of 100 ms or more whose wall clock
@@ -32,7 +33,7 @@ moved by a tenth fails the check, and a shorter one is only named.
 ```console
 $ rake bench:check
 $ rake 'bench:check[caebda07 be347192]'
-$ rake 'bench:check[benchmark/results/caebda07.txt tmp/bench/latest.txt]'
+$ rake 'bench:check[benchmark/results/20260922-0426-caebda07.txt tmp/bench/latest.txt]'
 ```
 
 A time is one machine's: read two reports from the same machine, and

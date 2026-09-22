@@ -11,7 +11,7 @@
 # in `<name>.out` beside it, like any other program: the time is kept
 # only when the answer matched, so a miscompile never reads as a win.
 # A run of the whole bank writes its report, in the benchmark gem's
-# own layout, to `benchmark/results/<revision>.txt`, to be committed
+# own layout, to `benchmark/results/<stamp>-<revision>.txt`, to be committed
 # beside the code it measured; a run of some rows writes
 # `tmp/bench/latest.txt`.
 
@@ -100,7 +100,7 @@ module Benchmarks
   def report(name)
     return name if File.file?(name)
 
-    File.join(ROOT, Ze0::Harness::Bench::RESULTS, "#{name}.txt")
+    Ze0::Harness::Bench.result_of(ROOT, name) || abort("rake bench:check: no report at #{name}, and none under benchmark/results names that revision")
   end
 end
 

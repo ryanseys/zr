@@ -38,8 +38,9 @@ module Ze0
       RUNS = 5
 
       # Where a report goes. A run of the whole bank is written under
-      # `benchmark/results/` as `<revision>.txt`, named by the commit it
-      # measured, and committed with the code, so a later run reads
+      # `benchmark/results/` as `<stamp>-<revision>.txt` -- when it was
+      # taken, in UTC, so the files list in order, and the commit it
+      # measured -- and committed with the code, so a later run reads
       # against it by hash; a run of some rows goes under `tmp`, since
       # a partial report says nothing about the rest.
       RESULTS = "benchmark/results"
@@ -210,13 +211,14 @@ module Ze0
 
       # The report as the benchmark gem prints one -- `Benchmark::CAPTION`
       # over a `Tms#format` line a runner, under the program's name --
-      # at `benchmark/results/<revision>.txt` for the whole bank (with
-      # `-dirty` where the tree has changes the hash does not name), or
-      # `tmp/bench/latest.txt` for some of it.
+      # at `benchmark/results/<stamp>-<revision>.txt` for the whole bank
+      # (with `-dirty` where the tree has changes the hash does not
+      # name), or `tmp/bench/latest.txt` for some of it.
       def save(rows)
-        path = @whole ? File.join(@root, RESULTS, "#{revision}.txt") : File.join(@root, SCRATCH, LATEST)
+        taken = Time.now.utc
+        path = @whole ? File.join(@root, RESULTS, "#{taken.strftime("%Y%m%d-%H%M")}-#{revision}.txt") : File.join(@root, SCRATCH, LATEST)
         FileUtils.mkdir_p(File.dirname(path))
-        File.write(path, text(rows))
+        File.write(path, text(rows, taken))
         path
       end
 
@@ -230,19 +232,17 @@ module Ze0
         changed.empty? ? rev : "#{rev}-dirty"
       end
 
-      # The reports under `benchmark/results/`, newest last by the time
-      # each says it was taken.
-      def self.results(root)
-        Dir[File.join(root, RESULTS, "*.txt")].sort_by { |path| taken(File.read(path)) }
-      end
+      # The reports under `benchmark/results/`, newest last: the name
+      # starts with the stamp.
+      def self.results(root) = Dir[File.join(root, RESULTS, "*.txt")].sort
 
-      # When a report was taken, from its first line.
-      def self.taken(text) = text[/\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/].to_s
+      # The report a revision's hash names there, or nil.
+      def self.result_of(root, rev) = Dir[File.join(root, RESULTS, "*-#{rev}.txt")].max
 
       LABEL = "%-8n"
 
-      def text(rows)
-        lines = ["# ze0 bench, the median of #{@runs} run(s) at #{revision}, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"]
+      def text(rows, taken = Time.now.utc)
+        lines = ["# ze0 bench, the median of #{@runs} run(s) at #{revision}, #{taken.strftime("%Y-%m-%d %H:%M UTC")}"]
         rows.each do |r|
           lines << ""
           unless r.timed?

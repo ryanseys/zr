@@ -93,7 +93,7 @@ That is the same division the buckets used to draw.
 |---|---|
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6, compiling nothing |
 | `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
-| `rake 'bench[--runs 5 fib]'` | builds each program in `benchmark/` that matches, checks its answer, and prints the median of `--runs` runs (default 5) beside `ruby` and `ruby --yjit`, with the binary's CPU time; a run of the whole bank writes its report to `benchmark/results/<revision>.txt` |
+| `rake 'bench[--runs 5 fib]'` | builds each program in `benchmark/` that matches, checks its answer, and prints the median of `--runs` runs (default 5) beside `ruby` and `ruby --yjit`, with the binary's CPU time; a run of the whole bank writes its report to `benchmark/results/<stamp>-<revision>.txt` |
 | `rake stage1` | compiles the compiler (`exe/ze0`) twice, in two processes with separate caches, and compares the compiler's and the runtime's object bytes |
 | `rake stage2` | builds `exe/ze0` with ruby, then with that binary (`tmp/stage1/ze0 build exe/ze0`), and compares the two binaries |
 
