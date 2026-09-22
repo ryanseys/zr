@@ -36,40 +36,36 @@ block0:
 # load.i8
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  ldrb w13, [x8]
-  mov x0, x13
+  ldrb w1, [x0]
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # load.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  ldr w13, [x8]
-  mov w0, w13
+  ldr w1, [x0]
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # load.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  ldr x13, [x8]
-  mov x0, x13
+  ldr x1, [x0]
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # load.f64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  ldr x13, [x8]
-  mov x0, x13
+  ldr x1, [x0]
+  mov x0, x1
   fmov d0, x0
   ldp x29, x30, [sp], #16
   ret
@@ -77,43 +73,36 @@ block0:
 # load.far
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
   movz x11, #1, lsl #16
-  add x11, x8, x11
-  ldr x13, [x11]
-  mov x0, x13
+  add x11, x0, x11
+  ldr x1, [x11]
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # store.i8
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  uxtb w9, w13
-  strb w9, [x8]
+  uxtb w9, w1
+  strb w9, [x0]
   ldp x29, x30, [sp], #16
   ret
 
 # store.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  str w13, [x8]
+  str w1, [x0]
   ldp x29, x30, [sp], #16
   ret
 
 # store.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  str x13, [x8]
+  str x1, [x0]
   ldp x29, x30, [sp], #16
   ret
 
@@ -128,11 +117,9 @@ block0:
 # store.pair
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x13, x0
-  mov x8, x1
 block0:
   movz x12, #8
-  stp x8, x12, [x13, #8]
+  stp x1, x12, [x0, #8]
   ldp x29, x30, [sp], #16
   ret
 
@@ -141,10 +128,9 @@ block0:
   mov x29, sp
   sub sp, sp, #9, lsl #12
   sub sp, sp, #0xc50
-  mov x8, x0
 block0:
   movz x12, #8
-  str x8, [sp, #0x7ff8]
+  str x0, [sp, #0x7ff8]
   add x17, sp, #8, lsl #12
   str x12, [x17]
   mov sp, x29
@@ -154,10 +140,9 @@ block0:
 # load.iadd_base
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  ldr x13, [x8, #24]
-  mov x0, x13
+  ldr x1, [x0, #24]
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
@@ -165,29 +150,25 @@ block0:
   stp x29, x30, [sp, #-48]!
   mov x29, sp
 block0:
-  ldr x8, [sp, #32]
-  mov x0, x8
+  ldr x0, [sp, #32]
   ldp x29, x30, [sp], #48
   ret
 
 # iadd.stack_chain
   stp x29, x30, [sp, #-48]!
   mov x29, sp
-  mov x8, x0
 block0:
-  str x8, [sp, #32]
-  add x8, sp, #40
-  mov x0, x8
+  str x0, [sp, #32]
+  add x0, sp, #40
   ldp x29, x30, [sp], #48
   ret
 
 # store.pair_same
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
   movz x9, #8
-  stp x9, x9, [x8, #8]
+  stp x9, x9, [x0, #8]
   ldp x29, x30, [sp], #16
   ret
 
@@ -195,10 +176,8 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
 block0:
-  adrp x9, #0                     ; page21 here
-  add x9, x9, #0                  ; pageoff12 here
-  mov x8, x9
-  mov x0, x8
+  adrp x0, #0                     ; page21 here
+  add x0, x0, #0                  ; pageoff12 here
   ldp x29, x30, [sp], #16
   ret
 
@@ -206,10 +185,8 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
 block0:
-  adrp x9, #0                     ; got_page21 elsewhere
-  ldr x9, [x9]                    ; got_pageoff12 elsewhere
-  mov x8, x9
-  mov x0, x8
+  adrp x0, #0                     ; got_page21 elsewhere
+  ldr x0, [x0]                    ; got_pageoff12 elsewhere
   ldp x29, x30, [sp], #16
   ret
 
@@ -219,731 +196,624 @@ block0:
 block0:
   adrp x9, #0                     ; page21 other
   add x9, x9, #0                  ; pageoff12 other
-  mov x8, x9
-  mov x0, x8
+  mov x0, x9
   ldp x29, x30, [sp], #16
   ret
 
 # iadd.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  add x14, x8, x13
-  mov x0, x14
+  add x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # iadd.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  add w14, w8, w13
-  mov w0, w14
+  add w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # isub.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  sub x14, x8, x13
-  mov x0, x14
+  sub x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # isub.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  sub w14, w8, w13
-  mov w0, w14
+  sub w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # imul.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  mul x14, x8, x13
-  mov x0, x14
+  mul x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # imul.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  mul w14, w8, w13
-  mov w0, w14
+  mul w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # udiv.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  udiv x14, x8, x13
-  mov x0, x14
+  udiv x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # udiv.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  udiv w14, w8, w13
-  mov w0, w14
+  udiv w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # sdiv.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  sdiv x14, x8, x13
-  mov x0, x14
+  sdiv x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # sdiv.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  sdiv w14, w8, w13
-  mov w0, w14
+  sdiv w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # urem.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  udiv x11, x8, x13
-  msub x11, x11, x13, x8
-  mov x14, x11
-  mov x0, x14
+  udiv x11, x0, x1
+  msub x11, x11, x1, x0
+  mov x2, x11
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # urem.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  udiv w11, w8, w13
-  msub w11, w11, w13, w8
-  mov x14, x11
-  mov w0, w14
+  udiv w11, w0, w1
+  msub w11, w11, w1, w0
+  mov x2, x11
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # srem.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  sdiv x11, x8, x13
-  msub x11, x11, x13, x8
-  mov x14, x11
-  mov x0, x14
+  sdiv x11, x0, x1
+  msub x11, x11, x1, x0
+  mov x2, x11
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # srem.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  sdiv w11, w8, w13
-  msub w11, w11, w13, w8
-  mov x14, x11
-  mov w0, w14
+  sdiv w11, w0, w1
+  msub w11, w11, w1, w0
+  mov x2, x11
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # band.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  and x14, x8, x13
-  mov x0, x14
+  and x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # band.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  and w14, w8, w13
-  mov w0, w14
+  and w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # bor.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  orr x14, x8, x13
-  mov x0, x14
+  orr x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # bor.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  orr w14, w8, w13
-  mov w0, w14
+  orr w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # bxor.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  eor x14, x8, x13
-  mov x0, x14
+  eor x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # bxor.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  eor w14, w8, w13
-  mov w0, w14
+  eor w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # ishl.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  lsl x14, x8, x13
-  mov x0, x14
+  lsl x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # ishl.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  lsl w14, w8, w13
-  mov w0, w14
+  lsl w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # ushr.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  lsr x14, x8, x13
-  mov x0, x14
+  lsr x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # ushr.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  lsr w14, w8, w13
-  mov w0, w14
+  lsr w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # sshr.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  asr x14, x8, x13
-  mov x0, x14
+  asr x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # sshr.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  asr w14, w8, w13
-  mov w0, w14
+  asr w2, w0, w1
+  mov w0, w2
   ldp x29, x30, [sp], #16
   ret
 
 # ctz.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  rbit x13, x8
-  clz x13, x13
-  mov x0, x13
+  rbit x1, x0
+  clz x1, x1
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # ctz.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  rbit w13, w8
-  clz w13, w13
-  mov w0, w13
+  rbit w1, w0
+  clz w1, w1
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # clz.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  clz x13, x8
-  mov x0, x13
+  clz x1, x0
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # clz.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  clz w13, w8
-  mov w0, w13
+  clz w1, w0
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # popcnt.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  fmov d24, x8
+  fmov d24, x0
   cnt d24, d24
   addv d24, d24
-  fmov x13, d24
-  mov x0, x13
+  fmov x1, d24
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # popcnt.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  fmov d24, w8
+  fmov d24, w0
   cnt d24, d24
   addv d24, d24
-  fmov x13, d24
-  mov w0, w13
+  fmov x1, d24
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # bswap.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  rev x13, x8
-  mov x0, x13
+  rev x1, x0
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # bswap.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  rev w13, w8
-  mov w0, w13
+  rev w1, w0
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.eq
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, eq
-  mov x0, x14
+  cmp x0, x1
+  cset x2, eq
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.ne
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, ne
-  mov x0, x14
+  cmp x0, x1
+  cset x2, ne
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.slt
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, lt
-  mov x0, x14
+  cmp x0, x1
+  cset x2, lt
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.sle
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, le
-  mov x0, x14
+  cmp x0, x1
+  cset x2, le
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.sgt
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, gt
-  mov x0, x14
+  cmp x0, x1
+  cset x2, gt
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.sge
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, ge
-  mov x0, x14
+  cmp x0, x1
+  cset x2, ge
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.ult
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, lo
-  mov x0, x14
+  cmp x0, x1
+  cset x2, lo
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.ule
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, ls
-  mov x0, x14
+  cmp x0, x1
+  cset x2, ls
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.ugt
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, hi
-  mov x0, x14
+  cmp x0, x1
+  cset x2, hi
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.uge
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, hs
-  mov x0, x14
+  cmp x0, x1
+  cset x2, hs
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # icmp.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp w8, w13
-  cset x14, lt
-  mov x0, x14
+  cmp w0, w1
+  cset x2, lt
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # imm.add
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  add x13, x8, #52
-  mov x0, x13
+  add x1, x0, #52
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.add_negative
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  sub x13, x8, #8
-  mov x0, x13
+  sub x1, x0, #8
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.add_wide
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
   movz x10, #0x1388
-  add x13, x8, x10
-  mov x0, x13
+  add x1, x0, x10
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.sub.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  sub w13, w8, #1
-  mov w0, w13
+  sub w1, w0, #1
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.and
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  and x13, x8, #7
-  mov x0, x13
+  and x1, x0, #7
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.and_not_a_mask
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
   movz x10, #5
-  and x13, x8, x10
-  mov x0, x13
+  and x1, x0, x10
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.orr_left
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  orr x13, x8, #0xfffffffffffffffc
-  mov x0, x13
+  orr x1, x0, #0xfffffffffffffffc
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.ushr
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  lsr x13, x8, #3
-  mov x0, x13
+  lsr x1, x0, #3
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.ishl.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  lsl w13, w8, #8
-  mov w0, w13
+  lsl w1, w0, #8
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.sshr
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  asr x13, x8, #63
-  mov x0, x13
+  asr x1, x0, #63
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.icmp
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  cmp x8, #52
-  cset x13, eq
-  mov x0, x13
+  cmp x0, #52
+  cset x1, eq
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # imm.icmp_left
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  cmp x8, #10
-  cset x13, gt
-  mov x0, x13
+  cmp x0, #10
+  cset x1, gt
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # select.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
-  mov x14, x2
 block0:
-  uxtb w9, w8
+  uxtb w9, w0
   cmp w9, #0
-  csel x15, x13, x14, ne
-  mov x0, x15
+  csel x3, x1, x2, ne
+  mov x0, x3
   ldp x29, x30, [sp], #16
   ret
 
 # select.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
-  mov x14, x2
 block0:
-  uxtb w9, w8
+  uxtb w9, w0
   cmp w9, #0
-  csel w15, w13, w14, ne
-  mov w0, w15
+  csel w3, w1, w2, ne
+  mov w0, w3
   ldp x29, x30, [sp], #16
   ret
 
 # select.of_icmp
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  csel x14, x8, x13, lt
-  mov x0, x14
+  cmp x0, x1
+  csel x2, x0, x1, lt
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # ireduce
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  mov x9, x8
-  mov x13, x9
-  mov w0, w13
+  mov x9, x0
+  mov x1, x9
+  mov w0, w1
   ldp x29, x30, [sp], #16
   ret
 
 # uextend
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  mov w9, w8
-  mov x13, x9
-  mov x0, x13
+  mov w9, w0
+  mov x1, x9
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # sextend.i8
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  uxtb w9, w8
+  uxtb w9, w0
   sxtb x9, w9
-  mov x13, x9
-  mov x0, x13
+  mov x1, x9
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # sextend.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  sxtw x9, w8
-  mov x13, x9
-  mov x0, x13
+  sxtw x9, w0
+  mov x1, x9
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
@@ -951,75 +821,65 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  mov x9, x8
-  mov x13, x9
-  mov x0, x13
+  mov x9, x0
+  mov x1, x9
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # sadd_overflow.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  adds x15, x8, x13
-  cset x14, vs
-  mov x0, x15
+  adds x3, x0, x1
+  cset x2, vs
+  mov x0, x3
   ldp x29, x30, [sp], #16
   ret
 
 # sadd_overflow.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  adds w15, w8, w13
-  cset x14, vs
-  mov w0, w15
+  adds w3, w0, w1
+  cset x2, vs
+  mov w0, w3
   ldp x29, x30, [sp], #16
   ret
 
 # ssub_overflow.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  subs x15, x8, x13
-  cset x14, vs
-  mov x0, x15
+  subs x3, x0, x1
+  cset x2, vs
+  mov x0, x3
   ldp x29, x30, [sp], #16
   ret
 
 # ssub_overflow.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  subs w15, w8, w13
-  cset x14, vs
-  mov w0, w15
+  subs w3, w0, w1
+  cset x2, vs
+  mov w0, w3
   ldp x29, x30, [sp], #16
   ret
 
 # smul_overflow
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  mul x11, x8, x13
-  smulh x12, x8, x13
+  mul x11, x0, x1
+  smulh x12, x0, x1
   cmp x12, x11, asr #63
-  mov x15, x11
+  mov x3, x11
   cset x12, ne
-  mov x14, x12
-  mov x0, x15
+  mov x2, x12
+  mov x0, x3
   ldp x29, x30, [sp], #16
   ret
 
@@ -1027,15 +887,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fadd d18, d16, d17
   fmov x11, d18
-  mov x14, x11
+  mov x2, x11
   fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
@@ -1044,15 +904,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fsub d18, d16, d17
   fmov x11, d18
-  mov x14, x11
+  mov x2, x11
   fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
@@ -1061,15 +921,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fmul d18, d16, d17
   fmov x11, d18
-  mov x14, x11
+  mov x2, x11
   fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
@@ -1078,15 +938,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fdiv d18, d16, d17
   fmov x11, d18
-  mov x14, x11
+  mov x2, x11
   fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
@@ -1095,12 +955,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   fneg d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1109,12 +969,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   fabs d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1123,12 +983,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   fsqrt d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1137,12 +997,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   frintm d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1151,12 +1011,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   frintp d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1165,12 +1025,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   frintz d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1179,12 +1039,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   frintn d17, d16
   fmov x11, d17
-  mov x13, x11
+  mov x1, x11
   fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
@@ -1193,15 +1053,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fcmp d16, d17
-  cset x14, eq
-  mov x0, x14
+  cset x2, eq
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
@@ -1209,15 +1069,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fcmp d16, d17
-  cset x14, ne
-  mov x0, x14
+  cset x2, ne
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
@@ -1225,15 +1085,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fcmp d16, d17
-  cset x14, mi
-  mov x0, x14
+  cset x2, mi
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
@@ -1241,15 +1101,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fcmp d16, d17
-  cset x14, ls
-  mov x0, x14
+  cset x2, ls
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
@@ -1257,15 +1117,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fcmp d16, d17
-  cset x14, gt
-  mov x0, x14
+  cset x2, gt
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
@@ -1273,26 +1133,25 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fcmp d16, d17
-  cset x14, ge
-  mov x0, x14
+  cset x2, ge
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # fcvt_from_sint
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  scvtf d16, x8
+  scvtf d16, x0
   fmov x11, d16
-  mov x13, x11
+  mov x1, x11
   fmov d0, d16
   ldp x29, x30, [sp], #16
   ret
@@ -1300,11 +1159,10 @@ block0:
 # fcvt_from_sint.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  scvtf d16, w8
+  scvtf d16, w0
   fmov x11, d16
-  mov x13, x11
+  mov x1, x11
   fmov d0, d16
   ldp x29, x30, [sp], #16
   ret
@@ -1313,21 +1171,21 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
   fmov x9, d1
-  mov x13, x9
+  mov x1, x9
 block0:
-  fmov d16, x8
-  fmov d17, x13
+  fmov d16, x0
+  fmov d17, x1
   fadd d18, d16, d17
   fmov x11, d18
-  mov x14, x11
+  mov x2, x11
   fsub d19, d16, d17
   fmov x11, d19
-  mov x15, x11
+  mov x3, x11
   fmul d20, d18, d19
   fmov x11, d20
-  mov x8, x11
+  mov x0, x11
   fmov d0, d20
   ldp x29, x30, [sp], #16
   ret
@@ -1336,36 +1194,32 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  fmov d16, x8
+  fmov d16, x0
   fcvtzs x11, d16
-  mov x13, x11
-  mov x0, x13
+  mov x1, x11
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # call
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  mov x0, x8
   bl #0                           ; branch26 other
-  mov x13, x0
-  mov x0, x13
+  mov x1, x0
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
 # call.import
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  mov x0, x8
   bl #0                           ; branch26 elsewhere
-  mov x13, x0
-  mov x0, x13
+  mov x1, x0
+  mov x0, x1
   ldp x29, x30, [sp], #16
   ret
 
@@ -1383,43 +1237,38 @@ block0:
 block0:
   bl #0                           ; branch26 other
   mov w0, w0
-  mov x8, x0
-  mov w0, w8
+  mov w0, w0
   ldp x29, x30, [sp], #16
   ret
 
 # call_indirect
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  mov x0, x13
-  blr x8
-  mov x14, x0
-  mov x0, x14
+  mov x16, x0
+  mov x0, x1
+  blr x16
+  mov x2, x0
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # jump
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  mov x10, x13
-  mov x13, x8
-  mov x8, x10
+  mov x10, x1
+  mov x1, x0
+  mov x0, x10
 block1:
-  add x14, x8, x13
-  mov x0, x14
+  add x2, x0, x1
+  mov x0, x2
   ldp x29, x30, [sp], #16
   ret
 
 # jump.same
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
 block1:
   b block1
@@ -1427,55 +1276,44 @@ block1:
 # jump.cycle
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
 block1:
-  mov x10, x13
-  mov x13, x8
-  mov x8, x10
+  mov x10, x1
+  mov x1, x0
+  mov x0, x10
   b block1
 
 # jump.wide
-  stp x29, x30, [sp, #-48]!
+  stp x29, x30, [sp, #-16]!
   mov x29, sp
-  stp x19, x20, [sp, #16]
-  stp x21, x22, [sp, #32]
-  mov x8, x0
-  mov x13, x1
-  mov x14, x2
-  mov x15, x3
 block0:
-  mov x22, x8
-  mov x21, x13
-  mov x20, x14
-  mov x19, x15
+  mov x7, x0
+  mov x6, x1
+  mov x5, x2
+  mov x4, x3
 block1:
-  mov x10, x13
-  mov x13, x14
-  mov x14, x15
-  mov x15, x19
-  mov x19, x20
-  mov x20, x21
-  mov x21, x22
-  mov x22, x8
-  mov x8, x10
+  mov x10, x1
+  mov x1, x2
+  mov x2, x3
+  mov x3, x4
+  mov x4, x5
+  mov x5, x6
+  mov x6, x7
+  mov x7, x0
+  mov x0, x10
   b block1
 
 # brif.across_constant
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x13, x0
-  mov x8, x1
 block0:
-  cmp x13, x8
+  cmp x0, x1
   b.ge block2
 block1:
   movz x0, #0x5678
   movk x0, #0x1234, lsl #16
   b epilogue
 block2:
-  mov x0, x13
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1483,17 +1321,15 @@ epilogue:
 # brif.across_load
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  ldr x14, [x8]
+  cmp x0, x1
+  ldr x2, [x0]
   b.ge block2
 block1:
-  mov x0, x14
+  mov x0, x2
   b epilogue
 block2:
-  mov x0, x13
+  mov x0, x1
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1501,9 +1337,8 @@ epilogue:
 # brif.tbz
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  tbz w8, #3, block2
+  tbz w0, #3, block2
 block1:
   movz x0, #1
   b epilogue
@@ -1516,9 +1351,8 @@ epilogue:
 # brif.tst
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
 block0:
-  tst x8, #7
+  tst x0, #7
   b.ne block2
 block1:
   movz x0, #1
@@ -1532,16 +1366,14 @@ epilogue:
 # brif.overflow
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  adds x14, x8, x13
+  adds x2, x0, x1
   b.vc block2
 block1:
   movz x0, #0
   b epilogue
 block2:
-  mov x0, x14
+  mov x0, x2
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1549,17 +1381,14 @@ epilogue:
 # return.twice
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  uxtb w9, w8
+  uxtb w9, w0
   cbz w9, block2
 block1:
-  mov x0, x13
+  mov x0, x1
   b epilogue
 block2:
-  add x8, x13, #1
-  mov x0, x8
+  add x0, x1, #1
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1567,13 +1396,11 @@ epilogue:
 # brif
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  uxtb w9, w8
+  uxtb w9, w0
   cbz w9, block2
 block1:
-  mov x0, x13
+  mov x0, x1
   b epilogue
 block2:
   movz x0, #0
@@ -1584,16 +1411,13 @@ epilogue:
 # brif.fused
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
+  cmp x0, x1
   b.ne block2
 block1:
-  mov x0, x8
   b epilogue
 block2:
-  mov x0, x13
+  mov x0, x1
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1601,16 +1425,13 @@ epilogue:
 # brif.fused_fallthrough
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x13, x0
-  mov x8, x1
 block0:
-  cmp x13, x8
+  cmp x0, x1
   b.lt block1
 block2:
-  mov x0, x8
+  mov x0, x1
   b epilogue
 block1:
-  mov x0, x13
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1618,19 +1439,16 @@ epilogue:
 # brif.unfused
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  mov x8, x0
-  mov x13, x1
 block0:
-  cmp x8, x13
-  cset x14, eq
-  cbz w14, block2
+  cmp x0, x1
+  cset x2, eq
+  cbz w2, block2
 block1:
-  mov x9, x14
-  mov x8, x9
-  mov x0, x8
+  mov x9, x2
+  mov x0, x9
   b epilogue
 block2:
-  mov x0, x13
+  mov x0, x1
 epilogue:
   ldp x29, x30, [sp], #16
   ret
@@ -1646,9 +1464,8 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   fmov x9, d0
-  mov x8, x9
+  mov x0, x9
 block0:
-  mov x0, x8
   fmov d0, x0
   ldp x29, x30, [sp], #16
   ret

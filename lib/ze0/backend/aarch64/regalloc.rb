@@ -23,11 +23,17 @@ module Ze0
       # and read between two calls, and giving each a callee-saved
       # register cost every function the saves of all ten. Such a value
       # takes a callee-saved register only when `CALLER` is empty; a
-      # crossing value never takes a caller-saved one. `x9`..`x12` are
-      # the lowering's scratch, `x16` and `x17` the linker's, `x18` is
-      # reserved on this platform and never touched, and `x28` holds the
-      # gate word for the whole program (`GATES`): a `gates` value is
-      # read out of it and gets no register of its own.
+      # crossing value never takes a caller-saved one. The argument
+      # registers `x0`..`x7` are in `CALLER`: a call clobbers them, but
+      # a value that crosses no call is dead by then, and the arguments
+      # of the call and the parameters of the function move between
+      # them and their homes as one parallel copy (`Codegen#load_args`,
+      # `#prologue`), so a value may live in the register an argument
+      # wants. `x9`..`x12` are the lowering's scratch, `x16` and `x17`
+      # the linker's, `x18` is reserved on this platform and never
+      # touched, and `x28` holds the gate word for the whole program
+      # (`GATES`): a `gates` value is read out of it and gets no
+      # register of its own.
       #
       # Every value, block and instruction is given a number first, and
       # what follows indexes arrays by those numbers. This is most of what
@@ -39,7 +45,7 @@ module Ze0
 
         CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze
         GATES = X28
-        CALLER = [X8, X13, X14, X15].freeze
+        CALLER = [X0, X1, X2, X3, X4, X5, X6, X7, X8, X13, X14, X15].freeze
 
         # Whether `reg` is one the callee saves.
         def self.callee?(reg) = reg.to_i >= 19
@@ -304,6 +310,7 @@ module Ze0
           free = { callee: CALLEE.dup, caller: CALLER.dup }
           active = []
           taken = {}
+          arrives = arrival_registers
           order.each do |value|
             first = from[value]
             active.reject! do |other|
@@ -312,7 +319,9 @@ module Ze0
               release(free, taken.fetch(other))
               true
             end
-            reg = free[:caller].shift unless crossing[value]
+            # A parameter that crosses no call takes the register it
+            # arrives in when that is free: nothing then moves it.
+            reg = free[:caller].delete(arrives[value]) || free[:caller].shift unless crossing[value]
             reg ||= free[:callee].shift
             if reg.nil?
               held = crossing[value] ? active.select { |other| Regalloc.callee?(taken[other]) } : active
@@ -326,6 +335,21 @@ module Ze0
             active << value
           end
           taken
+        end
+
+        # `{ value number => register }` for the integer parameters of
+        # the entry block, by the argument register each arrives in.
+        def arrival_registers
+          arrives = {}
+          ints = 0
+          @f.entry_block.params.each do |v, t|
+            next if t == "f64"
+
+            n = numbered(v)
+            arrives[n] = Registers.x(ints) if n && ints < CALLER.size
+            ints += 1
+          end
+          arrives
         end
 
         # `reg` back in its pool, which stays in pool order.

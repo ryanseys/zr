@@ -377,19 +377,34 @@ module Ze0
         # `IR::Function#hoisted` put every one in the entry block, where
         # each held a register for the whole function. What is read again
         # and again and takes several instructions is still made once.
+        #
+        # A symbol's address read once (`adrp` and `add`, or a GOT load)
+        # is made at its read the same way: `IR::Function#hoisted` puts
+        # every one in the entry block, where made once it held a
+        # callee-saved register for the whole function, which the
+        # prologue saves and the epilogue restores at every call. One
+        # read more than once keeps its register: a send reads its
+        # site's cell five times on the way to the call, and made at
+        # each read the address cost `fib` 6%.
         def plan_constants
           @const = {}
+          @symbol = {}
           @remade = Set.new(@stack.keys)
           @f.blocks.each do |b|
             b.insts.each do |i|
-              next unless i.op == :iconst
-
               v = i.results[0]
-              @const[v] = i.args[0]
-              type = type_of(v)
-              next unless WIDTH_MASK.key?(type)
+              case i.op
+              when :iconst
+                @const[v] = i.args[0]
+                type = type_of(v)
+                next unless WIDTH_MASK.key?(type)
 
-              @remade << v if @uses[v] <= 1 || materialized(i.args[0] & WIDTH_MASK[type]) == 1
+                @remade << v if @uses[v] <= 1 || materialized(i.args[0] & WIDTH_MASK[type]) == 1
+              when :symbol_value
+                g = global_of(i.args[0])
+                @symbol[v] = [g.symbol, g.colocated]
+                @remade << v if @uses[v] <= 1
+              end
             end
           end
         end
@@ -591,6 +606,7 @@ module Ze0
           home = @reg[v]
           return narrow(reg, home, @clean.include?(v) ? "i64" : type_of(v)) if home
           return frame_address(reg, @stack[v]) if @stack.key?(v)
+          return symbol_address(reg, *@symbol[v]) if @symbol.key?(v) && @remade.include?(v)
           return materialize(reg, @const[v] & WIDTH_MASK[type_of(v)]) if @remade.include?(v)
 
           off = @home.fetch(v)
@@ -636,7 +652,7 @@ module Ze0
         # the low bits of it, which is what the narrow load gives.
         def narrow(reg, home, type)
           case type
-          when "i64", "f64" then @asm.mov reg, home
+          when "i64", "f64" then @asm.mov reg, home unless reg.equal?(home)
           when "i32" then @asm.mov w(reg), w(home)
           when "i8" then @asm.uxtb w(reg), w(home)
           else raise Refused, "#{@f.name}: a #{type} value"
@@ -705,17 +721,68 @@ module Ze0
           # argument path no program would take.
           raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > IR::REGISTER_ARGS
 
-          ints = 0
-          floats = 0
-          entry.params.each do |v, t|
-            if t == "f64"
-              @asm.fmov X9, Registers.d(floats)
-              floats += 1
-              store_param(v, X9)
-            else
-              store_param(v, Registers.x(ints))
-              ints += 1
+          ints, floats = entry.params.partition { |_, t| t != "f64" }.map { |list| list.map(&:first) }
+          # The integer parameters arrive in x0.. and a home may be one
+          # of those registers, so they move as one parallel copy. The
+          # floats move after them: a float's home may be an argument
+          # register too, one an integer had yet to leave.
+          move_registers(ints.map { |v| [place(v), v] }, ints.each_index.map { |n| Registers.x(n) })
+          floats.each_with_index do |v, n|
+            @asm.fmov X9, Registers.d(n)
+            store_param(v, X9)
+          end
+        end
+
+        # Parallel moves between registers and values: each `[to, v]` of
+        # `dests` takes the source at the same index of `srcs`, where a
+        # source is a value or a register, and `to` is a register or the
+        # value whose place takes it. No destination is written while a
+        # pending copy still reads it; a cycle is broken through
+        # `SCRATCH[1]`.
+        def move_registers(dests, srcs)
+          pending = {}
+          reads = Hash.new(0)
+          dests.each_with_index do |(to, v), n|
+            src = srcs[n]
+            from = src.is_a?(Register) ? src : place(src)
+            next if to == from && (v.nil? || src.is_a?(Register) || type_of(v) == type_of(src))
+
+            pending[to] = [v, src]
+            reads[from] += 1
+          end
+          ready = pending.keys.reject { |p| reads[p].positive? }
+          loop do
+            while (p = ready.pop)
+              v, src = pending.delete(p)
+              move_register(p, v, src)
+              from = src.is_a?(Register) ? src : place(src)
+              reads[from] -= 1
+              ready << from if reads[from].zero? && pending.key?(from)
             end
+            break if pending.empty?
+
+            start = pending.keys.first
+            v, src = pending.delete(start)
+            src.is_a?(Register) ? @asm.mov(SCRATCH[1], src) : load_value(src, SCRATCH[1])
+            at = src.is_a?(Register) ? src : place(src)
+            while at != start && pending.key?(at)
+              d, s = pending.delete(at)
+              move_register(at, d, s)
+              at = s.is_a?(Register) ? s : place(s)
+            end
+            v.nil? ? @asm.mov(start, SCRATCH[1]) : store_value(v, SCRATCH[1])
+          end
+        end
+
+        # One move of `move_registers`: into the register `to`, or into
+        # the home of the value `v`.
+        def move_register(to, v, src)
+          if v.nil?
+            src.is_a?(Register) ? @asm.mov(to, src) : load_value(src, to)
+          elsif src.is_a?(Register)
+            store_param(v, src)
+          else
+            store_value(v, value_in(src, SCRATCH[0]))
           end
         end
 
@@ -804,7 +871,10 @@ module Ze0
 
             frame_address(X9, @slot_at[Integer(i.args[0].delete_prefix("ss"))])
             store_value(i.results[0], X9)
-          when :symbol_value then emit_symbol(i.results[0], global_of(i.args[0]).symbol, global_of(i.args[0]).colocated)
+          when :symbol_value
+            return if @remade.include?(i.results[0])
+
+            emit_symbol(i.results[0], global_of(i.args[0]).symbol, global_of(i.args[0]).colocated)
           when :gates
             return if @pinned.include?(i.results[0])
 
@@ -1020,18 +1090,24 @@ module Ze0
         # A symbol's address: page plus offset for one this link defines,
         # through the GOT for an import.
         def emit_symbol(result, symbol, local)
+          symbol_address(X9, symbol, local)
+          store_value(result, X9)
+        end
+
+        # `reg = &symbol`: the page and the offset in it for a symbol of
+        # this link, and the GOT's word for one of another.
+        def symbol_address(reg, symbol, local)
           if local
             reloc(:page21, symbol)
-            @asm.adrp X9, 0
+            @asm.adrp reg, 0
             reloc(:pageoff12, symbol)
-            @asm.add X9, X9, 0
+            @asm.add reg, reg, 0
           else
             reloc(:got_page21, symbol)
-            @asm.adrp X9, 0
+            @asm.adrp reg, 0
             reloc(:got_pageoff12, symbol)
-            @asm.ldr X9, [X9, 0]
+            @asm.ldr reg, [reg, 0]
           end
-          store_value(result, X9)
         end
 
         def emit_call(i)
@@ -1048,9 +1124,12 @@ module Ze0
         end
 
         # Integer arguments take x0.. and float arguments d0.., each in
-        # its own order, as the ABI says.
+        # its own order, as the ABI says. The floats go first, read out
+        # of whatever register holds them; the integers move as one
+        # parallel copy, since an argument may live in the register
+        # another one wants.
         def load_args(args)
-          ints = 0
+          ints = []
           floats = 0
           args.each do |v|
             if float?(v)
@@ -1062,10 +1141,10 @@ module Ze0
               end
               floats += 1
             else
-              load_value(v, Registers.x(ints))
-              ints += 1
+              ints << v
             end
           end
+          move_registers(ints.each_index.map { |n| [Registers.x(n), nil] }, ints)
         end
 
         # A 32-bit or narrower result has undefined bits above: clear them.
@@ -1079,15 +1158,17 @@ module Ze0
           store_value(v, X0)
         end
 
-        # The pointer goes to x9 after the arguments are in place: no
-        # argument load touches it.
+        # The pointer goes to x16 before the arguments are in place: it
+        # may live in a register an argument wants, and no argument load
+        # touches x16.
         def emit_call_indirect(i)
           sig = sig_named(i.callee)
           ptr, *args = i.args
           raise Refused, "#{@f.name}: a call with more than eight arguments" if args.size > IR::REGISTER_ARGS
 
+          load_value(ptr, X16)
           load_args(args)
-          @asm.blr value_in(ptr, X9)
+          @asm.blr X16
           return if i.results.empty?
 
           store_result(i.results[0], sig.ret)

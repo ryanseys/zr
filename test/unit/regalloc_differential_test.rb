@@ -16,6 +16,13 @@ require_relative "../../lib/ze0/obj/jit/fiddle"
 # allocated and with every value in its frame home. The three must
 # agree. A failure prints the seed and the function, and `ZE0_SEED=`
 # runs that seed again.
+#
+# A probe takes four integers and a double, and its callee three
+# integers in an order the probe picks: the argument registers are
+# in the allocator's pool, so a parameter may be homed in another's
+# arrival register, an argument in another's, and a float's home may
+# be a register an integer had yet to leave (the case that reached a
+# spec before it reached this test).
 class RegallocDifferentialTest < Minitest::Test
   COUNT = Integer(ENV.fetch("ZE0_DIFFERENTIAL", 500))
   CALLEE = "probe_callee"
@@ -35,8 +42,9 @@ class RegallocDifferentialTest < Minitest::Test
     allocated = loaded(functions, allocate: true)
     spilled = loaded(functions, allocate: false)
     functions.drop(1).each do |f|
-      args = [rng.rand(-100..100), rng.rand(-100..100)]
-      want = word(interp.answer(f.name, args))
+      args = [rng.rand(-100..100), rng.rand(-100..100), rng.rand(-100..100), rng.rand(-100..100), rng.rand(-100..100).to_f]
+      # The interpreter takes a double as its bits; Fiddle takes the Float.
+      want = word(interp.answer(f.name, args.map { |a| a.is_a?(Float) ? [a].pack("E").unpack1("Q<") : a }))
       assert_equal want, word(allocated.fetch(f.name).call(*args)), "seed #{seed}: #{f.name}#{args.inspect} allocated\n#{dump(f)}"
       assert_equal want, word(spilled.fetch(f.name).call(*args)), "seed #{seed}: #{f.name}#{args.inspect} spilled\n#{dump(f)}"
     end
@@ -52,23 +60,29 @@ class RegallocDifferentialTest < Minitest::Test
     unit = Ze0::Backend::Aarch64.unit(functions.map(&:dup), [], allocate: allocate)
     symbols = Ze0::Obj::JIT.load(unit, host: Ze0::Obj::JIT::Fiddle.new)
     functions.to_h do |f|
-      [f.name, Fiddle::Function.new(symbols.fetch(f.name), [Fiddle::TYPE_LONG] * f.params.size, Fiddle::TYPE_LONG)]
+      types = f.params.map { |t| t == "f64" ? Fiddle::TYPE_DOUBLE : Fiddle::TYPE_LONG }
+      [f.name, Fiddle::Function.new(symbols.fetch(f.name), types, Fiddle::TYPE_LONG)]
     end
   end
 
-  # `probe_callee(x) = x * 3 + 1`, in the unit beside the probes.
+  # `probe_callee(x, y, z) = x * 3 + y * 5 + z * 7 + 1`, in the unit
+  # beside the probes.
   def callee
-    f = Ze0::IR::Function.new(CALLEE, %w[i64], "i64")
-    f.ret(f.iadd(f.imul(f.args[0], f.iconst("i64", 3)), f.iconst("i64", 1)))
+    f = Ze0::IR::Function.new(CALLEE, %w[i64 i64 i64], "i64")
+    x, y, z = f.args
+    sum = f.iadd(f.imul(x, f.iconst("i64", 3)), f.imul(y, f.iconst("i64", 5)))
+    f.ret(f.iadd(f.iadd(sum, f.imul(z, f.iconst("i64", 7))), f.iconst("i64", 1)))
     f
   end
 
-  # A function of two i64 arguments: a run of operations, a loop of a
-  # few passes carrying two values, a run more, and an answer.
+  # A function of four i64 arguments and an f64 one, read as its bits:
+  # a run of operations, a loop of a few passes carrying two values, a
+  # run more, and an answer.
   def generate(rng, name)
-    f = Ze0::IR::Function.new(name, %w[i64 i64], "i64")
-    callee = f.callee(CALLEE, %w[i64], "i64")
-    pool = f.args.dup
+    f = Ze0::IR::Function.new(name, %w[i64 i64 i64 i64 f64], "i64")
+    callee = f.callee(CALLEE, %w[i64 i64 i64], "i64")
+    *ints, double = f.args
+    pool = ints + [f.bitcast("i64", double)]
     rng.rand(2..6).times { pool << operation(f, rng, pool, callee) }
 
     header, (acc, carry, i) = f.block(%w[i64 i64 i64])
@@ -98,7 +112,7 @@ class RegallocDifferentialTest < Minitest::Test
     when 0..5 then f.binop(OPS.sample(random: rng), a, b)
     when 6 then f.uextend("i64", f.icmp(CONDS.sample(random: rng), a, b))
     when 7 then f.csel(f.icmp(CONDS.sample(random: rng), a, b), pool.sample(random: rng), pool.sample(random: rng))
-    else f.call_val(callee, [a])
+    else f.call_val(callee, [a, pool.sample(random: rng), pool.sample(random: rng)])
     end
   end
 
