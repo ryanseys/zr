@@ -5,7 +5,7 @@
 #   rake compile                     every rung, three runs each
 #   rake 'compile[--runs 5]'         five runs each
 #   rake 'compile[hello bundler]'    the rungs whose name holds a word
-#   rake 'compile[--write]'          write test/bench/compile/results.tsv
+#   rake 'compile[--write]'          write the table to tmp/bench/compile.txt
 #
 # `rake bench` times what a binary does; this times what it costs to
 # make one. The rungs are a ladder of require graphs, from a program
@@ -20,6 +20,7 @@
 # what Phase 1 is about.
 
 require "benchmark"
+require "fileutils"
 require "optparse"
 require "rbconfig"
 require "tmpdir"
@@ -27,8 +28,10 @@ require_relative "../lib/ze0/paths"
 
 module CompileBench
   ROOT = Ze0::Paths::ROOT
-  DIR = File.join(ROOT, "test/bench/compile")
-  RESULTS = File.join(DIR, "results.tsv")
+  DIR = File.join(ROOT, "benchmark/compile")
+  # Where `--write` keeps the table: under `tmp`, beside `rake bench`'s
+  # own report, and not committed.
+  RESULTS = File.join(ROOT, "tmp/bench/compile.txt")
   RUNS = 3
 
   # The line `Ze0.clock` writes: a label padded to 40, then the seconds.
@@ -89,22 +92,24 @@ module CompileBench
   end
 
   # One column a rung, one row a phase, in the order a build runs them.
-  def table(rows)
+  def table(rows, io = $stdout)
     labels = rows.values.flat_map(&:keys).uniq - ["the whole build"]
     width = (labels.map(&:length) + [15]).max
-    puts format("%-#{width}s  %s", "phase", rows.keys.map { |n| n.rjust(9) }.join(" "))
+    io.puts format("%-#{width}s  %s", "phase", rows.keys.map { |n| n.rjust(9) }.join(" "))
     (labels + ["the whole build"]).each do |label|
       cells = rows.values.map { |p| p[label] ? format("%9.3f", p[label]) : "        -" }
-      puts format("%-#{width}s  %s", label, cells.join(" "))
+      io.puts format("%-#{width}s  %s", label, cells.join(" "))
     end
   end
 
+  # The same table, under a line that says when and at what revision.
   def write!(rows, runs)
     at = `git -C #{ROOT} rev-parse --short HEAD`.strip
-    File.write(RESULTS, +"# test/bench/compile/results.tsv -- ze0 compile cost, " \
-                         "the median of #{runs} run(s) at #{at}, runtime warm\n" \
-                         "# rung\tphase\tmedian_secs\n" +
-                        rows.flat_map { |name, phases| phases.map { |label, secs| "#{name}\t#{label}\t#{format('%.4f', secs)}\n" } }.join)
+    FileUtils.mkdir_p(File.dirname(RESULTS))
+    File.open(RESULTS, "w") do |f|
+      f.puts "# ze0 compile cost, the median of #{runs} run(s) at #{at}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+      table(rows, f)
+    end
     warn "wrote #{RESULTS}"
   end
 end

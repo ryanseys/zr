@@ -17,14 +17,16 @@
 # you say you meant it.
 #
 # A path is taken relative to `test/`, or as it stands when it already
-# points into it.
+# points into it; a benchmark is named as `benchmark/<name>.rb`, and is
+# run from the repository's root, where `rake bench` runs it.
 
 require "open3"
 require "rbconfig"
 require_relative "../test/support/e2e"
 
 module Record
-  ROOT = File.expand_path("../test", __dir__)
+  REPO = File.expand_path("..", __dir__)
+  ROOT = File.join(REPO, "test")
 
   module_function
 
@@ -32,11 +34,17 @@ module Record
     again = argv.delete("--again")
     abort "usage: rake 'record[[--again] <program path>...]'" if argv.empty?
 
-    Dir.chdir(ROOT) { argv.each { |name| one(name, again) } }
+    argv.each do |name|
+      name = name.delete_prefix("#{REPO}/")
+      if name.start_with?("benchmark/")
+        Dir.chdir(REPO) { one(name, again) }
+      else
+        Dir.chdir(ROOT) { one(name.delete_prefix("test/"), again) }
+      end
+    end
   end
 
-  def one(name, again)
-    path = name.delete_prefix("#{ROOT}/").delete_prefix("test/")
+  def one(path, again)
     base = path.delete_suffix(".rb")
     abort "#{path}: no such program" unless File.file?(path)
     abort "#{path}: already recorded; say --again if you mean to replace it" if File.file?("#{base}.out") && !again

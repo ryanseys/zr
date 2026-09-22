@@ -140,4 +140,4 @@ Next steps:
 - [How to debug a program that diverges](../how-to/debug-a-program-that-diverges.md)
 - [How to run the checks](../how-to/run-the-checks.md)
 - [Whole programs](../reference/test-format.md), for the whole
-  programs in `test/e2e/` and `test/bench/`
+  programs in `test/e2e/` and `benchmark/`

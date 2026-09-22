@@ -56,4 +56,4 @@ unedited, under Ruby or BSD-2-Clause.
 
 ## Benchmarks (repository only, not in the gem)
 
-`test/bench` holds benchmarks from spinel (MIT); see `test/bench/UPSTREAM.md`.
+`benchmark/` holds benchmarks from spinel (MIT); see `benchmark/UPSTREAM.md`.

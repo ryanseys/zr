@@ -40,7 +40,7 @@ answer by hand.
 
 Every literal a spec asserts was written by ruby and lifted from a
 recording ruby made, and `rake oracle` re-asks ruby for each one. The
-whole programs in `test/e2e/` and `test/bench/` carry ruby's answer
+whole programs in `test/e2e/` and `benchmark/` carry ruby's answer
 in the files beside it, written by `rake record`. A recording is made once. If
 the right answer changes, the program has changed, so it is a new
 program.

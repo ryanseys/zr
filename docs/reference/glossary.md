@@ -62,7 +62,7 @@ that compiled code tests at safe points to switch threads.
 **Primitive.** `Primitive.zr_name(...)` in the core library: a direct
 call of a kernel def.
 
-**Program.** One whole `.rb` file in `test/e2e/` or `test/bench/`, with
+**Program.** One whole `.rb` file in `test/e2e/` or `benchmark/`, with
 what ruby answered in files beside it. See
 [Whole programs](test-format.md).
 

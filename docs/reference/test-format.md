@@ -1,7 +1,7 @@
 # Whole programs
 
 Two suites hold whole programs rather than examples: `test/e2e/`, built
-through a real link and run as binaries, and `test/bench/`, timed.
+through a real link and run as binaries, and `benchmark/`, timed.
 
 A program is a `.rb` file and nothing else — no header, no trailer,
 nothing to parse. `ruby test/e2e/core/process/signal_trap.rb` runs it,

@@ -5,9 +5,9 @@ fast ze0 builds them.
 
 ## Time the binaries
 
-`rake bench` builds each benchmark in `test/bench/`, checks its
-answer against the recording, and then times it beside `ruby` and
-`ruby --yjit`:
+`rake bench` builds each program in `benchmark/`, checks its answer
+against the recording, and then times it beside `ruby` and `ruby
+--yjit`:
 
 ```console
 $ rake 'bench[fib tak nbody]'
@@ -19,12 +19,21 @@ median of the runs: `ze0` is the binary's wall clock, and `cpu` beside it
 is the user and system time the binary itself spent, which the machine's
 other work does not move. Each run is clocked with `Benchmark.measure`
 from the [benchmark](https://github.com/ruby/benchmark) gem, a
-development dependency, and nothing forks beside a timed run. The full
-run writes `test/bench/results.tsv`, one row a group (`build`, `ze0`,
-`cpu`, `ruby`, `yjit`) a program, and `rake bench:check` reads the
-`ze0` rows against the committed file.
+development dependency, and nothing forks beside a timed run.
 
-Run benchmarks on a quiet machine, and not beside a test run.
+The report is also written, in that gem's own layout, to
+`tmp/bench/latest.txt`, and the run before it is kept as
+`tmp/bench/previous.txt`. `rake bench:check` reads the two: a program of
+100 ms or more whose wall clock moved by a tenth fails the check, and a
+shorter one is only named. Give it two reports to compare any pair:
+
+```console
+$ rake bench:check
+$ rake 'bench:check[tmp/bench/before.txt tmp/bench/latest.txt]'
+```
+
+Nothing under `tmp/` is committed: a time is the machine's and the
+day's. Run benchmarks on a quiet machine, and not beside a test run.
 
 ## Time a build
 
@@ -41,13 +50,13 @@ to measure the cold build.
 ## Time the compiles
 
 `rake compile` is `rake bench` for the compiler: it builds each rung of
-`test/bench/compile/` and reports the seconds each phase took, so a
+`benchmark/compile/` and reports the seconds each phase took, so a
 change that moves the total says which phase it moved.
 
 ```console
 $ rake compile
 $ rake 'compile[--runs 5 bundler]'
-$ rake 'compile[--write]'          # writes test/bench/compile/results.tsv
+$ rake 'compile[--write]'          # writes the table to tmp/bench/compile.txt
 ```
 
 The rungs are a ladder of require graphs: `hello` requires nothing,

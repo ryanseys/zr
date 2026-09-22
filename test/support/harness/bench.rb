@@ -2,6 +2,7 @@
 
 require "benchmark"
 require "etc"
+require "fileutils"
 require "rbconfig"
 require "tmpdir"
 require_relative "answer"
@@ -13,7 +14,7 @@ module Ze0
     # `rake bench`: how long the binary ze0 built takes, beside the ruby
     # that recorded its answer.
     #
-    # `test/bench` holds whole programs the way `test/e2e` does -- a
+    # `benchmark/` holds whole programs the way `test/e2e` does -- a
     # `.rb` file, with what ruby answered in `<name>.out` beside it --
     # so what is here is the clock and the comparison columns, and
     # nothing that reads a program.
@@ -36,10 +37,16 @@ module Ze0
       # row stands on, the process's start-up, and reads apart from it.
       RUNS = 5
 
+      # Where a run's report is kept, under `tmp`: the run just made,
+      # and the one before it, for `rake bench:check` to read the two.
+      DIR = "tmp/bench"
+      LATEST = "latest.txt"
+      PREVIOUS = "previous.txt"
+
       # `build` is the compile, in seconds; the three others are the
       # program, each a `Benchmark::Tms` of the median run: its wall
-      # clock in `real`, and the child's own user and system time in
-      # `cutime` and `cstime`. A row with no time carries `why` instead.
+      # clock in `real`, and the child's own user and system time as
+      # `utime` and `stime`. A row with no time carries `why` instead.
       class Row
         attr_reader :rb, :bucket, :why, :build, :ze0, :ruby, :yjit
 
@@ -58,7 +65,7 @@ module Ze0
 
         # The CPU the binary spent, apart from the wall clock: what the
         # program cost, with the machine's other work left out of it.
-        def cpu = ze0.cutime + ze0.cstime
+        def cpu = ze0.total
 
         # ze0's wall clock over `other`'s, a Tms or nil.
         def against(other) = timed? && other && other.real.positive? ? ze0.real / other.real : nil
@@ -71,9 +78,9 @@ module Ze0
         @runner = Runner.new(root, target, compiler: "cranelift")
       end
 
-      # Every program under `test/bench`, or the ones a filter names.
+      # Every program under `benchmark/`, or the ones a filter names.
       def matching(filters)
-        rows = Dir[File.join(@root, "test/bench/*.rb")].sort
+        rows = Dir[File.join(@root, "benchmark/*.rb")].sort
         return rows if filters.empty?
 
         rows.select { |rb| filters.any? { |f| File.basename(rb).include?(f) } }
@@ -103,22 +110,22 @@ module Ze0
         recorded = Answer.beside(rb)
         return Row.new(rb, :skipped, "no recording") unless recorded
 
-        cwd = File.join(@root, "test")
+        cwd = @root
         rel = rb.delete_prefix("#{cwd}/")
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        build, out = clocked { bounded(@runner.build_argv(rel, bin), cwd, nil, Child::BUILD_MB, @runner.build_env) }
+        build, out = clocked("build") { bounded(@runner.build_argv(rel, bin), cwd, nil, Child::BUILD_MB, @runner.build_env) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
         return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{LIMIT}s" : first_line(out)) unless out.code == 0
 
         want = Normalize.answer(recorded, rb, cwd)
         argv, run_env = @runner.run(bin, [], {})
-        got, wrong = medians(argv, cwd, nil, run_env, rb, want)
+        got, wrong = medians("ze0", argv, cwd, nil, run_env, rb, want)
         return Row.new(rb, :diverged, wrong) if wrong
 
-        plain, = medians([RbConfig.ruby, rel], cwd, nil, {}, rb, nil)
-        jit, = medians([RbConfig.ruby, "--yjit", rel], cwd, nil, {}, rb, nil)
+        plain, = medians("ruby", [RbConfig.ruby, rel], cwd, nil, {}, rb, nil)
+        jit, = medians("yjit", [RbConfig.ruby, "--yjit", rel], cwd, nil, {}, rb, nil)
         Row.new(rb, :timed, build: build.real, ze0: got, ruby: plain, yjit: jit)
       end
 
@@ -127,10 +134,10 @@ module Ze0
       # later run is not checked again: a program whose answer depends
       # on the run is a defect the spec tier is there to find, not
       # something to spend a comparison on.
-      def medians(argv, cwd, stdin, env, rb, want)
+      def medians(label, argv, cwd, stdin, env, rb, want)
         times = []
         @runs.times do |n|
-          took, out = clocked { bounded(argv, cwd, stdin, nil, env) }
+          took, out = clocked(label) { bounded(argv, cwd, stdin, nil, env) }
           return [nil, "ran past #{LIMIT}s"] if out.code == :timeout
 
           if n.zero? && want
@@ -146,14 +153,16 @@ module Ze0
         [times.sort_by(&:real)[@runs / 2], nil]
       end
 
-      # The block's answer and what it took: a `Benchmark::Tms`, whose
-      # `real` is the wall clock and whose `cutime` and `cstime` are the
-      # user and system time of the children the block waited for --
-      # the one child it ran, as nothing else forks meanwhile.
-      def clocked
+      # The block's answer and what it took, as a `Benchmark::Tms` of
+      # the child's own: `Benchmark.measure` reads the user and system
+      # time of the children the block waited for -- the one child it
+      # ran, as nothing else forks meanwhile -- and the wall clock, and
+      # the Tms kept has those as its `utime`, `stime` and `real`, so
+      # that it prints and adds as any Tms does.
+      def clocked(label)
         answer = nil
         took = Benchmark.measure { answer = yield }
-        [took, answer]
+        [Benchmark::Tms.new(took.cutime, took.cstime, 0.0, 0.0, took.real, label), answer]
       end
 
       def first_line(out)
@@ -195,25 +204,53 @@ module Ze0
       # would let a single slow program speak for the suite.
       def geomean(values) = Math.exp(values.sum { |v| Math.log(v) } / values.size)
 
-      # `test/bench/results.tsv`, one row a group a program, so a later
-      # run can be read against this one with a text diff. `ze0` is the
-      # binary's wall clock and `cpu` its user and system time; `ruby`
-      # and `yjit` are wall clocks.
+      # The report as the benchmark gem prints one -- `Benchmark::CAPTION`
+      # over a `Tms#format` line a runner, under the program's name --
+      # written to `tmp/bench/latest.txt`, with the run before it moved
+      # to `previous.txt`, so `rake bench:check` can read the two. The
+      # file is not committed: a time is the machine's and the day's.
       def save(rows)
-        path = File.join(@root, "test/bench/results.tsv")
-        rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
-        File.open(path, "w") do |f|
-          f.puts "# test/bench/results.tsv -- ze0 bench, the median of #{@runs} run(s)#{rev.empty? ? "" : " at #{rev}"}"
-          f.puts "# group\tbenchmark\tmedian_secs"
-          rows.each do |r|
-            next unless r.timed?
+        dir = File.join(@root, DIR)
+        FileUtils.mkdir_p(dir)
+        latest = File.join(dir, LATEST)
+        FileUtils.mv(latest, File.join(dir, PREVIOUS)) if File.exist?(latest)
+        File.write(latest, text(rows))
+        latest
+      end
 
-            { "build" => r.build, "ze0" => r.ze0.real, "cpu" => r.cpu, "ruby" => r.ruby&.real, "yjit" => r.yjit&.real }.each do |group, t|
-              f.puts format("%s\t%s\t%.4f", group, r.name, t) if t
-            end
+      LABEL = "%-8n"
+
+      def text(rows)
+        rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
+        lines = ["# ze0 bench, the median of #{@runs} run(s)#{rev.empty? ? "" : " at #{rev}"}, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"]
+        rows.each do |r|
+          lines << ""
+          unless r.timed?
+            lines << "#{r.name}  #{r.bucket}: #{r.why}"
+            next
+          end
+
+          lines << format("%s  built in %.1f s", r.name, r.build)
+          lines << (" " * 8) + Benchmark::CAPTION.chomp
+          %i[ze0 ruby yjit].each do |what|
+            t = r.public_send(what) or next
+            lines << t.format(LABEL + Benchmark::FORMAT).chomp
           end
         end
-        path
+        "#{lines.join("\n")}\n"
+      end
+
+      # `{ "bm_fib" => 0.1438, ... }`: the wall clock of `label`'s line
+      # under each program in a report `save` wrote.
+      def self.reals(text, label = "ze0")
+        program = nil
+        text.each_line.with_object({}) do |line, reals|
+          if (m = line.match(/\A(\S+)\s+[\d.]+\s.*\(\s*([\d.]+)\)\s*\z/))
+            reals[program] = Float(m[2]) if program && m[1] == label
+          elsif line.match?(/\A[^\s#]/)
+            program = line.split.first
+          end
+        end
       end
     end
   end

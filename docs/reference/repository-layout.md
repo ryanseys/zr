@@ -54,7 +54,7 @@ into programs, and the host ruby never loads them. A file such as
 | `test/unit/` | ze0's own internals: minitest files `rake test:unit` runs |
 | `test/spec/` | Ruby held to ruby, program by program: `rake test:spec` |
 | `test/e2e/` | whole programs through a real link: `rake test:e2e`, filed by area as the specs are, each with what ruby answered beside it |
-| `test/bench/` | the benchmarks, what ruby answered for each, and the results |
+| `benchmark/` | the benchmarks, at the top of the repository as other gems keep them: whole programs with what ruby answered for each, and the rungs `rake compile` builds; see `benchmark/README.md` |
 | `test/baselines/` | the rows a target other than macOS is allowed to fail |
 | `test/programs/` | Ruby programs run against a live ruby by `programs_test`; those under `native/` skip the wasm road |
 | `test/zr/` | kernel-dialect programs; `test/zr/refused/` names each refusal |
