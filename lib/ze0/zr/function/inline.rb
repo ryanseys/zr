@@ -25,7 +25,8 @@ module Ze0
         # The most HIR nodes a candidate's body may hold.
         LIMIT = 24
         # The one-argument sends a copy answers: an Integer operator on
-        # fixnums, identity for BasicObject's `==`/`!=`, a type question.
+        # fixnums, identity for BasicObject's `==`/`!=`, a type question,
+        # a `case` arm over a class.
         ARGUED = %i[is_a? kind_of? ===].freeze
         # A name a reader may have.
         READER = /\A[a-z_][A-Za-z0-9_]*\z/
@@ -315,16 +316,31 @@ module Ze0
 
             @f.jump(@inline_bail)
           elsif op == :===
-            classed = @f.label
-            @f.brif(@f.band(@f.band(cellp(recv), gate_clear("GATE_MOD_EQQ")), ranked?(recv)), classed, @inline_bail)
-            switch(classed)
-            is_a_in_place(class_of(arg), recv, merge, @inline_bail)
+            spec_mod_eqq(node, recv, arg, merge)
           else
             gated = @f.label
             @f.brif(gate_clear("GATE_IS_A"), gated, @inline_bail)
             switch(gated)
             is_a_in_place(class_of(recv), arg, merge, @inline_bail)
           end
+        end
+
+        # `Mod === x` through the def's own cell, where the cell holds
+        # Module#=== and the receiver is a ranked class.
+        def spec_mod_eqq(node, recv, arg, merge)
+          cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
+          cell = @l.layout("CallCache")
+          heap = @f.label
+          hit = @f.label
+          shaped = @f.label
+          @f.brif(cellp(recv), heap, @inline_bail)
+          switch(heap)
+          @f.brif(cell_hit(cc, @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))), hit, @inline_bail)
+          switch(hit)
+          held = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const("SHAPE_MOD_EQQ")))
+          @f.brif(@f.band(held, ranked?(recv)), shaped, @inline_bail)
+          switch(shaped)
+          is_a_in_place(class_of(arg), recv, merge, @inline_bail)
         end
 
         def spec_identity(node, recv, arg, merge)

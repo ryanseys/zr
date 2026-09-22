@@ -1015,21 +1015,6 @@ machine def zr_direct_pending
   Machine.static(:direct_pending, 8)
 end
 
-# Whether a `===` defined on `klass` is one a class or a module can
-# find: on a singleton class of one, or on what every class and
-# module inherits from (GATE_MOD_EQQ).
-sig [Value] => Bool
-machine def zr_mod_eqq_owner_p(klass)
-  if klass == zr_global(G_MODULE) || klass == zr_global(G_CLASS) || klass == zr_global(G_OBJECT) || klass == zr_global(G_KERNEL) || klass == zr_global(G_BASIC_OBJECT)
-    return true
-  end
-  if zr_singleton_p(klass)
-    attached = RClass.attached(klass)
-    return !zr_special_p(attached) && zr_module_p(attached)
-  end
-  false
-end
-
 # The body of `e`, what tells one method from another: its direct
 # entry where it has one, since every such def's `fn` is
 # zr_direct_fn, else its `fn`.
@@ -1243,8 +1228,6 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
       Machine.gates_set(Machine.gates | GATE_INSTANCE_OF)
     elsif mid == Machine.id(:nil?)
       Machine.gates_set(Machine.gates | GATE_NIL_P)
-    elsif mid == Machine.id(:===) && zr_mod_eqq_owner_p(klass)
-      Machine.gates_set(Machine.gates | GATE_MOD_EQQ)
     end
   end
   zr_methods_changed()

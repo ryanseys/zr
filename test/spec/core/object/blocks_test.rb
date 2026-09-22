@@ -723,12 +723,13 @@ describe "Object: blocks and yields" do
   it "the type questions and case arms answer by the class alone until a class defines one" do
     result = ze0(<<~'RUBY')
       # `is_a?`, `kind_of?` and `instance_of?` are Kernel's for every
-      # object, and `Mod === obj` is Module's for every class and module,
-      # so a site answers them from the classes alone with no cell
-      # (GATE_IS_A, GATE_INSTANCE_OF, GATE_MOD_EQQ); a definition of the
-      # name -- by def, alias, define_method, a singleton, or on Module
-      # itself -- closes the gate for every site, and a BasicObject has
-      # no is_a? to answer.
+      # object, so a site answers them from the classes alone with no
+      # cell (GATE_IS_A, GATE_INSTANCE_OF); a definition of the name --
+      # by def, alias, define_method or a singleton -- closes the gate for
+      # every site, and a BasicObject has no is_a? to answer. `Mod ===
+      # obj` answers from the classes where the arm's cell holds
+      # Module's === (SHAPE_MOD_EQQ), and calls whatever else it holds --
+      # a `===` on a singleton, on Module, on Object.
       class Num; end
       class Sub < Num; end
       module Mod; end

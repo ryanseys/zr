@@ -41,11 +41,10 @@ GATE_PROC_CALL = 1 << 38
 # since a site answers them by the receiver's class alone.
 GATE_IS_A = 1 << 39
 GATE_INSTANCE_OF = 1 << 40
-# Module#===, what `case obj when Mod` asks: closes when `===` is
-# defined on a class's or module's singleton class, or on Module,
-# Class, Object, Kernel or BasicObject, which every such receiver
-# finds it through.
-GATE_MOD_EQQ = 1 << 41
+# Bit 41 was Module#==='s gate: a `case` arm over a class answers
+# from its cell instead, whose entry says whether `===` is Module's
+# (SystemCallError's own is the core's, defined before any program
+# started, which a gate closed by definitions never saw).
 # `nil?`, Kernel's and NilClass's: closes when a method of the name
 # is defined anywhere, since a site answers it by the receiver alone.
 GATE_NIL_P = 1 << 42

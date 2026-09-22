@@ -198,7 +198,6 @@ module Ze0
         d zr_define_method_direct Value klass:Value mid:Word fn:Ptr direct:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_public_direct Value klass:Value mid:Word fn:Ptr direct:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_direct_pending Ptr
-        d zr_mod_eqq_owner_p Bool klass:Value
         d zr_entry_body Ptr e:Ptr
         d zr_define_method_public Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_as Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
@@ -2407,7 +2406,6 @@ module Ze0
         e zr_define_method_direct 127
         e zr_define_method_public_direct 127
         e zr_direct_pending 0
-        e zr_mod_eqq_owner_p 0
         e zr_entry_body 0
         e zr_define_method_public 127
         e zr_define_method_as 127
@@ -4611,7 +4609,6 @@ module Ze0
         c GATE_PROC_CALL 274877906944
         c GATE_IS_A 549755813888
         c GATE_INSTANCE_OF 1099511627776
-        c GATE_MOD_EQQ 2199023255552
         c GATE_NIL_P 4398046511104
         c GATE_EACH 8796093022208
         c GATE_TIMES 17592186044416

@@ -480,31 +480,6 @@ module Ze0
             end
             switch(cell_road)
           end
-          # `Mod === obj`, a `case` arm: Module's answer for a ranked
-          # class receiver while none has a `===` of its own
-          # (GATE_MOD_EQQ), with no cell and no call an arm; a module
-          # receiver, or a class not yet ranked, asks the kernel.
-          if node.name == :=== && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
-            typed = @f.label
-            classed = @f.label
-            gated = @f.label
-            cell_road = @f.label
-            obj = @f.fetch("i64", argv, 0)
-            cellp = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
-            @f.brif(@f.band(cellp, gate_clear("GATE_MOD_EQQ")), typed, cell_road)
-            switch(typed)
-            @f.brif(ranked?(recv), classed, gated)
-            switch(classed)
-            is_a_in_place(class_of(obj), recv, merge, cell_road)
-            switch(gated)
-            kind = @f.band(@f.fetch("i64", recv, off(@l.layout("RBasic"), "flags")), imm(@l.const("T_MASK")))
-            modular = @f.bor(@f.icmp("eq", kind, imm(@l.const("T_CLASS"))), @f.icmp("eq", kind, imm(@l.const("T_MODULE"))))
-            asked = @f.label
-            @f.brif(modular, asked, cell_road)
-            switch(asked)
-            answered(kernel("zr_mod_eqq_fast", recv, obj), merge, cell_road)
-            switch(cell_road)
-          end
           same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
                          @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))
           @f.brif(same, direct, miss)
@@ -598,10 +573,24 @@ module Ze0
           when :ary_length then @f.jump(merge, [@f.bor(@f.ishl(array_len(recv), imm(1)), imm(1))])
           when :is_a then answered(kernel("zr_is_a_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
           when :instance_of then answered(kernel("zr_instance_of_fast", klass, @f.fetch("i64", argv, 0)), merge, call)
-          when :mod_eqq then answered(kernel("zr_mod_eqq_fast", recv, @f.fetch("i64", argv, 0)), merge, call)
+          when :mod_eqq then mod_eqq_in_place(recv, @f.fetch("i64", argv, 0), merge, call)
           when :eq, :eqq then @f.jump(merge, [ruby_bool(@f.icmp("eq", recv, @f.fetch("i64", argv, 0)))])
           when :ne then @f.jump(merge, [ruby_bool(@f.icmp("ne", recv, @f.fetch("i64", argv, 0)))])
           end
+        end
+
+        # `Mod === obj` where the cell holds Module#===: a ranked class
+        # receiver answers from the classes in place; a module, or a
+        # class not ranked yet, asks the kernel, and what it leaves open
+        # goes to `call`.
+        def mod_eqq_in_place(recv, obj, merge, call)
+          classed = @f.label
+          asked = @f.label
+          @f.brif(ranked?(recv), classed, asked)
+          switch(classed)
+          is_a_in_place(class_of(obj), recv, merge, call)
+          switch(asked)
+          answered(kernel("zr_mod_eqq_fast", recv, obj), merge, call)
         end
 
         # Whether `klass`, a class, is ranked (FL_RANKED): in Object's
