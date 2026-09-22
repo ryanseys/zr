@@ -19,11 +19,13 @@
 
 require "fileutils"
 require "optparse"
+require "etc"
 require "rbconfig"
 require "tmpdir"
 require_relative "../test/support/reader"
 require_relative "../test/support/harness/answer"
 require_relative "../test/support/harness/child"
+require_relative "../lib/ze0/native/parallel"
 
 # What a guard asks of the machine. The real ones live in
 # `test/support/spec.rb`, which loads the whole compiler; a tool that
@@ -107,6 +109,16 @@ module Oracle
     out.valid_encoding? ? out : bytes
   end
 
+  # `check` of each of `files`, yielded in order with its file. The
+  # files are dealt to forked workers, one a core: each example is a
+  # ruby of its own, so nothing is shared, and the whole tier asked in
+  # one process was seven thousand rubies one after another.
+  def each_checked(files, filter)
+    workers = [Etc.nprocessors, 12].min
+    answers = Ze0::Native::Parallel.map(files, jobs: workers, weight: ->(_) { 1 }) { |file| check(file, filter) }
+    files.zip(answers).each { |file, answer| yield file, answer }
+  end
+
   # One file: every example ruby is asked about, and what parted.
   def check(path, filter)
     rel = path.delete_prefix("#{ROOT}/")
@@ -151,8 +163,8 @@ task :oracle, [:path] do |_, args|
 
   asked = skipped = 0
   apart = []
-  argv.flat_map { |path| Oracle.files(path) }.each do |file|
-    a, s, why = Oracle.check(file, filter)
+  files = argv.flat_map { |path| Oracle.files(path) }
+  Oracle.each_checked(files, filter) do |file, (a, s, why)|
     asked += a
     skipped += s
     apart.concat(why)
