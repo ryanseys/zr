@@ -215,6 +215,7 @@ module Ze0
           order = (0...count).select { |v| from[v] }
           order.sort_by! { |v| (((from[v] * span) + to[v]) * count) + v }
           crossing = order.to_h { |v| [v, crosses_call?(from[v], to[v])] }
+          refine_crossing(crossing, from, to, away, before)
           [order, from, to, crossing]
         end
 
@@ -224,6 +225,88 @@ module Ze0
         def crosses_call?(from, to)
           i = @calls.bsearch_index { |c| c > from }
           !i.nil? && @calls[i] < to
+        end
+
+        # An interval covers its holes, so a call in a hole counts as
+        # crossed by the hull test above, and the value takes a
+        # callee-saved register it needs nowhere: a method's argument
+        # count is read by the arity check and by the call the check
+        # makes when it fails, and the stack check's call lies between
+        # the two in the layout, in a block the count is not live in. A
+        # value is live at a call only where a read of it lies ahead on
+        # some path from the call, so each value the hull test counts
+        # crossing is asked again by the blocks it is live in: the
+        # answer is no where every call in its hull sits in a block it
+        # is not live in, or after its last read in a block it leaves
+        # dead. The register it then takes is safe: nothing reads it
+        # past the call. Bounded, since a walk is a value times the
+        # blocks: a function past the bound keeps the hull's answers.
+        REFINE_BOUND = 1_000_000
+
+        def refine_crossing(crossing, from, to, away, before)
+          candidates = crossing.select { |_, c| c }.keys
+          return if candidates.empty? || candidates.size * @f.blocks.size > REFINE_BOUND
+
+          # The block each call is in, and, for each candidate, the last
+          # point of each block that reads it: one pass over the points.
+          call_block = @calls.map { |c| block_of(c) }
+          last_read = {}
+          candidates.each { |v| last_read[v] = {} }
+          @f.blocks.each_index do |bi|
+            @first[bi].upto(@last[bi]) do |point|
+              @uses[point].each { |v| (reads = last_read[v]) && reads[bi] = point }
+            end
+          end
+          candidates.each do |v|
+            live_in = {}
+            (away[v] || NOTHING).each { |bi| mark_live_in(bi, v, live_in, before) }
+            crossing[v] = crossed?(v, from[v], to[v], live_in, call_block, last_read[v])
+          end
+        end
+
+        # The block holding `point`.
+        def block_of(point)
+          b = @first.bsearch_index { |s| s > point }
+          b.nil? ? @first.size - 1 : b - 1
+        end
+
+        # `{ block => true }` for every block `v` is live into: the block
+        # it is read in away from its definition, and every block that
+        # runs into one of those, back to the block that makes it.
+        def mark_live_in(bi, v, live_in, before)
+          return if live_in[bi]
+
+          live_in[bi] = true
+          work = [bi]
+          until work.empty?
+            b = work.pop
+            before[b].each do |p|
+              next if @defined_in[v] == p || live_in[p]
+
+              live_in[p] = true
+              work << p
+            end
+          end
+        end
+
+        # Whether `v` is live at some call in its hull: in a block it is
+        # live into or defined in, before its last read there, or in one
+        # it leaves live, which is one some successor is live into.
+        def crossed?(v, from, to, live_in, call_block, last_read)
+          i = @calls.bsearch_index { |c| c > from }
+          return false if i.nil?
+
+          while i < @calls.size && @calls[i] < to
+            c = @calls[i]
+            b = call_block[i]
+            i += 1
+            next unless live_in[b] || @defined_in[v] == b
+            return true if successors[b].any? { |s| live_in[s] }
+
+            last = last_read[b]
+            return true if last && c < last
+          end
+          false
         end
 
         # `v` is read in block `bi` and made somewhere else, so it is live
