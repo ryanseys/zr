@@ -110,13 +110,17 @@ machine def zr_regexp_names(re)
   RRegexp.names(re)
 end
 
-# The region a search of `program` fills: 2 * (num_mem + 1) words.
+# The region a search of `program` fills: 2 * (num_mem + 1) words, in
+# the scratch buffer every search shares, given back by
+# `zr_regexp_region_free`.
 sig [Ptr] => Ptr
 machine def zr_regexp_region_new(prog)
-  n = OnigProg.num_mem(prog) + 1
-  region = malloc(n * 16)
-  abort() if region == 0
-  region
+  zr_onig_scratch(0, (OnigProg.num_mem(prog) + 1) * 16)
+end
+
+sig [Ptr] => Void
+machine def zr_regexp_region_free(region)
+  zr_onig_scratch_free(0, region)
 end
 
 # Search `str` from byte `start` (backwards to it when `backward`):
@@ -137,11 +141,11 @@ machine def zr_regexp_search(re, program, str, start, backward)
   range = backward == QTRUE ? base : stop
   r = zr_onig_search(prog, base, stop, from, range, region, zr_regexp_limit_for(re))
   if r < 0
-    free(region)
+    zr_regexp_region_free(region)
     return zr_regexp_failed(r)
   end
   out = zr_region_offsets(region, OnigProg.num_mem(prog), r)
-  free(region)
+  zr_regexp_region_free(region)
   out
 end
 
@@ -168,11 +172,11 @@ machine def zr_regexp_match_at(re, program, str, start)
   stop = base + RString.len(str)
   r = zr_onig_match(prog, base, stop, base + zr_fix2long(start), region, zr_regexp_limit_for(re))
   if r < 0
-    free(region)
+    zr_regexp_region_free(region)
     return zr_regexp_failed(r)
   end
   out = zr_region_offsets(region, OnigProg.num_mem(prog), zr_fix2long(start))
-  free(region)
+  zr_regexp_region_free(region)
   out
 end
 
@@ -221,12 +225,12 @@ machine def zr_regexp_scan_in(re, program, str, base, start, search)
     r = zr_onig_match(prog, origin, stop, at, region, zr_regexp_limit_for(re))
   end
   if r < 0
-    free(region)
+    zr_regexp_region_free(region)
     return zr_regexp_failed(r)
   end
   position = search == QTRUE ? r : zr_fix2long(start) - zr_fix2long(base)
   out = zr_region_offsets_after(region, OnigProg.num_mem(prog), position, zr_fix2long(base))
-  free(region)
+  zr_regexp_region_free(region)
   out
 end
 
@@ -394,16 +398,18 @@ machine def zr_backref_get
 end
 
 # A match's registers, read as CRuby's rb_reg_nth_match and its kin
-# read them: `$1`, `$&`, `` $` ``, `$'`, `$+` and a replacement's `\1`
-# never ask a user's MatchData methods. `m` is a MatchData or nil.
+# read them: `$1`, `$&`, `` $` ``, `$'`, `$+` and a replacement's ``
+# never ask a user's MatchData methods. `m` is a MatchData or nil. Its
+# offsets are `[position, begin0, end0, begin1, end1, ...]`, as the
+# search made them (rt/core/regexp.rb, MatchData#matched).
 sig [Value, Value] => Value
 machine def zr_match_nth(m, n)
   if m == QNIL
     return Machine.value(QNIL)
   end
   offsets = zr_ivar_get(m, Machine.id(:offsets))
-  i = zr_fix2long(n) * 2
-  if i < 0 || i >= RArray.len(offsets)
+  i = zr_fix2long(n) * 2 + 1
+  if i < 1 || i >= RArray.len(offsets)
     return Machine.value(QNIL)
   end
   b = zr_fix2long(zr_ary_at(offsets, i))
@@ -420,8 +426,8 @@ machine def zr_match_last(m)
     return Machine.value(QNIL)
   end
   offsets = zr_ivar_get(m, Machine.id(:offsets))
-  i = RArray.len(offsets) / 2 - 1
-  while i > 0 && zr_fix2long(zr_ary_at(offsets, i * 2)) < 0
+  i = (RArray.len(offsets) - 1) / 2 - 1
+  while i > 0 && zr_fix2long(zr_ary_at(offsets, i * 2 + 1)) < 0
     i -= 1
   end
   if i == 0
@@ -436,7 +442,7 @@ machine def zr_match_pre(m)
   if m == QNIL
     return Machine.value(QNIL)
   end
-  zr_str_byteslice(zr_ivar_get(m, Machine.id(:string)), zr_fix(0), zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 0))
+  zr_str_byteslice(zr_ivar_get(m, Machine.id(:string)), zr_fix(0), zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 1))
 end
 
 # `$'`: the text after the match.
@@ -446,7 +452,7 @@ machine def zr_match_post(m)
     return Machine.value(QNIL)
   end
   s = zr_ivar_get(m, Machine.id(:string))
-  e = zr_fix2long(zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 1))
+  e = zr_fix2long(zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 2))
   zr_str_byteslice(s, zr_fix(e), zr_fix(RString.len(s) - e))
 end
 

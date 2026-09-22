@@ -1068,28 +1068,40 @@ end
 # The code point of the first character.
 sig [Value] => Value
 machine def zr_str_ord(s)
-  n = RString.len(s)
-  if n == 0
+  if RString.len(s) == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty string"), 12)
   end
+  zr_str_ord_at(s, 0)
+end
+
+# The code point of the character at byte `off`, where one starts: what
+# a walk over the characters reads without a String for each.
+sig [Value, Value] => Value
+machine def zr_str_ord_at_m(s, off)
+  zr_str_ord_at(s, zr_fix2long(off))
+end
+
+sig [Value, Word] => Value
+machine def zr_str_ord_at(s, off)
+  n = RString.len(s) - off
   unit = zr_str_unit(s)
   if unit != 0
-    width = zr_unit_char_len(s, 0, unit)
-    if !zr_unit_char_valid_p(s, 0, width, unit)
+    width = zr_unit_char_len(s, off, unit)
+    if !zr_unit_char_valid_p(s, off, width, unit)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("invalid byte sequence in "), 25)
       zr_buf_unit_name(b, zr_str_encoding_index(s))
       return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
-    return zr_fix(zr_unit_point(s, 0, width, unit))
+    return zr_fix(zr_unit_point(s, off, width, unit))
   end
-  p = RString.ptr(s)
+  p = RString.ptr(s) + off
   c = Machine.word(Machine.load8(p, 0))
   # A multibyte encoding gives its characters the number their own bytes
   # spell, as rb_enc_codepoint does: EUC-JP's A4 A2 is 42146.
   if c >= 128 && zr_str_mb_p(s)
-    width = zr_str_mb_len(s, 0)
+    width = zr_str_mb_len(s, off)
     if width == 0
       return zr_str_bad_bytes(s)
     end

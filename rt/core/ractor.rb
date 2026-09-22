@@ -343,7 +343,7 @@ class Ractor
   def self.shareable?(obj)
     return true if moved?(obj) || immutable?(obj) || obj.is_a?(Ractor)
 
-    obj.frozen? && reachable(obj).all? { |ref| shareable?(ref) }
+    obj.frozen? && each_reachable(obj) { |ref| return false unless shareable?(ref) }
   end
 
   # The value a shareable constant takes, when the compiler cannot see
@@ -389,25 +389,39 @@ class Ractor
     Primitive.attr! :hidden
     return if immutable?(obj) || moved?(obj) || obj.is_a?(Ractor) || seen.key?(obj)
 
-    raise Error, "can not make shareable object for #{obj.inspect}" if UNSHAREABLE.any? { |k| obj.is_a?(k) }
+    raise Error, "can not make shareable object for #{obj.inspect}" if unshareable?(obj)
 
     seen[obj] = true
     obj.freeze
-    reachable(obj).each { |ref| deep_freeze(ref, seen) }
+    each_reachable(obj) { |ref| deep_freeze(ref, seen) }
   end
 
-  # What one object refers to: its parts, then its instance variables.
-  def self.reachable(obj)
+  def self.unshareable?(obj)
     Primitive.attr! :hidden
-    parts =
-      case obj
-      when Array then obj
-      when Hash then obj.flat_map { |key, value| [key, value] } << obj.default
-      when Range then [obj.begin, obj.end]
-      when Struct then obj.to_a
-      else []
-      end
-    parts + obj.instance_variables.map { |name| obj.instance_variable_get(name) }
+    case obj
+    when Thread, Thread::Mutex, Thread::Queue, Thread::SizedQueue, Thread::ConditionVariable then true
+    else false
+    end
+  end
+
+  # What one object refers to, each to the block: its parts, then its
+  # instance variables. A walk over a graph of Strings and numbers
+  # makes no Array a node, and the answer is true, so a caller may
+  # `return` out of the block with its own.
+  def self.each_reachable(obj)
+    Primitive.attr! :hidden
+    case obj
+    when Array then obj.each { |part| yield part }
+    when Hash
+      obj.each { |key, value| yield key; yield value }
+      yield obj.default
+    when Range
+      yield obj.begin
+      yield obj.end
+    when Struct then obj.each { |part| yield part }
+    end
+    obj.instance_variables.each { |name| yield obj.instance_variable_get(name) }
+    true
   end
 
   # A value crossing the boundary: a shareable one by reference, anything
@@ -470,7 +484,7 @@ class Ractor
     raise Error, "can not move #{value.class} object." if UNMOVABLE.any? { |k| value.is_a?(k) }
 
     seen[value] = true
-    reachable(value).each { |ref| unmovable!(ref, seen) }
+    each_reachable(value) { |ref| unmovable!(ref, seen) }
   end
   private_class_method :unmovable!
 

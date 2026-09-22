@@ -477,10 +477,16 @@ class String
     member = sets.empty? ? nil : charset_test(sets)
     out = empty_like
     last = nil
-    OWN[:each_char].bind_call(self) do |c|
-      out << c unless c == last && (member.nil? || member.call(c.ord))
-      last = c
+    kept = 0
+    each_char_at do |i, n|
+      cp = Primitive.zr_str_ord_at_m(self, i)
+      if cp == last && (member.nil? || member.call(cp))
+        out << byteslice_of(kept, i - kept) if i > kept
+        kept = i + n
+      end
+      last = cp
     end
+    out << byteslice_of(kept, Primitive.zr_str_bytesize(self) - kept) if Primitive.zr_str_bytesize(self) > kept
     out
   end
 
@@ -508,7 +514,12 @@ class String
     rs = Primitive.zr_str_operand(separator)
     enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     Encoding.incompatible(self, rs) unless rs.equal?(String.default_rs) || (enc = Encoding.compatible?(self, rs))
-    bytes = OWN[:b].bind_call(self)
+    # A plain String is searched where it stands: the search and the
+    # encoder's steps read bytes, whatever the encoding, so no copy of
+    # the whole text is made for a walk over its lines. A subclass is
+    # read through a copy, as the steps read bytes by String's methods,
+    # which a subclass may redefine and ruby's C never calls.
+    bytes = Primitive.zr_real_class(self).equal?(String) ? self : OWN[:b].bind_call(self)
     return paragraphs(bytes, enc, chomp) if Primitive.zr_str_bytesize(rs) == 0
 
     onig = Regexp.encoder(enc)
@@ -516,7 +527,7 @@ class String
     newline = rs_bytes.bytesize == onig.min_len && onig.mbc_newline?(rs_bytes, 0, rs_bytes.bytesize)
     rs_bytes = OWN[:encode].bind_call(rs, enc).b if rs.equal?(String.default_rs) && !enc.ascii_compatible?
     rslen = rs_bytes.bytesize
-    pend = bytes.bytesize
+    pend = Primitive.zr_str_bytesize(bytes)
     out = []
     at = 0
     while at < pend
@@ -537,7 +548,7 @@ class String
       if chomp
         if newline
           pend = chomp_newline(bytes, at, pend, onig, enc.ascii_compatible?)
-        elsif pend - at >= rslen && bytes.byteslice(pend - rslen, rslen) == rs_bytes
+        elsif pend - at >= rslen && Primitive.zr_str_find_from(bytes, rs_bytes, pend - rslen) == pend - rslen
           pend -= rslen
         end
       end
@@ -553,7 +564,7 @@ class String
     Primitive.attr! :hidden
     onig = Regexp.encoder(enc)
     compat = enc.ascii_compatible?
-    pend = bytes.bytesize
+    pend = Primitive.zr_str_bytesize(bytes)
     out = []
     start = 0
     stop = 0
@@ -664,7 +675,9 @@ class String
     Primitive.zr_backref_set(match)
     return copied unless match
 
-    from, to = match.byteoffset(0)
+    from = match.send(:begin_at, 0)
+
+    to = match.send(:end_at, 0)
     repl = replacement_for(match, replacement, pattern.is_a?(Regexp) ? pattern : nil, &block)
     size = Primitive.zr_str_bytesize(self)
     # rb_str_sub_bang: the encoding the text and the replacement share, or
@@ -694,7 +707,8 @@ class String
       out ||= OWN[:force_encoding].bind_call(+"", Encoding.at(Primitive.zr_str_encoding_index_m(self)))
       last = match
       Primitive.zr_backref_set(match)
-      from, to = match.byteoffset(0)
+      from = match.send(:begin_at, 0)
+      to = match.send(:end_at, 0)
       val = replacement_for(match, replacement, regexp, &block)
       out.send(:buf_cat, byteslice_of(start, from - start)) if from > start
       out.send(:buf_cat, val)
@@ -799,20 +813,45 @@ class String
     nil
   end
 
+  # The characters are walked by byte offset and read as code points:
+  # no String a character, as `rb_str_count` makes none.
   def count(*sets)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
-    characters.count { |c| member.call(c.ord) }
+    n = 0
+    each_char_at { |i, _| n += 1 if member.call(Primitive.zr_str_ord_at_m(self, i)) }
+    n
   end
 
+  # The runs of characters kept are copied whole: a delete that keeps
+  # most of the text copies it in a few pieces.
   def delete(*sets)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
     out = empty_like
-    OWN[:each_char].bind_call(self) { |c| out << c unless member.call(c.ord) }
+    kept = 0
+    each_char_at do |i, n|
+      next unless member.call(Primitive.zr_str_ord_at_m(self, i))
+
+      out << byteslice_of(kept, i - kept) if i > kept
+      kept = i + n
+    end
+    out << byteslice_of(kept, Primitive.zr_str_bytesize(self) - kept) if Primitive.zr_str_bytesize(self) > kept
     out
+  end
+
+  # Each character's byte offset and length, in order.
+  def each_char_at
+    Primitive.attr! :hidden
+    i = 0
+    size = Primitive.zr_str_bytesize(self)
+    while i < size
+      n = Primitive.zr_str_char_len_at_m(self, i)
+      yield i, n
+      i += n
+    end
   end
 
   def tr(from, to) = translate(from, to, false)
@@ -1139,7 +1178,9 @@ class String
       Primitive.zr_backref_set(match)
       return [copied, empty_like, empty_like] unless match
 
-      from, to = match.byteoffset(0)
+      from = match.send(:begin_at, 0)
+
+      to = match.send(:end_at, 0)
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = byte_index(sep, 0)
@@ -1152,7 +1193,9 @@ class String
       Primitive.zr_backref_set(match)
       return [empty_like, empty_like, copied] unless match
 
-      from, to = match.byteoffset(0)
+      from = match.send(:begin_at, 0)
+
+      to = match.send(:end_at, 0)
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = OWN[:rindex].bind_call(self, sep)
@@ -1198,24 +1241,41 @@ class String
 
   # Every match in turn: the matched text, or the groups when the
   # pattern has any; an empty match steps one character.
+  # Each match in turn, as rb_str_scan walks them: the whole match where
+  # the pattern has no group, else the groups. The items are sliced
+  # from the offsets a search answers; a MatchData is made for each
+  # match only under a block, which may read `$~`, and otherwise for
+  # the last alone, which `$~` keeps.
   def scan(pattern)
     found = []
     last = nil
     at = 0
-    while at <= Primitive.zr_str_bytesize(self) && (match = first_match(pattern, at))
-      last = match
-      item = match.size > 1 ? match.captures : match[0]
-      from, to = match.byteoffset(0)
+    while at <= Primitive.zr_str_bytesize(self) && (offsets = match_offsets(pattern, at))
+      last = offsets
+      from = offsets[1]
+      to = offsets[2]
+      item = offsets.size > 3 ? (1...(offsets.size - 1) / 2).map { |i| slice_at(offsets[i * 2 + 1], offsets[i * 2 + 2]) } : slice_at(from, to)
       if block_given?
-        Primitive.zr_backref_set(match)
+        Primitive.zr_backref_set(MatchData.send(:for, pattern, self, offsets))
         yield item
       else
         found << item
       end
       at = to == from ? to + (to < Primitive.zr_str_bytesize(self) ? Primitive.zr_str_char_len_at_m(self, to) : 1) : to
     end
-    Primitive.zr_backref_set(last)
+    if !block_given?
+      Primitive.zr_backref_set(last && MatchData.send(:for, pattern, self, last))
+    elsif last.nil?
+      Primitive.zr_backref_set(nil)
+    end
     block_given? ? self : found
+  end
+
+  # The bytes from `from` to `to`, or nil for a group that did not take
+  # part (-1 for both).
+  def slice_at(from, to)
+    Primitive.attr! :hidden
+    from < 0 ? nil : Primitive.zr_str_byteslice(self, from, to - from)
   end
 
   DUMP_ESCAPES = { 7 => "\\a", 8 => "\\b", 9 => "\\t", 10 => "\\n", 11 => "\\v", 12 => "\\f", 13 => "\\r", 27 => "\\e", 34 => "\\\"", 92 => "\\\\" }.freeze
@@ -1744,7 +1804,7 @@ class String
 
     if needle.is_a?(Regexp)
       match = needle.send(:search, self, start, false)
-      return match && match.byteoffset(0)[0]
+      return match && match.send(:begin_at, 0)
     end
     byte_index(needle, start)
   end
@@ -1758,7 +1818,7 @@ class String
 
     if needle.is_a?(Regexp)
       match = needle.send(:search, self, start, true)
-      return match && match.byteoffset(0)[0]
+      return match && match.send(:begin_at, 0)
     end
     needle = joined(Primitive.zr_str_operand(needle))
     return nil unless needle.valid_encoding?
@@ -2165,7 +2225,16 @@ class String
   # `start`, as a MatchData; a String pattern matches its bytes.
   def first_match(pattern, start)
     Primitive.attr! :hidden
-    return pattern.send(:search, self, start, false) if pattern.is_a?(Regexp)
+    offsets = match_offsets(pattern, start)
+    offsets && MatchData.send(:for, pattern, self, offsets)
+  end
+
+  # The offsets of the first match of `pattern` at or after byte
+  # `start` -- `[position, begin, end, ...]` as a search answers them
+  # -- or nil. A String pattern matches itself, with no group.
+  def match_offsets(pattern, start)
+    Primitive.attr! :hidden
+    return Primitive.zr_regexp_search(pattern, pattern.send(:program_for, self), self, start, false) if pattern.is_a?(Regexp)
     unless pattern.is_a?(String)
       raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)" unless pattern.respond_to?(:to_str)
 
@@ -2173,7 +2242,7 @@ class String
     end
 
     at = byte_index(pattern, start)
-    at && MatchData.send(:for, pattern, self, [at, at, at + pattern.bytesize])
+    at && [at, at, at + pattern.bytesize]
   end
 
   # What replaces one match: the block's answer, the Hash's entry, or
@@ -2251,10 +2320,10 @@ class String
       when 0x30, 0x26 # 0 &
         no = 0
       when 0x60 # `
-        val.send(:buf_cat, byteslice_of(0, match.byteoffset(0)[0]))
+        val.send(:buf_cat, byteslice_of(0, match.send(:begin_at, 0)))
         next
       when 0x27 # '
-        to = match.byteoffset(0)[1]
+        to = match.send(:end_at, 0)
         val.send(:buf_cat, byteslice_of(to, Primitive.zr_str_bytesize(self) - to))
         next
       when 0x2B # +
@@ -2352,7 +2421,8 @@ class String
     last_null = false
     pieces = 1
     while (match = pattern.send(:search, self, start, false))
-      from, to = match.byteoffset(0)
+      from = match.send(:begin_at, 0)
+      to = match.send(:end_at, 0)
       if start == from && from == to
         if Primitive.zr_str_bytesize(self) == 0
           out << ""

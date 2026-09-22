@@ -587,8 +587,10 @@ class Regexp
 end
 
 class MatchData
+  # A MatchData a match makes, as CRuby's match_alloc does: no
+  # `allocate`, which is taken away below, and no UnboundMethod a match.
   def self.for(regexp, text, offsets)
-    m = Class.instance_method(:allocate).bind_call(self)
+    m = Primitive.zr_class_build(self)
     m.send(:matched, regexp, text, offsets)
     m
   end
@@ -630,7 +632,7 @@ class MatchData
   private def initialize_copy(other)
     super
     other.string
-    %i[regexp string shown position offsets].each { |part| Primitive.zr_hidden_set(self, part, Primitive.zr_hidden_get(other, part)) }
+    %i[regexp string shown offsets].each { |part| Primitive.zr_hidden_set(self, part, Primitive.zr_hidden_get(other, part)) }
     self
   end
 
@@ -646,13 +648,13 @@ class MatchData
 
   def names = regexp.is_a?(Regexp) ? regexp.names : []
 
-  def size = offsets.size / 2
+  def size = (offsets.size - 1) / 2
 
   alias length size
 
   def to_a = (0...size).map { |i| group(i) }
 
-  def captures = to_a.drop(1)
+  def captures = (1...size).map { |i| group(i) }
 
   alias deconstruct captures
 
@@ -734,9 +736,9 @@ class MatchData
     value && value.size
   end
 
-  def pre_match = Primitive.zr_str_byteslice(text, 0, offsets[0])
+  def pre_match = Primitive.zr_str_byteslice(text, 0, begin_at(0))
 
-  def post_match = Primitive.zr_str_byteslice(text, offsets[1], Primitive.zr_str_bytesize(text) - offsets[1])
+  def post_match = Primitive.zr_str_byteslice(text, end_at(0), Primitive.zr_str_bytesize(text) - end_at(0))
 
   def to_s = group(0)
 
@@ -759,19 +761,31 @@ class MatchData
   private
 
   # `offsets` is [position, begin0, end0, begin1, end1, ...]: the byte
-  # the search matched at, then every group's byte span.
+  # the search matched at, then every group's byte span. It is kept as
+  # the search made it, so a match allocates nothing but its cell; a
+  # group's span is read by `begin_at` and `end_at`.
   def matched(regexp, text, offsets)
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :regexp, regexp)
     Primitive.zr_hidden_set(self, :string, MatchData.send(:snapshot, text))
     Primitive.zr_hidden_set(self, :shown, text) if text.frozen?
-    Primitive.zr_hidden_set(self, :position, offsets[0])
-    Primitive.zr_hidden_set(self, :offsets, offsets.drop(1))
+    Primitive.zr_hidden_set(self, :offsets, offsets)
   end
 
   def offsets
     Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :offsets)
+  end
+
+  # Group `index`'s byte span, -1 where it did not take part.
+  def begin_at(index)
+    Primitive.attr! :hidden
+    offsets[index * 2 + 1]
+  end
+
+  def end_at(index)
+    Primitive.attr! :hidden
+    offsets[index * 2 + 2]
   end
 
   # The frozen text the match was made in, shared by every match of it.
@@ -784,13 +798,13 @@ class MatchData
   # match's own beginning.
   def position
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :position)
+    offsets[0]
   end
 
   def group(index)
     Primitive.attr! :hidden
-    b = offsets[index * 2]
-    b < 0 ? nil : Primitive.zr_str_byteslice(text, b, offsets[index * 2 + 1] - b)
+    b = begin_at(index)
+    b < 0 ? nil : Primitive.zr_str_byteslice(text, b, end_at(index) - b)
   end
 
   def byte_begin(index)
@@ -798,7 +812,7 @@ class MatchData
     index = backref_number(index)
     raise IndexError, "index #{index} out of matches" if index < 0 || index >= size
 
-    b = offsets[index * 2]
+    b = begin_at(index)
     b < 0 ? nil : b
   end
 
@@ -807,7 +821,7 @@ class MatchData
     index = backref_number(index)
     raise IndexError, "index #{index} out of matches" if index < 0 || index >= size
 
-    e = offsets[index * 2 + 1]
+    e = end_at(index)
     e < 0 ? nil : e
   end
 
@@ -822,7 +836,7 @@ class MatchData
     row = regexp.is_a?(Regexp) ? regexp.send(:name_rows).find { |n, _| n == name.to_s } : nil
     raise IndexError, "undefined group name reference: #{name}" unless row
 
-    row[1].reverse.find { |g| offsets[g * 2] >= 0 } || row[1].last
+    row[1].reverse.find { |g| begin_at(g) >= 0 } || row[1].last
   end
 end
 

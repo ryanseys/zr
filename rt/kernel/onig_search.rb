@@ -23,6 +23,46 @@ ONIG_ANCHOR_ANYCHAR_STAR = 16384
 ONIG_ANCHOR_ANYCHAR_STAR_ML = 32768
 ONIG_MAX_PTR_NUM = 100
 
+# The two buffers a search needs -- its region, and the match state's
+# arena -- kept between searches rather than malloc'd and freed a
+# match, which `String#scan` over a long text did tens of thousands
+# of times: each is one row of `ptr, capacity, busy`, grown to the
+# largest asked for. A row that is busy (a search under a search,
+# which nothing does today) hands out a malloc, and the free that
+# follows tells the two apart by the address.
+SCRATCH_ROW = 24
+
+sig [Word, Word] => Ptr
+machine def zr_onig_scratch(row, bytes)
+  s = Machine.static(:onig_scratch, SCRATCH_ROW * 2) + (row * SCRATCH_ROW)
+  if Machine.load64(s, 16) != 0
+    p = malloc(bytes)
+    abort() if p == 0
+    return p
+  end
+  if Machine.load64(s, 8) < bytes
+    if Machine.load64(s, 0) != 0
+      free(Machine.ptr(Machine.load64(s, 0)))
+    end
+    p = malloc(bytes)
+    abort() if p == 0
+    Machine.store64(s, 0, Machine.word(p))
+    Machine.store64(s, 8, bytes)
+  end
+  Machine.store64(s, 16, 1)
+  Machine.ptr(Machine.load64(s, 0))
+end
+
+sig [Word, Ptr] => Void
+machine def zr_onig_scratch_free(row, p)
+  s = Machine.static(:onig_scratch, SCRATCH_ROW * 2) + (row * SCRATCH_ROW)
+  if Machine.word(p) == Machine.load64(s, 0)
+    Machine.store64(s, 16, 0)
+  else
+    free(p)
+  end
+end
+
 # The match state for a search of `prog` over str..text_end, writing
 # `region` (a word array of 2 * (num_mem + 1), or 0) under a time
 # `limit` in nanoseconds (0 for none). MATCH_ARG_INIT plus STACK_INIT's
@@ -59,8 +99,7 @@ machine def zr_onig_msa_init(m, prog, str, text_end, region, limit)
   num_repeat = OnigProg.num_repeat(prog)
   # ADD_NUMMEM: group 0 has a slot too, for \g<0>.
   words = num_repeat + ((num_mem + 1) * 2)
-  arena = malloc((words * 8) + (ONIG_INIT_MATCH_STACK_SIZE * OnigStk.size))
-  abort() if arena == 0
+  arena = zr_onig_scratch(1, (words * 8) + (ONIG_INIT_MATCH_STACK_SIZE * OnigStk.size))
   OnigMatch.set_repeat_stk(m, arena)
   OnigMatch.set_mem_start_stk(m, arena + (num_repeat * 8))
   OnigMatch.set_mem_end_stk(m, arena + (num_repeat * 8) + ((num_mem + 1) * 8))
@@ -79,7 +118,7 @@ machine def zr_onig_msa_free(m)
   if OnigMatch.match_cache_buf(m) != 0
     free(OnigMatch.match_cache_buf(m))
   end
-  free(OnigMatch.repeat_stk(m))
+  zr_onig_scratch_free(1, OnigMatch.repeat_stk(m))
 end
 
 # onig_region_resize_clear: every position ONIG_REGION_NOTPOS.
