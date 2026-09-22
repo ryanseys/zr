@@ -270,6 +270,7 @@ end
 # way back through C's frames, so it waits for zr_ffi_call.
 sig [Ptr, Ptr, Ptr, Ptr] => Void
 machine def zr_ffi_closure_run(cif, ret, args, user)
+  Machine.gates_enter
   argv = Machine.slot(24)
   Machine.store64(argv, 0, Machine.word(zr_fix(Machine.word(user))))
   Machine.store64(argv, 8, Machine.word(zr_ffi_addr(ret)))
@@ -469,6 +470,7 @@ end
 
 sig [Word, Word, Word, Word, Word, Word, Word, Word] => Word
 machine def zr_c_callback(k, a, b, c, d, e, f, g)
+  Machine.gates_enter
   argv = Machine.slot(16)
   Machine.store64(argv, 0, Machine.word(zr_fix(k)))
   words = zr_ary_new(7)

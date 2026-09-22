@@ -39,8 +39,9 @@ profile shows that cost.
 Some operations skip the send when nobody changed them:
 
 - Integer `+ - * < <= > >= ==` and Float arithmetic are inline at the
-  site, behind a *gate* word. Redefining one of these methods on a core
-  class closes its gate for the rest of the run.
+  site, behind a *gate* word, which lives in a register of its own
+  (`x28`), so the test is one bit test of it. Redefining one of these
+  methods on a core class closes its gate for the rest of the run.
 - `recv[i]`, `recv[i] = v` and `recv << v` test for a core Array, Hash
   or String at the site.
 - `!` answers inline for nil, true and false.

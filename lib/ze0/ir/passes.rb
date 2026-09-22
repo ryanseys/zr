@@ -431,7 +431,7 @@ module Ze0
       # `a || b || c` is three branches. `Zr::Function` writes this shape at
       # every gated operator: the fixnum test and the gate test joined.
       class Chains
-        MOVABLE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast
+        MOVABLE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast
                       fcvt_from_sint fcvt_to_sint_sat] +
                    Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
 
@@ -623,7 +623,7 @@ module Ze0
       # effect is removed, to a fixpoint, so a chain of them goes at once.
       # A call, a store and a terminator stay whatever their results.
       class DCE
-        PURE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast load
+        PURE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast load
                    fcvt_from_sint fcvt_to_sint_sat] +
                 Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS + Inst::PAIRS).to_set.freeze
 

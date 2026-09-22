@@ -23,7 +23,7 @@ module Ze0
       # entries in turn, eleven of them the float opcodes spread out of
       # two arrays, and every instruction in the program went through it.
       RULE = {
-        iconst: :own, load: :own, ireduce: :own, uextend: :own, sextend: :own,
+        iconst: :own, load: :own, ireduce: :own, uextend: :own, sextend: :own, gates: :own,
         call: :call, call_indirect: :call_indirect,
         icmp: :flag, fcmp: :flag,
         stack_addr: :address, symbol_value: :address, func_addr: :address,

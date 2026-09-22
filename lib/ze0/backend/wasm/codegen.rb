@@ -122,8 +122,11 @@ module Ze0
           stack_base = align(@data_end, 16)
           heap_base = align(stack_base + (STACK_PAGES * PAGE), 16)
           out << section(5, vec(["\0".b + leb((heap_base / PAGE) + 2)]))
+          # Global 0 is the shadow stack pointer, 1 the heap pointer, 2
+          # the gate word (`IR::Inst::GATES`).
           out << section(6, vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b,
-                                 "\x7F\x01".b + "\x41".b + sleb(heap_base) + "\x0B".b]))
+                                 "\x7F\x01".b + "\x41".b + sleb(heap_base) + "\x0B".b,
+                                 "\x7E\x01".b + "\x42\x00".b + "\x0B".b]))
           out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
           out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
           out << section(10, vec(bodies))
@@ -694,6 +697,14 @@ module Ze0
               @code << "\xA7".b
               get(i.args[0])
               @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << @m.leb(i.offset)
+            # The gate word is global 2: read as it is when read, since
+            # a call may set it before a later read of the value.
+            when :gates
+              @code << "\x23\x02".b
+              set(i.results[0])
+            when :gates_set, :gates_enter
+              get(i.args[0])
+              @code << "\x24\x02".b
             when :call_indirect
               ptr, *args = i.args
               args.each { |a| get(a) }

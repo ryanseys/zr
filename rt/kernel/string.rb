@@ -1785,7 +1785,7 @@ end
 
 sig [Ptr, Word, Word] => Value
 machine def zr_str_literal_freeze_at(bytes, len, index)
-  if (Machine.load64(zr_gates(), 0) & GATE_FREEZE) != 0
+  if (Machine.gates & GATE_FREEZE) != 0
     return zr_send(zr_str_new_at(bytes, len, index), Machine.id(:freeze), 0, 0)
   end
   zr_str_frozen_at(bytes, len, index)
@@ -1795,7 +1795,7 @@ end
 # redefined String#freeze, which then runs as any send.
 sig [Ptr, Word] => Value
 machine def zr_str_literal_freeze(bytes, len)
-  if (Machine.load64(zr_gates(), 0) & GATE_FREEZE) != 0
+  if (Machine.gates & GATE_FREEZE) != 0
     return zr_send(zr_str_new(bytes, len), Machine.id(:freeze), 0, 0)
   end
   zr_str_literal_shared(bytes, len)
@@ -1877,7 +1877,7 @@ GATE_LTLT = 16384
 # is its own appends directly, with no frame.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_ltlt(recv, mid, argc, argv, mode)
-  if !zr_special_p(recv) && (Machine.load64(zr_gates(), 0) & GATE_LTLT) == 0
+  if !zr_special_p(recv) && (Machine.gates & GATE_LTLT) == 0
     k = RBasic.klass(recv)
     other = Machine.value(Machine.load64(argv, 0))
     if k == zr_global(G_STRING) && !zr_special_p(other) && RBasic.klass(other) == zr_global(G_STRING)
@@ -1896,7 +1896,7 @@ end
 # through the builtin road. Any other receiver or argument dispatches.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_getbyte(recv, mid, argc, argv, mode)
-  if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.load64(zr_gates(), 0) & GATE_GETBYTE) == 0
+  if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.gates & GATE_GETBYTE) == 0
     i = Machine.value(Machine.load64(argv, 0))
     if zr_fixnum_p(i)
       return zr_str_byte_at(recv, i)
@@ -1907,7 +1907,7 @@ end
 
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_setbyte(recv, mid, argc, argv, mode)
-  if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.load64(zr_gates(), 0) & GATE_SETBYTE) == 0
+  if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_STRING) && (Machine.gates & GATE_SETBYTE) == 0
     i = Machine.value(Machine.load64(argv, 0))
     b = Machine.value(Machine.load64(argv, 8))
     if zr_fixnum_p(i) && zr_fixnum_p(b)

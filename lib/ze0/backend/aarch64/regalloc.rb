@@ -15,7 +15,7 @@ module Ze0
       # it runs out of registers it spills by leaving a value where it
       # already was.
       #
-      # Two pools. A value live across a call takes one of `x19`..`x28`,
+      # Two pools. A value live across a call takes one of `x19`..`x27`,
       # which are callee-saved, so it survives the call with no work at
       # the call site; the frame saves and restores each one the function
       # uses. A value that crosses no call takes one of `CALLER` first,
@@ -24,8 +24,10 @@ module Ze0
       # register cost every function the saves of all ten. Such a value
       # takes a callee-saved register only when `CALLER` is empty; a
       # crossing value never takes a caller-saved one. `x9`..`x12` are
-      # the lowering's scratch, `x16` and `x17` the linker's, and `x18`
-      # is reserved on this platform and never touched.
+      # the lowering's scratch, `x16` and `x17` the linker's, `x18` is
+      # reserved on this platform and never touched, and `x28` holds the
+      # gate word for the whole program (`GATES`): a `gates` value is
+      # read out of it and gets no register of its own.
       #
       # Every value, block and instruction is given a number first, and
       # what follows indexes arrays by those numbers. This is most of what
@@ -35,7 +37,8 @@ module Ze0
       class Regalloc
         include Registers
 
-        CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27, X28].freeze
+        CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze
+        GATES = X28
         CALLER = [X8, X13, X14, X15].freeze
 
         # Whether `reg` is one the callee saves.

@@ -1,6 +1,9 @@
 # Integer: fixnums only, for now. Compiled code inlines the fixnum fast
 # path of each operator below while its gate bit is clear; a redefinition
-# sets the bit (see zr_define_method) and every site takes the call.
+# sets the bit (see zr_define_method) and every site takes the call. The
+# gate word lives in a register of its own, read by `Machine.gates`,
+# written with its static by `Machine.gates_set`, and loaded from the
+# static where foreign code enters (`Machine.gates_enter`).
 GATE_PLUS = 1
 GATE_MINUS = 2
 GATE_MUL = 4
@@ -30,11 +33,6 @@ GATE_PUSH = 1 << 34
 GATE_POP = 1 << 35
 GATE_SHIFT = 1 << 36
 GATE_EMPTY_P = 1 << 37
-
-sig [] => Ptr
-machine def zr_gates
-  Machine.static(:gates, 8)
-end
 
 # The decimal digits of `n` into `buf`, answering how many bytes they
 # take, ahead of a buffer of 24.

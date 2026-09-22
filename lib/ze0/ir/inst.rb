@@ -57,6 +57,12 @@ module Ze0
       FCONDS = %w[eq ne lt le gt ge].freeze
       # The conversions between i64 and f64: by value, and by bits.
       CONVERSIONS = %i[fcvt_from_sint fcvt_to_sint_sat bitcast].freeze
+      # The gate word, which the kernel keeps in a register of its own
+      # (`x28`; a global on wasm): `gates` reads it, `gates_set` writes
+      # it after a store of the word, and `gates_enter` loads it where
+      # foreign code enters compiled code, the register then given back
+      # as that code left it.
+      GATES = %i[gates gates_set gates_enter].freeze
 
       # `region`: for a load or a store, the `IR::Effects` region of the
       # word, or nil when the lowering could not place it.

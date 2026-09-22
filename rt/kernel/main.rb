@@ -483,6 +483,7 @@ end
 # frames need, which is not always the one the process starts on.
 sig [I32, Ptr] => I32
 machine def main(argc, argv)
+  Machine.gates_enter
   zr_os_main(argc, argv)
 end
 

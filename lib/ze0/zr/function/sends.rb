@@ -868,10 +868,10 @@ module Ze0
 
         def gate_clear(name) = gates_clear(name)
 
-        # Whether every one of the gates named is clear: one load.
+        # Whether every one of the gates named is clear: one test of the
+        # word, out of its register.
         def gates_clear(*names)
-          gates = @f.fetch("i64", static("gates"))
-          @f.icmp("eq", @f.band(gates, imm(names.sum { |name| @l.const(name) })), imm(0))
+          @f.icmp("eq", @f.band(@f.gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
 
         # `!v` inline for nil, true and false while none of their

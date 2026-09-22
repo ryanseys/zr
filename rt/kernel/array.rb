@@ -843,10 +843,10 @@ sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_aref(recv, mid, argc, argv, mode)
   if !zr_special_p(recv)
     k = RBasic.klass(recv)
-    if k == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_AREF) == 0
+    if k == zr_global(G_ARRAY) && (Machine.gates & GATE_AREF) == 0
       return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
-    if argc == 1 && k == zr_global(G_HASH) && (Machine.load64(zr_gates(), 0) & GATE_HASH_AREF) == 0
+    if argc == 1 && k == zr_global(G_HASH) && (Machine.gates & GATE_HASH_AREF) == 0
       return zr_hash_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
   end
@@ -859,7 +859,7 @@ end
 # `bm_so_lists`, which is these four on two lists.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_push(recv, mid, argc, argv, mode)
-  if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_PUSH) == 0
+  if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_PUSH) == 0
     return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -867,7 +867,7 @@ end
 
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_pop(recv, mid, argc, argv, mode)
-  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_POP) == 0
+  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_POP) == 0
     return zr_ary_pop(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -875,7 +875,7 @@ end
 
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_shift(recv, mid, argc, argv, mode)
-  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_SHIFT) == 0
+  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_SHIFT) == 0
     return zr_ary_shift(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -883,7 +883,7 @@ end
 
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_empty_p(recv, mid, argc, argv, mode)
-  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_EMPTY_P) == 0
+  if argc == 0 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_EMPTY_P) == 0
     return zr_bool(RArray.len(recv) == 0)
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
@@ -895,10 +895,10 @@ sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_aset(recv, mid, argc, argv, mode)
   if argc == 2 && !zr_special_p(recv)
     k = RBasic.klass(recv)
-    if k == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
+    if k == zr_global(G_ARRAY) && (Machine.gates & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
       return zr_ary_aset_at(recv, Machine.value(Machine.load64(argv, 0)), Machine.value(Machine.load64(argv, 8)))
     end
-    if k == zr_global(G_HASH) && (Machine.load64(zr_gates(), 0) & GATE_HASH_ASET) == 0
+    if k == zr_global(G_HASH) && (Machine.gates & GATE_HASH_ASET) == 0
       return zr_hash_aset(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
   end

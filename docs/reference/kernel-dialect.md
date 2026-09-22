@@ -77,6 +77,9 @@ For `Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr`:
 | `Machine.sqrt(f)`, `floor`, `ceil`, `trunc`, `nearest`, `fabs` | the `F64` operation |
 | `Machine.slot(n)` | the address of `n` bytes of the frame |
 | `Machine.static(:name, n)` | the address of `n` zeroed bytes that every def naming `:name` shares |
+| `Machine.gates` | the gate word, out of the register it lives in (`x28`; a global on wasm) |
+| `Machine.gates_set(w)` | the gate word is `w`: its static stored and its register set, for every function at once |
+| `Machine.gates_enter` | first in a def foreign code calls (`main`, a signal handler, a thread's start, a C callback): the register loaded from the static, and given back on return as the caller had it |
 | `Machine.bytes("text")` | the address of a read-only copy of the literal |
 | `Machine.bytesize("text")` | the literal's size in bytes |
 | `Machine.id(:name)` | the symbol id of `name` |

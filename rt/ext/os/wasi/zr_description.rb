@@ -949,7 +949,6 @@ module Ze0
         d zr_mark_kernel_roots Void
         d zr_mark_kernel_roots_from Void frame:Ptr
         d zr_global_variables Value
-        d zr_gates Ptr
         d zr_long_digits Word n:Word buf:Ptr
         d zr_int_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_big_p Bool v:Value
@@ -3186,7 +3185,6 @@ module Ze0
         e zr_mark_kernel_roots 120
         e zr_mark_kernel_roots_from 120
         e zr_global_variables 126
-        e zr_gates 0
         e zr_long_digits 120
         e zr_int_to_s 127
         e zr_big_p 0

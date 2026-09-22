@@ -133,7 +133,7 @@ module Ze0
           when :select
             integer(i, b, i.args[0])
             typed(i, b, i.args[2], type_of(i.args[1]))
-          when :load then typed(i, b, i.args[0], "i64")
+          when :load, :gates_set, :gates_enter then typed(i, b, i.args[0], "i64")
           when :store then typed(i, b, i.args[1], "i64")
           when :call then arguments(i, b, i.args, @typer.sig_of(i.callee).params)
           when :call_indirect

@@ -359,9 +359,15 @@ module Ze0
         when *Inst::FBINOPS, *Inst::FUNOPS, :fcvt_from_sint, :fcvt_to_sint_sat
           assign(frame, i.results[0], float_op(frame, i))
         when :fcmp then assign(frame, i.results[0], float_compare(frame, i) ? 1 : 0)
+        # The register the gate word lives in is the word itself here,
+        # which every writer stores before it sets the register.
+        when :gates then assign(frame, i.results[0], @memory.read(address_of(GATES), 8))
+        when :gates_set, :gates_enter then nil
         else raise Refused, "no interpretation for #{i.op}"
         end
       end
+
+      GATES = "zr_static_gates"
 
       def slot_index(name) = Integer(name.delete_prefix("ss"))
 

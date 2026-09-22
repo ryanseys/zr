@@ -939,15 +939,14 @@ machine def zr_gates_recheck(mid)
     return
   end
   found = Task.found(zr_task())
-  g = zr_gates()
   rows = Machine.static(:gate_rows, GATE_ROWS * GateRow.size)
   i = 0
   while i < GATE_ROWS
     row = rows + (i * GateRow.size)
-    if (mid == 0 || GateRow.mid(row) == mid) && (Machine.load64(g, 0) & GateRow.bit(row)) == 0
+    if (mid == 0 || GateRow.mid(row) == mid) && (Machine.gates & GateRow.bit(row)) == 0
       e = zr_search_method(zr_global(GateRow.klass(row)), GateRow.mid(row))
       if e == 0 || MEntry.fn(e) != GateRow.fn(row) || MEntry.vis(e) != GateRow.vis(row)
-        Machine.store64(g, 0, Machine.load64(g, 0) | GateRow.bit(row))
+        Machine.gates_set(Machine.gates | GateRow.bit(row))
       end
     end
     i += 1
@@ -1149,8 +1148,7 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   bit = zr_gate_bit(klass, mid)
   booting = kind == KIND_BUILTIN && !zr_program_started_p()
   if bit != 0 && !booting && zr_find_method(klass, mid) != 0
-    g = zr_gates()
-    Machine.store64(g, 0, Machine.load64(g, 0) | bit)
+    Machine.gates_set(Machine.gates | bit)
   end
   zr_methods_changed()
   ext = RClass.ext(klass)

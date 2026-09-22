@@ -194,6 +194,7 @@ module Ze0
           b.insts.each do |i|
             case i.op
             when :store then bits |= store_effects(i, placed, escaped)
+            when :gates_set then bits |= IR::Effects.bit(:gates)
             when :call_indirect then bits |= IR::Effects::ALL
             when :call
               symbol = by_fn.fetch(i.callee).symbol
@@ -1089,6 +1090,19 @@ module Ze0
           name, size = args
           refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size
           [@f.symbol_value(@f.symbol(@unit.static(node, name.unescaped, immediate(size)))), "Ptr"]
+        when :gates
+          refuse(node, "Machine.gates takes nothing") unless args.empty?
+          [@f.gates, "Word"]
+        when :gates_set
+          value, type = expr(args.first, "Word")
+          refuse(node, "Machine.gates_set takes a Word") unless args.one? && ir_type(type) == "i64"
+          @f.store(value, gates_addr(node), region: :gates)
+          @f.gates_set(value)
+          [nil, "Void"]
+        when :gates_enter
+          refuse(node, "Machine.gates_enter takes nothing") unless args.empty?
+          @f.gates_enter(@f.fetch("i64", gates_addr(node), region: :gates))
+          [nil, "Void"]
         when :i32, :i8, :word, :sword, :ptr, :value
           value, type = expr(args.first)
           convert(node, node.name, value, type)
@@ -1108,6 +1122,15 @@ module Ze0
         else
           refuse(node, "Machine.#{node.name} is not an intrinsic")
         end
+      end
+
+      # The gate word's static: `Machine.gates` reads the word out of its
+      # register, `Machine.gates_set(word)` stores it and sets the
+      # register, and `Machine.gates_enter`, first in a def that foreign
+      # code calls, loads the register from the static (and the def gives
+      # it back as it found it).
+      def gates_addr(node)
+        @f.symbol_value(@f.symbol(@unit.static(node, "gates", 8)))
       end
 
       # A width or a reading change: `Machine.i32(x)` narrows, `word`

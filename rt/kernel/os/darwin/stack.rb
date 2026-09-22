@@ -65,6 +65,7 @@ Machine.import "pthread_detach", [Ptr] => I32
 
 sig [Ptr] => Ptr
 machine def zr_poll_timer(arg)
+  Machine.gates_enter
   ts = Machine.slot(16)
   Machine.store64(ts, 0, 0)
   Machine.store64(ts, 8, 100000000)

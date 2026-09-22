@@ -8,17 +8,16 @@ module Ze0
   module IR
     # The kernel's guard words to SSA values, over a finished function.
     #
-    # A gated operator tests the gate word: each test was a load, and a
-    # loop of fixnum arithmetic loaded the same word that never changed
-    # at every turn. The words are `PROMOTED`, by symbol and the offset
-    # of the one word promoted. Today that is the gate word alone. The
-    # site stamp, the constant stamp and the task pointer were measured
-    # out: a word carried through a fast/slow join is a block parameter,
-    # and the allocator keeps most of those in the frame, so each word
-    # cost the runtime a store and a load an edge for the one load it
-    # saved (`rake codesize`: the four words +12%, gates alone +1.4%).
-    # A wider caller-saved pool is what lets the set grow. The poll word
-    # beside the task pointer can never be one -- the timer thread
+    # The words are `PROMOTED`, by symbol and the offset of the one word
+    # promoted. Today that is no word: the gate word, the first, now
+    # lives in a register of its own (`Inst::GATES`, `x28`), which costs
+    # a fast/slow join nothing, where a value carried through one is a
+    # block parameter the allocator mostly keeps in the frame -- a store
+    # and a load an edge for the one load saved (`rake codesize`: the
+    # gate word, the site stamp, the constant stamp and the task pointer
+    # +12%, the gate word alone +1.4%). The pass stays for the stamps, a
+    # wider caller-saved pool being what lets the set grow. The poll
+    # word beside the task pointer can never be one -- the timer thread
     # writes it between any two instructions, and a load of it hoisted
     # out of a loop is a loop nothing can interrupt.
     #
@@ -47,9 +46,7 @@ module Ze0
     # or a load of it as another type, does the same.
     class Statics < Promotion
       # `symbol => offset` of the word promoted.
-      PROMOTED = {
-        "zr_static_gates" => 0
-      }.freeze
+      PROMOTED = {}.freeze
 
       TYPE = "i64"
       WIDTH = 8
@@ -61,6 +58,10 @@ module Ze0
         @initial = {}
         @reload = {}
         @inserted = {}.compare_by_identity
+      end
+
+      def run
+        PROMOTED.empty? ? @f : super
       end
 
       private

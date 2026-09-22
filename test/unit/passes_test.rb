@@ -321,17 +321,21 @@ class PassesTest < Minitest::Test
 
   def loads(f) = f.blocks.flat_map { |b| b.insts.select { |i| i.op == :load } }
 
-  # The gate word, read at every turn of a loop with a call on one arm:
-  # one load at entry, a reload after the call, and the loop's head takes
-  # the word as a parameter; the turns with no call load nothing.
-  def test_a_guard_word_is_loaded_at_entry_and_again_after_a_call
+  # The gate word, read out of its register at every turn of a loop
+  # with a call on one arm that writes it: each read stays where it
+  # is, no pass moves or merges one, and the loop's head carries no
+  # word. The interpreter reads the static, which every write stores
+  # to as well, and the entry from foreign code loads from.
+  def test_the_gate_word_is_read_out_of_its_register
     bump = function("bump", [], nil) do |f|
       at = f.symbol_addr(f.symbol("zr_static_gates"))
-      f.store(f.iadd(f.fetch("i64", at), f.iconst("i64", 1)), at)
+      word = f.iadd(f.gates, f.iconst("i64", 1))
+      f.store(word, at, region: :gates)
+      f.gates_set(word)
       f.ret
     end
     f = function("tally", %w[i64], "i64") do |f, n|
-      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      f.gates_enter(f.fetch("i64", f.symbol_addr(f.symbol("zr_static_gates")), region: :gates))
       head, (i, acc) = f.block(%w[i64 i64])
       body = f.label
       slow = f.label
@@ -341,27 +345,25 @@ class PassesTest < Minitest::Test
       f.switch(head)
       f.brif(f.icmp("slt", i, n), body, done)
       f.switch(body)
-      sum = f.iadd(acc, f.fetch("i64", at))
+      sum = f.iadd(acc, f.gates)
       f.brif(f.icmp("eq", i, f.iconst("i64", 2)), slow, go)
       f.switch(slow)
       f.call(f.callee("bump", [], nil), [])
       f.jump(go)
       f.switch(go)
-      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), f.iadd(sum, f.fetch("i64", at))])
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1)), f.iadd(sum, f.gates)])
       f.switch(done)
       f.ret(acc)
     end
-    was = answer_with([f, bump], [static("gates")], [5])
+    was = answer_with([f, bump], [static("gates", [3].pack("q<"))], [5])
     Ze0::IR::Passes.prepare(f, strict: true)
     Ze0::IR::Passes.prepare(bump, strict: true)
-    assert_equal 2, loads(f).size
-    assert_equal 1, f.entry_block.insts.count { |i| i.op == :load }, "one load at entry"
-    slow = f.blocks.find { |b| b.insts.any? { |i| i.op == :call } }
-    assert_equal %i[call load jump], slow.insts.map(&:op), "the reload follows the call"
-    head = f.blocks.find { |b| b.params.size == 3 }
-    refute_nil head, "the loop's head takes the word as a parameter"
-    assert_equal was, answer_with([f, bump], [static("gates")], [5])
-    assert_equal 5, was
+    assert_equal 2, ops(f).count(:gates)
+    assert_equal 1, loads(f).size, "the entry's load alone"
+    assert_equal 2, f.blocks.find { |b| b.params.size == 2 }.params.size, "the head carries the counts alone"
+    assert_equal %i[symbol_value gates iconst iadd store gates_set return], ops(bump)
+    assert_equal was, answer_with([f, bump], [static("gates", [3].pack("q<"))], [5])
+    assert_equal 3 + 3 + 3 + 3 + 3 + 4 + 4 + 4 + 4 + 4, was
   end
 
   # A static that is not a promoted word is still one load across a
@@ -385,13 +387,13 @@ class PassesTest < Minitest::Test
     assert_equal 27, answer_with([f, allocate], [static("current_task", [7, 3].pack("q<q<"))], [])
   end
 
-  # A store the function makes is what a later read gets, until a
-  # call; a store through an address the pass cannot tell -- one a call
-  # answered -- is a write to every word.
-  def test_a_store_is_read_back_and_a_store_through_an_unknown_address_reloads
-    where = function("where", [], "i64") { |f| f.ret(f.symbol_value(f.symbol("zr_static_gates"))) }
+  # A static's word is read again across a store to a slot, and not
+  # across a call, or a store through an address the pass cannot tell
+  # -- one a call answered -- which is a write to every word.
+  def test_a_static_is_read_again_across_a_slot_store_and_not_across_a_call
+    where = function("where", [], "i64") { |f| f.ret(f.symbol_value(f.symbol("zr_static_site_stamp"))) }
     f = function("stores", [], "i64") do |f|
-      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      at = f.symbol_addr(f.symbol("zr_static_site_stamp"))
       f.store(f.iconst("i64", 4), at)
       a = f.fetch("i64", at)
       p = f.call_val(f.callee("where", [], "i64"), [])
@@ -402,8 +404,8 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(a, f.iadd(b, c)))
     end
     Ze0::IR::Passes.prepare(f, strict: true)
-    assert_equal %i[symbol_value iconst store call iconst store load iconst stack_addr store iadd iadd return], ops(f)
-    assert_equal 4 + 9 + 9, answer_with([f, where], [static("gates")], [])
+    assert_equal 2, loads(f).size, "the read after the slot store is the one before it"
+    assert_equal 4 + 9 + 9, answer_with([f, where], [static("site_stamp")], [])
   end
 
   # A call whose callee's effects leave the word alone does not make
@@ -412,7 +414,7 @@ class PassesTest < Minitest::Test
   # such a call; one with no region is a write to everything.
   def test_a_write_that_cannot_reach_the_word_leaves_its_value_alone
     f = function("effects", %w[i64], "i64") do |f, p|
-      at = f.symbol_addr(f.symbol("zr_static_gates"))
+      at = f.symbol_addr(f.symbol("zr_static_site_stamp"))
       a = f.fetch("i64", at)
       f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:heap) | Ze0::IR::Effects.bit(:malloc)), [])
       f.store(f.iconst("i64", 1), p, 8, region: :heap)
@@ -593,20 +595,20 @@ class PassesTest < Minitest::Test
     assert_equal 3, inside.size, "the poll word and the two behind the tested pointer"
   end
 
-  # An address that reaches a call, a store of part of the word, or a
-  # load of it as another type keeps every load of the word.
+  # An address that reaches a call, or a store of part of the word,
+  # keeps every load of the word.
   def test_a_word_whose_address_escapes_or_that_is_written_in_part_keeps_its_loads
     escapes = function("escapes", [], "i64") do |f|
-      gates = f.symbol_addr(f.symbol("zr_static_gates"))
-      a = f.fetch("i64", gates)
-      f.call(f.callee("take", %w[i64], nil), [gates])
-      f.ret(f.iadd(a, f.fetch("i64", gates)))
+      stamp = f.symbol_addr(f.symbol("zr_static_site_stamp"))
+      a = f.fetch("i64", stamp)
+      f.call(f.callee("take", %w[i64], nil), [stamp])
+      f.ret(f.iadd(a, f.fetch("i64", stamp)))
     end
     part = function("part", [], "i64") do |f|
-      gates = f.symbol_addr(f.symbol("zr_static_gates"))
-      a = f.fetch("i64", gates)
-      f.store(f.iconst("i32", 1), gates)
-      f.ret(f.iadd(a, f.fetch("i64", gates)))
+      stamp = f.symbol_addr(f.symbol("zr_static_site_stamp"))
+      a = f.fetch("i64", stamp)
+      f.store(f.iconst("i32", 1), stamp)
+      f.ret(f.iadd(a, f.fetch("i64", stamp)))
     end
     [escapes, part].each do |f|
       Ze0::IR::Passes.prepare(f, strict: true)

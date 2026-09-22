@@ -42,7 +42,7 @@ a form that ze0 cannot compile is refused, by name, at its line.
 ## The IR: one form for every backend
 
 `lib/ze0/zr/` lowers the HIR to the IR (`lib/ze0/ir/`), a control-flow
-graph in SSA form with block parameters. It has 47 opcodes and four
+graph in SSA form with block parameters. It has 50 opcodes and four
 types: `i8`, `i32`, `i64` and `f64`. The kernel dialect
 (`lib/ze0/machine/`) lowers to the same IR. So every backend reads one
 form, whether the code came from a program or from the runtime.
@@ -53,12 +53,14 @@ argument path. And no call is variadic.
 
 Before a backend sees a function, `IR::Passes` runs the same pipeline
 for every emitter: small leaf functions inline into their callers, then
-constant folding, store-to-load forwarding, the kernel's gate word
-promoted to a value that a write of it reloads, value numbering over
-the dominator tree (a load counts, kept across what cannot write its
+constant folding, store-to-load forwarding, value numbering over the
+dominator tree (a load counts, kept across what cannot write its
 region), loop-invariant instructions moved to a preheader, branch
 chains, block merging and dead code removal. `IR::Verify` then checks
-the result.
+the result. The kernel's gate word is no load at all: it lives in a
+register of its own (`x28`; a global on wasm), read by the `gates`
+opcode, set by the defs that close a gate, and loaded from its static
+where foreign code enters compiled code.
 
 ## The backends
 

@@ -327,6 +327,26 @@ module Ze0
         v
       end
 
+      # The gate word, out of its register.
+      def gates
+        v = value
+        emit(Inst.new(:gates, type: "i64", results: [v]))
+        v
+      end
+
+      # The gate word's register takes `word`: after the store of it,
+      # in a writer; at the entry from foreign code, in `enter`, where
+      # the register is given back on return as that code left it.
+      def gates_set(word)
+        emit(Inst.new(:gates_set, args: [word]))
+        nil
+      end
+
+      def gates_enter(word)
+        emit(Inst.new(:gates_enter, args: [word]))
+        nil
+      end
+
       # A constant whose immediate a producer fills in later: the value,
       # and the instruction whose first argument to set.
       def iconst_later(type)

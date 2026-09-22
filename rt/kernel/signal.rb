@@ -20,6 +20,7 @@ SIGNAL_OTHER = 4
 # without a lock. The next safe point is where the program asks.
 sig [I32] => Void
 machine def zr_trap_caught(signo)
+  Machine.gates_enter
   count = Machine.static(:signal_counts, NSIG * 8) + (Machine.word(signo) * 8)
   Machine.store64(count, 0, Machine.load64(count, 0) + 1)
   Machine.store64(Machine.static(:signal_pending, 8), 0, 1)
@@ -32,6 +33,7 @@ end
 # the signal only tells the waiters, as the default does nothing else.
 sig [I32] => Void
 machine def zr_chld_caught(signo)
+  Machine.gates_enter
   zr_chld_note(signo)
 end
 

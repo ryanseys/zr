@@ -112,6 +112,7 @@ module Ze0
         def compile
           assign_types
           count_uses
+          plan_pinned
           plan_slots
           plan_constants
           plan_addresses
@@ -282,6 +283,33 @@ module Ze0
           [x, mask]
         end
 
+        # A `gates` value is the word as it was when read: an instruction
+        # that reads it later reads that, whatever the register holds by
+        # then. One whose every read is in its own block before anything
+        # that can change the register -- a call, since a callee may set
+        # a gate, or a set of the register itself -- is read out of the
+        # register where it is read (`@pinned`): no register of its own,
+        # no home, nothing emitted at its definition, and a bit test of
+        # it is one `tbz` of `x28`. Any other is copied out of the
+        # register at its definition, a value like any other.
+        def plan_pinned
+          @pinned = Set.new
+          @f.blocks.each do |b|
+            open = {}
+            b.insts.each do |i|
+              i.args.each { |a| open[a] += 1 if open.key?(a) }
+              i.targets&.each { |(_, args)| args.each { |a| open[a] += 1 if open.key?(a) } }
+              case i.op
+              when :gates then open[i.results[0]] = 0
+              when :call, :call_indirect, :gates_set, :gates_enter
+                open.each { |v, n| @pinned << v if n == @uses[v] }
+                open.clear
+              end
+            end
+            open.each { |v, n| @pinned << v if n == @uses[v] }
+          end
+        end
+
         # How many times each value is read: by an instruction, or by a
         # jump that carries it to a block. What is read once or never is
         # planned differently from what is read again and again.
@@ -289,10 +317,14 @@ module Ze0
           @uses = Hash.new(0)
           @def_of = {}
           @returns = 0
+          # Whether this function is entered from foreign code, which
+          # loads the gate register and gives it back as it was.
+          @enters = false
           @f.blocks.each do |b|
             b.insts.each do |i|
               @def_of[i.results[0]] = i if i.results[0]
               @returns += 1 if i.op == :return
+              @enters = true if i.op == :gates_enter
               i.args.each { |a| @uses[a] += 1 if Regalloc.value?(a) }
               i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 if Regalloc.value?(a) } }
             end
@@ -376,7 +408,7 @@ module Ze0
         def plan_addresses
           @derived = {}
           @via = {}
-          @silent = @remade.dup
+          @silent = @remade | @pinned
           memory = Hash.new { |h, k| h[k] = [] }
           # `[value, base, root, k]` a sum: its own base, and the first
           # base of its chain with the constants added up.
@@ -492,7 +524,9 @@ module Ze0
           # A callee-saved register this function uses has to come back to
           # its caller as it was, so the frame keeps a place for each.
           @saved_at = {}
-          @reg.values.uniq.select { |r| Regalloc.callee?(r) }.sort_by(&:to_i).each do |r|
+          saved = @reg.values.uniq.select { |r| Regalloc.callee?(r) }
+          saved << Regalloc::GATES if @enters
+          saved.sort_by(&:to_i).each do |r|
             @saved_at[r] = off
             off += 8
           end
@@ -549,6 +583,8 @@ module Ze0
         # An f64 value lives in its slot as bits and moves through the
         # integer registers.
         def load_value(v, reg)
+          return @asm.mov(reg, Regalloc::GATES) if @pinned.include?(v)
+
           home = @reg[v]
           return narrow(reg, home, @clean.include?(v) ? "i64" : type_of(v)) if home
           return frame_address(reg, @stack[v]) if @stack.key?(v)
@@ -575,6 +611,8 @@ module Ze0
         # the whole word, and a w-register read would carry the bits above
         # the byte into an operation that is 32 bits wide.
         def value_in(v, scratch)
+          return Regalloc::GATES if @pinned.include?(v)
+
           home = @reg[v]
           return home if home && (type_of(v) != "i8" || @clean.include?(v))
 
@@ -764,6 +802,13 @@ module Ze0
             frame_address(X9, @slot_at[Integer(i.args[0].delete_prefix("ss"))])
             store_value(i.results[0], X9)
           when :symbol_value then emit_symbol(i.results[0], global_of(i.args[0]).symbol, global_of(i.args[0]).colocated)
+          when :gates
+            return if @pinned.include?(i.results[0])
+
+            d = result_in(i.results[0], X9)
+            @asm.mov d, Regalloc::GATES
+            store_value(i.results[0], d)
+          when :gates_set, :gates_enter then @asm.mov Regalloc::GATES, value_in(i.args[0], X9)
           when :func_addr
             c = callee_of(i.args[0])
             emit_symbol(i.results[0], c.symbol, @defined.include?(c.symbol))
@@ -1254,7 +1299,7 @@ module Ze0
         # A constant made where it is read has no place, and is never a
         # destination: its own name stands for it, which no Register and no
         # Integer equals.
-        def place(v) = @reg[v] || @home.fetch(v) { @remade.include?(v) ? v : raise(KeyError, v) }
+        def place(v) = @reg[v] || @home.fetch(v) { @remade.include?(v) ? v : @pinned.include?(v) ? Regalloc::GATES : raise(KeyError, v) }
 
         # The copies an edge asks for, in an order where no destination is
         # written while a source still has to be read out of it.
