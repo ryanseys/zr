@@ -397,10 +397,19 @@ module Ze0
             reach.call(global("G_FLOAT"), 0)
             switch(rest)
           end
+          special = @f.label
           pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
-          @f.brif(pointer, heap, miss)
+          @f.brif(pointer, heap, special)
           switch(heap)
           reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
+          # nil, true, false, a symbol and a flonum have a class as a
+          # fixnum has, and a site that sends to one -- `x.nil?` on a
+          # nil, a symbol's `to_proc`, `respond_to?` on a flag -- hits
+          # its cell as a fixnum does. The kernel reads the class: one
+          # call on this side road, where the tests written out at every
+          # site cost the runtime a tenth of its code.
+          switch(special)
+          reach.call(kernel("zr_class_of", recv), 0)
           switch(have)
           same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
                          @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))

@@ -397,22 +397,20 @@ sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
 machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
   if Task.refine(zr_task()) == QNIL
     # The class and the stamp once, then each way in place. The site
-    # tested the first way itself for a cell or a fixnum receiver; any
-    # other receiver reached it untested, and under ZR_MCACHE=verify
-    # no site's own test hits, so the first way is tested here and
-    # every hit is held to the chain.
+    # tested the first way itself, whatever the receiver, so the ways
+    # after it are what is left; under ZR_MCACHE=verify no site's own
+    # test hits, so the first way is tested here and every hit is held
+    # to the chain.
     w = Machine.word(recv)
     verify = Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
     if (w & 7) == 0 && w > QUNDEF
       klass = RBasic.klass(recv)
-      i = verify ? 0 : 1
     elsif (w & 1) != 0
       klass = zr_global(G_INTEGER)
-      i = verify ? 0 : 1
     else
       klass = zr_class_of(recv)
-      i = 0
     end
+    i = verify ? 0 : 1
     stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
     while i < CALL_WAYS
       way = cc + (i * CallCache.size)

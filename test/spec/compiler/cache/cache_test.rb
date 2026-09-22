@@ -89,6 +89,114 @@ describe "Cache programs" do
     OUT
   end
 
+  it "special constant receivers hit the site's cell" do
+    result = ze0(<<~'RUBY')
+      # One site, receivers of five classes in turn: nil, true, false, a
+      # symbol and a String. The site finds each class itself and its
+      # cells answer; a method defined or redefined after the site ran
+      # is what the next send reaches.
+      def describe(x) = x.tag
+
+      class NilClass; def tag = "nil"; end
+      class TrueClass; def tag = "true"; end
+      class FalseClass; def tag = "false"; end
+      class Symbol; def tag = "sym #{self}"; end
+      class String; def tag = "str #{self}"; end
+
+      inputs = [nil, true, false, :a, "s", nil, :b, false]
+      p inputs.map { |x| describe(x) }
+      p inputs.map { |x| describe(x) }
+
+      class NilClass; def tag = "nil again"; end
+      class Symbol; def tag = "sym again"; end
+      p inputs.map { |x| describe(x) }
+
+      # Predicates on a special constant, ten thousand times at one site.
+      n = 0
+      20_000.times { |i| n += 1 if (i.even? ? nil : :s).nil? }
+      p n
+      p [nil, true, false, :x].map(&:frozen?)
+      p [nil, false, :y].map { |x| x.respond_to?(:tag) }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["nil", "true", "false", "sym a", "str s", "nil", "sym b", "false"]
+      ["nil", "true", "false", "sym a", "str s", "nil", "sym b", "false"]
+      ["nil again", "true", "false", "sym again", "str s", "nil again", "sym again", "false"]
+      10000
+      [true, true, true, true]
+      [true, true, true]
+    OUT
+  end
+
+  it "struct members are read and written at the site" do
+    result = ze0(<<~'RUBY')
+      # One reader site and one writer site over a Struct, a keyword
+      # Struct, a Data, an attr_accessor object and a subclass that
+      # redefines the reader: the cell's shape says which the site does
+      # in place, and every guard that fails takes the call.
+      Point = Struct.new(:x, :y)
+      Named = Struct.new(:x, :y, keyword_init: true)
+      Pair = Data.define(:x, :y)
+      class Reader
+        attr_accessor :x, :y
+        def initialize(x, y) = (@x = x; @y = y)
+      end
+      class Loud < Point
+        def x = "loud #{super}"
+      end
+
+      def read_x(o) = o.x
+      def write_x(o, v) = o.x = v
+
+      things = [Point.new(1, 2), Named.new(x: 3, y: 4), Pair.new(x: 5, y: 6), Reader.new(7, 8), Loud.new(9, 10)]
+      p things.map { |t| read_x(t) }
+      p things.map { |t| read_x(t) }
+      writable = [things[0], things[1], things[3], things[4]]
+      p writable.map { |t| write_x(t, t.x.to_s * 2) }
+      p writable.map { |t| read_x(t) }
+
+      # A struct made with no values reads nil and takes a write.
+      bare = Point.allocate
+      p read_x(bare)
+      write_x(bare, :set)
+      p [read_x(bare), bare.y, bare.to_a]
+
+      # A frozen struct refuses the write at the site.
+      pt = Point.new(1, 2).freeze
+      begin
+        write_x(pt, 3)
+      rescue => e
+        p [e.class, e.message]
+      end
+      p read_x(pt)
+
+      # A member redefined after the site ran.
+      class Point; def x = "redefined"; end
+      p read_x(things[0])
+
+      # Ten thousand reads and writes through one site each.
+      acc = Point.new(0, 0)
+      10_000.times { |i| acc.y = acc.y + i }
+      p acc.y
+      p acc
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 3, 5, 7, "loud 9"]
+      [1, 3, 5, 7, "loud 9"]
+      ["11", "33", "77", "loud 9loud 9"]
+      ["11", "33", "77", "loud loud 9loud 9"]
+      nil
+      [:set, nil, [:set, nil]]
+      [FrozenError, "can't modify frozen Point: #<struct Point x=1, y=2>"]
+      1
+      "redefined"
+      49995000
+      #<struct Point x=0, y=49995000>
+    OUT
+  end
+
   it "frozen nul literal cache" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
