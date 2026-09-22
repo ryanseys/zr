@@ -20,9 +20,30 @@ class PrismTest < Minitest::Test
     assert $?.success?, out
   end
 
-  def test_the_writer_writes_ze0s_own_ruby_as_the_c_does
-    cases = PrismDiff.cases(%w[rt lib])
-    assert_operator cases.size, :>, 300
+  # A comparison over thousands of cases as SHARDS tests over slices of
+  # them, and one more that there are as many cases as there should be.
+  # A test is one worker's: as one test, five thousand cases ground on
+  # in one worker for two minutes while seven stood idle. The cases are
+  # listed here, once, in the process that forks the workers. Where the
+  # cases want a prism checkout this machine does not have, the one
+  # test skips and says so.
+  SHARDS = 8
+
+  def self.compare(name, cases, at_least:, &check)
+    unless cases
+      define_method("test_#{name}") { skip "no prism checkout at #{PrismDiff::CHECKOUT}" }
+      return
+    end
+
+    define_method("test_#{name}_has_its_cases") { assert_operator cases.size, :>, at_least }
+    cases.each_slice((cases.size / SHARDS.to_f).ceil).with_index(1) do |slice, n|
+      define_method("test_#{name}_#{n}_of_#{SHARDS}") { instance_exec(slice, &check) }
+    end
+  end
+
+  def self.upstream_cases(...) = PrismDiff.upstream && PrismDiff.cases(...)
+
+  compare("the_writer_writes_ze0s_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
@@ -43,46 +64,33 @@ class PrismTest < Minitest::Test
   # The Ruby parser: Prism::Ruby.dump equal to Prism.dump byte for byte, on
   # ze0's own Ruby and on every fixture and error file under each syntax
   # version.
-  def test_the_parser_dumps_ze0s_own_ruby_as_the_c_does
-    cases = PrismDiff.cases(%w[rt lib])
-    assert_operator cases.size, :>, 300
+  compare("the_parser_dumps_ze0s_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
-  def test_the_parser_dumps_prisms_fixtures_and_errors_as_the_c_does
-    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
-
-    cases = PrismDiff.cases(%w[fixtures errors])
-    assert_operator cases.size, :>, 5000
+  compare("the_parser_dumps_prisms_fixtures_and_errors_as_the_c_does", upstream_cases(%w[fixtures errors]),
+          at_least: 5000) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
   # Broken sources: truncated, cut or with a stray byte, the parser recovers
   # as the C does.
-  def test_the_parser_dumps_broken_fixtures_as_the_c_does
-    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
-
-    cases = PrismDiff.fuzz(PrismDiff.cases(%w[fixtures errors], only: "**/*@4.1"), 2, 1)
-    assert_operator cases.size, :>, 2500
+  compare("the_parser_dumps_broken_fixtures_as_the_c_does",
+          upstream_cases(%w[fixtures errors], only: "**/*@4.1")&.then { |cases| PrismDiff.fuzz(cases, 2, 1) },
+          at_least: 2500) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
-  def test_the_writer_writes_prisms_fixtures_and_errors_as_the_c_does
-    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
-
-    cases = PrismDiff.cases(%w[fixtures errors])
-    assert_operator cases.size, :>, 5000
+  compare("the_writer_writes_prisms_fixtures_and_errors_as_the_c_does", upstream_cases(%w[fixtures errors]),
+          at_least: 5000) do |cases|
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
   # Prism.parse, lex, parse_lex, parse_comments and parse_success? in Ruby:
   # every node, token, comment and diagnostic equal to the C extension's,
   # down to each String's encoding and frozenness.
-  def test_the_entry_points_answer_prisms_fixtures_and_errors_as_the_c_extension_does
-    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
-
-    cases = PrismDiff.cases(%w[fixtures errors], only: "**/*@4.1")
-    assert_operator cases.size, :>, 1200
+  compare("the_entry_points_answer_prisms_fixtures_and_errors_as_the_c_extension_does",
+          upstream_cases(%w[fixtures errors], only: "**/*@4.1"), at_least: 1200) do |cases|
     %i[parse lex parse_lex parse_comments parse_success?].each do |method|
       assert_empty PrismDiff.api(cases, method).first(5), method
     end

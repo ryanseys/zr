@@ -99,17 +99,30 @@ class Aarch64Test < Minitest::Test
     end
   end
 
-  def test_the_runtime_encodes_as_the_gem_does
-    require "aarch64"
-    functions = self.class.runtime
-    names = functions.map(&:name).to_set
-    functions.each do |f|
-      ours = Ze0::Backend::Aarch64::Codegen.new(f, defined: names).compile
-      theirs = Ze0::Backend::Aarch64::Codegen.new(f, defined: names, assembler: Gem).compile
-      assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*"), "#{f.name} encodes differently"
-      assert_equal theirs.relocs, ours.relocs, "#{f.name} relocates differently"
+  # The whole runtime through both encoders, as SHARDS tests over a
+  # quarter of its functions each. A test is one worker's, and as one
+  # test this took a worker 143 s -- the gem builds its methods with
+  # class_eval and encodes slowly -- while the others stood idle. Each
+  # shard lowers the runtime for itself: six seconds and 1.4 GB, which
+  # is why there are four and not eight, and why the process the
+  # workers fork from does not hold one copy for the tier's whole life.
+  SHARDS = 4
+
+  SHARDS.times do |n|
+    define_method("test_the_runtime_encodes_as_the_gem_does_#{n + 1}_of_#{SHARDS}") do
+      require "aarch64"
+      functions = self.class.runtime
+      assert_operator functions.size, :>, 3000
+      names = functions.map(&:name).to_set
+      functions.each_with_index do |f, i|
+        next unless i % SHARDS == n
+
+        ours = Ze0::Backend::Aarch64::Codegen.new(f, defined: names).compile
+        theirs = Ze0::Backend::Aarch64::Codegen.new(f, defined: names, assembler: Gem).compile
+        assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*"), "#{f.name} encodes differently"
+        assert_equal theirs.relocs, ours.relocs, "#{f.name} relocates differently"
+      end
     end
-    assert_operator functions.size, :>, 3000
   end
 
   def test_the_stack_switch_stub_encodes_as_the_gem_does
