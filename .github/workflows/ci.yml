@@ -17,10 +17,28 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
+      # The runtime caches -- the object, the images, the road, the wasm
+      # prelude -- kept between runs under the digest's inputs, so a run
+      # whose lib and rt did not move skips the build's minutes. Not the
+      # unit, parse and binary caches, which are gigabytes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            tmp/rt/rt-*.o
+            tmp/rt/prelink-*.bin
+            tmp/rt/skeleton-*.bin
+            tmp/rt/road-*
+            tmp/rt/wasm-*.marshal
+            tmp/rt/built-*.ok
+          key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'rt/**', '.ruby-version') }}
       - name: Build the runtime for the checks
         run: bundle exec rake build
       - name: Run every test
         run: bundle exec rake test
+      # Every hit of the method cache checked against a fresh lookup,
+      # over the specs that exercise dispatch.
+      - name: Run the dispatch specs with the method cache verified
+        run: ZR_MCACHE=verify bundle exec rake test test/spec/compiler/cache test/spec/compiler/fusion test/spec/lang/methods test/spec/lang/singleton test/spec/lang/refinements
       # rubygems stamps a gem's files with SOURCE_DATE_EPOCH where it is
       # set, and with the clock where not; the commit's own time makes
       # the same commit build the same .gem.
@@ -51,6 +69,32 @@ jobs:
           path: |
             /opt/ze0/smoke/sum.wasm
             /opt/ze0/smoke/sum.o
+
+  # The compiler compiled by itself, twice, to the same bytes: the
+  # proof that a build is a function of its inputs.
+  stage1:
+    name: stage 1 (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - uses: actions/cache@v4
+        with:
+          path: |
+            tmp/rt/rt-*.o
+            tmp/rt/prelink-*.bin
+            tmp/rt/skeleton-*.bin
+            tmp/rt/road-*
+            tmp/rt/wasm-*.marshal
+            tmp/rt/built-*.ok
+          key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'rt/**', '.ruby-version') }}
+      - name: Build the runtime for the checks
+        run: bundle exec rake build
+      - run: bundle exec rake stage1
 
   linux:
     name: gem on a host without native builds (Linux)
@@ -115,6 +159,10 @@ jobs:
           test/unit/os_api_test.rb test/unit/description_test.rb
       - name: Build and run whole programs for this target
         run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e
+      # A slice of the spec tier on this target: the dispatch and the
+      # String specs, where a libc or a link difference would show.
+      - name: Run a slice of the specs for this target
+        run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test test/spec/lang/methods test/spec/core/string
       - name: Write the linux tables again and compare
         run: |
           docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/03b6d3f8898a28604fe6cb00eae3226b821168f4/ext/socket/mkconstants.rb
@@ -131,8 +179,20 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
-      - name: Build the runtime for the checks
-        run: bundle exec rake build
+      # The runtime caches, kept between runs under the digest's inputs:
+      # a run whose lib and rt did not move skips the build's minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            tmp/rt/rt-*.o
+            tmp/rt/prelink-*.bin
+            tmp/rt/skeleton-*.bin
+            tmp/rt/road-*
+            tmp/rt/wasm-*.marshal
+            tmp/rt/built-*.ok
+          key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'rt/**', '.ruby-version') }}
+      - name: Build the runtime for the checks, and the wasm32-wasi one
+        run: bundle exec rake build:all
       - name: Run the units this target answers
         run: >-
           bundle exec rake test
@@ -140,6 +200,10 @@ jobs:
           test/unit/target_test.rb test/unit/description_test.rb
       - name: Build and run whole programs for this target
         run: TARGET=wasm32-wasi bundle exec rake test:e2e
+      # A slice of the spec tier as modules under Winch: the dispatch,
+      # Array and Hash specs. The whole tier is hours of wasmtime.
+      - name: Run a slice of the specs for this target
+        run: TARGET=wasm32-wasi bundle exec rake test test/spec/lang/methods test/spec/core/array test/spec/core/hash
 
   same-bytes:
     name: output does not depend on the host
