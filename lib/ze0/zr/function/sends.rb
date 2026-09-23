@@ -101,8 +101,8 @@ module Ze0
         # them into one Array there), keywords last as a Hash the task
         # flags, then the send.
         def call(node)
-          return call(node.dup.tap { |n| n.name = :__send__ }) if kernel_send?(node)
           return safe_call(node) if node.safe
+          return call(funcall(node)) if kernel_send?(node)
           return primitive(node) if primitive?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
@@ -124,11 +124,26 @@ module Ze0
           end
         end
 
-        # In the runtime's own Ruby, `recv.send(:name, ...)` is Kernel#send,
-        # as rb_funcall is in CRuby's C: a class with a `send` of its own,
-        # BasicSocket's, does not take the call. It goes as `__send__`.
+        # In the runtime's own Ruby, `recv.send(:name, ...)` is rb_funcall
+        # in CRuby's C: the call of `name` itself, private allowed, and
+        # never a class's own `send` (BasicSocket has one). The call goes
+        # through a cell of its own, with no send frame and no lookup by
+        # name, and the core's own row answers for any name but a
+        # protocol's, as for every other call the core makes.
         def kernel_send?(node)
-          @l.internal? && node.name == :send && node.args.first.is_a?(Hir::Literal) && node.args.first.value.is_a?(Symbol)
+          @l.internal? && %i[send __send__].include?(node.name) && node.args.first.is_a?(Hir::Literal) &&
+            node.args.first.value.is_a?(Symbol) && !%i[send __send__ public_send].include?(node.args.first.value)
+        end
+
+        # The call a kernel send names, marked as one that may reach a
+        # private method whatever its receiver (`send_mode`).
+        def funcall(node)
+          named = node.dup.tap do |n|
+            n.name = node.args.first.value
+            n.args = node.args.drop(1)
+          end
+          (@funcalls ||= {}.compare_by_identity)[named] = true
+          named
         end
 
         # `recv&.name(args)`: nil when the receiver is, with the arguments
@@ -330,7 +345,7 @@ module Ze0
         # receiver, 1 for a bare identifier, 2 for an explicit receiver,
         # which visibility applies to.
         def send_mode(node)
-          mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
+          mode = node.vcall ? 1 : (explicit?(node) && !@funcalls&.key?(node) ? 2 : 0)
           mode |= SEND_CORE if @l.internal? && !PROTOCOL.include?(node.name)
           node.using ? mode | SEND_USING : mode
         end
