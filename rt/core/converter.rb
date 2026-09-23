@@ -60,6 +60,9 @@ class Encoding
       end
 
       @unit, @big, @points, @writer, @utf8_out, @jis = Encoding.send(:writing, @destination) if @destination
+      # UTF-16 and UTF-32 write big-endian after a byte order mark, which
+      # comes once, before the first character.
+      @bom = @destination && %w[UTF-16 UTF-32].include?(@destination.name)
       @buffer = +"".b
       @held = +"".b
       @readagain = +"".b
@@ -479,9 +482,26 @@ class Encoding
       Primitive.attr! :hidden
       return point.chr(Encoding::UTF_8).b if @utf8_out
       return jis_bytes_for(point) if @jis
+      return cesu_bytes_for(point) if @destination&.name == "CESU-8"
 
       found = Encoding.send(:point_bytes, point, @unit, @big, @points, @writer)
-      found&.pack("C*")
+      return nil if found.nil?
+
+      if @bom
+        @bom = false
+        found = (@unit == 2 ? [0xFE, 0xFF] : [0, 0, 0xFE, 0xFF]) + found
+      end
+      found.pack("C*")
+    end
+
+    # CESU-8 writes a character past U+FFFF as its two UTF-16 surrogates,
+    # each in the three bytes UTF-8 gives a code point of that size.
+    def cesu_bytes_for(point)
+      Primitive.attr! :hidden
+      return point.chr(Encoding::UTF_8).b if point < 0x10000
+
+      units = [0xD800 + ((point - 0x10000) >> 10), 0xDC00 + ((point - 0x10000) & 0x3FF)]
+      units.map { |u| [0xE0 | (u >> 12), 0x80 | ((u >> 6) & 0x3F), 0x80 | (u & 0x3F)].pack("C*") }.join.b
     end
 
     # ISO-2022-JP holds a state: an escape says that what follows is

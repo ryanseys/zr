@@ -1918,7 +1918,7 @@ class String
   # characters of the receiver taken in those counts.
   def wide_clusters
     Primitive.attr! :hidden
-    chars = characters
+    chars = engine_whole(characters)
     text = chars.map { |c| Primitive.zr_str_valid_p(c) ? c.encode(Encoding::UTF_8) : "\uFFFD" }.join
     at = 0
     OWN[:grapheme_clusters].bind_call(text).map do |cluster|
@@ -1952,6 +1952,26 @@ class String
   # The characters as an Array, walked as each_char walks them, for the
   # methods that read them all: an Enumerator over the receiver would
   # call its each_char again.
+  # The characters up to the first whose lead asks for more bytes than
+  # are left: the engine's `\X` does not match there, and ruby's clusters
+  # end. (A lone lead surrogate in the middle of a UTF-16 string stays
+  # one character here; ruby's engine splits its bytes.)
+  def engine_whole(chars)
+    Primitive.attr! :hidden
+    name = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name
+    return chars if name == "CESU-8"
+
+    size = Primitive.zr_str_bytesize(self)
+    at = 0
+    chars.take_while do |c|
+      lead = name.end_with?("LE") ? c.getbyte(1) : c.getbyte(0)
+      want = name.start_with?("UTF-32") || (lead && lead & 0xFC == 0xD8) ? 4 : 2
+      whole = at + want <= size
+      at += Primitive.zr_str_bytesize(c)
+      whole
+    end
+  end
+
   def characters
     Primitive.attr! :hidden
     out = []

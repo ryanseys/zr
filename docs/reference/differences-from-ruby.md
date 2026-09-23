@@ -35,3 +35,4 @@ eval, to_binary and each_child as ruby does" holds the parts of
 | What | ze0 | ruby 4.0.6 |
 |---|---|---|
 | A second deadlock after a deadlock that the program rescued (a thread waits on a Queue that no thread feeds, the program rescues the `fatal`, then the main thread waits again) | raises `fatal` "No live threads left. Deadlock?" again | hangs |
+| `String#grapheme_clusters` of a UTF-16 string with a lone lead surrogate before other characters, such as `"a\x00\x00\xD8b\x00"` in UTF-16LE | each character stays whole: `["a\x00", "\x00\xD8", "b\x00"]` | the engine splits the code units: `["a\x00", "\x00", "\xD8b"]` |

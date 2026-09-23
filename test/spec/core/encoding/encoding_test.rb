@@ -1688,8 +1688,6 @@ describe "Encoding programs" do
   end
 
   it "an Encoding::Converter to CESU-8 or to UTF-16" do
-    skip "a Converter to CESU-8 raises, and one to UTF-16 writes no BOM"
-
     result = ze0(<<~'RUBY')
       def t(from, to, s)
         c = Encoding::Converter.new(from, to)
@@ -1759,8 +1757,6 @@ describe "Encoding programs" do
   end
 
   it "scrub and grapheme_clusters of broken UTF-32" do
-    skip "UTF-32 scrub answers where ruby raises, and grapheme_clusters counts one piece too many"
-
     result = ze0(<<~'RUBY')
       s = "a\x00\x00\x00\xFF\xFF\xFF\xFFb\x00\x00".b.force_encoding("UTF-32LE")
       p [s.valid_encoding?, (s.scrub("?") rescue [$!.class, $!.message])]
