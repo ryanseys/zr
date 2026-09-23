@@ -1,53 +1,53 @@
 (seq
   (send self puts
     (send upcase
-      (frozen "abc"))
+      (frozen shared "abc"))
     (send downcase
-      (frozen "ABC"))
+      (frozen shared "ABC"))
     (send length
-      (frozen "abc"))
+      (frozen shared "abc"))
     (send reverse
-      (frozen "abc"))
+      (frozen shared "abc"))
     (send +
-      (frozen "a")
-      (frozen "b"))
+      (frozen shared "a")
+      (frozen shared "b"))
     (send *
-      (frozen "ab")
+      (frozen shared "ab")
       (int 3)))
   (assign s
-    (frozen "hello"))
+    (frozen shared "hello"))
   (send self puts
     (send capitalize
       (local s))
     (send include?
       (local s)
-      (frozen "ell"))
+      (frozen shared "ell"))
     (send index
       (local s)
-      (frozen "l"))
+      (frozen shared "l"))
     (send inspect
       (send index
         (local s)
-        (frozen "zz"))))
+        (frozen shared "zz"))))
   (send self p
     (send succ
-      (frozen "x"))
+      (frozen shared "x"))
     (send succ
-      (frozen "az"))
+      (frozen shared "az"))
     (send succ
-      (frozen "zz"))
+      (frozen shared "zz"))
     (send succ
-      (frozen "a9"))
+      (frozen shared "a9"))
     (send succ
-      (frozen "Zz"))
+      (frozen shared "Zz"))
     (send succ
-      (frozen "1.9"))
+      (frozen shared "1.9"))
     (send succ
-      (frozen "-"))
+      (frozen shared "-"))
     (send succ
-      (frozen "")))
+      (frozen shared "")))
   (assign name
-    (frozen "world"))
+    (frozen shared "world"))
   (assign count
     (int 3))
   (def wrap (x) locals (x)
@@ -83,7 +83,7 @@
       (str " ")
       (seq
         (send self wrap
-          (frozen "two")))
+          (frozen shared "two")))
       (str " ")
       (seq
         (send self wrap
@@ -94,25 +94,25 @@
           (int 1)
           (sym :a)))))
   (assign t
-    (frozen "x"))
+    (frozen shared "x"))
   (assign t
     (send +
       (local t)
-      (frozen "y")))
+      (frozen shared "y")))
   (send self p
     (local t)
     (send ==
       (local t)
-      (frozen "xy"))
+      (frozen shared "xy"))
     (send !=
       (local t)
-      (frozen "xy"))
+      (frozen shared "xy"))
     (send empty?
       (local t))
     (send empty?
-      (frozen ""))
+      (frozen shared ""))
     (send to_sym
-      (frozen "ab"))
+      (frozen shared "ab"))
     (send frozen?
       (local s))
     (send frozen?
@@ -122,14 +122,14 @@
         (local s))))
   (assign u
     (send dup
-      (frozen "a")))
+      (frozen shared "a")))
   (send <<
     (send <<
       (local u)
-      (frozen "b"))
-    (frozen "c"))
+      (frozen shared "b"))
+    (frozen shared "c"))
   (send self p
     (local u))
   (send <<
     (local s)
-    (frozen "!")))
+    (frozen shared "!")))

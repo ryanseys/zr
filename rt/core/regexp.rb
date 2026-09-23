@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Regexp and MatchData over Regexp::Onig (rt/core/regexp/onig, the
 # compiler) and the kernel's matcher (rt/kernel/onig_*.rb). A match
 # answers byte offsets; MatchData turns them into strings and
@@ -20,7 +22,7 @@ class Regexp
   # `super`.
   def initialize(source, options = nil, timeout: nil)
     Primitive.zr_frozen_error(self) if frozen?
-    raise TypeError, "already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
+    raise TypeError, +"already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
 
     copied = source.is_a?(Regexp)
     if copied
@@ -75,7 +77,7 @@ class Regexp
     fragments.each do |fragment|
       encoding = fragment.encoding
       if bits & NOENCODING != 0 && encoding != Encoding::BINARY
-        raise RegexpError, "/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless fragment.ascii_only?
+        raise RegexpError, +"/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless fragment.ascii_only?
 
         encoding = Encoding::BINARY
       end
@@ -91,7 +93,7 @@ class Regexp
       end
       out = out ? out << fragment : fragment.dup
     end
-    raise ArgumentError, "no arguments given" if out.nil?
+    raise ArgumentError, +"no arguments given" if out.nil?
 
     fixed ? out.force_encoding(fixed) : out
   end
@@ -154,8 +156,8 @@ class Regexp
     return self if equal?(other)
 
     Primitive.zr_frozen_error(self) if frozen?
-    raise TypeError, "initialize_copy should take same class object" unless other.instance_of?(self.class)
-    raise TypeError, "already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
+    raise TypeError, +"initialize_copy should take same class object" unless other.instance_of?(self.class)
+    raise TypeError, +"already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
 
     Primitive.zr_regexp_copy_from(self, other)
     self
@@ -288,7 +290,7 @@ class Regexp
   def self.union(*patterns)
     listed = patterns.size == 1 ? Array.try_convert(patterns[0]) : nil
     patterns = listed if listed
-    return new("(?!)") if patterns.empty?
+    return new(+"(?!)") if patterns.empty?
 
     if patterns.size == 1
       return Regexp.try_convert(patterns[0]) || new(escape(patterns[0]))
@@ -365,7 +367,7 @@ class Regexp
   def pattern
     Primitive.attr! :hidden
     text = Primitive.zr_regexp_source(self)
-    raise TypeError, "uninitialized Regexp" unless text
+    raise TypeError, +"uninitialized Regexp" unless text
 
     text
   end
@@ -504,15 +506,15 @@ class Regexp
     i = 0
     while i < source.size
       c = source[i]
-      if c == "\\"
+      if c == +"\\"
         return true if !in_class && backref_escape?(source, i + 1, captures)
 
         i += 1
-      elsif c == "["
+      elsif c == +"["
         in_class = true
-      elsif c == "]"
+      elsif c == +"]"
         in_class = false
-      elsif c == "(" && !in_class && source[i, 3] == "(?~"
+      elsif c == +"(" && !in_class && source[i, 3] == +"(?~"
         return true
       end
       i += 1
@@ -526,8 +528,8 @@ class Regexp
   # with a zero, is an octal escape.
   def self.backref_escape?(source, i, captures)
     c = source[i]
-    return (source[i + 1] == "<" || source[i + 1] == "'") if c == "k" || c == "g"
-    return false unless c && c >= "1" && c <= "9"
+    return (source[i + 1] == +"<" || source[i + 1] == +"'") if c == +"k" || c == +"g"
+    return false unless c && c >= +"1" && c <= +"9"
 
     digits = source[i..].slice(/\A\d+/)
     digits.to_i <= captures
@@ -548,7 +550,7 @@ class Regexp
     Primitive.attr! :hidden
     return 0 if seconds.nil?
 
-    raise TypeError, "no implicit conversion to float from string" if seconds.is_a?(String)
+    raise TypeError, +"no implicit conversion to float from string" if seconds.is_a?(String)
     raise TypeError, "no implicit conversion to float from #{seconds}" if seconds == true || seconds == false
     raise TypeError, "can't convert #{seconds.class} into Float" unless seconds.is_a?(Numeric)
     raise ArgumentError, "invalid timeout: #{seconds}" unless seconds.to_f.positive?

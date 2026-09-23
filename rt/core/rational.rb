@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Rational: an exact fraction of two Integers, the denominator positive
 # and the pair reduced. CRuby keeps them in hidden fields; here they are
 # hidden ivars, so a Rational shows no instance variables.
@@ -8,7 +10,7 @@ class Rational < Numeric
     # A reduced fraction; `d` must not be zero.
     def build(n, d)
       Primitive.attr! :hidden
-      raise ZeroDivisionError, "divided by 0" if d == 0
+      raise ZeroDivisionError, +"divided by 0" if d == 0
 
       if d < 0
         n = -n
@@ -42,7 +44,7 @@ class Rational < Numeric
       when nil
         return nil unless exception
 
-        raise TypeError, "can't convert nil into Rational"
+        raise TypeError, +"can't convert nil into Rational"
       else
         if value.respond_to?(:to_r)
           value.to_r
@@ -75,9 +77,9 @@ class Rational < Numeric
         d *= 10**(-e)
       end
       d *= m[5].delete("_").to_i if m[5]
-      raise ZeroDivisionError, "divided by 0" if d == 0
+      raise ZeroDivisionError, +"divided by 0" if d == 0
 
-      n = -n if m[1] == "-"
+      n = -n if m[1] == +"-"
       build(n, d)
     end
     private :parse
@@ -96,7 +98,7 @@ class Rational < Numeric
 
   def to_s = formatted(:to_s)
 
-  def inspect = String.new("(", encoding: Encoding::US_ASCII) << formatted(:inspect) << ")"
+  def inspect = String.new(+"(", encoding: Encoding::US_ASCII) << formatted(:inspect) << ")"
 
   def hash = [numerator, denominator, :Rational].hash
 
@@ -140,11 +142,11 @@ class Rational < Numeric
   def /(other)
     case other
     when Integer
-      raise ZeroDivisionError, "divided by 0" if other == 0
+      raise ZeroDivisionError, +"divided by 0" if other == 0
 
       Rational.send(:build, numerator, denominator * other)
     when Rational
-      raise ZeroDivisionError, "divided by 0" if other.numerator == 0
+      raise ZeroDivisionError, +"divided by 0" if other.numerator == 0
 
       Rational.send(:build, numerator * other.denominator, denominator * other.numerator)
     when Float then to_f / other
@@ -163,7 +165,7 @@ class Rational < Numeric
       if other >= 0
         Rational.send(:build, numerator**other, denominator**other)
       else
-        raise ZeroDivisionError, "divided by 0" if numerator == 0
+        raise ZeroDivisionError, +"divided by 0" if numerator == 0
 
         Rational.send(:build, denominator**-other, numerator**-other)
       end
@@ -263,7 +265,7 @@ class Rational < Numeric
   # fewer, the block deciding how `n / d` rounds.
   def rounded(digits)
     Primitive.attr! :hidden
-    raise TypeError, "not an integer" unless digits.is_a?(Integer)
+    raise TypeError, +"not an integer" unless digits.is_a?(Integer)
 
     if digits > 0
       scale = 10**digits
@@ -293,7 +295,7 @@ module Kernel
       x = Rational.send(:convert, a, exception)
       y = Rational.send(:convert, b, exception)
       return nil if x.nil? || y.nil?
-      raise ZeroDivisionError, "divided by 0" if y == 0
+      raise ZeroDivisionError, +"divided by 0" if y == 0
 
       r = x / y
       r.is_a?(Rational) ? r : Rational.send(:convert, r, exception)

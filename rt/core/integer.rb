@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Integer over the kernel's arithmetic.
 class Integer
   alias inspect to_s
@@ -88,10 +90,10 @@ class Integer
 
   def pow(exponent, modulus = nil)
     return self**exponent if modulus.nil?
-    raise TypeError, "Integer#pow() 2nd argument not allowed unless a 1st argument is integer" unless exponent.is_a?(Integer)
-    raise TypeError, "Integer#pow() 2nd argument not allowed unless all arguments are integers" unless modulus.is_a?(Integer)
-    raise ZeroDivisionError, "divided by 0" if modulus.zero?
-    raise RangeError, "Integer#pow() 1st argument cannot be negative when 2nd argument specified" if exponent < 0
+    raise TypeError, +"Integer#pow() 2nd argument not allowed unless a 1st argument is integer" unless exponent.is_a?(Integer)
+    raise TypeError, +"Integer#pow() 2nd argument not allowed unless all arguments are integers" unless modulus.is_a?(Integer)
+    raise ZeroDivisionError, +"divided by 0" if modulus.zero?
+    raise RangeError, +"Integer#pow() 1st argument cannot be negative when 2nd argument specified" if exponent < 0
 
     result = 1
     base = self % modulus
@@ -121,7 +123,7 @@ class Integer
         high += 1 unless bit.exclude_end?
         return 0 if (self & ((1 << high) - 1)) == 0
 
-        raise ArgumentError, "The beginless range for Integer#[] results in infinity"
+        raise ArgumentError, +"The beginless range for Integer#[] results in infinity"
       end
       shifted = self >> low
       return shifted if high.nil? || low > high
@@ -156,10 +158,10 @@ class Integer
       index = Encoding.carried(encoding)
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
       return (+"").force_encoding(encoding).send(:append_unit_point, self) if Encoding.wide?(encoding)
-      if encoding.equal?(Encoding::UTF_8) || Encoding.send(:utf8_like?, encoding) || encoding.name == "CESU-8"
+      if encoding.equal?(Encoding::UTF_8) || Encoding.send(:utf8_like?, encoding) || encoding.name == +"CESU-8"
         raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 0x10FFFF
         raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in #{encoding.name}" if self >= 0xD800 && self <= 0xDFFF
-        return (+"" << self).force_encoding(encoding) unless encoding.name == "CESU-8"
+        return (+"" << self).force_encoding(encoding) unless encoding.name == +"CESU-8"
 
         return Encoding.send(:cesu8_bytes, self).pack("C*").force_encoding(encoding)
       end
@@ -265,7 +267,7 @@ class Integer
   def gcdlcm(other) = [gcd(other), lcm(other)]
 
   def gcd(other)
-    raise TypeError, "not an integer" unless other.is_a?(Integer)
+    raise TypeError, +"not an integer" unless other.is_a?(Integer)
 
     a = abs
     b = other.abs
@@ -274,7 +276,7 @@ class Integer
   end
 
   def lcm(other)
-    raise TypeError, "not an integer" unless other.is_a?(Integer)
+    raise TypeError, +"not an integer" unless other.is_a?(Integer)
     return 0 if zero? || other.zero?
 
     (self * other).abs / gcd(other)
@@ -290,9 +292,9 @@ class Integer
 
   def digits(base = 10)
     base = to_integer(base)
-    raise ArgumentError, "negative radix" if base < 0
+    raise ArgumentError, +"negative radix" if base < 0
     raise ArgumentError, "invalid radix #{base}" if base < 2
-    raise Math::DomainError, "out of domain" if negative?
+    raise Math::DomainError, +"out of domain" if negative?
 
     return [0] if zero?
 
@@ -360,7 +362,7 @@ class Integer
   def self.sqrt(n)
     value = Integer.try_convert(n)
     raise TypeError, "no implicit conversion of #{conversion_name(n)} into Integer" if value.nil?
-    raise Math::DomainError, 'Numerical argument is out of domain - "isqrt"' if value < 0
+    raise Math::DomainError, +'Numerical argument is out of domain - "isqrt"' if value < 0
     return value if value < 2
 
     n = value
@@ -454,7 +456,7 @@ class Numeric
   def infinite? = nil
 
   def div(other)
-    raise ZeroDivisionError, "divided by 0" if other == 0
+    raise ZeroDivisionError, +"divided by 0" if other == 0
 
     (self / other).floor
   end
@@ -524,18 +526,18 @@ class Numeric
 
     limit, step = args
     if kwargs.key?(:to)
-      raise ArgumentError, "to is given twice" unless args.empty?
+      raise ArgumentError, +"to is given twice" unless args.empty?
 
       limit = kwargs[:to]
     end
     if kwargs.key?(:by)
-      raise ArgumentError, "step is given twice" if args.size > 1
+      raise ArgumentError, +"step is given twice" if args.size > 1
 
       step = kwargs[:by]
     elsif block && args.size > 1 && step.nil?
-      raise TypeError, "step must be numeric"
+      raise TypeError, +"step must be numeric"
     end
-    raise ArgumentError, "step can't be 0" if !step.nil? && step == 0
+    raise ArgumentError, +"step can't be 0" if !step.nil? && step == 0
 
     step = 1 if step.nil?
     unless block

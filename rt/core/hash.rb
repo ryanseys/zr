@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Hash over the kernel's table: each, [], []=, fetch, delete, keys and
 # values come from the kernel; the rest is written over them. A walk of
 # a Hash's own table is Primitive.zr_hash_foreach, which a subclass's
@@ -47,7 +49,7 @@ class Hash
       end
       return out
     end
-    raise ArgumentError, "odd number of arguments for Hash" if args.size.odd?
+    raise ArgumentError, +"odd number of arguments for Hash" if args.size.odd?
 
     out = allocate
     args.each_slice(2) { |k, v| Primitive.zr_hash_aset_m(out, k, v) }
@@ -262,7 +264,7 @@ class Hash
   def replace(other)
     Primitive.zr_frozen_error(self) if frozen?
     return self if equal?(other)
-    raise RuntimeError, "can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
+    raise RuntimeError, +"can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
 
     hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
     Primitive.zr_hash_replace_m(self, hash)

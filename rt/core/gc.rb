@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The collector as Ruby sees it: one heap, collected on demand. CRuby
 # writes most of GC in Ruby (its gc.rb), so those methods answer their
 # own parameters, under CRuby's names.
@@ -54,7 +56,7 @@ module GC
     when Symbol
       stats.fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
     else
-      raise TypeError, "non-hash or symbol given"
+      raise TypeError, +"non-hash or symbol given"
     end
   end
 
@@ -93,7 +95,7 @@ module GC
 
       def total_time = 0.0
 
-      def result = ""
+      def result = +""
 
       # The rows of each run since the profiler was enabled: this
       # collector keeps none, so the list is empty.
@@ -155,10 +157,10 @@ module GC
   # The one setting CRuby's default collector takes, kept as it is set.
   def self.config(hash = nil)
     Primitive.attr! :ruby
-    raise ArgumentError, "ArgumentError" unless hash.nil? || hash.is_a?(Hash)
+    raise ArgumentError, +"ArgumentError" unless hash.nil? || hash.is_a?(Hash)
 
     CONFIG[:rgengc_allow_full_mark] = hash[:rgengc_allow_full_mark] ? true : false if hash&.key?(:rgengc_allow_full_mark)
-    { **CONFIG, implementation: "default" }
+    { **CONFIG, implementation: +"default" }
   end
 
   # The four pools of 32, 64, 128 and 256-byte cells, and a fifth that
@@ -172,20 +174,20 @@ module GC
   def self.stat_heap(heap_name = nil, hash_or_key = nil)
     Primitive.attr! :ruby
     if heap_name.nil?
-      raise TypeError, "non-hash given" unless hash_or_key.nil? || hash_or_key.is_a?(Hash)
+      raise TypeError, +"non-hash given" unless hash_or_key.nil? || hash_or_key.is_a?(Hash)
 
       out = hash_or_key || {}
       POOLS.times { |pool| out[pool] = pool_stats(pool, out[pool].is_a?(Hash) ? out[pool] : {}) }
       return out
     end
-    raise TypeError, "heap_name must be nil or an Integer" unless heap_name.is_a?(Integer)
-    raise ArgumentError, "size pool index out of range" unless (0...POOLS).cover?(heap_name)
+    raise TypeError, +"heap_name must be nil or an Integer" unless heap_name.is_a?(Integer)
+    raise ArgumentError, +"size pool index out of range" unless (0...POOLS).cover?(heap_name)
 
     case hash_or_key
     when nil then pool_stats(heap_name, {})
     when Hash then pool_stats(heap_name, hash_or_key)
     when Symbol then pool_stats(heap_name, {}).fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
-    else raise TypeError, "non-hash or symbol given"
+    else raise TypeError, +"non-hash or symbol given"
     end
   end
 

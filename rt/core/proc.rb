@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Proc and Method: composition and currying, written over `call`.
 class Proc
   # The scope the block was written in.
@@ -57,7 +59,7 @@ class Proc
 
   def self.callable(other)
     Primitive.attr! :hidden
-    raise TypeError, "callable object is expected" unless other.respond_to?(:call)
+    raise TypeError, +"callable object is expected" unless other.respond_to?(:call)
 
     other
   end

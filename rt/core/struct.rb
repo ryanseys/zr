@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Struct: `Struct.new` makes a class whose instances hold one value
 # per member. The members sit in a hidden instance variable of the
 # class and the values in one of the instance, as CRuby keeps them, so
@@ -111,7 +113,7 @@ class Struct
 
       keywords.each { |k, v| values[members.index(k)] = v }
     else
-      raise ArgumentError, "struct size differs" if given > count
+      raise ArgumentError, +"struct size differs" if given > count
 
       i = 0
       while i < given
@@ -238,7 +240,7 @@ class Struct
     return Primitive.zr_obj_form("#<struct #{path}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     name = path unless path.start_with?("#")
-    head = name ? "#<struct #{name}" : "#<struct"
+    head = name ? "#<struct #{name}" : +"#<struct"
 
     begin
       pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }

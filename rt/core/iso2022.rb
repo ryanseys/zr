@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The ISO-2022-JP family: stateful encodings, whose two-byte characters
 # stand between escapes. Ruby converts one through a multibyte encoding
 # that holds the same characters without a state: ISO-2022-JP through
@@ -97,7 +99,7 @@ class Encoding
   # no set for: the replacement the caller asked for, else ruby's error.
   def self.stateful_undefined(piece, base, step, path, options)
     Primitive.attr! :hidden
-    return options[:replace] || "?" if options[:undef] == :replace || options[:invalid] == :replace
+    return options[:replace] || +"?" if options[:undef] == :replace || options[:invalid] == :replace
 
     message = "#{piece.dump} to #{step.name} in conversion from #{path.map(&:name).join(' to ')}"
     raise send(:char_error, message, base, step, piece.dup.force_encoding(base))
@@ -194,10 +196,10 @@ class Encoding
       end
       wide = FULLWIDTH[index]
       last = out[-1]
-      if joins && wide == "゛" && VOICED.include?(last)
+      if joins && wide == +"゛" && VOICED.include?(last)
         out[-1] = (last.ord + 1).chr(UTF_8)
         joins = false
-      elsif joins && wide == "゜" && SEMI_VOICED.include?(last)
+      elsif joins && wide == +"゜" && SEMI_VOICED.include?(last)
         out[-1] = (last.ord + 2).chr(UTF_8)
         joins = false
       else

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Module's comparisons over the ancestor chain, and the hooks a program
 # may override, which do nothing here.
 class Module
@@ -25,7 +27,7 @@ class Module
   def mixin(modules, splice, hook)
     Primitive.attr! :hidden
     n = Primitive.zr_ary_len_m(modules)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if n == 0
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if n == 0
 
     i = 0
     while i < n
@@ -48,7 +50,7 @@ class Module
   private :mixin
 
   def <(other)
-    raise TypeError, "compared with non class/module" unless other.is_a?(Module)
+    raise TypeError, +"compared with non class/module" unless other.is_a?(Module)
     return false if equal?(other)
     return true if ancestors.include?(other)
 
@@ -60,7 +62,7 @@ class Module
   end
 
   def >(other)
-    raise TypeError, "compared with non class/module" unless other.is_a?(Module)
+    raise TypeError, +"compared with non class/module" unless other.is_a?(Module)
     return false if equal?(other)
 
     r = other < self
@@ -104,7 +106,7 @@ module Kernel
     return self if equal?(orig)
 
     Primitive.zr_frozen_error(self) if frozen?
-    raise TypeError, "initialize_copy should take same class object" unless orig.instance_of?(self.class)
+    raise TypeError, +"initialize_copy should take same class object" unless orig.instance_of?(self.class)
 
     self
   end
@@ -184,7 +186,7 @@ class Module
   # `refine C do ... end`: the methods go in a holder module, never on
   # C itself, so they stay invisible until a `using` names this module.
   def refine(target, &block)
-    raise ArgumentError, "no block given" unless block
+    raise ArgumentError, +"no block given" unless block
     raise TypeError, "wrong argument type #{conversion_name(target)} (expected Class or Module)" unless target.is_a?(Module)
 
     table = (@__refinements__ ||= {})
@@ -205,7 +207,7 @@ class Module
   # `using` does its work where it is written, which the compiler sees;
   # anywhere else it is the refusal.
   def using(mod)
-    raise RuntimeError, "Module#using is not permitted in methods"
+    raise RuntimeError, +"Module#using is not permitted in methods"
   end
   private :using
 
@@ -287,7 +289,7 @@ class << self
   # Only the compiler activates a refinement, where the source writes
   # the `using`; the method itself is the refusal every other spot gets.
   def using(mod)
-    raise RuntimeError, "main.using is permitted only at toplevel"
+    raise RuntimeError, +"main.using is permitted only at toplevel"
   end
 
   private :using

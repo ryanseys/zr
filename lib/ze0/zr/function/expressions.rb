@@ -56,7 +56,12 @@ module Ze0
             checked(kernel("zr_regexp_literal", site_word, @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
           when Hir::IvarRead then ivar_read(node)
-          when Hir::FrozenString then checked(string_literal(node.value, node.shared ? "zr_str_literal_shared" : "zr_str_literal_freeze"))
+          when Hir::FrozenString
+            fn = if node.shared then "zr_str_literal_shared"
+                 elsif node.shared == false then "zr_str_frozen"
+                 else "zr_str_literal_freeze"
+                 end
+            checked(string_literal(node.value, fn))
           when Hir::GvarRead then gvar_read(node)
           when Hir::BackRef then back_ref(node)
           when Hir::GvarWrite then gvar_write(node, expr(node.value))

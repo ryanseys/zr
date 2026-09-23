@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # One conversion, held open between the pieces of text it is given. A
 # piece that ends inside a character keeps its tail until the next piece
 # arrives, output that will not fit in the destination waits for room,
@@ -32,7 +34,7 @@ class Encoding
     private_constant :SHOWN, :WALKED, :NAMES, :PATH_NAMES, :BITS, :MARKS, :QUOTED
 
     def initialize(source, destination, flags = nil, **options)
-      raise TypeError, "already initialized" if defined?(@path)
+      raise TypeError, +"already initialized" if defined?(@path)
 
       @flags = 0
       @decorators = []
@@ -137,7 +139,7 @@ class Encoding
       begin
         written(text)
       rescue EncodingError
-        raise UndefinedConversionError, "replacement character setup failed"
+        raise UndefinedConversionError, +"replacement character setup failed"
       end
       @replacement = text
     end
@@ -145,7 +147,7 @@ class Encoding
     # Every whole character of `text`, converted. What the text ends
     # inside waits for the next piece, as `:partial_input` asks.
     def convert(text)
-      raise ArgumentError, "converter already finished" if @finished
+      raise ArgumentError, +"converter already finished" if @finished
 
       out = +"".b
       run(Converter.send(:string_of, text), out, nil, true)
@@ -185,9 +187,9 @@ class Encoding
     # far it got, in ruby's own words. Both Strings are changed in place,
     # as CRuby changes them.
     def primitive_convert(source, destination, offset = nil, size = nil, flags = nil, **options)
-      raise ArgumentError, "negative output_byteoffset" if offset&.negative?
-      raise ArgumentError, "output_byteoffset too big" if offset && offset > destination.bytesize
-      raise ArgumentError, "negative output_bytesize" if size&.negative?
+      raise ArgumentError, +"negative output_byteoffset" if offset&.negative?
+      raise ArgumentError, +"output_byteoffset too big" if offset && offset > destination.bytesize
+      raise ArgumentError, +"negative output_bytesize" if size&.negative?
 
       destination.replace(destination.byteslice(0, offset)) if offset
       out = +"".b
@@ -252,8 +254,8 @@ class Encoding
     def description(whole = false)
       Primitive.attr! :hidden
       shown = SHOWN.select { |name| @decorators.include?(name) }.map { |name| NAMES[name] }.join(",")
-      return shown.empty? ? "" : " with #{shown}" unless whole
-      return shown.empty? ? "no-conversion" : shown if @path.empty?
+      return shown.empty? ? +"" : " with #{shown}" unless whole
+      return shown.empty? ? +"no-conversion" : shown if @path.empty?
 
       "#{@source.name} to #{@destination.name}#{shown.empty? ? '' : " with #{shown}"}"
     end
@@ -482,7 +484,7 @@ class Encoding
       Primitive.attr! :hidden
       return point.chr(Encoding::UTF_8).b if @utf8_out
       return jis_bytes_for(point) if @jis
-      return cesu_bytes_for(point) if @destination&.name == "CESU-8"
+      return cesu_bytes_for(point) if @destination&.name == +"CESU-8"
 
       found = Encoding.send(:point_bytes, point, @unit, @big, @points, @writer)
       return nil if found.nil?

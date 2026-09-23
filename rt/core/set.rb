@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # set.c, in ruby: Ruby 4.0's core Set. Its table is a Hash from each
 # member to true, in insertion order, kept in a hidden slot as the C
 # struct keeps its set_table, so a program sees no instance variable on
@@ -14,7 +16,7 @@ class Set
   end
 
   def initialize(enum = nil, &block)
-    raise RuntimeError, "cannot reinitialize set" if Primitive.zr_hidden_get(self, :__initialized__)
+    raise RuntimeError, +"cannot reinitialize set" if Primitive.zr_hidden_get(self, :__initialized__)
 
     Primitive.zr_state_set(self, :__initialized__, true)
     into = table
@@ -36,7 +38,7 @@ class Set
   def copy_from(other)
     Primitive.attr! :hidden
     return self if equal?(other)
-    raise RuntimeError, "cannot replace set during iteration" if iterating?
+    raise RuntimeError, +"cannot replace set during iteration" if iterating?
     raise TypeError, "wrong argument type #{Primitive.zr_class_name_of(other)} (expected set)" unless other.is_a?(Set)
 
     source = other.send(:table)
@@ -106,7 +108,7 @@ class Set
   def add(item)
     check_frozen
     if iterating?
-      raise RuntimeError, "can't add a new item into set during iteration" unless table.key?(item)
+      raise RuntimeError, +"can't add a new item into set during iteration" unless table.key?(item)
     else
       table[item] = true
     end
@@ -117,7 +119,7 @@ class Set
   def add?(item)
     check_frozen
     if iterating?
-      raise RuntimeError, "can't add a new item into set during iteration" unless table.key?(item)
+      raise RuntimeError, +"can't add a new item into set during iteration" unless table.key?(item)
 
       return nil
     end
@@ -168,7 +170,7 @@ class Set
 
   def compare_by_identity
     return self if table.compare_by_identity?
-    raise RuntimeError, "compare_by_identity during iteration" if iterating?
+    raise RuntimeError, +"compare_by_identity during iteration" if iterating?
 
     rebuild({}.compare_by_identity)
   end
@@ -285,7 +287,7 @@ class Set
     elsif other.is_a?(Enumerable)
       other.any?(self)
     else
-      raise ArgumentError, "value must be enumerable"
+      raise ArgumentError, +"value must be enumerable"
     end
   end
 
@@ -300,8 +302,8 @@ class Set
   end
 
   def merge(*sets, **kwargs)
-    raise ArgumentError, "no keywords accepted" unless kwargs.empty?
-    raise RuntimeError, "cannot add to set during iteration" if iterating?
+    raise ArgumentError, +"no keywords accepted" unless kwargs.empty?
+    raise RuntimeError, +"cannot add to set during iteration" if iterating?
 
     check_frozen
     sets.each { |other| merge_from(other) }
@@ -332,7 +334,7 @@ class Set
   def replace(other)
     check_frozen
     return copy_from(other) if other.is_a?(Set)
-    raise RuntimeError, "cannot replace set during iteration" if iterating?
+    raise RuntimeError, +"cannot replace set during iteration" if iterating?
 
     Set.send(:enum_method, other)
     table.clear
@@ -340,7 +342,7 @@ class Set
   end
 
   def reset
-    raise RuntimeError, "reset during iteration" if iterating?
+    raise RuntimeError, +"reset during iteration" if iterating?
 
     rebuild(table.compare_by_identity? ? {}.compare_by_identity : {})
   end
@@ -430,7 +432,7 @@ class Set
       elsif enum.respond_to?(:each)
         enum.each(&block) if block
       else
-        raise ArgumentError, "value must be enumerable"
+        raise ArgumentError, +"value must be enumerable"
       end
     end
     private :do_with_enum
@@ -461,7 +463,7 @@ class Set
         if e.is_a?(Set)
           case seen[e_id = e.object_id]
           when true
-            raise ArgumentError, "tried to flatten recursive Set"
+            raise ArgumentError, +"tried to flatten recursive Set"
           when false
             next
           end
@@ -493,7 +495,7 @@ class Set
       when set.is_a?(Set)
         size >= set.size && set.all?(self)
       else
-        raise ArgumentError, "value must be a set"
+        raise ArgumentError, +"value must be a set"
       end
     end
     alias >= superset?
@@ -505,7 +507,7 @@ class Set
       when set.is_a?(Set)
         size > set.size && set.all?(self)
       else
-        raise ArgumentError, "value must be a set"
+        raise ArgumentError, +"value must be a set"
       end
     end
     alias > proper_superset?
@@ -517,7 +519,7 @@ class Set
       when set.is_a?(Set)
         size <= set.size && all?(set)
       else
-        raise ArgumentError, "value must be a set"
+        raise ArgumentError, +"value must be a set"
       end
     end
     alias <= subset?
@@ -529,7 +531,7 @@ class Set
       when set.is_a?(Set)
         size < set.size && all?(set)
       else
-        raise ArgumentError, "value must be a set"
+        raise ArgumentError, +"value must be a set"
       end
     end
     alias < proper_subset?
@@ -555,7 +557,7 @@ class Set
       when Enumerable
         set.any?(self)
       else
-        raise ArgumentError, "value must be enumerable"
+        raise ArgumentError, +"value must be enumerable"
       end
     end
 
@@ -751,7 +753,7 @@ class Set
       return :each_entry if other.respond_to?(:each_entry)
       return :each if other.respond_to?(:each)
 
-      raise ArgumentError, "value must be enumerable"
+      raise ArgumentError, +"value must be enumerable"
     end
   end
 
@@ -813,7 +815,7 @@ class Set
 
   def set_arg(other)
     Primitive.attr! :hidden
-    raise ArgumentError, "value must be a set" unless other.is_a?(Set)
+    raise ArgumentError, +"value must be a set" unless other.is_a?(Set)
 
     other
   end
@@ -860,7 +862,7 @@ class Set
       if item.is_a?(Set)
         case seen[item.object_id]
         when false then next
-        when true then raise ArgumentError, "tried to flatten recursive Set"
+        when true then raise ArgumentError, +"tried to flatten recursive Set"
         end
         seen[item.object_id] = true
         flatten_into(into, item, seen)

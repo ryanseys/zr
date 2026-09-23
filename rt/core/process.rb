@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Child processes: `system`, backticks and Process.spawn over
 # posix_spawn. A single command string goes through /bin/sh when it
 # holds shell syntax or starts with a shell word; else its words run
@@ -33,7 +35,7 @@ module Process
     end
     return Primitive.zr_proc_wait(pid, flags) if flags.anybits?(WNOHANG) || !Primitive.zr_threaded || Thread.send(:alone?)
 
-    fd = Primitive.zr_chld_fd(Signal.list.fetch("CHLD"))
+    fd = Primitive.zr_chld_fd(Signal.list.fetch(+"CHLD"))
     return Primitive.zr_proc_wait(pid, flags) if fd.negative?
 
     loop do
@@ -171,7 +173,7 @@ module Process
       soft, hard = if limits.nil? then [value, value]
                    elsif limits.size == 1 then [limits[0], limits[0]]
                    elsif limits.size == 2 then limits
-                   else raise ArgumentError, "wrong exec rlimit option"
+                   else raise ArgumentError, +"wrong exec rlimit option"
                    end
       @limits.push(resource, Process.send(:signed, Integer.send(:int_operand, soft)), Process.send(:signed, Integer.send(:int_operand, hard)))
     end
@@ -195,7 +197,7 @@ module Process
       when IO then dup2(fd, value.fileno)
       when String then open_file(fd, value, nil, nil)
       when Array then from_array(fd, value)
-      else raise ArgumentError, "wrong exec redirect action"
+      else raise ArgumentError, +"wrong exec redirect action"
       end
     end
 
@@ -321,7 +323,7 @@ module Process
   # A resource's `[soft, hard]` limits.
   def getrlimit(resource)
     limits = Primitive.zr_proc_getrlimit(Process.send(:rlimit_resource, resource))
-    raise SystemCallError.new("getrlimit", -limits) if limits.is_a?(Integer)
+    raise SystemCallError.new(+"getrlimit", -limits) if limits.is_a?(Integer)
 
     limits.map { |limit| limit % 2**64 }
   end
@@ -332,7 +334,7 @@ module Process
     soft = Process.send(:rlimit_value, soft)
     hard = hard.nil? ? soft : Process.send(:rlimit_value, hard)
     result = Primitive.zr_proc_setrlimit(Process.send(:rlimit_resource, resource), Process.send(:signed, soft), Process.send(:signed, hard))
-    raise SystemCallError.new("setrlimit", -result) if result.negative?
+    raise SystemCallError.new(+"setrlimit", -result) if result.negative?
 
     nil
   end
@@ -530,7 +532,7 @@ module Process
              else
                Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{conversion_name(value)} into Integer")
              end
-    wide = bits == 64 ? type : "unsigned long"
+    wide = bits == 64 ? type : +"unsigned long"
     raise RangeError, "bignum out of range of #{wide}" if number < -2**63
     raise RangeError, "bignum too big to convert into '#{wide}'" if number >= 2**64
     return number % 2**64 if bits == 64
@@ -550,7 +552,7 @@ module Process
   def self.c_string(text)
     Primitive.attr! :hidden
     text = Primitive.zr_str_operand(text)
-    raise ArgumentError, "string contains null byte" if text.include?("\0")
+    raise ArgumentError, +"string contains null byte" if text.include?("\0")
 
     text
   end
@@ -654,7 +656,7 @@ module Process
   # The program and its arguments. One string goes through the shell
   # when it holds shell syntax; a list is the argument vector itself.
   def self.command_words(args)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
 
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
     words = words.map do |word|
@@ -664,7 +666,7 @@ module Process
       string
     end
     words.each do |word|
-      raise ArgumentError, "string contains null byte" if word.include?("\0")
+      raise ArgumentError, +"string contains null byte" if word.include?("\0")
     end
     words
   end
@@ -679,17 +681,17 @@ module Process
 
     # An `=` inside the first word makes it an assignment, which only a
     # shell can do, as rb_exec_fillarg reads it.
-    first = command.split(" ").first || ""
+    first = command.split(" ").first || +""
     # rb_exec_fillarg hands the shell its own name as argv[0], which is
     # the name a shell puts in front of its own complaints, and the
     # spawn finds it on PATH.
-    return ["sh", "-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
+    return [+"sh", +"-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
 
     words = command.split(" ")
     # A command of no words at all still names a program: rb_exec_fillarg
     # leaves the name empty, and the exec of it answers ENOENT. An empty
     # list would leave the spawn with no program name to read.
-    words.empty? ? [""] : words
+    words.empty? ? [+""] : words
   end
 
   # The child's whole environment as "KEY=value" strings, or nil to
@@ -773,7 +775,7 @@ module Process
 
     def re_exchange
       Process.send(:switching!, false)
-      raise NotImplementedError, "re_exchange() function is unimplemented on this machine"
+      raise NotImplementedError, +"re_exchange() function is unimplemented on this machine"
     end
 
     def sid_available? = true
@@ -801,7 +803,7 @@ module Process
 
     def re_exchange
       Process.send(:switching!, true)
-      raise NotImplementedError, "re_exchange() function is unimplemented on this machine"
+      raise NotImplementedError, +"re_exchange() function is unimplemented on this machine"
     end
 
     def sid_available? = true

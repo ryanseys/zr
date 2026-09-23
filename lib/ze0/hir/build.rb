@@ -1615,7 +1615,7 @@ module Ze0
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
         when Prism::InterpolatedStringNode
-          if node.frozen? then FrozenString.new(static_text(node), line)
+          if node.frozen? then frozen_literal_string(static_text(node), line)
           # Adjacent literals with nothing interpolated are one literal.
           elsif static_string?(node) then Literal.new(static_text(node), line, !node.mutable?)
           else interpolation(node, line)
@@ -2058,6 +2058,9 @@ module Ze0
         @body_marks |= [mark] if mark
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
         return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
+        # The core's `+"text"` under its frozen_string_literal comment: a
+        # fresh String, as its C makes one, with no send of +@.
+        return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Build.runtime_file?(@file)
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
@@ -2433,7 +2436,12 @@ module Ze0
       # A string literal as prism flags it: frozen where the file's magic
       # comment says so, by CRuby's own reading of the comment, and then
       # the one frozen String of its text, as CRuby interns it.
-      def literal_string(node, text, line) = node.frozen? ? FrozenString.new(text, line) : Literal.new(text, line, !node.mutable?)
+      def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
+
+      # A literal a frozen_string_literal comment freezes: the one frozen
+      # String of its text, with no send of `freeze`, which ruby never
+      # sends for one.
+      def frozen_literal_string(text, line) = FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
 
       # The text of a string prism found static (`"a" "b"`, a heredoc with
       # no interpolation): its parts joined.

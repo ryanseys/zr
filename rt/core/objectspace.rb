@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # ObjectSpace: the weak maps, the finalizers, and the walk over the heap.
 module ObjectSpace
   # Keys and values held weakly, compared by identity.
@@ -84,7 +86,7 @@ module ObjectSpace
     def [](key) = @table[key]
 
     def []=(key, value)
-      raise ArgumentError, "WeakKeyMap keys must be garbage collectable" if UNCOLLECTABLE.any? { |kind| key.is_a?(kind) }
+      raise ArgumentError, +"WeakKeyMap keys must be garbage collectable" if UNCOLLECTABLE.any? { |kind| key.is_a?(kind) }
 
       @table[key] = value
     end
@@ -116,7 +118,7 @@ module ObjectSpace
   # or when the program ends.
   def define_finalizer(obj, callable = nil, &block)
     callable ||= block
-    raise ArgumentError, "tried to create Proc object without a block" if callable.nil?
+    raise ArgumentError, +"tried to create Proc object without a block" if callable.nil?
     raise ArgumentError, "wrong type argument #{callable.class} (should be callable)" unless callable.respond_to?(:call)
     raise ArgumentError, "cannot define finalizer for #{obj.class}" if Primitive.zr_special_p_m(obj)
 
@@ -143,7 +145,7 @@ module ObjectSpace
 
   def each_object(mod = nil)
     return to_enum(:each_object, mod) unless block_given?
-    raise TypeError, "class or module required" unless mod.nil? || mod.is_a?(Module)
+    raise TypeError, +"class or module required" unless mod.nil? || mod.is_a?(Module)
 
     objects = Primitive.zr_objspace_objects(mod)
     objects.each { |object| yield object }
@@ -164,7 +166,7 @@ module ObjectSpace
   private_constant :TYPE_NAMES, :CENSUS_ORDER, :SPECIAL_IDS
 
   def count_objects(result = {})
-    raise TypeError, "non-hash given" unless result.is_a?(Hash)
+    raise TypeError, +"non-hash given" unless result.is_a?(Hash)
 
     total, free, *by_type = Primitive.zr_objspace_census
     counts = Hash.new(0)

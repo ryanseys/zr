@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Enumerator: an iteration held as an object. One made by `to_enum`
 # sends its method with the block it is given; one made with a block
 # runs the block with a Yielder. External iteration (`next`, `peek`)
@@ -32,7 +34,7 @@ class Enumerator
     include Enumerable
 
     def initialize(&block)
-      raise LocalJumpError, "no block given" unless block
+      raise LocalJumpError, +"no block given" unless block
 
       Primitive.zr_hidden_set(self, :__block__, block)
       self
@@ -54,7 +56,7 @@ class Enumerator
   end
 
   def initialize(size = nil, &block)
-    raise ArgumentError, "tried to create Proc object without a block" unless block
+    raise ArgumentError, +"tried to create Proc object without a block" unless block
 
     @generator = Generator.new(&block)
     @receiver = @generator
@@ -93,7 +95,7 @@ class Enumerator
 
   def self.produce(*initial, &block)
     raise ArgumentError, "wrong number of arguments (given #{initial.size}, expected 0..1)" if initial.size > 1
-    raise ArgumentError, "no block given" unless block
+    raise ArgumentError, +"no block given" unless block
 
     Producer.new(initial[0], !initial.empty?, block).to_enum(:each) { Float::INFINITY }
   end
@@ -186,7 +188,7 @@ class Enumerator
   # The value the paused `yield` answers at the next `next`.
   def feed(value)
     initialized!
-    raise TypeError, "feed value already set" if @feed
+    raise TypeError, +"feed value already set" if @feed
 
     @feed = [value]
     nil
@@ -201,7 +203,7 @@ class Enumerator
 
     begin
       parts = args.map(&:inspect) + kwargs.map { |k, v| "#{k}: #{v.inspect}" }
-      shown = parts.empty? ? "" : "(#{parts.join(', ')})"
+      shown = parts.empty? ? +"" : "(#{parts.join(', ')})"
       Primitive.zr_obj_form("#<#{self.class}: #{receiver.inspect}#{":#{method}" if method}#{shown}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
@@ -213,7 +215,7 @@ class Enumerator
   # enumerator_ptr: an allocated enumerator has nothing to iterate.
   def initialized!
     Primitive.attr! :hidden
-    raise ArgumentError, "uninitialized enumerator" unless @method
+    raise ArgumentError, +"uninitialized enumerator" unless @method
   end
 
   # enumerator_with_index_i: the values `each` yields packed as
@@ -253,7 +255,7 @@ class Enumerator
   def run
     Primitive.attr! :hidden
     result = each { |*values| Fiber.yield(values) }
-    @stop = StopIteration.new("iteration reached an end")
+    @stop = StopIteration.new(+"iteration reached an end")
     Primitive.zr_hidden_set(@stop, :result, result)
     nil
   end
@@ -278,7 +280,7 @@ class Enumerator
   # in an external iteration is a fiber's stack, which does not copy.
   def initialize_copy(other)
     super
-    raise TypeError, "can't copy execution context" if Primitive.zr_hidden_get(other, :fiber)
+    raise TypeError, +"can't copy execution context" if Primitive.zr_hidden_get(other, :fiber)
 
     @generator = Primitive.zr_hidden_get(other, :generator)
     enumerate(*%i[receiver method args kwargs size].map { |name| Primitive.zr_hidden_get(other, name) })
@@ -388,7 +390,7 @@ class Enumerator::ArithmeticSequence < Enumerator
   def taken(n)
     Primitive.attr! :hidden
     n = implicit_integer(n)
-    raise ArgumentError, "attempt to take negative size" if n.negative?
+    raise ArgumentError, +"attempt to take negative size" if n.negative?
     return [] if n.zero?
     if float?
       out = []
@@ -408,7 +410,7 @@ class Enumerator::ArithmeticSequence < Enumerator
 
   # arith_seq_last: computed from the four parts, not walked.
   def last(n = (none = true))
-    raise RangeError, "cannot get the last element of endless arithmetic sequence" if @end.nil?
+    raise RangeError, +"cannot get the last element of endless arithmetic sequence" if @end.nil?
 
     len_1 = idiv(@end - @begin, @step)
     return none ? nil : [] if len_1.negative?
@@ -421,7 +423,7 @@ class Enumerator::ArithmeticSequence < Enumerator
     count = adjusted ? len_1 : len_1 + 1
     n = to_integer(n)
     n = count if n > count
-    raise ArgumentError, "negative array size" if n.negative?
+    raise ArgumentError, +"negative array size" if n.negative?
 
     out = []
     value = last - (@step * n)
@@ -551,7 +553,7 @@ class Enumerator::Lazy < Enumerator
   end
 
   def initialize(receiver, size = nil, &block)
-    raise ArgumentError, "tried to call lazy new without a block" unless block
+    raise ArgumentError, +"tried to call lazy new without a block" unless block
 
     chain(receiver, :each, :run_new, block:) { size }
   end
@@ -607,14 +609,14 @@ class Enumerator::Lazy < Enumerator
 
   def take(n)
     n = implicit_integer(n)
-    raise ArgumentError, "attempt to take negative size" if n < 0
+    raise ArgumentError, +"attempt to take negative size" if n < 0
 
     step(:take, :run_take, nil, [n], check: false) { size&.clamp(..n) }
   end
 
   def drop(n)
     n = implicit_integer(n)
-    raise ArgumentError, "attempt to drop negative size" if n < 0
+    raise ArgumentError, +"attempt to drop negative size" if n < 0
 
     step(:drop, :run_drop, nil, [n], check: false) { size && [size - n, 0].max }
   end

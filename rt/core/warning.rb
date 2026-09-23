@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Where every warning goes. A program overrides `Warning.warn` to catch
 # them, and turns a category on or off with `Warning[]=`.
 module Warning

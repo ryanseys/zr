@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Float: the constants, and the methods written over the kernel's
 # arithmetic.
 class Float
@@ -49,7 +51,7 @@ class Float
   def divmod(other)
     other = other.to_f if other.is_a?(Integer)
     return Primitive.zr_num_coerce_m(self, other, :divmod, 0) unless other.is_a?(Float)
-    raise ZeroDivisionError, "divided by 0" if other == 0.0
+    raise ZeroDivisionError, +"divided by 0" if other == 0.0
 
     [Primitive.zr_float_quotient_value(self, other).to_i, self % other]
   end
@@ -116,7 +118,7 @@ module Math
     return r if r
 
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - sqrt" if x < 0.0
+    raise DomainError, +"Numerical argument is out of domain - sqrt" if x < 0.0
     return 0.0 if x == 0.0
 
     Primitive.zr_math_sqrt(x)
@@ -137,7 +139,7 @@ module Math
 
   def log1p(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - log1p" if x < -1.0
+    raise DomainError, +"Numerical argument is out of domain - log1p" if x < -1.0
 
     Primitive.zr_math_call(25, x, 0.0)
   end
@@ -145,13 +147,13 @@ module Math
   def log(x, base = nil)
     x, bits = split(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - log" if x < 0.0
+    raise DomainError, +"Numerical argument is out of domain - log" if x < 0.0
 
     value = Primitive.zr_math_call(12, x, 0.0) + bits * 0.6931471805599453
     return value if base.nil?
 
     base = check(base)
-    raise DomainError, "Numerical argument is out of domain - log" if base < 0.0
+    raise DomainError, +"Numerical argument is out of domain - log" if base < 0.0
 
     value / Primitive.zr_math_call(12, base, 0.0)
   end
@@ -159,7 +161,7 @@ module Math
   def log2(x)
     x, bits = split(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - log2" if x < 0.0
+    raise DomainError, +"Numerical argument is out of domain - log2" if x < 0.0
 
     Primitive.zr_math_call(13, x, 0.0) + bits
   end
@@ -167,21 +169,21 @@ module Math
   def log10(x)
     x, bits = split(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - log10" if x < 0.0
+    raise DomainError, +"Numerical argument is out of domain - log10" if x < 0.0
 
     Primitive.zr_math_call(14, x, 0.0) + bits * 0.3010299956639812
   end
 
   def asin(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - asin" if x < -1.0 || x > 1.0
+    raise DomainError, +"Numerical argument is out of domain - asin" if x < -1.0 || x > 1.0
 
     Primitive.zr_math_call(15, x, 0.0)
   end
 
   def acos(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - acos" if x < -1.0 || x > 1.0
+    raise DomainError, +"Numerical argument is out of domain - acos" if x < -1.0 || x > 1.0
 
     Primitive.zr_math_call(16, x, 0.0)
   end
@@ -190,14 +192,14 @@ module Math
 
   def acosh(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - acosh" if x < 1.0
+    raise DomainError, +"Numerical argument is out of domain - acosh" if x < 1.0
 
     Primitive.zr_math_call(18, x, 0.0)
   end
 
   def atanh(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - atanh" if x < -1.0 || x > 1.0
+    raise DomainError, +"Numerical argument is out of domain - atanh" if x < -1.0 || x > 1.0
 
     Primitive.zr_math_call(19, x, 0.0)
   end
@@ -207,7 +209,7 @@ module Math
   def gamma(x)
     x = check(x)
     if x.infinite? && x < 0 || (x < 0 && x.finite? && x == x.floor) || (x == 0 && 1.0 / x < 0)
-      raise DomainError, "Numerical argument is out of domain - gamma"
+      raise DomainError, +"Numerical argument is out of domain - gamma"
     end
     return FACTORIALS[x.to_i - 1] if x == x.floor && x >= 1 && x <= FACTORIALS.size
 
@@ -220,7 +222,7 @@ module Math
 
   def lgamma(x)
     x = check(x)
-    raise DomainError, "Numerical argument is out of domain - lgamma" if x.infinite? && x < 0
+    raise DomainError, +"Numerical argument is out of domain - lgamma" if x.infinite? && x < 0
     return [Float::INFINITY, 1.0 / x < 0 ? -1 : 1] if x == 0
     return [Float::INFINITY, 1] if x.infinite? || (x < 0 && x == x.floor)
 

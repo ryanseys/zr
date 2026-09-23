@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Threads are green: each one runs on a fiber of its own, and control
 # moves between them only where a thread blocks (join, sleep, a Queue,
 # a Mutex, Thread.stop, Thread.pass). A thread runs until it blocks or
@@ -38,7 +40,7 @@ class Thread
     def main = equal?(Thread) ? @main : Thread.main
 
     def new(*args, &block)
-      raise ThreadError, "must be called with a block" unless block
+      raise ThreadError, +"must be called with a block" unless block
 
       thread = Primitive.zr_class_build(self)
       thread.send(:initialize, *args, &block)
@@ -71,7 +73,7 @@ class Thread
     def stop
       return Thread.stop unless equal?(Thread)
 
-      raise ThreadError, "stopping only thread\n\tnote: use sleep to stop forever" if @threads.size <= 1
+      raise ThreadError, +"stopping only thread\n\tnote: use sleep to stop forever" if @threads.size <= 1
 
       @current.send(:wait, nil, true)
       nil
@@ -85,8 +87,8 @@ class Thread
     # an exception of a class the mask names waits; it arrives when
     # the mask goes.
     def handle_interrupt(mask)
-      raise ArgumentError, "unknown mask signature" unless mask.is_a?(Hash)
-      raise LocalJumpError, "no block given" unless block_given?
+      raise ArgumentError, +"unknown mask signature" unless mask.is_a?(Hash)
+      raise LocalJumpError, +"no block given" unless block_given?
 
       current.send(:push_mask, mask)
       begin
@@ -121,7 +123,7 @@ class Thread
     def interval(timeout)
       Primitive.attr! :hidden
       raise TypeError, "can't convert #{timeout.nil? ? 'nil' : timeout.class} into time interval" unless timeout.is_a?(Numeric)
-      raise ArgumentError, "time interval must not be negative" if timeout.negative?
+      raise ArgumentError, +"time interval must not be negative" if timeout.negative?
 
       timeout.to_f
     end
@@ -132,7 +134,7 @@ class Thread
     # number that no conversion reads.
     def seconds(limit)
       Primitive.attr! :hidden
-      raise TypeError, "no implicit conversion to float from string" if limit.is_a?(String)
+      raise TypeError, +"no implicit conversion to float from string" if limit.is_a?(String)
       raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
 
       limit.to_f
@@ -147,7 +149,7 @@ class Thread
       woken = 0
       waiters.each do |thread|
         break if woken >= count
-        next unless thread.status == "sleep"
+        next unless thread.status == +"sleep"
 
         thread.wakeup
         woken += 1
@@ -273,11 +275,11 @@ class Thread
       ready = Primitive.zr_io_wait_fds(waiters.map { |fd, _, _| fd }, waiters.map { |_, events, _| events }, left || -1)
       if ready.is_a?(Integer)
         # A descriptor closed under its waiter: every waiter looks again.
-        waiters.each { |_, _, thread| thread.wakeup if thread.status == "sleep" }
+        waiters.each { |_, _, thread| thread.wakeup if thread.status == +"sleep" }
         return
       end
       waiters.zip(ready).each do |(_, _, thread), events|
-        thread.wakeup if events.positive? && thread.status == "sleep"
+        thread.wakeup if events.positive? && thread.status == +"sleep"
       end
     end
 
@@ -292,7 +294,7 @@ class Thread
     end
 
     def deadlock
-      error = Primitive.zr_fatal_class.new("No live threads left. Deadlock?\n")
+      error = Primitive.zr_fatal_class.new(+"No live threads left. Deadlock?\n")
       raise error if @current.equal?(@main)
 
       @main.raise(error)
@@ -325,7 +327,7 @@ class Thread
 
   def initialize(*args, &block)
     Kernel.raise ThreadError, "already initialized thread - #{@block.source_location&.join(":")}" if @block
-    Kernel.raise ThreadError, "must be called with a block" unless block
+    Kernel.raise ThreadError, +"must be called with a block" unless block
 
     @block = block
     @args = args
@@ -357,14 +359,14 @@ class Thread
   def status
     case @status
     when :dead then @exception ? nil : false
-    when :sleep then "sleep"
-    else "run"
+    when :sleep then +"sleep"
+    else +"run"
     end
   end
 
   def join(limit = nil)
-    Kernel.raise ThreadError, "Target thread must not be current thread" if equal?(Thread.current)
-    Kernel.raise ThreadError, "Target thread must not be main thread" if equal?(Thread.main) && !Thread.current.equal?(Thread.main)
+    Kernel.raise ThreadError, +"Target thread must not be current thread" if equal?(Thread.current)
+    Kernel.raise ThreadError, +"Target thread must not be main thread" if equal?(Thread.main) && !Thread.current.equal?(Thread.main)
 
     deadline = limit.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, limit) * 1e9).to_i
     while alive?
@@ -401,7 +403,7 @@ class Thread
   alias terminate kill
 
   def raise(*args)
-    exception = args.empty? ? RuntimeError.new("unhandled exception") : make_exception(*args)
+    exception = args.empty? ? RuntimeError.new(+"unhandled exception") : make_exception(*args)
     return Kernel.raise(exception) if equal?(Thread.current)
     return self if @status == :dead
 
@@ -411,7 +413,7 @@ class Thread
   end
 
   def wakeup
-    Kernel.raise ThreadError, "killed thread" if @status == :dead
+    Kernel.raise ThreadError, +"killed thread" if @status == :dead
 
     if @status == :sleep
       @status = :run
@@ -498,7 +500,7 @@ class Thread
   def set_trace_func(hook) = TracePoint.send(:trace_func, hook, self, false)
 
   def add_trace_func(hook)
-    raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
+    raise TypeError, +"trace_func needs to be Proc" unless hook.is_a?(Proc)
 
     TracePoint.send(:trace_func, hook, self, true)
   end
@@ -611,7 +613,7 @@ class Thread
     finish
     Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception)
     Thread.send(:switch)
-    Primitive.zr_unimplemented("a finished thread that runs again")
+    Primitive.zr_unimplemented(+"a finished thread that runs again")
   end
 
   def scheduler
@@ -788,8 +790,8 @@ end
 class ThreadGroup
   def add(thread)
     raise TypeError, "wrong argument type #{conversion_name(thread)} (expected VM/thread)" unless thread.is_a?(Thread)
-    raise ThreadError, "can't move from the enclosed thread group" if thread.group.enclosed?
-    raise ThreadError, "can't move to the enclosed thread group" if enclosed?
+    raise ThreadError, +"can't move from the enclosed thread group" if thread.group.enclosed?
+    raise ThreadError, +"can't move to the enclosed thread group" if enclosed?
 
     Primitive.zr_hidden_set(thread, :group, self)
     self
@@ -818,7 +820,7 @@ class Fiber
       @woken = false
     end
 
-    def status = @woken ? "run" : "sleep"
+    def status = @woken ? +"run" : +"sleep"
 
     def woken? = @woken
 
@@ -839,7 +841,7 @@ class Fiber
   # then the block, then whether the fiber was made already.
   def initialize(blocking: false, pool: nil, storage: true, &block)
     table = storage.equal?(true) ? Fiber.current.storage : Fiber.send(:checked_storage, storage)&.dup
-    Kernel.raise ArgumentError, "tried to create Proc object without a block" unless block
+    Kernel.raise ArgumentError, +"tried to create Proc object without a block" unless block
 
     tag = Object.new
     __make__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
@@ -888,7 +890,7 @@ class Fiber
     end
 
     def schedule(...)
-      scheduler = Thread.current.send(:scheduler) or raise RuntimeError, "No scheduler is available!"
+      scheduler = Thread.current.send(:scheduler) or raise RuntimeError, +"No scheduler is available!"
 
       scheduler.fiber(...)
     end
@@ -915,8 +917,8 @@ class Fiber
       Primitive.zr_hidden_get(self, :__blocking_operation__) ||
         Primitive.zr_hidden_set(self, :__blocking_operation__, Class.new do
           def call
-            raise RuntimeError, "Blocking operation has already been executed!" unless @status == :queued
-            raise RuntimeError, "Blocking operation has no function to execute!" if @work.nil?
+            raise RuntimeError, +"Blocking operation has already been executed!" unless @status == :queued
+            raise RuntimeError, +"Blocking operation has no function to execute!" if @work.nil?
 
             @status = :executing
             @result = @work.call
@@ -960,8 +962,8 @@ class Fiber
     def checked_storage(storage)
       Primitive.attr! :hidden
       return nil if storage.nil?
-      raise TypeError, "storage must be a hash" unless storage.is_a?(Hash)
-      raise FrozenError, "storage must not be frozen" if storage.frozen?
+      raise TypeError, +"storage must be a hash" unless storage.is_a?(Hash)
+      raise FrozenError, +"storage must not be frozen" if storage.frozen?
 
       storage.each_key do |key|
         raise TypeError, "wrong argument type #{conversion_name(key)} (expected Symbol)" unless key.is_a?(Symbol)
@@ -1015,7 +1017,7 @@ class Fiber
     # builds it.
     def make_exception(args)
       Primitive.attr! :hidden
-      return RuntimeError.new("unhandled exception") if args.empty?
+      return RuntimeError.new(+"unhandled exception") if args.empty?
 
       klass, message, backtrace = args
       exception = klass.is_a?(String) ? RuntimeError.new(klass) : (message.nil? ? klass.exception : klass.exception(message))
@@ -1049,7 +1051,7 @@ class Fiber
   # the answer is what the fiber does next.
   def raise(*args)
     exception = Fiber.send(:make_exception, args)
-    Kernel.raise FiberError, "cannot raise exception on unborn fiber" if Primitive.zr_fiber_unborn_p(self)
+    Kernel.raise FiberError, +"cannot raise exception on unborn fiber" if Primitive.zr_fiber_unborn_p(self)
     return Kernel.raise(exception) if equal?(Fiber.current)
 
     deliver(exception)
@@ -1077,14 +1079,14 @@ class Fiber
   def blocking? = Primitive.zr_hidden_get(self, :__blocking__) != false
 
   def storage
-    Kernel.raise ArgumentError, "Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
+    Kernel.raise ArgumentError, +"Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
 
     storage_table.dup
   end
 
   def storage=(hash)
     Primitive.zr_warn_here_m("Fiber#storage= is experimental and may be removed in the future!")
-    Kernel.raise ArgumentError, "Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
+    Kernel.raise ArgumentError, +"Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
 
     Primitive.zr_hidden_set(self, :__storage__, Fiber.send(:checked_storage, hash)&.dup)
   end
@@ -1132,7 +1134,7 @@ class Thread::Mutex
   end
 
   def lock
-    raise ThreadError, "deadlock; recursive locking" if owned?
+    raise ThreadError, +"deadlock; recursive locking" if owned?
 
     Thread.current.send(:wait_on, waiters, nil, true, self) while locked?
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
@@ -1141,8 +1143,8 @@ class Thread::Mutex
   end
 
   def unlock
-    raise ThreadError, "Attempt to unlock a mutex which is not locked" unless locked?
-    raise ThreadError, "Attempt to unlock a mutex which is locked by another thread/fiber" unless owned?
+    raise ThreadError, +"Attempt to unlock a mutex which is not locked" unless locked?
+    raise ThreadError, +"Attempt to unlock a mutex which is locked by another thread/fiber" unless owned?
 
     Primitive.zr_state_set(self, :__owner__, nil)
     waiters.first&.wakeup
@@ -1253,7 +1255,7 @@ class Thread::Queue
   end
 
   def push(value)
-    raise ClosedQueueError, "queue closed" if closed?
+    raise ClosedQueueError, +"queue closed" if closed?
 
     items << value
     Thread.send(:rouse, waiters, 1)
@@ -1265,12 +1267,12 @@ class Thread::Queue
 
   def pop(non_block = false, timeout: nil)
     Primitive.attr! :ruby
-    raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
+    raise ArgumentError, +"can't set a timeout if non_block is enabled" if non_block && timeout
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
     while items.empty?
       return nil if closed?
-      raise ThreadError, "queue empty" if non_block
+      raise ThreadError, +"queue empty" if non_block
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
       Thread.current.send(:wait_on, waiters, deadline, true)
@@ -1336,7 +1338,7 @@ end
 
 class Thread::SizedQueue < Thread::Queue
   def initialize(max)
-    raise ArgumentError, "queue size must be positive" unless max.is_a?(Integer) && max > 0
+    raise ArgumentError, +"queue size must be positive" unless max.is_a?(Integer) && max > 0
 
     super()
     @max = max
@@ -1347,7 +1349,7 @@ class Thread::SizedQueue < Thread::Queue
   def max = @max || 0
 
   def max=(value)
-    raise ArgumentError, "queue size must be positive" unless value.is_a?(Integer) && value > 0
+    raise ArgumentError, +"queue size must be positive" unless value.is_a?(Integer) && value > 0
 
     @max = value
     Thread.send(:rouse, pushers.dup)
@@ -1357,12 +1359,12 @@ class Thread::SizedQueue < Thread::Queue
   def push(object, non_block = false, timeout: nil)
     Primitive.attr! :ruby
     value = object
-    raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
+    raise ArgumentError, +"can't set a timeout if non_block is enabled" if non_block && timeout
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
     while items.size >= max
-      raise ClosedQueueError, "queue closed" if closed?
-      raise ThreadError, "queue full" if non_block
+      raise ClosedQueueError, +"queue closed" if closed?
+      raise ThreadError, +"queue full" if non_block
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
       Thread.current.send(:wait_on, pushers, deadline, true)

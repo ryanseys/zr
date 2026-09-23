@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Enumerable over `each`, in the shape CRuby's C implementation has: a
 # block passed on to `each`, with what it yields taken as the element,
 # packed into an Array when there are several. Each such block answers
@@ -270,7 +272,7 @@ module Enumerable
 
   def each_cons(n)
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "invalid size" if n <= 0
+    raise ArgumentError, +"invalid size" if n <= 0
     return to_enum(:each_cons, n) { (total = enumerable_size) && [total - n + 1, 0].max } unless block_given?
     # enum_size_over_p: a source that says it is shorter than a window
     # is not walked.
@@ -289,7 +291,7 @@ module Enumerable
 
   def each_slice(n)
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "invalid slice size" if n <= 0
+    raise ArgumentError, +"invalid slice size" if n <= 0
     return to_enum(:each_slice, n) { (total = enumerable_size) && (total + n - 1) / n } unless block_given?
 
     # limit_by_enum_size asks the size to reserve a slice's room.
@@ -368,7 +370,7 @@ module Enumerable
     n = Primitive.zr_index_operand_m(num)
     raise ArgumentError, "negative size (#{n})" if n < 0
     return [] if n == 0
-    raise ArgumentError, "too big size" if (((1 << 63) - 1) / 4 / (by ? 2 : 1)) < n
+    raise ArgumentError, +"too big size" if (((1 << 63) - 1) / 4 / (by ? 2 : 1)) < n
 
     # OPTIMIZED_CMP, or the block's answer, read as rb_cmpint reads it.
     cmp = lambda do |a, b|
@@ -583,7 +585,7 @@ module Enumerable
 
   def take(n)
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "attempt to take negative size" if n < 0
+    raise ArgumentError, +"attempt to take negative size" if n < 0
 
     out = []
     return out if n == 0
@@ -598,7 +600,7 @@ module Enumerable
 
   def drop(n)
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "attempt to drop negative size" if n < 0
+    raise ArgumentError, +"attempt to drop negative size" if n < 0
 
     out = []
     i = 0
@@ -639,7 +641,7 @@ module Enumerable
     end
 
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "attempt to take negative size" if n < 0
+    raise ArgumentError, +"attempt to take negative size" if n < 0
 
     out = []
     return out if n == 0
@@ -896,19 +898,19 @@ module Enumerable
   # its source as it runs, so an endless source still gives its first
   # slices.
   def chunk_while(&block)
-    raise ArgumentError, "tried to create Proc object without a block" unless block
+    raise ArgumentError, +"tried to create Proc object without a block" unless block
 
     sliced { |before, x| !block.call(before, x) }
   end
 
   def slice_when(&block)
-    raise ArgumentError, "tried to create Proc object without a block" unless block
+    raise ArgumentError, +"tried to create Proc object without a block" unless block
 
     sliced { |before, x| block.call(before, x) }
   end
 
   def slice_before(pattern = nil, &block)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
 
     test = pattern ? ->(x) { pattern === x } : block
     source = self
@@ -928,7 +930,7 @@ module Enumerable
   end
 
   def slice_after(pattern = nil, &block)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
 
     test = pattern ? ->(x) { pattern === x } : block
     source = self
@@ -963,7 +965,7 @@ module Enumerable
           y << [:_alone, [x]]
           slice = nil
         elsif k.is_a?(Symbol) && k.start_with?("_")
-          raise RuntimeError, "symbols beginning with an underscore are reserved"
+          raise RuntimeError, +"symbols beginning with an underscore are reserved"
         elsif slice && key == k
           slice << x
         else

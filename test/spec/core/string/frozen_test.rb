@@ -1481,4 +1481,182 @@ describe "String: frozen literals" do
       core/string/frozen_test.rb:39: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
     ERR
   end
+
+  it "a core method answers a frozen String or a fresh one as ruby does" do
+    result = ze0(<<~'RUBY')
+      # Each answer's frozen? beside the expression that made it: the core's
+      # literals are frozen, so a method that answers one must answer what
+      # ruby's C answers, a fresh String or a frozen one.
+      Point = Struct.new(:x)
+      Pair = Data.define(:a)
+      answers = {
+        "nil.to_s" => nil.to_s, "true.to_s" => true.to_s, "false.to_s" => false.to_s,
+        "nil.inspect" => nil.inspect, "true.inspect" => true.inspect,
+        "1.to_s" => 1.to_s, "12.to_s(2)" => 12.to_s(2), "(2**70).to_s" => (2**70).to_s,
+        "1.5.to_s" => 1.5.to_s, "Float::INFINITY.to_s" => Float::INFINITY.to_s, "Float::NAN.inspect" => Float::NAN.inspect,
+        "(0.0/-1).to_s" => (0.0 / -1).to_s,
+        "Rational(1, 2).to_s" => Rational(1, 2).to_s, "Complex(1, 2).to_s" => Complex(1, 2).to_s,
+        "Complex(1, 2).inspect" => Complex(1, 2).inspect,
+        ":a.to_s" => :a.to_s, ":a.name" => :a.name, ":a.inspect" => :a.inspect,
+        "[1].inspect" => [1].inspect, "[].inspect" => [].inspect, "[].join" => [].join, "[1, 2].join" => [1, 2].join,
+        "{}.inspect" => {}.inspect, "{a: 1}.to_s" => { a: 1 }.to_s,
+        "(1..2).to_s" => (1..2).to_s, "(1..2).inspect" => (1..2).inspect,
+        "Point.new(1).inspect" => Point.new(1).inspect, "Pair.new(a: 1).inspect" => Pair.new(a: 1).inspect,
+        "Encoding::UTF_8.name" => Encoding::UTF_8.name, "Encoding::UTF_8.to_s" => Encoding::UTF_8.to_s,
+        "Encoding::UTF_8.inspect" => Encoding::UTF_8.inspect, "Encoding::UTF_8.names.first" => Encoding::UTF_8.names.first,
+        "Encoding.name_list.first" => Encoding.name_list.first, "Encoding.locale_charmap" => Encoding.locale_charmap,
+        "ARGF.to_s" => ARGF.to_s, "ARGF.filename" => ARGF.filename,
+        "$stdout.inspect" => $stdout.inspect, "Thread.current.status" => Thread.current.status,
+        "Thread.current.inspect.class" => Thread.current.inspect,
+        "RuntimeError.new.message" => RuntimeError.new.message, "StandardError.new.message" => StandardError.new.message,
+        "a core raise's message" => (begin; [].first(-1); rescue => e; e.message; end),
+        "a ZeroDivisionError's message" => (begin; 1 / 0; rescue => e; e.message; end),
+        "a KeyError's message" => (begin; {}.fetch(:k); rescue => e; e.message; end),
+        "a TypeError's message" => (begin; 1 + nil; rescue => e; e.message; end),
+        "File.basename" => File.basename("/a/b.rb"), "File.extname" => File.extname("a.rb"), "File.extname('a')" => File.extname("a"),
+        "File.dirname" => File.dirname("a"), "File.join" => File.join("a", "b"), "File.expand_path('/')" => File.expand_path("/"),
+        "File::SEPARATOR" => File::SEPARATOR, "RUBY_VERSION" => RUBY_VERSION,
+        "format" => format("%d", 1), "'%s' % 1" => "%s" % 1, "[1].pack('C')" => [1].pack("C"), "[].pack('C*')" => [].pack("C*"),
+        "65.chr" => 65.chr, "200.chr" => 200.chr, "'ab'.b" => "ab".b, "'abc'[0]" => "abc"[0],
+        "Time.at(0).utc.zone" => Time.at(0).utc.zone, "Time.at(0).utc.to_s" => Time.at(0).utc.to_s,
+        "Time.at(0).utc.inspect" => Time.at(0).utc.inspect, "strftime" => Time.at(0).utc.strftime("%Y"),
+        "strftime('')" => Time.at(0).utc.strftime(""),
+        "Signal.signame(2)" => Signal.signame(2), "Signal.list.keys.first" => Signal.list.keys.first,
+        "Comparable.name" => Comparable.name, "Integer.to_s" => Integer.to_s, "Integer.inspect" => Integer.inspect,
+        "Process.clock_gettime unit" => Process.clock_gettime(Process::CLOCK_MONOTONIC, :float_second).class.name,
+        "''.center(3)" => "".center(3), "'a'.ljust(1)" => "a".ljust(1), "'a' * 0" => "a" * 0,
+        "[nil].join" => [nil].join, "[[1]].to_s" => [[1]].to_s,
+        "1.0.round.to_s" => 1.0.round.to_s, "Integer.sqrt(4).to_s" => Integer.sqrt(4).to_s,
+        "Random.new(1).bytes(0)" => Random.new(1).bytes(0),
+        "'é'.unicode_normalize" => "é".unicode_normalize, "'a'.encode('UTF-16LE')" => "a".encode("UTF-16LE"),
+        "GC.stat.keys.first.to_s" => GC.stat.keys.first.to_s, "ObjectSpace.count_objects.keys.first.to_s" => ObjectSpace.count_objects.keys.first.to_s,
+        "__method__.to_s" => __method__.to_s, "Set[1].inspect" => Set[1].inspect, "Set[].to_s" => Set[].to_s
+      }
+      answers.each { |name, value| puts "#{name}: #{value.is_a?(String) ? value.frozen? : value.class}" }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil.to_s: true
+      true.to_s: true
+      false.to_s: true
+      nil.inspect: false
+      true.inspect: true
+      1.to_s: false
+      12.to_s(2): false
+      (2**70).to_s: false
+      1.5.to_s: false
+      Float::INFINITY.to_s: false
+      Float::NAN.inspect: false
+      (0.0/-1).to_s: false
+      Rational(1, 2).to_s: false
+      Complex(1, 2).to_s: false
+      Complex(1, 2).inspect: false
+      :a.to_s: false
+      :a.name: true
+      :a.inspect: false
+      [1].inspect: false
+      [].inspect: false
+      [].join: false
+      [1, 2].join: false
+      {}.inspect: false
+      {a: 1}.to_s: false
+      (1..2).to_s: false
+      (1..2).inspect: false
+      Point.new(1).inspect: false
+      Pair.new(a: 1).inspect: false
+      Encoding::UTF_8.name: true
+      Encoding::UTF_8.to_s: true
+      Encoding::UTF_8.inspect: false
+      Encoding::UTF_8.names.first: true
+      Encoding.name_list.first: true
+      Encoding.locale_charmap: false
+      ARGF.to_s: false
+      ARGF.filename: false
+      $stdout.inspect: false
+      Thread.current.status: false
+      Thread.current.inspect.class: false
+      RuntimeError.new.message: false
+      StandardError.new.message: false
+      a core raise's message: false
+      a ZeroDivisionError's message: false
+      a KeyError's message: false
+      a TypeError's message: false
+      File.basename: false
+      File.extname: false
+      File.extname('a'): false
+      File.dirname: false
+      File.join: false
+      File.expand_path('/'): false
+      File::SEPARATOR: true
+      RUBY_VERSION: true
+      format: false
+      '%s' % 1: false
+      [1].pack('C'): false
+      [].pack('C*'): false
+      65.chr: false
+      200.chr: false
+      'ab'.b: false
+      'abc'[0]: false
+      Time.at(0).utc.zone: false
+      Time.at(0).utc.to_s: false
+      Time.at(0).utc.inspect: false
+      strftime: false
+      strftime(''): false
+      Signal.signame(2): false
+      Signal.list.keys.first: true
+      Comparable.name: true
+      Integer.to_s: false
+      Integer.inspect: false
+      Process.clock_gettime unit: true
+      ''.center(3): false
+      'a'.ljust(1): false
+      'a' * 0: false
+      [nil].join: false
+      [[1]].to_s: false
+      1.0.round.to_s: false
+      Integer.sqrt(4).to_s: false
+      Random.new(1).bytes(0): false
+      'é'.unicode_normalize: false
+      'a'.encode('UTF-16LE'): false
+      GC.stat.keys.first.to_s: false
+      ObjectSpace.count_objects.keys.first.to_s: false
+      __method__.to_s: true
+      Set[1].inspect: false
+      Set[].to_s: false
+    OUT
+  end
+
+  it "a literal under frozen_string_literal sends no freeze, even where String#freeze is redefined" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+      class String
+        def freeze = raise("String#freeze called")
+      end
+      a = "lit"
+      b = "lét"
+      c = "#{1}x"
+      p a, a.frozen?, a.equal?("lit"), b, b.frozen?, c.frozen?
+      p [1, 2].inspect, :sym.to_s, "x" * 2
+      puts "done"
+      begin
+        "lit".dup.freeze
+      rescue => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "lit"
+      true
+      true
+      "lét"
+      true
+      false
+      "[1, 2]"
+      "sym"
+      "xx"
+      done
+      "String#freeze called"
+    OUT
+  end
 end

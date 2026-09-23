@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Complex: a real and an imaginary part, each an Integer, Float or
 # Rational, held in hidden ivars as CRuby's hidden fields are.
 class Complex < Numeric
@@ -14,7 +16,7 @@ class Complex < Numeric
     private :build
 
     def rectangular(real, imag = 0)
-      raise TypeError, "not a real" unless real.is_a?(Numeric) && real.real? && imag.is_a?(Numeric) && imag.real?
+      raise TypeError, +"not a real" unless real.is_a?(Numeric) && real.real? && imag.is_a?(Numeric) && imag.real?
 
       build(real, imag)
     end
@@ -23,7 +25,7 @@ class Complex < Numeric
 
     # CRuby's f_complex_polar: the exact quarter turns stay exact.
     def polar(radius, theta = 0)
-      raise TypeError, "not a real" unless radius.is_a?(Numeric) && radius.real? && theta.is_a?(Numeric) && theta.real?
+      raise TypeError, +"not a real" unless radius.is_a?(Numeric) && radius.real? && theta.is_a?(Numeric) && theta.real?
       return build(radius, 0.0) if radius == 0 || theta == 0
 
       if theta.is_a?(Float)
@@ -45,7 +47,7 @@ class Complex < Numeric
       when nil
         return nil unless exception
 
-        raise TypeError, "can't convert nil into Complex"
+        raise TypeError, +"can't convert nil into Complex"
       else
         if value.respond_to?(:to_c)
           value.to_c
@@ -84,10 +86,10 @@ class Complex < Numeric
       if (m = forms[:polar].match(body))
         return polar(real_part(m[1]), real_part(m[2]))
       end
-      if (m = forms[:pair].match(body)) && (m[2] || m[1].nil?) && !(m[1].nil? && m[2].nil? && m[3].nil? && body != "i")
+      if (m = forms[:pair].match(body)) && (m[2] || m[1].nil?) && !(m[1].nil? && m[2].nil? && m[3].nil? && body != +"i")
         real = m[1] ? real_part(m[1]) : 0
         imag = m[3] ? real_part(m[3]) : 1
-        imag = -imag if m[2] == "-"
+        imag = -imag if m[2] == +"-"
         return build(real, imag)
       end
       if (m = forms[:imaginary].match(body))
@@ -323,7 +325,7 @@ class Complex < Numeric
 
   def to_s = formatted(:to_s)
 
-  def inspect = String.new("(", encoding: Encoding::US_ASCII) << formatted(:inspect) << ")"
+  def inspect = String.new(+"(", encoding: Encoding::US_ASCII) << formatted(:inspect) << ")"
 
   # f_format: `a+bi`, each part as `form` writes it -- rb_String for
   # `to_s`, rb_inspect for `inspect` -- and the text takes the encoding

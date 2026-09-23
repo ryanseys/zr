@@ -292,9 +292,12 @@ module Ze0
     RegexpOnce = Struct.new(:value, :line)
 
     RegexpLit = Struct.new(:source, :options, :pinned, :line)
-    # `"text".freeze`: the one frozen String of that text; `shared` where
-    # a shareable constant holds it, the shared String with no send, as
-    # the compiler's own fstring.
+    # `"text".freeze`: the one frozen String of that text, through a send
+    # of `freeze` where the program redefines it. `shared` is true where
+    # a shareable constant or a frozen_string_literal comment holds it:
+    # the shared String with no send, as the compiler's own fstring; false
+    # is the same for a text outside UTF-8, frozen with no send but not
+    # shared.
     FrozenString = Struct.new(:value, :line, :shared)
     # `begin body rescue ... else else_body ensure ensure_body end`. The
     # else arm runs after a body that raised nothing; the ensure arm on

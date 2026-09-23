@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Array#pack and String#unpack: a template of directives, each with
 # an optional count or `*`, over bytes. Integers are little-endian
 # unless the directive or a `>` says otherwise; a double is packed
@@ -53,7 +55,7 @@ module Packing
         native = true if m == 95 || m == 33
         i += 1
       end
-      c = c == "L" ? "Q" : "q" if native && (c == "L" || c == "l")
+      c = c == +"L" ? +"Q" : +"q" if native && (c == +"L" || c == +"l")
       count = nil
       if i < size && template.getbyte(i) == STAR
         count = :all
@@ -112,7 +114,7 @@ module Packing
       if text.getbyte(i) != 61
         out << text.getbyte(i).chr
         i += 1
-      elsif text.byteslice(i + 1, 1) == "\n"
+      elsif text.byteslice(i + 1, 1) == +"\n"
         i += 2
       elsif text.byteslice(i + 1, 2) =~ /\A\h\h\z/
         out << text.byteslice(i + 1, 2).to_i(16).chr
@@ -130,8 +132,8 @@ module Packing
   # it is, from there on: a copy of a long String for each unpack1 at
   # an offset makes a reader of records quadratic.
   def self.from(text, offset)
-    raise ArgumentError, "offset can't be negative" if offset < 0
-    raise ArgumentError, "offset outside of string" if offset > text.bytesize
+    raise ArgumentError, +"offset can't be negative" if offset < 0
+    raise ArgumentError, +"offset outside of string" if offset > text.bytesize
 
     offset
   end
@@ -200,7 +202,7 @@ module Packing
     list = directives(template, "pack", check: false)
     encoding = list.reduce(Encoding::US_ASCII) do |so_far, (c, _, _)|
       if "mMu".include?(c) then so_far
-      elsif c == "U" then so_far == Encoding::US_ASCII ? Encoding::UTF_8 : so_far
+      elsif c == +"U" then so_far == Encoding::US_ASCII ? Encoding::UTF_8 : so_far
       else Encoding::BINARY
       end
     end
@@ -210,60 +212,60 @@ module Packing
         out << "\0" * (count == :all ? 0 : (count || 1))
       when "X"
         n = count == :all ? 0 : (count || 1)
-        raise ArgumentError, "X outside of string" if n > out.bytesize
+        raise ArgumentError, +"X outside of string" if n > out.bytesize
 
         out = out.byteslice(0, out.bytesize - n)
       when "@"
         n = count == :all ? 0 : (count || 0)
         out = n <= out.bytesize ? out.byteslice(0, n) : out + "\0" * (n - out.bytesize)
       when "a", "A", "Z"
-        raise ArgumentError, "too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= items.size
 
         item = items[at]
         at += 1
-        item = "" if item.nil?
+        item = +"" if item.nil?
         raise TypeError, "no implicit conversion of #{conversion_name(item)} into String" unless item.is_a?(String)
 
         out << pack_text(item.b, c, count)
       when "H", "h", "B", "b"
-        raise ArgumentError, "too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= items.size
 
         # A String alone, or nil as an empty one, as CRuby's StringValue
         # takes it; `m` and `u` refuse nil too, and only `M` takes to_s.
         item = items[at]
-        item = Primitive.zr_str_operand(item.nil? ? "" : item)
+        item = Primitive.zr_str_operand(item.nil? ? +"" : item)
         at += 1
-        out << (c == "H" || c == "h" ? pack_hex(item, c == "H", count) : pack_bits(item, c == "B", count))
+        out << (c == +"H" || c == +"h" ? pack_hex(item, c == +"H", count) : pack_bits(item, c == +"B", count))
       when "m"
-        raise ArgumentError, "too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= items.size
 
         item = items[at]
         at += 1
         out << base64(Primitive.zr_str_operand(item).b, count)
       when "M"
-        raise ArgumentError, "too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= items.size
 
         item = items[at]
         at += 1
         out << quoted_printable(item.to_s.b, count)
       when "u"
-        raise ArgumentError, "too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= items.size
 
         item = items[at]
         at += 1
         out << uuencode(Primitive.zr_str_operand(item).b, count)
       when "p", "P"
         # `P`'s count is the least width of the one String it points at.
-        if c == "P"
-          raise ArgumentError, "too few arguments" if at >= items.size
+        if c == +"P"
+          raise ArgumentError, +"too few arguments" if at >= items.size
 
           width = count.is_a?(Integer) ? count : 1
           text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
           raise ArgumentError, "too short buffer for P(#{text.bytesize} for #{width})" if text && text.bytesize < width
         end
-        n = c == "P" ? 1 : count == :all ? items.size - at : (count || 1)
+        n = c == +"P" ? 1 : count == :all ? items.size - at : (count || 1)
         n.times do
-          raise ArgumentError, "too few arguments" if at >= items.size
+          raise ArgumentError, +"too few arguments" if at >= items.size
 
           text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
           at += 1
@@ -277,10 +279,10 @@ module Packing
         each_item(items, at, count) { |item| out << ber(Integer(item)) }
         at += count == :all ? items.size - at : (count || 1)
       when "d", "D", "E", "G"
-        each_item(items, at, count) { |item| out << pack_double(Float(item), c == "G") }
+        each_item(items, at, count) { |item| out << pack_double(Float(item), c == +"G") }
         at += count == :all ? items.size - at : (count || 1)
       when "f", "F", "e", "g"
-        each_item(items, at, count) { |item| out << pack_single(Float(item), c == "g") }
+        each_item(items, at, count) { |item| out << pack_single(Float(item), c == +"g") }
         at += count == :all ? items.size - at : (count || 1)
       else
         raise ArgumentError, "unknown pack directive '#{c}' in '#{template}'" unless INTEGERS.key?(c)
@@ -288,7 +290,7 @@ module Packing
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
         n = count == :all ? items.size - at : (count || 1)
-        raise ArgumentError, "too few arguments" if at + n > items.size
+        raise ArgumentError, +"too few arguments" if at + n > items.size
 
         done = Primitive.zr_pack_ints(out, items, at, n, size, big == true)
         (at + done...at + n).each { |i| push_integer(out, integer_item(items[i]), size, big) }
@@ -308,7 +310,7 @@ module Packing
   # associated_pointer: the String whose bytes sit at `address`.
   def self.pointed(associates, address)
     associates&.find { |text| text.is_a?(String) && Primitive.zr_str_bytes_address(text) == address } or
-      raise ArgumentError, "no associated pointer"
+      raise ArgumentError, +"no associated pointer"
   end
 
   # An item an integer directive takes: a Numeric truncated to an Integer,
@@ -326,7 +328,7 @@ module Packing
   # rb_uv_to_utf8: a code point as UTF-8's bytes, in as many as six of
   # them, surrogates and all.
   def self.utf8(code)
-    raise RangeError, "pack(U): value out of range" if code.negative? || code > 0x7fffffff
+    raise RangeError, +"pack(U): value out of range" if code.negative? || code > 0x7fffffff
     return code.chr.b if code < 0x80
 
     size = [0x7ff, 0xffff, 0x1fffff, 0x3ffffff, 0x7fffffff].index { |top| code <= top } + 2
@@ -336,7 +338,7 @@ module Packing
 
   def self.each_item(items, at, count)
     n = count == :all ? items.size - at : (count || 1)
-    raise ArgumentError, "too few arguments" if at + n > items.size
+    raise ArgumentError, +"too few arguments" if at + n > items.size
 
     n.times { |i| yield items[at + i] }
   end
@@ -373,11 +375,11 @@ module Packing
   def self.pack_integer(n, size, big) = push_integer("".b, n, size, big)
 
   def self.pack_text(item, c, count)
-    return item + (c == "Z" ? "\0" : "") if count == :all
+    return item + (c == +"Z" ? "\0" : "") if count == :all
 
     n = count || 1
     item = item.byteslice(0, n)
-    item + (c == "A" ? " " : "\0") * (n - item.bytesize)
+    item + (c == +"A" ? " " : "\0") * (n - item.bytesize)
   end
 
   def self.pack_hex(text, high_first, count)
@@ -442,7 +444,7 @@ module Packing
   end
 
   def self.ber(n)
-    raise ArgumentError, "can't compress negative numbers" if n < 0
+    raise ArgumentError, +"can't compress negative numbers" if n < 0
 
     bytes = [n & 127]
     n >>= 7
@@ -508,41 +510,41 @@ module Packing
       case c
       when "x"
         n = count == :all ? bytes.bytesize - at : (count || 1)
-        raise ArgumentError, "x outside of string" if at + n > bytes.bytesize
+        raise ArgumentError, +"x outside of string" if at + n > bytes.bytesize
 
         at += n
       when "X"
         n = count == :all ? 0 : (count || 1)
-        raise ArgumentError, "X outside of string" if n > at
+        raise ArgumentError, +"X outside of string" if n > at
 
         at -= n
       when "@"
         n = count == :all ? 0 : (count || 0)
-        raise ArgumentError, "@ outside of string" if n > bytes.bytesize
+        raise ArgumentError, +"@ outside of string" if n > bytes.bytesize
 
         at = n
       when "a", "A", "Z"
         n = count == :all ? bytes.bytesize - at : (count || 1)
         chunk = chunk(bytes, at, n)
-        if c == "Z"
+        if c == +"Z"
           stop = chunk.index("\0")
           if stop
             chunk = chunk.byteslice(0, stop)
             n = count == :all ? stop + 1 : n
           end
         end
-        if c == "A"
+        if c == +"A"
           chunk = chunk.byteslice(0, chunk.bytesize - 1) while chunk.end_with?(" ") || chunk.end_with?("\0")
         end
         out << chunk
         at += n
       when "H", "h"
         n = count == :all ? (bytes.bytesize - at) * 2 : (count || 1)
-        out << unpack_hex(bytes, at, n, c == "H")
+        out << unpack_hex(bytes, at, n, c == +"H")
         at += (n + 1) / 2
       when "B", "b"
         n = count == :all ? (bytes.bytesize - at) * 8 : (count || 1)
-        out << unpack_bits(bytes, at, n, c == "B")
+        out << unpack_bits(bytes, at, n, c == +"B")
         at += (n + 7) / 8
       when "m"
         rest = chunk(bytes, at, bytes.bytesize - at)
@@ -583,7 +585,7 @@ module Packing
         while (n.nil? || n > 0) && at < bytes.bytesize
           len = Primitive.zr_str_char_len_at_m(text, at - base)
           char = text.byteslice(at - base, len)
-          raise ArgumentError, "malformed UTF-8 character" if len == 1 && bytes.getbyte(at) >= 128
+          raise ArgumentError, +"malformed UTF-8 character" if len == 1 && bytes.getbyte(at) >= 128
 
           out << char.ord
           at += len
@@ -603,10 +605,10 @@ module Packing
           n -= 1 if n
         end
       when "d", "D", "E", "G"
-        each_slot(bytes, at, 8, count, out) { |chunk| unpack_double(chunk, c == "G") }
+        each_slot(bytes, at, 8, count, out) { |chunk| unpack_double(chunk, c == +"G") }
         at += 8 * (count == :all ? (bytes.bytesize - at) / 8 : (count || 1))
       when "f", "F", "e", "g"
-        each_slot(bytes, at, 4, count, out) { |chunk| single_value(unpack_integer(chunk, false, c == "g")) }
+        each_slot(bytes, at, 4, count, out) { |chunk| single_value(unpack_integer(chunk, false, c == +"g")) }
         at += 4 * (count == :all ? (bytes.bytesize - at) / 4 : (count || 1))
       else
         size, signed, order = INTEGERS.fetch(c)
@@ -666,7 +668,7 @@ module Packing
   end
 
   def self.decode_base64(text, strict)
-    raise ArgumentError, "invalid base64" if strict && (text.bytesize % 4 != 0 || text.include?("\n"))
+    raise ArgumentError, +"invalid base64" if strict && (text.bytesize % 4 != 0 || text.include?("\n"))
 
     out = "".b
     bits = 0
@@ -674,7 +676,7 @@ module Packing
     text.each_byte do |b|
       value = BASE64.index(b.chr)
       if value.nil?
-        raise ArgumentError, "invalid base64" if strict && b != 61
+        raise ArgumentError, +"invalid base64" if strict && b != 61
         next
       end
       bits = (bits << 6) | value

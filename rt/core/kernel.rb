@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Kernel's conversion and convenience methods.
 module Kernel
   def <=>(other) = equal?(other) || self == other ? 0 : nil
@@ -15,7 +17,7 @@ module Kernel
   end
 
   def exit(status = true)
-    raise SystemExit.new(exit_status(status), "exit")
+    raise SystemExit.new(exit_status(status), +"exit")
   end
 
   # How a conversion message names a value: nil, true and false by
@@ -31,7 +33,7 @@ module Kernel
 
   # The message goes to stderr at once; the SystemExit carries it.
   def abort(*args)
-    raise SystemExit.new(1, "exit") if args.empty?
+    raise SystemExit.new(1, +"exit") if args.empty?
 
     message = args[0]
     raise TypeError, "no implicit conversion of #{conversion_name(message)} into String" unless message.is_a?(String)
@@ -57,7 +59,7 @@ module Kernel
   # The name is taken from the directory of the file that calls.
   def require_relative(name)
     file = Primitive.zr_caller_file
-    raise LoadError, "cannot infer basepath" if file.nil?
+    raise LoadError, +"cannot infer basepath" if file.nil?
 
     path = File.expand_path(File.path(name), File.dirname(file))
     Kernel.load_file(Kernel.feature_path(path), path, 1)
@@ -77,7 +79,7 @@ module Kernel
 
     Kernel.missing(feature, 2) unless path
     mod = wrap.is_a?(Module) ? wrap : Module.new
-    return Primitive.zr_unimplemented("load with a wrap module") unless defined?(::Ze0::Eval)
+    return Primitive.zr_unimplemented(+"load with a wrap module") unless defined?(::Ze0::Eval)
 
     code = ::Ze0::Eval.current.compile(File.read(path), path, 1, [], false)
     Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver.clone.extend(mod), Primitive.zr_wrap_cref(mod), nil, nil)
@@ -193,13 +195,13 @@ module Kernel
   # program that computes a require carries.
   def self.compile(path)
     Primitive.attr! :hidden
-    return Primitive.zr_unimplemented("require of a file the program was not compiled with") unless defined?(::Ze0::Eval)
+    return Primitive.zr_unimplemented(+"require of a file the program was not compiled with") unless defined?(::Ze0::Eval)
 
     ::Ze0::Eval.current.compile_file(path)
   end
 
   def at_exit(&block)
-    raise ArgumentError, "called without a block" unless block
+    raise ArgumentError, +"called without a block" unless block
 
     Primitive.zr_at_exit_add(block)
   end
@@ -227,13 +229,13 @@ module Kernel
 
       raise ArgumentError, "invalid value for Integer(): #{value.inspect}"
     end
-    raise ArgumentError, "base specified for non string value" unless base.zero?
+    raise ArgumentError, +"base specified for non string value" unless base.zero?
     return value if value.is_a?(Integer)
 
     if value.nil?
       return nil unless exception
 
-      raise TypeError, "can't convert nil into Integer"
+      raise TypeError, +"can't convert nil into Integer"
     end
     return value.to_int if value.respond_to?(:to_int)
     return value.to_i if value.respond_to?(:to_i)
@@ -276,7 +278,7 @@ module Kernel
     end
     unless duration.nil?
       raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
-      raise ArgumentError, "time interval must not be negative" if duration < 0
+      raise ArgumentError, +"time interval must not be negative" if duration < 0
     end
     # The answer is whole seconds of the wall clock, time(2) after less
     # time(2) before, as rb_f_sleep counts them.
@@ -318,7 +320,7 @@ module Kernel
   def implicit_integer(value)
     Primitive.attr! :hidden
     return value if value.is_a?(Integer)
-    raise TypeError, "no implicit conversion from nil to integer" if value.nil?
+    raise TypeError, +"no implicit conversion from nil to integer" if value.nil?
     raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.respond_to?(:to_int)
 
     value.to_int
@@ -342,7 +344,7 @@ module Kernel
     return 0 if status == true
     return 1 if status == false
     return status if status.is_a?(Integer)
-    raise TypeError, "no implicit conversion from nil to integer" if status.nil?
+    raise TypeError, +"no implicit conversion from nil to integer" if status.nil?
 
     raise TypeError, "no implicit conversion of #{conversion_name(status)} into Integer"
   end
@@ -428,17 +430,17 @@ module Kernel
   # A program that names an eval carries the compiler, and the eval road
   # defines this again over the compiler it brought. One that reaches an
   # eval any other way stops here, by name.
-  def eval(source, binding = nil, file = "(eval)", line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
+  def eval(source, binding = nil, file = "(eval)", line = 1) = Primitive.zr_unimplemented(+"eval reached in a program built without the compiler")
 
   def catch(tag = Object.new, &block)
-    raise LocalJumpError, "no block given (yield)" unless block
+    raise LocalJumpError, +"no block given (yield)" unless block
 
     Primitive.zr_catch(tag, block)
   end
 
   def throw(tag, value = nil)
     unless Primitive.zr_catch_tag_p(tag)
-      raise UncaughtThrowError.new(tag, value, "uncaught throw %p")
+      raise UncaughtThrowError.new(tag, value, +"uncaught throw %p")
     end
 
     Primitive.zr_throw(tag, value)
@@ -452,7 +454,7 @@ end
 module Kernel
   def trace_var(*args, &block)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
-    raise ArgumentError, "tried to create Proc object without a block" if args.size == 1 && block.nil?
+    raise ArgumentError, +"tried to create Proc object without a block" if args.size == 1 && block.nil?
 
     name, command = args.size == 1 ? [args[0], block] : args
     return untrace_var(*args) if command.nil?
@@ -529,7 +531,7 @@ module Kernel
       when *READ_ONLY_GLOBALS
         raise NameError.new("#{shown} is a read-only variable", shown)
       when :$@
-        raise ArgumentError, "$! not set" if $!.nil?
+        raise ArgumentError, +"$! not set" if $!.nil?
 
         $!.set_backtrace(value)
       when :$~
@@ -542,7 +544,7 @@ module Kernel
         separator(shown, value)
       when :$/
         separator(shown, value)
-        return value.frozen? || value == "\n" ? value : value.dup.freeze unless value.nil?
+        return value.frozen? || value == +"\n" ? value : value.dup.freeze unless value.nil?
       when :$stdout, :$stderr
         raise TypeError, "#{shown} must have write method, #{value.class} given" unless value.respond_to?(:write)
       when :$0
@@ -657,7 +659,7 @@ module Kernel
     objects = objs
     objects.each do |object|
       text = object.inspect
-      Primitive.zr_unimplemented("pp of an object whose inspect is 80 columns or wider") if text.size >= 80
+      Primitive.zr_unimplemented(+"pp of an object whose inspect is 80 columns or wider") if text.size >= 80
       puts text
     end
     objects.size <= 1 ? objects[0] : objects
@@ -709,9 +711,9 @@ class Module
       return self
     end
     name = name.to_str
-    raise ArgumentError, "empty class/module name" if name.empty?
-    raise ArgumentError, "the temporary name must not be a constant path to avoid confusion" if name.split("::").all? { |part| constant_name?(part) }
-    raise RuntimeError, "can't change permanent name" unless Primitive.zr_mod_set_temporary_name(self, -name)
+    raise ArgumentError, +"empty class/module name" if name.empty?
+    raise ArgumentError, +"the temporary name must not be a constant path to avoid confusion" if name.split("::").all? { |part| constant_name?(part) }
+    raise RuntimeError, +"can't change permanent name" unless Primitive.zr_mod_set_temporary_name(self, -name)
 
     self
   end
@@ -722,7 +724,7 @@ class Module
 
   def constant_name?(part)
     Primitive.attr! :hidden
-    !part.empty? && part[0].between?("A", "Z") && part.chars.all? { |c| c.between?("A", "Z") || c.between?("a", "z") || c.between?("0", "9") || c == "_" }
+    !part.empty? && part[0].between?("A", "Z") && part.chars.all? { |c| c.between?("A", "Z") || c.between?("a", "z") || c.between?("0", "9") || c == +"_" }
   end
 end
 

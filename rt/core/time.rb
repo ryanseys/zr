@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # A Time is nanoseconds since the epoch, kept in UTC, plus the zone it
 # shows itself in. The count is exact, as CRuby keeps it: an Integer, or
 # a Rational when the Time was built from a Float or a Rational whose
@@ -39,7 +41,7 @@ class Time
       Primitive.attr! :ruby
       zone = Primitive.arg!(:in)
       if time.is_a?(Time)
-        raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless subsec == false
+        raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless subsec == false
 
         t = time.dup
         return zone.nil? ? t : t.localtime(zone)
@@ -114,7 +116,7 @@ class Time
       case zone
       when :utc then :utc
       when Integer
-        raise ArgumentError, "utc_offset out of range" if zone.abs >= 86400
+        raise ArgumentError, +"utc_offset out of range" if zone.abs >= 86400
 
         zone
       when String
@@ -129,14 +131,14 @@ class Time
 
         seconds = canonical(exact(zone))
         return parse_zone(seconds) if seconds.is_a?(Integer)
-        raise ArgumentError, "utc_offset out of range" if seconds.abs >= 86400
+        raise ArgumentError, +"utc_offset out of range" if seconds.abs >= 86400
 
         seconds
       end
     end
 
     def zone_offset(zone)
-      return :utc if zone == "UTC" || zone == "Z"
+      return :utc if zone == +"UTC" || zone == +"Z"
       if zone.size == 1
         letter = zone.ord
         return :utc if letter == 90
@@ -147,28 +149,28 @@ class Time
         return nil
       end
       sign = zone[0]
-      return nil unless sign == "+" || sign == "-"
+      return nil unless sign == +"+" || sign == +"-"
 
       digits = zone[1..]
       hh, mm, ss = case digits.size
-                   when 2 then [digits, "00", "00"]
-                   when 4 then [digits[0, 2], digits[2, 2], "00"]
-                   when 5 then digits[2] == ":" ? [digits[0, 2], digits[3, 2], "00"] : nil
-                   when 8 then digits[2] == ":" && digits[5] == ":" ? [digits[0, 2], digits[3, 2], digits[6, 2]] : nil
+                   when 2 then [digits, +"00", +"00"]
+                   when 4 then [digits[0, 2], digits[2, 2], +"00"]
+                   when 5 then digits[2] == +":" ? [digits[0, 2], digits[3, 2], +"00"] : nil
+                   when 8 then digits[2] == +":" && digits[5] == +":" ? [digits[0, 2], digits[3, 2], digits[6, 2]] : nil
                    end
       return nil if hh.nil? || [hh, mm, ss].any? { |part| part.size != 2 || !part.chars.all? { |ch| ch.between?("0", "9") } }
 
       offset = hh.to_i * 3600 + mm.to_i * 60 + ss.to_i
       return nil if hh.to_i > 23 || mm.to_i > 59 || ss.to_i > 59
 
-      sign == "-" ? -offset : offset
+      sign == +"-" ? -offset : offset
     end
 
     # `Time.new("2021-12-25 10:00:00 +09:00")`: CRuby's time_init_parse,
     # which reads an ISO-8601-shaped string and nothing else. A zone the
     # string carries takes the place of the one the caller named.
     def string_parts(str, zone, precision)
-      raise ArgumentError, "time string should have ASCII compatible encoding" unless str.encoding.ascii_compatible?
+      raise ArgumentError, +"time string should have ASCII compatible encoding" unless str.encoding.ascii_compatible?
       raise ArgumentError, "can't parse: #{str.inspect}" if !str.empty? && (space?(str[0]) || space?(str[-1]))
 
       year, pos = year_part(str)
@@ -177,7 +179,7 @@ class Time
         parts, pos = date_parts(str, pos, precision || str.size)
         found, pos = zone_part(str, pos)
         raise ArgumentError, "can't parse at: #{str[pos..]}" if pos < str.size
-        raise ArgumentError, "no time information" if found.empty? && parts.size < 5
+        raise ArgumentError, +"no time information" if found.empty? && parts.size < 5
 
         zone = found unless found.empty?
       end
@@ -201,15 +203,15 @@ class Time
     # CRuby stops at the first part the string does not carry, and reads
     # what is left as the zone, so each part that is missing ends this.
     def date_parts(str, pos, precision)
-      return [[], pos] unless str[pos] == "-"
+      return [[], pos] unless str[pos] == +"-"
 
       mon = two_digits(str, pos + 1, "mon")
       pos += 3
-      return [[mon], pos] unless str[pos] == "-"
+      return [[mon], pos] unless str[pos] == +"-"
 
       mday = two_digits(str, pos + 1, "mday")
       pos += 3
-      return [[mon, mday], pos] unless (str[pos] == " " || str[pos] == "T") && digit?(str[pos + 1])
+      return [[mon, mday], pos] unless (str[pos] == +" " || str[pos] == +"T") && digit?(str[pos + 1])
 
       clock = pos + 1
       hour = two_digits(str, pos + 1, "hour")
@@ -222,7 +224,7 @@ class Time
       colon(str, pos, clock, "sec")
       sec = two_digits(str, pos + 1, "sec")
       pos += 3
-      return [[mon, mday, hour, min, sec], pos] unless str[pos] == "."
+      return [[mon, mday, hour, min, sec], pos] unless str[pos] == +"."
 
       fraction, pos = subsecond(str, pos + 1, clock, precision)
       [[mon, mday, hour, min, sec + fraction], pos]
@@ -232,7 +234,7 @@ class Time
     # refusal names the part, then the text from its separator on.
     def two_digits(str, pos, name)
       unless digit?(str[pos]) && digit?(str[pos + 1]) && !digit?(str[pos + 2])
-        after = " after '#{str[pos - 1]}'" if str[pos - 1] == "-" || str[pos - 1] == ":"
+        after = " after '#{str[pos - 1]}'" if str[pos - 1] == +"-" || str[pos - 1] == +":"
         raise ArgumentError, "two digits #{name} is expected#{after}: #{str[pos - 1, 11]}"
       end
 
@@ -241,11 +243,11 @@ class Time
 
     # Only the second takes a fraction.
     def whole_part(str, pos, clock, name)
-      raise ArgumentError, "fraction #{name} is not supported: #{str[clock, pos + 1 - clock]}" if str[pos] == "."
+      raise ArgumentError, "fraction #{name} is not supported: #{str[clock, pos + 1 - clock]}" if str[pos] == +"."
     end
 
     def colon(str, pos, clock, name)
-      raise ArgumentError, "missing #{name} part: #{str[clock, pos + 1 - clock]}" unless str[pos] == ":"
+      raise ArgumentError, "missing #{name} part: #{str[clock, pos + 1 - clock]}" unless str[pos] == +":"
     end
 
     # The fraction after the second's dot, as a Rational of a second:
@@ -274,7 +276,7 @@ class Time
 
     def space?(char) = !char.nil? && SPACE.include?(char)
 
-    def digit?(char) = !char.nil? && char >= "0" && char <= "9"
+    def digit?(char) = !char.nil? && char >= +"0" && char <= +"9"
 
     # `(year, month, day, hour, min, sec, usec)`, or the ten fields
     # `Time#to_a` gives, which name the same instant backwards.
@@ -312,17 +314,17 @@ class Time
       if sec.nil?
         sec = 0
       elsif sec.is_a?(Float) || sec.is_a?(Rational)
-        raise ArgumentError, "sec out of range" if sec < 0 || sec >= 61
+        raise ArgumentError, +"sec out of range" if sec < 0 || sec >= 61
 
         sec_ns = exact_ns(sec - sec.floor, NS)
         sec = sec.floor
       else
         sec = int_arg(sec, 0, 0, 60, "sec")
       end
-      raise ArgumentError, "argument out of range" if hour == 24 && (min != 0 || sec != 0)
+      raise ArgumentError, +"argument out of range" if hour == 24 && (min != 0 || sec != 0)
 
       unless usec.nil?
-        raise ArgumentError, "subsecx out of range" if usec < 0 || usec >= 1_000_000
+        raise ArgumentError, +"subsecx out of range" if usec < 0 || usec >= 1_000_000
 
         sec_ns += exact_ns(usec, 1000)
       end
@@ -348,7 +350,7 @@ class Time
       # obj2ubits: a String reads as decimal digits, anything else as
       # to_int.
       month = month.is_a?(String) ? Integer(month, 10) : implicit_integer(month)
-      raise ArgumentError, "mon out of range" if month < 1 || month > 12
+      raise ArgumentError, +"mon out of range" if month < 1 || month > 12
 
       month
     end
@@ -425,10 +427,10 @@ class Time
   def initialize(year = (now = true), mon = (str = year; nil), mday = nil, hour = nil, min = nil, sec = nil, zone = nil,
                  in: nil, precision: 9)
     Primitive.attr! :ruby
-    raise TypeError, "already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
+    raise TypeError, +"already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
 
     if zone
-      raise ArgumentError, "timezone argument given as positional and keyword arguments" if Primitive.arg!(:in)
+      raise ArgumentError, +"timezone argument given as positional and keyword arguments" if Primitive.arg!(:in)
     else
       zone = Primitive.arg!(:in)
     end
@@ -528,7 +530,7 @@ class Time
   def getlocal(zone = nil) = dup.localtime(zone)
 
   def +(other)
-    raise TypeError, "time + time?" if other.is_a?(Time)
+    raise TypeError, +"time + time?" if other.is_a?(Time)
 
     shifted(ns + Time.send(:exact_ns, other, NS))
   end
@@ -597,7 +599,7 @@ class Time
   def strftime(format)
     built!
     format = Primitive.zr_str_operand(format)
-    raise ArgumentError, "format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
+    raise ArgumentError, +"format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
 
     if format.empty?
       Primitive.zr_warn_here_m("strftime called with empty format string") if $VERBOSE
@@ -613,8 +615,8 @@ class Time
   # holds none cannot be copied, and one that already holds an instant
   # cannot take another.
   def initialize_copy(other)
-    raise TypeError, "already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
-    raise TypeError, "uninitialized Time" unless Primitive.zr_hidden_get(other, :__built__)
+    raise TypeError, +"already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
+    raise TypeError, +"uninitialized Time" unless Primitive.zr_hidden_get(other, :__built__)
 
     super
     Primitive.zr_hidden_set(self, :__built__, true)
@@ -657,7 +659,7 @@ class Time
     return strftime("%z") if utc_offset % 60 == 0
 
     offset = utc_offset
-    sign = offset < 0 ? "-" : "+"
+    sign = offset < 0 ? +"-" : +"+"
     offset = offset.abs.round
     format("%s%02d%02d%02d", sign, offset / 3600, (offset % 3600) / 60, offset % 60)
   end
@@ -666,7 +668,7 @@ class Time
   # of every reader.
   def built!
     Primitive.attr! :hidden
-    raise TypeError, "uninitialized Time" unless Primitive.zr_hidden_get(self, :__built__)
+    raise TypeError, +"uninitialized Time" unless Primitive.zr_hidden_get(self, :__built__)
   end
 
   def set(at, of_kind)
@@ -697,7 +699,7 @@ class Time
 
   def rounded(digits)
     Primitive.attr! :hidden
-    raise ArgumentError, "negative ndigits given" if digits < 0
+    raise ArgumentError, +"negative ndigits given" if digits < 0
 
     unit = 10**(9 - digits)
     shifted(yield(ns, unit))
@@ -763,10 +765,10 @@ class Time
           width = 0
         when "^" then upper = true
         when "#" then swap = true
-        else padding = " "
+        else padding = +" "
         end
       when "0".."9"
-        padding = "0" if c == "0"
+        padding = +"0" if c == +"0"
         digits = format.byteslice(at, format.bytesize - at)[/\A\d+/]
         return verbatim(format, from, at, out) if digits.to_i > INT_MAX
 
@@ -774,13 +776,13 @@ class Time
         at += digits.bytesize - 1
       when ":"
         colons = 1
-        colons += 1 while colons <= 3 && format.byteslice(at + colons) == ":"
-        return verbatim(format, from, at, out) if colons <= 3 && format.byteslice(at + colons) != "z"
+        colons += 1 while colons <= 3 && format.byteslice(at + colons) == +":"
+        return verbatim(format, from, at, out) if colons <= 3 && format.byteslice(at + colons) != +"z"
 
         at += colons - 1
       when "E", "O"
         modified = format.byteslice(at + 1)
-        return verbatim(format, from, at, out) unless modified && (c == "E" ? "cCxXyY" : "deHkIlmMSuUVwWy").include?(modified)
+        return verbatim(format, from, at, out) unless modified && (c == +"E" ? "cCxXyY" : "deHkIlmMSuUVwWy").include?(modified)
       else
         break
       end
@@ -819,7 +821,7 @@ class Time
     when "y" then put_number(out, year % 100, "0", 2, width, padding, left)
     when "g" then put_number(out, iso_week[0] % 100, "0", 2, width, padding, left)
     when "L", "N"
-      width = c == "L" ? 3 : 9 if width <= 0
+      width = c == +"L" ? 3 : 9 if width <= 0
       out << ((ns % NS) * 10**width).div(NS).to_s.rjust(width, "0")
     when "z"
       return verbatim(format, from, at - 1, out) if colons > 3
@@ -866,7 +868,7 @@ class Time
     return out << text if text.bytesize >= width
 
     fill = padding || pad
-    if fill == "0" && value.negative? && Primitive.zr_fixnum_p_m(value)
+    if fill == +"0" && value.negative? && Primitive.zr_fixnum_p_m(value)
       out << "-" << text.delete_prefix("-").rjust(width - 1, "0")
     else
       out << text.rjust(width, fill)
@@ -901,7 +903,7 @@ class Time
     digits = width <= tail + 2 ? 2 : width - tail
     sign = negative ? "-" : "+"
     hours = (off / 3600).to_s
-    out << (padding == " " ? (sign + hours).rjust(digits + 1) : sign + hours.rjust(digits, "0"))
+    out << (padding == +" " ? (sign + hours).rjust(digits + 1) : sign + hours.rjust(digits, "0"))
     off %= 3600
     return if colons == 3 && off.zero?
 
@@ -1017,7 +1019,7 @@ class Time
   # them. A payload too short for the words is not a marshalled Time.
   def self._load(text)
     text = String.try_convert(text)
-    raise TypeError, "marshaled time format differ" if text.nil? || text.bytesize < 8
+    raise TypeError, +"marshaled time format differ" if text.nil? || text.bytesize < 8
 
     extras = Marshal.send(:extras_of, text).to_h
     word = (0..3).sum { |i| text.getbyte(i) << (8 * i) }
@@ -1049,7 +1051,7 @@ class Time
   def self.extended_year(year, tail)
     Primitive.attr! :hidden
     size, rest = Marshal.send(:read_long_bytes, tail)
-    raise TypeError, "marshaled time format differ" if size < 0 || size > rest.bytesize
+    raise TypeError, +"marshaled time format differ" if size < 0 || size > rest.bytesize
 
     away = (0...size).sum { |i| rest.getbyte(i) << (8 * i) }
     year == 1900 ? year - away : year + away

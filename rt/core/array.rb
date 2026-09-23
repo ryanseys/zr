@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Array over the kernel's storage. CRuby writes these in C, so none
 # goes through `each`: a backtrace must not show a row for it.
 class Array
@@ -78,7 +80,7 @@ class Array
     return Primitive.zr_ary_aref1_m(self, -1) if none
 
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative array size" if n < 0
+    raise ArgumentError, +"negative array size" if n < 0
 
     from = Primitive.zr_ary_len_m(self) - n
     from = 0 if from < 0
@@ -95,7 +97,7 @@ class Array
     return Primitive.zr_ary_aref1_m(self, 0) if none
 
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative array size" if n < 0
+    raise ArgumentError, +"negative array size" if n < 0
 
     out = []
     i = 0
@@ -149,8 +151,8 @@ class Array
     end
     return Primitive.zr_str_usascii(+"") if (Primitive.zr_ary_len_m(self) == 0)
 
-    sep = sep.nil? ? "" : Primitive.zr_str_operand(sep)
-    raise ArgumentError, "recursive array join" if Primitive.zr_recursive_enter(self, :join)
+    sep = sep.nil? ? +"" : Primitive.zr_str_operand(sep)
+    raise ArgumentError, +"recursive array join" if Primitive.zr_recursive_enter(self, :join)
 
     begin
       s = Primitive.zr_str_usascii(+"")
@@ -383,14 +385,14 @@ class Array
 
   def take(n)
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "attempt to take negative size" if n < 0
+    raise ArgumentError, +"attempt to take negative size" if n < 0
 
     Primitive.zr_ary_aref2_m(self, 0, n)
   end
 
   def drop(n)
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "attempt to drop negative size" if n < 0
+    raise ArgumentError, +"attempt to drop negative size" if n < 0
 
     out = []
     i = n
@@ -788,7 +790,7 @@ class Array
           result << elt
         else
           if memo
-            raise ArgumentError, "tried to flatten recursive array" if memo[tmp]
+            raise ArgumentError, +"tried to flatten recursive array" if memo[tmp]
 
             memo[tmp] = true
           end
@@ -892,8 +894,8 @@ class Array
     return join(other) if other.is_a?(String)
 
     other = Primitive.zr_index_operand_m(other)
-    raise ArgumentError, "negative argument" if other < 0
-    raise ArgumentError, "argument too big" if other > 0 && Primitive.zr_ary_max_size / other < Primitive.zr_ary_len_m(self)
+    raise ArgumentError, +"negative argument" if other < 0
+    raise ArgumentError, +"argument too big" if other > 0 && Primitive.zr_ary_max_size / other < Primitive.zr_ary_len_m(self)
 
     out = []
     other.times { out.concat(self) }
@@ -931,9 +933,9 @@ class Array
     return converted if converted
 
     shown = case other
-            when nil then "nil"
-            when true then "true"
-            when false then "false"
+            when nil then +"nil"
+            when true then +"true"
+            when false then +"false"
             else other.class
             end
     raise TypeError, "no implicit conversion of #{shown} into Array"
@@ -1012,7 +1014,7 @@ class Array
       return self
     end
     max = Primitive.zr_ary_max_size
-    raise ArgumentError, "argument too big" if first >= max || len > max - first
+    raise ArgumentError, +"argument too big" if first >= max || len > max - first
 
     stop = first + len
     i = first
@@ -1123,7 +1125,7 @@ class Array
     len = 0 if len.negative?
     len = count - from if count < from + len
     return [] if len.zero?
-    raise ArgumentError, "slice step cannot be zero" if step.zero?
+    raise ArgumentError, +"slice step cannot be zero" if step.zero?
     return Primitive.zr_ary_aref2_m(self, from, len) if step == 1
     return [Primitive.zr_ary_aref1_m(self, from)] if step.positive? && step >= len
 

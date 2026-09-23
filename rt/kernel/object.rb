@@ -1430,8 +1430,11 @@ end
 sig [Value] => Value
 machine def zr_exc_to_s(recv)
   m = RException.message(recv)
+  # A fresh copy of the class's name, as rb_class_name gives one: the
+  # caller may change the message it gets.
   if m == QNIL
-    return zr_class_name_of(recv)
+    name = zr_class_name_of(recv)
+    return zr_str_new_at(RString.ptr(name), RString.len(name), zr_str_encoding_index(name))
   end
   if zr_special_p(m) || zr_type(m) != T_STRING
     return zr_send(m, Machine.id(:to_s), 0, 0)

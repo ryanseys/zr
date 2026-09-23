@@ -49,7 +49,7 @@
           (seq
             (sym :int)))
         (when
-          (frozen "a")
+          (frozen shared "a")
           (sym :b)
           (seq
             (sym :ab)))

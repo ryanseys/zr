@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # String methods written over the byte primitives. Character indexes
 # map to byte offsets through the kernel, which reads UTF-8; a binary
 # string's bytes are its characters. Case mapping, succ and character
@@ -183,12 +185,12 @@ class String
       raise RangeError, "#{index.inspect} out of range" unless start
     when String
       start = OWN[:index].bind_call(self, index)
-      raise IndexError, "string not matched" unless start
+      raise IndexError, +"string not matched" unless start
 
       length = index.size
     when Regexp
       match = index.send(:search, self, 0, false)
-      raise IndexError, "regexp not matched" unless match
+      raise IndexError, +"regexp not matched" unless match
 
       group = args.size == 2 ? args[1] : 0
       start = match.begin(group)
@@ -323,7 +325,7 @@ class String
   # refused where no character starts.
   def codepoint_len(bytes, at, onig, enc)
     Primitive.attr! :hidden
-    raise ArgumentError, "empty string" if at >= bytes.bytesize
+    raise ArgumentError, +"empty string" if at >= bytes.bytesize
 
     n = onig.precise_mbclen(bytes, at)
     raise ArgumentError, "invalid byte sequence in #{enc}" unless n > 0
@@ -347,7 +349,7 @@ class String
     return copied if separator.nil? || (Primitive.zr_str_bytesize(self) == 0)
     return byteslice_of(0, chompped_length(separator)) if Primitive.zr_str_unit_m(self) != 0 || Primitive.zr_str_mb_p_m(self) || Primitive.zr_str_unit_m(separator) != 0
 
-    if separator == "\n"
+    if separator == +"\n"
       return byteslice_of(0, Primitive.zr_str_bytesize(self) - 2) if OWN[:end_with?].bind_call(self, "\r\n")
       return byteslice_of(0, Primitive.zr_str_bytesize(self) - 1) if OWN[:end_with?].bind_call(self, "\n", "\r")
 
@@ -679,7 +681,7 @@ class String
   # `\k<name>`, `\0` and `\&` filled in, by the Hash's entry for the
   # match, or by what the block answers with `$~` set.
   def sub(pattern, replacement = nil, &block)
-    raise ArgumentError, "wrong number of arguments (given 1, expected 2)" if replacement.nil? && block.nil?
+    raise ArgumentError, +"wrong number of arguments (given 1, expected 2)" if replacement.nil? && block.nil?
 
     match = first_match(pattern, 0)
     Primitive.zr_backref_set(match)
@@ -826,7 +828,7 @@ class String
   # The characters are walked by byte offset and read as code points:
   # no String a character, as `rb_str_count` makes none.
   def count(*sets)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
     n = 0
@@ -837,7 +839,7 @@ class String
   # The runs of characters kept are copied whole: a delete that keeps
   # most of the text copies it in a few pieces.
   def delete(*sets)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
     out = empty_like
@@ -1077,8 +1079,8 @@ class String
 
   def crypt(salt)
     salt = Primitive.zr_str_operand(salt)
-    raise ArgumentError, "salt too short (need >=2 bytes)" if salt.bytesize < 2
-    raise ArgumentError, "string contains null byte" if OWN[:include?].bind_call(self, "\0") || salt.include?("\0")
+    raise ArgumentError, +"salt too short (need >=2 bytes)" if salt.bytesize < 2
+    raise ArgumentError, +"string contains null byte" if OWN[:include?].bind_call(self, "\0") || salt.include?("\0")
 
     Primitive.zr_str_set_binary(Primitive.zr_str_crypt(self, salt))
   end
@@ -1456,7 +1458,7 @@ class String
   # The text `dump` wrote, read back; a trailing `.force_encoding(...)`
   # names the encoding.
   def undump
-    raise RuntimeError, "non-ASCII character detected" unless Primitive.zr_str_ascii_only_m(self)
+    raise RuntimeError, +"non-ASCII character detected" unless Primitive.zr_str_ascii_only_m(self)
 
     text = self
     encoding = nil
@@ -1464,7 +1466,7 @@ class String
       text = m[1]
       encoding = m[2]
     end
-    raise RuntimeError, "invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" unless text.size >= 2 && text.start_with?("\"") && text.end_with?("\"")
+    raise RuntimeError, +"invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" unless text.size >= 2 && text.start_with?("\"") && text.end_with?("\"")
 
     out = "".b
     i = 1
@@ -1472,13 +1474,13 @@ class String
     while i < stop
       b = text.getbyte(i)
       if b != 92
-        raise RuntimeError, "invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" if b == 34
+        raise RuntimeError, +"invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" if b == 34
 
         out << b
         i += 1
         next
       end
-      raise RuntimeError, "invalid escape" if i + 1 >= stop
+      raise RuntimeError, +"invalid escape" if i + 1 >= stop
 
       c = text.getbyte(i + 1)
       i += 2
@@ -1493,14 +1495,14 @@ class String
       when 118 then out << 11
       when 120
         hex = text.byteslice(i, 2)
-        raise RuntimeError, "invalid hex escape" unless hex.match?(/\A[0-9a-fA-F]{1,2}\z/)
+        raise RuntimeError, +"invalid hex escape" unless hex.match?(/\A[0-9a-fA-F]{1,2}\z/)
 
         out << hex.to_i(16)
         i += hex.size
       when 117
         if text.getbyte(i) == 123
           close = text.index("}", i)
-          raise RuntimeError, "unterminated Unicode escape" if close.nil?
+          raise RuntimeError, +"unterminated Unicode escape" if close.nil?
 
           text[(i + 1)...close].split.each { |code| out << code.to_i(16).chr(Encoding::UTF_8).b }
           i = close + 1
@@ -1572,10 +1574,10 @@ class String
     OWN[:downcase].bind_call(self, :fold) == other.downcase(:fold)
   end
 
-  def chr = (Primitive.zr_str_bytesize(self) == 0) ? "" : OWN[:[]].bind_call(self, 0)
+  def chr = (Primitive.zr_str_bytesize(self) == 0) ? +"" : OWN[:[]].bind_call(self, 0)
 
   def =~(other)
-    raise TypeError, "wrong argument type String (expected Regexp)" if other.is_a?(String)
+    raise TypeError, +"wrong argument type String (expected Regexp)" if other.is_a?(String)
     return other.send(:=~, self) if other.is_a?(Regexp)
 
     other =~ self
@@ -1653,7 +1655,7 @@ class String
   # one by one. CESU-8's characters are Unicode's, and print as theirs.
   def mb_inspect
     Primitive.attr! :hidden
-    cesu = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name == "CESU-8"
+    cesu = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name == +"CESU-8"
     out = +"\""
     run = +"".b
     OWN[:each_char].bind_call(self) do |char|
@@ -1683,7 +1685,7 @@ class String
   # inspect answers once the bytes are tagged as UTF-8.
   def ascii_escaped(run)
     Primitive.attr! :hidden
-    return "" if run.empty?
+    return +"" if run.empty?
 
     shown = run.dup.force_encoding(Encoding::UTF_8).inspect
     shown.byteslice(1, shown.bytesize - 2)
@@ -1696,8 +1698,8 @@ class String
     Primitive.attr! :hidden
     marks = case options[:xml]
             when nil then return text
-            when :text then { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;" }
-            when :attr then { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;", "\"" => "&quot;", "'" => "&apos;" }
+            when :text then { "&" => +"&amp;", "<" => +"&lt;", ">" => +"&gt;" }
+            when :attr then { "&" => +"&amp;", "<" => +"&lt;", ">" => +"&gt;", "\"" => +"&quot;", "'" => +"&apos;" }
             else raise ArgumentError, "unexpected value for xml option: #{options[:xml]}"
             end
     pattern = /[#{Regexp.escape(marks.keys.join)}]/
@@ -1769,8 +1771,8 @@ class String
     # encoding, UTF8-MAC and CESU-8 as well.
     if replacement.nil? && !block_given?
       replacement = if Encoding.wide?(encoding) then "\uFFFD".encode(encoding)
-                    elsif encoding.equal?(Encoding::UTF_8) then "\uFFFD"
-                    else "?"
+                    elsif encoding.equal?(Encoding::UTF_8) then +"\uFFFD"
+                    else +"?"
                     end
     end
     mb = Encoding.mb?(encoding)
@@ -1875,7 +1877,7 @@ class String
   def normalizer
     Primitive.attr! :hidden
     unless NORMALIZER[1]
-      Primitive.zr_unimplemented("String#unicode_normalize through a name the program never spells") unless NORMALIZER[0]
+      Primitive.zr_unimplemented(+"String#unicode_normalize through a name the program never spells") unless NORMALIZER[0]
       NORMALIZER[0].call
       NORMALIZER[1] = ::UnicodeNormalize
     end
@@ -1896,7 +1898,7 @@ class String
   def grapheme_clusters
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     return characters unless GRAPHEMES.include?(encoding.name)
-    return wide_clusters unless encoding.ascii_compatible? && encoding.name != "CESU-8"
+    return wide_clusters unless encoding.ascii_compatible? && encoding.name != +"CESU-8"
 
     out = []
     at = 0
@@ -1919,7 +1921,7 @@ class String
   def wide_clusters
     Primitive.attr! :hidden
     chars = engine_whole(characters)
-    text = chars.map { |c| Primitive.zr_str_valid_p(c) ? c.encode(Encoding::UTF_8) : "\uFFFD" }.join
+    text = chars.map { |c| Primitive.zr_str_valid_p(c) ? c.encode(Encoding::UTF_8) : +"\uFFFD" }.join
     at = 0
     OWN[:grapheme_clusters].bind_call(text).map do |cluster|
       part = chars[at, Primitive.zr_str_length_m(cluster)].join
@@ -1959,7 +1961,7 @@ class String
   def engine_whole(chars)
     Primitive.attr! :hidden
     name = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name
-    return chars if name == "CESU-8"
+    return chars if name == +"CESU-8"
 
     size = Primitive.zr_str_bytesize(self)
     at = 0
@@ -2179,7 +2181,7 @@ class String
     Primitive.attr! :hidden
     enc = Encoding.at(Primitive.zr_str_encoding_index_m(pattern))
     bytes = OWN[:b].bind_call(pattern)
-    return bytes == " " if enc.ascii_compatible?
+    return bytes == +" " if enc.ascii_compatible?
 
     code, n = Regexp.encoder(enc).ascget(bytes, 0, false)
     code == 0x20 && n == bytes.bytesize
@@ -2361,7 +2363,7 @@ class String
 
           name_end += gt.nil? ? onig.mbclen(bytes, name_end) : gt_len
         end
-        raise RuntimeError, "invalid group name reference format" unless name_end < e
+        raise RuntimeError, +"invalid group name reference format" unless name_end < e
 
         no = regsub_name_number(regexp, Primitive.zr_str_byteslice(repl, name, name_end - name), match)
         p = s = name_end + gt_len
@@ -2513,20 +2515,20 @@ class String
   # `:lithuanian` names no mapping of its own.
   def case_mode(options, kind)
     Primitive.attr! :hidden
-    raise ArgumentError, "too many options" if options.size > 2
+    raise ArgumentError, +"too many options" if options.size > 2
 
     if options.size == 2
       first, second = options
-      raise ArgumentError, "too many options" unless first == :turkic || first == :lithuanian
-      raise ArgumentError, "invalid second option" unless second == (first == :turkic ? :lithuanian : :turkic)
+      raise ArgumentError, +"too many options" unless first == :turkic || first == :lithuanian
+      raise ArgumentError, +"invalid second option" unless second == (first == :turkic ? :lithuanian : :turkic)
 
       return :turkic
     end
 
     mode = options.first
     return :full if mode.nil? || mode == :lithuanian
-    raise ArgumentError, "option :fold only allowed for downcasing" if mode == :fold && kind != :down
-    raise ArgumentError, "invalid option" unless mode == :ascii || mode == :turkic || mode == :fold
+    raise ArgumentError, +"option :fold only allowed for downcasing" if mode == :fold && kind != :down
+    raise ArgumentError, +"invalid option" unless mode == :ascii || mode == :turkic || mode == :fold
 
     mode
   end
@@ -2539,7 +2541,7 @@ class String
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     raise Encoding::CompatibilityError, "incompatible encoding with this operation: #{encoding}" if encoding.dummy?
     # UTF-16, UTF-32 and CESU-8 case as the same characters do in UTF-8.
-    return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, options).encode(encoding) if Encoding.wide?(encoding) || encoding.name == "CESU-8"
+    return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, options).encode(encoding) if Encoding.wide?(encoding) || encoding.name == +"CESU-8"
     # UTF8-MAC and the carriers' UTF-8 hold the same bytes UTF-8 does.
     return copied.force_encoding(Encoding::UTF_8).send(:mapped_case, kind, options).force_encoding(encoding) if Encoding.send(:utf8_like?, encoding)
     return recoded_case(kind, options) if Encoding.cased?(encoding) && !Primitive.zr_str_ascii_only_m(self)
@@ -2548,7 +2550,7 @@ class String
     return ascii_cased(kind, encoding) unless encoding.equal?(Encoding::UTF_8) || Encoding.cased?(encoding)
     # The case-fold pass reads every character, and says so of bytes
     # that make none; ASCII mode reads none past ASCII.
-    raise ArgumentError, "input string invalid" unless mode == :ascii || Primitive.zr_str_valid_p(self)
+    raise ArgumentError, +"input string invalid" unless mode == :ascii || Primitive.zr_str_valid_p(self)
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
 
     out = empty_like
@@ -2691,7 +2693,7 @@ class String
       enc = Encoding.compatible?(self, pad) || Encoding.incompatible(self, pad)
       fill = OWN[:b].bind_call(pad)
       fclen = Primitive.zr_str_length_m(pad)
-      raise ArgumentError, "zero width padding" if fill.empty? || fclen == 0
+      raise ArgumentError, +"zero width padding" if fill.empty? || fclen == 0
     else
       fill = " ".b
       fclen = 1
@@ -2705,7 +2707,7 @@ class String
     size = Primitive.zr_str_bytesize(self)
     llen2 = fill.bytesize > 1 ? Primitive.zr_str_char_offset_m(pad, llen % fclen) : 0
     rlen2 = fill.bytesize > 1 ? Primitive.zr_str_char_offset_m(pad, rlen % fclen) : 0
-    raise ArgumentError, "argument too big" if ((llen / fclen) + (rlen / fclen)) * fill.bytesize + llen2 + rlen2 + size >= 1 << 63
+    raise ArgumentError, +"argument too big" if ((llen / fclen) + (rlen / fclen)) * fill.bytesize + llen2 + rlen2 + size >= 1 << 63
 
     out = padding(fill, llen, fclen, llen2) << OWN[:b].bind_call(self) << padding(fill, rlen, fclen, rlen2)
     OWN[:force_encoding].bind_call(out, enc)
@@ -2921,7 +2923,7 @@ class Encoding
   # A dummy encoding says so, and so does one whose table a fresh ruby
   # has not read, in that order, as enc_inspect writes them.
   def inspect
-    shown = @names[1] == "BINARY" ? "BINARY (ASCII-8BIT)" : name
+    shown = @names[1] == +"BINARY" ? +"BINARY (ASCII-8BIT)" : name
     "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless @loaded}>".force_encoding(US_ASCII)
   end
 
@@ -3187,7 +3189,7 @@ class Encoding
   # BINARY reads as both its names where an error names it.
   def self.shown(encoding)
     Primitive.attr! :hidden
-    encoding.equal?(ASCII_8BIT) ? "BINARY (ASCII-8BIT)" : encoding.name
+    encoding.equal?(ASCII_8BIT) ? +"BINARY (ASCII-8BIT)" : encoding.name
   end
 
   # The code point each byte from 128 up stands for, nil where the
@@ -3195,7 +3197,7 @@ class Encoding
   # in every encoding that has a table.
   def points
     Primitive.attr! :hidden
-    @points ||= HIGH.fetch(name).scan(/..../).map { |hex| hex == "----" ? nil : hex.to_i(16) }
+    @points ||= HIGH.fetch(name).scan(/..../).map { |hex| hex == +"----" ? nil : hex.to_i(16) }
   end
 
   # `text` written in `target`. UTF-8 is the meeting point, so a pair
@@ -3211,8 +3213,8 @@ class Encoding
       text = stateful_read(text, options)
       return target.equal?(UTF_8) ? text : convert(text, target, options)
     end
-    return ebcdic_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if target.name == "IBM037"
-    return convert(ebcdic_read(text), target, options) if from.name == "IBM037"
+    return ebcdic_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if target.name == +"IBM037"
+    return convert(ebcdic_read(text), target, options) if from.name == +"IBM037"
 
     return hub_convert(text, from, target, options) if MB_HUBS.key?(from.name) || MB_HUBS.key?(target.name)
     # The carriers exchange their emoji with each other in one step.
@@ -3248,7 +3250,7 @@ class Encoding
 
   def self.not_found(path, decorators)
     Primitive.attr! :hidden
-    with = decorators.empty? ? "" : " with #{decorators.join(",")}"
+    with = decorators.empty? ? +"" : " with #{decorators.join(",")}"
     "code converter not found (#{path.first.name} to #{path.last.name}#{with})"
   end
   private_class_method :not_found
@@ -3258,7 +3260,7 @@ class Encoding
   def self.decorators(options)
     Primitive.attr! :hidden
     names = case options[:xml]
-            when :text then ["xml_text"]
+            when :text then [+"xml_text"]
             when :attr then %w[xml_attr_content xml_attr_quote]
             else []
             end
@@ -3362,7 +3364,7 @@ class Encoding
   # a Unicode encoding and "?" into any other.
   def self.replacement(target, options)
     Primitive.attr! :hidden
-    options[:replace] || (target.equal?(UTF_8) || UNITS.key?(target.name) ? "�" : "?")
+    options[:replace] || (target.equal?(UTF_8) || UNITS.key?(target.name) ? +"�" : +"?")
   end
   private_class_method :replacement
 
@@ -3600,7 +3602,7 @@ class Encoding
     unless text.valid_encoding?
       # ruby's UTF8-MAC decoder marks a bad byte "?"; without the option
       # the bad bytes stop as UTF-8's decoder words them.
-      mark = options[:replace] || "?"
+      mark = options[:replace] || +"?"
       utf8_points(text, mark, options, UTF_8, from) { nil } unless options[:invalid] == :replace
       text = text.scrub(mark)
     end
@@ -3708,7 +3710,7 @@ class Encoding
         written = begin
           given.encode(target)
         rescue EncodingError
-          raise ArgumentError, "too big fallback string"
+          raise ArgumentError, +"too big fallback string"
         end
         out.concat(written.bytes)
       elsif options[:xml]
@@ -3746,14 +3748,14 @@ class Encoding
   def self.undefined(shown, from, to, path, options, char = nil)
     Primitive.attr! :hidden
     if options[:undef] == :replace || options[:invalid] == :replace
-      replacement = options[:replace] || (to.equal?(UTF_8) ? "\uFFFD" : "?")
+      replacement = options[:replace] || (to.equal?(UTF_8) ? +"\uFFFD" : +"?")
       return yield(replacement)
     end
     if char && (text = fallback(options[:fallback], char))
       written = begin
         text.encode(to)
       rescue EncodingError
-        raise ArgumentError, "too big fallback string"
+        raise ArgumentError, +"too big fallback string"
       end
       return yield(written.encode(UTF_8))
     end
@@ -3793,7 +3795,7 @@ class Encoding
     row = shape_of(other)
     return "#{shown} from #{from.name} to #{to.name}" if path.size == 2 && (to.equal?(UTF_8) ? row[2] : row[0])
 
-    step = to.equal?(UTF_8) ? "UTF-8" : row[1]
+    step = to.equal?(UTF_8) ? +"UTF-8" : row[1]
     # A hub step stands in the path as its transcoder's own name.
     named = path.map { |encoding| encoding.is_a?(String) ? encoding : (encoding.equal?(to) ? step : encoding.name) }
     "#{shown} to #{step} in conversion from #{named.join(' to ')}"
@@ -3819,7 +3821,7 @@ class Encoding
     LIST.each_with_object({}) { |encoding, out| encoding.names.drop(1).each { |name| out[name] = encoding.name } }
   end
 
-  def self.locale_charmap = "UTF-8"
+  def self.locale_charmap = +"UTF-8"
 
   def self.find(name)
     return name if name.is_a?(Encoding)
@@ -3829,8 +3831,8 @@ class Encoding
     if text.ascii_only?
       key = text.upcase(:ascii)
       # These follow the defaults: each is whatever its default is, nil too.
-      return default_internal if key == "INTERNAL"
-      return default_external if key == "EXTERNAL" || key == "FILESYSTEM"
+      return default_internal if key == +"INTERNAL"
+      return default_external if key == +"EXTERNAL" || key == +"FILESYSTEM"
     end
     if (found = by_name[text])
       nil
@@ -3886,7 +3888,7 @@ class Encoding
   # name, as enc_set_default_encoding moves both aliases.
   def self.default_external=(encoding)
     Warning.warn("#{Primitive.zr_warn_position}warning: setting Encoding.default_external\n") if $VERBOSE
-    raise ArgumentError, "default external can not be nil" if encoding.nil?
+    raise ArgumentError, +"default external can not be nil" if encoding.nil?
 
     DEFAULTS[0] = find(encoding)
     encoding
@@ -3945,7 +3947,7 @@ class Encoding
     when :crlf then :crlf_newline
     when :cr then :cr_newline
     when :lf then :lf_newline
-    else raise ArgumentError, kind.is_a?(Symbol) ? "unexpected value for newline option: #{kind}" : "unexpected value for newline option"
+    else raise ArgumentError, kind.is_a?(Symbol) ? "unexpected value for newline option: #{kind}" : +"unexpected value for newline option"
     end
   end
 

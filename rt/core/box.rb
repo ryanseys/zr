@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The `Ruby` namespace names the running ruby. `Ruby::Box` is a world
 # of its own inside the program: its own toplevel constants, its own
 # globals, and its own patches to the classes everybody shares. What a
@@ -28,7 +30,7 @@ module Ruby
     def self.current = Primitive.zr_box_reach || (enabled? ? main : nil)
 
     def initialize
-      raise RuntimeError, "Ruby::Box is disabled" unless Box.enabled?
+      raise RuntimeError, +"Ruby::Box is disabled" unless Box.enabled?
 
       (Primitive.zr_hidden_get(Box, :boxes) || Primitive.zr_hidden_set(Box, :boxes, [])) << self
       @slot = Primitive.zr_box_slot

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # IO: a file descriptor with a read buffer and a write buffer.
 # `Kernel#puts` and friends write to whatever `$stdout` is, as CRuby's
 # do.
@@ -35,7 +37,7 @@ class IO
   # Both ends are instances of the class it is called on, as rb_io_s_pipe
   # makes them.
   def self.pipe(external = nil, internal = nil, **options)
-    reader, writer = pipe_ends.map.with_index { |fd, i| new(fd, i.zero? ? "r" : "w") }
+    reader, writer = pipe_ends.map.with_index { |fd, i| new(fd, i.zero? ? +"r" : +"w") }
     binmode = options.delete(:binmode)
     reader.set_encoding(external, internal, **options) if external
     [reader, writer].each(&:binmode) if binmode
@@ -70,7 +72,7 @@ class IO
   # CRuby's rb_io_s_read takes a fourth argument, which the read it
   # passes on then refuses.
   def self.read(path, length = nil, offset = nil, extra = (none = true; nil), **options)
-    raise ArgumentError, "wrong number of arguments (given 3, expected 0..2)" unless none
+    raise ArgumentError, +"wrong number of arguments (given 3, expected 0..2)" unless none
 
     File.open(File.send(:path_of, path), "r", **options) do |file|
       file.seek(offset) if offset
@@ -146,7 +148,7 @@ class IO
     external = nil
     internal = nil
     binary = false
-    text = "r"
+    text = +"r"
     if mode.is_a?(Integer)
       text = File.send(:open_mode, mode)
     elsif !mode.nil?
@@ -161,7 +163,7 @@ class IO
     external = spec(external)
     internal = spec(internal)
     if options.key?(:encoding) || options.key?(:external_encoding) || options.key?(:internal_encoding)
-      raise ArgumentError, "encoding specified twice" if named
+      raise ArgumentError, +"encoding specified twice" if named
 
       if options.key?(:encoding)
         first, second = options[:encoding].to_s.split(":", 2)
@@ -185,7 +187,7 @@ class IO
   def self.spec(name)
     Primitive.attr! :hidden
     return name if name.nil? || name.is_a?(Encoding)
-    return nil if name == "-" || name == ""
+    return nil if name == +"-" || name == +""
 
     text = name.start_with?("bom|", "BOM|") ? name[4..] : name
     begin
@@ -202,7 +204,7 @@ class IO
   def self.encodings(external, internal)
     Primitive.attr! :hidden
     external = Encoding.find(external) unless external.nil? || external.is_a?(Encoding)
-    internal = nil if internal == "-" || internal == ""
+    internal = nil if internal == +"-" || internal == +""
     internal = Encoding.find(internal) unless internal.nil? || internal.is_a?(Encoding)
     internal = nil if !internal.nil? && !external.nil? && internal.name == external.name
     [external, internal]
@@ -216,7 +218,7 @@ class IO
     first = head[0]
     rest = head[1..] || ""
     valid = %w[r w a].include?(first) && !(rest.include?("b") && rest.include?("t")) &&
-            rest.each_char.all? { |c| "bt+".include?(c) || (c == "x" && first == "w") }
+            rest.each_char.all? { |c| "bt+".include?(c) || (c == +"x" && first == +"w") }
     raise ArgumentError, "invalid access mode #{string}" unless valid
 
     rest.include?("+") ? "#{first}+" : first
@@ -239,12 +241,12 @@ class IO
   # The raw descriptor for a path, which is what a program that means to
   # wrap it in its own IO asks for: rb_sysopen, with the permissions a
   # creation takes, less the umask.
-  def self.sysopen(path, mode = "r", perm = nil)
+  def self.sysopen(path, mode = +"r", perm = nil)
     path = File.send(:path_of, path)
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, File.send(:open_mode, mode))
     perm = perm.nil? ? 0o666 : Integer(perm)
     fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(path, flags, perm) }
-    raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
+    raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
     fd
   end
@@ -262,7 +264,7 @@ class IO
   def self.room_for!(length)
     Primitive.attr! :hidden
     return if length.nil? || length < ROOM_FREELY
-    raise NoMemoryError, "failed to allocate memory" if length > ROOM_AT_MOST || !Primitive.zr_memory_for_p(length)
+    raise NoMemoryError, +"failed to allocate memory" if length > ROOM_AT_MOST || !Primitive.zr_memory_for_p(length)
   end
 
   # rb_time_interval: a wait is a number of seconds, and anything else
@@ -271,7 +273,7 @@ class IO
     Primitive.attr! :hidden
     return nil if value.nil?
     raise TypeError, "can't convert #{conversion_name(value)} into time interval" unless value.is_a?(Numeric)
-    raise ArgumentError, "time interval must not be negative" if value.negative?
+    raise ArgumentError, +"time interval must not be negative" if value.negative?
 
     value
   end
@@ -292,7 +294,7 @@ class IO
                elsif timeout then now + (timeout * 1e9).to_i
                end
     ready = Thread.current.send(:wait_fds, rows.map { |_, stream, _| stream.fileno }, rows.map { |_, _, event| event }, deadline)
-    raise SystemCallError.new(nil, -ready, "select") if ready.is_a?(Integer)
+    raise SystemCallError.new(nil, -ready, +"select") if ready.is_a?(Integer)
 
     chosen = rows.zip(ready).select { |(_, stream, event), got| got.positive? || (event == POLL_IN && stream.send(:buffered?)) }
     return nil if chosen.empty?
@@ -321,8 +323,8 @@ class IO
   def self.popen(*args, **options, &block)
     env = args.first.is_a?(Hash) ? args.shift : nil
     command, mode = args
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
-    return popen_fork((mode || "r").to_s, &block) if command == "-"
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
+    return popen_fork((mode || "r").to_s, &block) if command == +"-"
 
     io = popen_stream(command, (mode || "r").to_s, options, env)
     return io unless block_given?
@@ -367,7 +369,7 @@ class IO
     Primitive.zr_io_close(output[1]) if output
     Primitive.zr_io_close(input[0]) if input
     ours = output ? output[0] : input[1]
-    stream = new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: duplex ? input[1] : nil)
+    stream = new(ours, duplex ? +"r+" : (reading ? +"r" : +"w"), pid: pid, twin: duplex ? input[1] : nil)
     stream.sync = true
     return stream unless block_given?
 
@@ -413,7 +415,7 @@ class IO
       Primitive.zr_io_close(twin) if twin
       raise SystemCallError.new(Process.send(:command_words, words).first, -pid)
     end
-    stream = new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: twin)
+    stream = new(ours, duplex ? +"r+" : (reading ? +"r" : +"w"), pid: pid, twin: twin)
     # A popen stream is synchronous, as CRuby's pipe_open marks it.
     stream.sync = true
     stream
@@ -454,7 +456,7 @@ class IO
       return total if length.zero?
 
       if from.nil? || to.nil?
-        raise ArgumentError, "cannot specify src_offset for non-IO" if from.nil? && !offset.negative?
+        raise ArgumentError, +"cannot specify src_offset for non-IO" if from.nil? && !offset.negative?
 
         total += copy_fallback(from || src, dst, from.nil?, length, offset)
       else
@@ -472,8 +474,8 @@ class IO
     case value
     when Integer then value
     when Float then value.to_i
-    when String then raise TypeError, "no implicit conversion from string"
-    when true, false then raise TypeError, "no implicit conversion from boolean"
+    when String then raise TypeError, +"no implicit conversion from string"
+    when true, false then raise TypeError, +"no implicit conversion from boolean"
     else Primitive.zr_index_operand_m(value)
     end
   end
@@ -513,7 +515,7 @@ class IO
         break if src.__send__(reader, size, buf).nil? && reader == :read
       else
         chunk = src.send(:copy_read, size, offset)
-        raise EOFError, "end of file reached" if chunk.nil?
+        raise EOFError, +"end of file reached" if chunk.nil?
 
         buf.replace(chunk)
         offset += chunk.bytesize unless offset.negative?
@@ -566,7 +568,7 @@ class IO
       flags = Primitive.zr_io_flags(fd)
       unless flags.negative?
         access = flags & ACCESS.fetch(:mask)
-        mode = flags.anybits?(File::APPEND) ? "a" : (access == ACCESS.fetch(:read) ? "r" : "w")
+        mode = flags.anybits?(File::APPEND) ? +"a" : (access == ACCESS.fetch(:read) ? +"r" : +"w")
         mode += "+" if access == ACCESS.fetch(:both)
       end
     end
@@ -641,7 +643,7 @@ class IO
   alias isatty tty?
 
   def closed?
-    raise IOError, "uninitialized stream" if @fd.nil?
+    raise IOError, +"uninitialized stream" if @fd.nil?
 
     @closed
   end
@@ -694,7 +696,7 @@ class IO
     write_pending
     other = File.open(other, mode || @mode) unless other.is_a?(IO)
     result = Primitive.zr_io_dup2(other.fileno, @fd)
-    raise SystemCallError.new(label, -result, "rb_io_reopen") if result < 0
+    raise SystemCallError.new(label, -result, +"rb_io_reopen") if result < 0
 
     @path = other.path
     @buffer = fresh_buffer
@@ -799,7 +801,7 @@ class IO
              end
     # rb_sys_fail_path names the stream, and the call that set up the
     # argument, after the message; a stream with no path names neither.
-    raise SystemCallError.new(path, -result, "finish_narg") if result < 0
+    raise SystemCallError.new(path, -result, +"finish_narg") if result < 0
 
     result
   end
@@ -816,7 +818,7 @@ class IO
   # Half-closing an end the stream does not have is an error; on one it
   # does have, and which is not duplex, it closes the whole stream.
   def close_read
-    raise IOError, "closing non-duplex IO for reading" if @mode.start_with?("w", "a") && !@mode.include?("+")
+    raise IOError, +"closing non-duplex IO for reading" if @mode.start_with?("w", "a") && !@mode.include?("+")
 
     close
   end
@@ -824,7 +826,7 @@ class IO
   # A duplex handle half-closes for real: the twin goes and the child
   # reads its end of input, while what it answers stays readable here.
   def close_write
-    raise IOError, "closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
+    raise IOError, +"closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
     return close unless @twin
 
     write_pending
@@ -875,7 +877,7 @@ class IO
            else
              Primitive.zr_io_pread(@fd, length, offset)
            end
-    raise SystemCallError.new(label, -text, "rb_io_pread") if text.is_a?(Integer)
+    raise SystemCallError.new(label, -text, +"rb_io_pread") if text.is_a?(Integer)
 
     filled(text&.force_encoding(Encoding::BINARY), buffer)
   end
@@ -890,7 +892,7 @@ class IO
              else
                Primitive.zr_io_pwrite(@fd, text, offset)
              end
-    raise SystemCallError.new(label, -result, "rb_io_pwrite") if result < 0
+    raise SystemCallError.new(label, -result, +"rb_io_pwrite") if result < 0
 
     result
   end
@@ -1003,13 +1005,13 @@ class IO
   # is its items, an empty one nothing; no objects is one empty line.
   def self.each_line_of(objects, &block)
     Primitive.attr! :hidden
-    return yield("\n") if objects.empty?
+    return yield(+"\n") if objects.empty?
 
     objects.each do |object|
       if object.is_a?(Array)
         # An array that holds itself shows the marker in its own place
         # rather than walking for ever.
-        next yield("[...]", "\n") if Primitive.zr_recursive_enter(object, :puts)
+        next yield(+"[...]", +"\n") if Primitive.zr_recursive_enter(object, :puts)
 
         begin
           each_line_of(object, &block) unless object.empty?
@@ -1019,11 +1021,11 @@ class IO
       else
         text = Primitive.zr_obj_as_string(object)
         if text.empty?
-          yield "\n"
+          yield +"\n"
         elsif text.end_with?("\n")
           yield text
         else
-          yield text, "\n"
+          yield text, +"\n"
         end
       end
     end
@@ -1098,7 +1100,7 @@ class IO
     if !buffered? && !len.zero? && would_block?(READABLE)
       return :wait_readable unless exception
 
-      raise EAGAINWaitReadable, "read would block"
+      raise EAGAINWaitReadable, +"read would block"
     end
     text = read_some(len)
     return nil if text.nil? && !exception
@@ -1113,7 +1115,7 @@ class IO
     if would_block?(WRITABLE)
       return :wait_writable unless exception
 
-      raise EAGAINWaitWritable, "write would block"
+      raise EAGAINWaitWritable, +"write would block"
     end
     # What waits in the buffer goes first, so the bytes keep their order.
     write_pending
@@ -1121,7 +1123,7 @@ class IO
     if wrote < 0 && -wrote == Errno::EAGAIN::Errno
       return :wait_writable unless exception
 
-      raise EAGAINWaitWritable, "write would block"
+      raise EAGAINWaitWritable, +"write would block"
     end
     checked_write(wrote)
   end
@@ -1150,12 +1152,12 @@ class IO
              else
                Primitive.zr_io_ioctl_buf(@fd, command, buffer)
              end
-    raise SystemCallError.new(path, -result, "finish_narg") if result < 0
+    raise SystemCallError.new(path, -result, +"finish_narg") if result < 0
     return result if buffer.nil?
 
     # finish_narg: the sentinel says the command wrote no further than
     # the room the buffer gave it.
-    raise ArgumentError, "return value overflowed string" unless buffer.getbyte(buffer.bytesize - 1) == IOCTL_SENTINEL
+    raise ArgumentError, +"return value overflowed string" unless buffer.getbyte(buffer.bytesize - 1) == IOCTL_SENTINEL
 
     buffer.setbyte(buffer.bytesize - 1, 0)
     result
@@ -1221,11 +1223,11 @@ class IO
     more > 0 ? first + (read(more) || "") : first
   end
 
-  def readchar = getc || raise(EOFError, "end of file reached")
+  def readchar = getc || raise(EOFError, +"end of file reached")
 
   def getbyte = read(1)&.getbyte(0)
 
-  def readbyte = getbyte || raise(EOFError, "end of file reached")
+  def readbyte = getbyte || raise(EOFError, +"end of file reached")
 
   # An Integer here is a codepoint, not the text of a number.
   def ungetc(text)
@@ -1256,7 +1258,7 @@ class IO
   def readline(sep = (nosep = true), limit = (nolimit = true), chomp: false)
     Primitive.attr! :ruby
     args = nosep ? [] : (nolimit ? [sep] : [sep, limit])
-    gets(*args, chomp: chomp) || raise(EOFError, "end of file reached")
+    gets(*args, chomp: chomp) || raise(EOFError, +"end of file reached")
   end
 
   # Each line as `gets` reads it, counted in `$.`; `$_` is `gets`'s
@@ -1310,7 +1312,7 @@ class IO
     check_open
     write_pending
     result = Primitive.zr_io_seek(@fd, 0, SEEK_CUR)
-    raise SystemCallError.new(label, -result, "rb_io_tell") if result < 0
+    raise SystemCallError.new(label, -result, +"rb_io_tell") if result < 0
 
     result - @buffer.bytesize
   end
@@ -1325,7 +1327,7 @@ class IO
     @buffer = fresh_buffer
     @eof = false
     result = Primitive.zr_io_seek(@fd, offset, whence)
-    raise SystemCallError.new(label, -result, "rb_io_seek") if result < 0
+    raise SystemCallError.new(label, -result, +"rb_io_seek") if result < 0
 
     0
   end
@@ -1358,8 +1360,8 @@ class IO
   # rb_io_check_closed: an allocated stream has no descriptor to ask.
   def check_open
     Primitive.attr! :hidden
-    raise IOError, "uninitialized stream" if @fd.nil?
-    raise IOError, "closed stream" if @closed
+    raise IOError, +"uninitialized stream" if @fd.nil?
+    raise IOError, +"closed stream" if @closed
   end
 
   # A system call on a descriptor that is not ready would stop every
@@ -1395,7 +1397,7 @@ class IO
   def set_nonblock(on)
     Primitive.attr! :hidden
     answer = Primitive.zr_io_set_nonblock(@fd, on ? 1 : 0)
-    raise SystemCallError.new(label, -answer, "set_nonblock") unless answer.zero?
+    raise SystemCallError.new(label, -answer, +"set_nonblock") unless answer.zero?
 
     @nonblock = on
   end
@@ -1482,7 +1484,7 @@ class IO
         IO.send(:io_result, scheduler.io_write(self, memory, 0, 0))
       end
       if wrote.negative?
-        raise SystemCallError.new(label, -wrote, "rb_sys_fail_on_write") unless -wrote == Errno::EAGAIN::Errno
+        raise SystemCallError.new(label, -wrote, +"rb_sys_fail_on_write") unless -wrote == Errno::EAGAIN::Errno
 
         wait_again(WRITABLE)
       else
@@ -1513,7 +1515,7 @@ class IO
         break if chunk.nil?
 
         if chunk.is_a?(Integer)
-          raise SystemCallError.new(label, -chunk, "io_fread") unless -chunk == Errno::EAGAIN::Errno
+          raise SystemCallError.new(label, -chunk, +"io_fread") unless -chunk == Errno::EAGAIN::Errno
 
           wait_again(READABLE)
         else
@@ -1616,7 +1618,7 @@ class IO
 
   def checked_write(result)
     Primitive.attr! :hidden
-    raise SystemCallError.new(label, -result, "rb_sys_fail_on_write") if result < 0
+    raise SystemCallError.new(label, -result, +"rb_sys_fail_on_write") if result < 0
 
     result
   end
@@ -1641,7 +1643,7 @@ class IO
         chunk = read_memory(length)
         return chunk&.b unless chunk.is_a?(Integer)
 
-        raise SystemCallError.new(label, -chunk, "io_getpartial") unless -chunk == Errno::EAGAIN::Errno
+        raise SystemCallError.new(label, -chunk, +"io_getpartial") unless -chunk == Errno::EAGAIN::Errno
 
         wait_again(READABLE)
       end
@@ -1656,7 +1658,7 @@ class IO
   # which keeps its own encoding.
   def filled(text, buffer)
     Primitive.attr! :hidden
-    raise EOFError, "end of file reached" if text.nil?
+    raise EOFError, +"end of file reached" if text.nil?
     return text unless buffer
 
     encoding = buffer.encoding
@@ -1666,13 +1668,13 @@ class IO
   def check_readable
     Primitive.attr! :hidden
     check_open
-    raise IOError, "not opened for reading" unless @readable
+    raise IOError, +"not opened for reading" unless @readable
   end
 
   def check_writable
     Primitive.attr! :hidden
     check_open
-    raise IOError, "not opened for writing" unless @writable
+    raise IOError, +"not opened for writing" unless @writable
   end
 
   # More bytes into the buffer; none marks the end.
@@ -1687,7 +1689,7 @@ class IO
       # waiting, so the read comes round again.
       # A directory answers EISDIR only on the read, which ruby reports
       # from the outer call rather than the buffer filler.
-      site = -chunk == Errno::EISDIR::Errno ? "io_fread" : "io_fillbuf"
+      site = -chunk == Errno::EISDIR::Errno ? +"io_fread" : +"io_fillbuf"
       raise SystemCallError.new(label, -chunk, site) unless -chunk == Errno::EAGAIN::Errno
 
       wait_again(READABLE)
@@ -1780,7 +1782,7 @@ class IO
       return take(limit ? whole_char(limit) : @buffer.bytesize)
     end
     paragraph = separator.empty?
-    separator = "\n\n" if paragraph
+    separator = +"\n\n" if paragraph
     if paragraph
       fill while !@eof && @buffer.start_with?("\n")
       @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || +"" while @buffer.start_with?("\n")
@@ -1837,22 +1839,22 @@ class IO
   def copy_read(size, offset)
     Primitive.attr! :hidden
     chunk = offset.negative? ? Primitive.zr_io_read(@fd, size) : Primitive.zr_io_pread(@fd, size, offset)
-    raise SystemCallError.new(offset.negative? ? "read" : "pread", -chunk) if chunk.is_a?(Integer)
+    raise SystemCallError.new(offset.negative? ? +"read" : +"pread", -chunk) if chunk.is_a?(Integer)
 
     chunk
   end
 
   def chomp_line(line, separator)
     Primitive.attr! :hidden
-    return line.chomp if separator == "\n" || separator == ""
+    return line.chomp if separator == +"\n" || separator == +""
 
     line.end_with?(separator) ? line[0, line.bytesize - separator.bytesize] : line
   end
 end
 
-STDIN = IO.new(0, "r", name: "<STDIN>")
-STDOUT = IO.new(1, "w", name: "<STDOUT>")
-STDERR = IO.new(2, "w", name: "<STDERR>")
+STDIN = IO.new(0, +"r", name: +"<STDIN>")
+STDOUT = IO.new(1, +"w", name: +"<STDOUT>")
+STDERR = IO.new(2, +"w", name: +"<STDERR>")
 STDERR.sync = true
 $stdin = STDIN
 $stdout = STDOUT
@@ -2068,7 +2070,7 @@ class IO
     end
     deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
     ready = Thread.current.send(:wait_io, fileno, events, deadline)
-    raise SystemCallError.new(label, -ready, "io_wait") if ready.negative?
+    raise SystemCallError.new(label, -ready, +"io_wait") if ready.negative?
 
     ready & events
   end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The encodings whose longest characters follow a rule rather than a
 # table: GB18030's four-byte characters, which count through Unicode in
 # order, CESU-8's six-byte pairs of surrogates, and IBM037, which holds
@@ -63,7 +65,7 @@ class Encoding
   # or nil where the rows read those bytes.
   def self.ruled_char(bytes, at, from, path, options)
     Primitive.attr! :hidden
-    read = -> { from.name == "GB18030" ? gb18030_char(bytes, at, from, path, options) : cesu8_char(bytes, at, from) }
+    read = -> { from.name == +"GB18030" ? gb18030_char(bytes, at, from, path, options) : cesu8_char(bytes, at, from) }
     return read.call unless options[:invalid] == :replace
 
     begin
@@ -129,7 +131,7 @@ class Encoding
   # The bytes the rule writes for `point`, or nil where it writes none.
   def self.ruled_bytes(point, target)
     Primitive.attr! :hidden
-    return cesu8_bytes(point) if target.name == "CESU-8"
+    return cesu8_bytes(point) if target.name == +"CESU-8"
 
     count = if point >= 0x10000
               point - 0x10000 + GB18030_PLANES

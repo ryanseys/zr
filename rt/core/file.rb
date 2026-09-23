@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # File and Dir: the path functions, which are pure, and what a program
 # asks the file system.
 class File < IO
@@ -11,12 +13,12 @@ class File < IO
   def self.basename(path, suffix = nil)
     path = path_of(path)
 
-    return "/" if path.delete("/").empty? && !path.empty?
+    return +"/" if path.delete("/").empty? && !path.empty?
 
-    name = path.split("/").reject(&:empty?).last || ""
+    name = path.split("/").reject(&:empty?).last || +""
     return name if suffix.nil? || name == suffix
 
-    if suffix == ".*"
+    if suffix == +".*"
       dot = name.rindex(".")
       return dot && dot > 0 ? name[0, dot] : name
     end
@@ -30,7 +32,7 @@ class File < IO
     level.times do
       parts = path.split("/").reject(&:empty?)
       parts.pop
-      path = if parts.empty? then path.start_with?("/") ? "/" : "."
+      path = if parts.empty? then path.start_with?("/") ? +"/" : +"."
              else (path.start_with?("/") ? "/" : "") + parts.join("/")
              end
     end
@@ -40,9 +42,9 @@ class File < IO
   def self.extname(path)
     name = basename(path)
     lead = 0
-    lead += 1 while lead < name.size && name[lead] == "."
+    lead += 1 while lead < name.size && name[lead] == +"."
     dot = name.rindex(".")
-    return "" if dot.nil? || dot < lead
+    return +"" if dot.nil? || dot < lead
 
     name[dot..]
   end
@@ -79,7 +81,7 @@ class File < IO
     parts.each_with_index do |part, i|
       part = if part.is_a?(String) then part
              elsif part.is_a?(Array)
-               raise ArgumentError, "recursive array" if joining.key?(part)
+               raise ArgumentError, +"recursive array" if joining.key?(part)
 
                joined(part, joining)
              else Primitive.zr_str_operand(part.respond_to?(:to_path) ? part.to_path : part)
@@ -103,7 +105,7 @@ class File < IO
   def self.expand_path(path, dir = nil)
     path = expand_home(path_of(path))
     dir = expand_home(path_of(dir)) if dir
-    base = if path.start_with?("/") then ""
+    base = if path.start_with?("/") then +""
            elsif dir.nil? then Dir.pwd
            elsif dir.start_with?("/") then dir
            else "#{Dir.pwd}/#{dir}"
@@ -161,7 +163,7 @@ class File < IO
 
   # A path, with a mode string ("r", "w+", "ab", ...) or open(2) flags;
   # or, as rb_file_initialize reads one or two arguments, a descriptor.
-  def initialize(path, mode = (no_mode = true; "r"), perm = (no_perm = true; 0o666), **options)
+  def initialize(path, mode = (no_mode = true; +"r"), perm = (no_perm = true; 0o666), **options)
     # A File that holds a descriptor is not opened again, as CRuby's
     # rb_file_initialize refuses.
     raise RuntimeError, "reinitializing #{self.class}" unless Primitive.zr_hidden_get(self, :fd).nil?
@@ -194,7 +196,7 @@ class File < IO
     end
 
     fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(path, flags, perm) }
-    raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
+    raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
     super(fd, mode, **options, path: path)
   end
@@ -207,7 +209,7 @@ class File < IO
     loop do
       fd = Primitive.zr_io_open_flags(path, flags, 0o666)
       return fd if fd >= 0
-      raise SystemCallError.new(path, -fd, "rb_sysopen") unless -fd == Errno::ENXIO::Errno
+      raise SystemCallError.new(path, -fd, +"rb_sysopen") unless -fd == Errno::ENXIO::Errno
 
       sleep 0.001
     end
@@ -217,7 +219,7 @@ class File < IO
   def self.size(path)
     path = path_of(path)
     result = without_gvl { Primitive.zr_io_file_size(path) }
-    raise SystemCallError.new(path, -result, "rb_file_s_size") if result < 0
+    raise SystemCallError.new(path, -result, +"rb_file_s_size") if result < 0
 
     result
   end
@@ -293,7 +295,7 @@ class File < IO
     def self.for_fd(fd)
       Primitive.attr! :hidden
       fields = Primitive.zr_fstat_m(fd)
-      raise SystemCallError.new("fd #{fd}", -fields, "rb_io_stat") if fields.is_a?(Integer)
+      raise SystemCallError.new("fd #{fd}", -fields, +"rb_io_stat") if fields.is_a?(Integer)
 
       allocate.send(:take, fields)
     end
@@ -312,24 +314,24 @@ class File < IO
 
     def ftype
       case @mode & 0o170000
-      when 0o040000 then "directory"
-      when 0o100000 then "file"
-      when 0o120000 then "link"
-      when 0o020000 then "characterSpecial"
-      when 0o060000 then "blockSpecial"
-      when 0o010000 then "fifo"
-      when 0o140000 then "socket"
-      else "unknown"
+      when 0o040000 then +"directory"
+      when 0o100000 then +"file"
+      when 0o120000 then +"link"
+      when 0o020000 then +"characterSpecial"
+      when 0o060000 then +"blockSpecial"
+      when 0o010000 then +"fifo"
+      when 0o140000 then +"socket"
+      else +"unknown"
       end
     end
 
-    def directory? = ftype == "directory"
-    def file? = ftype == "file"
-    def symlink? = ftype == "link"
-    def pipe? = ftype == "fifo"
-    def socket? = ftype == "socket"
-    def chardev? = ftype == "characterSpecial"
-    def blockdev? = ftype == "blockSpecial"
+    def directory? = ftype == +"directory"
+    def file? = ftype == +"file"
+    def symlink? = ftype == +"link"
+    def pipe? = ftype == +"fifo"
+    def socket? = ftype == +"socket"
+    def chardev? = ftype == +"characterSpecial"
+    def blockdev? = ftype == +"blockSpecial"
     def size? = @size.zero? ? nil : @size
     def zero? = @size.zero?
     def readable? = (@mode & 0o444) != 0
@@ -381,7 +383,7 @@ class File < IO
       Primitive.attr! :hidden
       path = File.send(:path_of, path)
       fields = File.send(:stat_fields, path, false)
-      raise SystemCallError.new(path, -fields, "rb_file_s_lstat") if fields.is_a?(Integer)
+      raise SystemCallError.new(path, -fields, +"rb_file_s_lstat") if fields.is_a?(Integer)
 
       allocate.tap { |stat| stat.send(:take, fields) }
     end
@@ -405,8 +407,8 @@ class File < IO
     pathname = (flags & FNM_PATHNAME) != 0
     dotmatch = (flags & FNM_DOTMATCH) != 0
     escape = (flags & FNM_NOESCAPE).zero?
-    one = pathname ? "[^/]" : "."
-    nodot = dotmatch ? "" : "(?!\\.)"
+    one = pathname ? +"[^/]" : +"."
+    nodot = dotmatch ? +"" : +"(?!\\.)"
     out = +"\\A"
     i = 0
     at_start = true
@@ -414,7 +416,7 @@ class File < IO
       c = pattern[i]
       case c
       when "*"
-        if pathname && pattern[i, 3] == "**/" && (i.zero? || pattern[i - 1] == "/")
+        if pathname && pattern[i, 3] == +"**/" && (i.zero? || pattern[i - 1] == +"/")
           out << (dotmatch ? "(?:[^/]*/)*" : "(?:(?!\\.)[^/]*/)*")
           i += 3
           at_start = true
@@ -440,7 +442,7 @@ class File < IO
       else
         out << Regexp.escape(c)
       end
-      at_start = c == "/" && pathname
+      at_start = c == +"/" && pathname
       i += 1
     end
     Regexp.new("#{out}\\z", (flags & FNM_CASEFOLD).zero? ? 0 : Regexp::IGNORECASE)
@@ -459,12 +461,12 @@ class File < IO
   def self.char_class(pattern, open, escape, one)
     Primitive.attr! :hidden
     i = open + 1
-    negated = pattern[i] == "!" || pattern[i] == "^"
+    negated = pattern[i] == +"!" || pattern[i] == +"^"
     i += 1 if negated
     body = +""
-    while i < pattern.size && pattern[i] != "]"
-      i += 1 if escape && pattern[i] == "\\" && i + 1 < pattern.size
-      body << (pattern[i] == "-" ? "-" : Regexp.escape(pattern[i]))
+    while i < pattern.size && pattern[i] != +"]"
+      i += 1 if escape && pattern[i] == +"\\" && i + 1 < pattern.size
+      body << (pattern[i] == +"-" ? "-" : Regexp.escape(pattern[i]))
       i += 1
     end
     return [NOTHING, nil] if i >= pattern.size
@@ -496,7 +498,7 @@ class File < IO
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
     result = Primitive.zr_realpath_m(path)
-    raise SystemCallError.new(path, -result, "rb_check_realpath_internal") if result.is_a?(Integer)
+    raise SystemCallError.new(path, -result, +"rb_check_realpath_internal") if result.is_a?(Integer)
 
     result
   end
@@ -545,7 +547,7 @@ class File < IO
     paths = paths.map { |path| path_of(path) }
     code = 0
     failed = without_gvl { paths.find { |path| (code = yield(path)).negative? } }
-    raise SystemCallError.new(failed, -code, "apply2files") if failed
+    raise SystemCallError.new(failed, -code, +"apply2files") if failed
     paths.size
   end
   private_class_method :each_path
@@ -568,7 +570,7 @@ class File < IO
   # then the message names the second path alone, under the helper that
   # decides.
   def self.fail2(code, site, from, to)
-    raise SystemCallError.new(to, code, "syserr_fail2_in") if code == Errno::EEXIST::Errno
+    raise SystemCallError.new(to, code, +"syserr_fail2_in") if code == Errno::EEXIST::Errno
 
     raise SystemCallError.new("(#{from}, #{to})", code, site)
   end
@@ -577,7 +579,7 @@ class File < IO
   def self.readlink(path)
     link = path_of(path)
     result = without_gvl { Primitive.zr_readlink_m(link) }
-    raise SystemCallError.new(path, -result, "rb_readlink") if result.is_a?(Integer)
+    raise SystemCallError.new(path, -result, +"rb_readlink") if result.is_a?(Integer)
 
     result
   end
@@ -585,7 +587,7 @@ class File < IO
   def self.mkfifo(path, mode = 0o666)
     fifo = path_of(path)
     result = without_gvl { Primitive.zr_fs_call(4, fifo, mode, 0) }
-    raise SystemCallError.new(path, -result, "mkfifo") if result < 0
+    raise SystemCallError.new(path, -result, +"mkfifo") if result < 0
 
     0
   end
@@ -593,7 +595,7 @@ class File < IO
   def self.truncate(path, length)
     file = path_of(path)
     result = without_gvl { Primitive.zr_fs_call(5, file, length, 0) }
-    raise SystemCallError.new(path, -result, "rb_file_s_truncate") if result < 0
+    raise SystemCallError.new(path, -result, +"rb_file_s_truncate") if result < 0
 
     0
   end
@@ -689,7 +691,7 @@ class File < IO
       given = path.respond_to?(:to_path) ? path.to_path : path
       path = String.try_convert(given) or raise TypeError, "no implicit conversion of #{given.nil? ? 'nil' : given.class} into String"
     end
-    raise ArgumentError, "path name contains null byte" if path.include?("\0")
+    raise ArgumentError, +"path name contains null byte" if path.include?("\0")
 
     path
   end
@@ -710,7 +712,7 @@ class File < IO
 
   def chmod(mode)
     result = Primitive.zr_fs_call(7, "", fileno, mode)
-    raise SystemCallError.new(path, -result, "rb_file_chmod") if result < 0
+    raise SystemCallError.new(path, -result, +"rb_file_chmod") if result < 0
 
     0
   end
@@ -723,7 +725,7 @@ class File < IO
   def truncate(length)
     send(:check_writable)
     result = Primitive.zr_fs_call(6, "", fileno, length)
-    raise SystemCallError.new(path, -result, "rb_file_truncate") if result < 0
+    raise SystemCallError.new(path, -result, +"rb_file_truncate") if result < 0
 
     0
   end
@@ -733,7 +735,7 @@ class File < IO
     result = Primitive.zr_fs_call(8, "", fileno, operation)
     return false if result == -Errno::EWOULDBLOCK::Errno
 
-    raise SystemCallError.new(path, -result, "rb_file_flock") if result < 0
+    raise SystemCallError.new(path, -result, +"rb_file_flock") if result < 0
 
     0
   end
@@ -747,13 +749,13 @@ class File < IO
         # A singleton method's scope does not reach what the class
         # includes, so the flags are named through their module.
         append, rdwr, trunc, creat, wronly = Constants::APPEND, Constants::RDWR, Constants::TRUNC, Constants::CREAT, Constants::WRONLY
-        return "a+" if mode & append != 0 && mode & rdwr == rdwr
-        return "a" if mode & append != 0
-        return "w+" if mode & rdwr == rdwr && mode & trunc != 0
-        return "r+" if mode & rdwr == rdwr
-        return mode & trunc != 0 || mode & creat != 0 ? "w" : "r" if mode & wronly != 0
+        return +"a+" if mode & append != 0 && mode & rdwr == rdwr
+        return +"a" if mode & append != 0
+        return +"w+" if mode & rdwr == rdwr && mode & trunc != 0
+        return +"r+" if mode & rdwr == rdwr
+        return mode & trunc != 0 || mode & creat != 0 ? +"w" : +"r" if mode & wronly != 0
 
-        return "r"
+        return +"r"
       end
       string = String.try_convert(mode)
       raise TypeError, "no implicit conversion of #{mode.nil? ? 'nil' : mode.class} into String" if string.nil?
@@ -796,7 +798,7 @@ class Dir
   # under is not knowable, so the names come from the descriptor.
   def self.for_fd(fd)
     names = Primitive.zr_io_dir_names_fd(fd)
-    raise SystemCallError.new("fdopendir", -names) if names.is_a?(Integer)
+    raise SystemCallError.new(+"fdopendir", -names) if names.is_a?(Integer)
 
     allocate.send(:take_names, nil, names, fd)
   end
@@ -810,7 +812,7 @@ class Dir
       return 0
     end
 
-    before = Dir.new(".")
+    before = Dir.new(+".")
     begin
       move_to_fd(fd)
       yield
@@ -823,14 +825,14 @@ class Dir
   def self.move_to_fd(fd)
     Primitive.attr! :hidden
     result = Primitive.zr_io_fchdir(fd)
-    raise SystemCallError.new("fchdir", -result) if result < 0
+    raise SystemCallError.new(+"fchdir", -result) if result < 0
   end
   private_class_method :move_to_fd
 
   def self.chroot(path)
     path = File.send(:path_of, path)
     result = Primitive.zr_io_chroot(path)
-    raise SystemCallError.new(path, -result, "dir_s_chroot") if result < 0
+    raise SystemCallError.new(path, -result, +"dir_s_chroot") if result < 0
 
     0
   end
@@ -846,10 +848,10 @@ class Dir
     Primitive.attr! :ruby
     @path = File.path(name)
     names = Primitive.zr_io_dir_names(@path)
-    raise SystemCallError.new(@path, -names, "dir_initialize") if names.is_a?(Integer)
+    raise SystemCallError.new(@path, -names, +"dir_initialize") if names.is_a?(Integer)
 
     fd = Primitive.zr_io_open_flags(@path, File::RDONLY, 0)
-    raise SystemCallError.new(@path, -fd, "dir_initialize") if fd < 0
+    raise SystemCallError.new(@path, -fd, +"dir_initialize") if fd < 0
 
     take_names(@path, names, fd)
   end
@@ -923,7 +925,7 @@ class Dir
     self
   end
 
-  def children = open_names.reject { |name| name == "." || name == ".." }
+  def children = open_names.reject { |name| name == +"." || name == +".." }
 
   def each_child(&block)
     return to_enum(:each_child) { children.size } unless block
@@ -942,7 +944,7 @@ class Dir
   # The names, or the error a closed directory answers with.
   def open_names
     Primitive.attr! :hidden
-    @names or raise IOError, "closed directory"
+    @names or raise IOError, +"closed directory"
   end
   private :open_names
 
@@ -953,7 +955,7 @@ class Dir
   def self.mkdir(path, mode = 0o777)
     path = File.send(:path_of, path)
     result = File.send(:without_gvl) { Primitive.zr_io_mkdir(path, mode) }
-    raise SystemCallError.new(path, -result, "dir_s_mkdir") if result < 0
+    raise SystemCallError.new(path, -result, +"dir_s_mkdir") if result < 0
 
     0
   end
@@ -961,7 +963,7 @@ class Dir
   def self.rmdir(path)
     path = File.send(:path_of, path)
     result = File.send(:without_gvl) { Primitive.zr_io_rmdir(path) }
-    raise SystemCallError.new(path, -result, "dir_s_rmdir") if result < 0
+    raise SystemCallError.new(path, -result, +"dir_s_rmdir") if result < 0
 
     0
   end
@@ -975,14 +977,14 @@ class Dir
   def self.entries(path, encoding: nil)
     path = File.send(:path_of, path)
     names = File.send(:without_gvl) { Primitive.zr_io_dir_names(path) }
-    raise SystemCallError.new(path, -names, "dir_initialize") if names.is_a?(Integer)
+    raise SystemCallError.new(path, -names, +"dir_initialize") if names.is_a?(Integer)
     return names unless encoding
 
     names.map { |name| name.dup.force_encoding(encoding) }
   end
 
   def self.children(path, encoding: nil)
-    entries(path, encoding: encoding).reject { |name| name == "." || name == ".." }
+    entries(path, encoding: encoding).reject { |name| name == +"." || name == +".." }
   end
 
   def self.each_child(path, encoding: nil, &block)
@@ -1009,7 +1011,7 @@ class Dir
       kind.zero? || kind == 1 ? Primitive.zr_io_dir_names(path) : false
     end
     return false if names == false
-    raise SystemCallError.new(path, -names, "rb_dir_s_empty_p") if names.is_a?(Integer)
+    raise SystemCallError.new(path, -names, +"rb_dir_s_empty_p") if names.is_a?(Integer)
 
     (names - %w[. ..]).empty?
   end
@@ -1042,7 +1044,7 @@ class Dir
     def initialize(pattern, flags, base)
       @flags = flags
       @base = base && !pattern.start_with?("/") ? File.send(:path_of, base) : nil
-      @root = pattern.start_with?("/") ? "/" : (@base || "")
+      @root = pattern.start_with?("/") ? +"/" : (@base || +"")
       @dirs_only = pattern.end_with?("/")
       @segments = pattern.split("/").reject(&:empty?)
     end
@@ -1064,8 +1066,8 @@ class Dir
       depth = 0
       close = nil
       (open...pattern.size).each do |i|
-        depth += 1 if pattern[i] == "{"
-        depth -= 1 if pattern[i] == "}"
+        depth += 1 if pattern[i] == +"{"
+        depth -= 1 if pattern[i] == +"}"
         if depth.zero?
           close = i
           break
@@ -1077,9 +1079,9 @@ class Dir
       depth = 0
       piece = +""
       pattern[(open + 1)...close].each_char do |c|
-        depth += 1 if c == "{"
-        depth -= 1 if c == "}"
-        if c == "," && depth.zero?
+        depth += 1 if c == +"{"
+        depth -= 1 if c == +"}"
+        if c == +"," && depth.zero?
           choices << piece
           piece = +""
         else
@@ -1098,7 +1100,7 @@ class Dir
     def walk(dir, i, out)
       segment = @segments[i]
       last = i == @segments.size - 1
-      if segment == "**" && (!last || @dirs_only)
+      if segment == +"**" && (!last || @dirs_only)
         walk(dir, i + 1, out) unless last
         each_entry(dir, dots: dotmatch?) do |_, path|
           next unless File.directory?(path) && !File.symlink?(path)
@@ -1112,7 +1114,7 @@ class Dir
 
         last ? found(path, out) : walk(path, i + 1, out)
       else
-        pattern = segment == "**" ? "*" : segment
+        pattern = segment == +"**" ? +"*" : segment
         each_entry(dir, last, dots: dotmatch? || pattern.start_with?(".")) do |name, path|
           next unless File.fnmatch?(pattern, name, @flags | File::FNM_PATHNAME)
 
@@ -1152,7 +1154,7 @@ class Dir
 
     # The directory to read for a path: the working directory where the
     # pattern names none of its own.
-    def here(dir) = dir.empty? ? "." : dir
+    def here(dir) = dir.empty? ? +"." : dir
 
     def literal?(segment) = !segment.match?(/[*?\[\\]/)
 
@@ -1163,7 +1165,7 @@ class Dir
     # segment as written.
     def join(dir, name)
       return name if dir.empty?
-      return "/#{name}" if dir == "/"
+      return "/#{name}" if dir == +"/"
 
       "#{dir}/#{name}"
     end
@@ -1174,7 +1176,7 @@ class Dir
   def self.chdir(path = nil)
     if path.nil?
       path = ENV["HOME"] || ENV["LOGDIR"]
-      raise ArgumentError, "HOME/LOGDIR not set" if path.nil?
+      raise ArgumentError, +"HOME/LOGDIR not set" if path.nil?
     end
     path = path.to_path if path.respond_to?(:to_path)
     return move_to(path) unless block_given?
@@ -1188,7 +1190,7 @@ class Dir
     end
   end
 
-  def self.move_to(path, site = "chdir_path")
+  def self.move_to(path, site = +"chdir_path")
     Primitive.attr! :hidden
     path = File.send(:path_of, path)
     result = File.send(:without_gvl) { Primitive.zr_io_chdir(path) }

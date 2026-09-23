@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # ARGF: one stream over the files ARGV names, and over standard input
 # when it names none. Each file opens as the walk reaches it, and the
 # line numbers run on across the whole set.
@@ -30,7 +32,7 @@ stream = Class.new do
   # is where a program with no arguments reads.
   def filename
     current
-    @path || "-"
+    @path || +"-"
   end
 
   alias path filename
@@ -41,9 +43,9 @@ stream = Class.new do
 
   def to_write_io = file
 
-  def to_s = "ARGF"
+  def to_s = +"ARGF"
 
-  def inspect = "ARGF"
+  def inspect = +"ARGF"
 
   def to_i = file.fileno
   alias fileno to_i
@@ -83,20 +85,20 @@ stream = Class.new do
     end
   end
 
-  def readline(*args, **options) = gets(*args, **options) || raise(EOFError, "end of file reached")
+  def readline(*args, **options) = gets(*args, **options) || raise(EOFError, +"end of file reached")
 
   def getc = each_stream { |io| (c = io.getc) and return c }
 
   def getbyte = each_stream { |io| (b = io.getbyte) and return b }
 
-  def readchar = getc || raise(EOFError, "end of file reached")
+  def readchar = getc || raise(EOFError, +"end of file reached")
 
-  def readbyte = getbyte || raise(EOFError, "end of file reached")
+  def readbyte = getbyte || raise(EOFError, +"end of file reached")
 
   def read(length = nil, buffer = nil)
     text = +""
     each_stream { |io| text << io.read.to_s }
-    text = text[0, length] || "" if length
+    text = text[0, length] || +"" if length
     return nil if length && text.empty?
 
     buffer ? buffer.replace(text) : text
@@ -190,8 +192,8 @@ stream = Class.new do
     return nil if @closed || (@started && @argv.empty?)
 
     @started = true
-    @path = @argv.empty? ? "-" : @argv.shift
-    @stream = @path == "-" ? $stdin : File.open(@path, "r")
+    @path = @argv.empty? ? +"-" : @argv.shift
+    @stream = @path == +"-" ? $stdin : File.open(@path, "r")
   end
 
   # Runs the block on each stream in turn, moving on when the block

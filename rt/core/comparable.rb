@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Comparable over `<=>`.
 module Comparable
   # A `<=>` that comes back to `==` (Kernel's does) answers nil, so the
@@ -29,14 +31,14 @@ module Comparable
     if one
       unless low.is_a?(Range)
         shown = case low
-                when nil then "nil"
-                when true then "true"
-                when false then "false"
+                when nil then +"nil"
+                when true then +"true"
+                when false then +"false"
                 else low.class
                 end
         raise TypeError, "wrong argument type #{shown} (expected Range)"
       end
-      raise ArgumentError, "cannot clamp with an exclusive range" if low.exclude_end? && !low.end.nil?
+      raise ArgumentError, +"cannot clamp with an exclusive range" if low.exclude_end? && !low.end.nil?
 
       high = low.end
       low = low.begin
@@ -44,7 +46,7 @@ module Comparable
     if !low.nil? && !high.nil?
       c = low <=> high
       Primitive.zr_cmperr(low, high) if c.nil?
-      raise ArgumentError, "min argument must be less than or equal to max argument" if c > 0
+      raise ArgumentError, +"min argument must be less than or equal to max argument" if c > 0
     end
     return low if !low.nil? && compare_to(low) < 0
     return high if !high.nil? && compare_to(high) > 0

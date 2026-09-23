@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Monitor: a reentrant lock over a Mutex, which ruby loads before the
 # program's first line. The owner may enter again; the lock releases at
 # the outermost exit. MonitorMixin layers the same over any object.
@@ -64,7 +66,7 @@ class Monitor
   def mon_owned? = @mutex.locked? && @owner.equal?(Fiber.current)
 
   def mon_check_owner
-    raise ThreadError, "current fiber not owner" unless @owner.equal?(Fiber.current)
+    raise ThreadError, +"current fiber not owner" unless @owner.equal?(Fiber.current)
 
     nil
   end
@@ -181,7 +183,7 @@ module MonitorMixin
       if defined?(@mon_initialized_by_new_cond)
         return # already initialized.
       elsif @mon_data_owner_object_id == self.object_id
-        raise ThreadError, "already initialized"
+        raise ThreadError, +"already initialized"
       end
     end
     @mon_data = ::Monitor.new

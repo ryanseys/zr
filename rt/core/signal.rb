@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Signals and their handlers. The kernel counts a signal as it comes,
 # and the program runs the handler at its next safe point, as CRuby's
 # sighandler and rb_signal_exec split the work. Each signal keeps the
@@ -23,7 +25,7 @@ module Signal
 
   def signame(number)
     number = Primitive.zr_index_operand_m(number)
-    LIST.key(number)
+    LIST.key(number)&.dup
   end
 
   def trap(*args, &block) = Signal.send(:trap_signal, args, block)
@@ -43,7 +45,7 @@ module Signal
       raise ArgumentError, "can't trap reserved signal: SIG#{RESERVED[signo]}" if RESERVED.key?(signo)
 
       if args.size == 1
-        raise ArgumentError, "tried to create Proc object without a block" unless block
+        raise ArgumentError, +"tried to create Proc object without a block" unless block
 
         install(signo, HANDLED, block)
       else
@@ -67,13 +69,13 @@ module Signal
       Primitive.attr! :hidden
       name = signal.is_a?(Symbol) ? signal.name : String.try_convert(signal)
       raise ArgumentError, "bad signal type #{signal.class}" if name.nil?
-      raise ArgumentError, "signal name with null byte" if name.include?("\0")
+      raise ArgumentError, +"signal name with null byte" if name.include?("\0")
 
       minus = name.start_with?("-")
       raise ArgumentError, "negative signal name: #{name}" if minus && !negative
 
       bare = (minus ? name[1..] : name).delete_prefix("SIG")
-      signo = LIST[bare] unless bare.empty? || (bare == "EXIT" && !exit)
+      signo = LIST[bare] unless bare.empty? || (bare == +"EXIT" && !exit)
       raise ArgumentError, "unsupported signal 'SIG#{bare}'" if signo.nil?
 
       minus ? -signo : signo
@@ -120,13 +122,13 @@ module Signal
       else
         commands[signo] = command
       end
-      return "EXIT" if old == :exit
+      return +"EXIT" if old == :exit
       return old unless old.equal?(UNSET) || old == true
 
       case was
-      when IGNORED then "IGNORE"
-      when SYSTEM_DEFAULT then "SYSTEM_DEFAULT"
-      when HANDLED then "DEFAULT"
+      when IGNORED then +"IGNORE"
+      when SYSTEM_DEFAULT then +"SYSTEM_DEFAULT"
+      when HANDLED then +"DEFAULT"
       end
     end
 
@@ -159,12 +161,12 @@ module Signal
       command = commands.fetch(signo, UNSET)
       if command.equal?(UNSET)
         if signo == INT
-          interrupt(Interrupt.new(""))
+          interrupt(Interrupt.new(+""))
         elsif RAISING.include?(signo)
           interrupt(SignalException.new(signo))
         end
       elsif command == :exit
-        interrupt(SystemExit.new("exit"))
+        interrupt(SystemExit.new(+"exit"))
       else
         execute(command, signo)
       end

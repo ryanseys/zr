@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Range: a plain object holding its bounds, with everything else here.
 class Range
   include Enumerable
@@ -5,7 +7,7 @@ class Range
   # A plain Range is frozen from birth; a subclass's instance is not.
   def initialize(low, high, exclude_end = false)
     modify!
-    raise ArgumentError, "bad value for range" if !low.nil? && !high.nil? && (low <=> high).nil?
+    raise ArgumentError, +"bad value for range" if !low.nil? && !high.nil? && (low <=> high).nil?
 
     bound(low, high, exclude_end ? true : false)
     freeze if instance_of?(Range)
@@ -18,13 +20,13 @@ class Range
   def first(*args)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
     if args.empty?
-      raise RangeError, "cannot get the first element of beginless range" if @begin.nil?
+      raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
 
       return @begin
     end
 
     n = Primitive.zr_index_operand_m(args[0])
-    raise ArgumentError, "negative array size (or size too big)" if n < 0
+    raise ArgumentError, +"negative array size (or size too big)" if n < 0
 
     out = []
     return out if n == 0
@@ -37,19 +39,19 @@ class Range
   end
 
   def last(n = nil)
-    raise RangeError, "cannot get the last element of endless range" if @end.nil?
+    raise RangeError, +"cannot get the last element of endless range" if @end.nil?
     return @end if n.nil?
 
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative array size" if n < 0
+    raise ArgumentError, +"negative array size" if n < 0
 
     to_a.last(n)
   end
 
   def min(n = nil, &block)
-    raise RangeError, "cannot get the minimum of beginless range" if @begin.nil?
+    raise RangeError, +"cannot get the minimum of beginless range" if @begin.nil?
     if block
-      raise RangeError, "cannot get the minimum of endless range with custom comparison method" if @end.nil?
+      raise RangeError, +"cannot get the minimum of endless range with custom comparison method" if @end.nil?
 
       return super
     end
@@ -60,15 +62,15 @@ class Range
   end
 
   def max(n = nil, &block)
-    raise RangeError, "cannot get the maximum of endless range" if @end.nil?
+    raise RangeError, +"cannot get the maximum of endless range" if @end.nil?
     if block || n || (@excl && !@end.is_a?(Numeric))
       if @begin.nil?
-        raise RangeError, "cannot get the maximum of beginless range with custom comparison method" if block
-        raise TypeError, "can't iterate from NilClass" unless @end.is_a?(Integer)
+        raise RangeError, +"cannot get the maximum of beginless range with custom comparison method" if block
+        raise TypeError, +"can't iterate from NilClass" unless @end.is_a?(Integer)
 
         return counted_down(n)
       end
-      raise ArgumentError, "negative array size (or size too big)" if n && n < 0
+      raise ArgumentError, +"negative array size (or size too big)" if n && n < 0
 
       return super
     end
@@ -76,9 +78,9 @@ class Range
     c = @begin.nil? ? -1 : (@begin <=> @end)
     return nil if c.nil? || c > 0
     if @excl
-      raise TypeError, "cannot exclude non Integer end value" unless @end.is_a?(Integer)
+      raise TypeError, +"cannot exclude non Integer end value" unless @end.is_a?(Integer)
       return nil if c == 0
-      raise TypeError, "cannot exclude end value with non Integer begin value" unless @begin.nil? || @begin.is_a?(Integer)
+      raise TypeError, +"cannot exclude end value with non Integer begin value" unless @begin.nil? || @begin.is_a?(Integer)
 
       return @end - 1
     end
@@ -95,7 +97,7 @@ class Range
   def counted_down(n)
     Primitive.attr! :hidden
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative array size (or size too big)" if n < 0
+    raise ArgumentError, +"negative array size (or size too big)" if n < 0
 
     top = @excl ? @end - 1 : @end
     Array.new(n) { |i| top - i }
@@ -191,7 +193,7 @@ class Range
   end
 
   def to_a
-    raise RangeError, "cannot convert endless range to an array" if @end.nil?
+    raise RangeError, +"cannot convert endless range to an array" if @end.nil?
     if Primitive.zr_fixnum_p_m(@begin) && Primitive.zr_fixnum_p_m(@end) && Primitive.zr_basic_method_m(self, :each)
       return Primitive.zr_fixnum_range_ary(@begin, @end, @excl)
     end
@@ -201,7 +203,7 @@ class Range
   alias entries to_a
 
   def to_set(...)
-    raise RangeError, "cannot convert endless range to a set" if @end.nil?
+    raise RangeError, +"cannot convert endless range to a set" if @end.nil?
 
     super
   end
@@ -286,18 +288,18 @@ class Range
     Primitive.attr! :hidden
     textual = @begin.is_a?(String) || @begin.is_a?(Symbol)
     if args.empty? && !(@begin.is_a?(Numeric) || textual || (@begin.nil? && @end.is_a?(Numeric)))
-      raise ArgumentError, "step is required for non-numeric ranges"
+      raise ArgumentError, +"step is required for non-numeric ranges"
     end
 
     n = args.empty? ? 1 : args[0]
     numeric = n.is_a?(Numeric)
-    raise ArgumentError, "step can't be 0" if numeric && @begin.is_a?(Numeric) && n == 0
+    raise ArgumentError, +"step can't be 0" if numeric && @begin.is_a?(Numeric) && n == 0
 
     sequence = numeric && ((@begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric))) || (@begin.nil? && @end.is_a?(Numeric)))
     return Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl) if sequence && !block
     return stepped(n, name, &block) if textual || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
-    raise ArgumentError, "#step for non-numeric beginless ranges is meaningless" if @begin.nil? && !block
-    raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil?
+    raise ArgumentError, +"#step for non-numeric beginless ranges is meaningless" if @begin.nil? && !block
+    raise ArgumentError, +"#step iteration for beginless ranges is meaningless" if @begin.nil?
     return added(n, name, &block) unless sequence
 
     Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl).each(&block)
@@ -309,7 +311,7 @@ class Range
   def added(n, name)
     Primitive.attr! :hidden
     return to_enum(name, n) unless block_given?
-    raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil?
+    raise ArgumentError, +"#step iteration for beginless ranges is meaningless" if @begin.nil?
 
     v = @begin
     while @end.nil? || (@excl ? v < @end : v <= @end)
@@ -324,8 +326,8 @@ class Range
     Primitive.attr! :hidden
     return added(n, name, &block) unless n.is_a?(Integer)
     return to_enum(name, n) unless block
-    raise ArgumentError, "step can't be negative" if n < 0
-    raise ArgumentError, "step can't be 0" if n == 0
+    raise ArgumentError, +"step can't be negative" if n < 0
+    raise ArgumentError, +"step can't be 0" if n == 0
 
     i = 0
     each do |v|
@@ -523,13 +525,13 @@ class Range
 
   def dots
     Primitive.attr! :hidden
-    @excl ? "..." : ".."
+    @excl ? +"..." : +".."
   end
 
   # What `dup` and `clone` fill a copy with: the other Range's bounds.
   def initialize_copy(other)
     modify!
-    raise TypeError, "initialize_copy should take same class object" unless other.instance_of?(self.class)
+    raise TypeError, +"initialize_copy should take same class object" unless other.instance_of?(self.class)
 
     bound(other.begin, other.end, other.exclude_end?)
     self
@@ -539,7 +541,7 @@ class Range
   def modify!
     Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if frozen?
-    raise NameError.new("'initialize' called twice", :initialize, receiver: self) if Primitive.zr_hidden_get(self, :__built__)
+    raise NameError.new(+"'initialize' called twice", :initialize, receiver: self) if Primitive.zr_hidden_get(self, :__built__)
   end
 
   def bound(low, high, exclude_end)

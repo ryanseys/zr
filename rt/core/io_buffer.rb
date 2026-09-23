@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # IO::Buffer: a window on bytes, either its own or a String's. A buffer
 # made `for` a String holds that String and reads and writes its bytes
 # in place, which is what ruby means by "the string is locked for the
@@ -68,7 +70,7 @@ class IO
 
     def self.row(type)
       Primitive.attr! :hidden
-      TYPES[type] or raise ArgumentError, "Invalid type name!"
+      TYPES[type] or raise ArgumentError, +"Invalid type name!"
     end
     private_class_method :row
 
@@ -99,19 +101,19 @@ class IO
     def self.map(file, size = nil, offset = 0, flags = 0)
       announce
       file_size = file.size
-      raise ArgumentError, "Invalid negative or zero file size!" if file_size <= 0
+      raise ArgumentError, +"Invalid negative or zero file size!" if file_size <= 0
 
       unless size.nil?
         size = Primitive.zr_index_operand_m(size)
-        raise ArgumentError, "Size can't be zero!" if size.zero?
-        raise ArgumentError, "Size can't be larger than file size!" if size > file_size
+        raise ArgumentError, +"Size can't be zero!" if size.zero?
+        raise ArgumentError, +"Size can't be larger than file size!" if size > file_size
       end
       offset = Primitive.zr_index_operand_m(offset)
-      raise ArgumentError, "Offset can't be negative!" if offset.negative?
-      raise ArgumentError, "Offset too large!" if offset >= file_size
+      raise ArgumentError, +"Offset can't be negative!" if offset.negative?
+      raise ArgumentError, +"Offset too large!" if offset >= file_size
 
       size ||= file_size - offset
-      raise ArgumentError, "Offset too large!" if file_size - offset < size
+      raise ArgumentError, +"Offset too large!" if file_size - offset < size
 
       buffer = allocate
       buffer.send(:mapped, file, size, offset, flags)
@@ -121,7 +123,7 @@ class IO
     def initialize(size = DEFAULT_SIZE, flags = 0)
       Buffer.send(:announce)
       size = Primitive.zr_index_operand_m(size)
-      raise ArgumentError, "Size can't be negative!" if size < 0
+      raise ArgumentError, +"Size can't be negative!" if size < 0
 
       @bytes = "\0".b * size
       @start = 0
@@ -157,7 +159,7 @@ class IO
 
     # A freed buffer keeps its object and lets go of its bytes.
     def free
-      raise LockedError, "Buffer is locked!" if locked?
+      raise LockedError, +"Buffer is locked!" if locked?
 
       @bytes = nil
       @start = 0
@@ -167,7 +169,7 @@ class IO
     end
 
     def locked
-      raise LockedError, "Buffer already locked!" if locked?
+      raise LockedError, +"Buffer already locked!" if locked?
 
       @flags |= LOCKED
       begin
@@ -178,8 +180,8 @@ class IO
     end
 
     def resize(size)
-      raise LockedError, "Cannot resize locked buffer!" if locked?
-      raise AccessError, "Cannot resize external buffer!" if external?
+      raise LockedError, +"Cannot resize locked buffer!" if locked?
+      raise AccessError, +"Cannot resize external buffer!" if external?
 
       @bytes = @bytes.byteslice(0, size).b
       @bytes << ("\0".b * (size - @bytes.bytesize)) if @bytes.bytesize < size
@@ -459,7 +461,7 @@ class IO
       rows = (0...length).each_slice(width).map do |span|
         bytes = span.map { |i| get_value(:U8, offset + i) }
         hex = bytes.map { |b| format("%02x ", b) }.join.ljust(width * 3)
-        "#{format('0x%08x', base + span.first)}  #{hex}#{bytes.map { |b| b >= 32 && b < 127 ? b.chr : '.' }.join}"
+        "#{format('0x%08x', base + span.first)}  #{hex}#{bytes.map { |b| b >= 32 && b < 127 ? b.chr : +'.' }.join}"
       end
       rows.join("\n")
     end
@@ -471,12 +473,12 @@ class IO
     def extent(length, offset)
       Primitive.attr! :hidden
       offset = offset.nil? ? 0 : Primitive.zr_index_operand_m(offset)
-      raise ArgumentError, "Offset can't be negative!" if offset.negative?
+      raise ArgumentError, +"Offset can't be negative!" if offset.negative?
       return [@size - offset, offset] if length.nil? && offset <= @size
-      raise ArgumentError, "The given offset is bigger than the buffer size!" if length.nil?
+      raise ArgumentError, +"The given offset is bigger than the buffer size!" if length.nil?
 
       length = Primitive.zr_index_operand_m(length)
-      raise ArgumentError, "Length can't be negative!" if length.negative?
+      raise ArgumentError, +"Length can't be negative!" if length.negative?
 
       [length, offset]
     end
@@ -567,26 +569,26 @@ class IO
 
     def writable
       Primitive.attr! :hidden
-      raise AccessError, "Buffer is not writable!" if readonly?
-      raise InvalidatedError, "Buffer has been invalidated!" if null?
+      raise AccessError, +"Buffer is not writable!" if readonly?
+      raise InvalidatedError, +"Buffer has been invalidated!" if null?
     end
 
     def bounds(offset, length, type = nil)
       Primitive.attr! :hidden
-      raise ArgumentError, "Offset can't be negative!" if offset < 0
-      raise ArgumentError, "Length can't be negative!" if length < 0
+      raise ArgumentError, +"Offset can't be negative!" if offset < 0
+      raise ArgumentError, +"Length can't be negative!" if length < 0
       return if offset + length <= @size
 
       raise ArgumentError, "Type extends beyond end of buffer! (offset=#{offset} > size=#{@size})" if type
 
-      raise ArgumentError, "Specified offset+length is bigger than the buffer size!"
+      raise ArgumentError, +"Specified offset+length is bigger than the buffer size!"
     end
 
     # A mask repeats over the buffer, so a shorter one is fine and only
     # an empty one is refused.
     def mask(other)
       Primitive.attr! :hidden
-      raise MaskError, "Zero-length mask given!" if other.size.zero?
+      raise MaskError, +"Zero-length mask given!" if other.size.zero?
 
       other.get_string.bytes
     end

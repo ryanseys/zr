@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Integers past the fixnum range. A bignum is a plain object of class
 # Integer whose magnitude is a little-endian Array of base-2^30 limbs
 # and whose sign is a flag, both in hidden instance variables; every
@@ -370,7 +372,7 @@ class Integer
     # divisor's sign.
     def big_divmod(x, y)
       Primitive.attr! :hidden
-      raise ZeroDivisionError, "divided by 0" if y == 0
+      raise ZeroDivisionError, +"divided by 0" if y == 0
 
       qm, rm = big_divmod_mag(big_mag(x), big_mag(y))
       xn = big_neg?(x)
@@ -495,7 +497,7 @@ class Integer
         return x.negative? ? -1 : 0 if left == n.negative?
         return 0 if x.zero?
 
-        raise RangeError, "shift width too big"
+        raise RangeError, +"shift width too big"
       end
       left ? big_shl(x, n) : big_shr(x, n)
     end
@@ -594,7 +596,7 @@ class Integer
       # A bit operator coerces, then takes Integers alone, as CRuby's
       # bit_coerce does.
       when :&, :|, :^ then Primitive.zr_num_coerce_m(self, other, op, 4)
-      else raise TypeError, "no implicit conversion from Float"
+      else raise TypeError, +"no implicit conversion from Float"
       end
     else
       kind = %i[< <= > >=].include?(op) ? 1 : (%i[& | ^].include?(op) ? 4 : 0)

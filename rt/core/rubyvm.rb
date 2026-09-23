@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # RubyVM: what CRuby tells a program about its virtual machine. This
 # runtime compiles every file with prism ahead of time, so it answers as a
 # CRuby whose instruction sequences prism compiled, with YJIT off.
@@ -30,7 +32,7 @@ class RubyVM
     stats = { constant_cache_invalidations: 0, constant_cache_misses: 0, global_cvar_state: 0, next_shape_id: 0, shape_cache_size: 0 }
     return stats if key.nil?
     return stats.merge!(key) && key if key.is_a?(Hash)
-    raise TypeError, "non-hash or symbol given" unless key.is_a?(Symbol)
+    raise TypeError, +"non-hash or symbol given" unless key.is_a?(Symbol)
 
     stats.fetch(key) { raise ArgumentError, "unknown key: #{key}" }
   end
@@ -52,9 +54,9 @@ class RubyVM
         iseq
       end
 
-      def compile(source, file = "<compiled>", path = file, line = 1, options = nil)
+      def compile(source, file = +"<compiled>", path = file, line = 1, options = nil)
         source = source.read if source.is_a?(IO)
-        return Primitive.zr_unimplemented("RubyVM::InstructionSequence.compile") unless defined?(::Ze0::Eval)
+        return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Ze0::Eval)
 
         code = ::Ze0::Eval.current.compile(source, file, line, [])
         Primitive.zr_box_compiled(code[1])
@@ -68,8 +70,8 @@ class RubyVM
 
       def compile_file(file, options = nil)
         iseq = compile(File.read(file), file, File.expand_path(file))
-        Primitive.zr_hidden_set(iseq, :__label__, "<main>")
-        Primitive.zr_hidden_set(iseq, :__base_label__, "<main>")
+        Primitive.zr_hidden_set(iseq, :__label__, +"<main>")
+        Primitive.zr_hidden_set(iseq, :__base_label__, +"<main>")
         iseq
       end
       alias compile_file_prism compile_file
@@ -90,7 +92,7 @@ class RubyVM
 
       # There is no bytecode to load: every binary is one this runtime
       # cannot read.
-      def load_from_binary(binary) = raise(RuntimeError, "broken binary format")
+      def load_from_binary(binary) = raise(RuntimeError, +"broken binary format")
 
       private
 
@@ -131,22 +133,22 @@ class RubyVM
     # block's or a method's code is no whole program, as ruby says.
     def eval
       code = Primitive.zr_hidden_get(self, :__code__)
-      raise TypeError, "Not a toplevel InstructionSequence" if code.nil?
+      raise TypeError, +"Not a toplevel InstructionSequence" if code.nil?
 
       Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, Primitive.zr_eval_cref_under(Object, nil), nil, nil)
     end
 
     def inspect = "<RubyVM::InstructionSequence:#{label}@#{path}:#{first_lineno}>"
 
-    def disasm = Primitive.zr_unimplemented("RubyVM::InstructionSequence#disasm")
+    def disasm = Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#disasm")
     alias disassemble disasm
 
-    def to_a = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_a")
+    def to_a = Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#to_a")
     # The :line events a compiled string's top level fires: one on each
     # line a statement starts, as the compiler puts them.
     def trace_points
       code = Primitive.zr_hidden_get(self, :__source__)
-      return Primitive.zr_unimplemented("RubyVM::InstructionSequence#trace_points of a block or a method") if code.nil?
+      return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#trace_points of a block or a method") if code.nil?
 
       statements = ::Prism.parse(code, line: first_lineno).value.statements.body
       statements.select(&:newline?).map { |node| node.location.start_line }.uniq.map { |line| [line, :line] }
@@ -156,7 +158,7 @@ class RubyVM
     # block's or a method's own code has no source kept to read.
     def each_child(&block)
       code = Primitive.zr_hidden_get(self, :__source__)
-      return Primitive.zr_unimplemented("RubyVM::InstructionSequence#each_child of a block or a method") if code.nil?
+      return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#each_child of a block or a method") if code.nil?
 
       children = []
       nested(::Prism.parse(code, line: first_lineno).value, children)
@@ -166,9 +168,9 @@ class RubyVM
 
     # Only a whole program's code has a binary form.
     def to_binary(extra_data = nil)
-      raise RuntimeError, "should be top of iseq" if Primitive.zr_hidden_get(self, :__code__).nil?
+      raise RuntimeError, +"should be top of iseq" if Primitive.zr_hidden_get(self, :__code__).nil?
 
-      Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_binary")
+      Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#to_binary")
     end
     def script_lines = nil
 
@@ -185,7 +187,7 @@ class RubyVM
                when ::Prism::BlockNode, ::Prism::LambdaNode then "block in #{label}"
                when ::Prism::ClassNode then "<class:#{child.constant_path.slice}>"
                when ::Prism::ModuleNode then "<module:#{child.constant_path.slice}>"
-               when ::Prism::SingletonClassNode then "singleton class"
+               when ::Prism::SingletonClassNode then +"singleton class"
                end
         next nested(child, out) unless name
 
@@ -228,7 +230,7 @@ class RubyVM
                 when Proc, Method, UnboundMethod then !body.source_location.nil?
                 else raise TypeError, "wrong argument type #{body.class} (expected method)"
                 end
-      raise RuntimeError, "cannot get AST for ISEQ compiled by prism" if written
+      raise RuntimeError, +"cannot get AST for ISEQ compiled by prism" if written
 
       nil
     end
@@ -236,7 +238,7 @@ class RubyVM
     # The id of the prism node that the location's line ran, or nil
     # where no Ruby code ran there.
     def self.node_id_for_backtrace_location(backtrace_location)
-      raise TypeError, "Thread::Backtrace::Location object expected" unless backtrace_location.is_a?(Thread::Backtrace::Location)
+      raise TypeError, +"Thread::Backtrace::Location object expected" unless backtrace_location.is_a?(Thread::Backtrace::Location)
 
       id = Primitive.zr_hidden_get(backtrace_location, :__node_id__)
       id.nil? || id.zero? ? nil : id
@@ -250,7 +252,7 @@ class RubyVM
     def self.log_enabled? = false
     def self.trace_exit_locations_enabled? = false
     def self.runtime_stats(key = nil) = nil
-    def self.stats_string = ""
+    def self.stats_string = +""
     def self.insns_compiled(iseq) = nil
     def self.exit_locations = nil
     def self.log = nil
@@ -258,7 +260,7 @@ class RubyVM
     def self.code_gc = nil
     def self.disasm(iseq) = nil
     def self.dump_exit_locations(filename)
-      raise ArgumentError, "--yjit-trace-exits must be enabled to use dump_exit_locations."
+      raise ArgumentError, +"--yjit-trace-exits must be enabled to use dump_exit_locations."
     end
     def self.simulate_oom! = nil
   end

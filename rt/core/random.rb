@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Random: CRuby's MT19937, seeded and drawn as CRuby does it, so a
 # seeded stream answers the same numbers.
 #
@@ -42,7 +44,7 @@ class Random < random_base
   # seed, the last two optional.
   def marshal_load(dump)
     raise TypeError, "wrong argument type #{dump.class} (expected Array)" unless dump.is_a?(Array)
-    raise ArgumentError, "wrong dump data" unless dump.size.between?(1, 3)
+    raise ArgumentError, +"wrong dump data" unless dump.size.between?(1, 3)
 
     words, rest, seed = dump
     rest = 1 if dump.size < 2
@@ -50,7 +52,7 @@ class Random < random_base
     mask = 0xffff_ffff
     Primitive.zr_hidden_set(self, :__mt__, Array.new(N) { |i| (words >> (32 * i)) & mask })
     rest = Primitive.zr_index_operand_m(rest)
-    raise ArgumentError, "wrong value" unless rest.between?(1, N)
+    raise ArgumentError, +"wrong value" unless rest.between?(1, N)
 
     set_mti(N - rest + 1)
     Primitive.zr_hidden_set(self, :__seed__, Integer(seed))
@@ -77,7 +79,7 @@ class Random < random_base
 
   # Bytes from the system's own source, not the seeded stream.
   def self.urandom(size)
-    raise ArgumentError, "negative string size (or size too big)" if size < 0
+    raise ArgumentError, +"negative string size (or size too big)" if size < 0
 
     out = "".b
     out << (Primitive.zr_random_seed & 0xff) while out.bytesize < size
@@ -386,7 +388,7 @@ class Random::Base
   # `n` random bytes, four per draw, least significant first.
   def bytes(size)
     size = to_integer(size)
-    raise ArgumentError, "negative string size (or size too big)" if size < 0
+    raise ArgumentError, +"negative string size (or size too big)" if size < 0
 
     out = "".b
     while size >= 4
@@ -657,7 +659,7 @@ class Array
       return Primitive.zr_ary_aref1_m(self, Random.send(:limited_for, random, len - 1))
     end
     n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative sample number" if n < 0
+    raise ArgumentError, +"negative sample number" if n < 0
 
     n = len if n > len
     draws = []

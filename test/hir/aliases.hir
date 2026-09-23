@@ -22,7 +22,7 @@
         (send to_sym
           (interp
             (seq
-              (frozen "pa"))
+              (frozen shared "pa"))
             (str "rt"))))))
   (send self p
     (send say_1

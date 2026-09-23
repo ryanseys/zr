@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # `Kernel#format` over Integer, String, Symbol and the `%c` and `%p`
 # directives; a Float directive stops by name until Float lands.
 module Kernel
@@ -54,7 +56,7 @@ module Kernel
       value = nil
       have_value = false
       while true
-        raise ArgumentError, "incomplete format specifier; use %% (double %) instead" if i >= @spec.bytesize
+        raise ArgumentError, +"incomplete format specifier; use %% (double %) instead" if i >= @spec.bytesize
 
         b = @spec.getbyte(i)
         case b
@@ -86,19 +88,19 @@ module Kernel
           end
         when 60
           stop = @spec.index(">", i)
-          raise ArgumentError, "malformed name - unmatched parenthesis" unless stop
+          raise ArgumentError, +"malformed name - unmatched parenthesis" unless stop
 
           value = named(@spec[i + 1...stop], "<", ">")
           have_value = true
           i = stop
         when 123
           stop = @spec.index("}", i)
-          raise ArgumentError, "malformed name - unmatched parenthesis" unless stop
+          raise ArgumentError, +"malformed name - unmatched parenthesis" unless stop
 
           @out << named(@spec[i + 1...stop], "{", "}").to_s
           return stop + 1
         when 37
-          raise ArgumentError, "invalid format character - %" unless flags.empty? && width.nil?
+          raise ArgumentError, +"invalid format character - %" unless flags.empty? && width.nil?
 
           @out << "%"
           return i + 1
@@ -126,7 +128,7 @@ module Kernel
     def take_next
       Primitive.attr! :hidden
       raise ArgumentError, "unnumbered(#{@next + 1}) mixed with numbered" if @numbered
-      raise ArgumentError, "too few arguments" if @next >= @args.size
+      raise ArgumentError, +"too few arguments" if @next >= @args.size
 
       v = @args[@next]
       @next += 1
@@ -146,7 +148,7 @@ module Kernel
     def named(name, open, close)
       Primitive.attr! :hidden
       raise ArgumentError, "named#{open}#{name}#{close} after unnumbered(#{@next})" if @next.positive?
-      raise ArgumentError, "one hash required" unless @args.size == 1 && @args[0].is_a?(Hash)
+      raise ArgumentError, +"one hash required" unless @args.size == 1 && @args[0].is_a?(Hash)
 
       hash = @args[0]
       key = name.to_sym
@@ -177,12 +179,12 @@ module Kernel
     def character(value, flags, width)
       Primitive.attr! :hidden
       if value.is_a?(String)
-        raise ArgumentError, "%c requires a character" if value.empty?
+        raise ArgumentError, +"%c requires a character" if value.empty?
 
         pad(value[0], flags, width)
       else
         n = Integer(value)
-        raise ArgumentError, "invalid character" if n < 0
+        raise ArgumentError, +"invalid character" if n < 0
 
         # `%c` writes the code point, not the byte: past 255 that is a
         # character of the format string's own encoding.
@@ -212,7 +214,7 @@ module Kernel
         return pad(result, flags.delete("0"), width)
       end
       digits = n.abs.to_s(base)
-      digits = "" if precision == 0 && n == 0
+      digits = +"" if precision == 0 && n == 0
       digits = "0" * (precision - digits.bytesize) + digits if precision && digits.bytesize < precision
       digits = "0" + digits if base == 8 && flags.include?("#") && !digits.start_with?("0")
       sign = if n < 0 then "-"
@@ -234,9 +236,9 @@ module Kernel
     # zero the digits carry themselves, so it is not one of these.
     def base_prefix(base, flags, n)
       Primitive.attr! :hidden
-      return "" unless flags.include?("#") && n != 0
+      return +"" unless flags.include?("#") && n != 0
 
-      { 16 => "0x", 2 => "0b" }.fetch(base, "")
+      { 16 => "0x", 2 => "0b" }.fetch(base, +"")
     end
 
     def complement(m, base)
@@ -314,14 +316,14 @@ module Kernel
       negative = x.negative? || (x.zero? && (1.0 / x).negative?)
       sign = negative ? "-" : (flags.include?("+") ? "+" : (flags.include?(" ") ? " " : ""))
       if x.nan? || x.infinite?
-        text = x.nan? ? "NaN" : "Inf"
-        text = "+NaN" if x.nan? && flags.include?("+")
-        text = " NaN" if x.nan? && flags.include?(" ") && !flags.include?("+")
+        text = x.nan? ? +"NaN" : +"Inf"
+        text = +"+NaN" if x.nan? && flags.include?("+")
+        text = +" NaN" if x.nan? && flags.include?(" ") && !flags.include?("+")
         text = sign + text unless x.nan?
         return pad(text, flags.delete("0"), width)
       end
       x = x.abs
-      prefix = style == :a ? (upper ? "0X" : "0x") : ""
+      prefix = style == :a ? (upper ? +"0X" : +"0x") : +""
       body = case style
              when :f then fixed_text(x, precision || 6, flags)
              when :e then exponent_text(x, precision || 6, flags, upper)
@@ -356,7 +358,7 @@ module Kernel
       else
         lead, digits, power = round_hex(lead, digits, precision, power)
       end
-      point = digits.empty? ? (flags.include?("#") ? "." : "") : ".#{digits}"
+      point = digits.empty? ? (flags.include?("#") ? +"." : +"") : ".#{digits}"
       text = "#{lead}#{point}p#{power.negative? ? '-' : '+'}#{power.abs}"
       upper ? text.upcase : text
     end
@@ -370,9 +372,9 @@ module Kernel
       rest = digits[precision..]
       n = (lead.to_s(16) + digits[0, precision]).to_i(16)
       up = rest[0].to_i(16)
-      n += 1 if up > 8 || (up == 8 && (rest[1..].delete("0") != "" || n.odd?))
+      n += 1 if up > 8 || (up == 8 && (rest[1..].delete("0") != +"" || n.odd?))
       text = n.to_s(16).rjust(precision + 1, "0")
-      return [1, "0" * precision, power + 1] if text[0] == "2"
+      return [1, "0" * precision, power + 1] if text[0] == +"2"
 
       [text[0].to_i(16), text[1..], power]
     end
@@ -388,12 +390,12 @@ module Kernel
         exact = exact[0, exact.size - 1] while exact.end_with?("0")
         return zero_text(precision, flags) unless k == 0 && exact > "5"
 
-        digits = "1"
+        digits = +"1"
         point = 1 - precision
       else
         digits, point = rounded_digits(x, digits, point, k)
       end
-      whole = point <= 0 ? "0" : (digits[0, point] + "0" * [point - digits.size, 0].max)
+      whole = point <= 0 ? +"0" : (digits[0, point] + "0" * [point - digits.size, 0].max)
       fraction = point >= 0 ? digits[point..].to_s : "0" * -point + digits
       fraction = fraction[0, precision] + "0" * [precision - fraction.size, 0].max
       precision == 0 && !flags.include?("#") ? whole : "#{whole}.#{fraction}"
@@ -409,7 +411,7 @@ module Kernel
       kept = digits[0, k]
       rest = digits[k..]
       n = kept.to_i
-      n += 1 if rest[0] > "5" || (rest[0] == "5" && (rest[1..].delete("0") != "" || n.odd?))
+      n += 1 if rest[0] > "5" || (rest[0] == +"5" && (rest[1..].delete("0") != +"" || n.odd?))
       digits = n.to_s
       if digits.size > k
         digits = digits[0, k]
@@ -453,7 +455,7 @@ module Kernel
 
     def zero_text(precision, flags)
       Primitive.attr! :hidden
-      precision == 0 && !flags.include?("#") ? "0" : "0." + "0" * precision
+      precision == 0 && !flags.include?("#") ? +"0" : "0." + "0" * precision
     end
 
     def exponent_text(x, precision, flags, upper)
@@ -491,7 +493,7 @@ module Kernel
       Primitive.attr! :hidden
       e = text.index("e") || text.index("E")
       mantissa = e ? text[0, e] : text
-      tail = e ? text[e..] : ""
+      tail = e ? text[e..] : +""
       return text unless mantissa.include?(".")
 
       mantissa = mantissa[0, mantissa.size - 1] while mantissa.end_with?("0")

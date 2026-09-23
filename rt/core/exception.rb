@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The exception classes past the ones the kernel raises itself, and
 # what an exception answers about itself.
 class Exception
@@ -148,7 +150,7 @@ class Exception
   def decorate(text, highlight)
     Primitive.attr! :hidden
     if instance_of?(RuntimeError) && text.empty?
-      return highlight ? "#{UNDERLINE}unhandled exception#{RESET}" : "unhandled exception"
+      return highlight ? "#{UNDERLINE}unhandled exception#{RESET}" : +"unhandled exception"
     end
 
     path = self.class.to_s
@@ -186,8 +188,8 @@ class Exception
   def checked_order(value)
     Primitive.attr! :hidden
     return Exception.to_tty? if value.nil?
-    return true if value == :bottom || value == "bottom"
-    return false if value == :top || value == "top"
+    return true if value == :bottom || value == +"bottom"
+    return false if value == :top || value == +"top"
 
     raise ArgumentError, "expected :top or :bottom as order: #{value.inspect}"
   end
@@ -241,7 +243,7 @@ class UncaughtThrowError < ArgumentError
 
   # The stored message is ruby's own format string; `to_s` puts the tag
   # in. Two throws therefore carry the same message.
-  def initialize(tag, value, message = "uncaught throw %p")
+  def initialize(tag, value, message = +"uncaught throw %p")
     @tag = tag
     @value = value
     super(message)
@@ -267,13 +269,13 @@ class NoMatchingPatternKeyError < NoMatchingPatternError
   end
 
   def matchee
-    raise ArgumentError, "no matchee is available" unless Primitive.zr_hidden_get(self, :__given__)
+    raise ArgumentError, +"no matchee is available" unless Primitive.zr_hidden_get(self, :__given__)
 
     Primitive.zr_hidden_get(self, :__matchee__)
   end
 
   def key
-    raise ArgumentError, "no key is available" unless Primitive.zr_hidden_get(self, :__given__)
+    raise ArgumentError, +"no key is available" unless Primitive.zr_hidden_get(self, :__given__)
 
     Primitive.zr_hidden_get(self, :__key__)
   end
@@ -298,7 +300,7 @@ class NameError
   end
 
   def receiver
-    raise ArgumentError, "no receiver is available" unless defined?(@receiver)
+    raise ArgumentError, +"no receiver is available" unless defined?(@receiver)
 
     @receiver
   end
@@ -328,13 +330,13 @@ class KeyError
   end
 
   def key
-    raise ArgumentError, "no key is available" unless defined?(@key)
+    raise ArgumentError, +"no key is available" unless defined?(@key)
 
     @key
   end
 
   def receiver
-    raise ArgumentError, "no receiver is available" unless defined?(@receiver)
+    raise ArgumentError, +"no receiver is available" unless defined?(@receiver)
 
     @receiver
   end
@@ -347,7 +349,7 @@ class FrozenError
   end
 
   def receiver
-    raise ArgumentError, "no receiver is available" unless defined?(@receiver)
+    raise ArgumentError, +"no receiver is available" unless defined?(@receiver)
 
     @receiver
   end
@@ -366,7 +368,7 @@ class SignalException
   # A number names its first signal in Signal.list; a name keeps its own
   # spelling, an alias among them.
   def initialize(sig = nil, message = nil)
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
 
     signals = Signal.list
     if sig.is_a?(Integer)
@@ -381,7 +383,7 @@ class SignalException
     else
       # A name says what the message is, so a second argument is one
       # too many.
-      raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless message.nil?
+      raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless message.nil?
 
       name = sig.to_s.delete_prefix("SIG")
       raise ArgumentError, "unsupported signal 'SIG#{name}'" unless signals.key?(name)
@@ -395,7 +397,7 @@ class SignalException
 end
 
 class Interrupt
-  def initialize(message = "Interrupt")
+  def initialize(message = +"Interrupt")
     super(2, message)
   end
 end
@@ -435,9 +437,9 @@ class Thread
 
       def absolute_path
         return @path if @path.start_with?("/")
-        return nil if @path == "-e"
+        return nil if @path == +"-e"
 
-        parts = "#{Primitive.zr_getcwd}/#{@path}".split("/").reject { |part| part.empty? || part == "." }
+        parts = "#{Primitive.zr_getcwd}/#{@path}".split("/").reject { |part| part.empty? || part == +"." }
         "/" + parts.join("/")
       end
       def to_s = @row

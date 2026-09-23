@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Data: `Data.define` makes a class of immutable values, one per member,
 # made with keywords or positionally. Members live in a hidden variable
 # of the class and values in one of the instance, as Struct's do.
@@ -143,7 +145,7 @@ class Data
 
   def inspect
     name = Primitive.zr_real_class(self).name
-    head = name ? "#<data #{name}" : "#<data"
+    head = name ? "#<data #{name}" : +"#<data"
     return Primitive.zr_obj_form("#{head}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin

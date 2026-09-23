@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # TracePoint, over the events a traced program fires (rt/kernel/trace.rb).
 # An enabled TracePoint adds its events to the kernel's mask; an event
 # comes to TracePoint.fire with a row that describes its frame, and each
@@ -28,7 +30,7 @@ class TracePoint
 
     def new(*events, &block)
       mask = events.empty? ? ALL : events.inject(0) { |all, event| all | flag(event) }
-      raise ArgumentError, "must be called with a block" unless block
+      raise ArgumentError, +"must be called with a block" unless block
 
       point = Primitive.zr_class_build(self)
       Primitive.zr_hidden_set(point, :__events__, mask)
@@ -42,7 +44,7 @@ class TracePoint
 
     def allow_reentry
       row = current_row
-      raise RuntimeError, "No need to allow reentrance." if row.nil?
+      raise RuntimeError, +"No need to allow reentrance." if row.nil?
 
       Primitive.zr_hidden_set(Fiber.current, :__trace_row__, nil)
       begin
@@ -80,7 +82,7 @@ class TracePoint
         end
       end
       return nil if hook.nil?
-      raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
+      raise TypeError, +"trace_func needs to be Proc" unless hook.is_a?(Proc)
 
       point = new(*HOOK_NAMES.keys) do |tp|
         klass = tp.defined_class
@@ -180,7 +182,7 @@ class TracePoint
       Primitive.attr! :hidden
       return Primitive.zr_hidden_set(self, :__enabled_before__, true) unless Primitive.zr_hidden_get(self, :__enabled_before__)
 
-      path, _call, line = BUILTIN_LINES.fetch("TracePoint#enable")
+      path, _call, line = BUILTIN_LINES.fetch(+"TracePoint#enable")
       fire([EVENTS[:return], value, path, line, :enable, :enable, TracePoint, point, nil, 0, 0])
     end
 
@@ -224,11 +226,11 @@ class TracePoint
     if target_thread == :default
       target_thread = block_given? && target.nil? && target_line.nil? ? Thread.current : nil
     end
-    raise ArgumentError, "only target_line is specified" if target.nil? && !target_line.nil?
+    raise ArgumentError, +"only target_line is specified" if target.nil? && !target_line.nil?
 
     aim(target, target_line) unless target.nil?
     if target_thread
-      raise ArgumentError, "can not override target_thread filter" if Primitive.zr_hidden_get(self, :__thread__)
+      raise ArgumentError, +"can not override target_thread filter" if Primitive.zr_hidden_get(self, :__thread__)
 
       Primitive.zr_hidden_set(self, :__thread__, target_thread)
     else
@@ -300,19 +302,19 @@ class TracePoint
   end
 
   def return_value
-    raise RuntimeError, "not supported by this event" unless %i[return c_return b_return].include?(event)
+    raise RuntimeError, +"not supported by this event" unless %i[return c_return b_return].include?(event)
 
     row[1]
   end
 
   def raised_exception
-    raise RuntimeError, "not supported by this event" unless %i[raise rescue].include?(event)
+    raise RuntimeError, +"not supported by this event" unless %i[raise rescue].include?(event)
 
     row[1]
   end
 
   def parameters
-    raise RuntimeError, "not supported by this event" if %i[raise line class end script_compiled rescue].include?(event)
+    raise RuntimeError, +"not supported by this event" if %i[raise line class end script_compiled rescue].include?(event)
     # rb_tracearg_parameters answers a call's and a return's, refuses
     # for the events above, and falls through to nil for the rest: an
     # event the machine fires stands in no method and has none.
@@ -324,7 +326,7 @@ class TracePoint
   # The string this code was compiled from, or nil where a file held
   # it, as rb_tracearg_eval_script answers nil for an iseq alone.
   def eval_script
-    raise RuntimeError, "not supported by this event" unless event == :script_compiled
+    raise RuntimeError, +"not supported by this event" unless event == :script_compiled
 
     row[1][0]
   end
@@ -334,7 +336,7 @@ class TracePoint
   # sequence carries what the row kept of it: the name it answers to,
   # its label and its first line.
   def instruction_sequence
-    raise RuntimeError, "not supported by this event" unless event == :script_compiled
+    raise RuntimeError, +"not supported by this event" unless event == :script_compiled
 
     _script, path, label, line = row[1]
     RubyVM::InstructionSequence.send(:made, nil, nil, label, label, path, line)
@@ -345,18 +347,18 @@ class TracePoint
   # The row of the event being handled, whichever TracePoint asks.
   def row
     Primitive.attr! :hidden
-    TracePoint.send(:current_row) or raise RuntimeError, "access from outside"
+    TracePoint.send(:current_row) or raise RuntimeError, +"access from outside"
   end
 
   # rb_tracepoint_enable_for_target: the code the target runs, which
   # must be Ruby's, and the line in it, which only a :line event has.
   def aim(target, line)
     Primitive.attr! :hidden
-    raise ArgumentError, "specified target is not supported" if RubyVM::InstructionSequence.of(target).nil?
-    raise ArgumentError, "can't nest-enable a targeting TracePoint" if enabled?
+    raise ArgumentError, +"specified target is not supported" if RubyVM::InstructionSequence.of(target).nil?
+    raise ArgumentError, +"can't nest-enable a targeting TracePoint" if enabled?
 
     events = Primitive.zr_hidden_get(self, :__events__)
-    raise ArgumentError, "target_line is specified, but line event is not specified" if line && (events & EVENTS[:line]).zero?
+    raise ArgumentError, +"target_line is specified, but line event is not specified" if line && (events & EVENTS[:line]).zero?
 
     Primitive.zr_hidden_set(self, :__target__, target)
     Primitive.zr_hidden_set(self, :__target_line__, line && Integer(line))

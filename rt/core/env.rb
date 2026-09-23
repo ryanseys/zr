@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The constants and globals that describe the running program.
 RUBY_VERSION = "4.0.6"
 RUBY_ENGINE = "ruby"
@@ -21,7 +23,7 @@ $\ = nil
 $VERBOSE = false
 $DEBUG = false
 $-w = false
-$FILENAME = "-"
+$FILENAME = +"-"
 $? = nil
 $-a = false
 $-l = false
@@ -117,7 +119,7 @@ class << ENV
   def to_h(&block)
     pairs = Primitive.zr_environment_list.map do |entry|
       i = entry.index("=") || entry.bytesize
-      [entry[0, i], entry[i + 1..] || ""]
+      [entry[0, i], entry[i + 1..] || +""]
     end
     block ? pairs.to_h(&block) : pairs.to_h
   end
@@ -248,19 +250,19 @@ class << ENV
   end
 
   def inspect = to_h.inspect
-  def to_s = "ENV"
+  def to_s = +"ENV"
 
   # ENV is the process environment itself, so there is nothing to copy
   # or to hold still.
-  def dup = raise(TypeError, "Cannot dup ENV, use ENV.to_h to get a copy of ENV as a hash")
-  def clone(freeze: nil) = raise(TypeError, "Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash")
-  def freeze = raise(TypeError, "cannot freeze ENV")
+  def dup = raise(TypeError, +"Cannot dup ENV, use ENV.to_h to get a copy of ENV as a hash")
+  def clone(freeze: nil) = raise(TypeError, +"Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash")
+  def freeze = raise(TypeError, +"cannot freeze ENV")
 
   private
 
   # A name or a value as the environment holds it: a String with no NUL
   # byte, which the C environment cannot carry.
-  def variable_name(value, role = "name")
+  def variable_name(value, role = +"name")
     unless value.is_a?(String)
       raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String" unless value.respond_to?(:to_str)
 
@@ -277,7 +279,7 @@ module Kernel
   def __dir__
     file = Primitive.zr_caller_file
     return nil if file.nil?
-    return "." if file == "-e"
+    return +"." if file == +"-e"
 
     File.dirname(File.expand_path(file))
   end

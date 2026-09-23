@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # What Ruby does to a pattern around its engine (re.c): the preprocess
 # that decodes the escapes naming characters (rb_reg_preprocess), the
 # encoding a pattern takes and a match reads it in, a compile again
@@ -36,11 +38,11 @@ class Regexp
     def compile(source, bits)
       enc = source.encoding
       if bits & NOENCODING != 0 && enc != Encoding::BINARY
-        raise RegexpError, "/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless source.ascii_only?
+        raise RegexpError, +"/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless source.ascii_only?
 
         enc = Encoding::BINARY
       end
-      raise RegexpError, "can't make regexp with dummy encoding" if enc.dummy?
+      raise RegexpError, +"can't make regexp with dummy encoding" if enc.dummy?
 
       text, fixed = preprocess(source, enc, bits & EXTENDED != 0)
       encoding, fixed_bits = fixed_encoding(enc, fixed, bits)
@@ -56,7 +58,7 @@ class Regexp
     def fixed_encoding(enc, fixed, bits)
       if fixed
         if (fixed != enc && bits & FIXEDENCODING != 0) || (fixed != Encoding::BINARY && bits & NOENCODING != 0)
-          raise RegexpError, "incompatible character encoding"
+          raise RegexpError, +"incompatible character encoding"
         end
 
         [fixed == Encoding::BINARY ? enc : fixed, bits | FIXEDENCODING]
@@ -95,7 +97,7 @@ class Regexp
     end
 
     # rb_enc_inspect_name.
-    def inspect_name(enc) = enc == Encoding::BINARY ? "BINARY (ASCII-8BIT)" : enc.name
+    def inspect_name(enc) = enc == Encoding::BINARY ? +"BINARY (ASCII-8BIT)" : enc.name
 
     # rb_reg_prepare_re: the pattern `source` (of a Regexp with the
     # option `bits`) compiled again for a subject read in `enc`, as
@@ -427,7 +429,7 @@ class Regexp
       end
 
       def escape
-        raise RegexpError, "too short escape sequence" if @p == @end
+        raise RegexpError, +"too short escape sequence" if @p == @end
 
         len = char_len(@p)
         # A backslash before a character past ASCII keeps both.
@@ -472,7 +474,7 @@ class Regexp
           byte, @p = Pattern.escaped_byte(@b, @p)
           bytes << byte
         end
-        raise RegexpError, "invalid multibyte escape" if Pattern.invalid?(bytes, @enc)
+        raise RegexpError, +"invalid multibyte escape" if Pattern.invalid?(bytes, @enc)
 
         if bytes.size > 1 || bytes[0] >= 0x80
           @buf << bytes.pack("C*")
@@ -484,16 +486,16 @@ class Regexp
 
       # `\uHHHH` and `\u{H HH ...}`.
       def unicode
-        raise RegexpError, "too short escape sequence" if @p == @end
+        raise RegexpError, +"too short escape sequence" if @p == @end
 
         if @b[@p] == 0x7b
           @p += 1
           unicode_list
-          raise RegexpError, "invalid Unicode list" if @p == @end || @b[@p] != 0x7d
+          raise RegexpError, +"invalid Unicode list" if @p == @end || @b[@p] != 0x7d
 
           @p += 1
         else
-          raise RegexpError, "invalid Unicode escape" if @end < @p + 4 || !@b[@p, 4].all? { |x| Pattern.hex_byte?(x) }
+          raise RegexpError, +"invalid Unicode escape" if @end < @p + 4 || !@b[@p, 4].all? { |x| Pattern.hex_byte?(x) }
 
           utf8(@s.byteslice(@p, 4).to_i(16))
           @p += 4
@@ -508,13 +510,13 @@ class Regexp
           start = p
           p += 1 while p < @end && Pattern.hex_byte?(@b[p])
           break if p == start
-          raise RegexpError, "invalid Unicode range" if p - start > 6
+          raise RegexpError, +"invalid Unicode range" if p - start > 6
 
           utf8(@s.byteslice(start, p - start).to_i(16))
           any = true
           p += 1 while p < @end && space?(@b[p])
         end
-        raise RegexpError, "invalid Unicode list" unless any
+        raise RegexpError, +"invalid Unicode list" unless any
 
         @p = p
       end
@@ -522,7 +524,7 @@ class Regexp
       # append_utf8: a code point below 128 as `\xHH`, any other as its
       # UTF-8 bytes, which fix the pattern to UTF-8.
       def utf8(code)
-        raise RegexpError, "invalid Unicode range" if code.between?(0xd800, 0xdfff) || code > 0x10ffff
+        raise RegexpError, +"invalid Unicode range" if code.between?(0xd800, 0xdfff) || code > 0x10ffff
 
         if code < 0x80
           @buf << format("\\x%02X", code)
@@ -531,7 +533,7 @@ class Regexp
           if @fixed.nil?
             @fixed = Encoding::UTF_8
           elsif @fixed != Encoding::UTF_8
-            raise RegexpError, "UTF-8 character in non UTF-8 regexp"
+            raise RegexpError, +"UTF-8 character in non UTF-8 regexp"
           end
         end
       end
@@ -547,7 +549,7 @@ class Regexp
       # rb_enc_precise_mbclen at `at`, refused when no character starts there.
       def char_len(at)
         len = Onig::Enc.reader(@enc).precise_mbclen(@s, at)
-        raise RegexpError, "invalid multibyte character" if len <= 0
+        raise RegexpError, +"invalid multibyte character" if len <= 0
 
         len
       end
@@ -567,7 +569,7 @@ class Regexp
 
     # One `\M-X` / `\C-X` / `\cX` run at `i` as [byte, index past it].
     def escaped_byte(b, i)
-      raise RegexpError, "too short escaped multibyte character" unless b[i] == 0x5c
+      raise RegexpError, +"too short escaped multibyte character" unless b[i] == 0x5c
 
       i += 1
       meta = false
@@ -575,13 +577,13 @@ class Regexp
       code = nil
       while code.nil?
         c = b[i]
-        raise RegexpError, "too short escape sequence" if c.nil?
+        raise RegexpError, +"too short escape sequence" if c.nil?
 
         i += 1
         ch = c.chr
         if BYTE_ESCAPES.key?(ch)
           code = BYTE_ESCAPES[ch]
-        elsif ch >= "0" && ch <= "7"
+        elsif ch >= +"0" && ch <= +"7"
           i -= 1
           code = 0
           n = 0
@@ -590,7 +592,7 @@ class Regexp
             i += 1
             n += 1
           end
-        elsif ch == "x"
+        elsif ch == +"x"
           code = 0
           n = 0
           while n < 2 && b[i] && hex_byte?(b[i])
@@ -598,13 +600,13 @@ class Regexp
             i += 1
             n += 1
           end
-          raise RegexpError, "invalid hex escape" if n < 1
-        elsif ch == "M"
-          raise RegexpError, "duplicate meta escape" if meta
+          raise RegexpError, +"invalid hex escape" if n < 1
+        elsif ch == +"M"
+          raise RegexpError, +"duplicate meta escape" if meta
 
           meta = true
           following = b[i + 1]
-          raise RegexpError, "too short meta escape" unless b[i] == 0x2d && following && following < 0x80
+          raise RegexpError, +"too short meta escape" unless b[i] == 0x2d && following && following < 0x80
 
           i += 1
           if following == 0x5c
@@ -613,25 +615,25 @@ class Regexp
             i += 1
             code = following
           end
-        elsif ch == "C" || ch == "c"
-          if ch == "C"
-            raise RegexpError, "too short control escape" unless b[i] == 0x2d
+        elsif ch == +"C" || ch == +"c"
+          if ch == +"C"
+            raise RegexpError, +"too short control escape" unless b[i] == 0x2d
 
             i += 1
           end
-          raise RegexpError, "duplicate control escape" if ctrl
+          raise RegexpError, +"duplicate control escape" if ctrl
 
           ctrl = true
           following = b[i]
-          raise RegexpError, "too short control escape" unless following && following < 0x80
+          raise RegexpError, +"too short control escape" unless following && following < 0x80
 
           i += 1
           code = following unless following == 0x5c
         else
-          raise RegexpError, "unexpected escape sequence"
+          raise RegexpError, +"unexpected escape sequence"
         end
       end
-      raise RegexpError, "invalid escape code" if code > 0xff
+      raise RegexpError, +"invalid escape code" if code > 0xff
 
       code &= 0x1f if ctrl
       code |= 0x80 if meta
