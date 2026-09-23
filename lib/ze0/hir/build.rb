@@ -1059,6 +1059,51 @@ module Ze0
       # and holds its elements so built, a String is the shared frozen
       # one of its text, a Range's ends are frozen, and every other
       # literal is frozen by nature.
+      # Whether CRuby leaves a Range of two String literals a new Range at
+      # each run: its peephole folds the two strings and the newrange into
+      # one static Range only where no label stands before the first
+      # string, and a label starts a block's body, a loop's body, the else
+      # arm of an `if`, the then arm of an `unless` (a `case` has none),
+      # and a body a rescue covers.
+      def after_label?(node)
+        @after_label ||= {}.compare_by_identity.tap { |found| labeled(@root, found) if @root }
+        @after_label.key?(node)
+      end
+
+      def labeled(node, found)
+        return if node.nil?
+
+        start = case node
+                when Prism::BlockNode, Prism::LambdaNode then node.body
+                when Prism::WhileNode, Prism::UntilNode then node.statements
+                when Prism::IfNode then node.subsequent
+                when Prism::UnlessNode then node.statements
+                when Prism::BeginNode then node.rescue_clause && node.statements
+                end
+        first = leading(start)
+        found[first] = true if first
+        node.compact_child_nodes.each { |child| labeled(child, found) }
+      end
+
+      # The Range whose code comes first in `node`'s, if one does: a
+      # receiver comes before its call, a value before the variable it
+      # sets, a condition before its arms.
+      def leading(node)
+        case node
+        when Prism::RangeNode then node
+        when Prism::StatementsNode then leading(node.body.first)
+        when Prism::ParenthesesNode then leading(node.body)
+        when Prism::ElseNode then leading(node.statements)
+        when Prism::BeginNode then node.rescue_clause ? nil : leading(node.statements)
+        when Prism::IfNode, Prism::UnlessNode then leading(node.predicate)
+        when Prism::CallNode then leading(node.receiver)
+        when Prism::AndNode, Prism::OrNode then leading(node.left)
+        when Prism::ArrayNode then leading(node.elements.first)
+        when Prism::LocalVariableWriteNode, Prism::InstanceVariableWriteNode, Prism::GlobalVariableWriteNode,
+             Prism::ClassVariableWriteNode then leading(node.value)
+        end
+      end
+
       def frozen_literal(node, value, line)
         case node
         when Prism::ArrayNode
@@ -1600,8 +1645,8 @@ module Ze0
           low = node.left ? expr(node.left) : Literal.new(nil, line)
           high = node.right ? expr(node.right) : Literal.new(nil, line)
           # Two String literals are one frozen Range of frozen ends for
-          # the site, as prism's compiler makes a static literal of it.
-          if node.left.is_a?(Prism::StringNode) && node.right.is_a?(Prism::StringNode)
+          # the site where CRuby's peephole folds them into one.
+          if node.left.is_a?(Prism::StringNode) && node.right.is_a?(Prism::StringNode) && !after_label?(node)
             static = true
             low = frozen_literal(node.left, low, line)
             high = frozen_literal(node.right, high, line)
