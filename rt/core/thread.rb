@@ -188,9 +188,12 @@ class Thread
     # its polling of the waiters iterates, and every iteration is a
     # safe point -- is no turn: a switch inside a switch would queue a
     # thread that is parked, and lose it. Nor is one that lands while
-    # the thread is finishing: queued, it would come back alive.
+    # the thread is finishing: queued, it would come back alive. Nor is
+    # one that lands after a wait began and before its switch: the
+    # thread sleeps already, and queued it would run with its deadline
+    # still standing.
     def preempt
-      return nil if @switching || !@current.alive?
+      return nil if @switching || Primitive.zr_hidden_get(@current, :status) != :run
 
       wake_due
       return nil if @queue.empty?
@@ -312,8 +315,11 @@ class Thread
       @sleepers.reject! { |_, sleeper| sleeper.equal?(thread) }
     end
 
+    # A thread that ends leaves every list that could wake it.
     def forget(thread)
       @threads.delete(thread)
+      awake(thread)
+      unwatch(thread)
     end
   end
 
@@ -553,6 +559,7 @@ class Thread
     @status = :run
     @fiber = Fiber.current
     @site = nil
+    @armed = true
   end
 
   def start(site)
@@ -577,11 +584,20 @@ class Thread
     TracePoint.send(:thread_event, :thread_begin, self)
     begin
       Primitive.zr_catch(@kill_tag, proc do
-        Kernel.raise @pending if @pending
+        # A kill or an exception another thread sent arrives only while
+        # the catch and the rescue stand: one that came before waits for
+        # them here, and after them there is no body left to stop.
+        @armed = true
         begin
-          @value = @block.call(*@args)
+          throw @kill_tag if @killed
+          Kernel.raise @pending if @pending
+          begin
+            @value = @block.call(*@args)
+          ensure
+            close_scheduler
+          end
         ensure
-          close_scheduler
+          @armed = false
         end
       end)
     rescue Exception => e
@@ -651,6 +667,8 @@ class Thread
   # takes effect now.
   def interrupted
     Primitive.attr! :hidden
+    return unless @armed
+
     throw @kill_tag if @killed
     if @pending && !masked?(@pending)
       e = @pending
