@@ -381,10 +381,17 @@ machine def zr_mod_nesting(recv, argc, argv, cref, blk)
 end
 
 # `__method__`: the name of the method the caller is in, through any
-# blocks, or nil at the top level or in a class body.
+# blocks, or nil at the top level or in a class body. A define_method
+# body is a block whose cref names its entry, and its method is the
+# name it was defined as, through an alias too.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
-  meta = Frame.meta(Frame.prev(Task.top(zr_task())))
+  rec = Frame.prev(Task.top(zr_task()))
+  e = zr_bmethod_entry(rec)
+  if e != 0
+    return zr_sym(FrameMeta.name(MEntry.meta(e)))
+  end
+  meta = Frame.meta(rec)
   while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
@@ -399,6 +406,10 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_callee(recv, argc, argv, cref, blk)
   rec = Frame.prev(Task.top(zr_task()))
+  e = zr_bmethod_entry(rec)
+  if e != 0
+    return zr_sym(MEntry.mid(e))
+  end
   meta = Frame.meta(rec)
   while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)

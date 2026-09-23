@@ -2879,8 +2879,6 @@ describe "Methods: defining and naming methods" do
   end
 
   it "__method__ in a define_method body answers the name it was defined as" do
-    skip "a define_method body answers nil for __method__ and __callee__"
-
     result = ze0(<<~'RUBY')
       class C
         define_method(:dm) { __method__ }
