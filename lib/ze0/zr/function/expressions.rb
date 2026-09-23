@@ -57,11 +57,9 @@ module Ze0
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
           when Hir::IvarRead then ivar_read(node)
           when Hir::FrozenString
-            fn = if node.shared then "zr_str_literal_shared"
-                 elsif node.shared == false then "zr_str_frozen"
-                 else "zr_str_literal_freeze"
-                 end
-            checked(string_literal(node.value, fn))
+            if node.shared then shared_literal(node.value)
+            else checked(string_literal(node.value, node.shared == false ? "zr_str_frozen" : "zr_str_literal_freeze"))
+            end
           when Hir::GvarRead then gvar_read(node)
           when Hir::BackRef then back_ref(node)
           when Hir::GvarWrite then gvar_write(node, expr(node.value))
@@ -89,6 +87,25 @@ module Ze0
           when Hir::Redo then redo_body(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
+        end
+
+        # The one shared frozen String of a UTF-8 literal: made the first
+        # time the site runs (zr_str_literal_shared, which keeps it
+        # rooted), then read from a word of the site's own, with no call.
+        def shared_literal(text)
+          cell = @f.symbol_value(@f.symbol(@l.cache_cell("lit", 8)))
+          hit = @f.label
+          miss = @f.label
+          merge, (result,) = @f.block(["i64"])
+          word = @f.fetch("i64", cell)
+          @f.brif(@f.icmp("eq", word, imm(0)), miss, hit)
+          switch(hit)
+          @f.jump(merge, [word])
+          switch(miss)
+          made = kernel("zr_str_literal_cell", cell, @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize))
+          @f.jump(merge, [made])
+          switch(merge)
+          result
         end
 
         # The body the first time the site runs, nil every time: a flag

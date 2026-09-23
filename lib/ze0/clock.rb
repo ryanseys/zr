@@ -23,8 +23,9 @@ module Ze0
   # `[count, majors, marking ms, sweeping ms]` so far, zeros where the
   # collector does not say.
   def self.collector
-    stat = GC.stat
-    [stat[:count].to_i, stat[:major_gc_count].to_i, stat[:marking_time].to_i, stat[:sweeping_time].to_i]
+    # A key at a time: a ze0 binary answers each counter at once, where
+    # the whole table walks the heap for its slot counts.
+    %i[count major_gc_count marking_time sweeping_time].map { |key| GC.stat(key).to_i }
   rescue StandardError
     [0, 0, 0, 0]
   end

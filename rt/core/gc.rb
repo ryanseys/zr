@@ -32,6 +32,12 @@ module GC
   # its sweep still walks every arena.
   def self.stat(hash_or_key = nil)
     Primitive.attr! :ruby
+    # A counter the collector keeps answers with no walk of the heap,
+    # which the slot counts need.
+    if hash_or_key.is_a?(Symbol)
+      counted = counter(hash_or_key)
+      return counted unless counted.nil?
+    end
     total, free = Primitive.zr_objspace_census
     pages = Primitive.zr_gc_arenas
     live = total - free
@@ -59,6 +65,22 @@ module GC
       raise TypeError, +"non-hash or symbol given"
     end
   end
+
+  def self.counter(key)
+    Primitive.attr! :hidden
+    case key
+    when :count then Primitive.zr_gc_count
+    when :time then Primitive.zr_gc_nanoseconds / 1_000_000
+    when :marking_time then Primitive.zr_gc_phases[1] / 1_000_000
+    when :sweeping_time then Primitive.zr_gc_phases[2] / 1_000_000
+    when :major_gc_count then Primitive.zr_gc_phases[0]
+    when :minor_gc_count then Primitive.zr_gc_count - Primitive.zr_gc_phases[0]
+    when :total_allocated_objects then Primitive.zr_gc_allocated
+    when :malloc_increase_bytes then Primitive.zr_gc_malloced
+    when :malloc_increase_bytes_limit then Primitive.zr_gc_malloc_limit
+    end
+  end
+  private_class_method :counter
 
   # The one collector here runs a full mark and sweep every time.
   def self.latest_gc_info(hash_or_key = nil)

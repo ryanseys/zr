@@ -1995,6 +1995,15 @@ machine def zr_str_literal_shared(bytes, len)
   s
 end
 
+# The same, kept in `cell`, the literal site's own word, which the site
+# reads from then on with no call. The table above keeps it rooted.
+sig [Ptr, Ptr, Word] => Value
+machine def zr_str_literal_cell(cell, bytes, len)
+  s = zr_str_literal_shared(bytes, len)
+  Machine.store64(cell, 0, Machine.word(s))
+  s
+end
+
 GATE_FREEZE = 32768
 
 G_FSTRINGS = 44

@@ -1921,6 +1921,7 @@ module Ze0
         d zr_str_literal_freeze_at Value bytes:Ptr len:Word index:Word
         d zr_str_literal_freeze Value bytes:Ptr len:Word
         d zr_str_literal_shared Value bytes:Ptr len:Word
+        d zr_str_literal_cell Value cell:Ptr bytes:Ptr len:Word
         d zr_str_intern Value s:Value
         d zr_opt_ltlt Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_opt_getbyte Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
@@ -4174,6 +4175,7 @@ module Ze0
         e zr_str_literal_freeze_at 127
         e zr_str_literal_freeze 127
         e zr_str_literal_shared 127
+        e zr_str_literal_cell 127
         e zr_str_intern 127
         e zr_opt_ltlt 127
         e zr_opt_getbyte 127
