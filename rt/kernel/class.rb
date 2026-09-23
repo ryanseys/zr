@@ -483,14 +483,8 @@ machine def zr_alias(klass, new_id, old_id)
     e = zr_find_method(zr_global(G_OBJECT), old_id)
   end
   if e == 0
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
-    zr_buf_sym(b, old_id)
-    zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
-    zr_buf_class(b, klass)
-    zr_buf_byte(b, 39)
-    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+    # With the name and the receiver, which did_you_mean reads.
+    return zr_undefined_method(klass, old_id, VIS_PUBLIC)
   end
   zr_method_copy(klass, new_id, e, MEntry.meta(e), MEntry.vis(e), true)
   zr_method_added(klass, new_id)
@@ -526,14 +520,8 @@ machine def zr_undef(klass, id)
     return zr_frozen_error(klass)
   end
   if zr_find_method(klass, id) == 0
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
-    zr_buf_sym(b, id)
-    zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
-    zr_buf_class(b, klass)
-    zr_buf_byte(b, 39)
-    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+    # With the name and the receiver, which did_you_mean reads.
+    return zr_undefined_method(klass, id, VIS_PUBLIC)
   end
   zr_method_add(klass, id, 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
   zr_method_undefined(klass, id)
@@ -1544,14 +1532,8 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
   return frozen if frozen == QUNDEF
   e = zr_find_method(klass, mid)
   if e == 0
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
-    zr_buf_sym(b, mid)
-    zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
-    zr_buf_class(b, klass)
-    zr_buf_byte(b, 39)
-    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+    # With the name and the receiver, which did_you_mean reads.
+    return zr_undefined_method(klass, mid, VIS_PUBLIC)
   end
   if modfn != 0
     single = zr_singleton_class(klass)

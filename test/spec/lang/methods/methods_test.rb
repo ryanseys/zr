@@ -4,8 +4,6 @@ require "spec_helper"
 
 describe "Methods programs" do
   it "aliasing a genuinely undefined method is a runtime name error" do
-    skip "ruby's did_you_mean writes 'Did you mean?  undef_method' between the message and the backtrace, " \
-         "and a compiled program carries no did_you_mean"
     result = ze0(<<~'RUBY')
       # An `alias`/`alias_method` whose source is defined neither in this body
       # nor anywhere in the ancestry COMPILES (the compiler can't distinguish a
@@ -22,6 +20,7 @@ describe "Methods programs" do
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
       lang/methods/methods_test.rb:10:in '<class:Foo>': undefined method 'undefined_method' for class 'Foo' (NameError)
+      Did you mean?  undef_method
       	from lang/methods/methods_test.rb:9:in '<main>'
     ERR
   end
