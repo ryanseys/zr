@@ -151,7 +151,9 @@ describe "Socket programs" do
       u2.send("dgram", 0, "127.0.0.1", u1.addr[1])
       t("udp recvfrom") { m, from = u1.recvfrom(10); [m, from[0], from[3]] }
       u2.connect("127.0.0.1", u1.addr[1]); u2.send("two", 0)
+      IO.select([u1])
       t("udp recvfrom_nonblock") { u1.recvfrom_nonblock(10)[0] }
+      t("udp recvfrom_nonblock empty") { u1.recvfrom_nonblock(10)[0] }
       u1.close; u2.close
       path = "/tmp/ze0-sock-#{$$}"
       shown = ->(text) { text.gsub(path, "PATH") }
@@ -237,7 +239,8 @@ describe "Socket programs" do
       refused: "Connection refused - connect(2) for \"127.0.0.1\" port N"
       closed addr: IOError: closed stream
       udp recvfrom: ["dgram", "AF_INET", "127.0.0.1"]
-      udp recvfrom_nonblock: IO::EAGAINWaitReadable: Resource temporarily unavailable - recvfrom(2) would block
+      udp recvfrom_nonblock: "two"
+      udp recvfrom_nonblock empty: IO::EAGAINWaitReadable: Resource temporarily unavailable - recvfrom(2) would block
       unix addrs: "[\"PATH\", [\"AF_UNIX\", \"PATH\"], [\"AF_UNIX\", \"PATH\"], \"#<UNIXServer:PATH>\"]"
       recv_io: [IO, true]
       recvmsg: ["msg", Addrinfo, Socket::AncillaryData]
