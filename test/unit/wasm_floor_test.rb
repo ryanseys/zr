@@ -35,7 +35,7 @@ class WasmFloorTest < Minitest::Test
     # `zr_release_fiber` unmaps a fiber's stack, and a fiber on wasi has
     # none: `zr_os_stack_map` (rt/kernel/os/wasi/stack.rb) answers 0 with
     # ENOSYS, so `RFiber.stack(f) != 0` is never true there.
-    "munmap" => "zr_release"
+    "munmap" => "zr_release_other"
   }.freeze
 
   def test_the_heap_calls_nothing_that_has_no_wasm_form
