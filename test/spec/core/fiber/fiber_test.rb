@@ -134,14 +134,18 @@ describe "Fiber programs" do
           super
         end
       end
+      # The writer closes once the reader has taken "more" and waits in
+      # `read`: a Queue says so with no clock, where a sleep raced the
+      # reader on a loaded machine.
       log = []
       sched = nil
       Thread.new do
         sched = Logged.new
         Fiber.set_scheduler(sched)
         r, w = IO.pipe
-        Fiber.schedule { log << r.read(5); log << r.gets; log << r.readpartial(10); log << r.read }
-        Fiber.schedule { w.write("hello"); w.sync = false; w.print("line\n"); w.flush; w.syswrite("more"); sleep 0.01; w.close }
+        taken = Thread::Queue.new
+        Fiber.schedule { log << r.read(5); log << r.gets; log << r.readpartial(10); taken << true; log << r.read }
+        Fiber.schedule { w.write("hello"); w.sync = false; w.print("line\n"); w.flush; w.syswrite("more"); taken.pop; w.close }
         Fiber.schedule do
           File.open(__FILE__) { |f| log << f.read(7); log << f.pread(4, 2) }
           path = File.join(Dir.tmpdir, "hooks#{$$}")
@@ -156,7 +160,7 @@ describe "Fiber programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["hello", "line\n", "more", "# A non", "A no", "abc", ""]
+      ["hello", "line\n", "more", "", "# A non", "A no", "abc"]
       [:io_read, IO, 5, false, true, 0, 0]
       [:io_write, IO, 5, "hello", 0, 0]
       [:io_write, IO, 5, "line\n", 0, 0]
@@ -164,13 +168,13 @@ describe "Fiber programs" do
       [:io_read, IO, 5, false, true, 0, 0]
       [:io_read, IO, 8192, false, true, 0, 0]
       [:io_read, IO, 1024, false, true, 0, 0]
+      [:io_read, IO, 1024, false, true, 0, 0]
       [:io_read, File, 7, false, true, 0, 0]
       [:io_pread, 2, 0, 0]
       [:io_pwrite, 1, 0, 0]
       [:io_write, File, 3, "abc", 0, 0]
       [:io_read, File, 3, false, true, 0, 0]
       [:io_read, File, 1024, false, true, 0, 0]
-      [:io_read, IO, 1024, false, true, 0, 0]
     OUT
   end
 
