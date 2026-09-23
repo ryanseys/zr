@@ -69,6 +69,25 @@ module Ze0
     # interpreter (rt/ext/rbconfig.rb), which is the one fact that says so.
     def cruby? = RbConfig::CONFIG["ruby_install_name"] != "ze0"
 
+    # Why this compiler must not build on a ruby of `version`, or nil when
+    # it is the ruby ze0 pins. Another ruby runs the compiler on a library
+    # ze0 was never tested with, and its answers are not the ones ze0 is
+    # held to.
+    def host_refusal(version = RUBY_VERSION)
+      return if version == RUBY
+
+      "ze0 #{VERSION} builds on ruby #{RUBY}, the ruby .ruby-version pins; this is ruby #{version}"
+    end
+
+    # A build on any ruby but the pinned one stops here, by name, before
+    # it reads the program.
+    def pinned!(version = RUBY_VERSION)
+      return unless (why = host_refusal(version))
+
+      warn "ze0: #{why}"
+      exit REFUSED
+    end
+
     # The usage text, with `extra` commands before the rest, on stderr.
     def usage(extra = "")
       warn(extra + USAGE)
@@ -105,6 +124,7 @@ module Ze0
     def compile(args, extra)
       verb = args.shift
       usage(extra) unless %w[run build machine].include?(verb)
+      pinned!
       input = output = nil
       emit = nil
       triple = nil

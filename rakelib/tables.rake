@@ -176,6 +176,7 @@ end
 
 desc "Write this OS's tables again and fail on a difference: MKCONSTANTS=<ruby>/ext/socket/mkconstants.rb rake tables"
 task :tables do
+  Gen.pinned!("tables")
   mkconstants = ENV.fetch("MKCONSTANTS") { abort "rake tables: MKCONSTANTS names ruby 4.0.6's ext/socket/mkconstants.rb" }
   Tables.errno
   Tables.fcntl

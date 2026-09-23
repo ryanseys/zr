@@ -20,6 +20,13 @@ module Gen
   REVISION = "03b6d3f8898a28604fe6cb00eae3226b821168f4"
   CHECKOUT = File.expand_path("~/dev/github.com/ruby/ruby")
 
+  # A task that reads its table off the ruby running it stops on any ruby
+  # but the one `.ruby-version` pins: another's table is not ze0's.
+  def self.pinned!(task)
+    require_relative "../lib/ze0/version"
+    abort("rake #{task}: ruby #{Ze0::RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == Ze0::RUBY
+  end
+
   # One file of CRuby's own source, at that revision.
   def self.cruby(path)
     source = IO.popen(["git", "-C", CHECKOUT, "show", "#{REVISION}:#{path}"], &:read)
@@ -512,6 +519,9 @@ namespace :gen do
     unicode: ["rt/core/unicode.rb", Gen::Unicode]
   }.each do |name, (path, mod)|
     desc "Write #{path}"
-    task(name) { ze0_write(path) { |io| mod.write(io) } }
+    task(name) do
+      Gen.pinned!("gen:#{name}")
+      ze0_write(path) { |io| mod.write(io) }
+    end
   end
 end

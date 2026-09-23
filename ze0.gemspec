@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   TEXT
   spec.homepage = "https://github.com/ryanseys/ze0"
   spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
-  spec.required_ruby_version = [">= 4.0.6", "< 4.1"]
+  spec.required_ruby_version = "= #{Ze0::RUBY}"
 
   spec.metadata = {
     "changelog_uri" => "#{spec.homepage}/blob/main/CHANGELOG.md",

@@ -56,7 +56,7 @@ module Gen
 
     def write
       require_relative "../lib/ze0/zr"
-      abort "ruby 4.0.6 records these tables; this is #{RUBY_VERSION}" unless RUBY_VERSION == "4.0.6"
+      Gen.pinned!("gen:enc_mb")
 
       Ze0::Zr.require_onig
 

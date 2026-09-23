@@ -52,6 +52,16 @@ any other. prism and Onigmo are held twice over: `test/unit/prism_test.rb`
 and `regexp_diff_test.rb` compare the port with ruby's C on the host,
 object for object, over a committed sample.
 
+## The pinned ruby is part of the toolchain
+
+ruby 4.0.6 is more than the oracle. It runs the compiler, its
+pure-Ruby standard library is the copy in `vendor/lib` that a program's
+`require` reads, and the generated tables (`rake gen:*`, `rake tables`)
+were read off it. So `ze0 build` and `ze0 run` refuse to compile on any
+other ruby, with status 3, and each generator task stops on one. A
+newer ruby is a new toolchain: `.ruby-version`, the vendored library,
+the tables and the recorded answers move to it together.
+
 ## How the specs keep the promise
 
 `test/spec/` holds thousands of small programs, grouped by area:
