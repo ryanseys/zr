@@ -34,4 +34,4 @@ eval, to_binary and each_child as ruby does" holds the parts of
 
 | What | ze0 | ruby 4.0.6 |
 |---|---|---|
-| A second deadlock after a deadlock that the program rescued (a thread waits on a Queue that no thread feeds, the program rescues the `fatal`, then the main thread waits again) | raises `fatal` "No live threads left. Deadlock?" again. After some mixes of queues, mutexes and condition variables it aborts with "a terminated fiber ran again" instead, which is a ze0 bug still open. | hangs |
+| A second deadlock after a deadlock that the program rescued (a thread waits on a Queue that no thread feeds, the program rescues the `fatal`, then the main thread waits again) | raises `fatal` "No live threads left. Deadlock?" again | hangs |
