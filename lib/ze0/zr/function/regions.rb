@@ -9,9 +9,9 @@ module Ze0
       # clause against the pending exception; an ensure landing runs the
       # ensure body with the signal set aside, then passes it on.
       module Regions
-        # `slot` is the first of the two record slots the region keeps
-        # its values in: the value on the way out or the exception, and
-        # the `$!` the region replaced.
+        # `slot` is the first of the record slots the region keeps its
+        # values in: the value on the way out or the exception, the `$!`
+        # the region replaced, and for an ensure the `$!` it began with.
         Region = Struct.new(:landing, :ensure_body, :slot)
 
         private
@@ -31,13 +31,17 @@ module Ze0
         # The ensure body (a node, or a block of the lowering's own) runs
         # after the block's code on the normal way out, and in the
         # landing block on the signal's way out, where a raise shows as
-        # `$!` meanwhile unless `errinfo` is false.
+        # `$!` meanwhile unless `errinfo` is false. An ensure body that
+        # jumps away drops the raise, and `$!` goes back to what it was
+        # when the region began, as ruby's does.
         def with_ensure(body, errinfo: true)
-          region = Region.new(@f.label, body, reserve(2))
+          region = Region.new(@f.label, body, reserve(errinfo ? 3 : 2))
           value_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
+          began_at = value_offset(region.slot + 2)
           signal = @f.stack_addr(@f.slot(24))
           merge, (result,) = @f.block(["i64"])
+          @f.store(kernel("zr_errinfo"), @rec, began_at) if errinfo
           @regions << region
           v = yield
           @regions.pop
@@ -49,7 +53,12 @@ module Ze0
           switch(region.landing, open: true)
           @f.store(kernel("zr_errinfo"), @rec, prev_at) if errinfo
           @f.store(kernel("zr_signal_take", signal), @rec, value_at)
-          run_ensure(body)
+          if errinfo
+            dropped = -> { kernel("zr_errinfo_set", @f.fetch("i64", @rec, began_at)) }
+            with_ensure(dropped, errinfo: false) { run_ensure(body) }
+          else
+            run_ensure(body)
+          end
           unless @f.terminated?
             kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at)) if errinfo
             kernel("zr_signal_restore", @f.fetch("i64", @rec, value_at), signal)

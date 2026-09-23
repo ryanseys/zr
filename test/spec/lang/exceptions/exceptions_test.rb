@@ -3394,8 +3394,6 @@ describe "Exceptions programs" do
   end
 
   it "a jump out of an ensure puts $! back to what it was before the begin" do
-    skip "a break, next, return or throw out of an ensure leaves the ensure's exception in $!"
-
     result = ze0(<<~'RUBY')
       # An ensure that ends in a jump drops the exception it ran for, and $!
       # goes back to what it held before the begin, as it does when the

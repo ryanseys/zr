@@ -181,9 +181,12 @@ module Ze0
           [staging(node.value, top), top + spread + targets(node.target), *staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
-          top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
+          # An ensure keeps three slots, and on the signal's way out its
+          # body runs under a region of two more that puts `$!` back if
+          # the body jumps away.
+          top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 3 : 0)
           inside = [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top)].max
-          [inside, staging(node.ensure_body, inside + 1)].max
+          node.ensure_body ? [inside + 2, staging(node.ensure_body, inside + 3)].max : inside
         when Hir::Rescue
           # A `rescue => a.b` or `=> h[k]` target holds its receiver,
           # arguments and value in slots under the clause's own two.
