@@ -136,7 +136,7 @@ module Ze0
         d zr_send_cached Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr blk:Value mode:Word
         d zr_fresh_method Ptr klass:Value mid:Word
         d zr_call_cache_slot Ptr cc:Ptr
-        d zr_new_cached Value cc:Ptr recv:Value argc:Word argv:Ptr mode:Word
+        d zr_new_cached Value cc:Ptr recv:Value argc:Word argv:Ptr blk:Value mode:Word
         d zr_const_cacheable Bool e:Ptr
         d zr_const_cache_fill Void cc:Ptr key:Value stamp:Word v:Value
         d zr_const_cache_verify Void cc:Ptr e:Ptr

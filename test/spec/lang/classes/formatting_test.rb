@@ -2125,8 +2125,6 @@ describe "Classes: formatting and inspection" do
   end
 
   it "user initialize on a native class runs" do
-    skip "Kernel#format raises ArgumentError where ruby formats the value"
-
     result = ze0(<<~'RUBY')
 
       # A native class's `new` FUSES allocate and initialize, so it cannot run a
@@ -2171,6 +2169,12 @@ describe "Classes: formatting and inspection" do
         def initialize(*) = @a = 1
       end
       t("Array.new content") { Array.new(3, 0) }
+      # The core's own constructions do not run the program's initialize,
+      # as the C that makes them never calls it: a bignum's limbs, a
+      # padding, a copy.
+      t("a bignum") { [(1 << 70).to_s, (1 << 70) * 3 >> 2] }
+      t("a padding") { ["b".ljust(9) + "|", format("%-12s|", "x")] }
+      t("a copy") { [1, 2] + [3] }
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -2184,6 +2188,9 @@ describe "Classes: formatting and inspection" do
       Class#new directly         "T"
       Hash.new content           [nil, [:@h]]
       Array.new content          []
+      a bignum                   ["1180591620717411303424", 885443715538058477568]
+      a padding                  ["b        |", "x           |"]
+      a copy                     [1, 2, 3]
     OUT
   end
 

@@ -535,14 +535,15 @@ machine def zr_call_cache_slot(cc)
   cc + ((CALL_WAYS - 1) * CallCache.size)
 end
 
-# A `new` call with no block, CRuby's `opt_new`, with a cell for each of
+# A `new` call, CRuby's `opt_new` (and a `new` with a block, which
+# `Class#new` hands to `initialize`), with a cell for each of
 # its two lookups: `new` on the receiver's class, then `initialize` on
 # the object it makes. The builtin `Class#new` reached as a public
 # method runs with no frame of its own, so a backtrace goes from
 # `initialize` straight to the caller; any other `new` is a send through
 # the cell the lookup filled.
-sig [Ptr, Value, Word, Ptr, Word] => Value
-machine def zr_new_cached(cc, recv, argc, argv, mode)
+sig [Ptr, Value, Word, Ptr, Value, Word] => Value
+machine def zr_new_cached(cc, recv, argc, argv, blk, mode)
   e = zr_call_cache_hit(cc, recv, Machine.id(:new), mode)
   if e == 0
     klass = zr_box_view(zr_class_of(recv))
@@ -551,12 +552,24 @@ machine def zr_new_cached(cc, recv, argc, argv, mode)
       zr_call_cache_fill(cc, klass, e, Machine.id(:new), mode, 0 - 2)
     end
   end
-  if e == 0 || MEntry.fn(e) != Machine.addr(:zr_class_new_instance) || MEntry.vis(e) != VIS_PUBLIC
-    return zr_send_cached(cc, recv, Machine.id(:new), argc, argv, Machine.value(QNIL), mode)
+  # `Array.new` and `String.new` are rows of their own (zr_class_s_new),
+  # so a program's backtrace passes through them, and a `new` with a
+  # block is a call of `Class#new` with a frame, as opt_new is only the
+  # blockless one. A `new` the core library makes is C's rb_ary_new or
+  # rb_class_new_instance, with no frame, and takes the road below
+  # either way.
+  core = (mode & SEND_CORE) != 0
+  plain = e != 0 && (blk == QNIL || core) && (MEntry.fn(e) == Machine.addr(:zr_class_new_instance) || (core && MEntry.fn(e) == Machine.addr(:zr_class_s_new)))
+  if !plain || MEntry.vis(e) != VIS_PUBLIC
+    return zr_send_cached(cc, recv, Machine.id(:new), argc, argv, blk, mode)
   end
   o = zr_class_new_object(recv)
   return o if o == QUNDEF
-  r = zr_send_cached(cc + (CallCache.size * CALL_WAYS), o, Machine.id(:initialize), argc, argv, Machine.value(QNIL), mode & SEND_USING)
+  # `initialize` is private, so it goes as an implicit send; a `new` the
+  # core library makes keeps SEND_CORE, and reaches the core's own row
+  # where the program wrote over it (`Array.new` in the core is
+  # rb_ary_new, which runs no program's initialize).
+  r = zr_send_cached(cc + (CallCache.size * CALL_WAYS), o, Machine.id(:initialize), argc, argv, blk, mode & (SEND_USING | SEND_CORE))
   return r if r == QUNDEF
   o
 end

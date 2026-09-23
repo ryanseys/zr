@@ -344,7 +344,7 @@ module Ze0
           elsif node.name == :call && node.block.nil? && !owner_using?(node) && raw_block_recv?(node.recv)
             checked(kernel("zr_opt_block_call", recv, sym_word(:call), argc, argv, imm(send_mode(node))))
           elsif node.name == :new
-            checked(kernel("zr_new_cached", cache("ic", "CallCache", 2 * CALL_WAYS), recv, argc, argv, imm(send_mode(node))))
+            checked(new_send(node, recv, argc, argv, @qnil))
           else
             checked(cached_send(node, recv, argc, argv, @qnil))
           end
@@ -780,14 +780,20 @@ module Ze0
             at_node(node)
             argc = keyword_argc(node, argc, argv)
             activate(node)
-            return checked(cached_send(node, recv, argc, argv, proc))
+            return checked(node.name == :new ? new_send(node, recv, argc, argv, proc) : cached_send(node, recv, argc, argv, proc))
           end
 
           site, block = make_block(node.block)
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          catching_break(site) { cached_send(node, recv, argc, argv, block) }
+          catching_break(site) { node.name == :new ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
+        end
+
+        # `recv.new(...)`, with its block if it has one: the kernel's
+        # opt_new, a cell for `new` and one for `initialize`.
+        def new_send(node, recv, argc, argv, blk)
+          kernel("zr_new_cached", cache("ic", "CallCache", 2 * CALL_WAYS), recv, argc, argv, blk, imm(send_mode(node)))
         end
 
         # The block literal's descriptor and its site number. The
