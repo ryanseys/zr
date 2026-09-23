@@ -2129,15 +2129,17 @@ machine def zr_str_replace(s, other)
   zr_str_copy_encoding(s, other)
 end
 
-# `setbyte`: the byte at `i` becomes `byte` modulo 256.
+# `setbyte`: the byte at the fixnum `i` becomes the fixnum `byte`
+# modulo 256. An index out of range raises before a frozen String does,
+# as rb_str_setbyte checks the two.
 sig [Value, Value, Value] => Value
 machine def zr_str_setbyte(s, i, byte)
-  if zr_modify_frozen_p(s)
-    return zr_frozen_error(s)
-  end
   n = zr_fix2long(i)
   if n < 0
     n += RString.len(s)
+  end
+  if n >= 0 && n < RString.len(s) && zr_modify_frozen_p(s)
+    return zr_frozen_error(s)
   end
   if n < 0 || n >= RString.len(s)
     b = Machine.slot(Buf.size)

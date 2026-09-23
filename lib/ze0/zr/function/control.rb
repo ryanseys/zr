@@ -18,7 +18,8 @@ module Ze0
         # and asks its right side only when the left decided nothing;
         # the value it would have answered is never made, so a test of
         # several parts is a chain of branches with no join between.
-        # Anything else is tested as a value.
+        # A relation over plain reads branches on the comparison
+        # (`Sends#relation_jump`). Anything else is tested as a value.
         def jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -27,6 +28,8 @@ module Ze0
             switch(rest)
             jump_if(node.right, yes, no)
           else
+            return relation_jump(node, yes, no) if relation_test?(node)
+
             v = expr(node)
             @f.brif(truthy(v), yes, no) unless @f.terminated?
           end

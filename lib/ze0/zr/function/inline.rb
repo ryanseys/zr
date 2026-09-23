@@ -18,6 +18,14 @@ module Ze0
       # def's own function keeps its cells with the copy (`site_cell`),
       # so a bail that runs the def fills what the copy reads next time.
       #
+      # A def whose body is not pure all through may still begin with a
+      # decision the copy can make: a pure test with a pure arm, as
+      # fib's `n < 2 ? n : ...` or ack's `m == 0`, or a guard clause
+      # (`return x if test`) before the rest. The copy answers that arm
+      # at the site, and every other road is the bail: the def's own
+      # call, which makes the test again. A recursion's leaves, half
+      # its calls, are then no call at all.
+      #
       # What a program observes: no frame for the inlined def, so no
       # SystemStackError from it and one entry poll fewer; a backtrace
       # is never taken inside the copy, since nothing in it raises.
@@ -34,8 +42,9 @@ module Ze0
         # The defs of `body`, a unit's tree, that a site may inline, by
         # name: written once in the unit, required positionals alone
         # (four at most, the direct entry's shape), no other local, and
-        # a body of the nodes `pure?` takes. A def with a receiver
-        # (`def self.x`) counts against the name and is never one.
+        # a body of the nodes `pure?` takes, or one that `leads?` with a
+        # decision of them. A def with a receiver (`def self.x`) counts
+        # against the name and is never one.
         def self.candidates(body)
           defs = Hash.new { |h, k| h[k] = [] }
           each_def(body) { |d| defs[d.name] << d }
@@ -44,8 +53,28 @@ module Ze0
             next unless list.size == 1 && d.receiver.nil? && d.params.plain? && d.params.required.size <= DIRECT_ARGS
             next unless d.params.required.all?(Symbol) && d.locals == d.params.required && d.params.block.nil?
 
-            out[name] = d if pure?(d.body, [d.params.required.size + 1])
+            given = d.params.required.size + 1
+            out[name] = d if pure?(d.body, [given]) || leads?(d.body, [given])
           end
+        end
+
+        # Whether `body` begins with a decision the copy can make: an
+        # `if` whose test is pure, with a pure arm, as the whole body or
+        # as a guard clause, one arm a `return`, before the rest.
+        def self.leads?(body, count)
+          body = body.stmts.first while body.is_a?(Hir::Seq) && body.stmts.size == 1
+          test = body.is_a?(Hir::Seq) ? body.stmts.first : body
+          return false unless test.is_a?(Hir::If) && pure?(test.cond, count)
+
+          arms = [test.yes, test.no].compact
+          arms = arms.select { |arm| returns?(arm) } unless test.equal?(body)
+          arms.any? { |arm| pure?(arm, count.dup) }
+        end
+
+        # Whether `node` ends in a `return`.
+        def self.returns?(node)
+          node = node.stmts.last if node.is_a?(Hir::Seq)
+          node.is_a?(Hir::Return)
         end
 
         # Every Def under `node`, at any depth: class bodies, blocks and
@@ -146,16 +175,33 @@ module Ze0
           @inline_exit = exit
           @inline_bail = bail
           @inlining = true
-          v = spec(d.body)
+          v = spec_leading(d.body)
           @f.jump(exit, [v]) unless @f.terminated?
           @self, @inline_locals, @inline_exit, @inline_bail, @inlining = saved
           switch(exit)
           result
         end
 
+        # The copy of a candidate's body: a pure one whole, or the test
+        # it `leads?` with, whose arms and later statements are each
+        # copied where pure and bail where not.
+        def spec_leading(body)
+          return spec(body) if Inline.pure?(body, [0])
+
+          body = body.stmts.first while body.is_a?(Hir::Seq) && body.stmts.size == 1
+          body.is_a?(Hir::If) ? spec_branch(body) : spec_seq(body)
+        end
+
         # The value of `node` in the copy: `expr` for the nodes `pure?`
-        # took, with every miss a jump to the bail block.
+        # took, with every miss a jump to the bail block. What the copy
+        # cannot answer -- the arm of a leading test that calls, the rest
+        # after a guard clause -- is the bail itself.
         def spec(node)
+          unless Inline.pure?(node, [0])
+            @f.jump(@inline_bail)
+            return @qnil
+          end
+
           case node
           when Hir::Seq then spec_seq(node)
           when Hir::If then spec_branch(node)
@@ -180,6 +226,9 @@ module Ze0
           v
         end
 
+        # A relation of two fixnums branches on the comparison, as
+        # `Sends#relation_jump` does; `==` and `!=` of anything else are
+        # the identity the def's cell may allow, tested as a value.
         def spec_jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -188,9 +237,32 @@ module Ze0
             switch(rest)
             spec_jump_if(node.right, yes, no)
           else
+            return spec_relation_jump(node, yes, no) if spec_relation?(node)
+
             v = spec(node)
             @f.brif(truthy(v), yes, no) unless @f.terminated?
           end
+        end
+
+        def spec_relation?(node)
+          node.is_a?(Hir::Send) && Sends::RELATIONS.key?(node.name) && node.args.size == 1 && Inline.pure?(node, [0])
+        end
+
+        def spec_relation_jump(node, yes, no)
+          recv = spec(node.recv)
+          arg = spec(node.args[0])
+          fixnums = @f.label
+          rest = @f.label
+          @f.brif(@f.band(fixnums?(recv, arg), gate_clear(Sends::OPS.fetch(node.name))), fixnums, rest)
+          switch(fixnums)
+          @f.brif(@f.icmp(Sends::RELATIONS.fetch(node.name), recv, arg), yes, no)
+          switch(rest)
+          return @f.jump(@inline_bail) unless %i[== !=].include?(node.name)
+
+          merge, (v,) = @f.block(["i64"])
+          spec_identity(node, recv, arg, merge)
+          switch(merge)
+          @f.brif(truthy(v), yes, no)
         end
 
         def spec_branch(node)

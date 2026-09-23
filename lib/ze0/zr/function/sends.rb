@@ -12,6 +12,9 @@ module Ze0
           :< => "GATE_LT", :<= => "GATE_LE", :> => "GATE_GT", :>= => "GATE_GE", :== => "GATE_EQ", :!= => "GATE_NE",
           :& => "GATE_AND", :| => "GATE_OR", :^ => "GATE_XOR", :>> => "GATE_SHR"
         }.freeze
+        # The operators among them that relate two fixnums, as the IR's
+        # signed conditions over the tagged words.
+        RELATIONS = { :< => "slt", :<= => "sle", :> => "sgt", :>= => "sge", :== => "eq", :!= => "ne" }.freeze
 
         # What a site may do in place of a call, by the kernel's name for the
         # cell's shape (rt/kernel/cache.rb): an accessor's body, or one of the
@@ -49,7 +52,9 @@ module Ze0
         }.freeze
         # The unary Integer calls with an inline fixnum fast path, and
         # their gates.
-        UNARY = { succ: "GATE_SUCC" }.freeze
+        UNARY = { succ: "GATE_SUCC", :-@ => "GATE_UMINUS" }.freeze
+        # The unary calls with a flonum path as well, and Float's gates.
+        FLOAT_UNARY = { :-@ => "GATE_FLO_UMINUS" }.freeze
         # The operators with a flonum path: the f64 instruction or the
         # fcmp condition, and the gate of Float's method.
         FLOAT_OPS = {
@@ -148,7 +153,7 @@ module Ze0
           when Hir::Literal
             value = node.value
             value.nil? || value == true || value == false || value.is_a?(Symbol) ||
-              (value.is_a?(Integer) && value >= -(2**62) && value < 2**62)
+              (value.is_a?(Integer) && value >= -(2**62) && value < 2**62) || (value.is_a?(Float) && flonum_word(value))
           else false
           end
         end
@@ -156,12 +161,47 @@ module Ze0
         def direct_operator(node, recv_node)
           recv = expr(recv_node)
           args = node.args.map { |a| expr(a) }
-          slow = lambda do
-            staged([recv, *args], evaluate: ->(value) { value }) do |slots|
-              dispatch(node, recv, @f.iadd(slots, imm(8)), imm(args.size))
-            end
-          end
+          slow = -> { sent_directly(node, recv, args) }
           (args.empty? ? unary(node, recv, nil, &slow) : operator(node, recv, nil, args.first, &slow)).tap { deactivate(node) }
+        end
+
+        # The send of an operator whose operands were read as values:
+        # staged in the record only now, on the arm that sends.
+        def sent_directly(node, recv, args)
+          staged([recv, *args], evaluate: ->(value) { value }) do |slots|
+            dispatch(node, recv, @f.iadd(slots, imm(8)), imm(args.size))
+          end
+        end
+
+        # Whether a test of `node` branches on the comparison itself: a
+        # relation over plain reads (`direct_operands?`).
+        def relation_test?(node)
+          node.is_a?(Hir::Send) && RELATIONS.key?(node.name) && direct_operands?(node, node.recv || Hir::SelfRef.new(node.line))
+        end
+
+        # `a < b` and the other relations as a test (`Control#jump_if`):
+        # the fixnum and flonum paths branch on the comparison, so no true
+        # or false is made only to be tested again, which a condition
+        # such as fib's `n < 2` or a loop's `i < n` did every time. The
+        # call's answer is tested as any value is.
+        def relation_jump(node, yes, no)
+          recv = expr(node.recv || Hir::SelfRef.new(node.line))
+          arg = expr(node.args.first)
+          fast = @f.label
+          slow = @f.label
+          floating = @f.label if float_path?(node)
+          @f.brif(@f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name))), fast, floating || slow)
+          switch(fast)
+          @f.brif(@f.icmp(RELATIONS.fetch(node.name), recv, arg), yes, no)
+          if floating
+            switch(floating)
+            x, y = doubles(node.name, recv, arg, slow)
+            @f.brif(@f.fcmp(FLOAT_OPS.fetch(node.name).first, x, y), yes, no)
+          end
+          switch(slow)
+          v = sent_directly(node, recv, [arg])
+          deactivate(node)
+          @f.brif(truthy(v), yes, no) unless @f.terminated?
         end
 
         # In the runtime's own Ruby, `recv.send(:name, ...)` is rb_funcall
@@ -425,23 +465,35 @@ module Ze0
           @f.brif(pointer, heap, other)
           switch(heap)
           klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
-          if array_element?(node)
-            array = @f.label
+          if (owner = in_place_class(node))
+            here = @f.label
             rest = @f.label
-            @f.brif(@f.icmp("eq", klass, global("G_ARRAY")), array, rest)
-            switch(array)
-            array_element(node, recv, argv, merge, core)
+            @f.brif(@f.icmp("eq", klass, global(owner)), here, rest)
+            switch(here)
+            owner == "G_ARRAY" ? array_element(node, recv, argv, merge, core) : string_byte(node, recv, argv, merge, core)
             switch(rest)
-            classes -= ["G_ARRAY"]
+            classes -= [owner]
           end
-          builtin = classes.map { |g| @f.icmp("eq", klass, global(g)) }.reduce { |a, b| @f.bor(a, b) }
-          @f.brif(builtin, core, other)
+          if classes.empty?
+            @f.jump(other)
+          else
+            @f.brif(classes.map { |g| @f.icmp("eq", klass, global(g)) }.reduce { |a, b| @f.bor(a, b) }, core, other)
+          end
           switch(core)
           @f.jump(merge, [kernel(entry, recv, sym_word(node.name), argc, argv, imm(send_mode(node)))])
           switch(other)
           @f.jump(merge, [cached_send(node, recv, argc, argv, @qnil)])
           switch(merge)
           result
+        end
+
+        # The core class whose elements the site reads or writes itself,
+        # or nil: an Array's by `[]` and `[]=`, a String's bytes by
+        # `getbyte` and `setbyte`.
+        def in_place_class(node)
+          if array_element?(node) then "G_ARRAY"
+          elsif %i[getbyte setbyte].include?(node.name) then "G_STRING"
+          end
         end
 
         # `recv[i]` and `recv[i] = v` with one plain index: an Array
@@ -482,6 +534,41 @@ module Ze0
           end
         end
 
+        # `s.getbyte(i)` and `s.setbyte(i, b)` on a String at a fixnum
+        # index in range, with a fixnum byte, while String's method is
+        # its own (the gate): the byte read or written where it stands,
+        # as zr_str_byte_at and zr_str_setbyte would. A write also wants
+        # a String that is neither frozen nor chilled, and forgets what
+        # the scans knew of its bytes (zr_str_modified). A negative
+        # index, one past the end and every other case take `slow`, the
+        # kernel's entry, which raises or answers nil as the method does.
+        # `bm_ruby_xor` spent three fifths of its time in the entries.
+        def string_byte(node, recv, argv, merge, slow)
+          string = @l.layout("RString")
+          fast = @f.label
+          index = @f.fetch("i64", argv)
+          i = @f.sshr(index, imm(1))
+          ok = @f.band(@f.icmp("ne", @f.band(index, imm(1)), imm(0)), @f.icmp("ult", i, @f.fetch("i64", recv, off(string, "len"))))
+          if node.name == :getbyte
+            @f.brif(@f.band(ok, gate_clear("GATE_GETBYTE")), fast, slow)
+            switch(fast)
+            byte = @f.uextend("i64", @f.fetch("i8", @f.iadd(@f.fetch("i64", recv, off(string, "ptr")), i)))
+            @f.jump(merge, [@f.bor(@f.ishl(byte, imm(1)), imm(1))])
+          else
+            byte = @f.fetch("i64", argv, 8)
+            flags = @f.fetch("i64", recv, off(@l.layout("RBasic"), "flags"))
+            sealed = @l.const("FL_FREEZE") | @l.const("FL_CHILLED") | @l.const("FL_CHILLED_SYMBOL")
+            ok = @f.band(ok, @f.icmp("ne", @f.band(byte, imm(1)), imm(0)))
+            ok = @f.band(ok, @f.icmp("eq", @f.band(flags, imm(sealed)), imm(0)))
+            @f.brif(@f.band(ok, gate_clear("GATE_SETBYTE")), fast, slow)
+            switch(fast)
+            at = @f.iadd(@f.fetch("i64", recv, off(string, "ptr")), i)
+            @f.store(@f.ireduce("i8", @f.sshr(byte, imm(1))), at, region: :malloc)
+            @f.store(@f.band(flags, imm(@l.const("FL_SCANS_CLEAR"))), recv, off(@l.layout("RBasic"), "flags"))
+            @f.jump(merge, [byte])
+          end
+        end
+
         # A send through the site's own cell (rt/kernel/cache.rb), which
         # keeps the method the receiver's class answered there last. The
         # site tests the cell itself: a fixnum's class is Integer, a
@@ -495,8 +582,7 @@ module Ze0
         # refinements answered, and the task holds the refinements for
         # the callee); one inside a `refine` block asks the kernel every
         # time.
-        def cached_send(node, recv, argc, argv, blk, mode: send_mode(node))
-          cc = site_cache(node, "ic", "CallCache", CALL_WAYS)
+        def cached_send(node, recv, argc, argv, blk, mode: send_mode(node), cc: site_cache(node, "ic", "CallCache", CALL_WAYS))
           slow = -> { kernel("zr_send_cached", cc, recv, sym_word(node.name), argc, argv, blk, imm(mode)) }
           return slow.call if owner_using?(node)
 
@@ -671,6 +757,8 @@ module Ze0
         # does.
         def site_shapes(node)
           return [] if node.block || node.kwargs || node.args.any?(Hir::Splat) || traced?
+          # No question or accessor is worth a test in an `initialize`.
+          return [] if node.name == :initialize
 
           case node.args.size
           when 0 then QUESTIONS.fetch(node.name) { [:reader] }
@@ -850,8 +938,59 @@ module Ze0
 
         # `recv.new(...)`, with its block if it has one: the kernel's
         # opt_new, a cell for `new` and one for `initialize`.
+        #
+        # A program's `Klass.new(...)` with no block does opt_new's work
+        # itself while the cell holds Class#new (SHAPE_NEW): the object
+        # from the class's allocator, then `initialize` sent as a call
+        # sends it, through a cell of the site's own -- so a def's direct
+        # entry takes the arguments as they stand. Class#new has no frame
+        # on this road, as on the kernel's. Any other receiver or `new`,
+        # or a stale cell, takes the kernel's road, which fills the cell.
         def new_send(node, recv, argc, argv, blk)
-          kernel("zr_new_cached", cache("ic", "CallCache", 2 * CALL_WAYS), recv, argc, argv, blk, imm(send_mode(node)))
+          cc = cache("ic", "CallCache", 2 * CALL_WAYS)
+          slow = -> { kernel("zr_new_cached", cc, recv, argc, argv, blk, imm(send_mode(node))) }
+          return slow.call unless new_in_place?(node)
+
+          cell = @l.layout("CallCache")
+          heap = @f.label
+          hit = @f.label
+          miss = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil)), heap, miss)
+          switch(heap)
+          klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
+          same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
+                         @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))
+          @f.brif(@f.band(same, @f.icmp("eq", @f.fetch("i64", cc, off(cell, "shape")), imm(@l.const("SHAPE_NEW")))), hit, miss)
+          switch(hit)
+          made = staged([checked(kernel("zr_class_new_object", recv))], evaluate: ->(value) { value }) do |slot|
+            checked(cached_send(initializer(node), @f.fetch("i64", slot), argc, argv, @qnil,
+                                cc: site_cache(node, "init", "CallCache", CALL_WAYS)))
+            @f.fetch("i64", slot)
+          end
+          @f.jump(merge, [made])
+          switch(miss)
+          @f.jump(merge, [slow.call])
+          switch(merge)
+          result
+        end
+
+        # Whether a `new` site takes the road in place: a program's, on
+        # an explicit receiver (the cell then holds only a public `new`),
+        # with no block (a `new` with one is a call of Class#new with a
+        # frame), untraced, and outside a `refine` block.
+        def new_in_place?(node)
+          explicit?(node) && node.block.nil? && !@l.internal? && !traced? && !owner_using?(node)
+        end
+
+        # The `initialize` a `new` site sends its object: an implicit
+        # call, private allowed, with the site's arguments.
+        def initializer(node)
+          node.dup.tap do |n|
+            n.recv = nil
+            n.name = :initialize
+            n.opt = false
+          end
         end
 
         # The block literal's descriptor and its site number. The
@@ -958,9 +1097,7 @@ module Ze0
         # the call for any other operand too: `1 == 1.0` is true, and
         # `1 == obj` asks `obj == 1`.
         def operator(node, recv, argv, arg = @f.fetch("i64", argv), &sends)
-          both = @f.band(recv, arg)
-          fix = @f.icmp("ne", @f.band(both, imm(1)), imm(0))
-          ok = @f.band(fix, gate_clear(OPS.fetch(node.name)))
+          ok = @f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name)))
           fast = @f.label
           slow = @f.label
           floating = @f.label if float_path?(node)
@@ -979,19 +1116,35 @@ module Ze0
           result
         end
 
-        # `recv.succ` on a fixnum while Integer's `succ` is its own: the
-        # sum inline, the call past the fixnums or under a redefinition.
-        # `bm_ruby_xor` counts with `i.succ`, and every call of it was a
-        # send.
+        # `recv.succ` and `-recv` on a fixnum while Integer's method is
+        # its own: the sum or the difference inline, the call past the
+        # fixnums or under a redefinition. `bm_ruby_xor` counts with
+        # `i.succ`, and every call of it was a send.
+        #
+        # `-recv` on a flonum while Float's `-@` is its own flips the
+        # sign, which a flonum keeps at bit 2. Two flonums take the call:
+        # +0.0, whose negation is no flonum, and the one whose negation
+        # is the double the flonum zero's pattern stands in for
+        # (`float_value`). The two differ in that bit alone.
         def unary(node, recv, argv, &sends)
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
           fast = @f.label
           slow = @f.label
+          floating = @f.label if FLOAT_UNARY.key?(node.name)
           merge, (result,) = @f.block(["i64"])
-          @f.brif(ok, fast, slow)
+          @f.brif(ok, fast, floating || slow)
           switch(fast)
-          @f.jump(merge, [overflow_or(@f.sadd_overflow(recv, imm(2)), slow)])
+          value = node.name == :succ ? @f.sadd_overflow(recv, imm(2)) : @f.ssub_overflow(imm(2), recv)
+          @f.jump(merge, [overflow_or(value, slow)])
+          if floating
+            negated = @f.label
+            switch(floating)
+            flips = @f.band(flonum?(recv), @f.icmp("ne", @f.band(recv, imm(~4)), imm(FLONUM_ZERO)))
+            @f.brif(@f.band(flips, gate_clear(FLOAT_UNARY.fetch(node.name))), negated, slow)
+            switch(negated)
+            @f.jump(merge, [@f.bxor(recv, imm(4))])
+          end
           switch(slow)
           @f.jump(merge, [sends ? sends.call : dispatch(node, recv, argv, imm(0))])
           switch(merge)
@@ -1017,6 +1170,14 @@ module Ze0
         # flonum again or the kernel's heap Float; a comparison as
         # ruby's, false with a NaN. Anything else takes `slow`.
         def float_path(op, a, b, slow)
+          fop = FLOAT_OPS.fetch(op).first
+          x, y = doubles(op, a, b, slow)
+          fop.is_a?(String) ? ruby_bool(@f.fcmp(fop, x, y)) : float_value(@f.fbinop(fop, x, y))
+        end
+
+        # The operands of `op` as doubles, where the flonum path takes
+        # them; else the branch to `slow`.
+        def doubles(op, a, b, slow)
           fop, gate = FLOAT_OPS.fetch(op)
           compare = fop.is_a?(String)
           go = @f.label
@@ -1025,12 +1186,10 @@ module Ze0
           gates = gates_clear(OPS.fetch(op), gate)
           @f.brif(@f.band(@f.band(numbers, some_flonum), gates), go, slow)
           switch(go)
-          x = as_double(a)
-          y = as_double(b)
-          return @f.csel(@f.fcmp(fop, x, y), imm(@l.const("QTRUE")), imm(@l.const("QFALSE"))) if compare
-
-          float_value(@f.fbinop(fop, x, y))
+          [as_double(a), as_double(b)]
         end
+
+        def fixnums?(a, b) = @f.icmp("ne", @f.band(@f.band(a, b), imm(1)), imm(0))
 
         def flonum?(v) = @f.icmp("eq", @f.band(v, imm(3)), imm(2))
 
@@ -1104,9 +1263,7 @@ module Ze0
             k = @f.sshr(b, one)
             unless_unsigned_below(k, 63, slow)
             @f.bor(@f.sshr(a, k), one)
-          when :<, :<=, :>, :>=, :==, :!=
-            cond = { :< => "slt", :<= => "sle", :> => "sgt", :>= => "sge", :== => "eq", :!= => "ne" }.fetch(op)
-            @f.csel(@f.icmp(cond, a, b), imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
+          when *RELATIONS.keys then ruby_bool(@f.icmp(RELATIONS.fetch(op), a, b))
           end
         end
 

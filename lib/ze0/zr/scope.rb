@@ -132,7 +132,8 @@ module Ze0
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
         when Hir::Send
-          extra = keyword_slots(node.kwargs) + (node.safe ? 1 : 0)
+          # A safe call keeps its receiver, and a `new` its new object.
+          extra = keyword_slots(node.kwargs) + (node.safe ? 1 : 0) + (node.name == :new ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           # An iterator run in place keeps its block's locals and its
           # index above the receiver, and the body stages above those.

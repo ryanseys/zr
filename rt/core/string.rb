@@ -87,7 +87,17 @@ class String
   # `to_int` answered, a Bignum out of range refused.
   def getbyte(i) = Primitive.zr_str_byte_at(self, Primitive.zr_index_operand_m(i))
 
-  def setbyte(i, byte) = Primitive.zr_str_setbyte(self, i, byte)
+  # The index converts as getbyte's does and is checked first, then the
+  # byte converts as rb_to_int converts one, and its low eight bits are
+  # written; the answer is the byte as it was given.
+  def setbyte(i, byte)
+    at = Primitive.zr_index_operand_m(i)
+    size = Primitive.zr_str_bytesize(self)
+    raise IndexError, "index #{at} out of string" if at >= size || at < -size
+
+    Primitive.zr_str_setbyte(self, at, to_integer(byte) & 0xff)
+    byte
+  end
 
   def ord = Primitive.zr_str_ord(self)
 

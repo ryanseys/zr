@@ -4609,13 +4609,14 @@ module Ze0
         c SHAPE_EQ 9
         c SHAPE_NE 10
         c SHAPE_EQQ 11
+        c SHAPE_NEW 12
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
-        c GATE_ROWS 42
+        c GATE_ROWS 44
         c ROW_CORE 256
         c CORE_KEY 4611686018427387904
         c METHOD_INDEX_MIN 16
@@ -4787,6 +4788,8 @@ module Ze0
         c GATE_EACH 8796093022208
         c GATE_TIMES 17592186044416
         c GATE_RANGE_EACH 35184372088832
+        c GATE_UMINUS 70368744177664
+        c GATE_FLO_UMINUS 140737488355328
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4

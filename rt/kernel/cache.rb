@@ -57,6 +57,9 @@ SHAPE_NE = 10
 # Object's `===` where the class's `==` is BasicObject's: identity, a
 # `case` arm over a symbol, nil, true or false.
 SHAPE_EQQ = 11
+# Class#new itself: a `new` site allocates and sends `initialize` in
+# place (`Zr::Function::Sends#new_send`).
+SHAPE_NEW = 12
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 # A `super` site's cell: the chain node the method runs from and the
 # name, which together decide the next method, and what the lookup
@@ -236,6 +239,9 @@ machine def zr_entry_shape(klass, e)
   end
   if fn == Machine.addr(:zr_obj_eq)
     return SHAPE_EQ
+  end
+  if fn == Machine.addr(:zr_class_new_instance)
+    return SHAPE_NEW
   end
   if fn == Machine.addr(:zr_obj_ne) || fn == Machine.addr(:zr_obj_eqq)
     eq = zr_search_method(klass, Machine.id(:==))

@@ -3986,4 +3986,439 @@ describe "Guards programs" do
       4
     OUT
   end
+
+  it "a String's bytes are read and written in place, and every case past the road answers as the method does" do
+    result = ze0(<<~'RUBY')
+      # The bytes read and written where they stand: a loop over a copy, the
+      # scans forgotten after a write, a chilled literal, a subclass, a frozen
+      # String, the ends of the range, and a MatchData taken before the write.
+      s = "hello".dup
+      i = 0
+      while i < s.bytesize
+        s.setbyte(i, s.getbyte(i) - 32)
+        i += 1
+      end
+      p s
+      t = "abc".dup
+      p t.ascii_only?, t.valid_encoding?
+      t.setbyte(1, 0xff)
+      p t.ascii_only?, t.valid_encoding?, t.bytes
+      t.setbyte(1, 0x62 - 256)
+      p t, t.ascii_only?
+      lit = "xyz"
+      lit.setbyte(0, 0x58)
+      p lit
+      class Bytes < String
+        def getbyte(i) = -1
+      end
+      b = Bytes.new("ab")
+      p b.getbyte(0), b.setbyte(0, 0x41), b
+      m = "abc".dup
+      md = m.match(/b/)
+      m.setbyte(1, 0x42)
+      p md[0], md.pre_match, md.string, m
+      f = "abc".freeze
+      begin
+        f.setbyte(0, 1)
+      rescue FrozenError => e
+        p e.message
+      end
+      e = "ab".dup
+      p e.getbyte(2), e.getbyte(-2), e.getbyte(-3), e.setbyte(-2, 0x7a), e
+      begin
+        e.setbyte(2, 1)
+      rescue IndexError => x
+        p x.message
+      end
+      begin
+        e.setbyte(0, 1.5)
+      rescue TypeError => x
+        p x.class
+      end
+      p e.setbyte(0, 2**64 + 0x41), e
+      h = "été".dup
+      p h.getbyte(0), h.getbyte(1), h.length
+      h.setbyte(0, 0x41)
+      p h.length, h.valid_encoding?
+      p e.setbyte(1, -(2**64) + 0x42), e, e.setbyte(1.9, 0x43), e
+      [[5, 1], [0, nil], [nil, 1], [0, Object.new]].each do |at, byte|
+        "x".freeze.setbyte(at, byte)
+      rescue IndexError, TypeError, FrozenError => x
+        p x
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "HELLO"
+      true
+      true
+      false
+      false
+      [97, 255, 99]
+      "abc"
+      true
+      "Xyz"
+      -1
+      65
+      "Ab"
+      "b"
+      "a"
+      "abc"
+      "aBc"
+      "can't modify frozen String: \"abc\""
+      nil
+      97
+      nil
+      122
+      "zb"
+      "index 2 out of string"
+      18446744073709551681
+      "Ab"
+      195
+      169
+      3
+      4
+      false
+      -18446744073709551550
+      "AC"
+      67
+      "AC"
+      #<IndexError: index 5 out of string>
+      #<TypeError: no implicit conversion of nil into Integer>
+      #<TypeError: no implicit conversion from nil to integer>
+      #<TypeError: no implicit conversion of Object into Integer>
+    OUT
+  end
+
+  it "a fixnum and a flonum are negated in place, and every other value is sent -@" do
+    result = ze0(<<~'RUBY')
+      # `-x` on a fixnum and on a flonum in place: the fixnum ends, the zeros,
+      # the flonum whose negation is no flonum, a heap Float, NaN and the
+      # infinities, a Rational, and both methods once redefined.
+      def neg(x) = -x
+      min = -(2**62)
+      p neg(5), neg(-5), neg(0), neg(min), neg(min).class, neg(2**62 - 1), neg(2**64)
+      p neg(1.5), neg(-2.25), neg(0.0), neg(-0.0), 1 / neg(0.0), 1 / neg(-0.0)
+      hole = [0xB000000000000000].pack("Q<").unpack1("E")
+      p neg(hole), neg(neg(hole)), neg(hole) == -hole, neg(1e300), neg(-1e-300)
+      p neg(Float::INFINITY), neg(-Float::INFINITY), neg(Float::NAN).nan?, neg(3r / 4)
+      x = 0.0
+      i = 0
+      while i < 1000
+        x = -x + 1.0
+        i += 1
+      end
+      p x
+      class Float
+        def -@ = :float_neg
+      end
+      p neg(1.5), neg(0.0), neg(2)
+      class Integer
+        def -@ = :int_neg
+      end
+      p neg(2), neg(1.5)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -5
+      5
+      0
+      4611686018427387904
+      Integer
+      -4611686018427387903
+      -18446744073709551616
+      -1.5
+      2.25
+      -0.0
+      0.0
+      -Infinity
+      Infinity
+      1.727233711018889e-77
+      -1.727233711018889e-77
+      true
+      -1.0e+300
+      1.0e-300
+      -Infinity
+      Infinity
+      true
+      (-3/4)
+      0.0
+      :float_neg
+      :float_neg
+      -2
+      :int_neg
+      :float_neg
+    OUT
+  end
+
+  it "a new at the site allocates and sends initialize as Class#new does, whatever the class makes of either" do
+    result = ze0(<<~'RUBY')
+      # `new` at the site: every count of arguments, keywords, a splat, a
+      # private initialize, a class's own new, an initialize redefined after
+      # the site ran, a raise inside it, and a class with no allocator.
+      class P0; def initialize = (@a = :none); attr_reader :a; end
+      class P2; def initialize(x, y) = (@a = [x, y]); attr_reader :a; end
+      class P5; def initialize(a, b, c, d, e) = (@a = a + b + c + d + e); attr_reader :a; end
+      class Kw; def initialize(x, k: 1, **rest) = (@a = [x, k, rest]); attr_reader :a; end
+      class Opt; def initialize(x = 7, *more) = (@a = [x, more]); attr_reader :a; end
+      class Own
+        def self.new(*args) = "own new #{args.inspect}"
+      end
+      class Kid < P2; end
+      class Plain; end
+      def make(k, *args) = k.new(*args)
+      p P0.new.a, P2.new(1, 2).a, P5.new(1, 2, 3, 4, 5).a, Kw.new(1, k: 2, z: 3).a, Kw.new(0).a
+      p Opt.new.a, Opt.new(1, 2, 3).a, Own.new(1), Kid.new(3, 4).a, Plain.new.class
+      args = [8, 9]
+      p P2.new(*args).a, make(P2, 5, 6).a, make(Own, 5).class, make(Kid, 1, 1).class
+      p P2.new(1, 2).a.equal?(P2.new(1, 2).a)
+      begin
+        P2.new(1)
+      rescue ArgumentError => e
+        p e.message
+      end
+      begin
+        Plain.new(1)
+      rescue ArgumentError => e
+        p e.message
+      end
+      class Boom
+        def initialize(x)
+          raise "boom #{x}" if x > 1
+        end
+      end
+      3.times do |i|
+        Boom.new(i)
+        p i
+      rescue => e
+        p e.message, e.backtrace.first[/in '.*'/], e.backtrace[1][/in '.*'/]
+      end
+      objs = 3.times.map { |i| P2.new(i, i) }
+      class P2
+        def initialize(x, y) = (@a = x * y)
+      end
+      objs += 3.times.map { |i| P2.new(i, 3) }
+      p objs.map(&:a)
+      class Plain
+        private_class_method :new
+      end
+      begin
+        Plain.new
+      rescue NoMethodError => e
+        p e.message
+      end
+      class Class
+        alias_method :old_new, :new
+        def new(*args) = "Class#new of #{self} #{args.inspect}"
+      end
+      p P0.new, P2.new(1, 2)
+      class Class
+        alias_method :new, :old_new
+      end
+      p P0.new.a
+      begin
+        Integer.new
+      rescue NoMethodError => e
+        p e.message
+      end
+      S = Struct.new(:x, :y)
+      D = Data.define(:x)
+      p S.new(1, 2).to_a, D.new(x: 1).x, Class.new(Array).new(2, 0)
+      GC.start
+      many = 20_000.times.map { |i| P2.new(i, 1) }
+      GC.start
+      p many.sum(&:a), many.last.a
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :none
+      [1, 2]
+      15
+      [1, 2, {z: 3}]
+      [0, 1, {}]
+      [7, []]
+      [1, [2, 3]]
+      "own new [1]"
+      [3, 4]
+      Plain
+      [8, 9]
+      [5, 6]
+      String
+      Kid
+      false
+      "wrong number of arguments (given 1, expected 2)"
+      "wrong number of arguments (given 1, expected 0)"
+      0
+      1
+      "boom 2"
+      "in 'Boom#initialize'"
+      "in 'block in <main>'"
+      [[0, 0], [1, 1], [2, 2], 0, 3, 6]
+      "private method 'new' called for class Plain"
+      "Class#new of P0 []"
+      "Class#new of P2 [1, 2]"
+      :none
+      "undefined method 'new' for class Integer"
+      [1, 2]
+      1
+      [0, 0]
+      199990000
+      19999
+    OUT
+  end
+
+  it "a relation over plain reads in a test branches on the comparison, and answers as the call does past the road" do
+    result = ze0(<<~'RUBY')
+      # A relation over plain reads as a test: fixnums, flonums, the two
+      # mixed, a bignum, NaN, nil and a String, in `if`, `unless`, `while`,
+      # `until`, a ternary and `elsif`; under a refinement; and once
+      # Integer's and Float's relations are redefined.
+      def rel(a, b)
+        [a < b ? :lt : :no, a <= b ? :le : :no, (:gt if a > b), (:ge unless !(a >= b)), a == b ? :eq : :ne, a != b ? :ne : :eq]
+      end
+      p rel(1, 2), rel(2, 2), rel(3, 2), rel(-(2**62), 2**62 - 1)
+      p rel(1.5, 2), rel(2, 1.5), rel(2.0, 2), rel(0.0, -0.0), rel(2**64, 1), rel(1, 2**64)
+      nan = Float::NAN
+      p rel(nan, 1.0), rel(1, nan), rel(nan, nan)
+      p rel("a", "b"), rel("b", "b")
+      begin
+        1 < nil ? 1 : 2
+      rescue ArgumentError => e
+        p e.message
+      end
+      i = 0
+      n = 5
+      s = []
+      while i < n
+        s << i
+        i += 1
+      end
+      until i <= 0
+        i -= 2
+      end
+      p s, i
+      x = 7
+      r = if x < 5 then :small elsif x <= 7 then :seven else :big end
+      p r
+      module Backwards
+        refine Integer do
+          def <(other) = other.to_s < to_s
+        end
+      end
+      module UseIt
+        using Backwards
+        def self.lt(a, b) = a < b ? :yes : :no
+      end
+      p UseIt.lt(9, 10), UseIt.lt(10, 9), 9 < 10 ? :yes : :no
+      class Integer
+        def <(other) = :redefined
+        def ==(other) = false
+      end
+      class Float
+        def <=(other) = nil
+      end
+      p(3 < 2 ? :truthy : :falsy, 2 == 2 ? :eq : :ne, 1.5 <= 2.5 ? :le : :nil)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:lt, :le, nil, nil, :ne, :ne]
+      [:no, :le, nil, :ge, :eq, :eq]
+      [:no, :no, :gt, :ge, :ne, :ne]
+      [:lt, :le, nil, nil, :ne, :ne]
+      [:lt, :le, nil, nil, :ne, :ne]
+      [:no, :no, :gt, :ge, :ne, :ne]
+      [:no, :le, nil, :ge, :eq, :eq]
+      [:no, :le, nil, :ge, :eq, :eq]
+      [:no, :no, :gt, :ge, :ne, :ne]
+      [:lt, :le, nil, nil, :ne, :ne]
+      [:no, :no, nil, nil, :ne, :ne]
+      [:no, :no, nil, nil, :ne, :ne]
+      [:no, :no, nil, nil, :ne, :ne]
+      [:lt, :le, nil, nil, :ne, :ne]
+      [:no, :le, nil, :ge, :eq, :eq]
+      "comparison of Integer with nil failed"
+      [0, 1, 2, 3, 4]
+      -1
+      :seven
+      :yes
+      :no
+      :yes
+      :truthy
+      :ne
+      :nil
+    OUT
+  end
+
+  it "a def that begins with a pure test is answered at the site on that arm, and called on every other" do
+    result = ze0(<<~'RUBY')
+      # A def whose first decision is pure is answered at the site on that
+      # arm: a recursion's leaves, a guard clause, operands past the fixnums,
+      # a redefined operator, a redefined def, and a receiver of another class.
+      def fib(n)
+        if n < 2
+          n
+        else
+          fib(n - 1) + fib(n - 2)
+        end
+      end
+      def tak(x, y, z) = y < x ? tak(tak(x - 1, y, z), tak(y - 1, z, x), tak(z - 1, x, y)) : z
+      def guarded(a, b)
+        return a if a == b
+        return :nil_b if b.nil?
+        [a, b].max
+      end
+      def deep(n) = n == 0 ? :bottom : deep(n - 1)
+      p fib(20), tak(12, 6, 0), tak(1, 2, 2**70), tak(2**70, 2**71, 3), guarded(2**70, 2**70)
+      p fib(1.5), fib(0.5), fib(-3)
+      p guarded(1, 1), guarded(1, nil), guarded(3, 4), guarded(:x, :x), guarded("a", "a".dup)
+      p deep(5000)
+      begin
+        deep(10_000_000)
+      rescue SystemStackError => e
+        p e.class
+      end
+      class Integer
+        alias_method :lt, :<
+        def <(other) = lt(other)
+      end
+      p fib(15)
+      class Integer
+        def <(other) = true
+      end
+      p fib(10)
+      class Integer
+        alias_method :<, :lt
+      end
+      def fib(n) = n < 2 ? :leaf : [fib(n - 1), fib(n - 2)].size
+      p fib(5)
+      class Other
+        def fib(n) = :other
+        def go = fib(1)
+      end
+      p Other.new.go, send(:fib, 1)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6765
+      1
+      1180591620717411303424
+      3
+      1180591620717411303424
+      1.5
+      0.5
+      -3
+      1
+      :nil_b
+      4
+      :x
+      "a"
+      :bottom
+      SystemStackError
+      610
+      10
+      2
+      :other
+      :leaf
+    OUT
+  end
 end

@@ -807,6 +807,8 @@ machine def zr_gate_bit(klass, mid)
       GATE_SUCC
     elsif mid == Machine.id(:times)
       GATE_TIMES
+    elsif mid == Machine.id(:-@)
+      GATE_UMINUS
     else
       0
     end
@@ -829,6 +831,8 @@ machine def zr_gate_bit(klass, mid)
       GATE_FLO_GE
     elsif mid == Machine.id(:==)
       GATE_FLO_EQ
+    elsif mid == Machine.id(:-@)
+      GATE_FLO_UMINUS
     else
       0
     end
@@ -881,7 +885,7 @@ end
 # it started: the class the gate guards (a global's index), the name,
 # the gate bit, and the body and visibility that class found then.
 Machine.struct :GateRow, klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-GATE_ROWS = 42
+GATE_ROWS = 44
 
 sig [Word, Word, Word, Word] => Word
 machine def zr_gate_row(i, klass, mid, bit)
@@ -942,6 +946,8 @@ machine def zr_gates_snapshot
   i = zr_gate_row(i, G_PROC, Machine.id(:call), GATE_PROC_CALL)
   i = zr_gate_row(i, G_ARRAY, Machine.id(:each), GATE_EACH)
   i = zr_gate_row(i, G_INTEGER, Machine.id(:times), GATE_TIMES)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:-@), GATE_UMINUS)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:-@), GATE_FLO_UMINUS)
   zr_gate_row(i, G_RANGE, Machine.id(:each), GATE_RANGE_EACH)
   Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
 end

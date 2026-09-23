@@ -54,6 +54,9 @@ GATE_NIL_P = 1 << 42
 GATE_EACH = 1 << 43
 GATE_TIMES = 1 << 44
 GATE_RANGE_EACH = 1 << 45
+# Integer#-@ and Float#-@: a site negates a fixnum or a flonum in place.
+GATE_UMINUS = 1 << 46
+GATE_FLO_UMINUS = 1 << 47
 
 # The decimal digits of `n` into `buf`, answering how many bytes they
 # take, ahead of a buffer of 24.
