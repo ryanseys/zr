@@ -323,11 +323,6 @@ module Gen
       !message.include?(" in conversion from ")
     end
     def write
-      # `base64` is a bundled gem since ruby 3.4 and this task is the
-      # only caller, so it waits here rather than at load: a require at
-      # the top of a rakelib file runs for `rake -T` and for every test
-      # run, and one that is missing takes all of them down with it.
-      require "base64"
       warn "reading the multibyte encodings off ruby ..."
       plain = [Encoding::UTF_8, Encoding::US_ASCII, Encoding::BINARY]
       candidates = Encoding.list.reject(&:dummy?).select do |encoding|
@@ -424,7 +419,7 @@ module Gen
       end
       core << "  }.freeze\n\n"
       core << "  MB_ROWS = [\n"
-      pool.rows.each { |packed| core << "    #{Base64.strict_encode64(packed).inspect},\n" }
+      pool.rows.each { |packed| core << "    #{[packed].pack("m0").inspect},\n" }
       core << "  ].freeze\n\n"
       core << "  # An encoding whose longer characters these rows leave out: the\n"
       core << "  # runtime walks them and refuses to convert them, by name.\n"
@@ -448,7 +443,7 @@ module Gen
           blob << varint(code - point) << varint(bytes.bytesize) << bytes
           point = code
         end
-        core << "    #{encoding.name.inspect} => #{Base64.strict_encode64(blob).inspect},\n"
+        core << "    #{encoding.name.inspect} => #{[blob].pack("m0").inspect},\n"
       end
       core << "  }.freeze\n\n"
       core << "  # The characters one code point is not enough for: the bytes of the\n"
