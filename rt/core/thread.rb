@@ -1101,14 +1101,15 @@ class Thread::Mutex
     nil
   end
 
-  def locked? = !Primitive.zr_hidden_get(self, :__owner__).nil?
+  def locked? = !owner.nil?
 
-  def owned? = Primitive.zr_hidden_get(self, :__owner__).equal?(Fiber.current)
+  def owned? = owner.equal?(Fiber.current)
 
   def try_lock
     return false if locked?
 
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
+    Primitive.zr_state_set(self, :__thread__, Thread.current)
     true
   end
 
@@ -1117,6 +1118,7 @@ class Thread::Mutex
 
     Thread.current.send(:wait_on, waiters, nil, true, self) while locked?
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
+    Primitive.zr_state_set(self, :__thread__, Thread.current)
     self
   end
 
@@ -1155,6 +1157,18 @@ class Thread::Mutex
   end
 
   private
+
+  # The fiber that holds the lock, or nil. A thread that ends lets go of
+  # every lock it held (rb_threadptr_unlock_all_locking_mutexes), so a
+  # lock whose thread has ended is free.
+  def owner
+    Primitive.attr! :hidden
+    fiber = Primitive.zr_hidden_get(self, :__owner__)
+    return fiber if fiber.nil? || Primitive.zr_hidden_get(self, :__thread__)&.alive?
+
+    Primitive.zr_state_set(self, :__owner__, nil)
+    nil
+  end
 
   # The threads waiting for the lock; an allocated mutex locks as a new
   # one does.

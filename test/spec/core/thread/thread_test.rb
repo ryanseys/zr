@@ -1847,8 +1847,6 @@ describe "Thread programs" do
   end
 
   it "a deadlock after queues, mutexes and condition variables raises fatal and the program goes on" do
-    skip "after this mix of threads a deadlock aborts the process with \"a terminated fiber ran again\""
-
     result = ze0(<<~'RUBY')
       def t(n)
         r = yield
@@ -1978,8 +1976,6 @@ describe "Thread programs" do
   end
 
   it "a mutex its dead owner held is free again" do
-    skip "a mutex stays locked after the thread that locked it ends"
-
     result = ze0(<<~'RUBY')
       m = Mutex.new
       Thread.new { m.lock }.join
