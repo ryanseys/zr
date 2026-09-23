@@ -233,7 +233,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_to_proc_m(recv, argc, argv, cref, blk)
-  zr_sym_to_proc(recv)
+  zr_sym_to_proc_here(recv)
 end
 
 # Every symbol interned so far, static names first.

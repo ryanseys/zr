@@ -187,8 +187,6 @@ describe "Globals programs" do
   end
 
   it "an alias of a back reference where it may not run" do
-    skip "the build refuses alias $m $& inside an if, a def or a method body"
-
     result = ze0(<<~'RUBY')
       if ARGV.size > 5
         alias $pre $`

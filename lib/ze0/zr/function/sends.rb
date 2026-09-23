@@ -919,10 +919,13 @@ module Ze0
         # the site's own `break` caught on the way out, or the `&value`.
         def call_with_block(node, recv, argv, argc)
           if node.block.is_a?(Hir::BlockPass)
-            proc = checked(kernel("zr_block_pass", expr(node.block.value)))
+            # The site's refinements are active when `&value` becomes a
+            # Proc, so `&:name` and a refined `to_proc` see them.
+            value = expr(node.block.value)
             at_node(node)
             argc = keyword_argc(node, argc, argv)
             activate(node)
+            proc = checked(kernel("zr_block_pass", value))
             # A program's `new(&blk)` is a send of Class#new with its frame,
             # even for `&nil`, as ruby compiles any block argument; the
             # core's is C's, with none.

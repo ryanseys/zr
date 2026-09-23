@@ -1989,8 +1989,6 @@ describe "Syntax programs" do
   end
 
   it "defined? of an empty expression answers nil" do
-    skip "defined?(()) and defined?(begin; end) answer \"expression\""
-
     result = ze0(<<~'RUBY')
       p defined?(())
       p defined?(begin; end)

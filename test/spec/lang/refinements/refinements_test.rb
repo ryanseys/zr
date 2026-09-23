@@ -395,8 +395,6 @@ describe "Refinements programs" do
   end
 
   it "interpolation calls a refined to_s" do
-    skip "interpolation calls to_s with no look at the refinements in scope"
-
     result = ze0(<<~'RUBY')
       module RS
         refine(Integer) { def to_s = "R" }
@@ -416,8 +414,6 @@ describe "Refinements programs" do
   end
 
   it "a Symbol block reaches a refined method" do
-    skip "&:name looks the name up with no refinements, so a refined-only method is undefined"
-
     result = ze0(<<~'RUBY')
       module RS
         refine(String) { def shout = upcase + "!" }
@@ -438,8 +434,6 @@ describe "Refinements programs" do
   end
 
   it "using inside a block at the top level refines the rest of the file" do
-    skip "a using inside a block does not reach the sends after the block"
-
     result = ze0(<<~'RUBY')
       module RS
         refine(Integer) { def to_s = "R" }

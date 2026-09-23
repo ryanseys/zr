@@ -49,6 +49,22 @@ class File < IO
 
   def self.split(path) = [dirname(path), basename(path)]
 
+  # `DATA`: the main program's text after its `__END__` line, as a File
+  # at that byte. ruby reads it from the script it keeps open; a binary
+  # has no script beside it, so the text it was built from goes into a
+  # file that is unlinked at once, and the File answers the script's
+  # path as ruby's does.
+  def self.data(source, at, path)
+    Primitive.attr! :hidden
+    name = File.join(ENV.fetch("TMPDIR", "/tmp"), "ze0-data-#{Process.pid}-#{rand(1 << 32)}")
+    file = File.new(name, File::RDWR | File::CREAT | File::EXCL, 0o600)
+    File.unlink(name)
+    file.write(source)
+    file.pos = at
+    file.instance_variable_set(:@path, path)
+    file
+  end
+
   # ruby's rb_file_join: one separator at each seam, taken from
   # whichever side already carries one, so "a//" and "//b" meet as
   # "a//b" and not "a////b".

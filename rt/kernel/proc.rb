@@ -262,13 +262,36 @@ machine def zr_block_proc(b)
 end
 
 # `&:name`: a Proc sending `name` to its first argument. The block
-# function reads the Symbol from the Proc's self.
+# function reads the Symbol from the Proc's self. A Proc made where
+# refinements are active keeps their list in its cref, and its send
+# looks the name up under them wherever the Proc is called, as ruby's
+# refined Symbol#to_proc does.
 sig [Value, Word, Ptr, Value] => Value
 machine def zr_symbol_block(p, argc, argv, blk)
   if argc == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no receiver given"), 17)
   end
+  if RProc.cref(p) != QNIL
+    t = zr_task()
+    Task.set_refine(t, RProc.cref(p))
+    r = zr_send_blk(Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, blk)
+    Task.set_refine(t, Machine.value(QNIL))
+    return r
+  end
   zr_send_blk(Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, blk)
+end
+
+# The Proc of `sym`, under the refinements the task has active: the
+# shared one where none are.
+sig [Value] => Value
+machine def zr_sym_to_proc_here(sym)
+  row = Task.refine(zr_task())
+  if row == QNIL
+    return zr_sym_to_proc(sym)
+  end
+  p = zr_native_proc(Machine.addr(:zr_symbol_block), sym)
+  RProc.set_cref(p, row)
+  p
 end
 
 sig [Value] => Value
@@ -611,7 +634,7 @@ sig [Value] => Value
 machine def zr_block_pass(v)
   if v == QNIL || zr_symbol_p(v)
     if zr_symbol_p(v)
-      return zr_sym_to_proc(v)
+      return zr_sym_to_proc_here(v)
     end
     return v
   end

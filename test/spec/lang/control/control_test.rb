@@ -2370,8 +2370,6 @@ describe "Control programs" do
   end
 
   it "a flip-flop of integer literals compares them with $." do
-    skip "an integer literal in a flip-flop is taken as true, not as a test of $."
-
     result = ze0(<<~'RUBY')
       $VERBOSE = nil
       r = []
@@ -2399,8 +2397,6 @@ describe "Control programs" do
   end
 
   it "a retry that cannot run may stand in a block inside a rescue" do
-    skip "the build refuses a retry that stands in a block inside a rescue"
-
     result = ze0(<<~'RUBY')
       # A retry that cannot run is no error: the parse drops it with its
       # dead branch before it asks whether the retry is where one may be.

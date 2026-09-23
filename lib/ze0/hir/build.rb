@@ -122,11 +122,19 @@ module Ze0
         # build at run time starts after the last of them.
         preludes += [Activations.new(loader.activations, 0)] if road && loader.evals? && loader.activations.positive?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
+        body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
         Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?,
                     loader.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {})
+      end
+
+      # `DATA`, which ruby defines before the first line of a main file
+      # that has an `__END__` line: a File at the byte after that line.
+      def self.data(main, at)
+        made = Send.new(Core.new(:File, 0), :data, [Literal.new(main.source, 0), Literal.new(at, 0), Literal.new(main.file, 0)], 0, false)
+        ConstWrite.new(nil, :DATA, made, 0)
       end
 
       # Each prelude under the loader flag that asks for it, in the order
@@ -298,6 +306,7 @@ module Ze0
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED, ahead_road: nil)
           @deferred = deferred
+          @data = {}
           @ahead_road = external ? nil : ahead_road
           @preloaded = preloaded
           @ahead = ahead
@@ -333,6 +342,7 @@ module Ze0
           # goes on from the rows the program it compiles for holds.
           @activations = activations || external&.activations || 0
           @back_refs = {}
+          @alias_flags = {}
         end
 
         # `alias $MATCH $&` and its family: the old name lives in the
@@ -430,9 +440,14 @@ module Ze0
 
         def next_activation = @activations.tap { @activations += 1 }
 
-        def back_ref!(new_name, old_name)
+        # `flag` names the global an alias that may not run sets when it
+        # does, or is nil for one that always runs.
+        def back_ref!(new_name, old_name, flag = nil)
           @back_refs[new_name] = old_name
+          @alias_flags[new_name] = flag
         end
+
+        def alias_flag(name) = @alias_flags[name]
 
         def evals? = @evals
 
@@ -593,9 +608,16 @@ module Ze0
           @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)
         end
 
+        # The byte a file's `__END__` data starts at, or nil when it has
+        # none.
+        def data_at(file) = @data[file]
+
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           result = scopes ? Ze0.parse(source, filepath: file, line: line, scopes: scopes) : Ze0.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
+          if (marker = result.data_loc)
+            @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
+          end
           stray = scopes && method.nil? && invalid_yields(source, file, line)
           raise stray if stray
 
@@ -794,6 +816,7 @@ module Ze0
         # can find anything at all.
         @usings = 0
         @in_def = false
+        @dead = 0
         @activations = -1
         @temps = [[]]
         @scopes = [@temps.first]
@@ -842,7 +865,18 @@ module Ze0
       # as locals of the def that declares them.
       ANONYMOUS = { rest: :*, kwrest: :**, block: :& }.freeze
 
-      # `body` lowered one block scope deeper.
+      # `body` built inside a branch a literal condition never takes
+      # when `never` holds.
+      def dead(never)
+        @dead += 1 if never
+        yield
+      ensure
+        @dead -= 1 if never
+      end
+
+      # `body` lowered one block scope deeper. A `using` in a block at
+      # the top level of a file refines the file's own scope, so it
+      # reaches the rest of the file after the block, as ruby's does.
       def in_block
         @block_depth += 1
         using = @using
@@ -851,7 +885,7 @@ module Ze0
         yield
       ensure
         @block_depth -= 1
-        @using = using
+        @using = using unless @path == [Object.name] && !@in_def
         @temps.pop
         @last_lines.pop
       end
@@ -894,6 +928,9 @@ module Ze0
       # backtrace of `$!`, or the global itself.
       def gvar_read(name, line)
         aliased = @loader&.back_ref(name)
+        if aliased && (flag = @loader.alias_flag(name))
+          return If.new(GvarRead.new(flag, line), expr(aliased), GvarRead.new(gvar_name(name), line), line)
+        end
         return expr(aliased) if aliased
         return Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true) if name == :$@
 
@@ -909,7 +946,9 @@ module Ze0
                  elsif aliased then :$&
                  else gvar_name(name)
                  end
-        GvarWrite.new(target, value, line, target == name ? nil : name)
+        write = GvarWrite.new(target, value, line, target == name ? nil : name)
+        flag = aliased && @loader.alias_flag(name)
+        flag ? If.new(GvarRead.new(flag, line), write, GvarWrite.new(gvar_name(name), value, line, nil), line) : write
       end
 
       # `$&`, `` $` ``, `$'` and `$+`: what the last match answers, nil
@@ -943,8 +982,15 @@ module Ze0
                line)
       end
 
-      # An end of a flip-flop. A missing one never fires.
-      def end_test(node, line) = node ? expr(node) : Literal.new(nil, line)
+      # An end of a flip-flop. A missing one never fires, and an integer
+      # literal is a test of the last line read, `$. == n`, as ruby's
+      # compiler makes it.
+      def end_test(node, line)
+        return Literal.new(nil, line) unless node
+        return Send.new(gvar_read(:$., line), :==, [expr(node)], line, false) if node.is_a?(Prism::IntegerNode)
+
+        expr(node)
+      end
 
       def flip_flop_state
         @flip_flops = (@flip_flops || 0) + 1
@@ -1167,7 +1213,16 @@ module Ze0
         # A lone embedded part joins an empty literal, whose encoding the
         # result starts from, as ruby's compiler joins one.
         parts.unshift(Literal.new(+"", line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
+        # Where refinements are active, a piece is sent `to_s` at a site
+        # of its own, which looks the name up under them. ruby folds a
+        # String or Symbol piece into the text first.
+        parts = parts.map { |part| folded?(part) ? part : Send.new(part, :to_s, [], line, false) } if @using
         Interp.new(parts, line)
+      end
+
+      def folded?(part)
+        part = part.stmts.first if part.is_a?(Seq) && part.stmts.size == 1
+        part.is_a?(Interp) || (part.is_a?(Literal) && [String, Symbol, NilClass].include?(part.value.class))
       end
 
       # `hoist` puts the `BEGIN { }` blocks of a file first, in their
@@ -1442,8 +1497,8 @@ module Ze0
           predicate = expr(node.predicate)
           then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
           If.new(predicate,
-                 covered(then_cover, node.statements && seq(node.statements, taken: taken && chosen != false), line),
-                 covered(else_cover, node.subsequent && expr(node.subsequent, taken: taken && chosen != true), line), line)
+                 covered(then_cover, node.statements && dead(chosen == false) { seq(node.statements, taken: taken && chosen != false) }, line),
+                 covered(else_cover, node.subsequent && dead(chosen == true) { expr(node.subsequent, taken: taken && chosen != true) }, line), line)
         when Prism::CaseMatchNode then case_match(node, taken)
         when Prism::MatchRequiredNode then match_required(node)
         when Prism::MatchPredicateNode then match_predicate(node)
@@ -1455,8 +1510,8 @@ module Ze0
           predicate = expr(node.predicate)
           else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
           If.new(predicate,
-                 covered(else_cover, node.else_clause && seq(node.else_clause.statements, taken: taken && chosen != false), line),
-                 covered(then_cover, node.statements && seq(node.statements, taken: taken && chosen != true), line), line)
+                 covered(else_cover, node.else_clause && dead(chosen == false) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
+                 covered(then_cover, node.statements && dead(chosen == true) { seq(node.statements, taken: taken && chosen != true) }, line), line)
         when Prism::ElseNode then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
         # A loop answers nil, so nothing takes the value of its body.
         when Prism::WhileNode
@@ -1588,15 +1643,13 @@ module Ze0
             # `$&` is a register of the frame that last matched and not a
             # global, so an alias of one is not a row the runtime can
             # carry: the new name is resolved as this file is lowered.
-            # That is right only where the file runs the alias whenever
-            # it loads. ruby leaves an alias it does not reach undone --
-            # `if false; alias $x $&; end` leaves `$x` nil -- so one
-            # written where it may not run is refused rather than taken.
-            unless certain_alias?(node)
-              refuse(node, "alias #{node.new_name.name} #{node.old_name.name} where it may not run is not lowered yet")
-            end
-            @loader&.back_ref!(node.new_name.name, node.old_name)
-            Literal.new(nil, line)
+            # ruby leaves an alias it does not reach undone -- `if false;
+            # alias $x $&; end` leaves `$x` nil -- so an alias written
+            # where it may not run sets a flag of its own when it does,
+            # and each use of the name asks the flag.
+            flag = certain_alias?(node) ? nil : :"$%alias#{node.new_name.name}"
+            @loader&.back_ref!(node.new_name.name, node.old_name, flag)
+            flag ? Seq.new([GvarWrite.new(flag, Literal.new(true, line), line, nil), Literal.new(nil, line)], line) : Literal.new(nil, line)
           end
         when Prism::CaseNode
           covers = branch_covers(:case, span(node.location), case_sides(node, :when))
@@ -1644,7 +1697,9 @@ module Ze0
         when Prism::RescueModifierNode
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
-        when Prism::RetryNode then Retry.new(line)
+        # ruby's compiler writes nothing for a branch it knows is never
+        # taken, so a `retry` there is no error wherever it stands.
+        when Prism::RetryNode then @dead.positive? ? Literal.new(nil, line) : Retry.new(line)
         when Prism::RedoNode then Redo.new(line)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
@@ -2211,10 +2266,15 @@ module Ze0
         when Prism::ArrayNode
           node.elements.any?(Prism::SplatNode) ? Defined.new(:expression, nil, line) : Defined.new(:list, node.elements.map { |e| expr(e) }, line)
         when Prism::HashNode then Defined.new(:list, [HashLit.new(hash_pairs(node.elements), line)], line)
-        # `(x)` asks about `x`.
+        # `(x)` asks about `x`, and `()` or an empty `begin` is nil.
         when Prism::ParenthesesNode
+          return Defined.new(:nil, nil, line) if node.body.nil?
+
           inner = node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 ? node.body.body.first : nil
           inner ? defined(inner, line) : Defined.new(:expression, nil, line)
+        when Prism::BeginNode
+          empty = node.statements.nil? && node.rescue_clause.nil? && node.else_clause.nil? && node.ensure_clause.nil?
+          Defined.new(empty ? :nil : :expression, nil, line)
         when Prism::SelfNode then Defined.new(:self, nil, line)
         when Prism::NilNode then Defined.new(:nil, nil, line)
         when Prism::TrueNode then Defined.new(:true, nil, line)

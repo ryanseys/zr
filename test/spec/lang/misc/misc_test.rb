@@ -363,8 +363,6 @@ describe "Misc programs" do
   end
 
   it "DATA reads what follows __END__ in the main file" do
-    skip "nothing makes DATA: the main file's text after __END__ is not kept"
-
     result = ze0(<<~'RUBY')
       # DATA is a File open on the main program, at the byte after the
       # __END__ line. It is defined only when the main file has one.
