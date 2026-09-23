@@ -81,13 +81,13 @@
     (send to_a
       (seq
         (range
-          (str "a")
-          (str "c"))))
+          (frozen shared "a")
+          (frozen shared "c"))))
     (send include?
       (seq
         (range
-          (str "a")
-          (str "c")))
+          (frozen shared "a")
+          (frozen shared "c")))
       (str "b")))
   (case
     (int 5)
@@ -226,5 +226,5 @@
     (send inspect
       (seq
         (range
-          (str "a")
-          (str "b"))))))
+          (frozen shared "a")
+          (frozen shared "b"))))))
