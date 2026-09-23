@@ -1160,11 +1160,14 @@ class Thread::Mutex
 
   # The fiber that holds the lock, or nil. A thread that ends lets go of
   # every lock it held (rb_threadptr_unlock_all_locking_mutexes), so a
-  # lock whose thread has ended is free.
+  # lock whose thread has ended is free. The thread that is ending is
+  # still the current one while it wakes its waiters, and a lock it
+  # takes then is its own.
   def owner
     Primitive.attr! :hidden
     fiber = Primitive.zr_hidden_get(self, :__owner__)
-    return fiber if fiber.nil? || Primitive.zr_hidden_get(self, :__thread__)&.alive?
+    thread = Primitive.zr_hidden_get(self, :__thread__)
+    return fiber if fiber.nil? || thread.nil? || thread.equal?(Thread.current) || thread.alive?
 
     Primitive.zr_state_set(self, :__owner__, nil)
     nil
