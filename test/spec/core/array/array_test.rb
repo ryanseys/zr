@@ -2625,8 +2625,6 @@ describe "Array programs" do
   end
 
   it "join warns when $, is set and the deprecated category is on" do
-    skip "Array#join reads $, with no deprecation warning"
-
     result = ze0(<<~'RUBY')
       Warning[:deprecated] = true
       $, = "+"
