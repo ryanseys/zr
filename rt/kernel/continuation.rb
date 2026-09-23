@@ -51,27 +51,46 @@ machine def zr_cont_stack_high
   zr_os_stack_high()
 end
 
+# `v` into `roots`, where the collector can read it for as long as the
+# continuation lives. A Proc or an Env on the machine stack is in no
+# arena, and its bytes come back with the saved stack; but the frame
+# that holds it may return before the continuation is called, and its
+# stack then holds other bytes, which a pointer in `roots` would make
+# the collector read as a cell. So such a cell stands for what it
+# refers to: the Values an Env's slots hold are the record's own, which
+# the frames push as they come.
+sig [Value, Value] => Void
+machine def zr_cont_root(roots, v)
+  if zr_special_p(v) || (RBasic.flags(v) & FL_STACK) == 0
+    zr_ary_push(roots, v)
+  elsif (RBasic.flags(v) & T_MASK) == T_PROC
+    zr_cont_root(roots, RProc.env(v))
+    zr_cont_root(roots, RProc.self(v))
+    zr_cont_root(roots, RProc.cref(v))
+    zr_cont_root(roots, RProc.blk(v))
+  else
+    zr_cont_root(roots, REnv.parent(v))
+    zr_cont_root(roots, REnv.cell(v))
+  end
+end
+
 # Every Value the frames and the kernel's roots hold now, into `roots`.
 sig [Value] => Void
 machine def zr_cont_roots(roots)
   t = zr_task()
   rec = Task.top(t)
   while rec != 0
-    zr_ary_push(roots, Frame.self(rec))
-    zr_ary_push(roots, Frame.cref(rec))
+    zr_cont_root(roots, Frame.self(rec))
+    zr_cont_root(roots, Frame.cref(rec))
     zr_ary_push(roots, zr_block_proc(Frame.blk(rec)))
-    zr_ary_push(roots, Frame.svars(rec))
+    zr_cont_root(roots, Frame.svars(rec))
     # a block's frame keeps the block its call was given there
     zr_ary_push(roots, zr_block_proc(Frame.defined(rec)))
     # A record's Env image is the stack's, not a cell: its slots are
     # the record's own, pushed here as they come.
     i = 0
     while i < Frame.nvalues(rec)
-      v = Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0))
-      if !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) != 0
-        v = Machine.value(QNIL)
-      end
-      zr_ary_push(roots, v)
+      zr_cont_root(roots, Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
       i += 1
     end
     rec = Frame.prev(rec)
@@ -80,18 +99,18 @@ machine def zr_cont_roots(roots)
   while frame != 0
     i = 0
     while i < Machine.load64(frame, 8)
-      zr_ary_push(roots, Machine.value(Machine.load64(frame + 16 + (i * 8), 0)))
+      zr_cont_root(roots, Machine.value(Machine.load64(frame + 16 + (i * 8), 0)))
       i += 1
     end
     frame = Machine.ptr(Machine.load64(frame, 0))
   end
-  zr_ary_push(roots, Task.pending(t))
-  zr_ary_push(roots, Task.errinfo(t))
-  zr_ary_push(roots, Task.guards(t))
-  zr_ary_push(roots, Task.catches(t))
-  zr_ary_push(roots, Task.throw_tag(t))
-  zr_ary_push(roots, Task.found(t))
-  zr_ary_push(roots, Task.refine(t))
+  zr_cont_root(roots, Task.pending(t))
+  zr_cont_root(roots, Task.errinfo(t))
+  zr_cont_root(roots, Task.guards(t))
+  zr_cont_root(roots, Task.catches(t))
+  zr_cont_root(roots, Task.throw_tag(t))
+  zr_cont_root(roots, Task.found(t))
+  zr_cont_root(roots, Task.refine(t))
 end
 
 # `callcc`'s capture into `cont`: false as it returns the first time,

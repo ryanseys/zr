@@ -67,10 +67,11 @@ describe "Continuation programs" do
     _(result).must_answer ":back\n", stderr: "shown\n"
   end
 
+  # A collection at every allocation (ZR_GC_STRESS): a root the
+  # continuation missed -- a Proc on the stack whose frame has returned
+  # -- is read at once, where a plain run met it only now and then.
   it "survives collections" do
-    skip "a continuation does not survive a collection: the program aborts on SIGABRT"
-
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', env: {"ZR_GC_STRESS" => "1"})
 
       # A continuation keeps the frames it saved alive across collections, a
       # loop can be made of one, and a call from another fiber or thread is

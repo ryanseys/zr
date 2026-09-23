@@ -370,6 +370,7 @@ module Ze0
         d zr_cont_side_ctx Ptr
         d zr_cont_side Void
         d zr_cont_stack_high Word
+        d zr_cont_root Void roots:Value v:Value
         d zr_cont_roots Void roots:Value
         d zr_cont_capture Value cont:Value
         d zr_cont_resume Value cont:Value
@@ -2654,6 +2655,7 @@ module Ze0
         e zr_cont_side_ctx 0
         e zr_cont_side 56
         e zr_cont_stack_high 126
+        e zr_cont_root 120
         e zr_cont_roots 127
         e zr_cont_capture 127
         e zr_cont_resume 60
