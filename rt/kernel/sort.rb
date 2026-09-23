@@ -100,6 +100,23 @@ machine def zr_core_cmp_p(klass)
   e != 0 && MEntry.core(e) != 0
 end
 
+# `a <=> b` with no send where both are Strings and `a` finds String's
+# own `<=>` as the core wrote it, as CRuby's OPTIMIZED_CMP answers
+# inside Comparable; false for any other pair, which sends `<=>`.
+sig [Value, Value] => Value
+machine def zr_cmp_plain(a, b)
+  if zr_special_p(a) || zr_special_p(b) || zr_type(a) != T_STRING || zr_type(b) != T_STRING
+    return Machine.value(QFALSE)
+  end
+  e = zr_find_method(zr_class_of(a), Machine.id(:<=>))
+  if e == 0 || MEntry.core(e) == 0 || e != zr_find_method(zr_global(G_STRING), Machine.id(:<=>))
+    return Machine.value(QFALSE)
+  end
+  other = Machine.slot(8)
+  Machine.store64(other, 0, Machine.word(b))
+  zr_str_cmp(a, 1, other, Machine.value(QNIL), Machine.value(QNIL))
+end
+
 # Whether two fixnums or two Strings compare with no send.
 sig [] => Word
 machine def zr_sort_plain

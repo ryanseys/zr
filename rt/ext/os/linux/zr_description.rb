@@ -1752,6 +1752,7 @@ module Ze0
         d zr_sort_swap Void st:Ptr i:Word j:Word
         d zr_sort_vecswap Void st:Ptr i:Word j:Word n:Word
         d zr_core_cmp_p Bool klass:Word
+        d zr_cmp_plain Value a:Value b:Value
         d zr_sort_plain Word
         d zr_sort_cmp Word st:Ptr i:Word j:Word
         d zr_sort_med3 Word st:Ptr a:Word b:Word c:Word
@@ -3997,6 +3998,7 @@ module Ze0
         e zr_sort_swap 120
         e zr_sort_vecswap 120
         e zr_core_cmp_p 120
+        e zr_cmp_plain 127
         e zr_sort_plain 120
         e zr_sort_cmp 127
         e zr_sort_med3 127

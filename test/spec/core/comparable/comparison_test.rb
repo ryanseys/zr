@@ -456,4 +456,39 @@ describe "Comparable: comparison and equality" do
       [nil, nil]
     LINUX
   end
+    it "two Strings compare through the core's own <=> until a class or String itself writes another" do
+      result = ze0(<<~'RUBY')
+        p ["a" < "b", "b" <= "b", "c" > "b", "a" >= "b", "abc".between?("abb", "abd"), "z".clamp("a", "m")]
+        p ["\xff".b < "a", "é" > "e", "a".encode("UTF-16LE") >= "a"]
+        class Loud < String
+          def <=>(other) = -(super)
+        end
+        p [Loud.new("a") < "b", "a" < Loud.new("b"), Loud.new("a").between?("b", "c")]
+        begin
+          "a" < 1
+        rescue ArgumentError => e
+          p e.message
+        end
+        module Backwards
+          refine String do
+            def <=>(other) = 0
+          end
+        end
+        using Backwards
+        p ["a" < "b", "a" <=> "b"]
+        class String
+          def <=>(other) = other.size <=> size
+        end
+        p ["a" < "bb", "bb" < "a", %w[x yyy zz].max]
+      RUBY
+
+      _(result).must_answer <<~'OUT'
+        [true, true, true, false, true, "m"]
+        [false, true, true]
+        [false, true, false]
+        "comparison of String with 1 failed"
+        [true, 0]
+        [false, true, "x"]
+      OUT
+    end
 end

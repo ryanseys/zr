@@ -56,6 +56,9 @@ module Comparable
 
   def compare_to(other)
     Primitive.attr! :hidden
+    plain = Primitive.zr_cmp_plain(self, other)
+    return plain if plain
+
     c = self <=> other
     Primitive.zr_cmperr(self, other) if c.nil?
 
