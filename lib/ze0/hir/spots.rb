@@ -26,6 +26,17 @@ module Ze0
 
       module_function
 
+      # The spots of a file's tree, kept beside its parse where the
+      # parse cache is on (ParseCache.derived): finding them is a third
+      # of what a warm build spends on its HIR, and a file's spots are
+      # the same for the same tree and the same Spotter.
+      def for(result, source, options)
+        return of(result.value) unless defined?(ParseCache)
+
+        spotter = ErrorHighlight.method(:spot).source_location&.first or return of(result.value)
+        ParseCache.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
+      end
+
       # The node types Spotter spots, each with the point types it
       # answers for.
       POINTS = {

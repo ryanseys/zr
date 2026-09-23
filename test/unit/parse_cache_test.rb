@@ -88,6 +88,31 @@ class ParseCacheTest < Minitest::Test
     ParseCache.instance_variable_set(:@stamps, stamps)
   end
 
+  # What a build derives from a tree (error_highlight's spots) is kept
+  # beside the parse, under the parse's key and the digest of the code
+  # that derives it.
+  def test_a_derived_form_is_made_once_and_read_back_after
+    source = "derived_#{Process.pid} = 1\n"
+    options = { filepath: "derived.rb", line: 1 }
+    spotter = [File.join(ROOT, "lib/ze0/hir/spots.rb")]
+    made = 0
+    first = ParseCache.derived("spots", source, options, spotter) { made += 1; "1 n - 1 0 1 5\n" }
+    again = ParseCache.derived("spots", source, options, spotter) { made += 1; "other" }
+
+    assert_equal 1, made
+    assert_equal first, again
+    assert_equal Encoding::UTF_8, again.encoding
+    assert_equal "other", ParseCache.derived("spots", source, options, spotter + [File.join(ROOT, "lib/ze0/hir.rb")]) { "other" }
+  end
+
+  def test_a_derived_form_whose_maker_is_not_there_is_made_and_not_kept
+    source = "underived_#{Process.pid} = 1\n"
+    options = { filepath: "derived.rb", line: 1 }
+    missing = [File.join(ROOT, "lib/ze0/no_such_maker.rb")]
+    assert_equal "a", ParseCache.derived("spots", source, options, missing) { "a" }
+    assert_equal "b", ParseCache.derived("spots", source, options, missing) { "b" }
+  end
+
   # The second ask for a source this process has parsed answers with the
   # tree it already holds, and reads no file. A worker of the spec tier
   # runs a hundred examples that each require "set", and unmarshalling

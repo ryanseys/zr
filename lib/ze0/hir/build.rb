@@ -612,7 +612,9 @@ module Ze0
           # file that takes one cannot be read back from the cache.
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
-          spots = Spots.of(result.value) unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
+          unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
+            spots = Spots.for(result, source, { filepath: file, line: line })
+          end
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots, @hiding,
                    source, @activations != rows)
         end

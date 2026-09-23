@@ -241,9 +241,10 @@ module Ze0
       # a program's rows must start past these or the road takes them.
       def activations = meta.fetch("activations")
 
-      # The SHA-256 of each file the road holds, as it was lowered, by
-      # path: what a compiled compiler carries to key its parse cache by
-      # the parser it was built from (ParseCache.parser_digests).
+      # The SHA-256 of each file the road holds, as it was lowered, and
+      # of each the gem prelude loads, by path: what a compiled compiler
+      # carries to key its parse cache by the code it was built from
+      # (ParseCache.parser_digests, ParseCache.maker).
       def digests = meta.fetch("digests")
 
       # What names this road: the runtime's digest and the bytes of
@@ -288,7 +289,9 @@ module Ze0
           functions, data = lower.run
           files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
           sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
-          digests = files.to_h { |path| [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))] }
+          digests = (files + @runtime.gem_prelude_files).uniq.sort.to_h do |path|
+            [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))]
+          end
           meta = { "key" => files_key(files), "files" => files, "digests" => digests,
                    "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                    "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,

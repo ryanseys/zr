@@ -144,6 +144,39 @@ module Ze0
       files.to_h { |file| [file, Digest::SHA256.hexdigest(File.binread(file))] }
     end
 
+    # What `kind` makes of the tree of `source` under `options`, kept
+    # beside its parse: the String the block answers, under the parse's
+    # own key and the digest of `files`, the code that makes it. Nil
+    # where a file has no digest to take, and the block's answer alone.
+    def derived(kind, source, options, files)
+      maker = maker(files) or return yield
+
+      path = File.join(directory, "#{Digest::SHA256.hexdigest("#{key(source, options)}\0#{kind}\0#{maker}")}.#{kind}")
+      text = File.binread(path).force_encoding(Encoding::UTF_8) if File.file?(path)
+      return text if text&.valid_encoding?
+
+      yield.tap { |made| write(path, made.b) }
+    end
+
+    # One digest of `files`, the code that derives a cached form; nil
+    # where one of them is not there to digest. Under ruby the files'
+    # stamps join the parser's, which a write checks again.
+    def maker(files)
+      @makers ||= {}
+      return @makers[files] || nil if @makers.key?(files)
+
+      digests = if HOSTED
+                  files.to_h { |file| [file, File.file?(file) && Digest::SHA256.hexdigest(File.binread(file))] }
+                else
+                  carried = Ze0::Eval::Runtime.sources
+                  files.to_h { |file| [file, carried[file]] }
+                end
+      parser
+      @stamps&.merge!(files.to_h { |file| [file, stamp(file)] })
+      @makers[files] = digests.values.all? && parser_key(digests)
+      @makers[files] || nil
+    end
+
     # The files on disk a parse runs.
     def parser_files
       (FILES.select { |file| File.file?(file) } + TREES.flat_map { |tree| Dir[File.join(tree, "**/*.rb")] }).uniq.sort
