@@ -120,6 +120,33 @@ class ForkPoolTest < Minitest::Test
     end
   end
 
+# What minitest lets pass -- `exit`, a signal, NoMemoryError --
+# leaves the example and reaches the worker's own loop. The worker
+# names it for the example it was running, rather than going quiet
+# and reading as "exited 0 without answering", and the examples
+# after it still run in a fresh worker.
+LEAVER = <<~'RUBY'
+  require "test_helper"
+
+  class Leaver < Minitest::Test
+    def test_a_one_that_exits = exit(0)
+    def test_b_one_after_it = assert(true)
+    def test_c_one_more = assert(true)
+  end
+RUBY
+
+def test_an_exception_past_minitest_is_named_for_its_example
+  Dir.mktmpdir("ze0-pool-") do |work|
+    out, status = child(LEAVER, work, "MT_CPU" => "1")
+
+    assert_includes out, "Leaver#test_a_one_that_exits"
+    assert_includes out, "the example raised SystemExit past minitest: exit"
+    refute_includes out, "without answering"
+    assert_match(/3 runs, 2 assertions, 0 failures, 1 errors/, out)
+    refute_predicate status, :success?
+  end
+end
+
   private
 
   # The suite run in a child, under `timeout` seconds an example.

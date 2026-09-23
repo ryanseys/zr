@@ -199,12 +199,37 @@ module Ze0
             # does not need to be: a worker is a fork of the parent and
             # holds the same list in the same order.
             at, name = Marshal.load(jobs)
-            answer(Minitest::Runnable.runnables[at].new(name).run, back)
+            @job = [Minitest::Runnable.runnables[at], name]
+            @began = Minitest.clock_time
+            answer(@job.first.new(name).run, back)
+            @job = nil
           end
         rescue EOFError, IOError
           nil # the parent has gone
+        rescue Exception => e # rubocop:disable Lint/RescueException
+          escaped(e, back) if @job
         ensure
           exit!(0)
+        end
+
+        # What minitest lets pass (`exit`, a signal, NoMemoryError) has
+        # left the example it was running. The example fails by the
+        # exception's name, and the answer says the worker has grown
+        # without bound, so the parent retires it: what escaped may have
+        # left this process in any state at all.
+        def self.escaped(error, back)
+          klass, name = @job
+          result = Minitest::Result.new(name)
+          result.klass = klass.name
+          result.source_location = klass.instance_method(name).source_location
+          result.assertions = 0
+          result.time = Minitest.clock_time - @began
+          reason = RuntimeError.new("the example raised #{error.class} past minitest: #{error.message}")
+          reason.set_backtrace(error.backtrace || [])
+          result.failures << Minitest::UnexpectedError.new(flat(reason))
+          Marshal.dump([result, resident, Float::INFINITY], back)
+        rescue StandardError
+          nil # the parent reports a worker that went quiet
         end
 
         # The result, what this process now resides in, and how much of
