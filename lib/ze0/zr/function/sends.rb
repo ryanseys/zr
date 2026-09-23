@@ -106,6 +106,8 @@ module Ze0
           return primitive(node) if primitive?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
+          return direct_operator(node, recv_node) if direct_operands?(node, recv_node)
+
           args = node.args + keyword_args(node)
           if args.any?(Hir::Splat)
             staged([recv_node], 1) do |slots, base|
@@ -122,6 +124,44 @@ module Ze0
               node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end
           end
+        end
+
+        # An operator site whose operands are plain reads -- a local, self,
+        # an immediate literal: nothing that calls or allocates -- tests
+        # them as they are, and stages them in the record only on the arm
+        # that sends, so the fast arm stores nothing and releases nothing.
+        # A unary operator has one operand, and nothing runs between its
+        # read and the test, so any receiver will do.
+        def direct_operands?(node, recv_node)
+          return false if node.block || node.kwargs || node.write || node.vcall || owner_using?(node) || traced?
+
+          if node.args.size == 1 && OPS.key?(node.name)
+            plain_read?(recv_node) && plain_read?(node.args.first)
+          else
+            node.args.empty? && UNARY.key?(node.name) && explicit?(node)
+          end
+        end
+
+        def plain_read?(node)
+          case node
+          when Hir::Local, Hir::SelfRef then true
+          when Hir::Literal
+            value = node.value
+            value.nil? || value == true || value == false || value.is_a?(Symbol) ||
+              (value.is_a?(Integer) && value >= -(2**62) && value < 2**62)
+          else false
+          end
+        end
+
+        def direct_operator(node, recv_node)
+          recv = expr(recv_node)
+          args = node.args.map { |a| expr(a) }
+          slow = lambda do
+            staged([recv, *args], evaluate: ->(value) { value }) do |slots|
+              dispatch(node, recv, @f.iadd(slots, imm(8)), imm(args.size))
+            end
+          end
+          (args.empty? ? unary(node, recv, nil, &slow) : operator(node, recv, nil, args.first, &slow)).tap { deactivate(node) }
         end
 
         # In the runtime's own Ruby, `recv.send(:name, ...)` is rb_funcall
@@ -917,8 +957,7 @@ module Ze0
         # are fixnums and the gate is clear, else the call. Equality takes
         # the call for any other operand too: `1 == 1.0` is true, and
         # `1 == obj` asks `obj == 1`.
-        def operator(node, recv, argv)
-          arg = @f.fetch("i64", argv)
+        def operator(node, recv, argv, arg = @f.fetch("i64", argv), &sends)
           both = @f.band(recv, arg)
           fix = @f.icmp("ne", @f.band(both, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(OPS.fetch(node.name)))
@@ -935,7 +974,7 @@ module Ze0
             @f.jump(merge, [float_path(node.name, recv, arg, slow)])
           end
           switch(slow)
-          @f.jump(merge, [dispatch(node, recv, argv, imm(1))])
+          @f.jump(merge, [sends ? sends.call : dispatch(node, recv, argv, imm(1))])
           switch(merge)
           result
         end
@@ -944,7 +983,7 @@ module Ze0
         # sum inline, the call past the fixnums or under a redefinition.
         # `bm_ruby_xor` counts with `i.succ`, and every call of it was a
         # send.
-        def unary(node, recv, argv)
+        def unary(node, recv, argv, &sends)
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
           fast = @f.label
@@ -954,7 +993,7 @@ module Ze0
           switch(fast)
           @f.jump(merge, [overflow_or(@f.sadd_overflow(recv, imm(2)), slow)])
           switch(slow)
-          @f.jump(merge, [dispatch(node, recv, argv, imm(0))])
+          @f.jump(merge, [sends ? sends.call : dispatch(node, recv, argv, imm(0))])
           switch(merge)
           result
         end
