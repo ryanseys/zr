@@ -2275,10 +2275,28 @@ machine def zr_mark_children(v)
   end
 end
 
-# What a cell owns outside the arena: freed with it.
+# What a cell owns outside the arena: freed with it. The kinds a sweep
+# releases by the million come first, each one test; the rest, and the
+# caches a freed class or cref must leave, are zr_release_other's.
 sig [Value] => Void
 machine def zr_release(v)
   t = RBasic.flags(v) & T_MASK
+  if t == T_OBJECT
+    zr_release_ivtab(RObject.iv(v))
+  elsif t == T_STRING
+    zr_str_buf_free(v)
+  elsif t == T_ARRAY
+    zr_ary_buf_free(v)
+  elsif t == T_HASH
+    zr_sized_xfree(RHash.entries(v), RHash.cap(v) * HEntry.size)
+    zr_sized_xfree(RHash.bins(v), RHash.nbins(v) * 8)
+  else
+    zr_release_other(v, t)
+  end
+end
+
+sig [Value, Word] => Void
+machine def zr_release_other(v, t)
   if t == T_ICLASS || t == T_CLASS || t == T_MODULE
     # A freed class's address can come back as another class: a method
     # cache row keyed on it must not answer for the newcomer.
@@ -2315,19 +2333,10 @@ machine def zr_release(v)
     zr_release_ivtab(ClassExt.iv(ext))
     zr_release_ivtab(ClassExt.cv(ext))
     zr_xfree(ext)
-  elsif t == T_STRING
-    zr_str_buf_free(v)
   elsif t == T_EXCEPTION
     if RException.rows(v) != 0
       zr_xfree(RException.rows(v))
     end
-  elsif t == T_OBJECT
-    zr_release_ivtab(RObject.iv(v))
-  elsif t == T_ARRAY
-    zr_ary_buf_free(v)
-  elsif t == T_HASH
-    zr_sized_xfree(RHash.entries(v), RHash.cap(v) * HEntry.size)
-    zr_sized_xfree(RHash.bins(v), RHash.nbins(v) * 8)
   elsif t == T_FIBER
     zr_release_fiber(v)
   elsif t == T_REGEXP

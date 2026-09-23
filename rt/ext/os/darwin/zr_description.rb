@@ -267,6 +267,7 @@ module Ze0
         d zr_mark_entry Void e:Ptr
         d zr_mark_children Void v:Value
         d zr_release Void v:Value
+        d zr_release_other Void v:Value t:Word
         d zr_mod_set_temporary_name Value mod:Value name:Value
         d zr_refinement_new Value klass:Value active:Value
         d zr_refined_class Value h:Value
@@ -2501,6 +2502,7 @@ module Ze0
         e zr_mark_entry 120
         e zr_mark_children 120
         e zr_release 58
+        e zr_release_other 58
         e zr_mod_set_temporary_name 120
         e zr_refinement_new 126
         e zr_refined_class 0
