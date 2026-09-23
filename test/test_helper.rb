@@ -7,6 +7,11 @@ require_relative "support/harness/unbundled"
 require "tmpdir"
 require "fileutils"
 
+# What earlier tiers left under the system's temporary directory when
+# they were killed, or made in a worker that ended in `exit!`.
+require_relative "support/scratch"
+Ze0::Test::Scratch.sweep
+
 # Every example runs in a forked worker rather than in a thread: what
 # these tests do is the compiler's own Ruby, and the GVL lets one
 # thread at a time hold it. `MT_CPU` says how many workers.
