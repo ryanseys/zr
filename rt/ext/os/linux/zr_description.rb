@@ -2218,6 +2218,7 @@ module Ze0
         d zr_os_libffi_path Ptr
         d zr_os_sort Void st:Ptr n:Word
         d zr_os_malloc_size Word p:Ptr
+        d zr_os_sha256_blocks Bool h:Ptr p:Ptr n:Word
         d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
         d zr_smooth_ntz Word x:Word
         d zr_smooth_pntz Word p:Ptr
@@ -4460,6 +4461,7 @@ module Ze0
         e zr_os_libffi_path 0
         e zr_os_sort 127
         e zr_os_malloc_size 56
+        e zr_os_sha256_blocks 0
         e zr_os_sigaction 120
         e zr_smooth_ntz 0
         e zr_smooth_pntz 0

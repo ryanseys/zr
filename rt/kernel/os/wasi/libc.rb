@@ -30,3 +30,10 @@ machine def memmem(hay, n, needle, m)
   end
   Machine.ptr(0)
 end
+
+# SHA-256 of whole blocks by the host's own code: there is none to call
+# here, so rt/kernel/digest.rb compresses them itself.
+sig [Ptr, Ptr, Word] => Bool
+machine def zr_os_sha256_blocks(h, p, n)
+  false
+end

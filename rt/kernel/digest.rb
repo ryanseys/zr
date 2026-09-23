@@ -401,6 +401,9 @@ machine def zr_digest_blocks(algo, state, data)
   h = RString.ptr(state)
   p = RString.ptr(data)
   n = RString.len(data)
+  if a == DIGEST_SHA256 && zr_os_sha256_blocks(h, p, n - (n % 64))
+    return Machine.value(QNIL)
+  end
   at = 0
   while at + size <= n
     if a == DIGEST_MD5

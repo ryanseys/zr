@@ -8,6 +8,7 @@ module Ze0
       class Executable
         # The names ze0 imports that libSystem defines.
         LIBSYSTEM_NAMES = %w[
+          CC_SHA256_Update
           _NSGetEnviron
           __cospi
           __error

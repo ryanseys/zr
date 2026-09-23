@@ -2267,6 +2267,7 @@ module Ze0
         d zr_os_sort Void st:Ptr n:Word
         d zr_os_malloc_size Word p:Ptr
         d memmem Ptr hay:Ptr n:Word needle:Ptr m:Word
+        d zr_os_sha256_blocks Bool h:Ptr p:Ptr n:Word
         d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
         d zr_os_sockaddr_len Word addr:Ptr
         d zr_os_addrinfo_row Value node:Ptr
@@ -4556,6 +4557,7 @@ module Ze0
         e zr_os_sort 127
         e zr_os_malloc_size 0
         e memmem 0
+        e zr_os_sha256_blocks 0
         e zr_os_sigaction 120
         e zr_os_sockaddr_len 0
         e zr_os_addrinfo_row 0

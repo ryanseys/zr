@@ -2219,6 +2219,7 @@ module Ze0
         d zr_os_libffi_path Ptr
         d zr_os_sort Void st:Ptr n:Word
         d zr_os_malloc_size Word p:Ptr
+        d zr_os_sha256_blocks Bool h:Ptr p:Ptr n:Word
         d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
         d zr_os_sockaddr_len Word addr:Ptr
         d zr_os_addrinfo_row Value node:Ptr
@@ -4449,6 +4450,7 @@ module Ze0
         e zr_os_libffi_path 0
         e zr_os_sort 127
         e zr_os_malloc_size 56
+        e zr_os_sha256_blocks 120
         e zr_os_sigaction 120
         e zr_os_sockaddr_len 0
         e zr_os_addrinfo_row 126
