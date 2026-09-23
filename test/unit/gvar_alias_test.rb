@@ -13,9 +13,10 @@ require_relative "../../lib/ze0/hir"
 #
 # ze0 cannot carry such a row. `$&` is a register of the frame that last
 # matched and not a global, so the name is resolved as the file is
-# lowered -- which is right only for an alias the file runs whenever it
-# loads. One written where it may not run is refused by name instead of
-# being taken on a branch ruby never reaches.
+# lowered -- which is right as it stands only for an alias the file runs
+# whenever it loads. One written where it may not run sets a flag of its
+# own when it runs, and each use of the name asks the flag: the back
+# reference once the alias ran, the ordinary global before.
 class GvarAliasTest < Minitest::Test
   def test_an_alias_a_file_always_runs_makes_the_name_a_back_reference
     ["alias $hit $&", "class K\n  alias $hit $&\nend", "module M\n  alias $hit $&\nend",
@@ -24,7 +25,7 @@ class GvarAliasTest < Minitest::Test
     end
   end
 
-  def test_an_alias_where_it_may_not_run_is_refused_at_its_line
+  def test_an_alias_where_it_may_not_run_sets_a_flag_each_use_asks
     wheres = {
       "a branch" => "if false\n  alias $x $&\nend",
       "a loop" => "while false\n  alias $x $&\nend",
@@ -33,9 +34,10 @@ class GvarAliasTest < Minitest::Test
       "a method" => "def m\n  alias $x $&\nend"
     }
     wheres.each do |what, source|
-      error = assert_raises(Ze0::Hir::Refused, what) { dump(source) }
+      tree = dump("#{source}\np $x\n")
 
-      assert_match(/alias\.rb:\d+: alias \$x \$& where it may not run is not lowered yet/, error.message, what)
+      assert_includes tree, "$%alias$x", what
+      assert_includes tree, "(backref nth 0)", what
     end
   end
 
