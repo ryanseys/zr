@@ -134,15 +134,18 @@ module Ze0
           laid = laid_out(unit)
           sections = laid.sections.map do |s|
             Section.new(name: s[:name], segment: s[:seg], addr: s[:addr], size: s[:size], align: s[:align],
-                        flags: s[:flags], bytes: s[:flags] == S_ZEROFILL ? nil : s[:bytes],
-                        relocs: s[:relocs].join.unpack("L<*"))
+                        flags: s[:flags], bytes: s[:flags] == S_ZEROFILL ? nil : s[:bytes], relocs: s[:relocs])
           end
-          symbols = laid.symbols.flat_map { |sym| nlist(sym).unpack("Q<2") }
+          symbols = laid.symbols.flat_map { |sym| nlist_words(sym) }
           Read.new(sections: sections, symbols: symbols, strings: laid.strtab)
         end
 
+        # One symbol as the two words of its `nlist_64`: n_strx, n_type,
+        # n_sect and a zero n_desc in the first, n_value in the second.
+        def nlist_words(sym) = [sym[:strx] | (sym[:type] << 32) | (sym[:sect] << 40), sym[:value]]
+
         # One symbol as `nlist_64` packs it.
-        def nlist(sym) = [sym[:strx], sym[:type], sym[:sect], 0, sym[:value]].pack("L<CCS<Q<")
+        def nlist(sym) = nlist_words(sym).pack("Q<2")
 
         # The file's bytes.
         def write(unit, minos: [14, 0, 0]) = bytes(laid_out(unit), minos)
@@ -183,14 +186,17 @@ module Ze0
           vmsize = addr
 
           symbols = symbol_table(unit, placed)
-          index = symbols.each_with_index.to_h { |sym, i| [sym[:name], i] }
+          # By the name a relocation spells, without the leading `_`.
+          index = {}
+          symbols.each_with_index { |sym, i| index[sym[:bare]] = i }
           sections.each do |s|
             s[:items].each do |item, at|
               item.relocs.each do |r|
-                s[:relocs] << relocation(at + r.offset, r, index.fetch("_#{r.symbol}"))
+                s[:relocs] << relocation(at + r.offset, r, index.fetch(r.symbol))
               end
             end
-            # Highest address first, an ADDEND entry ahead of its partner.
+            # Highest address first, an ADDEND entry ahead of its partner:
+            # the words of every relocation_info in order.
             s[:relocs] = s[:relocs].sort_by { |group| -group[0] }.flat_map { |group| group[1] }
           end
 
@@ -209,7 +215,7 @@ module Ze0
           offset = align_up(offset, 8)
           sections.each do |s|
             s[:reloff] = s[:relocs].empty? ? 0 : offset
-            offset += s[:relocs].size * 8
+            offset += s[:relocs].size * 4
           end
           symoff = offset
           offset += symbols.size * 16
@@ -242,7 +248,7 @@ module Ze0
           sections.each do |s|
             out << pad16(s[:name]) << pad16(s[:seg])
             out << [s[:addr], s[:size], s[:flags] == S_ZEROFILL ? 0 : s[:offset], s[:align],
-                    s[:reloff], s[:relocs].size, s[:flags], 0, 0, 0].pack("Q<2L<8")
+                    s[:reloff], s[:relocs].size / 2, s[:flags], 0, 0, 0].pack("Q<2L<8")
           end
           out << [LC_BUILD_VERSION, build_version_cmd, PLATFORM_MACOS, version(minos), version(minos), 0].pack("L<6")
           out << [LC_SYMTAB, symtab_cmd, laid.symoff, symbols.size, laid.stroff, strsize].pack("L<6")
@@ -257,7 +263,7 @@ module Ze0
             out << s[:bytes]
           end
           out << ("\0" * (align_up(out.bytesize, 8) - out.bytesize)).b
-          sections.each { |s| s[:relocs].each { |r| out << r } }
+          sections.each { |s| out << s[:relocs].pack("L<*") }
           symbols.each { |sym| out << nlist(sym) }
           out << laid.strtab
           out
@@ -266,11 +272,11 @@ module Ze0
         # Every defined symbol, then every import, in the order `ld` wants.
         def symbol_table(unit, placed)
           defined = placed.map do |p|
-            { name: "_#{p.item.name}", linkage: p.item.linkage, sect: p.section + 1, value: p.addr,
+            { name: "_#{p.item.name}", bare: p.item.name, linkage: p.item.linkage, sect: p.section + 1, value: p.addr,
               type: N_SECT | (p.item.linkage == :export ? N_EXT : 0) }
           end
           imports = unit.imports.map do |name|
-            { name: "_#{name}", linkage: :import, sect: NO_SECT, value: 0, type: N_UNDF | N_EXT }
+            { name: "_#{name}", bare: name, linkage: :import, sect: NO_SECT, value: 0, type: N_UNDF | N_EXT }
           end
           %i[local export import].flat_map do |l|
             (defined + imports).select { |s| s[:linkage] == l }.sort_by { |s| s[:name] }
@@ -286,15 +292,16 @@ module Ze0
           sums.each_with_object(item.bytes.dup) { |r, bytes| bytes[r.offset, 8] = [r.addend].pack("q<") }
         end
 
-        # `[address, [entries]]`: the packed relocation_info rows for one
-        # relocation, an ADDEND row first when the addend is not zero.
+        # `[address, words]`: the relocation_info rows for one relocation,
+        # two 32-bit words a row, an ADDEND row first when the addend is
+        # not zero.
         def relocation(address, r, symbol)
           type, pcrel, length = RELOC.fetch(r.kind) { raise ArgumentError, "no arm64 relocation for #{r.kind}" }
           rows = []
           if r.addend != 0 && r.kind != :abs64
-            rows << [address, (r.addend & 0xFFFFFF) | (ARM64_RELOC_ADDEND << 28)].pack("L<2")
+            rows << address << ((r.addend & 0xFFFFFF) | (ARM64_RELOC_ADDEND << 28))
           end
-          rows << [address, symbol | (pcrel << 24) | (length << 25) | (1 << 27) | (type << 28)].pack("L<2")
+          rows << address << (symbol | (pcrel << 24) | (length << 25) | (1 << 27) | (type << 28))
           [address, rows]
         end
 
