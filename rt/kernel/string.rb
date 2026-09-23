@@ -342,7 +342,15 @@ end
 # names: in every one but UTF-16 and UTF-32, dummy names included.
 sig [Word] => Bool
 machine def zr_enc_ascii_compat_p(index)
-  index < ENC_UTF16BE || index > ENC_UTF32
+  (index < ENC_UTF16BE || index > ENC_UTF32) && !zr_enc_dummy_p(index)
+end
+
+# The dummy encodings past UTF-16 and UTF-32, by ruby's numbers:
+# IBM037, ISO-2022-JP, ISO-2022-JP-2, CP50220, CP50221, UTF-7 and
+# ISO-2022-JP-KDDI. None is ASCII-compatible, as ruby has them.
+sig [Word] => Bool
+machine def zr_enc_dummy_p(index)
+  index == 78 || (index >= 85 && index <= 88) || index == 94 || index == 99
 end
 
 # The width of a code unit of UTF-16 (2) and UTF-32 (4), the Unicode

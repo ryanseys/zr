@@ -1276,6 +1276,10 @@ module Ze0
         d zr_objspace_census Value
         d zr_objspace_id2ref Value id:Value
         d zr_objspace_reachable Value v:Value
+        d zr_objspace_roots Value
+        d zr_objspace_take Void s:Ptr from:Word into:Value out:Value
+        d zr_objspace_row_p Bool out:Value v:Value
+        d zr_objspace_super Value klass:Value
         d zr_objspace_memsize Value v:Value
         d zr_alloc_trace Ptr
         d zr_alloc_trace_probe Ptr t:Ptr cell:Word
@@ -1465,10 +1469,15 @@ module Ze0
         d zr_proc_captures_table Ptr p:Value
         d zr_block_proc Value b:Value
         d zr_symbol_block Value p:Value argc:Word argv:Ptr blk:Value
+        d zr_sym_to_proc_here Value sym:Value
         d zr_sym_to_proc Value sym:Value
         d zr_enum_each Value recv:Value args:Value blk:Value
         d zr_enum_each_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_enum_collect Value recv:Value args:Value blk:Value
+        d zr_block_asks_pair Void p:Value blk:Value
+        d zr_block_min_params Word blk:Value
+        d zr_enum_each_asked Value recv:Value args:Value blk:Value ask:Value
+        d zr_enum_asked_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_enum_collect_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_lazy_stage Value recv:Value kind:Word blk:Value out:Value
         d zr_lazy_stage_block Value p:Value argc:Word argv:Ptr blk:Value
@@ -1805,6 +1814,7 @@ module Ze0
         d zr_str_mb_max_len_m Value s:Value
         d zr_str_bad_bytes Value s:Value
         d zr_enc_ascii_compat_p Bool index:Word
+        d zr_enc_dummy_p Bool index:Word
         d zr_str_unit Word s:Value
         d zr_str_unit_m Value s:Value
         d zr_str_mb_p_m Value s:Value
@@ -3511,6 +3521,10 @@ module Ze0
         e zr_objspace_census 126
         e zr_objspace_id2ref 0
         e zr_objspace_reachable 126
+        e zr_objspace_roots 127
+        e zr_objspace_take 120
+        e zr_objspace_row_p 0
+        e zr_objspace_super 0
         e zr_objspace_memsize 0
         e zr_alloc_trace 0
         e zr_alloc_trace_probe 0
@@ -3700,10 +3714,15 @@ module Ze0
         e zr_proc_captures_table 0
         e zr_block_proc 127
         e zr_symbol_block 127
+        e zr_sym_to_proc_here 127
         e zr_sym_to_proc 127
         e zr_enum_each 127
         e zr_enum_each_block 127
         e zr_enum_collect 127
+        e zr_block_asks_pair 8
+        e zr_block_min_params 0
+        e zr_enum_each_asked 127
+        e zr_enum_asked_block 127
         e zr_enum_collect_block 127
         e zr_lazy_stage 127
         e zr_lazy_stage_block 127
@@ -4040,6 +4059,7 @@ module Ze0
         e zr_str_mb_max_len_m 0
         e zr_str_bad_bytes 127
         e zr_enc_ascii_compat_p 0
+        e zr_enc_dummy_p 0
         e zr_str_unit 0
         e zr_str_unit_m 0
         e zr_str_mb_p_m 0

@@ -140,6 +140,91 @@ machine def zr_objspace_reachable(v)
   out
 end
 
+# What the collector's roots reach first, by the kind of root, as
+# ObjectSpace.reachable_objects_from_root groups them: the runtime's own
+# (its classes and the main object), the global variables, what the
+# running fibers and the kernel's frames hold, and the finalizers. Every
+# cell the answer needs is made before the first mark, since a
+# collection must not start while the marks are this walk's.
+sig [] => Value
+machine def zr_objspace_roots
+  out = zr_hash_new()
+  vm = zr_ary_new(64)
+  globals = zr_ary_new(16)
+  context = zr_ary_new(64)
+  finalizers = zr_ary_new(4)
+  zr_hash_store(out, zr_str_new(Machine.bytes("vm"), 2), vm)
+  zr_hash_store(out, zr_str_new(Machine.bytes("global_tbl"), 10), globals)
+  zr_hash_store(out, zr_str_new(Machine.bytes("machine_context"), 15), context)
+  zr_hash_store(out, zr_str_new(Machine.bytes("finalizers"), 10), finalizers)
+  s = zr_mark_stack()
+  from = MarkStack.len(s)
+  Machine.store64(zr_mark_every(), 0, 1)
+  i = 0
+  while i < G_COUNT
+    zr_mark(zr_global(i))
+    i += 1
+  end
+  zr_objspace_take(s, from, vm, out)
+  zr_mark_ivtab(zr_gvars())
+  zr_objspace_take(s, from, globals, out)
+  zr_mark(Machine.value(Machine.load64(Machine.static(:current_fiber, 8), 0)))
+  zr_mark(Machine.value(Machine.load64(Machine.static(:root_fiber, 8), 0)))
+  zr_mark_task(zr_task())
+  zr_mark_kernel_roots()
+  zr_objspace_take(s, from, context, out)
+  zr_mark_finalizer_queue()
+  zr_objspace_take(s, from, finalizers, out)
+  Machine.store64(zr_mark_every(), 0, 0)
+  out
+end
+
+# The cells marked since `from`, unmarked again and the ones a program
+# may see put in `into`; the answer `out` and its rows are not among
+# them.
+sig [Ptr, Word, Value, Value] => Void
+machine def zr_objspace_take(s, from, into, out)
+  i = from
+  while i < MarkStack.len(s)
+    child = Machine.value(Machine.load64(MarkStack.ptr(s) + (i * 8), 0))
+    zr_mark_unset(child)
+    if zr_objspace_visible_p(child) && child != out && !zr_objspace_row_p(out, child)
+      zr_ary_push(into, child)
+    end
+    i += 1
+  end
+  MarkStack.set_len(s, from)
+end
+
+# Whether `v` is one of the answer's own keys or rows.
+sig [Value, Value] => Bool
+machine def zr_objspace_row_p(out, v)
+  i = 0
+  while i < RHash.len(out)
+    e = RHash.entries(out) + (i * HEntry.size)
+    if HEntry.key(e) == v || HEntry.value(e) == v
+      return true
+    end
+    i += 1
+  end
+  false
+end
+
+# The superclass pointer of `klass` as the collector follows it: the
+# hidden class a module included there makes is answered as its address,
+# which ObjectSpace wraps, since no program may hold one.
+sig [Value] => Value
+machine def zr_objspace_super(klass)
+  s = RClass.superclass(klass)
+  if Machine.word(s) == 0 || s == QNIL
+    return Machine.value(QNIL)
+  end
+  if zr_type(s) == T_ICLASS
+    return zr_fix(Machine.word(s))
+  end
+  s
+end
+
 # The bytes `v` holds: its cell, and the buffer a String, an Array or a
 # Hash keeps outside it. An immediate holds none.
 sig [Value] => Value

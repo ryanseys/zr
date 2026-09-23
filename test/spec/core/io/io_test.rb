@@ -2246,8 +2246,6 @@ describe "IO programs" do
   end
 
   it "IO#advise names an advice it does not know" do
-    skip "IO#advise of an unknown advice raises NotImplementedError with the message \"advise\""
-
     result = ze0(<<~'RUBY')
       File.open(__FILE__) do |f|
         begin

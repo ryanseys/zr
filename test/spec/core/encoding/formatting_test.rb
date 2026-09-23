@@ -1789,8 +1789,6 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "inspect of a lone Shift_JIS lead byte" do
-    skip "inspect writes \\x{A4} for a byte a Shift_JIS string cannot read"
-
     result = ze0(<<~'RUBY')
       %w[Shift_JIS Windows-31J SJIS-DoCoMo MacJapanese EUC-JP].each do |enc|
         p [enc, "\xA4".b.force_encoding(enc).inspect, "a\x81".b.force_encoding(enc).inspect]

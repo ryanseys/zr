@@ -60,6 +60,8 @@ module Ze0
     # invents stays its own. `method` is the parameters of the method the
     # scope runs inside, or nil outside one.
     def compile(source, file, line = 1, scopes = [], method = nil)
+      # A program's Coverage stops by name where it would measure this.
+      ::Coverage.send(:eval_compiled!) if defined?(::Coverage) && ::Coverage.respond_to?(:eval_compiled!, true)
       Eval.plainly { compiled(source, file, line, scopes, method) }
     rescue Hir::Invalid => e
       # ruby reads a regexp literal as it compiles the string around it,

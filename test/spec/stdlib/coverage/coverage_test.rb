@@ -266,8 +266,6 @@ describe "Coverage programs" do
   end
 
   it "Coverage.setup takes eval: true" do
-    skip "Coverage.setup(eval: true) stops as not implemented"
-
     result = ze0(<<~'RUBY')
       require "coverage"
       Coverage.setup(lines: true, eval: true)

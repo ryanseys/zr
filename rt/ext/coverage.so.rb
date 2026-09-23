@@ -21,10 +21,6 @@ module Coverage
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
     mode = mode_of(args)
-    # A string an eval compiles is not a file the build read, so no line
-    # of it is measurable and `:all`, which asks for this one too, stops
-    # here by name rather than answering a file short of its evals.
-    Primitive.zr_unimplemented("Coverage of eval") if mode[:eval]
     Primitive.zr_hidden_set(self, :__mode__, mode)
     shift(:suspended)
     nil
@@ -72,6 +68,16 @@ module Coverage
     answer = measured(clear)
     shift(:idle) if stop
     answer
+  end
+
+  # A string an eval compiles is not a file the build read, so no line
+  # of it is measurable: an eval while `eval: true` measures stops here
+  # by name, rather than a result that leaves the eval out. A program
+  # that asks for eval coverage and never evals answers as ruby does.
+  def self.eval_compiled!
+    Primitive.attr! :hidden
+    mode = Primitive.zr_hidden_get(self, :__mode__)
+    Primitive.zr_unimplemented("Coverage of eval") if running? && mode && mode[:eval]
   end
 
   def self.state = Primitive.zr_hidden_get(self, :__state__) || :idle

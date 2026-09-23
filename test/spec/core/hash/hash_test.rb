@@ -2412,8 +2412,6 @@ describe "Hash programs" do
   end
 
   it "map and find hand a pair to a lambda of two parameters as two arguments" do
-    skip "Hash#map and Hash#find yield one Array to a lambda, which then raises for arity"
-
     result = ze0(<<~'RUBY')
       h = { a: 1, b: 2 }
       p h.map(&lambda { |k, v| [v, k] })

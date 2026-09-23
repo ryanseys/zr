@@ -1619,11 +1619,25 @@ class String
     end
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
     text = escaped(source.nil? ? plain : copied.force_encoding(from), options)
+    # No conversion, but an `invalid: :replace` the caller wrote still
+    # takes out the bytes that make no character; the one an encode with
+    # no target implies does not (str_transcode0's explicit flag).
+    if from.equal?(target) && !implicit && options[:invalid] == :replace && !text.valid_encoding?
+      text = text.scrub(Encoding.send(:replacement, target, options))
+    end
     # The quotes an attribute stands in are characters of the text, so
     # they cross into the target with it: written after the conversion
     # they would carry the source's own bytes instead.
     text = "\"#{text}\"" if options[:xml] == :attr
-    newlines(Encoding.convert(text, target, options), options)
+    # ruby's newline decorators work on the ASCII side of the
+    # conversion: before it when the source is ASCII-compatible, after
+    # it when only the target is, and through UTF-8 between two wide
+    # encodings.
+    return Encoding.convert(text, target, options) unless options[:newline] || options[:cr_newline] || options[:crlf_newline] || options[:universal_newline]
+    return Encoding.convert(newlines(text, options), target, options) if text.encoding.ascii_compatible?
+    return newlines(Encoding.convert(text, target, options), options) if target.ascii_compatible?
+
+    Encoding.convert(newlines(Encoding.convert(text, Encoding::UTF_8, options), options), target, options)
   end
 
   # A code point appended to a String in a multibyte encoding: the bytes
@@ -1654,6 +1668,10 @@ class String
              elsif cesu
                point = char.ord
                point > 0xFFFF ? format("\\u{%X}", point) : format("\\u%04X", point)
+             elsif char.bytesize == 1
+               # rb_str_buf_cat_escaped_char writes a one-byte
+               # character as a byte.
+               format("\\x%02X", char.getbyte(0))
              else
                "\\x{#{format('%X', char.ord)}}"
              end
@@ -2498,15 +2516,19 @@ class String
   def mapped_case(kind, options)
     Primitive.attr! :hidden
     mode = case_mode(options, kind)
-    # UTF-16, UTF-32 and CESU-8 case as the same characters do in UTF-8.
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    raise Encoding::CompatibilityError, "incompatible encoding with this operation: #{encoding}" if encoding.dummy?
+    # UTF-16, UTF-32 and CESU-8 case as the same characters do in UTF-8.
     return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, options).encode(encoding) if Encoding.wide?(encoding) || encoding.name == "CESU-8"
     # UTF8-MAC and the carriers' UTF-8 hold the same bytes UTF-8 does.
     return copied.force_encoding(Encoding::UTF_8).send(:mapped_case, kind, options).force_encoding(encoding) if Encoding.send(:utf8_like?, encoding)
+    return recoded_case(kind, options) if Encoding.cased?(encoding) && !Primitive.zr_str_ascii_only_m(self)
+    # An encoding with no case table of its own maps ASCII letters and
+    # leaves every other byte, whatever the bytes make (rb_str_ascii_casemap).
+    return ascii_cased(kind, encoding) unless encoding.equal?(Encoding::UTF_8) || Encoding.cased?(encoding)
     # The case-fold pass reads every character, and says so of bytes
     # that make none; ASCII mode reads none past ASCII.
     raise ArgumentError, "input string invalid" unless mode == :ascii || Primitive.zr_str_valid_p(self)
-    return recoded_case(kind, options) if Encoding.cased?(Encoding.at(Primitive.zr_str_encoding_index_m(self))) && !Primitive.zr_str_ascii_only_m(self)
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
 
     out = empty_like
@@ -2515,6 +2537,39 @@ class String
       out << case_char(char, step, mode)
     end
     out
+  end
+
+  # A byte of a longer character is left alone, even where it spells an
+  # ASCII letter, as a Shift_JIS trail byte may.
+  def ascii_cased(kind, encoding)
+    Primitive.attr! :hidden
+    out = +"".b
+    first = true
+    OWN[:each_char].bind_call(self) do |char|
+      byte = char.getbyte(0)
+      if char.bytesize == 1
+        upper = byte.between?(65, 90)
+        lower = byte.between?(97, 122)
+        up = case kind
+             when :up then lower
+             when :swap then lower
+             when :title then first && lower
+             else false
+             end
+        down = case kind
+               when :down, :fold then upper
+               when :swap then upper
+               when :title then !first && upper
+               else false
+               end
+        byte += up ? -32 : (down ? 32 : 0)
+        out << byte
+      else
+        out << char.b
+      end
+      first = false
+    end
+    out.force_encoding(encoding)
   end
 
   # A single-byte encoding cases its characters as Unicode does, over
@@ -2590,7 +2645,19 @@ class String
     needle = joined(Primitive.zr_str_operand(needle))
     return nil if start.nil? || start > Primitive.zr_str_bytesize(self)
 
-    Primitive.zr_str_find_from(self, needle, start)
+    at = Primitive.zr_str_find_from(self, needle, start)
+    return at if at.nil? || !Encoding.send(:mb?, Encoding.at(Primitive.zr_str_encoding_index_m(self)))
+
+    # A match that starts inside a character of a multibyte encoding is
+    # no match: the search goes on from the next character, as
+    # rb_str_index tests the head of the character it lands in.
+    while at
+      char = Primitive.zr_str_byte_to_char(self, at)
+      return at if Primitive.zr_str_char_offset_m(self, char) == at
+
+      at = Primitive.zr_str_find_from(self, needle, Primitive.zr_str_char_offset_m(self, char + 1))
+    end
+    nil
   end
 
   # rb_str_justify: `pad` (nil for the one space byte) repeated on the
@@ -3118,7 +3185,7 @@ class Encoding
     return exchange(text, target, [from, target], options) if carrier?(from) && carrier?(target)
 
     path = from.equal?(UTF_8) || target.equal?(UTF_8) ? [from, target] : [from, UTF_8, target]
-    path.each_cons(2) { |a, b| converter(a, b, path, text.ascii_only?) }
+    path.each_cons(2) { |a, b| converter(a, b, path, text.ascii_only?, decorators(options)) }
     text = to_utf8(text, path, options) unless from.equal?(UTF_8)
     text = from_utf8(text, target, path, options) unless target.equal?(UTF_8)
     text
@@ -3127,19 +3194,46 @@ class Encoding
   # An encoding with no table gets past here, and so does a pair ruby
   # itself refuses to convert between. Plain ASCII crosses that second
   # one anyway, converter or none.
-  def self.converter(a, b, path, ascii)
+  def self.converter(a, b, path, ascii, decorators = [])
     Primitive.attr! :hidden
     [a, b].each do |encoding|
       next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name) || mb_converts?(encoding) || utf8_like?(encoding)
-      # Plain ASCII crosses an ASCII-compatible encoding with no table.
-      next if ascii && !shaped?(encoding) && encoding.ascii_compatible? && !encoding.dummy?
+      # Plain ASCII crosses an ASCII-compatible encoding with no table,
+      # unless an option asks for a decorator, which needs a converter.
+      if ascii && !shaped?(encoding) && encoding.ascii_compatible? && !encoding.dummy?
+        next if decorators.empty?
+
+        raise ConverterNotFoundError, not_found(path, decorators)
+      end
       # Ruby names these encodings and carries no converter for them.
-      raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if %w[UTF-7 ISO-2022-JP-2].include?(encoding.name)
+      raise ConverterNotFoundError, not_found(path, decorators) if %w[UTF-7 ISO-2022-JP-2].include?(encoding.name)
       Primitive.zr_unimplemented("String#encode to the #{encoding} encoding") unless shaped?(encoding)
-      raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if shape_of(encoding).nil? && !ascii
+      raise ConverterNotFoundError, not_found(path, decorators) if shape_of(encoding).nil? && (!ascii || !decorators.empty?)
     end
   end
+
+  def self.not_found(path, decorators)
+    Primitive.attr! :hidden
+    with = decorators.empty? ? "" : " with #{decorators.join(",")}"
+    "code converter not found (#{path.first.name} to #{path.last.name}#{with})"
+  end
+  private_class_method :not_found
   private_class_method :converter
+
+  # The decorators the options of an encode ask for, by ruby's names.
+  def self.decorators(options)
+    Primitive.attr! :hidden
+    names = case options[:xml]
+            when :text then ["xml_text"]
+            when :attr then %w[xml_attr_content xml_attr_quote]
+            else []
+            end
+    names << "crlf_newline" if options[:crlf_newline] || options[:newline] == :crlf
+    names << "cr_newline" if options[:cr_newline] || options[:newline] == :cr
+    names << "universal_newline" if options[:universal_newline] || options[:newline] == :universal
+    names
+  end
+  private_class_method :decorators
 
   # How ruby words a failure for an encoding: the single-byte rows and
   # the multibyte ones answer the same three questions.
@@ -3168,6 +3262,9 @@ class Encoding
         out << byte
       elsif from.equal?(ASCII_8BIT)
         undefined(byte_text(byte), from, UTF_8, path, options, byte.chr.dup.force_encoding(from)) { |mark| out << mark }
+      elsif from.equal?(US_ASCII)
+        # US-ASCII has no byte past 127: each one is invalid.
+        options[:invalid] == :replace ? out << replacement(path.last, options) : invalid([byte], nil, false, from.name)
       elsif (point = from.send(:points)[byte - 128])
         out << point
       else
@@ -3411,6 +3508,9 @@ class Encoding
                   whole.pack("C*").dup.force_encoding(from)) { |text_mark| out << text_mark }
       elsif options[:invalid] == :replace
         out << mark
+        # The byte that broke the sequence is read again, as ruby's
+        # decoder reads it: it may start a character of its own.
+        i -= 1 if steps.positive? && bytes[i + steps]
       elsif steps.zero?
         invalid([bytes[i]], nil, false, from.name)
       else

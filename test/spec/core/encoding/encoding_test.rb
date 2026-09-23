@@ -1588,8 +1588,6 @@ describe "Encoding programs" do
   end
 
   it "encode with invalid: :replace replaces bad bytes of a US-ASCII or UTF-8 source" do
-    skip "a US-ASCII source raises KeyError, and UTF-8 to UTF-8 keeps its bad bytes"
-
     result = ze0(<<~'RUBY')
       def t(s, to, **o)
         r = s.encode(to, **o)
@@ -1614,8 +1612,6 @@ describe "Encoding programs" do
   end
 
   it "encode with invalid: :replace keeps the byte after a bad lead byte of a double-byte encoding" do
-    skip "a bad two-byte sequence of Shift_JIS, GBK, Big5, CP949 or EUC loses its trail byte"
-
     result = ze0(<<~'RUBY')
       def t(bytes, from)
         r = bytes.b.force_encoding(from).encode("UTF-8", invalid: :replace)
@@ -1672,8 +1668,6 @@ describe "Encoding programs" do
   end
 
   it "the newline options of encode to UTF-16" do
-    skip "crlf_newline: and universal_newline: to UTF-16 raise CompatibilityError"
-
     result = ze0(<<~'RUBY')
       def t(s, to, **o)
         r = s.encode(to, **o)
@@ -1723,8 +1717,6 @@ describe "Encoding programs" do
   end
 
   it "a newline or xml option to an encoding with no converter raises" do
-    skip "ASCII text converts to EUC-TW or Emacs-Mule under xml: or crlf_newline:"
-
     result = ze0(<<~'RUBY')
       def t(to, **o)
         r = "a<b".encode(to, **o)
@@ -1749,8 +1741,6 @@ describe "Encoding programs" do
   end
 
   it "a dummy encoding refuses case mapping and concatenation, and inspect escapes each byte" do
-    skip "upcase, downcase and + work on a dummy encoding, and inspect shows its text"
-
     result = ze0(<<~'RUBY')
       %w[UTF-7 UTF-16 ISO-2022-JP IBM037].each do |enc|
         s = "abc".b.force_encoding(enc)

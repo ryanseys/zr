@@ -647,9 +647,9 @@ module Kernel
     Primitive.attr! :ruby
     if (load = Kernel.send(:pretty_printer))
       load.call
-      # A send of the core library reaches the core's own row, so the
-      # call goes through the row pp.rb wrote.
-      return Kernel.instance_method(:pp).bind_call(self, *objs)
+      # `pp` is a name the core sends through the program's row, so
+      # this reaches the one pp.rb wrote, as the prelude's call does.
+      return pp(*objs)
     end
     # CRuby's first pp requires pp.rb, which makes pp a module function
     # from then on; before that, Kernel.pp is private.

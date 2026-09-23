@@ -74,7 +74,15 @@ class RubyVM
       end
       alias compile_file_prism compile_file
 
-      def compile_option = {}
+      # The options CRuby's compiler starts with. Nothing here reads
+      # them: a string compiles to machine code.
+      COMPILE_OPTION = {
+        inline_const_cache: true, peephole_optimization: true, tailcall_optimization: false,
+        specialized_instruction: true, operands_unification: true, instructions_unification: false,
+        debug_frozen_string_literal: false, coverage_enabled: true, debug_level: 0, frozen_string_literal: nil
+      }.freeze
+
+      def compile_option = COMPILE_OPTION.dup
       def compile_option=(options); end
 
       def disasm(body) = of(body)&.disasm
@@ -119,10 +127,11 @@ class RubyVM
       Primitive.zr_hidden_get(self, :__absolute_path__) || (Primitive.zr_path_kind(path) == 2 ? File.expand_path(path) : nil)
     end
 
-    # A compiled string runs at the top level, under main and Object.
+    # A compiled string runs at the top level, under main and Object. A
+    # block's or a method's code is no whole program, as ruby says.
     def eval
       code = Primitive.zr_hidden_get(self, :__code__)
-      return Primitive.zr_unimplemented("RubyVM::InstructionSequence#eval of a block or a method") if code.nil?
+      raise TypeError, "Not a toplevel InstructionSequence" if code.nil?
 
       Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, Primitive.zr_eval_cref_under(Object, nil), nil, nil)
     end
@@ -142,9 +151,48 @@ class RubyVM
       statements = ::Prism.parse(code, line: first_lineno).value.statements.body
       statements.select(&:newline?).map { |node| node.location.start_line }.uniq.map { |line| [line, :line] }
     end
-    def each_child = Primitive.zr_unimplemented("RubyVM::InstructionSequence#each_child")
-    def to_binary(extra_data = nil) = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_binary")
+    # The code a compiled string holds directly: each method, block and
+    # class body it writes, in the order the compiler meets them. A
+    # block's or a method's own code has no source kept to read.
+    def each_child(&block)
+      code = Primitive.zr_hidden_get(self, :__source__)
+      return Primitive.zr_unimplemented("RubyVM::InstructionSequence#each_child of a block or a method") if code.nil?
+
+      children = []
+      nested(::Prism.parse(code, line: first_lineno).value, children)
+      children.each(&block)
+      self
+    end
+
+    # Only a whole program's code has a binary form.
+    def to_binary(extra_data = nil)
+      raise RuntimeError, "should be top of iseq" if Primitive.zr_hidden_get(self, :__code__).nil?
+
+      Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_binary")
+    end
     def script_lines = nil
+
+    private
+
+    # The child code under `node`, as iseqs made of their labels: a def
+    # is its name, a block is "block in" the code around it, a class
+    # body "<class:Name>". Their own children are theirs, not these.
+    def nested(node, out)
+      Primitive.attr! :hidden
+      node.compact_child_nodes.each do |child|
+        name = case child
+               when ::Prism::DefNode then child.name.to_s
+               when ::Prism::BlockNode, ::Prism::LambdaNode then "block in #{label}"
+               when ::Prism::ClassNode then "<class:#{child.constant_path.slice}>"
+               when ::Prism::ModuleNode then "<module:#{child.constant_path.slice}>"
+               when ::Prism::SingletonClassNode then "singleton class"
+               end
+        next nested(child, out) unless name
+
+        base = child.is_a?(::Prism::BlockNode) || child.is_a?(::Prism::LambdaNode) ? label : name
+        out << self.class.send(:made, nil, nil, name, base, path, child.location.start_line)
+      end
+    end
   end
 
   module AbstractSyntaxTree

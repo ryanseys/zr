@@ -167,8 +167,6 @@ describe "ObjectSpace programs" do
   end
 
   it "objspace's reachable_objects_from_root and internal_super_of answer" do
-    skip "ObjectSpace.reachable_objects_from_root and internal_super_of stop as not implemented"
-
     result = ze0(<<~'RUBY')
       require "objspace"
       def t(name)

@@ -2152,8 +2152,6 @@ describe "GC programs" do
   end
 
   it "the GC settings answer as ruby's do" do
-    skip "auto_compact=, verify_compaction_references, config, stress= and the profiler answer otherwise"
-
     result = ze0(<<~'RUBY')
       def t(name)
         p [name, yield]

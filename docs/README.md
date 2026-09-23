@@ -32,6 +32,7 @@ Facts about commands, formats and layouts.
 - [Command line](reference/cli.md): `ze0` and the rake tasks
 - [Environment variables](reference/environment-variables.md)
 - [Targets](reference/targets.md)
+- [Differences from ruby](reference/differences-from-ruby.md): what ze0 refuses on purpose, and the ruby bugs it does not copy
 - [Dependencies](reference/dependencies.md)
 - [Whole programs](reference/test-format.md)
 - [Tools](reference/tools.md)

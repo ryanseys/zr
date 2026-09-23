@@ -82,7 +82,7 @@ module Ze0
           respond_to? respond_to_missing? method_missing
           method_added singleton_method_added method_removed singleton_method_removed method_undefined
           singleton_method_undefined inherited included extended prepended const_added const_missing
-          marshal_dump marshal_load _dump _load
+          marshal_dump marshal_load _dump _load pp
           exception message backtrace full_message detailed_message
         ].to_set.freeze
         # The bit a send of the core library carries (SEND_CORE).

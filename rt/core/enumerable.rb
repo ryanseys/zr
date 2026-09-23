@@ -44,11 +44,11 @@ module Enumerable
     out
   end
 
-  def find(ifnone = (omitted = true; nil))
-    return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
+  def find(ifnone = (omitted = true; nil), &blk)
+    return to_enum(__callee__, *([ifnone] unless omitted)) unless blk
 
-    Primitive.zr_enum_each(self, nil) do |x|
-      return x if yield(x)
+    Primitive.zr_enum_each_asked(self, nil, blk) do |x, hit|
+      return x if hit
       nil
     end
     ifnone&.call

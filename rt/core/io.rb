@@ -808,7 +808,7 @@ class IO
   # wherever the call is absent.
   def advise(kind, offset = 0, length = 0)
     check_open
-    raise NotImplementedError, "advise" unless %i[normal sequential random willneed dontneed noreuse].include?(kind)
+    raise NotImplementedError, "Unsupported advice: #{kind.inspect}" unless %i[normal sequential random willneed dontneed noreuse].include?(kind)
 
     nil
   end

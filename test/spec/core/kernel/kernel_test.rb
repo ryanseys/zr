@@ -2473,8 +2473,6 @@ describe "Kernel programs" do
   end
 
   it "pp's backtrace has no bind_call frame" do
-    skip "pp calls through UnboundMethod#bind_call, which the backtrace shows"
-
     result = ze0(<<~'RUBY')
       class Bad
         def pretty_print(q) = raise("in pp")
@@ -2494,8 +2492,6 @@ describe "Kernel programs" do
   end
 
   it "a Symbol block of pp is a private call" do
-    skip "&:pp calls the private Kernel#pp with no error and prints nothing"
-
     result = ze0(<<~'RUBY')
       begin
         [[1] * 3].each(&:pp)

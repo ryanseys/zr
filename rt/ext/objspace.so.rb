@@ -6,8 +6,22 @@
 # Array or a Hash keeps outside its cell counts with it.
 module ObjectSpace
   # What reachable_objects_from answers for a cell no program can hold.
+  # A cell a program may not hold, seen from outside: its address and
+  # its type.
   class InternalObjectWrapper
     Primitive.zr_undef_alloc(self)
+
+    def self.of(address, type)
+      Primitive.attr! :hidden
+      wrapper = Primitive.zr_class_build(self)
+      Primitive.zr_hidden_set(wrapper, :__address__, address)
+      Primitive.zr_hidden_set(wrapper, :__type__, type)
+      wrapper
+    end
+
+    def type = Primitive.zr_hidden_get(self, :__type__)
+    def internal_object_id = Primitive.zr_hidden_get(self, :__address__)
+    def inspect = "#<InternalObject:0x#{internal_object_id.to_s(16).rjust(16, "0")} #{type}>"
   end
 
   # count_objects_size and dump name a type as CRuby's heap tags it.
@@ -82,11 +96,16 @@ module ObjectSpace
     Primitive.zr_objspace_reachable(obj)
   end
 
-  def reachable_objects_from_root = Primitive.zr_unimplemented("ObjectSpace.reachable_objects_from_root")
+  def reachable_objects_from_root = Primitive.zr_objspace_roots
 
   def internal_class_of(obj) = Primitive.zr_real_class(obj)
 
-  def internal_super_of(klass) = Primitive.zr_unimplemented("ObjectSpace.internal_super_of")
+  def internal_super_of(klass)
+    raise TypeError, "wrong argument type #{klass.class} (expected Class or Module)" unless klass.is_a?(Module)
+
+    found = Primitive.zr_objspace_super(klass)
+    found.is_a?(Integer) ? InternalObjectWrapper.send(:of, found, :T_ICLASS) : found
+  end
 
   def trace_object_allocations
     raise ArgumentError, "no block given" unless block_given?

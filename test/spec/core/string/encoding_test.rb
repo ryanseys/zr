@@ -982,8 +982,6 @@ describe "String: encodings" do
   end
 
   it "unicode_normalize reached through a Symbol block" do
-    skip "&:unicode_normalize does not spell the name, so the normalization tables are not linked"
-
     result = ze0(<<~'RUBY')
       p ["é", "Å"].map(&:unicode_normalize)
       p ["é"].map(&:unicode_normalized?)

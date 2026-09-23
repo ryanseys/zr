@@ -643,8 +643,6 @@ describe "String: case mapping" do
   end
 
   it "swapcase of a binary or KOI8-R string maps ASCII only and keeps the encoding" do
-    skip "swapcase of high bytes in a binary or KOI8-R string answers UTF-8"
-
     result = ze0(<<~'RUBY')
       s = "\xE9a\xC9B".b
       p [s.upcase, s.downcase, s.capitalize, s.swapcase, s.swapcase.encoding]
@@ -668,8 +666,6 @@ describe "String: case mapping" do
   end
 
   it "case mapping of a US-ASCII string with a byte past ASCII maps the ASCII letters" do
-    skip "downcase and swapcase of a US-ASCII string with a high byte raise ArgumentError"
-
     result = ze0(<<~'RUBY')
       s = "A\xE9b".force_encoding("US-ASCII")
       def t(name)

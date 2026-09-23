@@ -261,8 +261,10 @@ machine def zr_block_proc(b)
   p
 end
 
-# `&:name`: a Proc sending `name` to its first argument. The block
-# function reads the Symbol from the Proc's self. A Proc made where
+# `&:name`: a Proc sending `name` to its first argument, as a call with
+# a receiver, so a private method is not reached (rb_sym_proc_call's
+# public call). The block function reads the Symbol from the Proc's
+# self. A Proc made where
 # refinements are active keeps their list in its cref, and its send
 # looks the name up under them wherever the Proc is called, as ruby's
 # refined Symbol#to_proc does.
@@ -274,11 +276,11 @@ machine def zr_symbol_block(p, argc, argv, blk)
   if RProc.cref(p) != QNIL
     t = zr_task()
     Task.set_refine(t, RProc.cref(p))
-    r = zr_send_blk(Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, blk)
+    r = zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, 2, blk)
     Task.set_refine(t, Machine.value(QNIL))
     return r
   end
-  zr_send_blk(Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, blk)
+  zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, 2, blk)
 end
 
 # The Proc of `sym`, under the refinements the task has active: the
@@ -375,6 +377,9 @@ machine def zr_enum_collect(recv, args, blk)
   zr_ary_push(kept, zr_ary_new(4))
   zr_ary_push(kept, blk)
   p = zr_native_proc(Machine.addr(:zr_enum_collect_block), kept)
+  # rb_lambda_call hands `each` the block's own arity, so a Hash yields
+  # its key and value apart to a block that takes two or more.
+  zr_block_asks_pair(p, blk)
   if args == QNIL
     r = zr_send_blk(recv, Machine.id(:each), 0, 0, p)
   else
@@ -382,6 +387,69 @@ machine def zr_enum_collect(recv, args, blk)
   end
   return r if r == QUNDEF
   zr_ary_at(kept, 0)
+end
+
+# Marks the adapter `p` as a block that takes a pair when `blk` takes
+# two or more values, which is what a Hash's `each` asks of its block.
+sig [Value, Value] => Void
+machine def zr_block_asks_pair(p, blk)
+  if zr_block_min_params(blk) > 1
+    RProc.set_spread(p, 1)
+    RProc.set_lambda(p, 0)
+  end
+end
+
+# How many values `blk` requires, or 0 for a block of no parameters of
+# its own (a Symbol's or a Method's).
+sig [Value] => Word
+machine def zr_block_min_params(blk)
+  if RProc.meta(blk) == 0
+    return 0
+  end
+  zr_params_min(FrameMeta.params(RProc.meta(blk)))
+end
+
+# `each` over `recv` with `blk` asked about every element, as
+# enum.c's find_i asks through enum_yield: the element goes to `ask`
+# with the block's answer. Values `each` yielded several at a time
+# reach a lambda of two or more parameters spread and anything else as
+# one Array (rb_yield_force_blockarg), and a Hash yields them several
+# at a time, as rb_block_call2 with RB_BLOCK_NO_USE_PACKED_ARGS makes
+# it do.
+sig [Value, Value, Value, Value] => Value
+machine def zr_enum_each_asked(recv, args, blk, ask)
+  kept = zr_ary_new(2)
+  zr_ary_push(kept, blk)
+  zr_ary_push(kept, ask)
+  p = zr_native_proc(Machine.addr(:zr_enum_asked_block), kept)
+  RProc.set_spread(p, 1)
+  RProc.set_lambda(p, 0)
+  if args == QNIL
+    return zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+  end
+  zr_send_blk(recv, Machine.id(:each), RArray.len(args), RArray.ptr(args), p)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_enum_asked_block(p, argc, argv, blk)
+  kept = RProc.self(p)
+  user = zr_ary_at(kept, 0)
+  if argc == 0
+    x = Machine.value(QNIL)
+    r = zr_yield(user, 0, argv)
+  elsif argc == 1
+    x = Machine.value(Machine.load64(argv, 0))
+    r = zr_yield1(user, x)
+  else
+    x = zr_ary_of(argc, argv)
+    if RProc.lambda(user) != 0 && zr_block_min_params(user) > 1
+      r = zr_yield(user, argc, argv)
+    else
+      r = zr_yield1(user, x)
+    end
+  end
+  return r if r == QUNDEF
+  zr_yield2(zr_ary_at(kept, 1), x, r)
 end
 
 sig [Value, Word, Ptr, Value] => Value

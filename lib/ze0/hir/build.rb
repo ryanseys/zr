@@ -2053,6 +2053,10 @@ module Ze0
         gems!(:Gem) if node.name == :gem && node.receiver.nil?
         @loader.load_path_changed!(node, @file)
         @loader.normalizes!(node.name, args)
+        # `&:name` calls the method it names, as a call of that name does.
+        if node.block.is_a?(Prism::BlockArgumentNode) && node.block.expression.is_a?(Prism::SymbolNode)
+          @loader.normalizes!(node.block.expression.unescaped.to_sym, [])
+        end
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
         # call does, so a literal `self` dispatches, private methods and all.
         # A named call with a fast path (OPT_CALLS) is one on an explicit

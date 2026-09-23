@@ -10,9 +10,15 @@ module GC
   def self.count = Primitive.zr_gc_count
   def self.disable = Primitive.zr_gc_set_disabled(true)
   def self.enable = Primitive.zr_gc_set_disabled(false)
-  def self.stress = Primitive.zr_gc_stress
+  # A number sets CRuby's stress flags; this collector reads it as on,
+  # and answers the number it was given, as ruby does.
+  STRESS = [nil]
+  private_constant :STRESS
+
+  def self.stress = Primitive.zr_gc_stress && STRESS[0].is_a?(Integer) ? STRESS[0] : Primitive.zr_gc_stress
   def self.stress=(flag)
     Primitive.attr! :ruby
+    STRESS[0] = flag
     Primitive.zr_gc_set_stress(flag)
   end
 
@@ -89,7 +95,9 @@ module GC
 
       def result = ""
 
-      def raw_data = nil
+      # The rows of each run since the profiler was enabled: this
+      # collector keeps none, so the list is empty.
+      def raw_data = @enabled ? [] : nil
 
       def report(out = $stdout)
         out.write(result)
@@ -113,11 +121,16 @@ module GC
 
   def self.latest_compact_info = { considered: {}, moved: {}, moved_up: {}, moved_down: {} }
 
-  def self.verify_compaction_references(**options) = compact
+  def self.verify_compaction_references(toward: nil, double_heap: false, expand_heap: false) = compact
 
-  def self.auto_compact = false
+  # Nothing moves here, but the switch keeps what it is set to.
+  AUTO_COMPACT = [false]
+  private_constant :AUTO_COMPACT
+
+  def self.auto_compact = AUTO_COMPACT[0]
 
   def self.auto_compact=(flag)
+    AUTO_COMPACT[0] = flag ? true : false
     flag
   end
 
@@ -136,9 +149,16 @@ module GC
     @measure_total_time = flag
   end
 
+  CONFIG = { rgengc_allow_full_mark: true }
+  private_constant :CONFIG
+
+  # The one setting CRuby's default collector takes, kept as it is set.
   def self.config(hash = nil)
     Primitive.attr! :ruby
-    { rgengc_allow_full_mark: true, implementation: "default" }
+    raise ArgumentError, "ArgumentError" unless hash.nil? || hash.is_a?(Hash)
+
+    CONFIG[:rgengc_allow_full_mark] = hash[:rgengc_allow_full_mark] ? true : false if hash&.key?(:rgengc_allow_full_mark)
+    { **CONFIG, implementation: "default" }
   end
 
   # The four pools of 32, 64, 128 and 256-byte cells, and a fifth that
