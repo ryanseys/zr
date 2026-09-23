@@ -4993,8 +4993,6 @@ describe "Methods programs" do
   end
 
   it "did_you_mean offers no private method for a call with a receiver" do
-    skip "the suggestion names Kernel#putc, which only a call with no receiver reaches"
-
     result = ze0(<<~'RUBY')
       begin
         Object.new.puts

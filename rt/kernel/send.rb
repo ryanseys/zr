@@ -274,7 +274,9 @@ machine def zr_hidden_method(recv, mid, vis, argc, argv)
   zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
   zr_exc_detail(e, Machine.id(:receiver), recv)
   zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
-  zr_exc_detail(e, Machine.id(:private_call), zr_bool(vis == VIS_PRIVATE))
+  # `private_call?` says the call had no explicit receiver, which one
+  # that meets a hidden method always has.
+  zr_exc_detail(e, Machine.id(:private_call), Machine.value(QFALSE))
   zr_raise(e)
 end
 
