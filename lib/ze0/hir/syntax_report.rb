@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../record"
+
 module Ze0
   module Hir
     # The error a source that does not parse raises, built as CRuby builds
@@ -14,7 +16,19 @@ module Ze0
       # first one when that sits this far in.
       TRUNCATE = 30
 
-      Row = Struct.new(:error, :line, :column_start, :column_end)
+      class Row < Ze0::Record
+        FIELDS = %i[error line column_start column_end].freeze
+        attr_accessor :error, :line, :column_start, :column_end
+
+        def initialize(error = nil, line = nil, column_start = nil, column_end = nil)
+          @error = error
+          @line = line
+          @column_start = column_start
+          @column_end = column_end
+        end
+
+        def to_a = [@error, @line, @column_start, @column_end]
+      end
 
       def self.error(result, file) = new(result, file).error
 

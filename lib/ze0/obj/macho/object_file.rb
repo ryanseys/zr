@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../model"
+require_relative "../../record"
 
 module Ze0
   module Obj
@@ -51,13 +52,35 @@ module Ze0
           ["__bss", "__DATA", S_ZEROFILL, [:bss]]
         ].freeze
 
-        Placed = Struct.new(:item, :section, :addr)
+        class Placed < Ze0::Record
+          FIELDS = %i[item section addr].freeze
+          attr_accessor :item, :section, :addr
+
+          def initialize(item = nil, section = nil, addr = nil)
+            @item = item
+            @section = section
+            @addr = addr
+          end
+
+          def to_a = [@item, @section, @addr]
+        end
 
         # An object as `read` answers it. `symbols` holds two words a
         # symbol, as `nlist_64` packs them: the string offset, type,
         # section and description in the first, the value in the second.
         # `strings` is the string table.
-        Read = Struct.new(:sections, :symbols, :strings, keyword_init: true) do
+        class Read < Ze0::Record
+          FIELDS = %i[sections symbols strings].freeze
+          attr_accessor :sections, :symbols, :strings
+
+          def initialize(sections: nil, symbols: nil, strings: nil)
+            @sections = sections
+            @symbols = symbols
+            @strings = strings
+          end
+
+          def to_a = [@sections, @symbols, @strings]
+
           def count = symbols.size / 2
           def strx(index) = symbols[index * 2] & 0xFFFF_FFFF
           def type(index) = (symbols[index * 2] >> 32) & 0xFF
@@ -84,7 +107,23 @@ module Ze0
 
         # A section as `read` answers it: `relocs` holds two words a
         # `relocation_info`, the address and the packed rest.
-        Section = Struct.new(:name, :segment, :addr, :size, :align, :flags, :bytes, :relocs, keyword_init: true)
+        class Section < Ze0::Record
+          FIELDS = %i[name segment addr size align flags bytes relocs].freeze
+          attr_accessor :name, :segment, :addr, :size, :align, :flags, :bytes, :relocs
+
+          def initialize(name: nil, segment: nil, addr: nil, size: nil, align: nil, flags: nil, bytes: nil, relocs: nil)
+            @name = name
+            @segment = segment
+            @addr = addr
+            @size = size
+            @align = align
+            @flags = flags
+            @bytes = bytes
+            @relocs = relocs
+          end
+
+          def to_a = [@name, @segment, @addr, @size, @align, @flags, @bytes, @relocs]
+        end
 
         module_function
 
@@ -154,8 +193,26 @@ module Ze0
         # sections and their bytes, the symbol table, the relocations and
         # the string table. Both roads out of a unit -- an object's bytes
         # and `of` -- start here.
-        Laid = Struct.new(:sections, :symbols, :strtab, :vmsize, :data_start, :data_end, :symoff, :stroff,
-                          :sizeofcmds, :segment_cmd, keyword_init: true)
+        class Laid < Ze0::Record
+          FIELDS = %i[sections symbols strtab vmsize data_start data_end symoff stroff sizeofcmds segment_cmd].freeze
+          attr_accessor :sections, :symbols, :strtab, :vmsize, :data_start, :data_end, :symoff, :stroff, :sizeofcmds, :segment_cmd
+
+          def initialize(sections: nil, symbols: nil, strtab: nil, vmsize: nil, data_start: nil, data_end: nil, symoff: nil,
+                         stroff: nil, sizeofcmds: nil, segment_cmd: nil)
+            @sections = sections
+            @symbols = symbols
+            @strtab = strtab
+            @vmsize = vmsize
+            @data_start = data_start
+            @data_end = data_end
+            @symoff = symoff
+            @stroff = stroff
+            @sizeofcmds = sizeofcmds
+            @segment_cmd = segment_cmd
+          end
+
+          def to_a = [@sections, @symbols, @strtab, @vmsize, @data_start, @data_end, @symoff, @stroff, @sizeofcmds, @segment_cmd]
+        end
 
         def laid_out(unit)
           items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] }

@@ -39,7 +39,14 @@ module Ze0
       # The names a lowering gives what it makes: its entry, and every
       # name it spells from the entry. A unit assembled as it is lowered
       # knows its own symbols by these before it has made them all.
-      Spelled = Data.define(:entry) do
+      class Spelled
+        attr_reader :entry
+
+        def initialize(entry)
+          @entry = entry
+          freeze
+        end
+
         def include?(name) = name == entry || name.start_with?("#{entry}_")
 
         def to_set = self

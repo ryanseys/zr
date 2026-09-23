@@ -6,6 +6,7 @@ require_relative "block"
 require_relative "prelink"
 require_relative "libsystem"
 require_relative "skeleton"
+require_relative "../../record"
 
 module Ze0
   module Obj
@@ -98,10 +99,41 @@ module Ze0
         # A segment of the image. `pieces` are its file bytes, one after
         # another, each `[bytes, hashes, dirty pages]`: `hashes` are the
         # pages' hashes kept with a base, and nil for bytes made here.
-        Segment = Struct.new(:name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts,
-                             keyword_init: true)
+        class Segment < Ze0::Record
+          FIELDS = %i[name vm vmsize fileoff filesize prot flags sections pieces starts].freeze
+          attr_accessor :name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts
+
+          def initialize(name: nil, vm: nil, vmsize: nil, fileoff: nil, filesize: nil, prot: nil, flags: nil, sections: nil,
+                         pieces: nil, starts: nil)
+            @name = name
+            @vm = vm
+            @vmsize = vmsize
+            @fileoff = fileoff
+            @filesize = filesize
+            @prot = prot
+            @flags = flags
+            @sections = sections
+            @pieces = pieces
+            @starts = starts
+          end
+
+          def to_a = [@name, @vm, @vmsize, @fileoff, @filesize, @prot, @flags, @sections, @pieces, @starts]
+        end
         # A section: its name, address, size, alignment and flags.
-        Section = Struct.new(:name, :vm, :size, :align, :flags)
+        class Section < Ze0::Record
+          FIELDS = %i[name vm size align flags].freeze
+          attr_accessor :name, :vm, :size, :align, :flags
+
+          def initialize(name = nil, vm = nil, size = nil, align = nil, flags = nil)
+            @name = name
+            @vm = vm
+            @size = size
+            @align = align
+            @flags = flags
+          end
+
+          def to_a = [@name, @vm, @size, @align, @flags]
+        end
 
         Refused = MachO::Refused
 

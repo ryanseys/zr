@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../record"
+
 module Ze0
   # The backend-neutral object model: what every native road produces and
   # every object writer or loader consumes. A function is its machine code
@@ -18,17 +20,34 @@ module Ze0
     # leaves the number to the link, so that its code does not depend
     # on what was compiled before it; no object writer ever sees one of
     # these (`Zr.number_symbols`).
-    Reloc = Struct.new(:offset, :kind, :symbol, :addend) do
+    class Reloc < Ze0::Record
+      FIELDS = %i[offset kind symbol addend].freeze
+      attr_accessor :offset, :kind, :symbol, :addend
+
       def initialize(offset, kind, symbol, addend = 0)
-        super
+        @offset = offset
+        @kind = kind
+        @symbol = symbol
+        @addend = addend
       end
+
+      def to_a = [@offset, @kind, @symbol, @addend]
     end
 
     # `linkage`: :export (visible to the link), :local (this object only).
-    Function = Struct.new(:name, :bytes, :relocs, :align, :linkage) do
+    class Function < Ze0::Record
+      FIELDS = %i[name bytes relocs align linkage].freeze
+      attr_accessor :name, :bytes, :relocs, :align, :linkage
+
       def initialize(name, bytes, relocs: [], align: 4, linkage: :export)
-        super(name, bytes.b, relocs, align, linkage)
+        @name = name
+        @bytes = bytes.b
+        @relocs = relocs
+        @align = align
+        @linkage = linkage
       end
+
+      def to_a = [@name, @bytes, @relocs, @align, @linkage]
 
       def size
         bytes.bytesize
@@ -38,10 +57,20 @@ module Ze0
     # `section`: :text_const (pure bytes), :data_const (holds pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
-    Data = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage) do
+    class Data < Ze0::Record
+      FIELDS = %i[name section bytes relocs align linkage].freeze
+      attr_accessor :name, :section, :bytes, :relocs, :align, :linkage
+
       def initialize(name, section, bytes, relocs: [], align: 8, linkage: :local)
-        super(name, section, section == :bss ? bytes : bytes.b, relocs, align, linkage)
+        @name = name
+        @section = section
+        @bytes = section == :bss ? bytes : bytes.b
+        @relocs = relocs
+        @align = align
+        @linkage = linkage
       end
+
+      def to_a = [@name, @section, @bytes, @relocs, @align, @linkage]
 
       def size
         section == :bss ? bytes : bytes.bytesize

@@ -12,6 +12,7 @@
 # below 128 stand for themselves in every one of them.
 
 require "set"
+require_relative "../lib/ze0/record"
 
 module Gen
   module Cjk
@@ -128,12 +129,36 @@ module Gen
     # `partial` says the walk stopped short of the whole encoding, which
     # GB18030's four-byte characters make it do, and `irregular` that it
     # found a shape these rules cannot hold.
-    Walk = Struct.new(:trails, :lengths, :partial, :irregular)
+    class Walk < Ze0::Record
+      FIELDS = %i[trails lengths partial irregular].freeze
+      attr_accessor :trails, :lengths, :partial, :irregular
+
+      def initialize(trails = nil, lengths = nil, partial = nil, irregular = nil)
+        @trails = trails
+        @lengths = lengths
+        @partial = partial
+        @irregular = irregular
+      end
+
+      def to_a = [@trails, @lengths, @partial, @irregular]
+    end
 
     # What a conversion out of an encoding needs: the code point of every
     # character its converter reads, the few characters one code point is
     # not enough for, and the rows both are written from.
-    Rows = Struct.new(:rows, :mapped, :multi, :partial)
+    class Rows < Ze0::Record
+      FIELDS = %i[rows mapped multi partial].freeze
+      attr_accessor :rows, :mapped, :multi, :partial
+
+      def initialize(rows = nil, mapped = nil, multi = nil, partial = nil)
+        @rows = rows
+        @mapped = mapped
+        @multi = multi
+        @partial = partial
+      end
+
+      def to_a = [@rows, @mapped, @multi, @partial]
+    end
 
     # Every prefix a character starts with, in turn. `kind` names the method
     # that answers what a sequence of bytes is, and the block is given each

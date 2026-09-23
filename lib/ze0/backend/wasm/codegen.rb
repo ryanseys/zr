@@ -5,6 +5,7 @@ require_relative "../../ir/function"
 require_relative "../../ir/types"
 require_relative "../../obj/model"
 require_relative "locals"
+require_relative "../../record"
 
 module Ze0
   module Backend
@@ -60,7 +61,19 @@ module Ze0
         WASI = "wasi_snapshot_preview1"
         # An import: the module it comes from, its name, and its wasm
         # parameter and result types.
-        Import = Struct.new(:from, :name, :params, :results)
+        class Import < Ze0::Record
+          FIELDS = %i[from name params results].freeze
+          attr_accessor :from, :name, :params, :results
+
+          def initialize(from = nil, name = nil, params = nil, results = nil)
+            @from = from
+            @name = name
+            @params = params
+            @results = results
+          end
+
+          def to_a = [@from, @name, @params, @results]
+        end
         # The imports the floor and `_start` call, which a module carries
         # whatever its functions import.
         OWN_IMPORTS = [Import.new(WASI, "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
@@ -78,8 +91,26 @@ module Ze0
         # that a program defines, at the indices and addresses promised to
         # its bodies. A program's module lays its own part after this one
         # and must honour the promises (`pending`).
-        Prelude = Struct.new(:imports, :shims, :sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending) do
-          # `pending`: `{ functions: [names], data: { name => address } }`.
+        class Prelude < Ze0::Record
+          FIELDS = %i[imports shims sigs bodies types data_at data_end segments table pending].freeze
+          attr_accessor :imports, :shims, :sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending
+
+          def initialize(imports = nil, shims = nil, sigs = nil, bodies = nil, types = nil, data_at = nil, data_end = nil,
+                         segments = nil, table = nil, pending = nil)
+            @imports = imports
+            @shims = shims
+            @sigs = sigs
+            @bodies = bodies
+            @types = types
+            @data_at = data_at
+            @data_end = data_end
+            @segments = segments
+            @table = table
+            @pending = pending
+          end
+
+          def to_a = [@imports, @shims, @sigs, @bodies, @types, @data_at, @data_end, @segments, @table, @pending]
+
           def functions = sigs.keys
         end
 

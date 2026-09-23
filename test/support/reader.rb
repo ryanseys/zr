@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "fixtures"
+require_relative "../../lib/ze0/record"
 
 module Ze0
   # Reads a spec file without compiling anything.
@@ -22,7 +23,21 @@ module Ze0
     # defaults the DSL would have filled in. A tool that rewrites a spec
     # reasons about `given` -- it is the only place an explicit `path:`
     # can be told apart from one this reader supplied.
-    Example = Struct.new(:name, :about, :source, :kwargs, :given, :want, keyword_init: true)
+    class Example < Ze0::Record
+      FIELDS = %i[name about source kwargs given want].freeze
+      attr_accessor :name, :about, :source, :kwargs, :given, :want
+
+      def initialize(name: nil, about: nil, source: nil, kwargs: nil, given: nil, want: nil)
+        @name = name
+        @about = about
+        @source = source
+        @kwargs = kwargs
+        @given = given
+        @want = want
+      end
+
+      def to_a = [@name, @about, @source, @kwargs, @given, @want]
+    end
 
     # The world a spec file is loaded into.
     class Sandbox

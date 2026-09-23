@@ -10,6 +10,7 @@ require_relative "hir"
 require_relative "zr/lower"
 require_relative "unit_cache"
 require_relative "clock"
+require_relative "record"
 
 module Ze0
   # The `zr` runtime: the kernel files, the core library written in
@@ -207,7 +208,19 @@ module Ze0
     # that takes everything as one unit. `evals` says the program carries
     # the compiler, whose JIT finds kernel functions by name: it is the
     # Road the program links beside the runtime, or nil.
-    Program = Struct.new(:runtime, :functions, :data, :evals) do
+    class Program < Ze0::Record
+      FIELDS = %i[runtime functions data evals].freeze
+      attr_accessor :runtime, :functions, :data, :evals
+
+      def initialize(runtime = nil, functions = nil, data = nil, evals = nil)
+        @runtime = runtime
+        @functions = functions
+        @data = data
+        @evals = evals
+      end
+
+      def to_a = [@runtime, @functions, @data, @evals]
+
       def raw = runtime.raw
 
       def to_ary = [runtime.functions + functions, runtime.data + data, raw]

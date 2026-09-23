@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../record"
+
 module Ze0
   module Machine
     TYPES = {
@@ -25,16 +27,76 @@ module Ze0
 
     # `from`: the module a wasm import comes from, or nil for a symbol
     # the link finds.
-    Import = Struct.new(:name, :params, :ret, :from)
+    class Import < Ze0::Record
+      FIELDS = %i[name params ret from].freeze
+      attr_accessor :name, :params, :ret, :from
+
+      def initialize(name = nil, params = nil, ret = nil, from = nil)
+        @name = name
+        @params = params
+        @ret = ret
+        @from = from
+      end
+
+      def to_a = [@name, @params, @ret, @from]
+    end
     # `effects`: the `IR::Effects` bits a call of the def may write,
     # closed over the defs it calls; nil until the unit's fixpoint says.
-    Def = Struct.new(:name, :params, :ret, :node, :file, :effects)
+    class Def < Ze0::Record
+      FIELDS = %i[name params ret node file effects].freeze
+      attr_accessor :name, :params, :ret, :node, :file, :effects
+
+      def initialize(name = nil, params = nil, ret = nil, node = nil, file = nil, effects = nil)
+        @name = name
+        @params = params
+        @ret = ret
+        @node = node
+        @file = file
+        @effects = effects
+      end
+
+      def to_a = [@name, @params, @ret, @node, @file, @effects]
+    end
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
-    Raw = Struct.new(:name, :params, :ret)
+    class Raw < Ze0::Record
+      FIELDS = %i[name params ret].freeze
+      attr_accessor :name, :params, :ret
+
+      def initialize(name = nil, params = nil, ret = nil)
+        @name = name
+        @params = params
+        @ret = ret
+      end
+
+      def to_a = [@name, @params, @ret]
+    end
     # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
-    Signature = Struct.new(:name, :params, :ret)
+    class Signature < Ze0::Record
+      FIELDS = %i[name params ret].freeze
+      attr_accessor :name, :params, :ret
+
+      def initialize(name = nil, params = nil, ret = nil)
+        @name = name
+        @params = params
+        @ret = ret
+      end
+
+      def to_a = [@name, @params, @ret]
+    end
     # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
-    Layout = Struct.new(:name, :fields, :size, :align)
+    class Layout < Ze0::Record
+      FIELDS = %i[name fields size align].freeze
+      attr_accessor :name, :fields, :size, :align
+
+      def initialize(name = nil, fields = nil, size = nil, align = nil)
+        @name = name
+        @fields = fields
+        @size = size
+        @align = align
+      end
+
+      def to_a = [@name, @fields, @size, @align]
+    end
 
     # The symbol ids a unit names with `Machine.id(:name)`: the compiler
     # owns the table, and a unit compiled alone numbers names as it meets

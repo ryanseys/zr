@@ -156,7 +156,7 @@ module Ze0
           lines[-1] += ")"
         when ClassDef, ModuleDef
           lines << "#{pad}(#{n.is_a?(ClassDef) ? "class" : "module"} #{scope(n.scope)}#{n.name}"
-          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Record)
           node(n.superclass, depth + 1, lines) if n.is_a?(ClassDef) && n.superclass
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
@@ -167,11 +167,11 @@ module Ze0
           lines[-1] += ")"
         when ConstRead
           lines << "#{pad}(const #{scope(n.scope)}#{n.name}"
-          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Record)
           lines[-1] += ")"
         when ConstWrite
           lines << "#{pad}(const-set #{scope(n.scope)}#{n.name}"
-          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Record)
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
         when RangeLit
@@ -215,7 +215,7 @@ module Ze0
           lines << "#{pad}(cvar #{n.name})"
         when ConstOrWrite
           lines << "#{pad}(const-or-set #{scope(n.scope)}#{n.name}"
-          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Record)
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
         when Alias, GvarAlias
@@ -227,7 +227,7 @@ module Ze0
           lines[-1] += ")"
         when Defined
           lines << "#{pad}(defined? #{n.kind}#{n.target.is_a?(Symbol) ? " #{n.target}" : ""}"
-          node(n.target, depth + 1, lines) if n.target.is_a?(Struct)
+          node(n.target, depth + 1, lines) if n.target.is_a?(Record)
           lines[-1] += ")"
         when Case
           lines << "#{pad}(case"

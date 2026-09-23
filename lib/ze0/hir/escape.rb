@@ -45,7 +45,7 @@ module Ze0
         when ClassDef then raw?(node.scope, level) && raw?(node.superclass, level)
         when ModuleDef then raw?(node.scope, level)
         when SingletonClassDef then raw?(node.target, level)
-        when Struct then node.to_a.all? { |v| raw?(v, level) }
+        when Record then node.to_a.all? { |v| raw?(v, level) }
         when Array then node.all? { |v| raw?(v, level) }
         else true
         end

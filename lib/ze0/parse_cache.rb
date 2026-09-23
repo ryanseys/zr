@@ -53,7 +53,16 @@ module Ze0
     # build ends, which a self-compile pays for in gigabytes the
     # collector marks on every pass.
     class Memo
-      Held = Data.define(:result, :bytes)
+      # A parse the memo holds, and the bytes it counts against the bound.
+      class Held
+        attr_reader :result, :bytes
+
+        def initialize(result:, bytes:)
+          @result = result
+          @bytes = bytes
+          freeze
+        end
+      end
 
       def initialize(bound)
         @bound = bound

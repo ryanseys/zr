@@ -2,6 +2,7 @@
 
 require_relative "function"
 require_relative "types"
+require_relative "../record"
 
 module Ze0
   module IR
@@ -135,7 +136,18 @@ module Ze0
 
       # One call's state: the values it has defined, and the addresses of
       # the stack slots it owns.
-      Frame = Struct.new(:values, :slot_at, :types)
+      class Frame < Ze0::Record
+        FIELDS = %i[values slot_at types].freeze
+        attr_accessor :values, :slot_at, :types
+
+        def initialize(values = nil, slot_at = nil, types = nil)
+          @values = values
+          @slot_at = slot_at
+          @types = types
+        end
+
+        def to_a = [@values, @slot_at, @types]
+      end
 
       attr_reader :memory
 

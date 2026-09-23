@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../model"
+require_relative "../../record"
 
 module Ze0
   module Obj
@@ -59,7 +60,27 @@ module Ze0
           bss: [".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE]
         }.freeze
 
-        Section = Struct.new(:name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item, keyword_init: true)
+        class Section < Ze0::Record
+          FIELDS = %i[name type flags bytes size align link info entsize offset item].freeze
+          attr_accessor :name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item
+
+          def initialize(name: nil, type: nil, flags: nil, bytes: nil, size: nil, align: nil, link: nil, info: nil, entsize: nil,
+                         offset: nil, item: nil)
+            @name = name
+            @type = type
+            @flags = flags
+            @bytes = bytes
+            @size = size
+            @align = align
+            @link = link
+            @info = info
+            @entsize = entsize
+            @offset = offset
+            @item = item
+          end
+
+          def to_a = [@name, @type, @flags, @bytes, @size, @align, @link, @info, @entsize, @offset, @item]
+        end
 
         module_function
 

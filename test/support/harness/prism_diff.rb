@@ -3,6 +3,7 @@
 require "fileutils"
 require "prism"
 require_relative "child"
+require_relative "../../../lib/ze0/record"
 
 module Ze0
   module Harness
@@ -24,7 +25,18 @@ module Ze0
       # ze0's own Ruby, parsed under the latest syntax.
       OWN = %w[rt lib test vendor].freeze
 
-      Case = Struct.new(:name, :source, :options)
+      class Case < Ze0::Record
+        FIELDS = %i[name source options].freeze
+        attr_accessor :name, :source, :options
+
+        def initialize(name = nil, source = nil, options = nil)
+          @name = name
+          @source = source
+          @options = options
+        end
+
+        def to_a = [@name, @source, @options]
+      end
 
       module_function
 
@@ -49,7 +61,24 @@ module Ze0
       RUBY_BACKEND = File.join(ROOT, "lib/ze0/prism_backend")
 
       # A test file's counts as test-unit reports them.
-      TestRun = Struct.new(:file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output) do
+      class TestRun < Ze0::Record
+        FIELDS = %i[file tests assertions failures errors pendings omissions output].freeze
+        attr_accessor :file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output
+
+        def initialize(file = nil, tests = nil, assertions = nil, failures = nil, errors = nil, pendings = nil, omissions = nil,
+                       output = nil)
+          @file = file
+          @tests = tests
+          @assertions = assertions
+          @failures = failures
+          @errors = errors
+          @pendings = pendings
+          @omissions = omissions
+          @output = output
+        end
+
+        def to_a = [@file, @tests, @assertions, @failures, @errors, @pendings, @omissions, @output]
+
         def passed? = !tests.nil? && failures.zero? && errors.zero?
         def counts = to_a[1..6]
       end

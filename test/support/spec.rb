@@ -12,6 +12,7 @@ require_relative "slow"
 require_relative "binaries"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/zr"
+require_relative "../../lib/ze0/record"
 
 module Ze0
   # What a spec example is: a Ruby program ze0 compiles, runs, and is
@@ -26,7 +27,19 @@ module Ze0
   module Spec
     # What a compiled program said. `signal` is set and `status` nil
     # when a signal ended it, as a process a signal ends has no status.
-    Result = Struct.new(:stdout, :stderr, :status, :signal) do
+    class Result < Ze0::Record
+      FIELDS = %i[stdout stderr status signal].freeze
+      attr_accessor :stdout, :stderr, :status, :signal
+
+      def initialize(stdout = nil, stderr = nil, status = nil, signal = nil)
+        @stdout = stdout
+        @stderr = stderr
+        @status = status
+        @signal = signal
+      end
+
+      def to_a = [@stdout, @stderr, @status, @signal]
+
       def success? = status.zero? && signal.nil?
     end
 

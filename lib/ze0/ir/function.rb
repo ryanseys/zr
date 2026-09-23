@@ -3,6 +3,7 @@
 require_relative "analysis"
 require_relative "effects"
 require_relative "inst"
+require_relative "../record"
 
 module Ze0
   module IR
@@ -12,12 +13,58 @@ module Ze0
     # needs a stack argument path.
     REGISTER_ARGS = 8
 
-    Slot = Struct.new(:bytes, :align)
-    Global = Struct.new(:gv, :symbol, :colocated)
-    Sig = Struct.new(:sig, :params, :ret)
+    class Slot < Ze0::Record
+      FIELDS = %i[bytes align].freeze
+      attr_accessor :bytes, :align
+
+      def initialize(bytes = nil, align = nil)
+        @bytes = bytes
+        @align = align
+      end
+
+      def to_a = [@bytes, @align]
+    end
+    class Global < Ze0::Record
+      FIELDS = %i[gv symbol colocated].freeze
+      attr_accessor :gv, :symbol, :colocated
+
+      def initialize(gv = nil, symbol = nil, colocated = nil)
+        @gv = gv
+        @symbol = symbol
+        @colocated = colocated
+      end
+
+      def to_a = [@gv, @symbol, @colocated]
+    end
+    class Sig < Ze0::Record
+      FIELDS = %i[sig params ret].freeze
+      attr_accessor :sig, :params, :ret
+
+      def initialize(sig = nil, params = nil, ret = nil)
+        @sig = sig
+        @params = params
+        @ret = ret
+      end
+
+      def to_a = [@sig, @params, @ret]
+    end
     # `from`: the wasm module an imported callee comes from, or nil.
     # `effects`: the `IR::Effects` bits a call may write.
-    Callee = Struct.new(:fn, :symbol, :sig, :colocated, :from, :effects)
+    class Callee < Ze0::Record
+      FIELDS = %i[fn symbol sig colocated from effects].freeze
+      attr_accessor :fn, :symbol, :sig, :colocated, :from, :effects
+
+      def initialize(fn = nil, symbol = nil, sig = nil, colocated = nil, from = nil, effects = nil)
+        @fn = fn
+        @symbol = symbol
+        @sig = sig
+        @colocated = colocated
+        @from = from
+        @effects = effects
+      end
+
+      def to_a = [@fn, @symbol, @sig, @colocated, @from, @effects]
+    end
 
     # A basic block: its parameters as `[value, type]` pairs, and its
     # instructions in order.

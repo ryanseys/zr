@@ -1428,7 +1428,7 @@ module Ze0
           node.each { |child| usings_in(child, seen, out) }
           return out
         end
-        return out unless node.is_a?(Struct)
+        return out unless node.is_a?(Record)
 
         seen[node.object_id] = true
         out << node if node.is_a?(Using)
@@ -1461,7 +1461,7 @@ module Ze0
           node.each { |child| mark_using(child, seen) }
           return
         end
-        return unless node.is_a?(Struct)
+        return unless node.is_a?(Record)
 
         seen[node.object_id] = true
         node.using = @using if [Send, Super, AttrOpAssign, IndexOpAssign].any? { |type| node.is_a?(type) } && node.using.nil?
@@ -1485,7 +1485,7 @@ module Ze0
       # that node's id, as node_id_for_backtrace_location reads it. A HIR
       # node an inner prism node built already keeps the inner one's id.
       def noted(hir, node)
-        @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Struct)
+        @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Record)
         hir
       end
 
@@ -2393,19 +2393,19 @@ module Ze0
           node.receiver = deepen(node.receiver, level) if node.receiver
           node
         when ClassDef
-          node.scope = deepen(node.scope, level) if node.scope.is_a?(Struct)
+          node.scope = deepen(node.scope, level) if node.scope.is_a?(Record)
           node.superclass = deepen(node.superclass, level) if node.superclass
           node
         when ModuleDef
-          node.scope = deepen(node.scope, level) if node.scope.is_a?(Struct)
+          node.scope = deepen(node.scope, level) if node.scope.is_a?(Record)
           node
         when SingletonClassDef
           node.target = deepen(node.target, level)
           node
-        when Struct
-          node.each_pair { |k, v| node[k] = deepen(v, level) if v.is_a?(Struct) || v.is_a?(Array) }
+        when Record
+          node.each_pair { |k, v| node[k] = deepen(v, level) if v.is_a?(Record) || v.is_a?(Array) }
           node
-        when Array then node.map! { |v| v.is_a?(Struct) || v.is_a?(Array) ? deepen(v, level) : v }
+        when Array then node.map! { |v| v.is_a?(Record) || v.is_a?(Array) ? deepen(v, level) : v }
         else node
         end
       end

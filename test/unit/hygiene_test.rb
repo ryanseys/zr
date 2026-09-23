@@ -18,7 +18,8 @@ require_relative "../support/e2e"
 # check happened to require: what this covers must not depend on the
 # order minitest loads files in.
 class HygieneTest < Minitest::Test
-  DELIBERATE = %i[initialize to_s inspect].freeze
+  # A Ze0::Record is equal by value, as the Struct it stands in for was.
+  DELIBERATE = %i[initialize to_s inspect == eql? hash].freeze
 
   # The library, and only the library. The checks put modules of their
   # own in `Ze0` too, and `test/support/reader.rb` names one `describe`

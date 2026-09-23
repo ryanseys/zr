@@ -2,6 +2,7 @@
 
 require "digest/sha2"
 require_relative "block"
+require_relative "../../record"
 
 module Ze0
   module Obj
@@ -46,7 +47,20 @@ module Ze0
         # A slot that holds an external's address: in which segment, where
         # in its bytes, the distance to the next slot's entry, the name,
         # and the addend.
-        Late = Struct.new(:segment, :offset, :next, :name, :addend)
+        class Late < Ze0::Record
+          FIELDS = %i[segment offset next name addend].freeze
+          attr_accessor :segment, :offset, :next, :name, :addend
+
+          def initialize(segment = nil, offset = nil, next_ = nil, name = nil, addend = nil)
+            @segment = segment
+            @offset = offset
+            @next = next_
+            @name = name
+            @addend = addend
+          end
+
+          def to_a = [@segment, @offset, @next, @name, @addend]
+        end
 
         attr_reader :parts, :text_size, :got_vm, :got_size, :data_vm, :data_filesize, :data_vmsize,
                     :externals, :late, :starts, :symbols, :strings, :names, :addresses, :blobs, :hashes

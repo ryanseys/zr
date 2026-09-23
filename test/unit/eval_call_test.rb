@@ -81,7 +81,7 @@ class EvalCallTest < Minitest::Test
 
   # Every `Hir::Def` in a body, nested ones included.
   def defs(node)
-    return [] unless node.is_a?(Struct)
+    return [] unless node.is_a?(Ze0::Record)
 
     rows = node.is_a?(Ze0::Hir::Def) ? [node] : []
     rows + node.to_a.flatten.flat_map { |child| defs(child) }

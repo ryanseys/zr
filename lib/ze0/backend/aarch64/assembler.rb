@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "registers"
+require_relative "../../record"
 
 module Ze0
   module Backend
@@ -43,7 +44,19 @@ module Ze0
 
         # A branch whose distance is known only when every instruction has
         # an index.
-        Branch = Struct.new(:base, :label, :shift, :bits) do
+        class Branch < Ze0::Record
+          FIELDS = %i[base label shift bits].freeze
+          attr_accessor :base, :label, :shift, :bits
+
+          def initialize(base = nil, label = nil, shift = nil, bits = nil)
+            @base = base
+            @label = label
+            @shift = shift
+            @bits = bits
+          end
+
+          def to_a = [@base, @label, @shift, @bits]
+
           def encode(at)
             distance = label.to_i - at
             limit = 1 << (bits - 1)

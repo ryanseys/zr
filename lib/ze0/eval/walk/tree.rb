@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../../hir"
+require_relative "../../record"
 
 module Ze0
   class Eval
@@ -121,7 +122,26 @@ module Ze0
       # block or loop, which `break`, `next` and `redo` leave; `home`
       # marks the method a `return` leaves, and is nil where the walk
       # stands in no method it can return from.
-      Ctx = Struct.new(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home, keyword_init: true) do
+      class Ctx < Ze0::Record
+        FIELDS = %i[self_ cref chain block name owner args kwargs tag home].freeze
+        attr_accessor :self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home
+
+        def initialize(self_: nil, cref: nil, chain: nil, block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: nil,
+                       home: nil)
+          @self_ = self_
+          @cref = cref
+          @chain = chain
+          @block = block
+          @name = name
+          @owner = owner
+          @args = args
+          @kwargs = kwargs
+          @tag = tag
+          @home = home
+        end
+
+        def to_a = [@self_, @cref, @chain, @block, @name, @owner, @args, @kwargs, @tag, @home]
+
         def with(**over) = Ctx.new(**to_h, **over)
       end
 
