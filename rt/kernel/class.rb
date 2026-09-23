@@ -1197,6 +1197,7 @@ sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
 machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   core = (vis & ROW_CORE) != 0
   vis = vis & (ROW_CORE - 1)
+  owner = klass
   klass = zr_origin(klass)
   # Only a handful of names have a gate, so ask for the bit before
   # asking the chain whether this is a redefinition. A builtin row the
@@ -1234,6 +1235,9 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   # defined, and a later `remove_method` leaves nothing behind.
   e = zr_find_method_at(klass, mid)
   if e != 0
+    if !core
+      zr_warn_operator(owner, mid, e)
+    end
     zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
   end
   if !core
@@ -1275,6 +1279,123 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_direct(e, Machine.ptr(Machine.load64(zr_direct_pending(), 0)))
   IvarCache.set_index(MEntry.ivar(e), 0)
   zr_gates_recheck(mid)
+end
+
+# Whether `mid` on `klass` is one of CRuby's basic operators, which the
+# interpreter and the JITs answer in place while the core's row stands
+# (vm_init_redefined_flag at 4.0.6).
+sig [Value, Word] => Bool
+machine def zr_basic_operator_p(klass, mid)
+  int = klass == zr_global(G_INTEGER)
+  flo = klass == zr_global(G_FLOAT)
+  str = klass == zr_global(G_STRING)
+  ary = klass == zr_global(G_ARRAY)
+  hsh = klass == zr_global(G_HASH)
+  sym = klass == zr_global(G_SYMBOL)
+  if mid == Machine.id(:+)
+    return int || flo || str || ary
+  elsif mid == Machine.id(:-) || mid == Machine.id(:*) || mid == Machine.id(:/) || mid == Machine.id(:%) ||
+        mid == Machine.id(:<) || mid == Machine.id(:<=) || mid == Machine.id(:>) || mid == Machine.id(:>=)
+    return int || flo
+  elsif mid == Machine.id(:==)
+    return int || flo || str || sym
+  elsif mid == Machine.id(:===)
+    return int || flo || sym || str || klass == zr_global(G_NIL) || klass == zr_global(G_TRUE) || klass == zr_global(G_FALSE)
+  elsif mid == Machine.id(:<<)
+    return str || ary
+  elsif mid == Machine.id(:>>) || mid == Machine.id(:&) || mid == Machine.id(:|)
+    return int
+  elsif mid == Machine.id(:[])
+    return ary || hsh || int
+  elsif mid == Machine.id(:[]=)
+    return ary || hsh
+  elsif mid == Machine.id(:length) || mid == Machine.id(:size) || mid == Machine.id(:empty?)
+    return ary || str || hsh
+  elsif mid == Machine.id(:succ)
+    return int || str
+  elsif mid == Machine.id(:=~)
+    return klass == zr_global(G_REGEXP) || str
+  elsif mid == Machine.id(:freeze)
+    return str || ary || hsh
+  elsif mid == Machine.id(:-@)
+    return str
+  elsif mid == Machine.id(:max) || mid == Machine.id(:min) || mid == Machine.id(:hash) || mid == Machine.id(:include?)
+    return ary
+  elsif mid == Machine.id(:call)
+    return klass == zr_global(G_PROC)
+  elsif mid == Machine.id(:nil?)
+    return klass == zr_global(G_NIL)
+  elsif mid == Machine.id(:<=>)
+    return int || flo || str
+  elsif mid == Machine.id(:default)
+    return hsh
+  end
+  false
+end
+
+# `Redefining 'C#m' disables interpreter and JIT optimizations`, under
+# `Warning[:performance]`, where rb_vm_check_redefinition_opt_method
+# warns: row `e` of `klass` is the core's own, under its own name, for a
+# basic operator, and a program is about to write over it, remove it,
+# undefine it or stand a prepended row in front of it. The core's row
+# goes with the first of these, so a second says nothing.
+sig [Value, Word, Ptr] => Void
+machine def zr_warn_operator(klass, mid, e)
+  if !zr_program_started_p() || MEntry.core(e) == 0 || MEntry.orig(e) != mid || !zr_basic_operator_p(klass, mid)
+    return
+  end
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(klass))
+  Machine.store64(slot, 8, Machine.word(zr_sym(mid)))
+  zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:operator_redefined), 2, slot)
+end
+
+# After a prepend into `klass`: each basic operator whose core row the
+# chain no longer reaches first, as rb_vm_check_redefinition_by_prepend
+# walks the origin's table.
+sig [Value, Word] => Void
+machine def zr_warn_prepended_operator(klass, mid)
+  e = zr_find_method_at(zr_origin(klass), mid)
+  if e != 0 && zr_find_method(klass, mid) != e
+    zr_warn_operator(klass, mid, e)
+  end
+end
+
+sig [Value] => Value
+machine def zr_warn_prepended_operators(klass)
+  zr_warn_prepended_operator(klass, Machine.id(:+))
+  zr_warn_prepended_operator(klass, Machine.id(:-))
+  zr_warn_prepended_operator(klass, Machine.id(:*))
+  zr_warn_prepended_operator(klass, Machine.id(:/))
+  zr_warn_prepended_operator(klass, Machine.id(:%))
+  zr_warn_prepended_operator(klass, Machine.id(:==))
+  zr_warn_prepended_operator(klass, Machine.id(:===))
+  zr_warn_prepended_operator(klass, Machine.id(:<))
+  zr_warn_prepended_operator(klass, Machine.id(:<=))
+  zr_warn_prepended_operator(klass, Machine.id(:>))
+  zr_warn_prepended_operator(klass, Machine.id(:>=))
+  zr_warn_prepended_operator(klass, Machine.id(:<<))
+  zr_warn_prepended_operator(klass, Machine.id(:>>))
+  zr_warn_prepended_operator(klass, Machine.id(:[]))
+  zr_warn_prepended_operator(klass, Machine.id(:[]=))
+  zr_warn_prepended_operator(klass, Machine.id(:length))
+  zr_warn_prepended_operator(klass, Machine.id(:size))
+  zr_warn_prepended_operator(klass, Machine.id(:empty?))
+  zr_warn_prepended_operator(klass, Machine.id(:succ))
+  zr_warn_prepended_operator(klass, Machine.id(:=~))
+  zr_warn_prepended_operator(klass, Machine.id(:freeze))
+  zr_warn_prepended_operator(klass, Machine.id(:-@))
+  zr_warn_prepended_operator(klass, Machine.id(:max))
+  zr_warn_prepended_operator(klass, Machine.id(:min))
+  zr_warn_prepended_operator(klass, Machine.id(:hash))
+  zr_warn_prepended_operator(klass, Machine.id(:call))
+  zr_warn_prepended_operator(klass, Machine.id(:&))
+  zr_warn_prepended_operator(klass, Machine.id(:|))
+  zr_warn_prepended_operator(klass, Machine.id(:nil?))
+  zr_warn_prepended_operator(klass, Machine.id(:<=>))
+  zr_warn_prepended_operator(klass, Machine.id(:default))
+  zr_warn_prepended_operator(klass, Machine.id(:include?))
+  Machine.value(QNIL)
 end
 
 # `method redefined; discarding old m`, where rb_method_entry_make warns:

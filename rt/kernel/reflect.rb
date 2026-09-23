@@ -487,6 +487,7 @@ machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
       zr_exc_detail(exc, Machine.id(:receiver), recv)
       return zr_raise(exc)
     end
+    zr_warn_operator(recv, mid, e)
     ext = RClass.ext(klass)
     zr_save_core_row(ext, e)
     last = ClassExt.mtab(ext) + ((ClassExt.mlen(ext) - 1) * MEntry.size)

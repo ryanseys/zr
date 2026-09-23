@@ -211,6 +211,10 @@ module Ze0
         d zr_method_add_vis Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
         d zr_internal_meta_p Bool meta:Ptr
         d zr_method_add_row Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
+        d zr_basic_operator_p Bool klass:Value mid:Word
+        d zr_warn_operator Void klass:Value mid:Word e:Ptr
+        d zr_warn_prepended_operator Void klass:Value mid:Word
+        d zr_warn_prepended_operators Value klass:Value
         d zr_warn_redefined Void ext:Ptr mid:Word e:Ptr fn:Ptr kind:Word meta:Ptr cref:Value
         d zr_program_started_p Bool
         d zr_runtime_written Void
@@ -2437,6 +2441,10 @@ module Ze0
         e zr_method_add_vis 127
         e zr_internal_meta_p 0
         e zr_method_add_row 127
+        e zr_basic_operator_p 0
+        e zr_warn_operator 127
+        e zr_warn_prepended_operator 127
+        e zr_warn_prepended_operators 127
         e zr_warn_redefined 127
         e zr_program_started_p 0
         e zr_runtime_written 32

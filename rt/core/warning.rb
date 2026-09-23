@@ -41,5 +41,15 @@ module Warning
     warn("#{Primitive.zr_warn_position}warning: #{message}\n", category: :experimental)
   end
 
+  # The runtime's way in when a program writes over one of the core's
+  # basic operators (rt/kernel/class.rb, zr_warn_operator).
+  def self.operator_redefined(klass, name)
+    Primitive.attr! :hidden
+    return nil unless self[:performance]
+
+    warn("#{Primitive.zr_warn_position}warning: Redefining '#{klass}##{name}' disables interpreter and JIT optimizations\n",
+         category: :performance)
+  end
+
   extend self
 end
