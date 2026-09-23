@@ -5317,7 +5317,7 @@ module Ze0
         s ContState 56 8 low:0:Word high:8:Word bytes:16:Ptr ctx:24:Ptr task:32:Ptr kroots:40:Ptr resumed:48:Word
         s Coverage 64 8 rows:0:Ptr len:8:Word capa:16:Word setup:24:Word running:32:Word last:40:Ptr branches:48:Ptr branch_size:56:Word
         s CovRow 40 8 file:0:Ptr file_len:8:Word counts:16:Ptr size:24:Word measured:32:Word
-        s LoadTable 144 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word spots:80:Ptr spots_len:88:Word coverable:96:Ptr coverable_len:104:Word branches:112:Ptr branches_len:120:Word defs:128:Ptr defs_len:136:Word
+        s LoadTable 160 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word spots:80:Ptr spots_len:88:Word coverable:96:Ptr coverable_len:104:Word branches:112:Ptr branches_len:120:Word defs:128:Ptr defs_len:136:Word sources:144:Ptr sources_len:152:Word
         s FrameMeta 144 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr node:120:Word hidden:128:Word cover:136:Word
         s BtRow 40 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word node:32:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value

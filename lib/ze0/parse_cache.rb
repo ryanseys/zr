@@ -2,6 +2,8 @@
 
 require "digest/sha2"
 require_relative "paths"
+require_relative "prism"
+require "ze0/eval/runtime" unless Ze0::HOSTED
 
 module Ze0
   # Prism.parse's results kept in the cache: a build reads back the parse
@@ -14,12 +16,19 @@ module Ze0
   # prism gem's Ruby half. A cache file that does not load back as a
   # ParseResult is a miss. A result read back holds the same values as a
   # parse, though its Strings are not frozen.
+  #
+  # Under ruby the parser is the files on disk. A compiled compiler
+  # parses with the files it was built from, and carries their digests,
+  # so a binary built from another tree keys its parses apart and never
+  # answers for this one. The two sets differ (the binary holds only the
+  # gem files the port loads), so the two never share a parse.
   module ParseCache
     def self.directory = File.join(Paths.cache, "parse")
 
-    # The files a parse runs, beside the gem's Ruby half.
-    OWN = [File.expand_path("../../rt/ext/prism/{prism.rb,ruby/**/*.rb}", __dir__), File.join(__dir__, "prism_backend/**/*.rb"),
-           File.join(__dir__, "prism.rb"), __FILE__].freeze
+    # The files a parse runs: these, and every Ruby file under the trees.
+    GEM = File.join(Paths::VENDOR, "ext/prism/lib")
+    FILES = [File.join(Paths::RT, "ext/prism/prism.rb"), File.join(__dir__, "prism.rb"), __FILE__, File.join(GEM, "prism.rb")].freeze
+    TREES = [File.join(Paths::RT, "ext/prism/ruby"), File.join(__dir__, "prism_backend"), File.join(GEM, "prism")].freeze
 
     # The source bytes whose parses a process keeps. A tree in memory is
     # some tens of times its source, so this is a proxy and not a
@@ -113,18 +122,44 @@ module Ze0
     end
 
     # The digest of what a parse runs, made once a process.
-    def parser
-      @parser ||= Digest::SHA256.new.tap do |digest|
+    def parser = @parser ||= parser_key(parser_digests)
+
+    # One digest of ruby's version and each file a parse runs, by its
+    # path and its own digest.
+    def parser_key(digests)
+      Digest::SHA256.new.tap do |digest|
         digest << RUBY_VERSION << "\0"
-        parser_files.each { |file| digest << file << "\0" << File.binread(file) << "\0" }
+        digests.sort.each { |file, sha| digest << file << "\0" << sha << "\0" }
       end.hexdigest
     end
 
-    # The files a parse runs. The gem's Ruby half is prism.rb where
-    # require finds it and the files under prism/.
+    # Each file a parse runs, with the SHA-256 of its bytes. Under ruby
+    # the stamp of each is kept too, and a write checks them again
+    # (`write`).
+    def parser_digests
+      return Ze0::Eval::Runtime.sources.select { |path, _| parser_file?(path) } unless HOSTED
+
+      files = parser_files
+      @stamps = files.to_h { |file| [file, stamp(file)] }
+      files.to_h { |file| [file, Digest::SHA256.hexdigest(File.binread(file))] }
+    end
+
+    # The files on disk a parse runs.
     def parser_files
-      gem = $LOAD_PATH.resolve_feature_path("prism").last
-      [gem, *Dir[File.join(File.dirname(gem), "prism/**/*.rb")], *OWN.flat_map { |pattern| Dir[pattern] }].uniq.sort
+      (FILES.select { |file| File.file?(file) } + TREES.flat_map { |tree| Dir[File.join(tree, "**/*.rb")] }).uniq.sort
+    end
+
+    # By the path alone: a compiled compiler has its digests, not the files.
+    def parser_file?(path)
+      FILES.include?(path) || (path.end_with?(".rb") && TREES.any? { |tree| path.start_with?("#{tree}/") })
+    end
+
+    # What a file is as far as a stat says, or nil for one that is gone.
+    def stamp(file)
+      stat = File.stat(file)
+      [stat.mtime.to_r, stat.size]
+    rescue SystemCallError
+      nil
     end
 
     def read(path)
@@ -135,9 +170,14 @@ module Ze0
     end
 
     # The file written whole: a parallel build never reads half of one;
-    # nothing while a source has moved under the build (`Zr.settled!`).
+    # nothing while a source has moved under the build (`Zr.settled!`),
+    # or a file of the parser since its digest was taken: this process
+    # parses with the code it loaded, and the key names what is on disk.
     def write(path, bytes)
       Zr.settled! if defined?(Zr)
+      moved = (@stamps || {}).find { |file, was| stamp(file) != was }
+      raise (defined?(Zr::Moved) ? Zr::Moved : RuntimeError), "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
+
       Paths.mkdir_p(directory)
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
       File.binwrite(fresh, bytes)

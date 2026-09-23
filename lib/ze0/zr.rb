@@ -241,6 +241,11 @@ module Ze0
       # a program's rows must start past these or the road takes them.
       def activations = meta.fetch("activations")
 
+      # The SHA-256 of each file the road holds, as it was lowered, by
+      # path: what a compiled compiler carries to key its parse cache by
+      # the parser it was built from (ParseCache.parser_digests).
+      def digests = meta.fetch("digests")
+
       # What names this road: the runtime's digest and the bytes of
       # every file the road holds. A program fixed against this road's
       # symbol table is cached under it.
@@ -282,7 +287,9 @@ module Ze0
           lower = Lower.new(program, @runtime.description, symbols, entry: "zr_road", target: target)
           functions, data = lower.run
           files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
-          meta = { "key" => files_key(files), "files" => files,
+          sources = loader.units.each_with_object({}) { |u, h| h[u.file] ||= u.source if u.source }
+          digests = files.to_h { |path| [path, Digest::SHA256.hexdigest(sources[path] || File.binread(path))] }
+          meta = { "key" => files_key(files), "files" => files, "digests" => digests,
                    "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                    "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                    "irbs" => loader.irbs?, "gems" => loader.gems?,
@@ -319,7 +326,8 @@ module Ze0
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
       number_symbols(data, symbols, rt.description.const_for("SYMBOL_TAG"))
       tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
-                           branches: hir.branches || {}, defs: hir.defs || {}, target: target)
+                           branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? carried.digests : {},
+                           target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)
     end
 
@@ -549,8 +557,12 @@ module Ze0
     # file, which every program carries, and Coverage's tables. Nothing
     # here is read off the machine that builds: a binary carries no path
     # or flag of the ruby that compiled it. `units` are `[path, entry]`
-    # pairs; a unit that only stops has no path.
-    def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, target: Target.default)
+    # pairs; a unit that only stops has no path. Last of all, for a
+    # program that carries the compiler, the digest of each file the
+    # road holds (`sources`, path to SHA-256), which it keys its parses
+    # by.
+    def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
+                    target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
       # A name ruby carries that no root here holds, and after a tab the
       # reason where there is one to give, so a require the program
@@ -574,6 +586,7 @@ module Ze0
       # line,end column` a scope. A definition claims the row by its id,
       # which is how a method row learns its span.
       names << defs.map { |file, rows| "#{file}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+      names << sources.sort.map { |path, digest| "#{path}\t#{digest}" }
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

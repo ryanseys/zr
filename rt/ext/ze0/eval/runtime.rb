@@ -15,6 +15,10 @@ module Ze0
       # once -- nothing runs in between to take them for it.
       def activations = Primitive.zr_activations_count
       def take_activations(count) = Primitive.zr_activations_reserve_m(count)
+
+      # The SHA-256 of each file the compiler this program carries was
+      # built from, by path (lib/ze0/zr.rb, `load_tables`).
+      def self.sources = Primitive.zr_load_names(8).lines(chomp: true).to_h { |row| row.split("\t", 2) }
     end
   end
 end

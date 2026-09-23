@@ -148,6 +148,11 @@ module Ze0
 
       require_relative "zr"
       require_relative "native/build"
+      # Under ruby, lib/ze0/prism.rb turns the parse cache on. A compiled
+      # compiler turns it on here, where it builds: a program that evals
+      # carries the same files and never comes here, so it never writes
+      # a parse to the cache.
+      require_relative "parse_cache" unless HOSTED
       program = lower(input, verb, target, assemble: emit.nil?)
       Paths.scratch("ze0-zr-") do |work|
         out = verb == "run" ? File.join(work, "program") : File.expand_path(output)

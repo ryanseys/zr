@@ -4,6 +4,7 @@ require "test_helper"
 require "rbconfig"
 require_relative "../../lib/ze0/prism"
 require_relative "../../lib/ze0/parse_cache"
+require_relative "../../lib/ze0/zr"
 require_relative "../support/harness/prism_diff"
 
 # The host parses with the Ruby port, and keeps each parse in the cache
@@ -48,6 +49,43 @@ class ParseCacheTest < Minitest::Test
     gem = $LOAD_PATH.resolve_feature_path("prism").last
     assert_includes files, gem
     assert_includes files, File.join(File.dirname(gem), "prism/node.rb")
+  end
+
+  # The parser's part of the key is each file's path and digest, so a
+  # compiled compiler, which carries the digests of the files it was built
+  # from and not the files, keys a parse the same way over its own set.
+  def test_the_parser_key_is_the_digest_of_each_parser_file
+    digests = ParseCache.parser_files.to_h { |file| [file, Digest::SHA256.hexdigest(File.binread(file))] }
+    assert_equal ParseCache.parser, ParseCache.parser_key(digests)
+    assert_equal ParseCache.parser, ParseCache.parser_key(digests.to_a.reverse.to_h)
+
+    port = File.join(ROOT, "rt/ext/prism/ruby/lexer.rb")
+    refute_equal ParseCache.parser, ParseCache.parser_key(digests.merge(port => "0" * 64))
+    refute_equal ParseCache.parser, ParseCache.parser_key(digests.except(port))
+  end
+
+  def test_a_path_is_a_parser_file_by_the_patterns_alone
+    ParseCache.parser_files.each { |file| assert ParseCache.parser_file?(file), file }
+    refute ParseCache.parser_file?(File.join(ROOT, "lib/ze0/zr.rb"))
+    refute ParseCache.parser_file?(File.join(ROOT, "rt/ext/prism.rb"))
+    assert ParseCache.parser_file?(File.join(ROOT, "rt/ext/prism/ruby/parser/core.rb"))
+  end
+
+  # The process parses with the port it loaded, and the key names the
+  # files on disk when the digest was taken: a port file that moves
+  # after that keeps the build from writing a parse under the old key.
+  def test_a_parser_file_that_moved_stops_a_write
+    ParseCache.parser
+    stamps = ParseCache.instance_variable_get(:@stamps)
+    file = stamps.keys.first
+    ParseCache.instance_variable_set(:@stamps, stamps.merge(file => [0, 0]))
+    Dir.mktmpdir("ze0-parse-") do |dir|
+      error = assert_raises(Ze0::Zr::Moved) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
+      assert_includes error.message, file
+      refute File.exist?(File.join(dir, "x.marshal"))
+    end
+  ensure
+    ParseCache.instance_variable_set(:@stamps, stamps)
   end
 
   # The second ask for a source this process has parsed answers with the
