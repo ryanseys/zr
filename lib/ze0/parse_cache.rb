@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require "digest"
-require "fileutils"
+require "digest/sha2"
 require_relative "paths"
 
 module Ze0
@@ -139,7 +138,7 @@ module Ze0
     # nothing while a source has moved under the build (`Zr.settled!`).
     def write(path, bytes)
       Zr.settled! if defined?(Zr)
-      FileUtils.mkdir_p(directory)
+      Paths.mkdir_p(directory)
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
       File.binwrite(fresh, bytes)
       File.rename(fresh, path)

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "digest"
+require "digest/sha2"
 
 require_relative "block"
 require_relative "prelink"

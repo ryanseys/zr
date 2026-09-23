@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "digest"
-require "fileutils"
+require "digest/sha2"
+require_relative "paths"
 
 module Ze0
   # A file's assembled machine code, kept between builds.
@@ -69,7 +69,7 @@ module Ze0
       key = key(unit, prefix) or return nil
 
       Zr.settled!
-      FileUtils.mkdir_p(@dir)
+      Paths.mkdir_p(@dir)
       tmp = "#{path(key)}.#{Process.pid}"
       File.binwrite(tmp, Marshal.dump([functions, data]))
       File.rename(tmp, path(key))

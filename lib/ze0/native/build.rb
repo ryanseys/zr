@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require "digest"
+require "digest/sha2"
 require "etc"
 require "json"
-require "fileutils"
 require_relative "../ir"
 require_relative "../ir/passes"
 require_relative "../target"
@@ -160,7 +159,7 @@ module Ze0
         obj = road.object_path
         return obj if File.exist?(obj)
 
-        Dir.mktmpdir("ze0-road-") do |work|
+        Paths.scratch("ze0-road-") do |work|
           fresh = File.join(work, "road.o")
           why = Ze0.clock("eval road object assembled and written") { object(road.functions, road.data, fresh, export: true, target: road.target, jobs: jobs) }
           raise "the compiler did not build: #{why}" if why
@@ -175,7 +174,7 @@ module Ze0
         obj = File.join(Zr.cache, "rt-#{runtime.digest}.o")
         return obj if File.exist?(obj)
 
-        Dir.mktmpdir("ze0-rt-") do |work|
+        Paths.scratch("ze0-rt-") do |work|
           fresh = File.join(work, "rt.o")
           why = Ze0.clock("runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs)

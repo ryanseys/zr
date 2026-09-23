@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
-require "digest"
-require "fileutils"
+require "digest/sha2"
 require "json"
-require "tmpdir"
 require_relative "paths"
 require_relative "target"
 require_relative "machine/lower"
@@ -469,12 +467,10 @@ module Ze0
     # a source has moved (`settled!`).
     def write_cache(path, content)
       settled!
-      FileUtils.mkdir_p(Zr.cache)
-      Dir.mktmpdir("ze0-rt-", Zr.cache) do |work|
-        fresh = File.join(work, File.basename(path))
-        File.binwrite(fresh, content)
-        File.rename(fresh, path)
-      end
+      Paths.mkdir_p(Zr.cache)
+      fresh = "#{path}.#{Process.pid}.#{rand(0x100000000).to_s(36)}"
+      File.binwrite(fresh, content)
+      File.rename(fresh, path)
       path
     end
 

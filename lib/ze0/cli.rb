@@ -146,11 +146,10 @@ module Ze0
       emit ||= "wasm" if target.roads == [:wasm]
       refuse(input, verb, emit, target)
 
-      require "tmpdir"
       require_relative "zr"
       require_relative "native/build"
       program = lower(input, verb, target, assemble: emit.nil?)
-      Dir.mktmpdir("ze0-zr-") do |work|
+      Paths.scratch("ze0-zr-") do |work|
         out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
         case emit
         when "obj" then object(program, out, target)

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "digest"
+require "digest/sha2"
 require_relative "../hir"
 require_relative "../ir"
 require_relative "../obj/model"

@@ -38,5 +38,55 @@ module Ze0
     # wasi `getpwuid` has no wasm form, so the module stopped before its
     # first line.
     def self.cache = @cache ||= ENV["ZE0_CACHE"] || (checkout? ? File.join(ROOT, "tmp/rt") : File.join(user_cache, "rt"))
+
+    # The two things the compiler asks of fileutils and tmpdir, without
+    # them: a compiled compiler loads a library as it runs its first
+    # lines, and fileutils defines its NoWrite, DryRun and Verbose
+    # methods with a `module_eval` of a string each -- some hundred
+    # compiles through the eval road, half a second before a build
+    # starts.
+
+    # `dir` and every directory above it that is not there yet.
+    def self.mkdir_p(dir)
+      return if File.directory?(dir)
+
+      mkdir_p(File.dirname(dir))
+      Dir.mkdir(dir)
+    rescue Errno::EEXIST
+      raise unless File.directory?(dir)
+    end
+
+    # A fresh directory for the block, named as Dir.mktmpdir names one
+    # (`<prefix><date>-<pid>-<random>`, which the test harness's sweep
+    # reads the maker's pid from), and removed with what it holds after.
+    def self.scratch(prefix, root = nil)
+      root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
+      dir = nil
+      until dir
+        name = File.join(root, "#{prefix}#{Time.now.strftime("%Y%m%d")}-#{Process.pid}-#{rand(0x100000000).to_s(36)}")
+        begin
+          Dir.mkdir(name, 0o700)
+          dir = name
+        rescue Errno::EEXIST
+          nil
+        end
+      end
+      yield dir
+    ensure
+      remove(dir) if dir
+    end
+
+    # `path` and, for a directory, everything under it; a link is
+    # removed and not followed.
+    def self.remove(path)
+      if File.directory?(path) && !File.symlink?(path)
+        Dir.children(path).each { |child| remove(File.join(path, child)) }
+        Dir.rmdir(path)
+      else
+        File.unlink(path)
+      end
+    rescue Errno::ENOENT
+      nil
+    end
   end
 end
