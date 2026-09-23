@@ -4,8 +4,6 @@ require "spec_helper"
 
 describe "REXML programs" do
   it "requiring rexml document survives the ambient encoding class" do
-    skip "REXML::Functions.send reaches @@context before XPath sets it"
-
     result = ze0(<<~'RUBY')
       # rexml's `class Output; include Encoding` means REXML::Encoding, the gem's
       # own module -- never the builtin Encoding CLASS an outer scope offers. The

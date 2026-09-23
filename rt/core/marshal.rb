@@ -626,7 +626,7 @@ module Marshal
         Primitive.zr_hidden_set(built, :__values__, klass.members.map { |member| values[member] }.freeze)
         built.freeze
       else
-        values.each { |member, value| built.send(:"#{member}=", value) }
+        values.each { |member, value| built.__send__(:"#{member}=", value) }
       end
       @objects[here] = built
       built

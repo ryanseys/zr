@@ -36,8 +36,10 @@ class Module
     end
     i = n - 1
     while i >= 0
-      modules[i].send(splice, self)
-      modules[i].send(hook, self)
+      # By name, as rb_funcall calls them: a module with a `send` of its
+      # own (REXML::Functions) does not take the hooks.
+      modules[i].__send__(splice, self)
+      modules[i].__send__(hook, self)
       i -= 1
     end
     self

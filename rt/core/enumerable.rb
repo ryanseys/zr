@@ -702,7 +702,8 @@ module Enumerable
           acc = x
           first = false
         else
-          acc = acc.send(op, x)
+          # rb_funcallv_public: the operator by name, public only.
+          acc = acc.public_send(op, x)
         end
         nil
       end
