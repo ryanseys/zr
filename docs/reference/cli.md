@@ -74,6 +74,7 @@ build for it now.
 | Task | Runs |
 |---|---|
 | `rake build` | the runtime: its object, the prelinked image and the eval road |
+| `rake build:self` | the compiler compiled by itself, which `exe/ze0` then gives each build to while no file under `lib`, `rt` or `vendor` moves (`ZE0_SELF`) |
 | `rake` or `rake test` | the units, the specs and the end-to-end programs |
 | `rake test:unit [N=/Exe/]` | ze0's own internals |
 | `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, one compile an example |

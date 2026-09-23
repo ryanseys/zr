@@ -42,6 +42,10 @@ end
 # the way that triple is run, as the cross-target rows of CI do;
 # `GC=stress` collects at every allocation.
 ENV["ZE0_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
+# Every task runs the compiler under ruby unless the caller asks for the
+# compiled one: the tiers, the bootstrap and `rake compile` measure and
+# compare ruby's own road (lib/ze0/self_host.rb).
+ENV["ZE0_SELF"] ||= "0"
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 
 # One tier: every file under `glob`, loaded into one process, which
@@ -79,6 +83,14 @@ task("build:wasm") { ze0_build("[Ze0::Target::WASM32_WASI]") }
 
 desc "Build both: this host, then wasm32-wasi"
 task("build:all") { ze0_build("Ze0::Test::Built.targets(wasm: true)") }
+
+desc "Build the compiler with itself, which exe/ze0 then hands each build to while nothing under lib, rt or vendor changes"
+task("build:self") do
+  require_relative "lib/ze0/self_host"
+  Ze0::SelfHost.build
+  abort("rake build:self: the compiled compiler did not build") unless Ze0::SelfHost.current?
+  puts "the compiled compiler: #{Ze0::SelfHost.binary}"
+end
 
 def ze0_build(targets)
   require "rbconfig"

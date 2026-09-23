@@ -1,6 +1,11 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+
+# The checks hold ruby's own road; a compiled compiler of the tree runs
+# only where a check asks for it (lib/ze0/self_host.rb).
+ENV["ZE0_SELF"] ||= "0"
+
 require_relative "../lib/ze0/target"
 require_relative "support/fork_pool"
 require_relative "support/harness/unbundled"
