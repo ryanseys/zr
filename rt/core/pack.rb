@@ -287,10 +287,12 @@ module Packing
 
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
-        each_item(items, at, count) do |item|
-          push_integer(out, integer_item(item), size, big)
-        end
-        at += count == :all ? items.size - at : (count || 1)
+        n = count == :all ? items.size - at : (count || 1)
+        raise ArgumentError, "too few arguments" if at + n > items.size
+
+        done = Primitive.zr_pack_ints(out, items, at, n, size, big == true)
+        (at + done...at + n).each { |i| push_integer(out, integer_item(items[i]), size, big) }
+        at += n
       end
     end
     associate(out, associates) if associates
@@ -609,8 +611,9 @@ module Packing
       else
         size, signed, order = INTEGERS.fetch(c)
         big = order == :big if order
-        each_slot(bytes, at, size, count, out) { |chunk| unpack_integer(chunk, signed, big) }
-        at += size * (count == :all ? (bytes.bytesize - at) / size : (count || 1))
+        n = count == :all ? (bytes.bytesize - at) / size : (count || 1)
+        Primitive.zr_unpack_ints(out, bytes, at, n, size, signed, big == true)
+        at += size * n
       end
       break if single && !out.empty?
     end

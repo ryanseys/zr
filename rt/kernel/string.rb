@@ -734,6 +734,93 @@ machine def zr_str_cat_bytes(recv, other)
   recv
 end
 
+# The integer directives of Array#pack and String#unpack for the words
+# a machine holds: `size` bytes (1, 2, 4 or 8) an integer, most
+# significant first when `big` is true. rt/core/pack.rb takes any
+# other element or directive, and asks these for the rest.
+
+# The elements from `at` of the Array `items`, `n` of them at most,
+# onto the String `out` in two's complement, for as long as each is a
+# fixnum; the answer is how many went, and the caller packs the rest,
+# which may convert through to_int or be a bignum.
+sig [Value, Value, Value, Value, Value, Value] => Value
+machine def zr_pack_ints(out, items, at, n, size, big)
+  from = zr_fix2long(at)
+  count = zr_fix2long(n)
+  width = zr_fix2long(size)
+  i = 0
+  while i < count && zr_fixnum_p(Machine.value(Machine.load64(RArray.ptr(items) + ((from + i) * 8), 0)))
+    i += 1
+  end
+  len = RString.len(out)
+  zr_str_reserve(out, len + (i * width))
+  p = RString.ptr(out) + len
+  j = 0
+  while j < i
+    v = zr_fix2long(Machine.value(Machine.load64(RArray.ptr(items) + ((from + j) * 8), 0)))
+    k = 0
+    while k < width
+      if big == QTRUE
+        Machine.store8(p + (width - 1 - k), 0, Machine.i8(v & 255))
+      else
+        Machine.store8(p + k, 0, Machine.i8(v & 255))
+      end
+      v = v >> 8
+      k += 1
+    end
+    p += width
+    j += 1
+  end
+  RString.set_len(out, len + (i * width))
+  Machine.store8(RString.ptr(out) + RString.len(out), 0, Machine.i8(0))
+  zr_str_modified(out)
+  zr_fix(i)
+end
+
+# `n` integers read from byte `at` of the String `bytes` onto the Array
+# `out`, two's complement when `signed` is true; a slot the String ends
+# inside answers nil, as CRuby's unpack answers one past the end.
+sig [Value, Value, Value, Value, Value, Value, Value] => Value
+machine def zr_unpack_ints(out, bytes, at, n, size, signed, big)
+  from = zr_fix2long(at)
+  count = zr_fix2long(n)
+  width = zr_fix2long(size)
+  i = 0
+  while i < count
+    start = from + (i * width)
+    if start + width > RString.len(bytes)
+      zr_ary_push(out, Machine.value(QNIL))
+    else
+      p = RString.ptr(bytes) + start
+      v = 0
+      k = 0
+      while k < width
+        if big == QTRUE
+          v = (v << 8) | Machine.word(Machine.load8(p + k, 0))
+        else
+          v = (v << 8) | Machine.word(Machine.load8(p + (width - 1 - k), 0))
+        end
+        k += 1
+      end
+      if width < 8
+        if signed == QTRUE && v >= (1 << ((width * 8) - 1))
+          v -= 1 << (width * 8)
+        end
+        zr_ary_push(out, zr_fix(v))
+      elsif signed == QTRUE || v >= 0
+        zr_ary_push(out, zr_int_from_word(v))
+      else
+        pair = Machine.slot(16)
+        Machine.store64(pair, 0, Machine.word(zr_fix((v >> 32) & 4294967295)))
+        Machine.store64(pair, 8, Machine.word(zr_fix(v & 4294967295)))
+        zr_ary_push(out, zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair))
+      end
+    end
+    i += 1
+  end
+  out
+end
+
 # `<<` appends in place; a frozen receiver raises.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_concat(recv, argc, argv, cref, blk)

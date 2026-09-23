@@ -1828,6 +1828,8 @@ module Ze0
         d zr_str_times Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_concat_codepoint Value recv:Value c:Word
         d zr_str_cat_bytes Value recv:Value other:Value
+        d zr_pack_ints Value out:Value items:Value at:Value n:Value size:Value big:Value
+        d zr_unpack_ints Value out:Value bytes:Value at:Value n:Value size:Value signed:Value big:Value
         d zr_str_concat Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_concat_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bytes_cmp Word a:Ptr alen:Word b:Ptr blen:Word
@@ -4059,6 +4061,8 @@ module Ze0
         e zr_str_times 127
         e zr_str_concat_codepoint 127
         e zr_str_cat_bytes 120
+        e zr_pack_ints 120
+        e zr_unpack_ints 127
         e zr_str_concat 127
         e zr_str_concat_m 127
         e zr_bytes_cmp 0
