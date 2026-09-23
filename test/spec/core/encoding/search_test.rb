@@ -613,4 +613,25 @@ describe "Encoding: searching and matching" do
       1
     OUT
   end
+
+  it "index and include? find no match inside a double-byte character" do
+    skip "index and include? match the trail byte of a GBK, CP949 or GB18030 character"
+
+    result = ze0(<<~'RUBY')
+      %w[GBK CP949 GB18030 Shift_JIS Big5].each do |enc|
+        s = "\xA0z".b.force_encoding(enc)
+        s = "\x81z".b.force_encoding(enc) unless s.valid_encoding?
+        z = "z".force_encoding(enc)
+        p [enc, s.valid_encoding?, s.length, s.index(z), s.include?(z), s.rindex(z)]
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["GBK", true, 1, nil, false, nil]
+      ["CP949", true, 1, nil, false, nil]
+      ["GB18030", true, 1, nil, false, nil]
+      ["Shift_JIS", true, 1, nil, false, nil]
+      ["Big5", false, 2, 1, true, 1]
+    OUT
+  end
 end

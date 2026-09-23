@@ -165,4 +165,24 @@ describe "ObjectSpace programs" do
       nil
     OUT
   end
+
+  it "objspace's reachable_objects_from_root and internal_super_of answer" do
+    skip "ObjectSpace.reachable_objects_from_root and internal_super_of stop as not implemented"
+
+    result = ze0(<<~'RUBY')
+      require "objspace"
+      def t(name)
+        p [name, yield]
+      rescue Exception => e
+        p [name, e.class, e.message]
+      end
+      t(:roots) { r = ObjectSpace.reachable_objects_from_root; [r.class, r.keys.all?(String)] }
+      t(:internal_super) { ObjectSpace.internal_super_of(String).class }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:roots, [Hash, true]]
+      [:internal_super, ObjectSpace::InternalObjectWrapper]
+    OUT
+  end
 end

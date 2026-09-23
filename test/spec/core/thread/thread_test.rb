@@ -1845,4 +1845,201 @@ describe "Thread programs" do
 
     _(result).must_answer "42\nhi!\n"
   end
+
+  it "a deadlock after queues, mutexes and condition variables raises fatal and the program goes on" do
+    skip "after this mix of threads a deadlock aborts the process with \"a terminated fiber ran again\""
+
+    result = ze0(<<~'RUBY')
+      def t(n)
+        r = yield
+        p [n, r]
+      rescue Exception => e
+        p [n, :raise, e.class, e.message.lines.first.chomp]
+      end
+      $stderr.sync = true
+      t(:mpmc) do
+        q = Thread::Queue.new
+        prods = 8.times.map { |i| Thread.new { 1000.times { |j| q << i * 1000 + j } } }
+        sum = Thread::Queue.new
+        cons = 4.times.map { Thread.new { s = 0; while (v = q.pop); s += v; end; sum << s } }
+        prods.each(&:join); q.close
+        cons.each(&:join)
+        4.times.map { sum.pop }.sum == (0...8000).sum
+      end
+      t(:sized_mpmc) do
+        q = Thread::SizedQueue.new(3)
+        got = []
+        m = Mutex.new
+        cons = 3.times.map { Thread.new { while (v = q.pop); m.synchronize { got << v }; end } }
+        prods = 5.times.map { |i| Thread.new { 200.times { |j| q.push(i * 200 + j) } } }
+        prods.each(&:join); q.close; cons.each(&:join)
+        [got.size, got.sort == (0...1000).to_a, q.max]
+      end
+      t(:q_close) { q = Queue.new; q << 1; q.close; [q.closed?, q.pop, q.pop, q.empty?, q.size] }
+      t(:q_push_closed) { q = Queue.new; q.close; q << 1 }
+      t(:sq_push_closed) { q = SizedQueue.new(1); q.close; q << 1 }
+      t(:q_close_wakes) { q = Queue.new; th = Thread.new { q.pop }; sleep 0.05 until th.status == "sleep"; q.close; th.value }
+      t(:sq_close_wakes_pusher) { q = SizedQueue.new(1); q << 1; th = Thread.new { begin; q << 2; rescue => e; [e.class, e.message]; end }; sleep 0.05 until th.status == "sleep"; q.close; th.value }
+      t(:pop_timeout) { q = Queue.new; [q.pop(timeout: 0.05), q.pop(timeout: 0)] }
+      t(:pop_nonblock_timeout) { Queue.new.pop(true, timeout: 1) }
+      t(:pop_nonblock) { Queue.new.pop(true) }
+      t(:sq_push_timeout) { q = SizedQueue.new(1); q << 1; q.push(2, timeout: 0.05) }
+      t(:sq_push_nonblock) { q = SizedQueue.new(1); q << 1; q.push(2, true) }
+      t(:num_waiting) { q = Queue.new; ths = 3.times.map { Thread.new { q.pop } }; sleep 0.01 until q.num_waiting == 3; n = q.num_waiting; 3.times { q << 1 }; ths.each(&:join); [n, q.num_waiting] }
+      t(:sq_num_waiting) { q = SizedQueue.new(1); q << 0; ths = 2.times.map { Thread.new { q << 1 } }; sleep 0.01 until q.num_waiting == 2; n = q.num_waiting; 3.times { q.pop }; ths.each(&:join); n }
+      t(:q_init_enum) { Queue.new([1, 2, 3]).size }
+      t(:q_init_bad) { Queue.new(1) }
+      t(:q_freeze) { Queue.new.freeze }
+      t(:q_marshal) { Marshal.dump(Queue.new) }
+      t(:q_clear) { q = Queue.new([1, 2]); q.clear; q.length }
+      t(:sq_max) { q = SizedQueue.new(2); q.max = 5; [q.max, (q.max = 0 rescue [$!.class, $!.message])] }
+      t(:sq_new0) { SizedQueue.new(0) }
+      t(:q_alias) { q = Queue.new; q.enq(1); q.push(2); [q.deq, q.shift] }
+      t(:closed_q_err) { [ClosedQueueError.superclass, StopIteration.superclass] }
+      t(:cv) do
+        m = Mutex.new; cv = ConditionVariable.new; ready = false; out = []
+        ths = 5.times.map { |i| Thread.new { m.synchronize { cv.wait(m) until ready; out << i } } }
+        sleep 0.01 until ths.all? { |th| th.status == "sleep" }
+        m.synchronize { ready = true; cv.broadcast }
+        ths.each(&:join); out.sort
+      end
+      t(:cv_signal_ret) { cv = ConditionVariable.new; [cv.signal.class, cv.broadcast.class] }
+      t(:cv_wait_timeout) { m = Mutex.new; cv = ConditionVariable.new; m.synchronize { r = cv.wait(m, 0.02); r.equal?(m) || r } }
+      t(:mutex_basic) { m = Mutex.new; [m.locked?, m.try_lock, m.locked?, m.owned?, m.try_lock, m.unlock.equal?(m), m.locked?] }
+      t(:mutex_unlock_err) { Mutex.new.unlock }
+      t(:mutex_relock) { m = Mutex.new; m.lock; m.lock }
+      t(:mutex_other_unlock) { m = Mutex.new; m.lock; Thread.new { begin; m.unlock; rescue => e; [e.class, e.message]; end }.value }
+      t(:mutex_sleep) { m = Mutex.new; m.synchronize { m.sleep(0.01).class } }
+      t(:mutex_sleep_unlocked) { Mutex.new.sleep(0.01) }
+      t(:mutex_counter) { m = Mutex.new; c = 0; 10.times.map { Thread.new { 1000.times { m.synchronize { c += 1 } } } }.each(&:join); c }
+      t(:mutex_sync_ret) { Mutex.new.synchronize { 42 } }
+      t(:mutex_dead_owner) { m = Mutex.new; Thread.new { m.lock }.join; [m.locked?, m.try_lock] }
+      t(:value_exc) { th = Thread.new { Thread.current.report_on_exception = false; raise IOError, "io" }; th.value }
+      t(:join_exc) { th = Thread.new { Thread.current.report_on_exception = false; raise "j" }; th.join }
+      t(:join_timeout) { th = Thread.new { sleep 1 }; r = th.join(0.01); th.kill; r }
+      t(:status) { th = Thread.new { Thread.current.report_on_exception = false; raise "x" }; th.join rescue nil; [th.status, th.alive?, Thread.new {}.tap(&:join).status] }
+      t(:roe_default) { Thread.report_on_exception }
+      t(:roe_output) { th = Thread.new { raise ArgumentError, "rep" }; sleep 0.01 while th.alive?; th.join rescue $!.message }
+      t(:deadlock_in_thread) { m = Queue.new; Thread.new { m.pop }.join }
+      puts "after deadlock"
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      [:mpmc, true]
+      [:sized_mpmc, [1000, true, 3]]
+      [:q_close, [true, 1, nil, true, 0]]
+      [:q_push_closed, :raise, ClosedQueueError, "queue closed"]
+      [:sq_push_closed, :raise, ClosedQueueError, "queue closed"]
+      [:q_close_wakes, nil]
+      [:sq_close_wakes_pusher, [ClosedQueueError, "queue closed"]]
+      [:pop_timeout, [nil, nil]]
+      [:pop_nonblock_timeout, :raise, ArgumentError, "can't set a timeout if non_block is enabled"]
+      [:pop_nonblock, :raise, ThreadError, "queue empty"]
+      [:sq_push_timeout, nil]
+      [:sq_push_nonblock, :raise, ThreadError, "queue full"]
+      [:num_waiting, [3, 0]]
+      [:sq_num_waiting, 2]
+      [:q_init_enum, 3]
+      [:q_init_bad, :raise, TypeError, "can't convert Integer into Array"]
+      [:q_freeze, :raise, TypeError, "cannot freeze #<Thread::Queue:0xADDR>"]
+      [:q_marshal, :raise, TypeError, "can't dump Thread::Queue"]
+      [:q_clear, 0]
+      [:sq_max, :raise, ArgumentError, "queue size must be positive"]
+      [:sq_new0, :raise, ArgumentError, "queue size must be positive"]
+      [:q_alias, [1, 2]]
+      [:closed_q_err, [StopIteration, IndexError]]
+      [:cv, [0, 1, 2, 3, 4]]
+      [:cv_signal_ret, [Thread::ConditionVariable, Thread::ConditionVariable]]
+      [:cv_wait_timeout, nil]
+      [:mutex_basic, [false, true, true, true, false, true, false]]
+      [:mutex_unlock_err, :raise, ThreadError, "Attempt to unlock a mutex which is not locked"]
+      [:mutex_relock, :raise, ThreadError, "deadlock; recursive locking"]
+      [:mutex_other_unlock, [ThreadError, "Attempt to unlock a mutex which is locked by another thread/fiber"]]
+      [:mutex_sleep, NilClass]
+      [:mutex_sleep_unlocked, :raise, ThreadError, "Attempt to unlock a mutex which is not locked"]
+      [:mutex_counter, 10000]
+      [:mutex_sync_ret, 42]
+      [:mutex_dead_owner, [false, true]]
+      [:value_exc, :raise, IOError, "io"]
+      [:join_exc, :raise, RuntimeError, "j"]
+      [:join_timeout, nil]
+      [:status, [nil, false, false]]
+      [:roe_default, true]
+      [:roe_output, "rep"]
+      [:deadlock_in_thread, :raise, fatal, "No live threads left. Deadlock?"]
+      after deadlock
+    OUT
+      #<Thread:0xADDR core/thread/thread_test.rb:70 run> terminated with exception (report_on_exception is true):
+      core/thread/thread_test.rb:70:in 'block (2 levels) in <main>': rep (ArgumentError)
+
+      t(:roe_output) { th = Thread.new { raise ArgumentError, "rep" }; sleep 0.01 while th.alive?; th.join rescue $!.message }
+                                               ^^^^^^^^^^^^^^^^^^^^
+    ERR
+  end
+
+  it "a mutex its dead owner held is free again" do
+    skip "a mutex stays locked after the thread that locked it ends"
+
+    result = ze0(<<~'RUBY')
+      m = Mutex.new
+      Thread.new { m.lock }.join
+      p [m.locked?, m.try_lock, m.owned?]
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [false, true, true]
+    OUT
+  end
+
+  it "a non-main Ractor may not read unshareable state" do
+    skip "a Ractor reads a non-shareable constant, a global and a class variable with no IsolationError"
+
+    result = ze0(<<~'RUBY')
+      $VERBOSE = nil
+      NONSH = ["a"]
+      $g = 1
+      class CV
+        @@v = 1
+        def self.v = @@v
+      end
+      def t(name, r)
+        p [name, r.value]
+      rescue Ractor::RemoteError => e
+        p [name, e.cause.class, e.cause.message]
+      end
+      t(:const, Ractor.new { NONSH })
+      t(:global, Ractor.new { $g })
+      t(:cvar, Ractor.new { CV.v })
+      t(:const_set, Ractor.new { Object.const_set(:NEWC, [1]) })
+      def u(name)
+        p [name, yield]
+      rescue => e
+        p [name, e.class, e.message.sub(/0x\h+/, "X")]
+      end
+      u(:name_type) { Ractor.new(name: 3) {} }
+      u(:proc_self) { x = 1; Ractor.make_shareable(proc { x }) }
+      u(:range) { Ractor.shareable?("a".."b") }
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      [:const, Ractor::IsolationError, "can not access non-shareable objects in constant Object::NONSH by non-main Ractor."]
+      [:global, Ractor::IsolationError, "can not access global variable $g from non-main Ractor"]
+      [:cvar, Ractor::IsolationError, "can not access class variables from non-main Ractors (@@v from CV)"]
+      [:const_set, Ractor::IsolationError, "can not set constants with non-shareable objects by non-main Ractors"]
+      [:name_type, TypeError, "no implicit conversion of Integer into String"]
+      [:proc_self, Ractor::IsolationError, "Proc's self is not shareable: #<Proc:X core/thread/thread_test.rb:23>"]
+      [:range, true]
+    OUT
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/thread_test.rb:13:in 'block in <main>': can not access non-shareable objects in constant Object::NONSH by non-main Ractor. (Ractor::IsolationError)
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/thread_test.rb:14:in 'block in <main>': can not access global variable $g from non-main Ractor (Ractor::IsolationError)
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/thread_test.rb:6:in 'CV.v': can not access class variables from non-main Ractors (@@v from CV) (Ractor::IsolationError)
+      	from core/thread/thread_test.rb:15:in 'block in <main>'
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/thread_test.rb:16:in 'Module#const_set': can not set constants with non-shareable objects by non-main Ractors (Ractor::IsolationError)
+      	from core/thread/thread_test.rb:16:in 'block in <main>'
+    ERR
+  end
 end

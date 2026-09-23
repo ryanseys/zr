@@ -264,4 +264,23 @@ describe "Coverage programs" do
       [CovMixin, :mixed_one, 63, 2, 63, 19] => 0
     OUT
   end
+
+  it "Coverage.setup takes eval: true" do
+    skip "Coverage.setup(eval: true) stops as not implemented"
+
+    result = ze0(<<~'RUBY')
+      require "coverage"
+      Coverage.setup(lines: true, eval: true)
+      p Coverage.running?
+      Coverage.resume
+      p Coverage.running?
+      p Coverage.result.class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      true
+      Hash
+    OUT
+  end
 end

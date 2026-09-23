@@ -2368,4 +2368,52 @@ describe "Control programs" do
       200000
     OUT
   end
+
+  it "a flip-flop of integer literals compares them with $." do
+    skip "an integer literal in a flip-flop is taken as true, not as a test of $."
+
+    result = ze0(<<~'RUBY')
+      $VERBOSE = nil
+      r = []
+      (1..8).each { |i| $. = i; r << i if 2..4 }
+      p r
+      r = []
+      (1..8).each { |i| $. = i; r << i if 3...3 }
+      p r
+      r = []
+      (1..8).each { |i| $. = i; r << i if (i == 6)..7 }
+      p r
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      [2, 3, 4]
+      [3, 4, 5, 6, 7, 8]
+      [6, 7]
+    OUT
+      lang/control/control_test.rb:3: warning: integer literal in flip-flop
+      lang/control/control_test.rb:3: warning: integer literal in flip-flop
+      lang/control/control_test.rb:6: warning: integer literal in flip-flop
+      lang/control/control_test.rb:6: warning: integer literal in flip-flop
+      lang/control/control_test.rb:9: warning: integer literal in flip-flop
+    ERR
+  end
+
+  it "a retry that cannot run may stand in a block inside a rescue" do
+    skip "the build refuses a retry that stands in a block inside a rescue"
+
+    result = ze0(<<~'RUBY')
+      # A retry that cannot run is no error: the parse drops it with its
+      # dead branch before it asks whether the retry is where one may be.
+      begin
+        raise "y"
+      rescue
+        [1].each { retry if false }
+        p :no_retry
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :no_retry
+    OUT
+  end
 end

@@ -1761,4 +1761,20 @@ describe "Encoding: packing and unpacking" do
       0
     OUT
   end
+
+  it "SJIS-SoftBank converts an emoji to UTF8-SoftBank" do
+    skip "the SoftBank tables stop on an emoji with no Unicode code point"
+
+    result = ze0(<<~'RUBY')
+      s = "\xF9\x41".b.force_encoding("SJIS-SoftBank")
+      r = s.encode("UTF8-SoftBank")
+      p [r.b, r.encoding]
+      p s.encode("UTF8-SoftBank").encode("SJIS-SoftBank").b
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["\xEE\x80\x81", #<Encoding:UTF8-SoftBank>]
+      "\xF9A"
+    OUT
+  end
 end

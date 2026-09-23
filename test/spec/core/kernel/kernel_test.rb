@@ -2471,4 +2471,43 @@ describe "Kernel programs" do
 
     _(result).must_answer "23\n8\n"
   end
+
+  it "pp's backtrace has no bind_call frame" do
+    skip "pp calls through UnboundMethod#bind_call, which the backtrace shows"
+
+    result = ze0(<<~'RUBY')
+      class Bad
+        def pretty_print(q) = raise("in pp")
+      end
+      begin
+        pp Bad.new
+      rescue => e
+        puts e.backtrace.grep_v(/prettyprint|pp\.rb/).first(3)
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      core/kernel/kernel_test.rb:2:in 'Bad#pretty_print'
+      core/kernel/kernel_test.rb:5:in 'Kernel#pp'
+      core/kernel/kernel_test.rb:5:in '<main>'
+    OUT
+  end
+
+  it "a Symbol block of pp is a private call" do
+    skip "&:pp calls the private Kernel#pp with no error and prints nothing"
+
+    result = ze0(<<~'RUBY')
+      begin
+        [[1] * 3].each(&:pp)
+      rescue NoMethodError => e
+        p [e.class, e.message]
+      end
+      p [1].respond_to?(:pp)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [NoMethodError, "private method 'pp' called for an instance of Array"]
+      false
+    OUT
+  end
 end

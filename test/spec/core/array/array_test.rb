@@ -2623,4 +2623,24 @@ describe "Array programs" do
       2
     OUT
   end
+
+  it "join warns when $, is set and the deprecated category is on" do
+    skip "Array#join reads $, with no deprecation warning"
+
+    result = ze0(<<~'RUBY')
+      Warning[:deprecated] = true
+      $, = "+"
+      p [3, 4].join
+      $, = nil
+      p [3, 4].join
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
+      "3+4"
+      "34"
+    OUT
+      core/array/array_test.rb:2: warning: non-nil '$,' is deprecated
+      core/array/array_test.rb:3: warning: $, is set to non-nil value
+    ERR
+  end
 end

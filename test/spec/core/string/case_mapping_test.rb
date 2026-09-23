@@ -641,4 +641,56 @@ describe "String: case mapping" do
       :hi
     OUT
   end
+
+  it "swapcase of a binary or KOI8-R string maps ASCII only and keeps the encoding" do
+    skip "swapcase of high bytes in a binary or KOI8-R string answers UTF-8"
+
+    result = ze0(<<~'RUBY')
+      s = "\xE9a\xC9B".b
+      p [s.upcase, s.downcase, s.capitalize, s.swapcase, s.swapcase.encoding]
+      k = "\xE9a\xC9B".b.force_encoding("KOI8-R")
+      p [k.upcase.b, k.downcase.b, k.swapcase.b, k.swapcase.encoding]
+      w = "\xE9a\xC9B".b.force_encoding("Windows-1251")
+      p [w.upcase.b, w.downcase.b, w.swapcase.b]
+      e = "\xA4\xA2a".b.force_encoding("EUC-JP")
+      p [e.swapcase.b, e.swapcase.encoding]
+      b = "\xE9a".b
+      p [b.swapcase!, b.encoding]
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["\xE9A\xC9B", "\xE9a\xC9b", "\xE9a\xC9b", "\xE9A\xC9b", #<Encoding:BINARY (ASCII-8BIT)>]
+      ["\xE9A\xC9B", "\xE9a\xC9b", "\xE9A\xC9b", #<Encoding:KOI8-R>]
+      ["\xC9A\xC9B", "\xE9a\xE9b", "\xC9A\xE9b"]
+      ["\xA4\xA2A", #<Encoding:EUC-JP>]
+      ["\xE9A", #<Encoding:BINARY (ASCII-8BIT)>]
+    OUT
+  end
+
+  it "case mapping of a US-ASCII string with a byte past ASCII maps the ASCII letters" do
+    skip "downcase and swapcase of a US-ASCII string with a high byte raise ArgumentError"
+
+    result = ze0(<<~'RUBY')
+      s = "A\xE9b".force_encoding("US-ASCII")
+      def t(name)
+        r = yield
+        p [name, r.b, r.encoding]
+      rescue => e
+        p [name, e.class, e.message]
+      end
+      t(:downcase) { s.downcase }
+      t(:upcase) { s.upcase }
+      t(:swapcase) { s.swapcase }
+      t(:capitalize) { s.capitalize }
+      t(:downcase!) { s.dup.downcase! }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:downcase, "a\xE9b", #<Encoding:US-ASCII>]
+      [:upcase, "A\xE9B", #<Encoding:US-ASCII>]
+      [:swapcase, "a\xE9B", #<Encoding:US-ASCII>]
+      [:capitalize, "A\xE9b", #<Encoding:US-ASCII>]
+      [:downcase!, "a\xE9b", #<Encoding:US-ASCII>]
+    OUT
+  end
 end

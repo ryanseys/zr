@@ -2244,4 +2244,26 @@ describe "IO programs" do
 
     _(result).must_answer "out1\nout2\n", stderr: "w1\nerr1\nerr2\nw2\nw3\n"
   end
+
+  it "IO#advise names an advice it does not know" do
+    skip "IO#advise of an unknown advice raises NotImplementedError with the message \"advise\""
+
+    result = ze0(<<~'RUBY')
+      File.open(__FILE__) do |f|
+        begin
+          f.advise(:bogus)
+        rescue NotImplementedError => e
+          p [e.class, e.message]
+        end
+        p f.advise(:sequential)
+        p f.advise(:normal, 0, 0)
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [NotImplementedError, "Unsupported advice: :bogus"]
+      nil
+      nil
+    OUT
+  end
 end

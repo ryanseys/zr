@@ -1987,4 +1987,52 @@ describe "Syntax programs" do
       true
     OUT
   end
+
+  it "defined? of an empty expression answers nil" do
+    skip "defined?(()) and defined?(begin; end) answer \"expression\""
+
+    result = ze0(<<~'RUBY')
+      p defined?(())
+      p defined?(begin; end)
+      p defined?((nil))
+      p defined?((1; ()))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "nil"
+      "nil"
+      "nil"
+      "expression"
+    OUT
+  end
+
+  it "a syntax error is reported once, after the warnings of the parse" do
+    skip "the syntax_suggest block prints twice, and the parse's warnings are lost"
+
+    result = ze0(<<~'RUBY')
+      p 1 if "lit"
+      def f
+        break
+      end
+    RUBY
+
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/syntax/syntax_test.rb:1: warning: string literal in condition
+      lang/syntax/syntax_test.rb: --> lang/syntax/syntax_test.rb
+
+      Invalid break
+
+        2  def f
+      > 3    break
+        4  end
+
+      lang/syntax/syntax_test.rb:3: syntax error found (SyntaxError)
+        1 | p 1 if "lit"
+        2 | def f
+      > 3 |   break
+          |   ^~~~~ Invalid break
+        4 | end
+
+    ERR
+  end
 end

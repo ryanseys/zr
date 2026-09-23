@@ -1501,4 +1501,57 @@ describe "RubyVM programs" do
       m path: "rubyvm_test.rb"
     OUT
   end
+
+  it "an InstructionSequence of a proc answers eval, to_a, each_child, to_binary and trace_points as ruby does" do
+    skip "eval, disasm, to_a, each_child, to_binary and trace_points of an iseq stop as not implemented"
+
+    result = ze0(<<~'RUBY')
+      iseq = RubyVM::InstructionSequence.of(proc { 1 })
+      def t(name)
+        p [name, yield]
+      rescue Exception => e
+        p [name, e.class, e.message]
+      end
+      t(:eval) { iseq.eval }
+      t(:disasm) { iseq.disasm.class }
+      t(:to_a) { iseq.to_a.class }
+      t(:each_child) { iseq.each_child {}; :ok }
+      t(:to_binary) { iseq.to_binary }
+      t(:trace_points) { iseq.trace_points.class }
+      top = RubyVM::InstructionSequence.compile("def x; end; proc {}")
+      t(:top_children) { r = []; top.each_child { |c| r << c.label }; r }
+      t(:top_disasm) { top.disasm.lines.first[/\A== disasm: /] }
+      t(:top_to_a) { top.to_a.first(2) }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:eval, TypeError, "Not a toplevel InstructionSequence"]
+      [:disasm, String]
+      [:to_a, Array]
+      [:each_child, :ok]
+      [:to_binary, RuntimeError, "should be top of iseq"]
+      [:trace_points, Array]
+      [:top_children, ["x", "block in <compiled>"]]
+      [:top_disasm, "== disasm: "]
+      [:top_to_a, ["YARVInstructionSequence/SimpleDataFormat", 4]]
+    OUT
+  end
+
+  it "compile_option and a parse error of AbstractSyntaxTree" do
+    skip "compile_option has no keys, and the parse error message has prism's long form"
+
+    result = ze0(<<~'RUBY')
+      p RubyVM::InstructionSequence.compile_option.keys.sort.first(4)
+      begin
+        RubyVM::AbstractSyntaxTree.parse("1 +")
+      rescue SyntaxError => e
+        p e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:coverage_enabled, :debug_frozen_string_literal, :debug_level, :frozen_string_literal]
+      "syntax error, unexpected end-of-input"
+    OUT
+  end
 end

@@ -1586,4 +1586,206 @@ describe "Encoding programs" do
       "10000"
     OUT
   end
+
+  it "encode with invalid: :replace replaces bad bytes of a US-ASCII or UTF-8 source" do
+    skip "a US-ASCII source raises KeyError, and UTF-8 to UTF-8 keeps its bad bytes"
+
+    result = ze0(<<~'RUBY')
+      def t(s, to, **o)
+        r = s.encode(to, **o)
+        p [r, r.encoding]
+      rescue => e
+        p [e.class, e.message]
+      end
+      t "a\xE9".force_encoding("US-ASCII"), "UTF-8", invalid: :replace
+      t "a\xE9b", "UTF-8", invalid: :replace
+      t "a\xE9b", "UTF-8", invalid: :replace, replace: "?"
+      t "a\xE9b", "UTF-16LE", invalid: :replace
+      t "a\xE9b".force_encoding("US-ASCII"), "ISO-8859-1", invalid: :replace
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["a�", #<Encoding:UTF-8>]
+      ["a�b", #<Encoding:UTF-8>]
+      ["a?b", #<Encoding:UTF-8>]
+      ["a\uFFFDb", #<Encoding:UTF-16LE>]
+      ["a?b", #<Encoding:ISO-8859-1>]
+    OUT
+  end
+
+  it "encode with invalid: :replace keeps the byte after a bad lead byte of a double-byte encoding" do
+    skip "a bad two-byte sequence of Shift_JIS, GBK, Big5, CP949 or EUC loses its trail byte"
+
+    result = ze0(<<~'RUBY')
+      def t(bytes, from)
+        r = bytes.b.force_encoding(from).encode("UTF-8", invalid: :replace)
+        p [from, r]
+      rescue => e
+        p [from, e.class, e.message]
+      end
+      t "\x81\x30", "Shift_JIS"
+      t "\x81\x7F", "GBK"
+      t "\xA1\x30", "Big5"
+      t "\x81\x30", "CP949"
+      t "\xA1\x30", "EUC-JP"
+      t "\xA1\x30", "EUC-KR"
+      t "\x81\x30", "Windows-31J"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["Shift_JIS", "�0"]
+      ["GBK", "�\u007F"]
+      ["Big5", "�0"]
+      ["CP949", "�0"]
+      ["EUC-JP", "�0"]
+      ["EUC-KR", "�0"]
+      ["Windows-31J", "�0"]
+    OUT
+  end
+
+  it "encode with invalid: :replace replaces for GB18030, CESU-8, UTF8-MAC, ISO-2022-JP and the BOM encodings" do
+    skip "these sources raise where ruby replaces"
+
+    result = ze0(<<~'RUBY')
+      def t(bytes, from, to = "UTF-8")
+        r = bytes.b.force_encoding(from).encode(to, invalid: :replace)
+        p [from, r]
+      rescue => e
+        p [from, e.class, e.message]
+      end
+      t "\x81\x30", "GB18030"
+      t "\xED\xA0\xBDA", "CESU-8"
+      t "a\xFF", "UTF8-MAC"
+      t "a\e$Bx", "ISO-2022-JP"
+      t "\xFF\xFEa\x00\x00\xD8", "UTF-16"
+      t "\xFF\xFE\x00\x00a\x00\x00\x00\x00\xD8\x00\x00", "UTF-32"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["GB18030", "�"]
+      ["CESU-8", "�A"]
+      ["UTF8-MAC", "a?"]
+      ["ISO-2022-JP", "a�"]
+      ["UTF-16", "a�"]
+      ["UTF-32", "a�"]
+    OUT
+  end
+
+  it "the newline options of encode to UTF-16" do
+    skip "crlf_newline: and universal_newline: to UTF-16 raise CompatibilityError"
+
+    result = ze0(<<~'RUBY')
+      def t(s, to, **o)
+        r = s.encode(to, **o)
+        p [r.b, r.encoding]
+      rescue => e
+        p [e.class, e.message]
+      end
+      t "a\nb", "UTF-16LE", crlf_newline: true
+      t "a\r\nb", "UTF-16BE", universal_newline: true
+      t "a\nb", "UTF-32LE", cr_newline: true
+      t "a\r\nb".encode("UTF-16LE"), "UTF-8", universal_newline: true
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["a\x00\r\x00\n\x00b\x00", #<Encoding:UTF-16LE>]
+      ["\x00a\x00\n\x00b", #<Encoding:UTF-16BE>]
+      ["a\x00\x00\x00\r\x00\x00\x00b\x00\x00\x00", #<Encoding:UTF-32LE>]
+      ["a\nb", #<Encoding:UTF-8>]
+    OUT
+  end
+
+  it "an Encoding::Converter to CESU-8 or to UTF-16" do
+    skip "a Converter to CESU-8 raises, and one to UTF-16 writes no BOM"
+
+    result = ze0(<<~'RUBY')
+      def t(from, to, s)
+        c = Encoding::Converter.new(from, to)
+        r = c.convert(s) + c.finish
+        p [to, r.b]
+      rescue => e
+        p [to, e.class, e.message]
+      end
+      t "UTF-8", "CESU-8", "日"
+      t "UTF-8", "CESU-8", "\u{1F600}"
+      t "UTF-8", "UTF-16", "a"
+      t "UTF-8", "UTF-32", "a"
+      p "a".encode("UTF-16").b
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["CESU-8", "\xE6\x97\xA5"]
+      ["CESU-8", "\xED\xA0\xBD\xED\xB8\x80"]
+      ["UTF-16", "\xFE\xFF\x00a"]
+      ["UTF-32", "\x00\x00\xFE\xFF\x00\x00\x00a"]
+      "\xFE\xFF\x00a"
+    OUT
+  end
+
+  it "a newline or xml option to an encoding with no converter raises" do
+    skip "ASCII text converts to EUC-TW or Emacs-Mule under xml: or crlf_newline:"
+
+    result = ze0(<<~'RUBY')
+      def t(to, **o)
+        r = "a<b".encode(to, **o)
+        p [to, r.b]
+      rescue => e
+        p [to, e.class, e.message]
+      end
+      t "EUC-TW", xml: :text
+      t "Emacs-Mule", crlf_newline: true
+      t "GB1988", xml: :attr
+      t "macThai", xml: :text
+      t "EUC-TW"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["EUC-TW", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to EUC-TW with xml_text)"]
+      ["Emacs-Mule", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to Emacs-Mule with crlf_newline)"]
+      ["GB1988", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to GB1988 with xml_attr_content,xml_attr_quote)"]
+      ["macThai", Encoding::ConverterNotFoundError, "code converter not found (UTF-8 to macThai with xml_text)"]
+      ["EUC-TW", "a<b"]
+    OUT
+  end
+
+  it "a dummy encoding refuses case mapping and concatenation, and inspect escapes each byte" do
+    skip "upcase, downcase and + work on a dummy encoding, and inspect shows its text"
+
+    result = ze0(<<~'RUBY')
+      %w[UTF-7 UTF-16 ISO-2022-JP IBM037].each do |enc|
+        s = "abc".b.force_encoding(enc)
+        r = [enc, s.inspect]
+        r << (s.upcase rescue [$!.class, $!.message])
+        r << (s.downcase rescue [$!.class, $!.message])
+        r << ((s + "d") rescue [$!.class, $!.message])
+        p r
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["UTF-7", "\"\\x61\\x62\\x63\"", [Encoding::CompatibilityError, "incompatible encoding with this operation: UTF-7"], [Encoding::CompatibilityError, "incompatible encoding with this operation: UTF-7"], [Encoding::CompatibilityError, "incompatible character encodings: UTF-7 and UTF-8"]]
+      ["UTF-16", "\"\\x61\\x62\\x63\"", [Encoding::CompatibilityError, "incompatible encoding with this operation: UTF-16"], [Encoding::CompatibilityError, "incompatible encoding with this operation: UTF-16"], [Encoding::CompatibilityError, "incompatible character encodings: UTF-16 and UTF-8"]]
+      ["ISO-2022-JP", "\"\\x61\\x62\\x63\"", [Encoding::CompatibilityError, "incompatible encoding with this operation: ISO-2022-JP"], [Encoding::CompatibilityError, "incompatible encoding with this operation: ISO-2022-JP"], [Encoding::CompatibilityError, "incompatible character encodings: ISO-2022-JP and UTF-8"]]
+      ["IBM037", "\"\\x61\\x62\\x63\"", [Encoding::CompatibilityError, "incompatible encoding with this operation: IBM037"], [Encoding::CompatibilityError, "incompatible encoding with this operation: IBM037"], [Encoding::CompatibilityError, "incompatible character encodings: IBM037 and UTF-8"]]
+    OUT
+  end
+
+  it "scrub and grapheme_clusters of broken UTF-32" do
+    skip "UTF-32 scrub answers where ruby raises, and grapheme_clusters counts one piece too many"
+
+    result = ze0(<<~'RUBY')
+      s = "a\x00\x00\x00\xFF\xFF\xFF\xFFb\x00\x00".b.force_encoding("UTF-32LE")
+      p [s.valid_encoding?, (s.scrub("?") rescue [$!.class, $!.message])]
+      p s.scrub.b
+      p s.grapheme_clusters.size
+      p s.chars.size
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [false, [Encoding::CompatibilityError, "incompatible character encodings: UTF-32LE and UTF-8"]]
+      "a\x00\x00\x00\xFD\xFF\x00\x00\xFD\xFF\x00\x00"
+      2
+      3
+    OUT
+  end
 end

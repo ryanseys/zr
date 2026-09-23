@@ -393,4 +393,66 @@ describe "Refinements programs" do
       4
     OUT
   end
+
+  it "interpolation calls a refined to_s" do
+    skip "interpolation calls to_s with no look at the refinements in scope"
+
+    result = ze0(<<~'RUBY')
+      module RS
+        refine(Integer) { def to_s = "R" }
+        refine(Symbol) { def to_s = "sym" }
+      end
+      using RS
+      p "#{5}"
+      p "a#{:b}c"
+      p 5.to_s
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "R"
+      "abc"
+      "R"
+    OUT
+  end
+
+  it "a Symbol block reaches a refined method" do
+    skip "&:name looks the name up with no refinements, so a refined-only method is undefined"
+
+    result = ze0(<<~'RUBY')
+      module RS
+        refine(String) { def shout = upcase + "!" }
+        refine(Integer) { def to_s = "R" }
+      end
+      using RS
+      p %w[a b].map(&:shout)
+      p [1, 2].map(&:to_s)
+      pr = :shout.to_proc
+      p pr.call("c")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["A!", "B!"]
+      ["R", "R"]
+      "C!"
+    OUT
+  end
+
+  it "using inside a block at the top level refines the rest of the file" do
+    skip "a using inside a block does not reach the sends after the block"
+
+    result = ze0(<<~'RUBY')
+      module RS
+        refine(Integer) { def to_s = "R" }
+      end
+      def run = yield
+      p 5.to_s
+      run { using RS }
+      p 5.to_s
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "5"
+      "R"
+    OUT
+  end
 end

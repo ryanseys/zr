@@ -4991,4 +4991,43 @@ describe "Methods programs" do
 
     _(result).must_answer "stdout done\n1\n", stderr: "with opts\n"
   end
+
+  it "did_you_mean offers no private method for a call with a receiver" do
+    skip "the suggestion names Kernel#putc, which only a call with no receiver reaches"
+
+    result = ze0(<<~'RUBY')
+      begin
+        Object.new.puts
+      rescue NoMethodError => e
+        puts e.detailed_message(highlight: false)
+      end
+      begin
+        Object.new.prinf
+      rescue NoMethodError => e
+        puts e.detailed_message(highlight: false)
+      end
+      def self.helpr = 1
+      begin
+        helper
+      rescue NameError => e
+        puts e.detailed_message(highlight: false)
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      private method 'puts' called for an instance of Object (NoMethodError)
+
+        Object.new.puts
+                  ^^^^^
+      undefined method 'prinf' for an instance of Object (NoMethodError)
+
+        Object.new.prinf
+                  ^^^^^^
+      undefined local variable or method 'helper' for main (NameError)
+
+        helper
+        ^^^^^^
+      Did you mean?  helpr
+    OUT
+  end
 end
