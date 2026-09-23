@@ -3562,7 +3562,15 @@ class Encoding
     Primitive.attr! :hidden
     return exchange(text, UTF_8, path, options) if carrier?(from)
 
-    text.dup.force_encoding(UTF_8).unicode_normalize(:nfc)
+    text = text.dup.force_encoding(UTF_8)
+    unless text.valid_encoding?
+      # ruby's UTF8-MAC decoder marks a bad byte "?"; without the option
+      # the bad bytes stop as UTF-8's decoder words them.
+      mark = options[:replace] || "?"
+      utf8_points(text, mark, options, UTF_8, from) { nil } unless options[:invalid] == :replace
+      text = text.scrub(mark)
+    end
+    text.unicode_normalize(:nfc)
   end
 
   def self.utf8_like_write(text, target, path, options)

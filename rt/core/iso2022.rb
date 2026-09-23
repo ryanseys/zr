@@ -107,33 +107,44 @@ class Encoding
     path = [from, stateless_name && step, base, UTF_8].compact
     bytes = text.b
     out = +"".b
+    read = +""
     mode = :ascii
     at = 0
     while at < bytes.bytesize
       byte = bytes.getbyte(at)
-      if byte == 0x1B
-        mode, at = escape_at(bytes, at, from, step, kana)
-      elsif mode == :ascii
-        # An eight-bit byte is the multibyte encoding's to read, where a
-        # stateless one does not stand between.
-        stateful_invalid([byte], nil, false, from, step) if byte >= 0x80 && (stateless_name || led)
-        out << byte
-        at += 1
-      elsif mode == :kana
-        stateful_invalid([byte], nil, false, from, step) unless byte.between?(0x21, 0x5F)
-        out << 0x8E << (byte | 0x80)
-        at += 1
-      else
-        stateful_invalid([byte], nil, false, from, step) unless byte.between?(0x21, 0x7E)
-        second = bytes.getbyte(at + 1)
-        stateful_invalid([byte], nil, true, from, step) if second.nil?
-        stateful_invalid([byte], [second], false, from, step) unless second.between?(0x21, 0x7E)
-        out << LEADS.fetch(mode) if led
-        out << (byte | 0x80) << (second | 0x80)
-        at += 2
+      begin
+        if byte == 0x1B
+          mode, at = escape_at(bytes, at, from, step, kana)
+        elsif mode == :ascii
+          # An eight-bit byte is the multibyte encoding's to read, where a
+          # stateless one does not stand between.
+          stateful_invalid([byte], nil, false, from, step) if byte >= 0x80 && (stateless_name || led)
+          out << byte
+          at += 1
+        elsif mode == :kana
+          stateful_invalid([byte], nil, false, from, step) unless byte.between?(0x21, 0x5F)
+          out << 0x8E << (byte | 0x80)
+          at += 1
+        else
+          stateful_invalid([byte], nil, false, from, step) unless byte.between?(0x21, 0x7E)
+          second = bytes.getbyte(at + 1)
+          stateful_invalid([byte], nil, true, from, step) if second.nil?
+          stateful_invalid([byte], [second], false, from, step) unless second.between?(0x21, 0x7E)
+          out << LEADS.fetch(mode) if led
+          out << (byte | 0x80) << (second | 0x80)
+          at += 2
+        end
+      rescue InvalidByteSequenceError => e
+        raise unless options[:invalid] == :replace
+
+        # What came before is read, the bytes the error names become the
+        # mark, and the ones it would read again are read next.
+        read << send(:mb_to_utf8, out.force_encoding(base), base, path, options) << send(:replacement, UTF_8, options)
+        out = +"".b
+        at += e.error_bytes.bytesize
       end
     end
-    send(:mb_to_utf8, out.force_encoding(base), base, path, options)
+    read << send(:mb_to_utf8, out.force_encoding(base), base, path, options)
   end
 
   # The set the escape at `at` names, and where the bytes after it start.

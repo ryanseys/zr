@@ -1640,8 +1640,6 @@ describe "Encoding programs" do
   end
 
   it "encode with invalid: :replace replaces for GB18030, CESU-8, UTF8-MAC, ISO-2022-JP and the BOM encodings" do
-    skip "these sources raise where ruby replaces"
-
     result = ze0(<<~'RUBY')
       def t(bytes, from, to = "UTF-8")
         r = bytes.b.force_encoding(from).encode(to, invalid: :replace)

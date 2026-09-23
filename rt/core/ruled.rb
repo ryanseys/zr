@@ -63,7 +63,16 @@ class Encoding
   # or nil where the rows read those bytes.
   def self.ruled_char(bytes, at, from, path, options)
     Primitive.attr! :hidden
-    from.name == "GB18030" ? gb18030_char(bytes, at, from, path, options) : cesu8_char(bytes, at, from)
+    read = -> { from.name == "GB18030" ? gb18030_char(bytes, at, from, path, options) : cesu8_char(bytes, at, from) }
+    return read.call unless options[:invalid] == :replace
+
+    begin
+      read.call
+    rescue InvalidByteSequenceError => e
+      # The bytes the error names become the mark; the ones it would
+      # read again stay to be read.
+      [send(:replacement, UTF_8, options), e.error_bytes.bytesize]
+    end
   end
 
   def self.gb18030_char(bytes, at, from, path, options)
