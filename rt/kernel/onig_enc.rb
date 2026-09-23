@@ -97,6 +97,7 @@ sig [Ptr, Ptr] => Word
 machine def zr_onig_utf8_precise_len(p, e)
   return 0 - 1 if p >= e
   first = Machine.word(Machine.load8(p, 0))
+  return 1 if first < 128
   s = zr_onig_utf8_trans(0, first)
   if s < 0
     return s == 0 - 1 ? 1 : 0 - 1
@@ -221,6 +222,9 @@ end
 # onigenc_mbclen (regenc.c): the length clipped to the text.
 sig [Word, Ptr, Ptr] => Word
 machine def zr_onig_mbclen(enc, p, e)
+  if p < e && Machine.word(Machine.load8(p, 0)) < 128 && OnigEnc.kind(Machine.ptr(enc)) == ONIG_ENC_KIND_UTF8
+    return 1
+  end
   r = zr_onig_precise_len(enc, p, e)
   if r > 0
     return Machine.word(e - p) if p + r > e
@@ -230,10 +234,16 @@ machine def zr_onig_mbclen(enc, p, e)
   p < e ? 1 : 0
 end
 
-# enclen (regenc.h): the encoding's one width when it has one.
+# enclen (regenc.h): the encoding's one width when it has one. A UTF-8
+# byte below 128 is a character of its own, which is most of what a
+# pattern walks: it answers here, without the four calls of the precise
+# length.
 sig [Word, Ptr, Ptr] => Word
 machine def zr_onig_enclen(enc, p, e)
   base = Machine.ptr(enc)
+  if p < e && Machine.word(Machine.load8(p, 0)) < 128 && OnigEnc.kind(base) == ONIG_ENC_KIND_UTF8
+    return 1
+  end
   min = OnigEnc.min_len(base)
   if min == OnigEnc.max_len(base)
     return p < e ? min : 0
@@ -281,6 +291,7 @@ end
 sig [Ptr, Ptr] => Word
 machine def zr_onig_utf8_to_code(p, e)
   c = Machine.word(Machine.load8(p, 0))
+  return c if c < 128
   len = zr_onig_utf8_precise_len(p, e)
   if len <= 1
     return 4294967295 - (255 - c) if c > 253
@@ -656,6 +667,10 @@ end
 # ONIGENC_IS_MBC_WORD.
 sig [Word, Ptr, Ptr] => Bool
 machine def zr_onig_mbc_word_p(enc, s, e)
+  c = Machine.word(Machine.load8(s, 0))
+  if c < 128 && zr_onig_enc_kind(enc) == ONIG_ENC_KIND_UTF8
+    return (Machine.word(Machine.load32(zr_onig_ctype_bits() + (c * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
+  end
   zr_onig_code_word_p(enc, zr_onig_mbc_to_code(enc, s, e))
 end
 
