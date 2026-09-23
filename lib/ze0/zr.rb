@@ -78,7 +78,9 @@ module Ze0
       def digest
         # The target goes in first: two targets never share a built form.
         # A path goes in beside its bytes: the runtime object carries the
-        # core's file names, so two checkouts never share one either.
+        # core's file names, so two checkouts never share one either. A
+        # build under a path root (`Paths.root`) writes other names, so
+        # the root goes in too.
         @digest ||= begin
           files = sources.keys + gem_prelude_files
           @stamps = files.to_h { |path| [path, Zr.stamp_of(path)] }
@@ -123,6 +125,7 @@ module Ze0
       def digest_of(files)
         Digest::SHA256.new.tap do |d|
           d << target.triple << "\0"
+          d << "root\0" << Paths.root << "\0" if Paths.root
           files.each { |path| d << path << "\0" << (sources[path] || File.binread(path)) }
         end.hexdigest
       end
@@ -566,30 +569,31 @@ module Ze0
     # by.
     def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
                     target: Target.default)
-      units = units.select { |path, _| path.start_with?("/") }.sort
+      shown = ->(path) { Paths.shown(path) }
+      units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [shown[path], entry] }.sort
       # A name ruby carries that no root here holds, and after a tab the
       # reason where there is one to give, so a require the program
       # computes stops for what a literal one stops for.
       uncarried = Hir::Build.missing_features(target).map { |name| [name, *Hir::Build::UNCARRIED[name]].join("\t") }
-      names = evals ? [Hir::Build.stdlib(target), uncarried, Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
+      names = evals ? [Hir::Build.stdlib(target).map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Hir::Build::EXT]]] : [[]] * 4
       # error_highlight's spots, a file at a time: its name, a newline,
       # then its rows, and a form feed before the next file.
-      names << [spots.map { |file, rows| "#{file}\n#{rows}" }.join("\f")]
+      names << [spots.map { |file, rows| "#{shown[file]}\n#{rows}" }.join("\f")]
       # The lines Coverage counts in each file, a row a file: its path,
       # its line count, and the lines, tab-separated.
-      names << coverable.map { |file, (count, lines)| "#{file}\t#{count}\t#{lines.uniq.join(',')}" }
+      names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(',')}" }
       # The branches Coverage names in each file, a row a file: its path,
       # then one `kind,id,root,start line,start column,end line,end column`
       # a branch, in the order Coverage numbers them. `id` is the counter
       # this branch bumps, and `root` the side's own root by its place in
       # the file, empty for a root.
-      names << branches.map { |file, rows| "#{file}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+      names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
       # Where each def and each block of a measured file was written, a
       # row a file: its path, then one `id,start line,start column,end
       # line,end column` a scope. A definition claims the row by its id,
       # which is how a method row learns its span.
-      names << defs.map { |file, rows| "#{file}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
-      names << sources.sort.map { |path, digest| "#{path}\t#{digest}" }
+      names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
+      names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

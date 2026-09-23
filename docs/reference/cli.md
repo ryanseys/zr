@@ -10,7 +10,7 @@ bootstrap, the benchmark bank, the generated tables -- is a rake task.
 ze0 run <file.rb> [args]              compile a Ruby program with the zr runtime, and run it
 ze0 build <file.rb> -o <bin>          compile a Ruby program with the zr runtime
 ze0 machine <file.rb> -o <bin>        compile a kernel-dialect file alone
-             [--emit obj|wasm] [--target <triple>]
+             [--emit obj|wasm] [--target <triple>] [--path-root=<dir>]
 ze0 zr run|build|machine ...          the same three commands, by their older names
 ze0 targets                           the targets ze0 builds for, and what this host can do
 ze0 version                           print ze0's version
@@ -33,6 +33,18 @@ Compiles the program to `out`.
 | `--emit obj` | an object file of the program's own code: Mach-O, or ELF for `aarch64-linux-musl` |
 | `--emit wasm` | a WASI module (the target is `wasm32-wasi`) |
 | `--target <triple>` | builds for that target; see [Targets](targets.md) |
+| `--path-root=<dir>` | writes each path below ze0's root, or below the directory the build runs in, as `<dir>` plus the rest of the path; see below |
+
+A binary holds the paths of its files: `__FILE__`, `__dir__`,
+backtraces, `$LOADED_FEATURES` and error_highlight read them. With no
+`--path-root` they are the paths on the machine that built it. With
+`--path-root=/src`, a file at `<build directory>/lib/a.rb` answers
+`/src/lib/a.rb`, and so do ze0's own files below the root of the gem
+or checkout. So two checkouts at two paths, built with the same root,
+write the same bytes (`rake repro` checks this). A main file named with
+a relative path answers that path, as ruby does. The program cannot read
+a file at a mapped path unless that path is there on the machine it
+runs on.
 
 ### `ze0 machine <file.rb> -o <out>`
 
@@ -95,6 +107,7 @@ That is the same division the buckets used to draw.
 | `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
 | `rake 'bench[--runs 5 fib]'` | builds each program in `benchmark/` that matches, checks its answer, and prints the median of `--runs` runs (default 5) beside `ruby` and `ruby --yjit`, with the binary's CPU time; a run of the whole bank writes its report to `benchmark/results/<stamp>-<revision>.txt` |
 | `rake stage1` | compiles the compiler (`exe/ze0`) twice, in two processes with separate caches, and compares the compiler's and the runtime's object bytes |
+| `rake repro` | builds one program from two copies of the tree at two paths, under another home, clock zone, locale and job count, with one `--path-root`, and compares the binaries and the objects (`REPRO_WASM=1` adds the wasm module) |
 | `rake stage2` | builds `exe/ze0` with ruby, then with that binary (`tmp/stage1/ze0 build exe/ze0`), and compares the two binaries |
 
 ### The rest

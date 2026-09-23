@@ -86,6 +86,10 @@ module Ze0
       # `yield` has a block to reach only inside a method, and a bare
       # `super` passes those parameters on.
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
+        # The main file's name came from the build's command line, in the
+        # build's locale; a program's locale is UTF-8 (Encoding.locale_charmap),
+        # and the name must not carry the machine it was built on.
+        file = file.dup.force_encoding(::Encoding::UTF_8) if road && file.encoding != ::Encoding::UTF_8
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, evals: evals,
                               covers: covers, activations: activations, ahead_road: road.respond_to?(:units) ? road : nil)
@@ -133,7 +137,7 @@ module Ze0
       # `DATA`, which ruby defines before the first line of a main file
       # that has an `__END__` line: a File at the byte after that line.
       def self.data(main, at)
-        made = Send.new(Core.new(:File, 0), :data, [Literal.new(main.source, 0), Literal.new(at, 0), Literal.new(main.file, 0)], 0, false)
+        made = Send.new(Core.new(:File, 0), :data, [Literal.new(main.source, 0), Literal.new(at, 0), Literal.new(Paths.shown(main.file), 0)], 0, false)
         ConstWrite.new(nil, :DATA, made, 0)
       end
 
@@ -681,7 +685,7 @@ module Ze0
           result.warnings.filter_map do |w|
             next unless w.level == :default
 
-            "#{file}:#{w.location.start_line}: warning: #{w.message}"
+            "#{Paths.shown(file)}:#{w.location.start_line}: warning: #{w.message}"
           end
         end
 
@@ -1237,7 +1241,7 @@ module Ze0
         # legal there and nowhere else; the check must read it that way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
         written = read_pattern(held, regexp_options(node) & 7)
-        written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{@file}:#{line}: warning: #{message}" }
+        written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{Paths.shown(@file)}:#{line}: warning: #{message}" }
         RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
       rescue RegexpError => e
         invalid(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
@@ -1616,7 +1620,7 @@ module Ze0
           elsif static_string?(node) then Literal.new(static_text(node), line, !node.mutable?)
           else interpolation(node, line)
           end
-        when Prism::SourceFileNode then literal_string(node, @file, line)
+        when Prism::SourceFileNode then literal_string(node, Paths.shown(@file), line)
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::SourceEncodingNode
           Send.new(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line, false)

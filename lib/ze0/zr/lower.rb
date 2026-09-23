@@ -314,7 +314,7 @@ module Ze0
       def self.entry_of(entry, index, file)
         return "#{entry}_unit_#{index}" unless file&.start_with?("/")
 
-        "zr_u#{Digest::SHA256.hexdigest("#{entry}\0#{file}")[0, 16]}"
+        "zr_u#{Digest::SHA256.hexdigest("#{entry}\0#{Paths.shown(file)}")[0, 16]}"
       end
 
       # Every unit's entry, in order: what a require or an autoload in
@@ -392,8 +392,10 @@ module Ze0
       # in the owner and name at definition. A class body's name is the
       # class's, set here; a def or block carries its arity and its
       # parameter rows, and a block its function, so a Proc finds both.
-      # The current unit's file name as bytes in the object.
-      def file_bytes = @file_bytes[@file] ||= literal(@file)
+      # The current unit's file name as a build writes it (`Paths.shown`),
+      # and as bytes in the object.
+      def shown_file = Paths.shown(@file)
+      def file_bytes = @file_bytes[@file] ||= literal(shown_file)
 
       def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false,
                captures: false, node: 0, cover: nil)
@@ -402,7 +404,7 @@ module Ze0
         bytes = ("\0" * layout.size).b
         word = ->(field, value) { bytes[layout.fields.fetch(field).first, 8] = [value].pack("q<") }
         word.call("name", name.is_a?(Integer) ? name : (fixed_id(name) || 0))
-        word.call("file_len", internal? ? 0 : @file.bytesize)
+        word.call("file_len", internal? ? 0 : shown_file.bytesize)
         word.call("kind", const(kind))
         word.call("line", line)
         word.call("node", node)

@@ -18,6 +18,33 @@ module Ze0
     # A git checkout, or a worktree of one, where `.git` is a file.
     def self.checkout? = File.exist?(File.join(ROOT, ".git"))
 
+    # The root a build writes paths under (`ze0 build --path-root=STR`),
+    # or nil, which writes each path as it is on this machine. A path
+    # under ze0's own root or under the directory the build runs in is
+    # written as the root plus its path below that directory, the longer
+    # of the two first; so two checkouts built with one root write the
+    # same bytes. A path given relative, as a main file often is, stays
+    # as it was given, as ruby answers it.
+    def self.root = @root
+
+    def self.root=(root)
+      @root = root&.then { |r| r == "/" ? "" : r.chomp("/") }
+      @prefixes = root && [ROOT, Dir.pwd].uniq.sort_by { |prefix| -prefix.size }
+    end
+
+    # `path` as a build writes it into what it makes.
+    def self.shown(path)
+      return path unless @root && path.start_with?("/")
+
+      @prefixes.each do |prefix|
+        next unless path == prefix || path.start_with?("#{prefix}/")
+
+        shown = "#{@root}#{path[prefix.size..]}"
+        return shown.empty? ? "/" : shown
+      end
+      path
+    end
+
     # The user's cache directory for ze0: `XDG_CACHE_HOME` when it is
     # set, else the platform's own.
     def self.user_cache

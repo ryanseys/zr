@@ -15,7 +15,7 @@ module Ze0
       ze0 run <file.rb> [args]              compile a Ruby program with the zr runtime, and run it
       ze0 build <file.rb> -o <bin>          compile a Ruby program with the zr runtime
       ze0 machine <file.rb> -o <bin>        compile a kernel-dialect file alone
-                   [--emit obj|wasm] [--target <triple>]
+                   [--emit obj|wasm] [--target <triple>] [--path-root=<dir>]
       ze0 zr run|build|machine ...          the same three commands, by their older names
       ze0 targets                           the targets ze0 builds for, and what this host can do
       ze0 version                           print ze0's version
@@ -24,6 +24,10 @@ module Ze0
       it cannot link; `ruby` for ze0's alone, which names what it cannot
       link; `cc` for the system linker.
       ZE0_CACHE names the runtime cache.
+
+      --path-root writes every path under ze0's root or the directory the
+      build runs in as <dir> plus the path below it, so two checkouts built
+      with one root make the same bytes. A path given relative stays as given.
 
       ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
       answer, and ze0 is held to it or refuses by name.
@@ -127,13 +131,15 @@ module Ze0
       pinned!
       input = output = nil
       emit = nil
-      triple = nil
+      triple = root = nil
       rest = []
       until args.empty?
         case (a = args.shift)
         when "-o" then output = args.shift or usage(extra)
         when "--emit" then emit = args.shift or usage(extra)
         when "--target" then triple = args.shift or usage(extra)
+        when "--path-root" then root = args.shift or usage(extra)
+        when /\A--path-root=(.+)\z/ then root = $1
         when /\A-/ then usage(extra)
         else
           if input then rest << a else input = a end
@@ -142,6 +148,7 @@ module Ze0
       usage(extra) unless input && (verb == "run" ? output.nil? : output)
       usage(extra) if verb != "run" && !rest.empty?
       usage(extra) unless [nil, "obj", "wasm"].include?(emit)
+      usage(extra) unless root.nil? || root.start_with?("/")
       target = target_for(triple, emit, extra)
       emit ||= "wasm" if target.roads == [:wasm]
       refuse(input, verb, emit, target)
@@ -153,6 +160,7 @@ module Ze0
       # carries the same files and never comes here, so it never writes
       # a parse to the cache.
       require_relative "parse_cache" unless HOSTED
+      Paths.root = root
       program = lower(input, verb, target, assemble: emit.nil?)
       Paths.scratch("ze0-zr-") do |work|
         out = verb == "run" ? File.join(work, "program") : File.expand_path(output)

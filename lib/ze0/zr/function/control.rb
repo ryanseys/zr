@@ -241,11 +241,12 @@ module Ze0
         # LoadError.
         def require_unit(node)
           at_node(node)
-          path = @f.symbol_value(@f.symbol(@l.literal(node.path)))
-          return checked(kernel("zr_load_error", path, imm(node.path.bytesize))) unless node.unit
+          shown = Paths.shown(node.path)
+          path = @f.symbol_value(@f.symbol(@l.literal(shown)))
+          return checked(kernel("zr_load_error", path, imm(shown.bytesize))) unless node.unit
 
           fn = @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64"))
-          checked(kernel("zr_require", kernel("zr_str_new", path, imm(node.path.bytesize)), fn, imm(REQUIRE_KINDS.fetch(node.kind))))
+          checked(kernel("zr_require", kernel("zr_str_new", path, imm(shown.bytesize)), fn, imm(REQUIRE_KINDS.fetch(node.kind))))
         end
 
         # `autoload :Name, "feature"`: the constant's row waits for the
@@ -257,7 +258,8 @@ module Ze0
           base = reserve(2)
           @f.store(node.recv ? expr(node.recv) : @self, @rec, value_offset(base))
           @f.store(kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize)), @rec, value_offset(base + 1))
-          path = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.path))), imm(node.path.bytesize))
+          shown = Paths.shown(node.path)
+          path = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(shown))), imm(shown.bytesize))
           recv = @f.fetch("i64", @rec, value_offset(base))
           feature = @f.fetch("i64", @rec, value_offset(base + 1))
           fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)

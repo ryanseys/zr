@@ -176,7 +176,7 @@ module Ze0
       # The program's toplevel names its file to the runtime for `$0`.
       def program_start
         file = @f.symbol_value(@f.symbol(@l.file_bytes))
-        kernel("zr_program_start", file, imm(@l.file.bytesize))
+        kernel("zr_program_start", file, imm(@l.shown_file.bytesize))
       end
 
       # The file's parse-time warnings, on stderr as the file starts.

@@ -30,6 +30,15 @@ The spec `core/rubyvm/rubyvm_test.rb` "an InstructionSequence answers
 eval, to_binary and each_child as ruby does" holds the parts of
 `InstructionSequence` that ze0 answers.
 
+## The locale
+
+A program's locale is UTF-8 wherever it runs: `Encoding.locale_charmap`
+answers `"UTF-8"`, and the main file's `__FILE__`, `$0` and `__dir__`
+are UTF-8 strings. ruby takes the locale from `LANG` and `LC_ALL` as the
+program starts, so under `LANG=C` those three are US-ASCII there. A
+build does not read its own locale either: two builds under two locales
+write the same bytes (`rake repro`).
+
 ## Ruby bugs
 
 | What | ze0 | ruby 4.0.6 |

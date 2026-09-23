@@ -100,6 +100,21 @@ jobs:
         run: bundle exec rake build
       - run: bundle exec rake stage1
 
+  # One program built from two copies of the tree at two paths, under
+  # another home, clock zone, locale and job count, with one path root:
+  # the proof that a build does not read where it ran.
+  repro:
+    name: two checkouts, one output (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - run: bundle exec rake repro
+
   linux:
     name: gem on a host without native builds (Linux)
     needs: macos
