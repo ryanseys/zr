@@ -2806,9 +2806,9 @@ class Encoding
   # The two failures a conversion can answer with name both of its ends,
   # and the character or the bytes it stopped at.
   class UndefinedConversionError < EncodingError
-    def source_encoding_name = @source&.name
+    def source_encoding_name = @names ? @names[0] : @source&.name
 
-    def destination_encoding_name = @destination&.name
+    def destination_encoding_name = @names ? @names[1] : @destination&.name
 
     def source_encoding = @source
 
@@ -2823,13 +2823,20 @@ class Encoding
       @char = char
       self
     end
-    private :setup
+
+    # A step whose transcoder names its ends apart from the encodings.
+    def named(source, destination)
+      Primitive.attr! :hidden
+      @names = [source, destination]
+      self
+    end
+    private :setup, :named
   end
 
   class InvalidByteSequenceError < EncodingError
-    def source_encoding_name = @source&.name
+    def source_encoding_name = @names ? @names[0] : @source&.name
 
-    def destination_encoding_name = @destination&.name
+    def destination_encoding_name = @names ? @names[1] : @destination&.name
 
     def source_encoding = @source
 
@@ -2850,7 +2857,13 @@ class Encoding
       @incomplete = incomplete
       self
     end
-    private :setup
+
+    def named(source, destination)
+      Primitive.attr! :hidden
+      @names = [source, destination]
+      self
+    end
+    private :setup, :named
   end
 
   # The two failures, built with everything they answer about.
@@ -3201,6 +3214,7 @@ class Encoding
     return ebcdic_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if target.name == "IBM037"
     return convert(ebcdic_read(text), target, options) if from.name == "IBM037"
 
+    return hub_convert(text, from, target, options) if MB_HUBS.key?(from.name) || MB_HUBS.key?(target.name)
     # The carriers exchange their emoji with each other in one step.
     return exchange(text, target, [from, target], options) if carrier?(from) && carrier?(target)
 
@@ -3625,6 +3639,90 @@ class Encoding
   end
   private_class_method :utf8_like_read, :utf8_like_write, :exchange
 
+  # The transcoders' own names for the step between a carrier's
+  # Shift_JIS or JIS and the carrier's UTF-8, which ruby's failures use.
+  HUB_NAMES = {
+    "SJIS-DoCoMo" => %w[SJIS-DOCOMO UTF8-DOCOMO], "SJIS-KDDI" => %w[SJIS-KDDI UTF8-KDDI],
+    "SJIS-SoftBank" => %w[SJIS-SoftBank UTF8-SoftBank],
+    "stateless-ISO-2022-JP-KDDI" => %w[stateless-ISO-2022-JP-KDDI UTF8-KDDI]
+  }.freeze
+  private_constant :HUB_NAMES
+
+  # A carrier's Shift_JIS or JIS reads into the carrier's own UTF-8 and
+  # writes out of it, as ruby's converters go: the carrier's emoji are
+  # private-use code points there, and the exchange with Unicode or with
+  # another carrier is a step of its own. The path names each hub step
+  # as its transcoder does.
+  def self.hub_convert(text, from, target, options)
+    Primitive.attr! :hidden
+    read = MB_HUBS[from.name] && find(MB_HUBS[from.name])
+    write = MB_HUBS[target.name] && find(MB_HUBS[target.name])
+    start = read || from
+    goal = write || target
+    unicode = ->(encoding) { encoding.equal?(UTF_8) || carrier?(encoding) }
+    between = if start.equal?(goal) then []
+              elsif unicode[start] && unicode[goal] then [goal]
+              else [UTF_8, goal]
+              end
+    path = [from]
+    path << HUB_NAMES[from.name][1] if read
+    path.concat(between)
+    path << HUB_NAMES[target.name][0] if write
+
+    text = hub_read(text, from, read, path, options) if read
+    at = start
+    between.each do |step|
+      text = if unicode[at] && unicode[step] then exchange(text, step, path, options)
+             elsif step.equal?(UTF_8) then convert(text, UTF_8, options)
+             else from_utf8(text, step, path, options)
+             end
+      at = step
+    end
+    write ? hub_write(text, write, target, path, options) : text
+  end
+
+  def self.hub_read(text, from, hub, path, options)
+    Primitive.attr! :hidden
+    mb_to_utf8(text, from, path, options).force_encoding(hub)
+  rescue InvalidByteSequenceError => e
+    source, destination = HUB_NAMES[from.name]
+    message = "#{e.message.delete_suffix(" on #{from.name}")} on #{source}"
+    raise byte_error(message, from, hub, e.error_bytes, e.readagain_bytes, e.incomplete_input?).send(:named, source, destination)
+  end
+
+  # Each code point of the carrier's UTF-8 in the carrier's own bytes.
+  def self.hub_write(text, hub, target, path, options)
+    Primitive.attr! :hidden
+    writer = mb_writer(target)
+    source, destination = HUB_NAMES[target.name]
+    out = []
+    utf8_points(text, replacement(target, options), options, target, hub) do |point|
+      if (bytes = point_bytes(point, nil, nil, nil, writer))
+        out.concat(bytes)
+        next
+      end
+      char = point.chr(UTF_8).force_encoding(hub)
+      if options[:undef] == :replace || options[:invalid] == :replace
+        out.concat(convert(options[:replace] || "?", target, {}).bytes)
+      elsif (given = fallback(options[:fallback], char))
+        written = begin
+          given.encode(target)
+        rescue EncodingError
+          raise ArgumentError, "too big fallback string"
+        end
+        out.concat(written.bytes)
+      elsif options[:xml]
+        out.concat("&#x#{format('%X', point)};".bytes)
+      else
+        named = path.map { |step| step.is_a?(String) ? step : step.name }.join(" to ")
+        raise char_error("#{char.b.dump} to #{source} in conversion from #{named}", hub, target, char)
+                .send(:named, destination, source)
+      end
+    end
+    out.pack("C*").force_encoding(target)
+  end
+  private_class_method :hub_convert, :hub_read, :hub_write
+
   # Ruby's words for bytes a decoder cannot read: `incomplete` when the
   # input ends inside them, else `followed by` the bytes it reads again.
   # The failure names the ends of the step that read them: the decoding
@@ -3696,7 +3794,8 @@ class Encoding
     return "#{shown} from #{from.name} to #{to.name}" if path.size == 2 && (to.equal?(UTF_8) ? row[2] : row[0])
 
     step = to.equal?(UTF_8) ? "UTF-8" : row[1]
-    named = path.map { |encoding| encoding.equal?(to) ? step : encoding.name }
+    # A hub step stands in the path as its transcoder's own name.
+    named = path.map { |encoding| encoding.is_a?(String) ? encoding : (encoding.equal?(to) ? step : encoding.name) }
     "#{shown} to #{step} in conversion from #{named.join(' to ')}"
   end
   private_class_method :message

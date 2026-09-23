@@ -45,9 +45,16 @@ class Encoding
     base_name, stateless_name, kana, led = STATEFUL.fetch(target.name)
     base = find(base_name)
     step = stateless_name ? find(stateless_name) : target
-    path = [UTF_8, base, stateless_name && step, target].compact
+    # A carrier's JIS writes out of the carrier's own UTF-8, whose emoji
+    # the text takes first.
+    hub = MB_HUBS[base_name] && find(MB_HUBS[base_name])
+    path = [UTF_8, hub, base, stateless_name && step, target].compact
     text = fullwidth(text) if kana == :fullwidth
-    bytes = send(:from_utf8, text, base, path, options).b
+    bytes = if hub
+              send(:hub_write, send(:exchange, text, hub, path, options), hub, base, path, options).b
+            else
+              send(:from_utf8, text, base, path, options).b
+            end
     out = +"".b
     mode = :ascii
     shift = lambda do |to|
@@ -104,7 +111,8 @@ class Encoding
     base_name, stateless_name, kana, led = STATEFUL.fetch(from.name)
     base = find(base_name)
     step = stateless_name ? find(stateless_name) : base
-    path = [from, stateless_name && step, base, UTF_8].compact
+    hub = MB_HUBS[base_name] && find(MB_HUBS[base_name])
+    path = [from, stateless_name && step, base, hub, UTF_8].compact
     bytes = text.b
     out = +"".b
     read = +""
@@ -145,6 +153,7 @@ class Encoding
       end
     end
     read << send(:mb_to_utf8, out.force_encoding(base), base, path, options)
+    hub ? send(:exchange, read.force_encoding(hub), UTF_8, path, options) : read
   end
 
   # The set the escape at `at` names, and where the bytes after it start.

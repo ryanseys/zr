@@ -345,16 +345,12 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "carriers shift jis converts through their utf8" do
-    skip "the carrier tables hold Unicode's code points, so an emoji with no Unicode one stops mid-conversion"
-
     result = ze0(<<~'RUBY')
 
       # Ruby converts SJIS-DoCoMo, SJIS-KDDI, SJIS-SoftBank and
       # stateless-ISO-2022-JP-KDDI through the carrier's own UTF-8, whose emoji
       # are private-use code points: an emoji with no Unicode one still crosses
-      # between them, and a failure names each step. This runtime's tables for
-      # them hold Unicode's code points, read through UTF-8, so such an emoji
-      # stops, and a failure names one step.
+      # between them, and a failure names each step.
       def t(s, to, **o)
         r = s.encode(to, **o)
         p [r.encoding.name, r.b]
@@ -1763,8 +1759,6 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "SJIS-SoftBank converts an emoji to UTF8-SoftBank" do
-    skip "the SoftBank tables stop on an emoji with no Unicode code point"
-
     result = ze0(<<~'RUBY')
       s = "\xF9\x41".b.force_encoding("SJIS-SoftBank")
       r = s.encode("UTF8-SoftBank")
@@ -1775,6 +1769,29 @@ describe "Encoding: packing and unpacking" do
     _(result).must_answer <<~'OUT'
       ["\xEE\x80\x81", #<Encoding:UTF8-SoftBank>]
       "\xF9A"
+    OUT
+  end
+
+  it "ISO-2022-JP-KDDI reads and writes its emoji through UTF8-KDDI" do
+    result = ze0(<<~'RUBY')
+      def t(s, to, **o)
+        r = s.encode(to, **o)
+        p [r.encoding.name, r.b]
+      rescue => e
+        p [e.class, e.message, e.source_encoding_name, e.destination_encoding_name]
+      end
+      k = ->(s) { s.b.force_encoding("ISO-2022-JP-KDDI") }
+      t "é", "ISO-2022-JP-KDDI"
+      t "\u{1F4A9}", "ISO-2022-JP-KDDI"
+      t k["\e$BuA\e(B"], "UTF-8"
+      t k["\e$Bu!\e(B"], "UTF-8"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Encoding::UndefinedConversionError, "\"\\xC3\\xA9\" to stateless-ISO-2022-JP-KDDI in conversion from UTF-8 to UTF8-KDDI to stateless-ISO-2022-JP-KDDI to ISO-2022-JP-KDDI", "UTF8-KDDI", "stateless-ISO-2022-JP-KDDI"]
+      ["ISO-2022-JP-KDDI", "\e$BvP\e(B"]
+      ["UTF-8", "\xE2\x98\x80"]
+      [Encoding::UndefinedConversionError, "\"\\xEE\\x91\\xA8\" to UTF-8 in conversion from ISO-2022-JP-KDDI to stateless-ISO-2022-JP-KDDI to UTF8-KDDI to UTF-8", "UTF8-KDDI", "UTF-8"]
     OUT
   end
 end
