@@ -2005,8 +2005,6 @@ describe "Syntax programs" do
   end
 
   it "a syntax error is reported once, after the warnings of the parse" do
-    skip "the syntax_suggest block prints twice, and the parse's warnings are lost"
-
     result = ze0(<<~'RUBY')
       p 1 if "lit"
       def f

@@ -210,7 +210,9 @@ module Ze0
 
     # The program a bare ruby runs to write the report. It names the file
     # the way it was given it, since that is the name the binary carries.
+    # The parse's warnings come first, as ruby prints them first.
     REPORT = <<~'RUBY'
+      $stderr = $stdout
       begin
         RubyVM::InstructionSequence.compile_file(ARGV[0])
       rescue SyntaxError => e

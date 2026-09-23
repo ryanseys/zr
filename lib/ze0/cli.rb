@@ -226,15 +226,28 @@ module Ze0
         # which spares `core_ext` its own require by name. Only CRuby
         # asks, and by a computed path, so the compiler ze0 compiles
         # carries none of it; there the report is the parser's.
-        if cruby?
+        # A ruby that booted with gems has loaded it already, and a
+        # second core_ext would wrap the message twice.
+        if cruby? && !defined?(SyntaxSuggest.module_for_detailed_message)
           syntax_suggest = File.join(Paths::VENDOR, "lib/syntax_suggest")
           require File.join(syntax_suggest, "api")
           require File.join(syntax_suggest, "core_ext")
         end
-        RubyVM::InstructionSequence.compile_file(input)
+        # ruby prints the parse's warnings before it reports the error,
+        # so they go into the report too.
+        warned = +""
+        sink = Object.new
+        sink.define_singleton_method(:write) { |*parts| warned << parts.join }
+        was = $stderr
+        $stderr = sink
+        begin
+          RubyVM::InstructionSequence.compile_file(input)
+        ensure
+          $stderr = was
+        end
         nil
       rescue SyntaxError => own
-        "#{input}: #{own.detailed_message(highlight: false)}\n"
+        "#{warned}#{input}: #{own.detailed_message(highlight: false)}\n"
       end
       unless report
         warn "ze0: a required file does not parse: #{e.message.lines.first.chomp}"
