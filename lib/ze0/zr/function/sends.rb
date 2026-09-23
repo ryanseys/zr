@@ -780,7 +780,10 @@ module Ze0
             at_node(node)
             argc = keyword_argc(node, argc, argv)
             activate(node)
-            return checked(node.name == :new ? new_send(node, recv, argc, argv, proc) : cached_send(node, recv, argc, argv, proc))
+            # A program's `new(&blk)` is a send of Class#new with its frame,
+            # even for `&nil`, as ruby compiles any block argument; the
+            # core's is C's, with none.
+            return checked(node.name == :new && @l.internal? ? new_send(node, recv, argc, argv, proc) : cached_send(node, recv, argc, argv, proc))
           end
 
           site, block = make_block(node.block)
