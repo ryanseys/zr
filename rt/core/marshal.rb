@@ -22,6 +22,14 @@ module Marshal
   # parameters, under CRuby's names.
   def self.load(source, proc = nil, freeze: false)
     Primitive.attr! :ruby
+    # The kernel reads the kinds a dump is mostly made of at the speed
+    # of a copy (rt/kernel/marshal.rb), and gives a document it does
+    # not read whole back to the reader below, which reads it from the
+    # start.
+    if proc.nil? && !freeze && source.instance_of?(String)
+      value = Primitive.zr_marshal_load_fast(source)
+      return value unless Primitive.zr_marshal_bailed_p
+    end
     Reader.new(source, proc, freeze).run
   end
 

@@ -1085,6 +1085,30 @@ module Ze0
         d zr_boot Void
         d main I32 argc:I32 argv:Ptr
         d zr_main I32 argc:I32 argv:Ptr
+        d zr_marshal_load_fast Value src:Value
+        d zr_marshal_bailed_p Value
+        d zr_mr_bail Value r:Ptr
+        d zr_mr_byte Word r:Ptr
+        d zr_mr_long Word r:Ptr
+        d zr_mr_text Ptr r:Ptr n:Word
+        d zr_mr_ascii_p Bool p:Ptr n:Word
+        d zr_mr_symbol Word r:Ptr symbols:Value
+        d zr_mr_class Value p:Ptr n:Word
+        d zr_mr_value Value r:Ptr objects:Value symbols:Value
+        d zr_mr_bignum Value r:Ptr objects:Value
+        d zr_mr_user_dump Value r:Ptr objects:Value symbols:Value
+        d zr_mr_string Value r:Ptr
+        d zr_mr_float Value r:Ptr objects:Value
+        d zr_mr_array Value r:Ptr objects:Value symbols:Value
+        d zr_mr_hash Value r:Ptr objects:Value symbols:Value
+        d zr_mr_ivars Value r:Ptr objects:Value symbols:Value
+        d zr_mr_object Value r:Ptr objects:Value symbols:Value
+        d zr_mr_set_p Bool klass:Value
+        d zr_mr_named_class Value r:Ptr symbols:Value
+        d zr_mr_struct Value r:Ptr objects:Value symbols:Value
+        d zr_mr_members Value klass:Value
+        d zr_mr_member_index Word members:Value id:Word
+        d zr_mr_data_p Bool klass:Value
         d zr_mark_method Void m:Value
         d zr_method_owner Value klass:Value mid:Word
         d zr_undefined_method Value klass:Value mid:Word vis:Word
@@ -3298,6 +3322,30 @@ module Ze0
         e zr_boot 127
         e main 127
         e zr_main 127
+        e zr_marshal_load_fast 127
+        e zr_marshal_bailed_p 0
+        e zr_mr_bail 48
+        e zr_mr_byte 48
+        e zr_mr_long 48
+        e zr_mr_text 16
+        e zr_mr_ascii_p 0
+        e zr_mr_symbol 120
+        e zr_mr_class 127
+        e zr_mr_value 127
+        e zr_mr_bignum 120
+        e zr_mr_user_dump 127
+        e zr_mr_string 126
+        e zr_mr_float 126
+        e zr_mr_array 127
+        e zr_mr_hash 127
+        e zr_mr_ivars 127
+        e zr_mr_object 127
+        e zr_mr_set_p 127
+        e zr_mr_named_class 127
+        e zr_mr_struct 127
+        e zr_mr_members 0
+        e zr_mr_member_index 0
+        e zr_mr_data_p 127
         e zr_mark_method 120
         e zr_method_owner 120
         e zr_undefined_method 127
@@ -4638,6 +4686,22 @@ module Ze0
         c G_TRUE_TO_S 56
         c G_FALSE_TO_S 57
         c STACK_MARGIN 262144
+        c MR_NIL 48
+        c MR_TRUE 84
+        c MR_FALSE 70
+        c MR_FIXNUM 105
+        c MR_SYMBOL 58
+        c MR_SYMLINK 59
+        c MR_LINK 64
+        c MR_IVARS 73
+        c MR_FLOAT 102
+        c MR_STRING 34
+        c MR_ARRAY 91
+        c MR_HASH 123
+        c MR_OBJECT 111
+        c MR_STRUCT 83
+        c MR_USRDEF 117
+        c MR_BIGNUM 108
         c T_METHOD 29
         c G_METHOD 33
         c G_UNBOUND_METHOD 34
@@ -5166,6 +5230,7 @@ module Ze0
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
+        s MReader 32 8 bytes:0:Ptr len:8:Word pos:16:Word bail:24:Word
         s RMethod 144 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 32 8 rows:0:Ptr len:8:Word cap:16:Word names:24:Word
         s IvEntry 16 8 id:0:Word value:8:Value
