@@ -627,6 +627,55 @@ machine def zr_const_get_cached(cc, cref, id)
   zr_const_get(cref, id)
 end
 
+# A program's bare constant. Outside the main ractor the value must be
+# one the ractor may share, and the cell is left alone so that every
+# read there asks (the stamp moves as a ractor's task comes and goes).
+sig [Ptr, Value, Word] => Value
+machine def zr_const_read_cached(cc, cref, id)
+  if Task.ractor(zr_task()) == 0
+    return zr_const_get_cached(cc, cref, id)
+  end
+  v = zr_const_get(cref, id)
+  return v if v == QUNDEF
+  e = zr_const_row_under(cref, id)
+  if e == 0
+    return v
+  end
+  zr_ractor_const(CEntry.owner(e), id, v)
+end
+
+# A program's `scope::Name`, asked the same way.
+sig [Ptr, Value, Word] => Value
+machine def zr_const_read_at_cached(cc, scope, id)
+  if Task.ractor(zr_task()) == 0
+    return zr_const_get_at_cached(cc, scope, id)
+  end
+  v = zr_const_get_at(scope, id)
+  return v if v == QUNDEF
+  if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
+    return v
+  end
+  e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
+  if e == 0
+    return v
+  end
+  zr_ractor_const(CEntry.owner(e), id, v)
+end
+
+# `v`, a constant `owner` holds, read outside the main ractor: the
+# ractor may read it only if it is shareable.
+sig [Value, Word, Value] => Value
+machine def zr_ractor_const(owner, id, v)
+  if zr_special_p(v)
+    return v
+  end
+  args = Machine.slot(24)
+  Machine.store64(args, 0, Machine.word(owner))
+  Machine.store64(args, 8, Machine.word(zr_sym(id)))
+  Machine.store64(args, 16, Machine.word(v))
+  zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:const_read), 3, args)
+end
+
 # `scope::Name` at a site: `zr_const_get_at`'s answer. A private
 # constant raises here each time, so its row stays out of the cell.
 sig [Ptr, Value, Word] => Value

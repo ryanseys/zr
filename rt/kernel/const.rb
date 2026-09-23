@@ -1080,7 +1080,12 @@ machine def zr_mod_const_set(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
   r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
-  zr_const_set(recv, Machine.load64(slot, 0), Machine.value(Machine.load64(argv, 8)))
+  v = Machine.value(Machine.load64(argv, 8))
+  if Task.ractor(zr_task()) != 0 && !zr_special_p(v)
+    r = zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:const_write), 1, argv + 8)
+    return r if r == QUNDEF
+  end
+  zr_const_set(recv, Machine.load64(slot, 0), v)
 end
 
 # The public constant names `klass` itself holds, each once into `out`.

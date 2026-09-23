@@ -1988,8 +1988,6 @@ describe "Thread programs" do
   end
 
   it "a non-main Ractor may not read unshareable state" do
-    skip "a Ractor reads a non-shareable constant, a global and a class variable with no IsolationError"
-
     result = ze0(<<~'RUBY')
       $VERBOSE = nil
       NONSH = ["a"]

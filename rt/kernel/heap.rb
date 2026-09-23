@@ -868,6 +868,36 @@ machine def zr_gvar_get(id)
   v
 end
 
+# A program's `$name` read: refused outside the main ractor unless the
+# global is one CRuby keeps for each ractor.
+sig [Word] => Value
+machine def zr_gvar_read(id)
+  r = zr_ractor_gvar_check(id)
+  return r if r == QUNDEF
+  zr_gvar_get(id)
+end
+
+sig [Word] => Value
+machine def zr_ractor_gvar_check(id)
+  if Task.ractor(zr_task()) == 0 || zr_gvar_ractor_local_p(id)
+    return Machine.value(QNIL)
+  end
+  args = Machine.slot(8)
+  Machine.store64(args, 0, Machine.word(zr_sym(id)))
+  zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:gvar_isolation!), 1, args)
+end
+
+# The globals CRuby keeps for each ractor (rb_gvar_ractor_local): the
+# rest are the main ractor's alone.
+sig [Word] => Bool
+machine def zr_gvar_ractor_local_p(id)
+  id == Machine.id(:$stdout) || id == Machine.id(:$stderr) || id == Machine.id(:$stdin) || id == Machine.id(:$>) ||
+    id == Machine.id(:$VERBOSE) || id == Machine.id(:$DEBUG) || id == Machine.id(:$/) || id == Machine.id(:$-0) ||
+    id == Machine.id(:$@) || id == Machine.id(:$?) || id == Machine.id(:$$) || id == Machine.id(:$-v) ||
+    id == Machine.id(:$-w) || id == Machine.id(:$-W) || id == Machine.id(:$-d) || id == Machine.id(:$-i) ||
+    id == Machine.id(:$-p) || id == Machine.id(:$-l) || id == Machine.id(:$-a)
+end
+
 sig [Word] => Value
 machine def zr_gvar_defined(id)
   b = zr_box_current()

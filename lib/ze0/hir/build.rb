@@ -1597,7 +1597,16 @@ module Ze0
           static = [node.left, node.right].all? do |e|
             e.nil? || e.is_a?(Prism::NilNode) || (e.is_a?(Prism::IntegerNode) && e.value.bit_length <= 62)
           end
-          RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line, static)
+          low = node.left ? expr(node.left) : Literal.new(nil, line)
+          high = node.right ? expr(node.right) : Literal.new(nil, line)
+          # Two String literals are one frozen Range of frozen ends for
+          # the site, as prism's compiler makes a static literal of it.
+          if node.left.is_a?(Prism::StringNode) && node.right.is_a?(Prism::StringNode)
+            static = true
+            low = frozen_literal(node.left, low, line)
+            high = frozen_literal(node.right, high, line)
+          end
+          RangeLit.new(low, high, node.exclude_end?, line, static)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
         when Prism::GlobalVariableReadNode then gvar_read(node.name, line)
         when Prism::GlobalVariableWriteNode then gvar_write(node.name, expr(node.value), line)

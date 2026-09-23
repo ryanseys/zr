@@ -160,6 +160,8 @@ class Ractor
   def self.new(*args, name: nil, &block)
     raise ArgumentError, "must be called with a block" unless block
 
+    # The name is a String before anything starts, as ractor_create reads it.
+    name = Primitive.zr_str_operand(name) unless name.nil?
     notice
     isolate(block)
     ractor = Primitive.zr_class_build(self)
@@ -363,6 +365,32 @@ class Ractor
     raise IsolationError, "can not access instance variables of shareable objects from non-main Ractors"
   end
 
+  # What a program outside the main ractor may not reach, in CRuby's
+  # words. The runtime asks for each, because the words live here.
+  def self.const_read(owner, name, value)
+    Primitive.attr! :hidden
+    return value if shareable?(value)
+
+    raise IsolationError, "can not access non-shareable objects in constant #{owner}::#{name} by non-main Ractor."
+  end
+
+  def self.const_write(value)
+    Primitive.attr! :hidden
+    return value if shareable?(value)
+
+    raise IsolationError, "can not set constants with non-shareable objects by non-main Ractors"
+  end
+
+  def self.gvar_isolation!(name)
+    Primitive.attr! :hidden
+    raise IsolationError, "can not access global variable #{name} from non-main Ractor"
+  end
+
+  def self.cvar_isolation!(name, owner)
+    Primitive.attr! :hidden
+    raise IsolationError, "can not access class variables from non-main Ractors (#{name} from #{owner})"
+  end
+
   # The refusal a husk gives every message it still gets.
   def self.moved!
     Primitive.attr! :hidden
@@ -390,6 +418,9 @@ class Ractor
     return if immutable?(obj) || moved?(obj) || obj.is_a?(Ractor) || seen.key?(obj)
 
     raise Error, "can not make shareable object for #{obj.inspect}" if unshareable?(obj)
+    # A Proc answers to its self wherever it runs, so that must be
+    # shareable first.
+    raise IsolationError, "Proc's self is not shareable: #{obj.inspect}" if obj.is_a?(Proc) && !shareable?(Primitive.zr_proc_self_m(obj))
 
     seen[obj] = true
     obj.freeze

@@ -158,6 +158,12 @@ machine def zr_mark_proc(p)
   zr_mark(blk)
 end
 
+# The self a block answers to.
+sig [Value] => Value
+machine def zr_proc_self_m(p)
+  RProc.self(p)
+end
+
 # The same block with another self, which is what a Ractor runs: the
 # block's body answers to the ractor, and no frame stands between the
 # call and the body where a report would show one.

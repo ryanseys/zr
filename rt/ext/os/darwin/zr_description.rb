@@ -141,6 +141,9 @@ module Ze0
         d zr_const_cache_fill Void cc:Ptr key:Value stamp:Word v:Value
         d zr_const_cache_verify Void cc:Ptr e:Ptr
         d zr_const_get_cached Value cc:Ptr cref:Value id:Word
+        d zr_const_read_cached Value cc:Ptr cref:Value id:Word
+        d zr_const_read_at_cached Value cc:Ptr scope:Value id:Word
+        d zr_ractor_const Value owner:Value id:Word v:Value
         d zr_const_get_at_cached Value cc:Ptr scope:Value id:Word
         d zr_ivar_get_cached Value obj:Value id:Word ic:Ptr
         d zr_ivar_set_cached Value obj:Value id:Word v:Value ic:Ptr
@@ -174,6 +177,7 @@ module Ze0
         d zr_cvar_base Value cref:Value
         d zr_cvar_owner Value klass:Value id:Word
         d zr_cvar_get Value cref:Value id:Word
+        d zr_ractor_cvar_check Value owner:Value id:Word
         d zr_cvar_defined Value cref:Value id:Word
         d zr_cvar_set Value cref:Value id:Word v:Value
         d zr_cvar_get_m Value cref:Value name:Value
@@ -917,6 +921,9 @@ module Ze0
         d zr_gvar_resolve Word id:Word
         d zr_gvar_alias Void new_id:Word old_id:Word
         d zr_gvar_get Value id:Word
+        d zr_gvar_read Value id:Word
+        d zr_ractor_gvar_check Value id:Word
+        d zr_gvar_ractor_local_p Bool id:Word
         d zr_gvar_defined Value id:Word
         d zr_gvar_set Value id:Word v:Value
         d zr_gvar_assign Value id:Word v:Value
@@ -1462,6 +1469,7 @@ module Ze0
         d zr_env_set Value env:Value i:Word v:Value
         d zr_mark_env Void e:Value
         d zr_mark_proc Void p:Value
+        d zr_proc_self_m Value p:Value
         d zr_proc_rebind_m Value p:Value self_:Value
         d zr_proc_captures_m Value p:Value
         d zr_proc_capture_rows_m Value p:Value
@@ -2386,6 +2394,9 @@ module Ze0
         e zr_const_cache_fill 16
         e zr_const_cache_verify 56
         e zr_const_get_cached 127
+        e zr_const_read_cached 127
+        e zr_const_read_at_cached 127
+        e zr_ractor_const 127
         e zr_const_get_at_cached 127
         e zr_ivar_get_cached 127
         e zr_ivar_set_cached 127
@@ -2419,6 +2430,7 @@ module Ze0
         e zr_cvar_base 127
         e zr_cvar_owner 0
         e zr_cvar_get 127
+        e zr_ractor_cvar_check 127
         e zr_cvar_defined 127
         e zr_cvar_set 127
         e zr_cvar_get_m 127
@@ -2910,7 +2922,7 @@ module Ze0
         e zr_poll_slot 0
         e zr_task 0
         e zr_task_init 16
-        e zr_ractor_enter_m 16
+        e zr_ractor_enter_m 18
         e zr_fiber_current 126
         e zr_fiber_current_m 126
         e zr_fiber_alloc 126
@@ -3162,6 +3174,9 @@ module Ze0
         e zr_gvar_resolve 0
         e zr_gvar_alias 56
         e zr_gvar_get 127
+        e zr_gvar_read 127
+        e zr_ractor_gvar_check 127
+        e zr_gvar_ractor_local_p 0
         e zr_gvar_defined 127
         e zr_gvar_set 127
         e zr_gvar_assign 127
@@ -3707,6 +3722,7 @@ module Ze0
         e zr_env_set 120
         e zr_mark_env 120
         e zr_mark_proc 120
+        e zr_proc_self_m 0
         e zr_proc_rebind_m 120
         e zr_proc_captures_m 126
         e zr_proc_capture_rows_m 126

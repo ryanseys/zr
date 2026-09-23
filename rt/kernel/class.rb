@@ -595,7 +595,21 @@ machine def zr_cvar_get(cref, id)
     zr_buf_class(b, base)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
+  r = zr_ractor_cvar_check(owner, id)
+  return r if r == QUNDEF
   zr_ivtab_get(ClassExt.cv(RClass.ext(owner)), id)
+end
+
+# A class variable outside the main ractor: CRuby refuses every one.
+sig [Value, Word] => Value
+machine def zr_ractor_cvar_check(owner, id)
+  if Task.ractor(zr_task()) == 0
+    return Machine.value(QNIL)
+  end
+  args = Machine.slot(16)
+  Machine.store64(args, 0, Machine.word(zr_sym(id)))
+  Machine.store64(args, 8, Machine.word(owner))
+  zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:cvar_isolation!), 2, args)
 end
 
 # Whether `@@id` is set under `cref`.
@@ -618,6 +632,8 @@ machine def zr_cvar_set(cref, id, v)
   if owner == QNIL
     owner = base
   end
+  r = zr_ractor_cvar_check(owner, id)
+  return r if r == QUNDEF
   frozen = zr_class_modify_check(owner)
   return frozen if frozen == QUNDEF
   zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)

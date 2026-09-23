@@ -27,7 +27,7 @@ module Warning
   # The runtime's own way in, for a warning it raises with a category.
   def self.deprecated(message)
     Primitive.attr! :hidden
-    return nil unless self[:deprecated]
+    return nil if $VERBOSE.nil? || !self[:deprecated]
 
     warn("#{Primitive.zr_warn_position}warning: #{message}\n", category: :deprecated)
   end
@@ -36,7 +36,7 @@ module Warning
   # names the line that reached it, as ruby's does.
   def self.experimental(message)
     Primitive.attr! :hidden
-    return nil unless self[:experimental]
+    return nil if $VERBOSE.nil? || !self[:experimental]
 
     warn("#{Primitive.zr_warn_position}warning: #{message}\n", category: :experimental)
   end

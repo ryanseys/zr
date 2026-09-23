@@ -89,10 +89,12 @@ module Ze0
           # The scope is read first, so the row names this read's node.
           scope = scope_class(node.scope) if node.scope
           at_node(node)
+          # A program's read asks, outside the main ractor, whether it may
+          # share the value; the core's reads are its own, as C's are.
           if node.scope.nil?
-            cached_const(@cref, "zr_const_get_cached", id)
+            cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id)
           else
-            cached_const(scope, "zr_const_get_at_cached", id)
+            cached_const(scope, @l.internal? ? "zr_const_get_at_cached" : "zr_const_read_at_cached", id)
           end
         end
 

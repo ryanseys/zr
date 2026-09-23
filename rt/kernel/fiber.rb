@@ -70,6 +70,9 @@ end
 sig [] => Value
 machine def zr_ractor_enter_m
   Task.set_ractor(zr_task(), 1)
+  # A ractor's constant reads each ask whether it may share the value,
+  # so no cell the main ractor filled may answer them.
+  zr_consts_changed()
   Machine.value(QNIL)
 end
 
@@ -177,6 +180,11 @@ end
 # first, and come back when `from` runs again.
 sig [Value, Value] => Void
 machine def zr_fiber_switch(from, to)
+  # Into or out of a ractor's task, the constant cells go stale: a
+  # ractor's reads ask, and the main ractor's fill the cells again.
+  if Task.ractor(RFiber.task(from)) != Task.ractor(RFiber.task(to))
+    zr_consts_changed()
+  end
   RFiber.set_kroots(from, Machine.ptr(Machine.load64(zr_kroots(), 0)))
   Machine.store64(Machine.static(:current_fiber, 8), 0, Machine.word(to))
   Machine.store64(zr_current_task_slot(), 0, Machine.word(RFiber.task(to)))

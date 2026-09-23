@@ -295,7 +295,9 @@ module Ze0
           # `$<` is ARGF itself, whatever a program names ARGF.
           return kernel("zr_core_class", sym_word(:ARGF)) if node.name == :$<
 
-          kernel("zr_gvar_get", sym_word(node.name))
+          # A program's global outside the main ractor is refused unless
+          # it is one CRuby keeps for each ractor; the core reads its own.
+          @l.internal? ? kernel("zr_gvar_get", sym_word(node.name)) : checked(kernel("zr_gvar_read", sym_word(node.name)))
         end
 
         # The globals ruby hooks: a write checks the value, or refuses a
@@ -314,6 +316,7 @@ module Ze0
           return kernel("zr_lastline_set", v) if name == :$_
 
           at_node(node)
+          checked(kernel("zr_ractor_gvar_check", sym_word(name))) unless @l.internal?
           return checked(kernel("zr_gvar_assign", sym_word(name), v)) if @l.internal? || !HOOKED_GVARS.include?(name)
 
           checked(kernel("zr_gvar_hooked", sym_word(node.shown || name), sym_word(name), v))
