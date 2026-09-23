@@ -59,6 +59,7 @@
 #
 # the C library
 #   zr_os_sort           [Ptr, Word] => Void
+#   zr_os_sha256_blocks  [Ptr, Ptr, Word] => Bool
 #
 # floats
 #   zr_os_cospi          [F64] => F64
