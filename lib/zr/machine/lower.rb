@@ -8,15 +8,16 @@ require_relative "../backend/aarch64/stub"
 require_relative "description"
 
 module Zr
-  # The kernel dialect: Ruby syntax, machine semantics. A unit of one or
-  # more files holds `Machine.import`, `Machine.struct`, `Machine.sig`
-  # and constant declarations, and `sig`-typed `machine def`s, which lower
-  # straight to IR, one function per def. Types are `I8 I32 Word Ptr Value
-  # F64 Bool Void`; every local takes its type from its first assignment
-  # and lives in a frame slot, which `IR::Mem2Reg` turns into values
-  # where nothing else takes its address; a call names an import or a def of the same
-  # unit, or goes through a pointer with `Machine.call`. A form outside
-  # the dialect is refused by name at its line.
+  # The machine dialect: Ruby syntax, machine semantics. A unit of one or
+  # more files contains `Machine.import`, `Machine.struct`, `Machine.sig`
+  # and constant declarations, and `sig`-typed `machine def`s. Each def
+  # lowers directly to one IR function. The types are `I8 I32 Word Ptr
+  # Value F64 Bool Void`. A local gets its type from its first assignment
+  # and is in a frame slot; `IR::Mem2Reg` changes the slot to values when
+  # no other code takes its address. A call goes to an import, to a def
+  # of the same unit, or through a pointer with `Machine.call`. zr
+  # refuses a form outside the dialect, with a message that gives the
+  # form and the line.
   module Machine
     class Refused < Zr::Refused
       attr_reader :line
@@ -27,8 +28,8 @@ module Zr
       end
     end
 
-    # `source` to `[functions, data, raw]`: IR functions, the data objects
-    # they name, and the raw functions they call.
+    # Compiles `source` to `[functions, data, raw]`: IR functions, the
+    # data objects they refer to, and the raw functions they call.
     def self.compile(source, file, symbols: Symbols.new)
       Lower.new([[source, file]], symbols).run
     end
@@ -39,8 +40,8 @@ module Zr
       unit(paths, symbols: symbols).then { |u| [u.functions, u.data, u.raw] }
     end
 
-    # The compiled unit itself, whose layouts and constants another
-    # lowering may read.
+    # Returns the compiled unit. Another lowering can read its layouts
+    # and constants.
     def self.unit(paths, symbols: Symbols.new)
       u = Lower.new(paths.map { |path| [File.read(path), path] }, symbols)
       u.run
@@ -95,17 +96,17 @@ module Zr
         [@functions, @data, @raw]
       end
 
-      # Every def's effects (`IR::Effects`): what its own stores write,
-      # by the region the lowering gave each or by where its address
-      # came from, closed over the defs it calls. An import writes what
-      # `Effects.import` says; a raw function and a call through a
-      # pointer write everything. A store
-      # through an address that cannot be placed writes `UNKNOWN`, and
-      # a guard word too once its address is seen escaping as a value
-      # anywhere in the unit -- passed, stored, compared -- since a
-      # pointer to it may then be anywhere. Each function's callees are
-      # told the answer, and the description carries it to the program
-      # lowering and the eval road.
+      # Sets the effects (`IR::Effects`) of each def: the regions that its
+      # stores write, plus the effects of the defs it calls (a fixpoint).
+      # A store's region comes from the lowering or from the origin of its
+      # address. An import writes what `Effects.import` returns. A raw
+      # function and a call through a pointer write everything.
+      # A store through an address of unknown origin writes `UNKNOWN`. It
+      # also writes each guard word whose address escapes as a value
+      # anywhere in the unit (passed, stored, compared), because a pointer
+      # to that word can then be anywhere. The result goes to each
+      # function's callees, and the description gives it to the program
+      # lowering and to eval support.
       def assign_effects
         placed = @functions.to_h { |f| [f.name, placements(f)] }
         escaped = @functions.reduce(0) { |bits, f| bits | escaping_statics(f, placed.fetch(f.name)) }
@@ -130,9 +131,9 @@ module Zr
         end
       end
 
-      # `{ value => [root, offset] }` for every value of `f` that is a
-      # slot's address (root `:slot`) or a symbol's, or a constant past
-      # one.
+      # Returns `{ value => [root, offset] }` for each value of `f` that is
+      # the address of a slot (root `:slot`) or of a symbol, or that
+      # address plus a constant.
       def placements(f)
         symbol_of = f.globals.to_h { |g| [g.gv, g.symbol] }
         const = {}
@@ -153,13 +154,13 @@ module Zr
         placed
       end
 
-      # The region bits of every guard word (a gate, a stamp, the task)
-      # whose address `f` uses as anything but the base of a load or a
-      # store, or a constant's other addend. A def the inliner takes
-      # (`zr_gates`, `zr_current_task_slot`) answers the address to no
-      # caller in this unit, so its `return` is not an escape: a caller
-      # elsewhere stores through what it answered in a function of its
-      # own, whose passes place no store through a pointer.
+      # Returns the region bits of each guard word (a gate, a stamp, the
+      # task) whose address `f` uses as something other than the base of
+      # a load or a store, or the addend of a constant. The `return` of an
+      # inlined def (`zr_gates`, `zr_current_task_slot`) is not an escape.
+      # No caller in this unit gets the address from a call. A caller in
+      # a different unit stores through the address in its own function,
+      # and the passes of that function do not know where such a store goes.
       def escaping_statics(f, placed)
         bits = 0
         answers = inline?(@defs.fetch(f.name))
@@ -206,9 +207,9 @@ module Zr
         bits
       end
 
-      # What one store writes: its region where the lowering gave one,
-      # else the region of the static or slot its address is placed in,
-      # else whatever a pointer can reach.
+      # What one store writes: the region from the lowering, if there is
+      # one; else the region of the static or slot of its address; else
+      # all memory that a pointer can reach.
       def store_effects(i, placed, escaped)
         return IR::Effects.bit(i.region) if i.region
 
@@ -230,16 +231,16 @@ module Zr
         @collects.include?(name)
       end
 
-      # Whether a call to `callee` lowers its body in place rather than a
-      # call. A kernel is full of defs one expression long -- a tag test, a
-      # static's address, a load off it -- and a call to one costs a frame,
-      # its saved registers and a branch each way: more than the body, and
-      # the collector makes such calls for every reference it reads.
+      # Whether a call to `callee` lowers the callee's body in place of a
+      # call. The kernel has many defs of one expression (a tag test, the
+      # address of a static, a load from it). A call costs a frame, saved
+      # registers and two branches, which is more than the body. The
+      # collector makes such calls for each reference it reads.
       #
-      # Only a small body that cannot run the collector, and has no
-      # `while` or `break` to mean something else in the caller.
-      # The def is still lowered on its own, so its symbol stays for every
-      # caller the kernel does not see: an eval, and a `Machine.addr`.
+      # Only a small body that cannot run the collector, and that has no
+      # `while` or `break`, is inlined. The def also lowers as a function,
+      # so its symbol is available to callers that the kernel does not
+      # see: eval support and `Machine.addr`.
       def inline?(callee)
         return false unless callee.is_a?(Def)
 
@@ -254,12 +255,12 @@ module Zr
         end
       end
 
-      # A body declared `Machine.inline`, whatever its size, runs the
-      # collector only through the call an arm of its last `if` ends with,
-      # whose arguments collect nothing. That call answers the body, so no
-      # Value of the body is used after a collection, and the call roots
-      # its own arguments; the caller roots what it holds as it would
-      # around a call.
+      # A body declared `Machine.inline` (of any size) must run the
+      # collector only in the last call of an arm of its last `if`, and
+      # the arguments of that call must not collect. That call gives the
+      # value of the body, so the body uses no Value after a collection.
+      # The call roots its own arguments. The caller roots its values as
+      # it does around a call.
       def tail_collecting?(node)
         case node
         when nil then true
@@ -269,8 +270,8 @@ module Zr
         when Prism::IfNode
           !collecting?(node.predicate) && tail_collecting?(node.statements) && tail_collecting?(node.subsequent)
         when Prism::ElseNode then tail_collecting?(node.statements)
-        # `return f(x)` ends an arm as `f(x)` does: the jump carries the
-        # answer and nothing of the body is live after it.
+        # `return f(x)` ends an arm the same as `f(x)`: the jump passes
+        # the result, and no value of the body is live after it.
         when Prism::ReturnNode then tail_collecting?(node.arguments&.arguments&.first)
         when Prism::CallNode then jumpless?(node) && !collecting?(node.receiver) && !collecting?(node.arguments)
         else jumpless?(node) && !collecting?(node)
@@ -279,20 +280,20 @@ module Zr
 
       def collecting?(node) = calls_in(node).any? { |name| collects?(name) }
 
-      # No `while` or `break`, which would mean something else in the
-      # caller.
+      # No `while` or `break`, because they have a different meaning in
+      # the caller.
       def jumpless?(node)
         return false if node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
 
         node.compact_child_nodes.all? { |c| jumpless?(c) }
       end
 
-      # Prism nodes an inlined body may have, at most.
+      # The maximum number of Prism nodes in an inlined body.
       INLINE_NODES = 32
 
-      # A `return` is fine: inlined, it is a jump to the end of the body
-      # (`Function#ret`). A `while` or a `break` is not, since a loop's
-      # roots and a break's target are the def's own.
+      # A `return` is permitted: when inlined, it is a jump to the end of
+      # the body (`Function#ret`). A `while` or a `break` is not, because
+      # the roots of a loop and the target of a break belong to the def.
       def small?(node, budget)
         budget[0] -= 1
         return false if budget[0].negative?
@@ -301,8 +302,8 @@ module Zr
         node.compact_child_nodes.all? { |c| small?(c, budget) }
       end
 
-      # The defs that may run the collector, by fixpoint over the calls
-      # each body makes.
+      # The defs that can run the collector. A fixpoint over the calls of
+      # each body finds them.
       def collecting_defs
         calls = @defs.transform_values { |d| calls_in(d.node.body) }
         set = @collectors.to_set
@@ -394,8 +395,8 @@ module Zr
         end
       end
 
-      # An import's `[[type names], type name, module]`: `from:`, which
-      # names the wasm module it comes from, is one more pair of the same
+      # Returns an import's `[[type names], type name, module]`. `from:`
+      # gives the wasm module of the import, as one more pair in the same
       # hash.
       def import_signature(node)
         refuse(node, "a signature is `[types] => type`") unless node.is_a?(Prism::KeywordHashNode) && node.elements.size.between?(1, 2)
@@ -408,10 +409,10 @@ module Zr
         [*pair_signature(pair), from.value.unescaped]
       end
 
-      # A def of an imported name answers that import's calls in its
-      # place: an OS layer defines the libc call its OS does not have. It
-      # takes the import's signature, or a call written for one would
-      # pass the other.
+      # A def with the name of an import replaces that import for its
+      # calls. An OS layer uses this to define a libc call that its OS
+      # does not have. The def must have the signature of the import, or
+      # a call written for one would pass the wrong arguments to the other.
       def answers_import(d)
         import = @imports[d.name] or return
         refuse(d.node, "#{d.name} is a raw function, and cannot be defined") if import.is_a?(Raw)
@@ -457,8 +458,8 @@ module Zr
         end
       end
 
-      # `fold` for a def in `file`, so that a refusal names that file and
-      # not the last one declared.
+      # `fold` for a def in `file`, so that a refusal gives that file and
+      # not the last file declared.
       def fold_in(file, node)
         outer = @file
         @file = file
@@ -529,8 +530,8 @@ module Zr
       # The file that declares the constant `name`.
       def const_file(name) = @consts.fetch(name).last
 
-      # A constant's value, folded on first use so a declaration may name
-      # one from a later file.
+      # A constant's value. It is folded on first use, so a declaration
+      # can refer to a constant from a later file.
       def const_for(name)
         resolve(@consts, @const_values, name) { |node| fold(node) }
       end
@@ -552,7 +553,7 @@ module Zr
         @resolving.delete(name)
       end
 
-      # Whether this is a unit of several files, whose refusals name the file.
+      # Whether this is a unit of several files. Its refusals give the file.
       def unit?
         @sources.size > 1
       end
@@ -561,7 +562,7 @@ module Zr
         @sigs[name]
       end
 
-      # A read-only byte string, as a data object this unit carries.
+      # A read-only byte string, as a data object of this unit.
       def bytes(string)
         name = "zr_bytes_#{@next_bytes}"
         @next_bytes += 1
@@ -569,7 +570,7 @@ module Zr
         name
       end
 
-      # A zeroed, writable area this unit carries, one per name.
+      # A zeroed, writable area of this unit, one for each name.
       def static(node, name, size)
         if @statics.key?(name)
           refuse(node, "#{name} is #{@statics[name]} bytes, not #{size}") if @statics[name] != size
@@ -585,11 +586,11 @@ module Zr
       end
     end
 
-    # One machine def to one IR function. A def that may run the
-    # collector keeps a root frame in its frame: `prev, n, values...`,
-    # linked from the unit's static head, holding every Value it has (a
-    # parameter, a local, or a call's answer passed on to another call),
-    # so a collection under any call it makes sees them all.
+    # Lowers one machine def to one IR function. A def that can run the
+    # collector keeps a root frame in its frame: `prev, n, values...`.
+    # The root frame links from the static head of the unit and contains
+    # each Value of the def (a parameter, a local, or the result of a call
+    # that goes to another call). Thus a collection in any call sees them all.
     class Function
       def initialize(unit, d)
         @unit = unit
@@ -599,8 +600,8 @@ module Zr
         @loops = []
         @roots = nil
         @inlining = [d.name]
-        # Where a `return` goes while a body is inlined: the block after
-        # it, made by the first return that asks. Nil in the def's own body.
+        # The target of a `return` in an inlined body: the block after
+        # the body, made by the first `return`. Nil in the def's own body.
         @exit = nil
       end
 
@@ -620,8 +621,8 @@ module Zr
         IR::Mem2Reg.run(@f)
       end
 
-      # The root frame: linked in ahead of the body, its slot count and
-      # zero fill filled in once the body has asked for every slot.
+      # Links in the root frame before the body. `leave_roots` sets the
+      # slot count and the zero fill after the body has made all slots.
       def enter_roots
         slot = @f.slot(16)
         @roots = { slot: slot, addr: @f.stack_addr(slot), n: 0, zero: @f.iconst("i64", 0) }
@@ -641,16 +642,16 @@ module Zr
         @f.entry_block.insts.insert(@roots[:fill_at], *fill)
       end
 
-      # A fresh root slot's address and offset.
+      # The offset of a new root slot.
       def root_slot
         at = 16 + (8 * @roots[:n])
         @roots[:n] += 1
         at
       end
 
-      # `return`: the root frame is unlinked first. In an inlined body a
-      # return is a jump to the block after the body, carrying the value;
-      # a `ret` there would leave the caller.
+      # `return`: first unlinks the root frame. In an inlined body, a
+      # return is a jump with the value to the block after the body,
+      # because a `ret` there would return from the caller.
       def ret(value)
         return @f.jump(inline_exit, [value].compact) if @exit
 
@@ -658,7 +659,8 @@ module Zr
         @f.ret(value)
       end
 
-      # The block an inlined body's returns meet at, taking its value.
+      # The block that all returns of an inlined body jump to. Its
+      # parameter is the returned value.
       def inline_exit
         @exit[:block] ||= begin
           block, params = @exit[:type] == "Void" ? @f.block : @f.block([ir_type(@exit[:type])])
@@ -673,8 +675,8 @@ module Zr
         raise Refused.new(node, message, @unit.unit? ? @d.file : nil)
       end
 
-      # A local lives in a slot of its own; a Value in a rooted function
-      # lives in the root frame.
+      # A local is in a slot of its own. A Value in a rooted function is
+      # in the root frame.
       def declare_local(node, name, type)
         refuse(node, "#{name} is already a #{@locals[name][:type]}") if @locals.key?(name) && !fits?(@locals[name][:type], type)
         @locals[name] ||= { type: type, addr: local_addr(type) }
@@ -688,13 +690,12 @@ module Zr
         @f.hoisted(:root_slot, at) { IR::Inst.new(:iadd, type: "i64", args: [@roots[:addr], off]) }
       end
 
-      # The IR type a kernel type lowers to.
       def ir_type(type)
         TYPES.fetch(type)
       end
 
-      # The value and type of a statement list: the last statement's,
-      # which is the one `want` applies to.
+      # The value and type of a statement list: those of the last
+      # statement. `want` applies only to the last statement.
       def statements(node, want = nil)
         last = [nil, "Void"]
         node.body.each_with_index do |s, i|
@@ -704,7 +705,7 @@ module Zr
         last
       end
 
-      # `[value, type]`; `want` names the type a literal takes here.
+      # Returns `[value, type]`. `want` gives the type of a literal here.
       def expr(node, want = nil)
         case node
         when Prism::StatementsNode then statements(node, want)
@@ -760,7 +761,7 @@ module Zr
         @unit.fold_in(@d.file, node)
       end
 
-      # An integer literal, or a constant, takes the type wanted here.
+      # An integer literal or a constant gets the type in `want`.
       def literal(node, n, want)
         type = want || "Word"
         refuse(node, "an integer where a #{type} is wanted") if ir_type(type).nil? || ir_type(type) == "f64"
@@ -793,8 +794,8 @@ module Zr
         end
       end
 
-      # `Name.size`, `Name.field(p)` and `Name.set_field(p, v)`; a field
-      # of a struct type answers its address.
+      # `Name.size`, `Name.field(p)` and `Name.set_field(p, v)`. For a
+      # field of a struct type, `Name.field(p)` returns its address.
       def field(node, layout, args, want)
         name = node.name.to_s
         return literal(node, layout.size, want) if name == "size" && args.empty?
@@ -821,20 +822,20 @@ module Zr
       end
 
       # Whether a store into a field of `layout` is a store into a cell.
-      # A cell begins with its RBasic header and nothing else does, so
-      # the first field's type says it; RBasic itself is the header, and
-      # a write to its `klass` is a write to the cell that carries it.
+      # Only a cell starts with an RBasic header, so the type of the
+      # first field tells. RBasic is the header itself, and a write to its
+      # `klass` is a write to the cell that contains it.
       def cell?(layout)
         layout.name == "RBasic" || layout.fields.first&.last&.last == "RBasic"
       end
 
-      # The collector's write barrier where the kernel has just stored a
-      # Value into a cell. This is what Part 2.1 of the collector plan is
-      # about: CRuby writes `RB_OBJ_WRITE` by hand at every such store in
-      # C and carries a second collector to find the ones it forgot,
-      # where here the compiler emits the store and so emits the barrier
-      # with it. `zr_write_barrier` is `Machine.inline`, so this is the
-      # four instructions of its fast path and not a call.
+      # Emits the collector's write barrier after the kernel stores a
+      # Value into a cell (Part 2.1 of the collector plan). CRuby writes
+      # `RB_OBJ_WRITE` by hand at each such store in C, and has a second
+      # collector to find the missing ones. Here the compiler emits the
+      # store, so it also emits the barrier. `zr_write_barrier` is
+      # `Machine.inline`, so the barrier is the four instructions of its
+      # fast path and not a call.
       def barrier(owner, value)
         callee = @unit.def_for("zr_write_barrier") or return
         return if @inlining.include?(callee.name) || immediate?(value)
@@ -842,25 +843,23 @@ module Zr
         inline(callee, [owner, value])
       end
 
-      # Whether the compiler already knows `value` is an immediate, and
-      # so knows the barrier's own test fails. The kernel stores QNIL
-      # into a Value field oftener than it stores anything else.
+      # Whether the compiler knows that `value` is an immediate, so the
+      # test in the barrier fails. The kernel stores QNIL into a Value
+      # field more frequently than any other value.
       def immediate?(value)
         word = @f.iconst_of(value)
         !word.nil? && @unit.immediate?(word)
       end
 
-      # `a && b` and `a || b` as a value, the right side lowered only when
-      # the left decides nothing; the result is a Bool. One that is a
-      # test -- an `if`'s, a `while`'s -- is `jump_if`'s, and makes no
-      # value at all.
+      # `a && b` and `a || b` as a Bool value. The right side runs only
+      # when the left side does not decide the result. As the test of an
+      # `if` or a `while`, `jump_if` lowers it, and it makes no value.
       #
-      # A right side that is `plain?` is lowered either way, and the two
-      # bits are joined with no branch at all: reading it can change
-      # nothing and fault on nothing, so reading it when the left side
-      # already decided is not observable. `zr_special_p` is three such
-      # tests, the collector asks it of every reference, and as a diamond
-      # of blocks each test cost a compare, two sets, three widenings and
+      # A right side that is `plain?` always runs, and the two bits join
+      # with no branch. It cannot change memory or fault, so an extra read
+      # is not visible. This is for `zr_special_p`: it is three such tests,
+      # and the collector calls it for each reference. As a diamond of
+      # blocks, each test cost a compare, two sets, three widenings and
       # a branch.
       def logical(node, op)
         bit = truth(*condition_value(node.left))
@@ -881,22 +880,21 @@ module Zr
         [params.first, "Bool"]
       end
 
-      # `value` as a Bool: one already is, being 0 or 1, and any other
-      # integer is true when it is not zero.
+      # `value` as a Bool. A Bool is already 0 or 1. Any other integer is
+      # true when it is not zero.
       def truth(value, type)
         type == "Bool" ? value : @f.icmp("ne", value, @f.iconst(ir_type(type), 0))
       end
 
-      # Operators whose lowering is one instruction over its operands, with
-      # no effect, and no fault whatever the operands hold. Division is not
-      # among them.
+      # Operators that lower to one instruction with no effect, and that
+      # cannot fault for any operands. Division is not in this list.
       PLAIN_OPERATORS = %i[+ - * & | ^ << >> < <= > >= == != !].freeze
       PLAIN_CASTS = %i[i32 i8 word sword ptr value].freeze
 
       # Whether `node` reads only literals, constants and locals, through
-      # plain operators and casts: an expression whose value is all its
-      # lowering makes. A local sits in the frame, so reading it is safe
-      # on any path; a load through a pointer is not.
+      # plain operators and casts. Such an expression makes only its value.
+      # A local is in the frame, so a read of it is safe on any path. A
+      # load through a pointer is not safe.
       def plain?(node)
         case node
         when Prism::IntegerNode, Prism::TrueNode, Prism::FalseNode, Prism::ConstantReadNode then true
@@ -919,9 +917,9 @@ module Zr
         :/ => nil, :% => nil, :>> => nil
       }.freeze
 
-      # Word and Ptr mix: a Ptr plus or minus a Word is a Ptr, a Ptr minus
-      # a Ptr is a Word, and a comparison with a Ptr on either side is
-      # unsigned. Value never mixes.
+      # Word and Ptr can mix: a Ptr plus or minus a Word is a Ptr, a Ptr
+      # minus a Ptr is a Word, and a comparison with a Ptr on one side is
+      # unsigned. Value does not mix with other types.
       def binary(node, op, lhs, lt, rhs, rt)
         refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
@@ -950,8 +948,8 @@ module Zr
       FLOAT_OPS = { :+ => :fadd, :- => :fsub, :* => :fmul, :/ => :fdiv }.freeze
       FLOAT_CONDS = { :== => "eq", :!= => "ne", :< => "lt", :<= => "le", :> => "gt", :>= => "ge" }.freeze
 
-      # F64 arithmetic and comparison; a comparison with NaN on either
-      # side is false, except `!=`.
+      # F64 arithmetic and comparison. A comparison with NaN on one side
+      # is false, except `!=`.
       def float_binary(node, op, lhs, rhs)
         return [@f.fbinop(FLOAT_OPS[op], lhs, rhs), "F64"] if FLOAT_OPS.key?(op)
         return [@f.fcmp(FLOAT_CONDS[op], lhs, rhs), "Bool"] if FLOAT_CONDS.key?(op)
@@ -965,7 +963,7 @@ module Zr
         want == got || (PLAIN.include?(want) && PLAIN.include?(got))
       end
 
-      # A call to an import or to a def of this file.
+      # A call to an import or to a def of this unit.
       def target(node, name, args)
         callee = @unit.def_for(name) || @unit.import_for(name) or refuse(node, "#{name} is not an import or a machine def here")
         refuse(node, "#{name} takes #{callee.params.size} arguments, not #{args.size}") if args.size != callee.params.size
@@ -987,18 +985,18 @@ module Zr
         end
       end
 
-      # `d`'s body where the call stands, over the argument `values`: its
-      # parameters and locals in a scope of their own, as the call would
-      # have had. Refusals inside name the callee's file.
+      # Lowers the body of `d` in place of the call, with the argument
+      # `values`. Its parameters and locals are in a scope of their own,
+      # as in a call. A refusal in the body gives the file of the callee.
       #
-      # The body cannot collect, so nothing in it goes in the root frame:
-      # a Value there lives in a slot of its own, as the call would have
-      # kept it, and `IR::Mem2Reg` can make it a register.
+      # The body cannot collect, so nothing in it goes in the root frame.
+      # A Value is in a slot of its own, and `IR::Mem2Reg` can make it a
+      # register.
       #
-      # A `return` in the body -- the guard clause most small defs open
-      # with -- jumps to a block after the body with its value, where the
-      # body's own last value arrives by the same road; the value the
-      # call answers is that block's parameter.
+      # A `return` in the body (frequently a guard clause at the start of
+      # a small def) jumps with its value to a block after the body. The
+      # last value of the body also jumps there. The parameter of that
+      # block is the result of the call.
       def inline(d, values)
         outer = [@locals, @d, @roots, @exit]
         @locals = {}
@@ -1024,10 +1022,10 @@ module Zr
         @locals, @d, @roots, @exit = outer
       end
 
-      # A Value a call answered stays alive across the calls that follow
-      # it in the same argument list: it gets a root slot of its own. A
-      # struct field read or a `Machine.value` is a call here too: the
-      # object it names may be dropped by the Ruby a later argument runs.
+      # A Value that a call returns must stay alive across the next calls
+      # in the same argument list, so it gets a root slot of its own. A
+      # struct field read or a `Machine.value` is also a call here: Ruby
+      # code in a later argument can free the object it refers to.
       def rooted(node, value, type)
         return value unless @roots && type == "Value" && node.is_a?(Prism::CallNode)
 
@@ -1129,18 +1127,18 @@ module Zr
         end
       end
 
-      # The gate word's static: `Machine.gates` reads the word out of its
-      # register, `Machine.gates_set(word)` stores it and sets the
-      # register, and `Machine.gates_enter`, first in a def that foreign
-      # code calls, loads the register from the static (and the def gives
-      # it back as it found it).
+      # The static of the gate word. `Machine.gates` reads the word from
+      # its register. `Machine.gates_set(word)` stores the word and sets
+      # the register. `Machine.gates_enter` is first in a def that foreign
+      # code calls; it loads the register from the static, and the def
+      # restores the register before it returns.
       def gates_addr(node)
         @f.symbol_value(@f.symbol(@unit.static(node, "gates", 8)))
       end
 
-      # A width or a reading change: `Machine.i32(x)` narrows, `word`
-      # zero-extends, `sword` sign-extends, `ptr`/`value`/`word` between
-      # 64-bit types is only a reading.
+      # A change of width or of type: `Machine.i32(x)` narrows, `word`
+      # zero-extends, `sword` sign-extends. `ptr`, `value` and `word`
+      # between 64-bit types change only the type, not the bits.
       def convert(node, to, value, type)
         target = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }[to]
         from, into = ir_type(type), ir_type(target)
@@ -1152,8 +1150,8 @@ module Zr
       end
 
       # `Machine.f64(word)` and `Machine.bits(f)` read the same 64 bits
-      # as the other type; `to_f64` and `to_int` convert by value, the
-      # latter saturating.
+      # as the other type. `to_f64` and `to_int` convert the value;
+      # `to_int` saturates.
       def float_convert(node, to, value, type)
         case to
         when :f64
@@ -1171,12 +1169,12 @@ module Zr
         end
       end
 
-      # `node`, a test, as a branch: to `yes` when it holds, to `no` when
-      # it does not. An `&&` or `||` branches on its left side and asks
-      # its right side only when the left decided nothing; a `!` trades
-      # the arms; anything else is tested as a value. So a test never
-      # makes a bit to test -- no set, no widening, no join carrying a
-      # byte -- and each compare is the branch's own.
+      # Lowers the test `node` as a branch: to `yes` when it is true, to
+      # `no` when it is false. An `&&` or `||` branches on its left side
+      # and tests its right side only when the left side does not decide.
+      # A `!` swaps the targets. Other nodes are tested as values. Thus a
+      # test makes no bit to test (no set, no widening, no join of a byte),
+      # and each compare feeds its branch directly.
       def jump_if(node, yes, no)
         case node
         when Prism::AndNode, Prism::OrNode
@@ -1198,17 +1196,17 @@ module Zr
         end
       end
 
-      # `[value, type]` of an expression a branch may test: any integer.
+      # `[value, type]` of an expression that a branch can test: any integer.
       def condition_value(node)
         value, type = expr(node)
         refuse(node, "a condition that is a #{type}") unless %w[Bool I8 I32 Word Ptr Value].include?(type)
         [value, type]
       end
 
-      # `if` as a value when both arms agree on a type, else Void. Each arm
-      # is lowered before the merge block's shape is known, so the arms'
-      # jumps are written last. `then_stmts` is the then arm; `else_part`
-      # is the else arm's statements, an elsif, or nil.
+      # `if` as a value when both arms have the same type, else Void. The
+      # arms lower before the shape of the merge block is known, so their
+      # jumps are written last. `then_stmts` is the then arm. `else_part`
+      # is the statements of the else arm, an elsif, or nil.
       def branch(node, want, then_stmts, else_part)
         then_b = @f.label
         else_b = @f.label

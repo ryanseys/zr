@@ -12,21 +12,21 @@ module Zr
     UNSIGNED = %w[Ptr].freeze
 
     # Whether a word is an immediate and not a pointer to a cell: a
-    # Fixnum, a flonum, a Symbol, nil, true or false. This is
-    # `zr_special_p` (runtime/kernel/value.rb), spelled the same way and asked
-    # of a word the compiler already holds, so a lowering can drop a
-    # sequence the answer has already decided.
+    # Fixnum, a flonum, a Symbol, nil, true or false. This is the same
+    # test as `zr_special_p` (runtime/kernel/value.rb), applied at compile
+    # time to a known word. Thus a lowering can remove a sequence whose
+    # result the test already decides.
     #
-    # Both the unit being lowered and the description a later build reads
-    # answer it, over whichever constants each of them keeps.
+    # The unit being lowered and the description that a later build reads
+    # both include it, each with its own constants.
     module Immediates
       def immediate?(word)
         (word & 7) != 0 || word == const_for("QFALSE") || word == const_for("QNIL")
       end
     end
 
-    # `from`: the module a wasm import comes from, or nil for a symbol
-    # the link finds.
+    # `from`: the wasm module of the import, or nil for a symbol that the
+    # linker finds.
     class Import < Record
       FIELDS = %i[name params ret from].freeze
       attr_accessor :name, :params, :ret, :from
@@ -40,8 +40,9 @@ module Zr
 
       def to_a = [@name, @params, @ret, @from]
     end
-    # `effects`: the `IR::Effects` bits a call of the def may write,
-    # closed over the defs it calls; nil until the unit's fixpoint says.
+    # `effects`: the `IR::Effects` bits that a call of the def can write,
+    # including the defs it calls. Nil until the fixpoint of the unit
+    # sets it.
     class Def < Record
       FIELDS = %i[name params ret node file effects].freeze
       attr_accessor :name, :params, :ret, :node, :file, :effects
@@ -70,7 +71,7 @@ module Zr
 
       def to_a = [@name, @params, @ret]
     end
-    # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
+    # A signature for `Machine.call`: `Machine.sig :name, [types] => type`.
     class Signature < Record
       FIELDS = %i[name params ret].freeze
       attr_accessor :name, :params, :ret
@@ -98,14 +99,14 @@ module Zr
       def to_a = [@name, @fields, @size, @align]
     end
 
-    # The symbol ids a unit names with `Machine.id(:name)`: the compiler
-    # owns the table, and a unit compiled alone numbers names as it meets
-    # them.
+    # The symbol ids that a unit gets with `Machine.id(:name)`. The
+    # compiler owns the table. A unit compiled alone numbers the names in
+    # the order it finds them.
     class Symbols
       attr_reader :ids, :sites
 
-      # `intern` is how a running program names a symbol it has not seen.
-      # Only an eval has one, and only past the names it was seeded with.
+      # `intern` lets a running program get an id for a new symbol. Only
+      # eval support has one, and it applies only to names after `names`.
       def initialize(names = [], sites: 0, intern: nil)
         @ids = {}
         @sites = sites
@@ -113,35 +114,35 @@ module Zr
         @intern = intern
       end
 
-      # With an `intern`, a name this table meets first is given to the
-      # program at once and takes the id the program's own table answers,
-      # so the two never drift apart, whatever else the program interned.
+      # With an `intern`, a new name goes to the program immediately, and
+      # gets the id that the program's own table returns. Thus the two
+      # tables always agree, whatever other names the program interned.
       def id(name)
         name = name.to_s
         @ids.fetch(name) { @ids[name] = @intern ? @intern.call(name) : @ids.size }
       end
 
-      # A fresh index for a code site that owns a run-time slot (a regexp
-      # literal's cached object), unique across every lowering that shares
-      # this table or descends from it.
+      # A new index for a site that owns a run-time slot (the cached
+      # object of a regexp literal). It is unique across all lowerings that
+      # share this table or start from a copy of it.
       def site
         @sites += 1
         @sites - 1
       end
     end
 
-    # The three tables a lowering reads from a kernel unit: what each
-    # `machine def` takes and answers, what each `Machine.const` is worth,
-    # and how each `Machine.struct` is laid out. An eval carries this
-    # instead of the kernel sources, and answers from it exactly as the
-    # unit does.
+    # The three tables that a lowering reads from a kernel unit: the
+    # parameters and return type of each `machine def`, the value of each
+    # `Machine.const`, and the layout of each `Machine.struct`. Eval
+    # support contains this in place of the kernel sources, and returns
+    # the same results as the unit.
     class Description
       include Immediates
 
       attr_reader :defs, :consts, :structs
 
-      # `unit` is a lowered kernel; every constant and layout is resolved
-      # here, so the tables the rows come from are plain data.
+      # `unit` is a lowered kernel. This resolves each constant and
+      # layout, so the tables contain only plain data.
       def self.of(unit)
         defs = unit.declared_defs.to_h { |name, d| [name, Def.new(name, d.params, d.ret, nil, nil, d.effects)] }
         consts = unit.declared_consts.to_h { |name| [name, unit.const_for(name)] }
@@ -149,11 +150,11 @@ module Zr
         new(defs, consts, structs)
       end
 
-      # One line per row: a def names its return type then its parameters,
-      # an `e` row a def's effects, a const its value, a layout its size
-      # and align then its fields. Text, because a program carries this
-      # as one frozen literal and reads it back with nothing but
-      # String#split.
+      # One line for each entry. A def line gives its return type, then
+      # its parameters. An `e` line gives the effects of a def. A const
+      # line gives its value. A layout line gives its size and alignment,
+      # then its fields. The format is text because a program contains it
+      # as one frozen literal and reads it with only String#split.
       def self.parse(text)
         defs = {}
         consts = {}

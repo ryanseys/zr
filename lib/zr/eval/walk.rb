@@ -5,27 +5,28 @@ require "zr/eval/walk_forms"
 require_relative "walk/tree"
 
 module Zr
-  # A string of ruby, walked while the program that asked for it runs.
+  # The tree-walking interpreter: it runs a string of Ruby in the running
+  # program that evals it.
   #
-  # This is the road a program carries where it cannot write machine code
-  # into itself. A wasm module's code is fixed when the engine
-  # instantiates it, and WASI hands a guest no way to make a second
-  # module, so the compiling road (`lib/zr/eval.rb`) has nowhere to put
-  # what it emits. The front end is the same one either way -- prism port,
-  # `Hir.build`, the same desugaring -- and only the back half differs:
-  # here the tree is walked (`Eval::Tree`) rather than lowered.
+  # A program uses it when it cannot write machine code into itself. The
+  # engine fixes the code of a wasm module when it instantiates it, and
+  # WASI gives a guest no way to make a second module. Thus the eval
+  # compiler (`lib/zr/eval.rb`) has no place for its output. The front
+  # end is the same for both (prism port, `Hir.build`, the same
+  # desugaring). Only the back end is different: here `Eval::Tree` walks
+  # the tree and does not lower it.
   #
-  # `ZR_EVAL=walk` builds a native program with this road, which is how
-  # the walk is checked against the compiling road's own answers.
+  # `ZR_EVAL=walk` builds a native program with the tree-walking
+  # interpreter, so the tests can check it against the eval compiler.
   class Eval
-    # The walk loads with the first string a program evals, as the
-    # compiler does on the other road.
+    # The interpreter loads with the first string that a program evals,
+    # as the eval compiler does.
     def self.current = @current ||= new
 
-    # `source` walked in `scope` -- the Binding of the frame that asked --
-    # under `self_` and `cref`, with `block` as the block a `yield` in the
-    # string reaches. `add` marks a `Binding#eval`, where a local the
-    # string invents becomes the Binding's own, as ruby gives it.
+    # Walks `source` in `scope` (the Binding of the calling frame), with
+    # `self_` and `cref`. `block` is the block that a `yield` in the
+    # string calls. `add` marks a `Binding#eval`: a new local of the
+    # string becomes a local of the Binding, as in ruby.
     def run(source, file, line, scope, self_, cref, block, add = false)
       file = string(file)
       hir = built(string(source), file, line.to_int, scope)
@@ -47,38 +48,38 @@ module Zr
       raise e
     end
 
-    # A file the program was not compiled with. The compiling road
-    # answers the address of its toplevel, which the kernel then calls;
-    # there is no address here, so this is refused by name.
+    # A file that is not compiled into the program. The eval compiler
+    # returns the address of its toplevel, and the kernel calls it. The
+    # interpreter has no address, so it refuses, with a message that
+    # gives the file.
     def compile_file(path)
       raise Tree::Refused, "#{path}:1: a require of a file the program was not compiled with is not walked yet"
     end
 
-    # `RubyVM::InstructionSequence.compile` and a Ractor's own loader ask
-    # the road for code to run later. The walk has none to give.
+    # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
+    # need code to run later. The interpreter cannot make such code.
     def compile(_source, file, line = 1, _scopes = [], _method = nil)
       raise Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
     end
 
     private
 
-    # The tree, built one scope inside the scopes the frame holds, as the
-    # compiling road builds it: a name the string writes that the frame
-    # already holds lands in the frame, and a name it invents stays its
-    # own.
+    # Builds the tree one scope inside the scopes of the frame, as the
+    # eval compiler does. A write to a name that the frame has goes to the
+    # frame. A new name stays in the scope of the string.
     def built(source, file, line, scope)
       names = World.binding_scopes(scope)
       Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, []],
                                            method: World.binding_parameters(scope))
     end
 
-    # The frame's own scopes, innermost first, as the walk reaches them.
+    # The scopes of the frame, innermost first, in the order of lookup.
     def held(scope)
       World.binding_scopes(scope).each_with_index.map { |names, depth| Tree::Held.new(scope, depth, names) }
     end
 
-    # `Binding#eval`: what the string invented is the Binding's from here
-    # on, so a later read of it there answers what the string left.
+    # `Binding#eval`: the new locals of the string become locals of the
+    # Binding, so a later read there returns the value the string set.
     def keep(scope, own)
       own.names.each do |name|
         next unless name.to_s.match?(/\A[a-z_][A-Za-z0-9_]*\z/)
@@ -87,8 +88,8 @@ module Zr
       end
     end
 
-    # The argument as ruby takes a string of it: a String, or anything
-    # that answers `to_str`.
+    # The argument as a String, as ruby converts it: a String, or an
+    # object that responds to `to_str`.
     def string(value)
       return value if value.is_a?(String)
       raise TypeError, "no implicit conversion of #{name_of(value)} into String" unless value.respond_to?(:to_str)

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-# The pins of Zr::Libraries found by rubygems, checked against the
-# digests zr was released with, and linked into a tree:
+# Finds the pinned gems of Zr::Libraries with rubygems, checks them
+# against the digests of the zr release, and links them into a tree:
 #
-#   ruby lib/zr/libraries/resolve.rb DIR           the tree and manifest under DIR
-#   ruby lib/zr/libraries/resolve.rb --digests     lib/zr/library_digests.rb, written
+#   ruby lib/zr/libraries/resolve.rb DIR           writes the tree and manifest under DIR
+#   ruby lib/zr/libraries/resolve.rb --digests     writes lib/zr/library_digests.rb
 #
-# Zr::Libraries runs it in a child, since only a ruby with rubygems can
-# find a gem. It is never compiled into anything.
+# Zr::Libraries runs it in a child process, because only a ruby with
+# rubygems can find a gem. zr never compiles this file into a binary.
 
 require "rubygems"
 require "digest/sha2"
@@ -22,8 +22,8 @@ module Zr
 
       module_function
 
-      # Each pinned gem's files, `{ name => { rel => source } }`, in PINS'
-      # order.
+      # The files of each pinned gem, `{ name => { rel => source } }`, in
+      # the order of PINS.
       def files
         Libraries::PINS.to_h do |name, version|
           specs = Gem::Specification.find_all_by_name(name, "= #{version}")
@@ -37,7 +37,7 @@ module Zr
         end
       end
 
-      # A gem's files, from its own directory.
+      # The files of a gem, from its own directory.
       def gem_files(spec)
         excluded = EXCLUDE.fetch(spec.name, [])
         (DIRS[spec.name] || spec.require_paths).each_with_object({}) do |sub, out|
@@ -52,10 +52,10 @@ module Zr
         end
       end
 
-      # A default gem's files, from ruby's own library, as its
-      # specification lists them. ruby's library directory is never taken
-      # whole: it holds files zr carries its own way, and a
-      # distributor's patches.
+      # The files of a default gem, from ruby's own library, as its
+      # specification lists them. zr never uses all of ruby's library
+      # directory: it contains files that zr supplies in its own way, and
+      # patches from a distributor.
       def default_files(spec)
         dirs = RbConfig::CONFIG.values_at("sitelibdir", "rubylibdir")
         spec.files.grep(%r{\Alib/}).sort.each_with_object({}) do |file, out|
@@ -69,7 +69,7 @@ module Zr
         end
       end
 
-      # The SHA-256 of a gem's files, by name and bytes.
+      # The SHA-256 of the files of a gem, by name and bytes.
       def digest(files)
         Digest::SHA256.new.tap do |d|
           files.sort.each { |rel, path| d << rel << "\0" << File.binread(path) << "\0" }
@@ -87,12 +87,12 @@ module Zr
         end
       end
 
-      # The files vendor/lib holds, which no gem ships.
+      # The files in vendor/lib, which no gem supplies.
       def residual = Dir.glob("**/*", base: RESIDUAL).sort.select { |rel| File.file?(File.join(RESIDUAL, rel)) }
                         .grep_v(%r{\A(?:LICENSES/|VERSIONS\z)}).to_h { |rel| [rel, File.join(RESIDUAL, rel)] }
 
-      # `{ "lib" => { rel => source }, "power_assert/lib" => ... }`: what the
-      # tree links, in its two halves.
+      # `{ "lib" => { rel => source }, "power_assert/lib" => ... }`: the
+      # links of the tree, in its two halves.
       def layout(found)
         pure = residual
         owner = pure.keys.to_h { |rel| [rel, "vendor/lib"] }
@@ -112,8 +112,9 @@ module Zr
         halves
       end
 
-      # The tree's name: what it holds, never where the gems are. The
-      # checkout or gem it serves goes in, since its vendor/lib is linked.
+      # The name of the tree: a digest of its contents, not of the gem
+      # locations. It includes the checkout or gem that uses the tree,
+      # because the tree links to its vendor/lib.
       def key
         Digest::SHA256.new.tap do |d|
           d << RESIDUAL << "\0"
@@ -139,9 +140,10 @@ module Zr
         end
       end
 
-      # The directories whose change means rubygems may answer another
-      # way, and the resolve's own files, whose change may lay the tree
-      # out another way; and what each is now.
+      # The file stamp (mtime and size) of each path that can change the
+      # result: the rubygems directories, which can change what rubygems
+      # finds, and the files of this resolver, which can change the tree
+      # layout.
       def stamps
         dirs = [__FILE__, File.expand_path("../libraries.rb", __dir__), DIGESTS]
         dirs += Gem.path.flat_map { |d| [File.join(d, "specifications"), File.join(d, "specifications/default")] }

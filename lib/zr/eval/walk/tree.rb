@@ -5,31 +5,30 @@ require_relative "../../record"
 
 module Zr
   class Eval
-    # A walk of the tree the front end built, for a program that cannot
-    # write machine code while it runs.
+    # The tree-walking interpreter, for a program that cannot write
+    # machine code while it runs.
     #
-    # The front end is the compiler's own: the same prism port, the same
-    # `Hir.build`, the same desugaring and name resolution. Only the back
-    # half differs. Where the compiling road lowers the tree to IR and
-    # writes it into the process, this evaluates the tree node by node,
-    # and reaches the program through the calls any Ruby program makes --
-    # `__send__`, `define_method`, `instance_variable_get` -- with
-    # `Eval::World` for the tables the compiler reaches inline.
+    # The front end is the same as the compiler's: the same prism port,
+    # `Hir.build`, desugaring and name resolution. Only the back end is
+    # different. The eval compiler lowers the tree to IR and writes it
+    # into the process. This class evaluates the tree node by node. It
+    # calls into the program with the usual Ruby calls (`__send__`,
+    # `define_method`, `instance_variable_get`), and uses `Eval::World`
+    # for the tables that compiled code reads inline.
     #
-    # It is slower than compiled code by a wide margin, and that is the
-    # trade wasm asks for. What it will not do is answer something other
-    # than ruby: a form it does not carry is refused by name, at its
-    # line, as the contract asks.
+    # It is much slower than compiled code; wasm requires this. But it
+    # must not give a result different from ruby. It refuses a form that
+    # it does not support, with a message that gives the form and the line.
     class Tree
-      # A form the walk does not carry yet, named where it stands. The
-      # contract lets zr refuse; it does not let zr guess.
+      # A form that the interpreter does not support yet, with its
+      # location. The contract lets zr refuse, but not guess.
       class Refused < ::NotImplementedError; end
 
       # `return`, `break`, `next`, `redo` and `retry` leave a walked body
-      # the way a raise does. They descend from Exception rather than
-      # StandardError so that a bare `rescue` -- in walked code, or in
-      # the compiled method a walked block was passed to -- does not
-      # swallow them.
+      # as a raise does (a pending unwind). They are subclasses of
+      # Exception, not StandardError, so that a bare `rescue` does not
+      # catch them. This applies to walked code and to a compiled method
+      # that gets a walked block.
       class Signal < ::Exception; end
 
       class Returning < Signal
@@ -75,9 +74,9 @@ module Zr
         def initialize = super("retry outside of rescue clause")
       end
 
-      # One scope's locals, by name. A scope the walk makes is its own
-      # Hash; the scopes outside an eval belong to the frame that asked,
-      # and `Binding` reaches them where they stand.
+      # The locals of one scope, by name. A scope that the interpreter
+      # makes is a Hash. The scopes outside an eval belong to the calling
+      # frame, and `Held` reads them through its `Binding`.
       class Scope
         def initialize(names)
           @values = {}
@@ -90,9 +89,9 @@ module Zr
         def names = @values.keys
       end
 
-      # A scope of the frame that asked for the eval, as its Binding
-      # names it: a read and a write land in the frame itself, so a
-      # string that assigns a local the caller holds is seen there.
+      # A scope of the frame that called eval, through its Binding. Reads
+      # and writes go to the frame itself, so the caller sees a local
+      # that the string assigns.
       class Held
         def initialize(binding, depth, names)
           @binding = binding
@@ -114,14 +113,13 @@ module Zr
         end
       end
 
-      # Where a node runs: the self it runs under, the lexical scope its
-      # constants read, the chain of scopes its locals live in
-      # (innermost first), the block the body was given, and -- inside a
-      # method -- the name and owner a `super` goes on from, with the
-      # arguments a bare `super` passes again. `tag` marks the innermost
-      # block or loop, which `break`, `next` and `redo` leave; `home`
-      # marks the method a `return` leaves, and is nil where the walk
-      # stands in no method it can return from.
+      # The context of a node: its self, the lexical scope for constant
+      # lookup, the chain of local scopes (innermost first), and the block
+      # of the body. In a method, it also has the name and owner that
+      # `super` starts from, and the arguments that a bare `super` passes
+      # again. `tag` marks the innermost block or loop, which `break`,
+      # `next` and `redo` leave. `home` marks the method that a `return`
+      # leaves; it is nil when there is no such method.
       class Ctx < Record
         FIELDS = %i[self_ cref chain block name owner args kwargs tag home].freeze
         attr_accessor :self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home
@@ -149,10 +147,9 @@ module Zr
         @file = file
       end
 
-      # `hir` run under `ctx`. The value is the body's.
+      # Runs `hir` in `ctx` and returns the value of its body.
       def run(hir, ctx) = walk(hir.body, ctx)
 
-      # A node's value.
       def walk(node, ctx)
         case node
         when nil then nil
@@ -222,16 +219,16 @@ module Zr
 
       private
 
-      # `return`. A block returns from the method it was written in; an
-      # eval outside a method has none, and one inside a method cannot
-      # unwind the compiled frame that called it, so it is refused.
+      # `return`. A block returns from the method that contains it. An
+      # eval outside a method has no such method. An eval in a method
+      # cannot unwind the compiled frame that called it. Thus both refuse.
       def return_node(node, ctx)
         refuse(node, "return from an eval") unless ctx.home
 
         raise Returning.new(walk(node.value, ctx), ctx.home)
       end
 
-      # `false` and `nil` are the only falsehoods, as everywhere.
+      # Only `false` and `nil` are false.
       def truthy(value) = !value.nil? && value != false
 
       def refuse(node, what)
@@ -240,9 +237,9 @@ module Zr
 
       def backref_name(node) = node.kind == :nth ? "$#{node.number}" : { last: "$+", pre: "$`", post: "$'" }.fetch(node.kind)
 
-      # Locals. The chain is innermost first, and a node's `depth` counts
-      # scopes out to the one that holds the name, which is how the front
-      # end resolved it.
+      # Locals. The chain is innermost first. The `depth` of a node is the
+      # number of scopes out to the scope that contains the name, as the
+      # front end resolved it.
       def read_local(node, ctx)
         scope = ctx.chain[node.depth] or return nil
         scope.get(node.name)
@@ -260,11 +257,11 @@ module Zr
         value
       end
 
-      # `$~` and `$_` are registers of the frame that last matched and
-      # not rows of the global table, and the walk has no frame of its
-      # own to keep them in: a match it makes stands in whichever of its
-      # own frames ran the send. Reading them from the table would answer
-      # something, and something is worse than a refusal.
+      # `$~` and `$_` belong to the frame that last matched; they are not
+      # entries in the global table. The interpreter has no frame of its
+      # own for them: a match sets them in the interpreter's Ruby frame
+      # that made the send. A read from the global table would return a
+      # wrong value, which is worse than a refusal.
       FRAME_GLOBALS = { :$~ => "$~", :$_ => "$_" }.freeze
 
       def gvar_read(node)
@@ -281,7 +278,7 @@ module Zr
         value
       end
 
-      # A `while` or `until`; its value is nil unless a `break` names one.
+      # A `while` or `until`. Its value is nil, or the value of a `break`.
       def while_node(node, ctx)
         tag = node.__id__
         inner = ctx.with(tag: tag)
@@ -305,8 +302,8 @@ module Zr
         e.value
       end
 
-      # An array literal, or a call's positional arguments: a `*splat`
-      # spreads where it stands.
+      # An array literal, or the positional arguments of a call. A
+      # `*splat` spreads in its position.
       def elements(nodes, ctx)
         out = []
         nodes.each do |n|
@@ -320,8 +317,8 @@ module Zr
         out
       end
 
-      # `*value` as ruby spreads it: an Array as it stands, nil as
-      # nothing, anything else through `to_a` and then as one element.
+      # `*value` as ruby spreads it: an Array as is, nil as no elements,
+      # an object with `to_a` through `to_a`, else as one element.
       def splat_array(value)
         return value if value.is_a?(::Array)
         return [] if value.nil?
@@ -330,8 +327,8 @@ module Zr
         [value]
       end
 
-      # `{k => v, **h}`: the pairs are flat, key then value, and a
-      # double splat arrives as a key with a nil value.
+      # `{k => v, **h}`: the pairs are flat, key then value. A double
+      # splat is a key with a nil value.
       def hash_lit(pairs, ctx)
         out = {}
         i = 0
@@ -349,8 +346,8 @@ module Zr
         out
       end
 
-      # `[**h]`: the pairs as one Array element, and no element at all
-      # where they come out empty.
+      # `[**h]`: the pairs as one Array element, or no element when the
+      # hash is empty.
       def kwsplat_element(node, ctx)
         h = hash_lit(node.pairs.pairs, ctx)
         h.empty? ? [] : [h]
@@ -365,15 +362,15 @@ module Zr
         out
       end
 
-      # What `"#{x}"` writes: `to_s`, and `inspect` where that answers
-      # something other than a String, as CRuby's rb_obj_as_string does.
+      # The text of `"#{x}"`: `to_s`, or `inspect` when `to_s` does not
+      # return a String, as CRuby's rb_obj_as_string does.
       def stringify(value)
         said = value.to_s
         said.is_a?(::String) ? said : value.inspect
       end
 
-      # Constants. The lookup is the kernel's own, so a name the string
-      # spells finds what compiled code in the same scope finds.
+      # Constants. The lookup is the kernel's, so a name in the string
+      # finds the same constant as compiled code in the same scope.
       def const_read(node, ctx)
         return World.const_get_at(::Object, node.name) if node.scope == :top
         return World.const_get_at(walk(node.scope, ctx), node.name) if node.scope
@@ -399,8 +396,9 @@ module Zr
         World.const_defined?(ctx.cref, node.name)
       end
 
-      # Where a constant a name writes lands: the scope before `::`, else
-      # the innermost lexical scope, which an eval's own cref is not.
+      # The scope of a constant write: the scope before `::`, else the
+      # innermost lexical scope. The cref of the eval itself is not a
+      # lexical scope.
       def const_base(node, ctx)
         return ::Object if node.scope == :top
         return walk(node.scope, ctx) if node.scope
@@ -408,19 +406,18 @@ module Zr
         World.cref_klass(World.cref_lexical(ctx.cref))
       end
 
-      # The methods that read the frame that called them. The walk runs
-      # in frames of its own files, not of the string, so a plain call
-      # would answer for `tree.rb`. What the node's own place already
-      # knows is answered from there; the rest is refused.
+      # Methods that read the frame of their caller. The interpreter runs
+      # in frames of its own files, not of the string, so a usual call
+      # would return data for `tree.rb`. `frame_method` returns what the
+      # context knows (FROM_THE_FRAME) and refuses the rest (NO_FRAME).
       FROM_THE_FRAME = %i[block_given? iterator? __method__ __callee__ local_variables].freeze
       NO_FRAME = %i[binding caller caller_locations __dir__].freeze
 
-      # The words that set a body's own visibility, which lives in the
-      # cref rather than in any frame: written bare, they change what the
-      # `def`s after them get. Given names they are ordinary calls.
+      # The words that set the default visibility of a body. It is in
+      # the cref, not in a frame. Without arguments, they change the
+      # visibility of the next `def`s. With names, they are usual calls.
       VISIBILITY = { private: 1, public: 0, protected: 2 }.freeze
 
-      # Calls.
       def send_node(node, ctx)
         refuse(node, "a call under a refinement") if node.using
         return frame_method(node, ctx) if bare?(node) && (FROM_THE_FRAME.include?(node.name) || NO_FRAME.include?(node.name))
@@ -437,11 +434,11 @@ module Zr
                                                    breaks: node.block.is_a?(Hir::Block) && node.block)
       end
 
-      # A private method answers a call with no receiver, and one whose
-      # receiver is written `self`, as ruby lets it.
+      # A call can reach a private method when it has no receiver or its
+      # receiver is the literal `self`, as in ruby.
       def private_call?(node) = node.recv.nil? || node.recv.is_a?(Hir::SelfRef)
 
-      # A call written as a bare name, with nothing after it.
+      # A call written as a bare name, with no arguments and no block.
       def bare?(node) = node.recv.nil? && node.args.empty? && node.kwargs.nil? && node.block.nil?
 
       def frame_method(node, ctx)
@@ -467,8 +464,8 @@ module Zr
         end
       end
 
-      # `&value`: nil passes no block, a Proc passes itself, a Symbol
-      # and anything else go through `to_proc`.
+      # `&value`: nil passes no block, a Proc passes itself, and other
+      # objects (a Symbol too) go through `to_proc`.
       def block_pass(value)
         return nil if value.nil?
         return value if value.is_a?(::Proc)
@@ -476,9 +473,9 @@ module Zr
         value.to_proc
       end
 
-      # One send. `vcall` marks a bare identifier, whose miss is a
-      # NameError rather than a NoMethodError; `breaks` is the block
-      # literal this call was given, whose `break` this call answers.
+      # One send. `vcall` marks a bare identifier: if no method is found,
+      # the error is a NameError, not a NoMethodError. `breaks` is the
+      # block literal of this call; a `break` in it returns from this call.
       def call(recv, name, args, kwargs, block, private:, vcall: false, breaks: nil)
         tag = breaks && breaks.__id__
         if kwargs.nil? || kwargs.empty?
@@ -496,21 +493,20 @@ module Zr
         raise ::NameError.new("undefined local variable or method '#{name}' for #{recv.inspect}", name, receiver: recv)
       end
 
-      # Blocks. A block is a Proc whose body this walks; `break`, `next`
-      # and `redo` in it are the signals a walked body raises, and the
-      # call that was given the block answers a `break`.
-      # `home` is the lexical scope every frame of this file runs under.
-      # A block that finds itself under another one was handed to
-      # `class_eval`, `instance_eval`, `class_exec` or `instance_exec`,
-      # which run a block under a self and a definee of their own -- and
-      # compiled code does that to blocks the walk made: `Forwardable`
-      # evaluates a string to a proc and hands it to `module_eval`. The
-      # walk follows it there.
+      # Blocks. A block is a Proc whose body the interpreter walks.
+      # `break`, `next` and `redo` in it raise the unwind exceptions above,
+      # and the call that got the block catches a `break`.
+      # `home` is the lexical scope of all frames of this file. If a block
+      # runs under a different scope, `class_eval`, `instance_eval`,
+      # `class_exec` or `instance_exec` called it with a different self
+      # and definee. Compiled code can do this to an interpreted block:
+      # `Forwardable` evaluates a string to a proc and gives it to
+      # `module_eval`. The interpreter then uses that self and scope.
       def make_proc(node, ctx, lambda:)
         tree = self
         home = World.cref
-        # The literal is what makes a lambda a lambda: `Kernel#lambda`
-        # refuses a Proc that was not written as its block.
+        # Only the literal makes a lambda: `Kernel#lambda` refuses a Proc
+        # that is not its literal block.
         if lambda
           return ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true, home: home, here: World.cref, self_: self) }
         end
@@ -522,9 +518,9 @@ module Zr
         ctx = ctx.with(self_: self_, cref: here, name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
         tag = node.__id__
         scope = Scope.new(node.locals)
-        # A `yield` in a block reaches the block of the method the block
-        # was written in, not one passed to the block itself, which is
-        # the `&blk` parameter's alone.
+        # A `yield` in a block calls the block of the method that
+        # contains the block. A block passed to the block itself is only
+        # in its `&blk` parameter.
         inner = ctx.with(chain: [scope, *ctx.chain], tag: tag)
         bind(node.params, scope, args, kwargs, blk, inner, strict: lambda, spread: !lambda)
         begin
@@ -540,8 +536,8 @@ module Zr
         end
       end
 
-      # Method definition. The body is walked on every call, under the
-      # lexical scope the `def` was written in.
+      # Method definition. Each call walks the body, in the lexical scope
+      # of the `def`.
       def define(node, ctx)
         owner = node.receiver ? World.singleton_of(walk(node.receiver, ctx)) : World.cref_klass(ctx.cref)
         tree = self
@@ -553,9 +549,8 @@ module Zr
         node.name
       end
 
-      # What a `def` under `cref` gets beside its body: the body's
-      # current visibility, and `module_function`'s copy on the
-      # singleton class.
+      # Applies to a `def` in `cref` the current default visibility of the
+      # body, and the singleton copy that `module_function` makes.
       def visibility(owner, node, cref)
         owner.singleton_class.send(:define_method, node.name, owner.instance_method(node.name)) if World.module_function?(cref)
         case World.definition_vis(node.name, cref)
@@ -579,7 +574,6 @@ module Zr
         end
       end
 
-      # Class and module bodies.
       def module_def(node, ctx)
         base = node.scope == :top ? ::Object : node.scope ? walk(node.scope, ctx) : World.cref_klass(World.cref_lexical(ctx.cref))
         mod = World.const_defined_at?(base, node.name) ? World.const_get_at(base, node.name) : nil
@@ -596,7 +590,7 @@ module Zr
       def singleton_def(node, ctx) = run_body(node, World.singleton_of(walk(node.target, ctx)), ctx)
 
       # A class, module or singleton class body: its own scope, its own
-      # self, and a lexical scope one inside the one it was written in.
+      # self, and a lexical scope one level inside the enclosing scope.
       def run_body(node, mod, ctx)
         inner = Ctx.new(self_: mod, cref: World.cref_push(mod, ctx.cref), chain: [Scope.new(node.locals)],
                         block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: node.__id__, home: nil)
@@ -605,8 +599,8 @@ module Zr
 
       # `begin ... rescue ... else ... ensure ... end`.
       def begin_node(node, ctx)
-        # `retry` runs the protected body again, not the clause that
-        # asked for it, so it is caught outside both.
+        # `retry` runs the protected body again, not the rescue clause,
+        # so the code catches it outside both.
         begin
           value = nil
           begin
@@ -641,8 +635,8 @@ module Zr
         walk(node.else_body, ctx)
       end
 
-      # One `when` value against the subject, or its own truth where the
-      # `case` named none. A `*splat` among them tests each element.
+      # Tests one `when` value against the subject, or tests its truth
+      # when the `case` has no subject. A `*splat` tests each element.
       def matches?(value, subject, ctx)
         if value.is_a?(Hir::Splat)
           return splat_array(walk(value.value, ctx)).any? { |v| subject ? truthy(v === subject.first) : truthy(v) }
@@ -671,9 +665,9 @@ module Zr
         values
       end
 
-      # One target of a multiple assignment, a rescue's `=> e` or a
-      # destructuring parameter: a local, an ivar, a `h[k]` or an
-      # attribute, or a nested target.
+      # One target of a multiple assignment, of a rescue `=> e`, or of a
+      # destructuring parameter: a local, a variable, a constant, a
+      # `h[k]` or an attribute, or a nested target.
       def write_target(target, value, ctx)
         case target
         when Hir::Assign then write_local(target, value, ctx)
@@ -701,10 +695,10 @@ module Zr
         kwargs.nil? || kwargs.empty? ? block.call(*args) : block.call(*args, **kwargs)
       end
 
-      # `super(args)` and the bare `super`, which passes the method's own
-      # arguments again. The entry is the next one after the method's
-      # owner along the receiver's own ancestors, which is what the
-      # runtime's own lookup answers.
+      # `super(args)` and the bare `super`, which passes the arguments of
+      # the method again. The target is the next module after the owner
+      # of the method in the ancestors of the receiver, as in the lookup
+      # of the runtime.
       def super_node(node, ctx)
         args = elements(node.args, ctx)
         kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil
@@ -735,7 +729,7 @@ module Zr
         found.instance_method(ctx.name)
       end
 
-      # `defined?(...)`: the word ruby answers, or nil.
+      # `defined?(...)`: the same string that ruby returns, or nil.
       def defined_node(node, ctx)
         case node.kind
         when :self then "self"
@@ -771,12 +765,12 @@ module Zr
         nil
       end
 
-      # Every other form is an expression, and `defined?` answers so
-      # without running it.
+      # All other forms are expressions. `defined?` returns "expression"
+      # and does not run them.
       def defined_expression(_node, _ctx) = "expression"
 
       # `recv[args] op= value` and `recv.name op= value`: the receiver
-      # and the arguments are evaluated once.
+      # and the arguments are evaluated only once.
       def index_op_assign(node, ctx)
         recv = walk(node.recv, ctx)
         args = elements(node.args, ctx)
@@ -819,7 +813,8 @@ module Zr
         nil
       end
 
-      # `END { }`: the body runs the first time the site is reached.
+      # `END { }`: the body runs only the first time that execution gets
+      # to the site.
       def once(node, ctx)
         @once ||= {}.compare_by_identity
         return @once[node] if @once.key?(node)
@@ -827,9 +822,9 @@ module Zr
         @once[node] = walk(node.body, ctx)
       end
 
-      # Parameters. `args` are the positional arguments, `kwargs` the
-      # keywords or nil, and `strict` asks for the arity check a method
-      # and a lambda make and a block does not.
+      # Parameters. `args` are the positional arguments, and `kwargs` are
+      # the keywords or nil. `strict` turns on the arity check: a method
+      # and a lambda do it, a block does not.
       def bind(params, scope, args, kwargs, blk, ctx, strict:, spread:)
         args = args.dup
         kwargs = nil if kwargs && kwargs.empty?
