@@ -1913,8 +1913,8 @@ module Zr
         positional = (p.required + p.optional.map(&:first)).map(&local)
         positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
         positional += p.post.map(&local)
-        # The rest goes in first, which is the order ruby's own zsuper
-        # builds the hash in.
+        # The rest goes in first, in the order that ruby's own zsuper
+        # builds the hash.
         pairs = p.kwrest && p.kwrest != :nokey ? [HashSplat.new(local.call(p.kwrest), line), nil] : []
         pairs += p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
@@ -1947,9 +1947,9 @@ module Zr
         Params.new(required, optional, rest, post, keywords, kwrest, block)
       end
 
-      # A required parameter: its name, or a MultiTarget for `(a, b)`.
-      # A bare super passes such an argument as it arrived, so the whole
-      # of it is kept in a hidden local beside the names it takes apart.
+      # A required parameter: its name, or a MultiTarget for `(a, b)`. A
+      # bare super passes such an argument as it was given, so the full
+      # value is kept in a hidden local next to the destructured names.
       def name_of(param)
         return param.name unless param.is_a?(Prism::MultiTargetNode)
 
@@ -1986,20 +1986,20 @@ module Zr
           args = index_args(node, line)
           Send.new(expr(node.receiver), :[]=, args, line, false, args.none?(Splat), nil, nil)
         when Prism::CallTargetNode
-          # `rescue => o&.x` and `for o&.x in list` write only when `o` is
-          # not nil, as the safe call they spell does.
+          # `rescue => o&.x` and `for o&.x in list` write only if `o` is
+          # not nil, as their safe call does.
           Send.new(expr(node.receiver), node.name, [], line, false, false, nil, nil, node.call_operator == "&.")
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} as an assignment target is not lowered yet")
         end
       end
 
-      # The indexes an index target names. A splat among them takes the
-      # inline `[]` path away, since the count is only known at run time.
+      # The indexes of an index target. A splat disables the inline `[]`
+      # path, because the count is known only at run time.
       def index_args(node, line)
         (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? splat(a, line) : expr(a) }
       end
 
-      # A rest parameter's name; `|a, |` has an implicit one that binds
+      # A rest parameter's name. `|a, |` has an implicit rest that binds
       # nothing.
       def rest_name(node)
         case node
@@ -2036,8 +2036,8 @@ module Zr
           names = (1..node.maximum).map { |i| :"_#{i}" }
           [Params.new(names, [], nil, [], [], nil, nil), []]
         when Prism::BlockParametersNode
-          # A block-local (`|x; y|`) is already among the block's locals,
-          # where prism resolves it at depth 0, fresh each call.
+          # A block-local (`|x; y|`) is already in the block's locals,
+          # where prism resolves it at depth 0, new at each call.
           [parameters(node.parameters), []]
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
@@ -2045,8 +2045,8 @@ module Zr
 
       REQUIRES = %i[require require_relative load].freeze
 
-      # Whether the definee this call stands in has a `require` or
-      # `load` of its own, which dispatch reaches before Kernel's.
+      # Whether the definee of this call defines its own `require` or
+      # `load`, which dispatch finds before Kernel's.
       def shadowed?(name) = @shadowed.key?([@path.join("::"), @singleton, name])
 
       def call(node)
@@ -2055,7 +2055,7 @@ module Zr
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
         return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         # The core's `+"text"` under its frozen_string_literal comment: a
-        # fresh String, as its C makes one, with no send of +@.
+        # new String, as its C makes, with no send of +@.
         return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Build.runtime_file?(@file)
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
@@ -2064,17 +2064,18 @@ module Zr
         relative_in_file(node, send)
       end
 
-      # A file of the program names rubygems' API; rubygems' own files and
-      # the runtime's do not count.
+      # A file of the program uses rubygems' API. rubygems' own files and
+      # the runtime's files do not count.
       def gems!(name)
         @loader.gems!(name) if @loader && !@loader.ahead?(@file) && !Build.runtime_file?(@file)
       end
 
-      # `Primitive.attr! :ruby`, `:hidden` or `:ivars` standing in a class
-      # body of the core library: every def after it in that body takes the
-      # mark, as though each began with it. `:ruby` marks methods CRuby
-      # writes in Ruby; `:hidden` a class of helpers CRuby writes as a C
-      # struct; `:ivars` a class whose instance variables CRuby shows.
+      # `Primitive.attr! :ruby`, `:hidden` or `:ivars` in a class body of
+      # the core library: every later def in that body gets the attribute,
+      # as if each def started with it. `:ruby` marks methods that CRuby
+      # writes in Ruby. `:hidden` marks a class of helpers that CRuby
+      # writes as a C struct. `:ivars` marks a class whose instance
+      # variables CRuby shows.
       def body_mark(node)
         mark = node.arguments&.arguments&.first
         return unless !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
@@ -2083,10 +2084,10 @@ module Zr
         mark.unescaped.to_sym
       end
 
-      # A string compiled while the program runs from a file that has a
-      # place, `load`ed or given one by an eval, keeps its literal
-      # require_relative a send; the name it passes is spelled from that
-      # file's directory, which the frame of runtime Ruby cannot tell.
+      # A string compiled at run time from a file with a location (loaded
+      # by `load`, or given a file by an eval) keeps its literal
+      # require_relative as a send. The name that it passes is made from
+      # that file's directory, which the runtime's frame cannot know.
       def relative_in_file(node, send)
         return send unless @loader&.eval? && node.name == :require_relative && node.receiver.nil? && File.absolute_path?(@file)
 
@@ -2097,12 +2098,12 @@ module Zr
         send
       end
 
-      # A call as the Send it is, with none of the forms above: what
-      # `defined?` asks about, since it never runs the call. `compiles`
-      # is false for a require of a literal name that no root holds: the
-      # call searches when it runs, and finds a file the program was not
-      # compiled with only where the program changed $LOAD_PATH, which
-      # brings the compiler along by itself.
+      # A call as a plain Send, with none of the special forms above.
+      # `defined?` uses it, because it never runs the call. `compiles` is
+      # false for a require of a literal name that no root contains. The
+      # call searches at run time, and finds a file that was not compiled
+      # in only if the program changed $LOAD_PATH. That change already
+      # links in the compiler.
       def plain_call(node, compiles: true)
         args, kwargs, forwarded = arguments(node.arguments)
         kernel = compiles && (node.receiver.nil? || (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
@@ -2110,27 +2111,28 @@ module Zr
         gems!(:Gem) if node.name == :gem && node.receiver.nil?
         @loader.load_path_changed!(node, @file)
         @loader.normalizes!(node.name, args)
-        # `&:name` calls the method it names, as a call of that name does.
+        # `&:name` calls that method, as a call with that name does.
         if node.block.is_a?(Prism::BlockArgumentNode) && node.block.expression.is_a?(Prism::SymbolNode)
           @loader.normalizes!(node.block.expression.unescaped.to_sym, [])
         end
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
-        # call does, so a literal `self` dispatches, private methods and all.
-        # A named call with a fast path (OPT_CALLS) is one on an explicit
-        # receiver, plain, with the arguments the body takes.
+        # call does, so a literal `self` dispatches (it can call private
+        # methods). A named call with a fast path (OPT_CALLS) needs an
+        # explicit receiver, no other options, and the body's argument
+        # count.
         opt = ((%i[[] []=].include?(node.name) && node.opening == "[") ||
                (node.name == :<< && node.call_operator.nil? && args.size == 1) ||
                (OPT_CALLS[node.name] == args.size && node.call_operator == "." && kwargs.nil? && node.block.nil? && forwarded.nil? &&
                 args.none?(Splat))) &&
               !node.receiver.is_a?(Prism::SelfNode)
         recv = node.receiver && expr(node.receiver)
-        # A refinement is in use inside its own block, so a sibling
-        # refined method is reachable there by bare name.
+        # A refinement is active inside its own block, so a sibling
+        # refined method can be called there by bare name.
         blk = node.block ? in_refine(node.name) { block(node.block) } : forwarded
         safe = node.call_operator == "&."
-        # Both sides of a safe call stand where the call does, which is
-        # what CRuby records for one. `branch_covers` answers a row of
-        # nils where nothing is measured, and a Send carries none.
+        # Both branches of a safe call have the call's location, as CRuby
+        # records. `branch_covers` returns nils if nothing is measured, and
+        # then the Send has no covers.
         covers = safe ? branch_covers(:"&.", span(node.location), [[:then, span(node.location)], [:else, span(node.location)]]) : nil
         Send.new(recv, node.name, args, message_line(node), node.variable_call?, opt,
                  blk, kwargs, safe, node.attribute_write?, nil, covers&.first && covers)
@@ -2148,12 +2150,12 @@ module Zr
         end
       end
 
-      # A call stands where its name does, which a receiver spread over
-      # several lines is not.
+      # A call's line is its name's line, which can differ from the
+      # receiver's if the receiver has several lines.
       def message_line(node) = node.message_loc&.start_line || node.location.start_line
 
-      # The name a require names at compile time: a String literal, or a
-      # path built from `__dir__` with a literal.
+      # A require's name at compile time: a String literal, or a path built
+      # from `__dir__` with a literal.
       def literal_feature(node)
         args = node.arguments&.arguments
         return nil unless args&.size == 1
@@ -2161,24 +2163,20 @@ module Zr
         args[0].is_a?(Prism::StringNode) ? args[0].unescaped : @loader.literal_path(args[0], @file)
       end
 
-      # A require of a literal name resolves now: the file becomes a unit
-      # of the program. A name ruby itself answers but no root here holds
-      # stops by name; every other name raises LoadError when it runs, as
-      # it does in ruby.
-      # The features ruby loads before a program starts, so a require of
-      # one answers false.
-      # The runtime's gem prelude loads error_highlight, did_you_mean and
-      # syntax_suggest's core extension, as ruby's does. ruby 4.0.6 also
-      # loads rubygems, which this runtime does not carry: a require of it
-      # stops by name rather than answering false and failing at the first
-      # use. Only pathname's C half is loaded, so `require "pathname"`
-      # still runs its Ruby half and answers true.
+      # The features that ruby loads before a program starts, so a require
+      # of one returns false. The runtime's gem prelude loads
+      # error_highlight, did_you_mean and syntax_suggest's core extension,
+      # as ruby's does. Ruby 4.0.6 also loads rubygems, which this runtime
+      # does not preload: a require of it stops with a message, and does
+      # not return false and then fail at the first use. Only pathname's C
+      # part is loaded, so `require "pathname"` still runs its Ruby part
+      # and returns true.
       GEM_PRELOADED = %w[error_highlight did_you_mean syntax_suggest/core_ext].freeze
       PRELOADED = (%w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig] + GEM_PRELOADED).freeze
 
-      # The features ruby carries that no library root here holds, and
-      # that ruby did not load before the program: a require of one stops
-      # by name.
+      # The ruby features that no library root here contains, and that
+      # ruby did not load before the program. A require of one stops with
+      # a message.
       def self.missing_features(target = Target.default)
         (@missing_features ||= {})[target.triple] ||= FEATURES.reject do |feature|
           PRELOADED.include?(feature) || stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
@@ -2191,6 +2189,10 @@ module Zr
         (@loader ? @loader.preloaded : PRELOADED).include?(feature.to_s.sub(/\.(?:rb|so|bundle)\z/, ""))
       end
 
+      # A require of a literal name resolves at compile time: the file
+      # becomes a unit of the program. A ruby feature that no root here
+      # contains stops with a message. Every other name raises LoadError
+      # when it runs, as in ruby.
       def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
@@ -2210,32 +2212,31 @@ module Zr
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
         return stop if stop
 
-        # No file here yet: the call looks for one when it runs, under the
-        # $LOAD_PATH the program has built by then. The build never asks
-        # the host's rubygems for a gem that holds the feature: what a
-        # binary carries is what zr vendors and what the program's own
-        # roots hold, so the same source builds the same bytes on any
-        # machine.
+        # No file found: the call searches at run time, in the $LOAD_PATH
+        # that the program has then. The build never asks the host's
+        # rubygems for a gem with the feature. A binary contains only what
+        # zr vendors and what the program's own roots contain, so the same
+        # source builds the same bytes on any machine.
         return plain_call(node, compiles: false) unless path
 
-        # A require made while a file only the eval road loads runs is the
-        # compiler's own; the runtime knows that as it runs, so one unit
-        # serves the road and a program that requires the file itself.
+        # A require in a file that only eval support loads belongs to the
+        # compiler. The runtime knows this at run time, so one unit serves
+        # eval support and a program that requires the same file.
         Require.new(node.name, feature, path, @loader.add(path), line)
       end
 
-      # Why a name ruby carries is not here, where the answer is a
-      # decision and not a gap. The stop reads "<reason> is not
-      # implemented yet" (`zr_unloadable`), so each of these finishes
-      # that sentence.
+      # The reason that a ruby library is not here, when the reason is a
+      # decision and not a gap. The stop message is "<reason> is not
+      # implemented yet" (`zr_unloadable`), so each value completes that
+      # sentence.
       UNSUPPORTED_LIBRARIES = {
         "mkmf" => "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured",
         "prism/ffi" => "prism/ffi, the FFI half of prism: this runtime's prism is a Ruby port of the C, so the C half"
       }.freeze
 
-      # A feature ruby carries, which this runtime has no file for. The
-      # stop waits until the program runs the require: a guarded one that
-      # the program never reaches costs it nothing.
+      # A ruby feature that this runtime has no file for. The stop occurs
+      # only when the program runs the require, so a guarded require that
+      # never runs costs nothing.
       def stop_for(node, feature)
         name = feature.to_s.delete_suffix(".rb")
         return unless FEATURES.include?(name)
@@ -2244,10 +2245,9 @@ module Zr
         Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
       end
 
-      # An autoload that registers nothing and answers nil, which is what
-      # ruby's does for a feature it already holds. The receiver still
-      # runs: `whatever.autoload :X, "set"` calls `whatever` before it
-      # finds there is nothing to do.
+      # An autoload that registers nothing and returns nil, as ruby's does
+      # for a feature that is already loaded. The receiver still runs:
+      # `whatever.autoload :X, "set"` calls `whatever` first.
       def nothing(node, line)
         recv = node.receiver && expr(node.receiver)
         recv ? Seq.new([recv, Literal.new(nil, line)], line) : Literal.new(nil, line)
@@ -2259,47 +2259,47 @@ module Zr
       end
 
       # `autoload :Name, "feature"` resolves the feature as a require
-      # would, so the file is a unit of the program.
+      # does, so the file is a unit of the program.
       def autoload_node(node)
         line = node.location.start_line
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
-        # A feature the program already holds keeps no row, as in ruby:
-        # `require` would answer false and read no file, so
-        # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`.
-        # The name is still declared, and that is visible on any module
-        # but Object -- `M.constants` names it, and the constant stands
-        # undefined there rather than reading one further out.
+        # A feature that is already loaded gets no autoload entry, as in
+        # ruby: `require` would return false and read no file, so
+        # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`. The
+        # name is still declared, which is visible on any module except
+        # Object: `M.constants` lists it, and the constant is undefined
+        # there (not read from an outer scope).
         #
-        # No row also means the loader never believes a file must be
-        # found while the program runs, which is the one thing that needs
-        # the compiler: `autoload :Set, "set"` would otherwise add the
-        # whole of it -- 44 MB -- for a declaration that reads nothing.
+        # With no entry, the loader does not expect a file at run time,
+        # which is the only case that needs the compiler. Otherwise
+        # `autoload :Set, "set"` would add the compiler (44 MB) for a
+        # declaration that reads nothing.
         return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, feature, nil, line,
                             true) if preloaded?(feature)
 
         path = @loader.resolve(:require, feature, @file)
-        # An autoload the gem prelude's boot does not read leaves its file
-        # to the program that reads the constant.
+        # An autoload that the gem prelude's boot does not read leaves its
+        # file to the program that reads the constant.
         return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line) if path && @loader.ahead?(@file) && !@loader.booted?(path)
 
         stop = path.nil? && stop_for(node, feature)
         unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
-        # No root holds the file: the first read requires the feature
-        # under the $LOAD_PATH the program has built by then.
+        # No root contains the file: the first read requires the feature
+        # from the $LOAD_PATH that the program has then.
         @loader.compiles_at_run_time! unless unit
         Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line)
       end
 
-      # `defined?(value)`: the form decides at compile time; only an
-      # ivar, gvar, cvar, constant, method, yield or super asks at run time.
-      # The globals ruby always has, whose `defined?` is "global-variable"
-      # whether or not they hold a value (CRuby's hooked variables).
+      # The globals that ruby always has. Their `defined?` is
+      # "global-variable" whether they have a value or not (CRuby's hooked
+      # variables).
       SPECIAL_GVARS = %i[$! $@ $~ $_ $; $, $/ $\\ $0 $* $$ $? $: $" $< $> $. $stdin $stdout $stderr
                          $VERBOSE $DEBUG $FILENAME $LOAD_PATH $LOADED_FEATURES $PROGRAM_NAME].freeze
 
-      # CRuby's defined_expr0: what each form answers, and which forms ask
-      # at run time.
+      # `defined?(value)`, as CRuby's defined_expr0: the result of each
+      # form. The form decides at compile time. Only an ivar, gvar, cvar,
+      # constant, method, yield or super is tested at run time.
       def defined(node, line)
         case node
         when Prism::LocalVariableReadNode, Prism::ItLocalVariableReadNode then Defined.new(:local, nil, line)
@@ -2310,12 +2310,13 @@ module Zr
           else
             Defined.new(:gvar, node.name, line)
           end
-        # `$1` and `$&` name a part of the last match: defined while it has one.
+        # `$1` and `$&` refer to a part of the last match: defined if the
+        # part exists.
         when Prism::NumberedReferenceReadNode, Prism::BackReferenceReadNode then Defined.new(:backref, expr(node), line)
         when Prism::ClassVariableReadNode then Defined.new(:cvar, node.name, line)
         when Prism::ConstantReadNode, Prism::ConstantPathNode then Defined.new(:const, expr(node), line)
         when Prism::CallNode
-          # `o.x = v` and `o[k] = v` are assignments while `o` has the writer.
+          # `o.x = v` and `o[k] = v` are assignments if `o` has the writer.
           if node.attribute_write? then Defined.new(:attrasgn, plain_call(node), line)
           # A call with a block literal is an expression, whatever it calls.
           elsif node.block.is_a?(Prism::BlockNode) then Defined.new(:expression, nil, line)
@@ -2323,11 +2324,11 @@ module Zr
           end
         when Prism::YieldNode then Defined.new(:yield, nil, line)
         when Prism::SuperNode, Prism::ForwardingSuperNode then Defined.new(:super, nil, line)
-        # An Array or Hash literal is defined when every part is.
+        # An Array or Hash literal is defined if every part is defined.
         when Prism::ArrayNode
           node.elements.any?(Prism::SplatNode) ? Defined.new(:expression, nil, line) : Defined.new(:list, node.elements.map { |e| expr(e) }, line)
         when Prism::HashNode then Defined.new(:list, [HashLit.new(hash_pairs(node.elements), line)], line)
-        # `(x)` asks about `x`, and `()` or an empty `begin` is nil.
+        # `(x)` tests `x`, and `()` or an empty `begin` is nil.
         when Prism::ParenthesesNode
           return Defined.new(:nil, nil, line) if node.body.nil?
 
@@ -2345,8 +2346,8 @@ module Zr
       end
 
       # Every form that writes a variable, a constant, an attribute or an
-      # index, an operator assignment among them; a named-capture match
-      # is a call.
+      # index, including operator assignments. A named-capture match is a
+      # call.
       def assignment?(node) = node.class.name.end_with?("WriteNode") && !node.is_a?(Prism::MatchWriteNode)
 
       # `for x in list; body; end` is `list.each { |x| body }` with the
@@ -2357,8 +2358,8 @@ module Zr
         body = node.statements ? deepen(seq(node.statements), 0) : Literal.new(nil, line)
         value = Local.new(:"*for", 0, line)
         if target.is_a?(MultiTarget)
-          # `for a, b in o` takes every value yielded, as `|a, b|` does:
-          # the block collects them, and one alone stands for itself.
+          # `for a, b in o` takes all yielded values, as `|a, b|` does. The
+          # block collects them, and a single value is used as is.
           got = Local.new(:"*for", 0, line)
           one = Send.new(Send.new(got, :size, [], line, false, false, nil, nil, false, false), :==, [Literal.new(1, line)], line, false, false, nil, nil, false, false)
           first = Send.new(got, :[], [Literal.new(0, line)], line, false, false, nil, nil, false, false)
@@ -2372,8 +2373,8 @@ module Zr
         Send.new(expr(node.collection), :each, [], line, false, false, block, nil, false)
       end
 
-      # `node` as it reads one block scope deeper: every local that
-      # reaches `level` or beyond is one further out.
+      # `node` as read from one block scope deeper: every local at
+      # `level` or more is one scope further out.
       def deepen(node, level)
         case node
         when Local, Assign
@@ -2406,9 +2407,9 @@ module Zr
         end
       end
 
-      # `[args, kwargs, block]` of an argument list: Splats among the
-      # args, the keywords as one HashLit or nil, and the block `...`
-      # forwards, or nil.
+      # `[args, kwargs, block]` of an argument list: the args (with any
+      # Splats), the keywords as one HashLit or nil, and the block that
+      # `...` forwards, or nil.
       def arguments(node)
         kwargs = nil
         block = nil
@@ -2429,28 +2430,28 @@ module Zr
         [args, kwargs, block]
       end
 
-      # A string literal as prism flags it: frozen where the file's magic
-      # comment says so, by CRuby's own reading of the comment, and then
-      # the one frozen String of its text, as CRuby interns it.
+      # A string literal as prism flags it: frozen if the file's magic
+      # comment says so (as CRuby reads the comment), and then the one
+      # frozen String of its text, as CRuby interns it.
       def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
 
-      # A literal a frozen_string_literal comment freezes: the one frozen
-      # String of its text, with no send of `freeze`, which ruby never
-      # sends for one.
+      # A literal that a frozen_string_literal comment freezes: the one
+      # frozen String of its text, with no send of `freeze` (ruby never
+      # sends it for this case).
       def frozen_literal_string(text, line) = FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
 
-      # The text of a string prism found static (`"a" "b"`, a heredoc with
-      # no interpolation): its parts joined.
+      # Whether prism found a string static (`"a" "b"`, a heredoc with no
+      # interpolation). `static_text` joins its parts.
       def static_string?(node)
         node.parts.all? { |part| part.is_a?(Prism::StringNode) || (part.is_a?(Prism::InterpolatedStringNode) && static_string?(part)) }
       end
 
       def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
 
-      # A string part's text as ruby tags it: a \u escape makes it UTF-8,
-      # and a \x escape past ASCII in a US-ASCII file makes it binary,
-      # whatever the file's own encoding. Prism flags both but hands the
-      # text over in the file's encoding.
+      # A string part's text with ruby's encoding: a \u escape makes it
+      # UTF-8, and a non-ASCII \x escape in a US-ASCII file makes it
+      # binary, whatever the file's encoding. Prism flags both, but gives
+      # the text in the file's encoding.
       def unescaped(node)
         text = node.unescaped
         if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
@@ -2459,8 +2460,8 @@ module Zr
         end
       end
 
-      # An element of an array literal. `[1, a: 2]` holds a Hash; keywords
-      # made only of `**` splats add it only when it is not empty.
+      # An element of an array literal. `[1, a: 2]` contains a Hash.
+      # Keywords that are only `**` splats add it only if it is not empty.
       def array_element(node, line)
         case node
         when Prism::SplatNode then splat(node, line)
@@ -2471,8 +2472,8 @@ module Zr
         end
       end
 
-      # `*value`, or a bare `*`: the anonymous rest parameter the method
-      # forwards, wherever a splat can stand.
+      # `*value`, or a bare `*`: the anonymous rest parameter that the
+      # method forwards, anywhere a splat can be.
       def splat(node, line)
         Splat.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
       end
@@ -2490,9 +2491,9 @@ module Zr
         end
       end
 
-      # The bodies a file runs whenever it loads: its own statements, a
-      # class or a module body, and a `begin` that stands for grouping.
-      # A branch, a loop, a block and a method body are none of these.
+      # The bodies that a file always runs when it loads: its own
+      # statements, a class or a module body, and a `begin` for grouping.
+      # A branch, a loop, a block and a method body are not included.
       def self.always_run(node)
         case node
         when Prism::ProgramNode, Prism::BeginNode then [node.statements]
@@ -2510,8 +2511,8 @@ module Zr
         out
       end
 
-      # Whether this file always runs `node`. The walk happens the first
-      # time one is asked about, which for almost every file is never.
+      # Whether this file always runs `node`. The walk occurs at the first
+      # call, which for almost every file never occurs.
       def certain_alias?(node)
         return true unless @root
 
@@ -2522,8 +2523,8 @@ module Zr
         raise Refused, "#{@file}:#{node.location.start_line}: #{message}"
       end
 
-      # A refusal of a form ruby refuses too, which a program compiling
-      # it while it runs sees as the SyntaxError ruby raises.
+      # A refusal of a form that ruby also refuses. A program that compiles
+      # it at run time gets the SyntaxError that ruby raises.
       def invalid(node, message)
         raise Invalid, "#{@file}:#{node.location.start_line}: #{message}"
       end
