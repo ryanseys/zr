@@ -6,85 +6,112 @@ require_relative "paths"
 require_relative "target"
 
 module Zr
-  # The `zr` command, and the only one: `exe/zr` in a checkout, and
-  # the gem's binstub once it is installed. Everything the repository
-  # itself needs -- the tests, the bootstrap, the benchmark bank, the
-  # generated tables -- is a rake task rather than a command here.
+  # The `zr` command: `exe/zr` in a checkout, and the gem's executable
+  # once it is installed. The repository's own tools (tests, bootstrap,
+  # benchmarks, generated tables) are rake tasks.
+  #
+  # The parser is a small table, not OptionParser: optparse requires
+  # `pp`, which calls eval, and a compiler that zr compiles would then
+  # have to include eval support.
   module CLI
     USAGE = <<~TEXT
-      zr run <file.rb> [args]              compile a Ruby program with the zr runtime, and run it
-      zr build <file.rb> -o <bin>          compile a Ruby program with the zr runtime
-      zr machine <file.rb> -o <bin>        compile a kernel-dialect file alone
-                   [--emit obj|wasm] [--target <triple>] [--path-root=<dir>]
-      zr zr run|build|machine ...          the same three commands, by their older names
-      zr targets                           the targets zr builds for, and what this host can do
-      zr version                           print zr's version
+      Usage: zr <command> [options]
 
-      ZR_LINK picks the macOS linker: unset for zr's own, and cc for what
-      it cannot link; `ruby` for zr's alone, which names what it cannot
-      link; `cc` for the system linker.
-      ZR_CACHE names the runtime cache.
+      Commands:
+        run <file.rb> [args...]     compile a program, run it, then delete the build
+        build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
+        machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
+        targets                     list the targets, and what this host can build
+        version                     print the version
+        help [<command>]            print help for zr or for one command
 
-      --path-root writes every path under zr's root or the directory the
-      build runs in as <dir> plus the path below it, so two checkouts built
-      with one root make the same bytes. A path given relative stays as given.
-
-      ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
-      answer, and zr is held to it or refuses by name.
+      Exit status: 0 success; 1 error; 2 usage error; 3 zr does not support
+      the program or the target. `zr run` exits with the program's status.
+      Environment variables: docs/reference/environment-variables.md
     TEXT
 
-    # Status 3 is a refusal by name; the sweep tells it from a defect.
+    OUTPUT = "  -o, --output <path>    write the output to <path>\n"
+    OPTIONS = <<~TEXT
+      Options:
+        --emit <kind>          binary (the default), obj, or wasm
+        --target <triple>      build for <triple> (see `zr targets`)
+        --path-root <dir>      write source paths in the output as <dir> plus the
+                               path below zr's root or the working directory,
+                               so that two checkouts make the same bytes
+        -h, --help             print this help
+    TEXT
+
+    HELP = {
+      "run" => <<~TEXT,
+        Usage: zr run [options] <file.rb> [args...]
+
+        Compiles <file.rb>, runs it with [args...], then deletes the build.
+        Every word after <file.rb> goes to the program. With --emit wasm,
+        wasmtime runs the module.
+
+        #{OPTIONS.sub("binary (the default), obj, or wasm", "binary (the default) or wasm")}
+      TEXT
+      "build" => <<~TEXT,
+        Usage: zr build [options] <file.rb> -o <out>
+
+        Compiles <file.rb> with the zr runtime. The output is a native
+        binary, a WASI module (--emit wasm, or a wasm32 --target) or an
+        object file (--emit obj).
+
+        #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
+      TEXT
+      "machine" => <<~TEXT
+        Usage: zr machine [options] <file.rb> -o <out>
+
+        Compiles one file of the machine dialect (the typed Ruby that
+        rt/kernel is written in), without the zr runtime.
+
+        #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
+      TEXT
+    }.freeze
+
+    COMPILE = HELP.keys.freeze
+    EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
+
+    # Exit status 3: zr does not support the program or the target. The
+    # test harness counts this apart from zr's defects.
     REFUSED = 3
 
     module_function
 
-    # A compile allocates in the tens of millions of objects, and how
-    # often it stops for a major collection is decided by the collector's
-    # malloc limits -- which ruby reads as it starts and never again. So
-    # the only way to raise them for this process is to start `script`
-    # again with them raised. Measured over the runtime's 4,733 functions:
-    # 3.47 s against 3.17 s, and one major collection where there were
-    # four. A child the script starts inherits them and does not do this
-    # twice. `ZR_GC=0` leaves the collector as ruby set it.
-    #
-    # The compiler runs under YJIT unless ZR_YJIT=0: a cold runtime build
-    # is mostly the compiler's own Ruby, which YJIT runs well.
-    # The collector's tuning a build runs under: a compile allocates in
-    # bursts, and ruby's default limits collect through every one.
+    # A compile allocates tens of millions of objects. Ruby reads the
+    # collector's malloc limits only at startup, so a process without
+    # them starts `script` again with them set (3.17 s against 3.47 s
+    # for the runtime's 4,733 functions). With no `script` (a rake task),
+    # the limits go only to the child processes. Only CRuby reads them.
+    # `ZR_GC=0` keeps ruby's limits; `ZR_YJIT=0` leaves YJIT off.
     GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
 
-    # A process that starts without the tuning starts again with it;
-    # one started with it (a harness child) goes straight on. Only
-    # CRuby's collector reads these limits, so only CRuby starts again:
-    # the compiler compiled by zr is this same file, and its
-    # `RbConfig.ruby` names zr's own interpreter (rt/ext/rbconfig.rb),
-    # which is neither this process nor always a file that exists.
-    def tune!(script)
+    def tune!(script = nil)
       if ENV["ZR_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT") && cruby?
         ENV.update(GC_ENV)
-        exec(RbConfig.ruby, script, *ARGV)
+        exec(RbConfig.ruby, script, *ARGV) if script
       end
       RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZR_YJIT"] != "0"
     end
 
-    # Whether this compiler runs on CRuby, rather than as a program zr
-    # compiled. A zr binary answers RUBY_ENGINE, RUBY_DESCRIPTION and
-    # RubyVM as ruby 4.0.6 does, by design; its RbConfig names zr as the
-    # interpreter (rt/ext/rbconfig.rb), which is the one fact that says so.
+    # Whether this compiler runs on CRuby, and not as a program that zr
+    # compiled. A zr binary gives the same RUBY_ENGINE and RubyVM as
+    # ruby 4.0.6, but its RbConfig names zr as the interpreter
+    # (rt/ext/rbconfig.rb).
     def cruby? = RbConfig::CONFIG["ruby_install_name"] != "zr"
 
-    # Why this compiler must not build on a ruby of `version`, or nil when
-    # it is the ruby zr pins. Another ruby runs the compiler on a library
-    # zr was never tested with, and its answers are not the ones zr is
-    # held to.
+    # Why this compiler must not build on a ruby of `version`, or nil
+    # when it is the ruby that zr pins. zr checks its output against that
+    # one ruby only.
     def host_refusal(version = RUBY_VERSION)
       return if version == RUBY
 
       "zr #{VERSION} builds on ruby #{RUBY}, the ruby .ruby-version pins; this is ruby #{version}"
     end
 
-    # A build on any ruby but the pinned one stops here, by name, before
-    # it reads the program.
+    # Stops a build on any ruby but the pinned one, before it reads the
+    # program.
     def pinned!(version = RUBY_VERSION)
       return unless (why = host_refusal(version))
 
@@ -92,104 +119,126 @@ module Zr
       exit REFUSED
     end
 
-    # The usage text, with `extra` commands before the rest, on stderr.
-    def usage(extra = "")
-      warn(extra + USAGE)
+    def start(argv)
+      args = argv.dup
+      command = args.shift
+      case command
+      when *COMPILE then compile(command, args)
+      when "targets" then targets
+      when "version", "--version", "-v" then puts "zr #{VERSION}"
+      when "help", "-h", "--help" then help(args.first)
+      when nil
+        warn USAGE
+        exit 2
+      else
+        usage_error("unknown command '#{command}'")
+      end
+    end
+
+    def help(command = nil)
+      return puts(USAGE) if command.nil?
+
+      usage_error("unknown command '#{command}'") unless HELP.key?(command)
+      puts HELP.fetch(command)
+    end
+
+    # One line that says what is wrong, and where to find help.
+    def usage_error(message, command = nil)
+      warn "zr#{" #{command}" if command}: #{message}"
+      warn "Run 'zr help#{" #{command}" if command}' for usage."
       exit 2
     end
 
-    # One named step of a long command, announced before it runs and
-    # timed after: a command that says nothing until it ends cannot be
-    # told from a hung one.
-    def step(what)
-      $stdout.sync = true
-      print "#{what} ... "
-      began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      answer = yield
-      puts format("%.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
-      answer
+    # The options and words of `run`, `build` or `machine`, as a Hash.
+    # For `run`, every word after the input file goes to the program.
+    def parse(command, args)
+      opts = { args: [] }
+      until args.empty?
+        word = args.shift
+        if opts[:input] && command == "run"
+          opts[:args] << word
+          next
+        end
+        name, value = word.start_with?("--") && word.include?("=") ? word.split("=", 2) : [word, nil]
+        case name
+        when "--" then opts[:input] ? opts[:args].concat(args.shift(args.size)) : (opts[:input] = args.shift)
+        when "-h", "--help"
+          help(command)
+          exit
+        when "-o", "--output" then opts[:output] = value || args.shift || usage_error("#{name} needs a path", command)
+        when "--emit" then opts[:emit] = value || args.shift || usage_error("--emit needs a kind", command)
+        when "--target" then opts[:triple] = value || args.shift || usage_error("--target needs a triple", command)
+        when "--path-root" then opts[:root] = value || args.shift || usage_error("--path-root needs a directory", command)
+        when /\A-./ then usage_error("unknown option '#{word}'", command)
+        else
+          opts[:input] ? opts[:args] << word : opts[:input] = word
+        end
+      end
+      check(command, opts)
     end
 
-    def start(argv, extra: "")
-      args = argv.dup
-      case args.first
-      when "run", "build", "machine" then compile(args, extra)
-      when "zr" then compile(args.drop(1), extra)
-      when "targets" then targets
-      when "version", "--version", "-v" then puts "zr #{VERSION}"
-      when "help", "-h", "--help"
-        puts extra + USAGE
+    def check(command, opts)
+      usage_error("missing <file.rb>", command) unless opts[:input]
+      usage_error("unknown --emit '#{opts[:emit]}'; use binary, obj or wasm", command) if opts[:emit] && !EMITS.key?(opts[:emit])
+      usage_error("--path-root needs an absolute path", command) if opts[:root] && !opts[:root].start_with?("/")
+      if command == "run"
+        usage_error("-o does not apply; use 'zr build' to keep the output", command) if opts[:output]
+        usage_error("cannot run an object file; use 'zr build --emit obj'", command) if opts[:emit] == "obj"
       else
-        usage(extra)
+        usage_error("missing -o <path>", command) unless opts[:output]
+        usage_error("unexpected argument '#{opts[:args].first}'", command) unless opts[:args].empty?
       end
+      opts[:emit] = EMITS[opts[:emit]]
+      opts
     end
 
     # `run`, `build` or `machine`, and its arguments.
-    def compile(args, extra)
-      verb = args.shift
-      usage(extra) unless %w[run build machine].include?(verb)
+    def compile(command, args)
+      opts = parse(command, args)
       pinned!
-      input = output = nil
-      emit = nil
-      triple = root = nil
-      rest = []
-      until args.empty?
-        case (a = args.shift)
-        when "-o" then output = args.shift or usage(extra)
-        when "--emit" then emit = args.shift or usage(extra)
-        when "--target" then triple = args.shift or usage(extra)
-        when "--path-root" then root = args.shift or usage(extra)
-        when /\A--path-root=(.+)\z/ then root = $1
-        when /\A-/ then usage(extra)
-        else
-          if input then rest << a else input = a end
-        end
-      end
-      usage(extra) unless input && (verb == "run" ? output.nil? : output)
-      usage(extra) if verb != "run" && !rest.empty?
-      usage(extra) unless [nil, "obj", "wasm"].include?(emit)
-      usage(extra) unless root.nil? || root.start_with?("/")
-      target = target_for(triple, emit, extra)
-      emit ||= "wasm" if target.roads == [:wasm]
-      refuse(input, verb, emit, target)
+      input = opts[:input]
+      abort "zr: no such file: #{input}" unless File.file?(input)
+
+      target = target_for(opts[:triple], opts[:emit], command)
+      emit = opts[:emit] || ("wasm" if target.roads == [:wasm])
+      refuse(input, command, emit, target)
 
       require_relative "zr"
       require_relative "native/build"
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
-      # compiler turns it on here, where it builds: a program that evals
-      # carries the same files and never comes here, so it never writes
-      # a parse to the cache.
+      # compiler turns it on here. A program that calls eval includes the
+      # same files but never comes here, so it never writes to the cache.
       require_relative "parse_cache" unless HOSTED
-      Paths.root = root
-      program = lower(input, verb, target, assemble: emit.nil?)
-      Paths.scratch("zr-zr-") do |work|
-        out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
+      Paths.root = opts[:root]
+      program = lower(input, command, target, assemble: emit.nil?)
+      Paths.scratch("zr-build-") do |work|
+        out = command == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
         case emit
         when "obj" then object(program, out, target)
-        when "wasm" then wasm(program, out, verb, rest)
-        else native(program, out, work, verb, rest, target)
+        when "wasm" then wasm(program, out, command, opts[:args])
+        else native(program, out, work, command, opts[:args], target)
         end
       end
     end
 
-    # The target `--target` names; `--emit wasm` alone means wasm32-wasi.
-    def target_for(triple, emit, extra)
-      if triple
-        target = Target.fetch(triple)
-        return target if target
+    # The target that `--target` names. `--emit wasm` alone means
+    # wasm32-wasi.
+    def target_for(triple, emit, command)
+      return emit == "wasm" ? Target::WASM32_WASI : Target.default unless triple
 
-        warn "zr: no target #{triple}; `zr targets` names them"
-        usage(extra)
-      end
-      emit == "wasm" ? Target::WASM32_WASI : Target.default
+      Target.fetch(triple) || usage_error("unknown target '#{triple}'; 'zr targets' lists them", command)
     end
 
+    # A table of each target, the outputs zr makes for it, and the
+    # outputs that this host can make now.
     def targets
-      Target.all.each do |target|
-        roads = target.roads.map { |road| road == :native ? "binary" : road.to_s }
-        can = %i[native obj wasm].select { |road| target.roads.include?(road) && target.refusal(road == :native ? nil : road.to_s).nil? }
-        puts format("%-22s builds %-12s here: %s", target.triple, roads.empty? ? "nothing yet" : roads.join(", "),
-                    can.empty? ? "nothing" : can.map { |road| road == :native ? "binary" : road.to_s }.join(", "))
+      name = ->(road) { road == :native ? "binary" : road.to_s }
+      rows = Target.all.map do |target|
+        here = target.roads.select { |road| target.refusal(road == :native ? nil : road.to_s).nil? }
+        [target.triple, target.roads.map(&name).join(", "), here.empty? ? "none" : here.map(&name).join(", ")]
+      end
+      [["TARGET", "OUTPUTS", "ON THIS HOST"], *rows].each do |row|
+        puts format("%-22s %-18s %s", *row).rstrip
       end
     end
 

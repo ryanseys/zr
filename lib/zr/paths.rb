@@ -18,7 +18,7 @@ module Zr
     # A git checkout, or a worktree of one, where `.git` is a file.
     def self.checkout? = File.exist?(File.join(ROOT, ".git"))
 
-    # The root a build writes paths under (`zr build --path-root=STR`),
+    # The root a build writes paths under (`zr build --path-root DIR`),
     # or nil, which writes each path as it is on this machine. A path
     # under zr's own root or under the directory the build runs in is
     # written as the root plus its path below that directory, the longer

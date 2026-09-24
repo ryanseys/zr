@@ -1,39 +1,49 @@
 # Command line
 
-`zr` is the gem's command, and the only one. In a checkout it is
-`exe/zr`, and everything the repository itself needs -- the tests, the
-bootstrap, the benchmark bank, the generated tables -- is a rake task.
+`zr` is the gem's command. In a checkout it is `exe/zr`. The
+repository's own tools (tests, bootstrap, benchmarks, generated tables)
+are rake tasks and `bin/` scripts.
 
 ## `zr`
 
 ```
-zr run <file.rb> [args]              compile a Ruby program with the zr runtime, and run it
-zr build <file.rb> -o <bin>          compile a Ruby program with the zr runtime
-zr machine <file.rb> -o <bin>        compile a kernel-dialect file alone
-             [--emit obj|wasm] [--target <triple>] [--path-root=<dir>]
-zr zr run|build|machine ...          the same three commands, by their older names
-zr targets                           the targets zr builds for, and what this host can do
-zr version                           print zr's version
-zr help                              print the usage
+Usage: zr <command> [options]
+
+Commands:
+  run <file.rb> [args...]     compile a program, run it, then delete the build
+  build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
+  machine <file.rb> -o <out>  compile one machine-dialect file (for runtime work)
+  targets                     list the targets, and what this host can build
+  version                     print the version
+  help [<command>]            print help for zr or for one command
 ```
 
-### `zr run <file.rb> [args]`
+`zr help <command>` and `zr <command> --help` print the options of a
+command. An option takes its value as the next word or after `=`
+(`--emit wasm`, `--emit=wasm`). A wrong command line prints one line
+that says what is wrong, and exits 2.
 
-Compiles the program, runs it with `args` as `ARGV`, and removes the
-binary. The exit status is the program's own. With `--emit wasm`, runs
-the module under `wasmtime run --dir .`.
+### `zr run [options] <file.rb> [args...]`
 
-### `zr build <file.rb> -o <out>`
+Compiles the program, runs it with `args` as `ARGV`, and deletes the
+build. Every word after `<file.rb>` goes to the program, including
+words that start with `-`. Put `--` before `<file.rb>` when its name
+starts with `-`. The exit status is the program's own. With
+`--emit wasm`, `wasmtime run --dir .` runs the module. `-o` and
+`--emit obj` do not apply.
 
-Compiles the program to `out`.
+### `zr build [options] <file.rb> -o <out>`
+
+Compiles the program to `out`. Options can come before or after
+`<file.rb>`.
 
 | Option | Output |
 |---|---|
-| none | a native binary for the target |
+| none, or `--emit binary` | a native binary for the target |
 | `--emit obj` | an object file of the program's own code: Mach-O, or ELF for `aarch64-linux-musl` |
 | `--emit wasm` | a WASI module (the target is `wasm32-wasi`) |
 | `--target <triple>` | builds for that target; see [Targets](targets.md) |
-| `--path-root=<dir>` | writes each path below zr's root, or below the directory the build runs in, as `<dir>` plus the rest of the path; see below |
+| `--path-root <dir>` | writes each path below zr's root, or below the directory the build runs in, as `<dir>` plus the rest of the path; see below |
 
 A binary holds the paths of its files: `__FILE__`, `__dir__`,
 backtraces, `$LOADED_FEATURES` and error_highlight read them. With no
@@ -46,15 +56,15 @@ a relative path answers that path, as ruby does. The program cannot read
 a file at a mapped path unless that path is there on the machine it
 runs on.
 
-### `zr machine <file.rb> -o <out>`
+### `zr machine [options] <file.rb> -o <out>`
 
 Compiles one file of the [kernel dialect](kernel-dialect.md) with no
 runtime. It takes the same options as `build`.
 
 ### `zr targets`
 
-Prints each target, what zr builds for it, and what this host can
-build for it now.
+Prints a table: each target, the outputs zr makes for it, and the
+outputs that this host can make now.
 
 ### Exit status
 
@@ -62,7 +72,7 @@ build for it now.
 |---|---|
 | 0 | the build succeeded (for `run`: the program's own status) |
 | 1 | a build step failed; the message says which. A program that does not parse still builds: its binary prints ruby's syntax error report and exits 1, as ruby does |
-| 2 | the command line is wrong; the usage goes to stderr |
+| 2 | the command line is wrong; one line on stderr says what is wrong |
 | 3 | zr refused the program, or this host cannot build the target; the message names the form and its line, or the missing tool |
 
 ## Rake tasks

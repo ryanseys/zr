@@ -19,7 +19,7 @@ module Zr
   module SelfHost
     # The commands a compiled compiler takes over. The others answer at
     # once under ruby.
-    VERBS = %w[run build machine zr].freeze
+    VERBS = %w[run build machine].freeze
 
     module_function
 

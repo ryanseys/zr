@@ -22,14 +22,11 @@ ROOT = __dir__
 # tuning a compile wants.
 $LOAD_PATH.unshift(File.join(ROOT, "lib"), File.join(ROOT, "test"))
 
-# What `Zr::CLI.tune!` does to a command, without its re-exec, since a
-# rake task cannot start itself again. A task that spawns a compile
-# hands the tuning on through the environment, and the child then goes
-# straight on rather than starting itself again.
+# The collector limits and YJIT of a compile (`Zr::CLI.tune!`). A rake
+# task cannot start itself again, so the limits go to its child processes.
 def zr_tune!
   require "zr/cli"
-  ENV.update(Zr::CLI::GC_ENV) if ENV["ZR_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
-  RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZR_YJIT"] != "0"
+  Zr::CLI.tune!
 end
 
 # A generated file, written whole: the task prints into a string and the
@@ -73,11 +70,12 @@ def zr_build(targets)
   sh(RbConfig.ruby, "-Ilib:test", "-e", %(require "support/built"; Zr::Test::Built.build(#{targets})), verbose: false)
 end
 
-# Runs bin/test with `args`. bin/test tunes the collector, builds the
-# runtime when it is missing, and reads N=, X=, A=, SLOW and MT_CPU.
+# Runs bin/test with `args`, and exits with its status when it fails.
+# bin/test tunes the collector, builds the runtime when it is missing,
+# and reads N=, X=, A=, SLOW and MT_CPU.
 def zr_bin_test(*args)
   require "rbconfig"
-  sh(RbConfig.ruby, File.join(ROOT, "bin/test"), *args, verbose: false)
+  system(RbConfig.ruby, File.join(ROOT, "bin/test"), *args) || exit($?.exitstatus || 1)
 end
 
 TIERS = {

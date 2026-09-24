@@ -56,7 +56,7 @@ module Zr
       # compiler never asks for, under the collector tuning `zr` would
       # otherwise start a second process to get.
       def build_argv(rel, out)
-        [RbConfig.ruby, "--disable-gems", File.join(@root, "exe/zr"), "zr", "build", rel, "-o", out,
+        [RbConfig.ruby, "--disable-gems", File.join(@root, "exe/zr"), "build", rel, "-o", out,
          "--target", @target.triple]
       end
 

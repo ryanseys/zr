@@ -145,8 +145,8 @@ module Zr
         flunk "this now passes: take it off test/baselines/#{runner.target.triple}.txt"
       end
 
-      # `zr zr build`, in its own process, from `test/`, as any of
-      # these programs would be built by hand.
+      # `zr build`, in its own process, from `test/`, as a person
+      # would build one of these programs.
       def build(rb, bin, how, runner)
         megabytes = [how[:build_mb] || 0, Harness::Child::BUILD_MB].max
         argv = runner.build_argv(rel(rb), bin)

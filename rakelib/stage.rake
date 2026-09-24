@@ -19,6 +19,17 @@ module Stages
 
   module_function
 
+  # Prints `what`, runs the block, then prints the time it took, so that
+  # a long step does not look like a hung one.
+  def step(what)
+    $stdout.sync = true
+    print "#{what} ... "
+    began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = yield
+    puts format("%.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
+    result
+  end
+
   # zr under ruby compiles the compiler twice, in two processes with a
   # cache of its own each, and the bytes must agree: the self-compile
   # stays deterministic and refusal-free with no binary in the loop.
@@ -98,12 +109,12 @@ module Stages
     caches = stages.map { |path| { "ZR_CACHE" => File.join(File.dirname(path), "cache") } }
 
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    Zr::CLI.step("stage 1: ruby compiles the compiler -> #{stages[0]}") do
+    step("stage 1: ruby compiles the compiler -> #{stages[0]}") do
       system(caches[0], RbConfig.ruby, ZR, "build", ZR, "-o", stages[0]) or
         abort("rake stage2: stage 1 did not build")
     end
     puts "stage 1: #{File.size(stages[0])} bytes"
-    Zr::CLI.step("stage 2: stage 1 compiles the compiler -> #{stages[1]}") do
+    step("stage 2: stage 1 compiles the compiler -> #{stages[1]}") do
       system(caches[1], stages[0], "build", ZR, "-o", stages[1]) or
         abort("rake stage2: stage 1 did not compile the compiler")
     end

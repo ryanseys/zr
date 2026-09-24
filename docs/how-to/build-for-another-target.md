@@ -8,13 +8,15 @@ To see the full list of targets, read [Targets](../reference/targets.md).
 
 ```console
 $ zr targets
-aarch64-apple-darwin   builds binary, obj  here: binary, obj
-aarch64-linux-musl     builds binary, obj  here: binary, obj
-wasm32-wasi            builds wasm         here: wasm
+TARGET                 OUTPUTS            ON THIS HOST
+aarch64-apple-darwin   binary, obj        binary, obj
+aarch64-linux-musl     binary, obj        obj
+wasm32-wasi            wasm               wasm
 ```
 
-The `builds` column says what zr can make for a target. The `here`
-column says what this machine can make now, with the tools it has.
+The `OUTPUTS` column says what zr can make for a target. The
+`ON THIS HOST` column says what this machine can make now, with the
+tools it has. A Linux binary needs a musl cross toolchain.
 
 ## Build a WebAssembly module
 
