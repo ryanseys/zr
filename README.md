@@ -1,9 +1,9 @@
 # zr
 
 **A Ruby compiler, written in Ruby.** zr compiles Ruby programs to
-native binaries and WebAssembly modules. A compiled program answers
-exactly what ruby 4.0.6 answers. When zr cannot promise that for a
-program, it refuses to compile it, and names the line.
+native binaries and WebAssembly modules. A compiled program gives
+exactly the output that ruby 4.0.6 gives. When zr cannot promise this
+for a program, it refuses to compile it, and gives the line.
 
 ```console
 $ cat hello.rb
@@ -14,9 +14,9 @@ $ ./hello Ruby
 Hello, Ruby!
 ```
 
-The compiler, the runtime, the core library, the parser and the garbage
-collector are all Ruby. There is no C, Rust or assembler in the
-repository.
+The compiler, the runtime, the core library, the parser and the
+garbage collector are all Ruby. The repository has no C, Rust or
+assembler.
 
 ## Install
 
@@ -26,11 +26,11 @@ $ gem install zr
 
 You need:
 
-- ruby 4.0.6 exactly (zr checks its output against this version);
+- ruby 4.0.6 exactly. zr runs on this version and checks its output
+  against it;
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
 - OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
-  requires `openssl`. The binary opens the library when that `require`
-  runs, and raises `LoadError` when the library is absent.
+  requires `openssl`.
 
 The install compiles nothing. zr links a macOS binary itself, so it
 needs no C compiler and no linker.
@@ -38,15 +38,19 @@ needs no C compiler and no linker.
 ## Use
 
 ```console
-$ zr run app.rb                              # compile, run, and clean up
+$ zr run app.rb arg1 arg2                    # compile, run with the arguments, then delete the build
 $ zr build app.rb -o app                     # a native binary
 $ zr build app.rb -o app.wasm --emit wasm    # a WASI module
+$ zr build app.rb -o app.o --emit obj        # an object file
 $ zr build app.rb -o app --target aarch64-linux-musl
-$ zr targets                                 # what this machine can build
+$ zr targets                                 # what this host can build
+$ zr help build                              # the options of a command
 ```
 
-A binary holds your program, Ruby's core library and the runtime. It
-needs no ruby and no gems to run.
+A binary contains your program, Ruby's core library and the runtime.
+It needs no ruby and no gems to run. `zr` exits with status 2 for a
+usage error and 3 when it refuses a program; see
+[The `zr` command](docs/reference/cli.md).
 
 New to zr? Start with the tutorial
 [Compile your first program](docs/tutorials/compile-your-first-program.md).
@@ -55,13 +59,12 @@ New to zr? Start with the tutorial
 
 | Target | Output | Built on |
 |---|---|---|
-| `aarch64-apple-darwin` | native binary | an Apple Silicon Mac |
-| `aarch64-linux-musl` | static binary | aarch64 Linux, or any host with a musl cross toolchain |
+| `aarch64-apple-darwin` | native binary | any host |
+| `aarch64-linux-musl` | static binary | aarch64 Linux, or a host with a musl cross toolchain |
 | `wasm32-wasi` | WASI module | any host |
 
-Some features depend on the target. For example, fibers, threads and
-ractors are not available in a WASI module. See
-[Targets](docs/reference/targets.md).
+Some features depend on the target. For example, a WASI module has no
+fibers, threads or ractors. See [Targets](docs/reference/targets.md).
 
 ## How it works
 
@@ -70,18 +73,18 @@ app.rb ─► prism ─► HIR ─► IR ─┬─► aarch64 machine code ─�
                               └─► WebAssembly ─► WASI module
 ```
 
-- **prism** parses the program. It is a Ruby port of the parser that
-  ruby itself uses.
+- **prism** parses the program. zr uses a Ruby port of the parser that
+  ruby uses.
 - **The HIR** is the program as a plain tree: desugared, with names
-  resolved. A form zr cannot compile is refused here.
+  resolved. zr refuses a form that it does not support here.
 - **The IR** is one SSA form that every backend reads.
-- **The runtime** is compiled into every program: a kernel in a typed
-  dialect of Ruby, and the core library in ordinary Ruby.
+- **The runtime** is compiled into every program: a kernel in the
+  machine dialect (Ruby syntax, machine semantics), and the core
+  library in ordinary Ruby.
 
-ruby 4.0.6 is the only source of right answers. Every test program
-carries ruby's recorded output, and zr must match it byte for byte.
-
-Read more in [Architecture](docs/explanation/architecture.md) and
+ruby 4.0.6 is the only source of expected outputs. zr must match
+ruby's output byte for byte. See
+[Architecture](docs/explanation/architecture.md) and
 [The contract](docs/explanation/the-contract.md).
 
 ## Contribute
@@ -89,31 +92,42 @@ Read more in [Architecture](docs/explanation/architecture.md) and
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
-$ bin/setup                      # install the gems and build the runtime (a few minutes)
-$ bin/test test/unit             # zr's own internals
-$ bin/test test/spec -n /blocks/ # Ruby specs, checked against ruby 4.0.6
-$ bin/test                       # every tier: unit, spec, e2e
+$ bin/setup                        # install the gems and build the runtime (a few minutes)
+$ bin/test test/spec/core/string   # the tests in one directory
+$ bin/test                         # all the tests: unit, spec, e2e
 ```
 
 `bin/test` builds the runtime again when a change under `lib/` or
-`runtime/` makes it out of date. The runtime and other build products go to
-the cache in `tmp/cache/`.
+`runtime/` makes it out of date. Read [CONTRIBUTING.md](CONTRIBUTING.md)
+before you open a pull request, and the tutorial
+[Add your first spec](docs/tutorials/add-your-first-spec.md).
 
-The tutorial [Add your first spec](docs/tutorials/add-your-first-spec.md)
-walks through the loop behind most changes. Then see:
+## Development
 
-- [How to debug a program that diverges](docs/how-to/debug-a-program-that-diverges.md)
-- [How to add a method to the core library](docs/how-to/add-a-core-method.md)
-- [How to run the checks](docs/how-to/run-the-checks.md)
-- [Repository layout](docs/reference/repository-layout.md)
+```console
+$ rake lint       # RuboCop's Lint cops
+$ rake build      # build the runtime for this host
+$ bin/console     # IRB with zr loaded
+$ rake -T         # every task
+```
 
-## Documentation
+See [How to run the tests](docs/how-to/run-the-tests.md) and
+[Rake tasks and scripts](docs/reference/rake-tasks.md). All the
+documentation is in [`docs/`](docs/README.md).
 
-All the documentation is in [`docs/`](docs/README.md): tutorials,
-how-to guides, reference and explanation.
+## Release
+
+1. Change the version in `lib/zr/version.rb`.
+2. In `CHANGELOG.md`, change `[Unreleased]` to the new version and the
+   date.
+3. Commit, then tag the commit `vX.Y.Z` and push the tag.
+
+The release workflow (`.github/workflows/release.yml`) starts on the
+tag. It runs the unit tests (`bin/test test/unit`), then publishes the
+gem to rubygems.org with `rake release`, and to gem.coop.
 
 ## License
 
 zr is under the MIT License (`LICENSE.txt`). The vendored and derived
-parts keep their own licenses, and `THIRD_PARTY_NOTICES.md` names each
+parts keep their own licenses. `THIRD_PARTY_NOTICES.md` lists each
 one.
