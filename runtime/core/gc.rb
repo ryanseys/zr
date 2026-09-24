@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # The collector as Ruby sees it: one heap, collected on demand. CRuby
-# writes most of GC in Ruby (its gc.rb), so those methods answer their
+# writes most of GC in Ruby (its gc.rb), so those methods return their
 # own parameters, under CRuby's names.
 module GC
   def self.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
@@ -13,7 +13,7 @@ module GC
   def self.disable = Primitive.zr_gc_set_disabled(true)
   def self.enable = Primitive.zr_gc_set_disabled(false)
   # A number sets CRuby's stress flags; this collector reads it as on,
-  # and answers the number it was given, as ruby does.
+  # and returns the number it was given, as ruby does.
   STRESS = [nil]
   private_constant :STRESS
 
@@ -24,16 +24,16 @@ module GC
     Primitive.zr_gc_set_stress(flag)
   end
 
-  # Every key CRuby's collector answers, in its order. One arena here is
-  # a page, and nothing is moved or finalized later. A collection is
-  # minor or major as `zr_collect` decides, and the counts and the two
-  # phase times say which ran and what each cost -- the trace and the
-  # sweep are asked apart because a minor traces only the young while
-  # its sweep still walks every arena.
+  # Every key that CRuby's collector returns, in its order. One arena here
+  # is a page, and nothing is moved or finalized later. `zr_collect`
+  # decides whether a collection is minor or major. The counts and the two
+  # phase times show which ran and what each cost. The trace and the sweep
+  # are measured separately because a minor collection traces only the
+  # young objects, but its sweep still walks every arena.
   def self.stat(hash_or_key = nil)
     Primitive.attr! :ruby
-    # A counter the collector keeps answers with no walk of the heap,
-    # which the slot counts need.
+    # A counter that the collector keeps returns its value with no walk
+    # of the heap, which the slot counts need.
     if hash_or_key.is_a?(Symbol)
       counted = counter(hash_or_key)
       return counted unless counted.nil?
@@ -186,12 +186,12 @@ module GC
   end
 
   # The four pools of 32, 64, 128 and 256-byte cells, and a fifth that
-  # stays empty, so a pool index ruby answers is answered here too.
+  # stays empty, so every pool index that ruby returns is valid here too.
   POOLS = 5
   private_constant :POOLS
 
   # One pool's numbers, or every pool's under its index, as
-  # rb_gc_impl_stat_heap answers them: into the Hash given, or one of
+  # rb_gc_impl_stat_heap returns them: into the Hash given, or one of
   # them by name.
   def self.stat_heap(heap_name = nil, hash_or_key = nil)
     Primitive.attr! :ruby
@@ -254,9 +254,9 @@ module Process
 
   # A clock is a raw id or the name of one of this module's own CLOCK_
   # constants. The symbol spelling is the portable one: a platform that
-  # lacks the clock answers a rescuable Errno::EINVAL here rather than a
-  # NameError at the constant read. An OS whose clocks ruby names with
-  # Symbols (WASI) maps each to its id in CLOCK_IDS.
+  # does not have the clock raises a rescuable Errno::EINVAL here, not a
+  # NameError at the constant read. An OS whose clocks ruby identifies
+  # with Symbols (WASI) maps each to its id in CLOCK_IDS.
   def self.clock_id(id, verb)
     Primitive.attr! :hidden
     return Primitive.zr_index_operand_m(id) unless id.is_a?(Symbol)

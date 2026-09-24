@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# The exception classes past the ones the kernel raises itself, and
-# what an exception answers about itself.
+# The exception classes other than the ones the kernel raises itself,
+# and the methods that describe an exception.
 class Exception
-  # An attribute a caller may leave out, which the reader then refuses
-  # rather than answering nil.
+  # An attribute that a caller can leave out. The reader then refuses
+  # rather than returning nil.
   UNSET = Object.new
   private_constant :UNSET
 
@@ -17,7 +17,7 @@ class Exception
 
   def to_s = Primitive.zr_exc_to_s(self)
 
-  # `exception(msg)`: this exception, or a clone carrying `msg`.
+  # `exception(msg)`: this exception, or a clone with the message `msg`.
   def exception(*args)
     return self if args.empty? || args[0].equal?(self)
 
@@ -196,8 +196,8 @@ class Exception
 end
 
 class NoMemoryError < Exception; end
-# Ruby carries these two on Exception itself, so its own reflection
-# names them; each answers as the one it stands over does.
+# Ruby defines these two on Exception itself, so its own reflection
+# shows them; each behaves as the method it is in place of.
 class Exception
   def method_missing(name, *args, &block) = super
 
@@ -242,7 +242,7 @@ class UncaughtThrowError < ArgumentError
   attr_reader :tag, :value
 
   # The stored message is ruby's own format string; `to_s` puts the tag
-  # in. Two throws therefore carry the same message.
+  # in. So two throws have the same message.
   def initialize(tag, value, message = +"uncaught throw %p")
     @tag = tag
     @value = value

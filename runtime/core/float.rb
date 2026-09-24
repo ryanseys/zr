@@ -110,9 +110,9 @@ module Math
   # Each function is a private method too, for `include Math`.
   module_function
 
-  # A Float or an Integer in the domain is answered by the kernel at
-  # once (zr_math_sqrt_fast); anything else takes the checks, which
-  # convert or refuse it.
+  # The kernel returns immediately for a Float or an Integer in the
+  # domain (zr_math_sqrt_fast). Any other value goes through the full
+  # conversion, which converts or refuses it.
   def sqrt(x)
     r = Primitive.zr_math_sqrt_fast(x)
     return r if r
@@ -216,7 +216,7 @@ module Math
     Primitive.zr_math_call(20, x, 0.0)
   end
 
-  # (n - 1)! for n from 1 to 23: gamma's exact answers.
+  # (n - 1)! for n from 1 to 23: gamma's exact results.
   FACTORIALS = (0..22).map { |n| (1..n).reduce(1.0) { |m, i| m * i } }.freeze
   private_constant :FACTORIALS
 
@@ -247,7 +247,7 @@ module Math
   end
 
   # rb_to_float: a Float as it is, any other Numeric through to_f, and
-  # nothing else, whatever answers to_f.
+  # nothing else, even if it responds to to_f.
   def check(x)
     Primitive.attr! :hidden
     return x if Primitive.zr_float_p_m(x)
@@ -294,9 +294,9 @@ class Float
     digits > 0 ? n / 10.0**digits : (digits < 0 ? n * 10**-digits : n)
   end
 
-  # Past DBL_DIG places the power of ten the scaling wants is not
-  # exact, so ruby works from the exact value the double holds. The
-  # kernel answers nil to ask for this.
+  # Past DBL_DIG places the power of ten that the scaling needs is not
+  # exact, so ruby works from the exact value of the double. The kernel
+  # returns nil to request this.
   def exactly(digits, verb, **options)
     Primitive.attr! :hidden
     scale = Rational(10)**digits

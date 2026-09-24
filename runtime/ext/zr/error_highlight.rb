@@ -2,11 +2,11 @@
 
 # error_highlight's node lookup, for a program compiled ahead of time.
 # CRuby parses the file again with prism when it reports an error, and
-# finds the node a backtrace row names by its id. A program here carries
-# no parser: the compiler asked error_highlight's own Spotter about each
-# node a row can name while it held the tree (lib/zr/hir/spots.rb), and
-# the program keeps those answers. The rest of the library runs as ruby
-# ships it.
+# finds the node for a backtrace entry by its id. A program here includes
+# no parser. While the compiler had the tree, it called error_highlight's
+# own Spotter for each node that an entry can refer to
+# (lib/zr/hir/spots.rb), and the program keeps those results. The rest of
+# the library runs as ruby ships it.
 module ErrorHighlight
   # A node the compiler spotted: its rows, and the file it is in.
   class CompiledNode
@@ -36,8 +36,8 @@ module ErrorHighlight
       @rows = rows
     end
 
-    # What Spotter#spot answers for the node: the row for the constant
-    # `name`, else the row that holds for any name.
+    # What Spotter#spot returns for the node: the entry for the constant
+    # `name`, else the entry that applies to any name.
     def spot(point_type, name)
       row = @rows.find { |point, row_name| point == point_type && row_name == name } ||
             @rows.find { |point, row_name| point == point_type && row_name.nil? }
@@ -55,7 +55,7 @@ module ErrorHighlight
   def self.prism_find(location) = CompiledNode.find(location)
   private_class_method :prism_find
 
-  # Spotter asks a compiled node for the spot it already holds.
+  # Spotter reads the spot that a compiled node already contains.
   module CompiledSpot
     def spot
       Primitive.attr! :ivars

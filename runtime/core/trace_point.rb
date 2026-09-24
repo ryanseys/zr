@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# TracePoint, over the events a traced program fires (runtime/kernel/trace.rb).
-# An enabled TracePoint adds its events to the kernel's mask; an event
-# comes to TracePoint.fire with a row that describes its frame, and each
-# enabled TracePoint that asks for it runs its block, the newest first.
-# While a block runs, the fiber carries the row, which every accessor
-# reads and which keeps the handlers from firing events of their own, as
+# TracePoint, over the events that a traced program fires (runtime/kernel/trace.rb).
+# An enabled TracePoint adds its events to the kernel's mask. An event
+# comes to TracePoint.fire with a record that describes its frame, and
+# each enabled TracePoint that wants it runs its block, the newest first.
+# While a block runs, the fiber keeps the record. Every accessor reads
+# it, and it stops the handlers from firing events of their own, as
 # CRuby's ec->trace_arg does.
 class TracePoint
   EVENTS = {
@@ -192,7 +192,7 @@ class TracePoint
       return nil unless current_row.nil?
 
       # A :call or :return around one of CRuby's own Ruby methods reports
-      # the place that method stands in CRuby's builtin sources.
+      # the position of that method in CRuby's builtin sources.
       if (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
         row[2] = place[0]
         row[3] = row[0] == 0x8 ? place[1] : place[2]
@@ -315,16 +315,16 @@ class TracePoint
 
   def parameters
     raise RuntimeError, +"not supported by this event" if %i[raise line class end script_compiled rescue].include?(event)
-    # rb_tracearg_parameters answers a call's and a return's, refuses
-    # for the events above, and falls through to nil for the rest: an
-    # event the machine fires stands in no method and has none.
+    # rb_tracearg_parameters returns the parameters for a call and a
+    # return, refuses for the events above, and falls through to nil for
+    # the others: an event that the machine fires is in no method and has none.
     return nil if %i[thread_begin thread_end fiber_switch].include?(event)
 
     Primitive.zr_trace_parameters(row[9], row[10])
   end
 
-  # The string this code was compiled from, or nil where a file held
-  # it, as rb_tracearg_eval_script answers nil for an iseq alone.
+  # The string that this code was compiled from, or nil when it came from
+  # a file, as rb_tracearg_eval_script returns nil for an iseq alone.
   def eval_script
     raise RuntimeError, +"not supported by this event" unless event == :script_compiled
 
@@ -332,9 +332,9 @@ class TracePoint
   end
 
   # The code itself, which rb_tracearg_instruction_sequence wraps for
-  # the handler. This runtime has no bytecode to hand over, so the
-  # sequence carries what the row kept of it: the name it answers to,
-  # its label and its first line.
+  # the handler. This runtime has no bytecode to give, so the sequence
+  # contains what the record kept of it: its method name, its label and
+  # its first line.
   def instruction_sequence
     raise RuntimeError, +"not supported by this event" unless event == :script_compiled
 

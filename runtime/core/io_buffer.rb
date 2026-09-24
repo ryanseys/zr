@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # IO::Buffer: a window on bytes, either its own or a String's. A buffer
-# made `for` a String holds that String and reads and writes its bytes
+# made `for` a String keeps that String and reads and writes its bytes
 # in place, which is what ruby means by "the string is locked for the
 # duration of the block".
 class IO
@@ -266,8 +266,8 @@ class IO
       offset
     end
 
-    # `each` walks one type across the window and answers the offset
-    # beside each value; `values` answers the values alone.
+    # `each` walks one type across the window and gives the offset next
+    # to each value; `values` returns only the values.
     def each(type = :U8, offset = 0, count = nil, &block)
       return to_enum(:each, type, offset, count) unless block
 
@@ -344,13 +344,13 @@ class IO
       self
     end
 
-    # rb_io_buffer_read and its siblings. A non-blocking fiber hands the
-    # transfer to its scheduler's hook where the scheduler has one.
+    # rb_io_buffer_read and the related methods. A non-blocking fiber gives
+    # the transfer to its scheduler's hook when the scheduler has one.
     # Otherwise the system call runs over the rest of the buffer, again
-    # and again until at least `length` bytes have moved or the stream
-    # ends; a `length` of zero is exactly one call. Each answers the
-    # bytes moved, or the negative errno. The p-forms name a file
-    # position and leave the stream's own where it was.
+    # until at least `length` bytes have moved or the stream ends. A
+    # `length` of zero is exactly one call. Each returns the bytes moved,
+    # or the negative errno. The p-forms take a file position and do not
+    # move the stream's own position.
     def read(io, length = nil, offset = nil)
       io = Buffer.send(:io_of, io)
       length, offset = extent(length, offset)
@@ -410,8 +410,8 @@ class IO
       end
     end
 
-    # rb_io_buffer_new over memory the runtime lends a scheduler hook:
-    # locked while the hook holds it, and freed as the hook returns.
+    # rb_io_buffer_new over memory that the runtime lends a scheduler hook:
+    # locked while the hook has it, and freed when the hook returns.
     def self.lent(bytes, readonly: false)
       buffer = allocate
       buffer.send(:window, bytes, 0, bytes.bytesize, LOCKED | (readonly ? READONLY : 0))
@@ -552,8 +552,8 @@ class IO
       self
     end
 
-    # A change to a shared mapping reaches the file, as the pages mmap
-    # shares with it would carry it.
+    # A change to a shared mapping reaches the file, as it would through
+    # the pages that mmap shares with the file.
     def written(offset, length)
       Primitive.attr! :hidden
       return if @mapping.nil? || length.zero?

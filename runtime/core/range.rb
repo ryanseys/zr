@@ -132,8 +132,8 @@ class Range
       end
       text.upto(@end, @excl) { |s| yield s }
     else
-      # range_each_func: anything that answers succ walks toward the end
-      # while <=> says it has not passed it.
+      # range_each_func: any object that responds to succ walks toward the
+      # end while <=> says it has not passed it.
       raise TypeError, "can't iterate from #{v.class}" unless v.respond_to?(:succ)
 
       if @end.nil?
@@ -230,8 +230,8 @@ class Range
     n < 0 ? 0 : n
   end
 
-  # A range with an open side holds an infinite count, which CRuby
-  # answers without a walk. An argument or a block counts the members
+  # A range with an open side has an infinite count, which CRuby
+  # returns without a walk. An argument or a block counts the members
   # that match, so those walk as Enumerable does.
   def count(*args, &block)
     return super unless args.empty? && !block
@@ -320,8 +320,8 @@ class Range
     end
     self
   end
-  # Every `n`th element of a String range, by succ; the checks wait for
-  # the walk.
+  # Every `n`th element of a String range, by succ; the argument checks
+  # wait for the walk.
   def stepped(n, name, &block)
     Primitive.attr! :hidden
     return added(n, name, &block) unless n.is_a?(Integer)
@@ -507,8 +507,8 @@ class Range
 
   public
 
-  # Each end as rb_obj_as_string writes it, joined in the encoding the
-  # beginning's text carries.
+  # Each end as rb_obj_as_string writes it, joined in the encoding of
+  # the beginning's text.
   def to_s = Primitive.zr_obj_as_string(@begin).dup << dots << Primitive.zr_obj_as_string(@end)
 
   # An endless or beginless range leaves that side blank; only a range

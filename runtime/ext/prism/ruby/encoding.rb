@@ -5,11 +5,11 @@ require_relative "encoding_tables"
 
 module Prism
   module Ruby
-    # encoding.c: what the lexer asks of the encoding a source is written in,
-    # for the 90 encodings prism knows. Each question takes the binary source,
-    # a byte offset and the bytes left from there (C's `n`, which may be 0 or
-    # less), and answers a width in bytes, 0 for no character, or for
-    # isupper_char true or false.
+    # encoding.c: the functions that the lexer calls on the encoding of a
+    # source, for the 90 encodings that prism knows. Each takes the binary
+    # source, a byte offset and the bytes left from there (C's `n`, which
+    # can be 0 or less). It returns a width in bytes, 0 for no character,
+    # or true or false for isupper_char.
     module Encodings
       ALPHABETIC = 1
       ALPHANUMERIC = 2
@@ -34,7 +34,7 @@ module Prism
       end
 
       # A pm_encoding_t: its name, whether it is multibyte, and the four
-      # questions. The base answers them from the ASCII table, as the
+      # functions. The base implements them with the ASCII table, as the
       # ascii_*_char functions do.
       class Encoding
         attr_reader :name
@@ -49,7 +49,7 @@ module Prism
         # pm_encoding_single_char_width
         def char_width(_source, _at, _n) = 1
 
-        # pm_encoding_ascii_alpha_char, which answers the table bit itself.
+        # pm_encoding_ascii_alpha_char, which returns the table bit itself.
         def alpha_char(source, at, n) = n > 0 ? TABLES["ascii"].getbyte(source.getbyte(at)) & ALPHABETIC : 0
 
         # pm_encoding_ascii_alnum_char
@@ -79,9 +79,9 @@ module Prism
         def isupper_char(source, at, n) = n > 0 && @table.getbyte(source.getbyte(at)).anybits?(UPPERCASE)
       end
 
-      # Unicode questions over a decoder: the byte table below 0x100, the
+      # Unicode functions over a decoder: the byte table below 0x100, the
       # code point ranges above. C leaves the width of a decoded character
-      # unset (pm_utf_8_codepoint never writes it); the compiled C answers
+      # unset (pm_utf_8_codepoint never writes it). The compiled C returns
       # the character's own width, and so does this.
       class Unicode < Encoding
         def alpha_char(source, at, n) = unicode_char(source, at, n, ALPHABETIC, UNICODE_ALPHA)
@@ -323,8 +323,8 @@ module Prism
         def alnum_char(source, at, n) = letter(source, at, n) { super(source, at, n) }
         def alpha_char(source, at, n) = letter(source, at, n) { super(source, at, n) }
 
-        # pm_encoding_shift_jis_isupper_char, which answers the width (0)
-        # for a byte that is no character.
+        # pm_encoding_shift_jis_isupper_char, which returns the width (0)
+        # for a byte that is not a character.
         def isupper_char(source, at, n)
           case (width = char_width(source, at, n))
           when 1 then super
@@ -371,8 +371,8 @@ module Prism
       LOOKUP = NAMES.to_h { |name, id| [name.downcase(:ascii), ALL.fetch(id)] }.freeze
       private_constant :LOOKUP
 
-      # pm_encoding_find: the encoding a magic comment or an option names,
-      # or nil. Case does not matter, and UTF-8 may carry a suffix.
+      # pm_encoding_find: the encoding that a magic comment or an option
+      # gives, or nil. Case does not matter, and UTF-8 can have a suffix.
       def self.find(bytes)
         bytes = bytes.b.downcase(:ascii)
         if bytes.start_with?("utf-8")

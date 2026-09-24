@@ -130,7 +130,7 @@ class Hash
     self
   end
 
-  # A subclass answers a plain Hash with the same pairs, default and
+  # A subclass returns a plain Hash with the same pairs, default and
   # compare_by_identity, as rb_hash_to_h copies them.
   def to_h
     unless block_given?
@@ -309,7 +309,7 @@ class Hash
     out
   end
 
-  # A plain Hash: the default and default proc do not carry over.
+  # A plain Hash: the default and default proc are not copied.
   def except(*keys)
     out = identity_shaped
     Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
@@ -334,8 +334,8 @@ class Hash
     false
   end
 
-  # `default` alone answers the default value; with a key, what a
-  # default proc would answer for it.
+  # `default` with no argument returns the default value; with a key, the
+  # value that a default proc would return for it.
   def default(*key)
     raise ArgumentError, "wrong number of arguments (given #{key.size}, expected 0..1)" if key.size > 1
     return Primitive.zr_hash_default_value(self) if key.empty?
@@ -344,7 +344,7 @@ class Hash
     proc ? proc.call(self, key[0]) : Primitive.zr_hash_default_value(self)
   end
 
-  # `delete(key) { |key| }`: the block's answer for a missing key.
+  # `delete(key) { |key| }`: the block's return value for a missing key.
   def delete(key)
     Primitive.zr_frozen_error(self) if frozen?
     return Primitive.zr_hash_delete_m(self, key) if Primitive.zr_hash_key_p_m(self, key) || !block_given?
@@ -400,7 +400,7 @@ class Hash
   end
 
   # The same two Hashes compared again inside their own comparison is a
-  # recursion, which answers equal, as rb_exec_recursive_paired has it.
+  # recursion, which gives equal, as rb_exec_recursive_paired does.
   def eql?(other)
     return true if equal?(other)
     return false unless other.is_a?(Hash) && Primitive.zr_hash_len_m(self) == Primitive.zr_hash_len_m(other)
@@ -417,7 +417,7 @@ class Hash
   end
 
   # Order does not matter: the pairs' hashes combine by a sum.
-  # A hash that holds itself answers a fixed value for the reference
+  # A hash that contains itself uses a fixed value for the reference
   # back, so the walk ends.
   def hash
     return 7 if Primitive.zr_recursive_enter(self, :hash)

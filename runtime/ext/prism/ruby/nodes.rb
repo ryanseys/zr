@@ -49,7 +49,7 @@ module Prism
 
       # -- constants --------------------------------------------------------
 
-      # The Symbol of the constant numbered `id`, as a node holds it. A name
+      # The Symbol of the constant numbered `id`, as a node stores it. A name
       # that is not valid in the source's encoding keeps its bytes.
       def constant_symbol(id)
         @constant_symbols[id] ||= begin
@@ -58,7 +58,7 @@ module Prism
         end
       end
 
-      # The constant id of a name a node holds.
+      # The constant id of a name in a node.
       def constant_id_of(symbol) = @constant_pool.find(symbol.name)
 
       # pm_parser_constant_id_token, as the node's Symbol.
@@ -266,9 +266,9 @@ module Prism
       end
 
       # pm_conditional_predicate: in a predicate, a range is a flip-flop and
-      # a regexp matches $_, and literals draw warnings. `type` is
+      # a regexp matches $_, and literals cause warnings. `type` is
       # :conditional, :flip_flop or :not. The C changes a node's type in
-      # place; this answers the node to use in its place.
+      # place; this returns the node to use in its place.
       def conditional_predicate(node, type)
         case node
         when AndNode, OrNode
@@ -1119,8 +1119,8 @@ module Prism
         value
       end
 
-      # The block's answer, without ruby's own out-of-range warning, which
-      # $VERBOSE prints.
+      # The block's return value, without ruby's own out-of-range warning,
+      # which $VERBOSE prints.
       def quietly
         verbose = $VERBOSE
         $VERBOSE = nil

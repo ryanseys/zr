@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# `ripper.so`: the C half of ext/ripper, over prism. CRuby's ripper runs
+# `ripper.so`: the C part of ext/ripper, over prism. CRuby's ripper runs
 # parse.y's lexer and parser and calls a method for each token (a scanner
-# event) and each rule it reduces (a parser event). Here prism answers
+# event) and each rule it reduces (a parser event). Here prism supplies
 # both: its lex_compat stream gives every token with ripper's position and
-# lexer state, and prism's own Ripper translation walks the tree and names
-# the parser events. The Ruby half, ripper.rb and ripper/*.rb, is ruby's.
+# lexer state, and prism's own Ripper translation walks the tree and gives
+# the parser events. The Ruby part, ripper.rb and ripper/*.rb, is ruby's.
 require "prism"
 require "prism/translation/ripper"
 
@@ -24,7 +24,7 @@ class Ripper
 
   # The leading spaces and tabs of `input` that make up `width` columns,
   # a tab reaching the next multiple of eight, removed in place, as
-  # parse.y's dedent_string removes them; answers the bytes removed.
+  # parse.y's dedent_string removes them. Returns the bytes removed.
   def self.dedent_string(input, width)
     raise TypeError, "no implicit conversion of #{input.class} into String" unless input.is_a?(String)
 
@@ -81,8 +81,8 @@ class Ripper
   def debug_output=(output); end
 
   # Every token as its scanner event, in order; then the tree as its
-  # parser events, where a token the tree names answers what its scanner
-  # event answered. A second parse finds the input at its end.
+  # parser events, where a token in the tree gives the value that its
+  # scanner event returned. A second parse finds the input at its end.
   def parse
     raise ArgumentError, "Ripper#parse is not reentrant" if @cursor.parsing
     return nil if @cursor.parsed
@@ -153,9 +153,9 @@ class Ripper
 
     private
 
-    # What the token the tree names here answered as its scanner event: the
-    # token that starts here, or one inside the text, which a squiggly
-    # heredoc's lexing has already dedented.
+    # The value that the scanner event returned for the token at this
+    # place in the tree: the token that starts here, or one inside the
+    # text, which a squiggly heredoc's lexing has already dedented.
     def token_at(event, text)
       @tokens[[lineno, event]].find { |col, _| col == column } ||
         @tokens[[lineno, event]].find { |col, _| col > column && col < column + text.bytesize }
@@ -167,8 +167,8 @@ class Ripper
     end
 
     # A squiggly heredoc's tokens come from prism's lexer already
-    # dedented, as the scanner events that answered them were, so the
-    # width left to take off is none.
+    # dedented, as were their scanner events, so no width is left to
+    # take off.
     def on_heredoc_dedent(value, _width) = @ripper.__send__(:on_heredoc_dedent, value, 0)
 
     (PARSER_EVENT_TABLE.keys - [:heredoc_dedent]).each do |event|

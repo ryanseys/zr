@@ -1,15 +1,15 @@
 # frozen_string_literal: false
 #
-# NOT frozen-literal, and not by omission. Real rbconfig's values are mutable
-# strings -- `RbConfig::CONFIG["cflags"].frozen?` is false on the oracle --
+# This file is intentionally NOT frozen-literal. Real rbconfig's values are
+# mutable strings (`RbConfig::CONFIG["cflags"].frozen?` is false in CRuby),
 # and both `RbConfig.expand` and mkmf's `init_mkmf` write THROUGH them with
 # `String#replace`. A frozen literal here is a `FrozenError` before any
 # extension is configured.
 #
 # zr's own `rbconfig`. Ruby generates this file at build time from its
 # build configuration; zr has no such build, so the facts come from the
-# running program instead. It carries the keys rubygems and bundler read:
-# version, platform, and the install layout.
+# running program instead. It contains the keys that rubygems and bundler
+# read: version, platform, and the install layout.
 #
 module RbConfig
   ruby_version = "4.0.0"
@@ -34,9 +34,9 @@ module RbConfig
   undefined_flag = darwin ? "-Wl,-undefined,dynamic_lookup" : "-Wl,--allow-shlib-undefined"
 
   # The install layout is zr's own: a directory under the home
-  # directory that zr owns, which rubygems may create, unless the
-  # environment names another. It is never the layout of the ruby that
-  # compiled the program: a binary carries nothing read off the machine
+  # directory that zr owns, which rubygems can create, unless the
+  # environment gives another. It is never the layout of the ruby that
+  # compiled the program: a binary contains nothing read from the machine
   # that built it, so the same source builds the same bytes anywhere.
   prefix = ENV["ZR_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".zr")
 
@@ -116,8 +116,8 @@ module RbConfig
     # A C extension is a BUNDLE that resolves `rb_*` against the host binary
     # at load, so its own link must leave them undefined. Without this every
     # extension fails to link with "Undefined symbols ... _rb_define_method",
-    # which reads like a missing implementation and is not one.
-    # The oracle's own `DLDFLAGS` carries the same flag.
+    # which looks like a missing implementation but is not one.
+    # CRuby's own `DLDFLAGS` contains the same flag.
     "DLDFLAGS" => undefined_flag,
     "configure_args" => "",
 
@@ -158,7 +158,7 @@ module RbConfig
     "debugflags" => "-g",
     "warnflags" => "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers",
     # A raise unwinds through the extension's own frames, so its objects
-    # must carry unwind tables (docs/EXTENSIONS.md).
+    # must contain unwind tables (docs/EXTENSIONS.md).
     "unwindflags" => "-fexceptions -fasynchronous-unwind-tables",
     "CFLAGS" => "$(cflags) -fPIC",
     "CXXFLAGS" => "$(cxxflags) -fPIC",

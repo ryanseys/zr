@@ -2,8 +2,8 @@
 
 # Date and DateTime over a chronological Julian day number, a second of
 # that day and a nanosecond, all in UTC, with the offset and the day the
-# Gregorian calendar starts held beside them. Every conversion is exact
-# integer arithmetic, so a date carries no float and never drifts.
+# Gregorian calendar starts kept next to them. Every conversion is exact
+# integer arithmetic, so a date contains no float and never drifts.
 
 class Date
   include Comparable
@@ -182,7 +182,7 @@ class Date
   end
 
   # A date from its own parts, which no caller checks again. A simple
-  # date holds a day and no time of day, as date_core.c's
+  # date has a day and no time of day, as date_core.c's
   # SimpleDateData does; Date's own constructors make one.
   def self.at(jd, df, sf, of, start, simple: false)
     Primitive.attr! :hidden
@@ -200,8 +200,8 @@ class Date
   end
 
   # date_initialize reads the parts last to first. A fraction of a day
-  # is lost, as `new` answers the date it allocated and not the one the
-  # fraction moved.
+  # is lost, because `new` returns the date it allocated and not the one
+  # that the fraction moved.
   def self.civil(year = -4712, month = 1, day = 1, start = ITALY)
     start = valid_start(start)
     day = numeric(day, "day").floor
@@ -364,7 +364,7 @@ class Date
 
   def amjd = ajd - Rational(4_800_001, 2)
 
-  # A date with no time of day holds no fraction at all.
+  # A date with no time of day has no fraction at all.
   def day_fraction
     return 0 if parts[5]
 
@@ -437,7 +437,7 @@ class Date
   end
   private :clock
 
-  # A Date has a clock only to answer zero from, privately.
+  # A Date has a clock only to return zero from, privately.
   def hour = 0
   alias min hour
   alias minute hour
@@ -485,7 +485,7 @@ class Date
   end
   private :days_later
 
-  # A fraction of a day makes a date that holds a time of day, unless
+  # A fraction of a day makes a date that has a time of day, unless
   # the time comes back to midnight in UTC.
   def add_nanoseconds(count)
     Primitive.attr! :hidden

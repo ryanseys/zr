@@ -143,7 +143,7 @@ module Packing
     (bytes.byteslice(at, n) || "".b).force_encoding(Encoding::BINARY)
   end
 
-  # Uuencoding: a line holds `count` bytes rounded down to a multiple
+  # Uuencoding: a line contains `count` bytes rounded down to a multiple
   # of three, and starts with its own length; each three bytes become
   # four characters of six bits over a space, with a zero as a
   # backquote.
@@ -313,10 +313,10 @@ module Packing
       raise ArgumentError, +"no associated pointer"
   end
 
-  # An item an integer directive takes: a Numeric truncated to an Integer,
-  # or what `to_int` answers for anything else that has one. An Integer
-  # is already one, and Kernel#Integer is a base and a keyword parameter
-  # away from saying so, which every element of a `Q<*` would pay.
+  # An item for an integer directive: a Numeric truncated to an Integer,
+  # or the value of `to_int` for any other object that has one. An
+  # Integer is used as it is. Kernel#Integer would need a base and a
+  # keyword parameter to do this, a cost for every element of a `Q<*`.
   def self.integer_item(item)
     return item if item.is_a?(Integer)
     return Integer(item) if item.is_a?(Numeric)
@@ -345,10 +345,10 @@ module Packing
 
   # The low `size` bytes of n in two's complement, appended to `out`; a
   # negative n is taken byte by byte so no shift leaves the fixnum
-  # range. Appended, and not answered as a String of its own, because a
-  # `Q<*` over a long Array made one an element -- and an Array of its
-  # bytes, and a String a byte -- where the packed String stands right
-  # here to write into.
+  # range. It appends rather than returning a new String, because the
+  # packed String is available to write into. A new String per element
+  # of a `Q<*` over a long Array would also make an Array of its bytes,
+  # and a String per byte.
   def self.push_integer(out, n, size, big)
     first = out.bytesize
     i = 0
@@ -567,7 +567,7 @@ module Packing
           n -= 1 if n
         end
       when "P"
-        # `P`'s count is the most bytes to answer of the String.
+        # `P`'s count is the maximum number of bytes to return from the String.
         if bytes.bytesize - at >= 8
           width = count == :all ? bytes.bytesize - at : (count || 1)
           address = unpack_integer(bytes.byteslice(at, 8), false, false)
@@ -642,7 +642,7 @@ module Packing
     n
   end
 
-  # The hex and bit directives answer US-ASCII text, as CRuby's do.
+  # The hex and bit directives return US-ASCII text, as CRuby's do.
   def self.unpack_hex(bytes, at, n, high_first)
     out = (+"").force_encoding(Encoding::US_ASCII)
     n.times do |i|
@@ -727,7 +727,7 @@ class Object
   private_constant :Packing
 end
 
-# CRuby writes these three in Ruby (its pack.rb), so they answer their
+# CRuby writes these three in Ruby (its pack.rb), so they return their
 # own parameters, under CRuby's names.
 class Array
   def pack(fmt, buffer: nil)
@@ -744,8 +744,8 @@ class Array
 end
 
 class String
-  # With a block, each value goes to it in turn and the answer is nil,
-  # as CRuby's unpack does.
+  # With a block, each value goes to it in sequence and the return value
+  # is nil, as CRuby's unpack does.
   def unpack(fmt, offset: 0)
     Primitive.attr! :ruby
     bytes = plain

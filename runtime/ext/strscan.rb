@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
 # StringScanner: a position in a string and a match at it. Ruby ships
-# this as a C extension with a small half in ruby; this is both halves
-# over the same Regexp engine the runtime already carries.
+# this as a C extension with a small part in ruby. This file is both
+# parts, over the same Regexp engine that the runtime already includes.
 #
 # `pos` counts bytes, as ruby's does. A match is a byte range in the
-# string, and the MatchData beside it when a pattern made it: a byte or a
-# character taken on its own has a range and no groups, which is how
-# `get_byte` answers a raw byte of a multibyte character.
+# string, and the MatchData next to it when a pattern made it. A byte or
+# a character taken on its own has a range and no groups. This is how
+# `get_byte` returns a raw byte of a multibyte character.
 #
-# A scan hands the compiled pattern the string in place with the scan
+# A scan gives the compiled pattern the string in place with the scan
 # pointer as the text's start, as strscan.c's onig_match and onig_search
 # do, so `\A`, `^` and `\G` all read the pointer as the start;
 # `fixed_anchor: true` starts the text at the string's own beginning,
 # where `\A` keeps the real beginning.
 #
 # CRuby keeps all of this in a C struct, so a program sees no instance
-# variable on a scanner: the fields live in hidden slots, which leaves
-# `instance_variables` for whatever the program itself writes.
+# variable on a scanner. The fields are in hidden slots, which leaves
+# `instance_variables` for the program's own variables.
 class StringScanner
   Error = Class.new(StandardError)
-  # The two names the C extension carries beside its error class.
+  # The two names that the C extension defines next to its error class.
   Version = "3.1.6"
   Id = "$Id$"
 
@@ -141,8 +141,8 @@ class StringScanner
     keep(pos, char.bytesize)
   end
 
-  # The raw byte at the pointer, which is half a character where the
-  # string holds a multibyte one.
+  # The raw byte at the pointer, which is part of a character when the
+  # string contains a multibyte one.
   def get_byte
     return nil if eos?
 
@@ -285,14 +285,10 @@ class StringScanner
     index.to_int
   end
 
-  # `pattern` at the scan pointer (`anchored`) or anywhere past it. The
-  # span runs from the pointer to the end of the match, which is what a
-  # `_until` form answers; `answer` decides whether the bytes or their
-  # count comes back, and `advance` whether the pointer moves past them.
   # strscan_do_scan: `pattern` at the scan pointer (`anchored`) or
   # anywhere past it. A Regexp runs in place over the string; a String
   # compares its bytes. The span runs from the pointer to the end of the
-  # match, which is what a `_until` form answers; `answer` decides whether
+  # match, which is what a `_until` form returns. `answer` decides whether
   # the bytes or their count comes back, and `advance` whether the
   # pointer moves past them.
   def run(pattern, anchored, answer, advance)

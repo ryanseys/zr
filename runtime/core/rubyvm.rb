@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # RubyVM: what CRuby tells a program about its virtual machine. This
-# runtime compiles every file with prism ahead of time, so it answers as a
-# CRuby whose instruction sequences prism compiled, with YJIT off.
+# runtime compiles every file with prism ahead of time, so it behaves as
+# a CRuby whose instruction sequences prism compiled, with YJIT off.
 class RubyVM
   Primitive.zr_undef_alloc(self)
 
@@ -38,9 +38,9 @@ class RubyVM
   end
 
   # A handle on compiled code: a block or a method written in Ruby, or a
-  # string compiled by the compiler a program that names this class
-  # carries. There is no bytecode to show, so the forms that read it
-  # refuse by name.
+  # string compiled by the compiler that a program links in when it
+  # refers to this class. There is no bytecode to show, so the forms
+  # that read bytecode are refusals.
   class InstructionSequence
     Primitive.zr_undef_alloc(self)
 
@@ -124,7 +124,7 @@ class RubyVM
     def path = Primitive.zr_hidden_get(self, :__path__)
     def first_lineno = Primitive.zr_hidden_get(self, :__first_lineno__)
 
-    # The path as the file was found, or nil for code no file holds.
+    # The path where the file was found, or nil for code that is not from a file.
     def absolute_path
       Primitive.zr_hidden_get(self, :__absolute_path__) || (Primitive.zr_path_kind(path) == 2 ? File.expand_path(path) : nil)
     end
@@ -153,9 +153,9 @@ class RubyVM
       statements = ::Prism.parse(code, line: first_lineno).value.statements.body
       statements.select(&:newline?).map { |node| node.location.start_line }.uniq.map { |line| [line, :line] }
     end
-    # The code a compiled string holds directly: each method, block and
-    # class body it writes, in the order the compiler meets them. A
-    # block's or a method's own code has no source kept to read.
+    # The code that a compiled string contains directly: each method, block
+    # and class body it writes, in the order the compiler finds them. A
+    # block's or a method's own code has no kept source to read.
     def each_child(&block)
       code = Primitive.zr_hidden_get(self, :__source__)
       return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#each_child of a block or a method") if code.nil?
@@ -201,10 +201,10 @@ class RubyVM
     class Node; end
     class Location; end
 
-    # The translator a program that names this module carries
-    # (runtime/ext/zr/ast.rb), loaded ahead of the program's first line by
-    # runtime/ext/zr/syntax_tree.rb. It defines the two classes above, so a
-    # program that only names one of them finds it whole.
+    # The translator (runtime/ext/zr/ast.rb) that a program links in when
+    # it refers to this module. runtime/ext/zr/syntax_tree.rb loads it
+    # before the program's first line. It defines the two classes above,
+    # so a program that refers to only one of them finds it complete.
     def self.translator
       Primitive.attr! :hidden
       ::Zr::AST
@@ -221,9 +221,9 @@ class RubyVM
       translator.parse_file(pathname, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
     end
 
-    # The AST of what `body` runs. Every ISEQ here is prism's, so a body
-    # written in Ruby refuses as ast_s_of refuses one; a method or a Proc
-    # the runtime carries has no ISEQ and answers nil.
+    # The AST of the code that `body` runs. Every ISEQ here is prism's, so
+    # a body written in Ruby refuses as ast_s_of refuses one. A method or a
+    # Proc that the runtime includes has no ISEQ and returns nil.
     def self.of(body, keep_script_lines: RubyVM.keep_script_lines, error_tolerant: false, keep_tokens: false)
       written = case body
                 when Thread::Backtrace::Location then true

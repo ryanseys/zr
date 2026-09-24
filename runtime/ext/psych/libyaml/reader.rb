@@ -29,8 +29,8 @@ module Psych
 
       private
 
-      # yaml_parser_update_buffer: make sure the buffer holds at least
-      # `length` characters, or the whole rest of the input and its NUL.
+      # yaml_parser_update_buffer: make sure the buffer contains at least
+      # `length` characters, or all the rest of the input and its NUL.
       def update_buffer(length)
         # Once the input ends and the reader decodes all of it, there is
         # nothing to add.
@@ -162,9 +162,9 @@ module Psych
         (raw.byteindex(NOT_PLAIN, from) || raw.bytesize) - from
       end
 
-      # One UTF-8 character (RFC 3629), with the checks libyaml makes.
-      # Answers [value, width], or nil when the character is incomplete
-      # and more input may follow.
+      # One UTF-8 character (RFC 3629), with the checks that libyaml makes.
+      # Returns [value, width], or nil when the character is incomplete
+      # and more input can follow.
       def decode_utf8(raw, raw_unread)
         octet = raw.getbyte(@raw_pointer)
         width = if octet & 0x80 == 0x00 then 1
@@ -209,8 +209,8 @@ module Psych
       end
 
       # One UTF-16 character (RFC 2781), which a surrogate pair makes from
-      # two code units. Answers [value, width], or nil when the character
-      # is incomplete and more input may follow.
+      # two code units. Returns [value, width], or nil when the character
+      # is incomplete and more input can follow.
       def decode_utf16(raw, raw_unread)
         low = @encoding == UTF16LE_ENCODING ? 0 : 1
         high = @encoding == UTF16LE_ENCODING ? 1 : 0

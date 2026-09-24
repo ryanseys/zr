@@ -1,21 +1,21 @@
 # frozen_string_literal: true
 
-# The walking eval road's half that only the runtime can answer.
+# The part of the tree-walking interpreter that only the runtime can supply.
 #
 # A program on wasm cannot write machine code while it runs: a module's
-# code is fixed when the engine instantiates it, and nothing in WASI
-# hands a guest a second module. So a program there carries the front
-# end alone and walks the tree it builds (lib/zr/eval/walk.rb). The
+# code is fixed when the engine instantiates it, and WASI gives a guest
+# no way to load a second module. So a program there includes only the
+# front end and walks the tree it builds (lib/zr/eval/walk.rb). The
 # walk is ordinary Ruby and reaches the program through ordinary calls
-# -- `__send__`, `define_method`, `instance_variable_get` -- for
-# everything but the tables the compiler reaches through inline caches.
+# (`__send__`, `define_method`, `instance_variable_get`) for all but
+# the tables that the compiler reaches through inline caches.
 # Those are here.
 
 module Zr
   class Eval
-    # The lexical scope, the scopes a Binding names, and the constant,
-    # class-variable and global tables. Every method here stands for one
-    # the compiler emits inline, and answers what that one answers.
+    # The lexical scope, the scopes of a Binding, and the constant,
+    # class-variable and global tables. Every method here is in place of
+    # one that the compiler emits inline, and returns the same value.
     module World
       module_function
 
@@ -25,12 +25,12 @@ module Zr
       # a scope other than the one it was written in.
       def cref = Primitive.zr_eval_cref
 
-      # Two crefs, or any two Values, as the same object. A cref answers
-      # no message, so it cannot be asked itself.
+      # Two crefs, or any two Values, as the same object. A cref accepts
+      # no message, so it cannot be compared by a method call on it.
       def same?(a, b) = Primitive.zr_same_p(a, b)
 
-      # The lexical scope the frame that asked for the eval stands in,
-      # and one scope inside it.
+      # The lexical scope of the frame that called eval, and one scope
+      # inside it.
       def cref_under(mod, outer) = Primitive.zr_eval_cref_under(mod, outer)
       # A lexical scope for a class or module body, which a `def` in it
       # defines into and a constant in it is read under.
@@ -50,10 +50,10 @@ module Zr
       def set_vis(cref, vis) = Primitive.zr_cref_set_vis(cref, vis)
       def set_module_function(cref) = Primitive.zr_cref_set_modfn(cref)
 
-      # While the walk runs, what asks the runtime is the program and
-      # not the road's own file, which loaded out of the program's
-      # sight: a constant the string defines is the program's, and so
-      # is a require it makes.
+      # While the walk runs, the caller of the runtime is the program,
+      # not the interpreter's own file, which loaded hidden from the
+      # program. So a constant that the string defines is the program's,
+      # and so is a require that it makes.
       def walk_enter = Primitive.zr_walk_enter
       def walk_leave = Primitive.zr_walk_leave
 

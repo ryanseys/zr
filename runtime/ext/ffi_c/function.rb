@@ -87,7 +87,7 @@ module FFI
   class Function < Pointer
     Primitive.zr_define_alloc(self)
 
-    # sizeof(Closure), the size a function over a Proc answers.
+    # sizeof(Closure), the size that a function over a Proc returns.
     CLOSURE_SIZE = 48
     MEM_RD = 0x01
     private_constant :CLOSURE_SIZE, :MEM_RD
@@ -99,8 +99,8 @@ module FFI
         Primitive.zr_class_build(Function).__send__(:ffi_init, info, proc)
       end
 
-      # rbffi_Function_ForProc: the one function a Proc has for a
-      # signature, which the Proc holds.
+      # rbffi_Function_ForProc: the one function that a Proc has for a
+      # signature, which the Proc keeps.
       def for_proc(info, proc)
         Primitive.attr! :hidden
         ref = proc.instance_variable_defined?(:@__ffi_callback__) ? proc.instance_variable_get(:@__ffi_callback__) : nil
@@ -120,9 +120,9 @@ module FFI
         callback
       end
 
-      # The functions whose closures C may call, by the id each closure
-      # carries. C calls this with the id and where the result and the
-      # arguments are.
+      # The functions whose closures C can call, by the id in each
+      # closure. C calls this with the id and the addresses of the result
+      # and the arguments.
       def closure_id
         Primitive.attr! :hidden
         @closure_id = (@closure_id || 0) + 1
@@ -217,8 +217,8 @@ module FFI
     end
 
     # invoke_callback: C called the closure. Each argument reads as its
-    # type, the Proc runs, and its answer goes where C reads the result;
-    # an error clears the result and goes on once C returns.
+    # type, the Proc runs, and its return value goes where C reads the
+    # result. An error clears the result and raises again after C returns.
     def ffi_invoke(result, params)
       Primitive.attr! :hidden
       return_type = @info.return_type
@@ -247,7 +247,7 @@ module FFI
 
   class << self
     # rbffi_CallFunction: a call of the function at `address` with the
-    # arguments converted by `info`, answering its result as ruby's.
+    # arguments converted by `info`. Returns its result as a Ruby value.
     def call_function(args, block, address, info)
       Primitive.attr! :hidden
       params, values, keep = call_params(args, block, info.ffi_params.size, info.ffi_params, info.ffi_callbacks, info.ffi_enums)
@@ -264,7 +264,7 @@ module FFI
 
     # rbffi_SetupCallParams: every argument in its C form, eight bytes
     # each, and the address of each; a struct passes the address of its
-    # own bytes. `keep` holds what those addresses point into.
+    # own bytes. `keep` contains the objects that those addresses point into.
     def call_params(args, block, param_count, types, callbacks, enums)
       Primitive.attr! :hidden
       if param_count != -1 && param_count != args.size
@@ -404,7 +404,7 @@ module FFI
       end
     end
 
-    # A callback's answer where C reads it.
+    # A callback's return value, written where C reads it.
     def callback_result(type, address, value)
       Primitive.attr! :hidden
       size = type.ffi_type.size

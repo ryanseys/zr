@@ -32,9 +32,9 @@ $-i = nil
 $$ = Primitive.zr_process_id
 $LOAD_PATH = []
 
-# The kind of file a require of `feature` would read, and its real
-# path, or nil where no directory on the path holds it. A name that
-# already ends in `.rb` is looked for as it stands.
+# The kind of file that a require of `feature` would read, and its real
+# path, or nil when no directory on the path contains it. A name that
+# already ends in `.rb` is looked for as it is.
 def $LOAD_PATH.resolve_feature_path(feature)
   name = String.try_convert(feature)
   raise TypeError, "no implicit conversion of #{conversion_name(feature)} into String" if name.nil?
@@ -80,7 +80,7 @@ class << ENV
   end
   alias store []=
 
-  # The value removed; a block answers for a name that was not set.
+  # The value removed; a block gives the value for a name that was not set.
   def delete(name)
     value = self[name]
     return yield(name) if value.nil? && block_given?
@@ -175,8 +175,8 @@ class << ENV
     self
   end
 
-  # A value that is not String-like names nothing: nil, as env_has_value
-  # answers.
+  # A value that is not String-like matches nothing: nil, as env_has_value
+  # returns.
   def value?(value)
     value = value.to_str if !value.is_a?(String) && value.respond_to?(:to_str)
     return nil unless value.is_a?(String)
@@ -260,8 +260,8 @@ class << ENV
 
   private
 
-  # A name or a value as the environment holds it: a String with no NUL
-  # byte, which the C environment cannot carry.
+  # A name or a value as the environment stores it: a String with no NUL
+  # byte, because the C environment cannot contain one.
   def variable_name(value, role = +"name")
     unless value.is_a?(String)
       raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String" unless value.respond_to?(:to_str)

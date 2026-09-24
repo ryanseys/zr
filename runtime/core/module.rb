@@ -133,8 +133,8 @@ class Module
                                    Kernel.loaded_feature?(path), Kernel.feature_file(path))
   end
 
-  # A constant name as rb_to_id takes one: a Symbol, or a String or what
-  # `to_str` answers.
+  # A constant name as rb_to_id takes one: a Symbol, or a String or the
+  # value of `to_str`.
   def autoload_name(name)
     Primitive.attr! :hidden
     return name if name.is_a?(Symbol) || name.is_a?(String)
@@ -177,8 +177,8 @@ class Module
     Primitive.zr_mod_const_source_location_m(scope, last, inherit, scopes.any? { |s| !s.empty? })
   end
 
-  # What a constant lookup reaches when nothing holds the name. A
-  # program overrides it to make one up.
+  # What a constant lookup reaches when no scope has the name. A
+  # program overrides it to supply a value.
   def const_missing(name)
     raise NameError.new("uninitialized constant #{self == Object ? name : "#{self}::#{name}"}", name, receiver: self)
   end
@@ -213,8 +213,8 @@ class Module
 
   # `Module.used_modules` and `Module.used_refinements` are builtins
   # (zr_mod_used_modules): a compiled ruby frame starts with no
-  # refinements in use, so only a frame the kernel pushes still holds
-  # the row the call site filled.
+  # refinements in use, so only a frame that the kernel pushes still has
+  # the entry that the call site filled.
 
   private
 
@@ -226,9 +226,9 @@ class Module
     String.try_convert(name) or raise TypeError, "no implicit conversion of #{conversion_name(name)} into String"
   end
 
-  # Each segment of the path `name` resolved by the block from the
-  # scope before it, told whether an earlier segment resolved; the last
-  # value answers.
+  # Each segment of the path `name`, resolved by the block from the
+  # scope before it, with a flag that tells whether an earlier segment
+  # resolved. The last value is the return value.
   def walk_const_path(name, segments = name.split("::", -1))
     Primitive.attr! :hidden
     scope = self
@@ -250,7 +250,7 @@ class Module
 end
 
 module Kernel
-  # On the class the call stands in, as rb_f_autoload registers.
+  # On the class where the call is, as rb_f_autoload registers.
   def autoload(name, feature)
     path = File.path(feature)
     Primitive.zr_autoload_computed(Kernel, Module.instance_method(:autoload_name).bind_call(Kernel, name), path,
@@ -260,8 +260,8 @@ module Kernel
   private :autoload, :autoload?
 end
 
-# The holder `Module#refine` makes. It has no name of its own; the pair
-# it stands for is what it shows.
+# The holder that `Module#refine` makes. It has no name of its own; it
+# shows the pair that it represents.
 class Refinement
   def target = Primitive.zr_refined_class(self)
 
