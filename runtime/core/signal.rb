@@ -5,7 +5,7 @@
 # sighandler and rb_signal_exec split the work. Each signal keeps the
 # command trap was last given for it.
 module Signal
-  # How the system handles a signal, as the kernel names it.
+  # How the system handles a signal, with the kernel's name for it.
   SYSTEM_DEFAULT = 0
   IGNORED = 1
   HANDLED = 2
@@ -62,9 +62,9 @@ module Signal
       signal
     end
 
-    # signm2signo: a Symbol or a String names a signal, with or without
-    # its SIG prefix; a leading minus, where the caller allows one,
-    # negates the number.
+    # signm2signo: a Symbol or a String is a signal's name, with or
+    # without its SIG prefix; a leading minus, where the caller allows
+    # one, negates the number.
     def number(signal, negative: false, exit: false)
       Primitive.attr! :hidden
       name = signal.is_a?(Symbol) ? signal.name : String.try_convert(signal)

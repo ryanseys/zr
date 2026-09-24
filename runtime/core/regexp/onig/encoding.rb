@@ -243,7 +243,7 @@ class Regexp
         def kernel_tables = {}
       end
 
-      # The kinds of encoding the kernel's matcher tells apart, in
+      # The kinds of encoding that the kernel's matcher distinguishes, in
       # runtime/kernel/onig_enc.rb's numbering.
       KIND_SINGLE_BYTE = 0
       KIND_UTF8 = 1

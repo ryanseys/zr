@@ -7,8 +7,8 @@ module Process
 
   RLIMITS = {}.freeze
   RLIM_NAMES = {}.freeze
-  # musl's sysconf name for the most supplementary groups, and the most
-  # ruby lets a program ask for.
+  # musl's sysconf name for the maximum number of supplementary groups,
+  # and the maximum that ruby lets a program request.
   SC_NGROUPS_MAX = 3
   MAX_GROUPS = 65_536
   private_constant :RLIMITS, :RLIM_NAMES, :SC_NGROUPS_MAX, :MAX_GROUPS

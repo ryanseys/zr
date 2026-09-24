@@ -12,8 +12,8 @@ class Regexp
 
     module_function
 
-    # The option bits, as Regexp names them; regexp.rb, which defines
-    # those, loads after this file.
+    # The option bits, with Regexp's names for them; regexp.rb, which
+    # defines those, loads after this file.
     IGNORECASE = 1
     EXTENDED = 2
     MULTILINE = 4
@@ -402,7 +402,7 @@ class Regexp
       end
 
       # `(?#...)`, dropped whole; one without its `)` is kept, so the
-      # engine names the error.
+      # engine reports the error.
       def comment
         orig = @p
         while @p < @end

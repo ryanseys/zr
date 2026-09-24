@@ -113,7 +113,7 @@ class Date
       text
     end
 
-    # The character classes ruby own reader asks about, which it reads
+    # The character classes that ruby's own reader checks. It reads them
     # as bytes, so only ASCII counts.
     def ascii?(str, *kinds)
       kinds.all? do |kind|

@@ -97,8 +97,8 @@ class Binding
   # it warns of no redefinition.
   alias irb irb
 
-  # A copy names the same scope, but a local it adds is its own, as
-  # binding_copy gives it.
+  # A copy refers to the same scope, but a local that it adds is its own,
+  # as binding_copy makes it.
   def dup = super
 
   def clone = super()

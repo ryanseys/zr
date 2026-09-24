@@ -230,8 +230,8 @@ class << ENV
     self
   end
 
-  # The names the Hash gives are set, each checked as it is; every other
-  # name goes, as env_replace leaves the environment.
+  # The names that the Hash gives are set, each checked as it is. Every
+  # other name is removed, as env_replace leaves the environment.
   def replace(hash)
     hash = Hash.try_convert(hash) or raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash"
     names = keys

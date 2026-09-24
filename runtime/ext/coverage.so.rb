@@ -170,8 +170,8 @@ module Coverage
       out
     end
 
-    # Every def site the compiler wrote down, by its id: the file it was
-    # written in and the span ruby names a method made from it by.
+    # Every def site that the compiler recorded, by its id: the file where
+    # it was written and the span by which ruby identifies a method made from it.
     def def_table
       Primitive.zr_hidden_get(self, :__defs__) || Primitive.zr_hidden_set(self, :__defs__, compiled_defs)
     end

@@ -25,7 +25,7 @@ class Pathname
   end
 end
 
-# The rest is Ruby in CRuby too, and reports its parameters by name.
+# The rest is also Ruby in CRuby, and reports its parameters by name.
 class Pathname
   Primitive.attr! :ruby
   Primitive.attr! :ivars

@@ -95,8 +95,8 @@ module GC
     raise ArgumentError, "unknown key: #{hash_or_key}"
   end
 
-  # The switch a program reads before it asks for a report. The
-  # collector keeps no per-run rows, so the report is empty.
+  # The switch that a program reads before it requests a report. The
+  # collector keeps no per-run records, so the report is empty.
   module Profiler
     @enabled = false
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# The elements a reader found, made into a date: the largest set of
-# elements that names a day wins, and what is missing comes from today.
+# The elements that a reader found, made into a date: the largest set of
+# elements that identifies a day wins, and missing elements come from today.
 
 class Date
   FRAG_SETS = [
@@ -63,7 +63,7 @@ class Date
       valid_date_frags(found, start)
     end
 
-    # Seconds since the epoch stand for a whole date and time.
+    # Seconds since the epoch represent a whole date and time.
     def rewrite_frags(found)
       seconds = found.delete(:seconds) or return
 

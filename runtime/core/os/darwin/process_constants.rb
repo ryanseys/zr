@@ -1,10 +1,10 @@
 # darwin's waitpid(2) flags, priority targets, resource limits and
-# sysconf name, as Process names them.
+# sysconf name, with Process's names for them.
 module Process
   WNOHANG = 1
   WUNTRACED = 2
 
-  # Who a priority is asked about: a process, a process group, a user.
+  # The target of a priority query: a process, a process group, a user.
   PRIO_PROCESS = 0
   PRIO_PGRP = 1
   PRIO_USER = 2
@@ -27,8 +27,8 @@ module Process
               "FSIZE" => RLIMIT_FSIZE, "MEMLOCK" => RLIMIT_MEMLOCK, "NOFILE" => RLIMIT_NOFILE,
               "NPROC" => RLIMIT_NPROC, "RSS" => RLIMIT_RSS, "STACK" => RLIMIT_STACK }.freeze
   RLIM_NAMES = { "INFINITY" => RLIM_INFINITY, "SAVED_MAX" => RLIM_SAVED_MAX, "SAVED_CUR" => RLIM_SAVED_CUR }.freeze
-  # sysconf's name for the most supplementary groups, and the most
-  # ruby lets a program ask for.
+  # sysconf's name for the maximum number of supplementary groups, and
+  # the maximum that ruby lets a program request.
   SC_NGROUPS_MAX = 4
   MAX_GROUPS = 65_536
   private_constant :RLIMITS, :RLIM_NAMES, :SC_NGROUPS_MAX, :MAX_GROUPS

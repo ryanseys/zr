@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 # digest.c, in ruby: Digest.hexencode, the Digest::Instance protocol,
-# Digest::Class, and Digest::Base, which runs an algorithm a subclass
-# names in its metadata. The extension's ruby half (digest.rb, vendored
-# under vendor/ext/digest) stands on it as it stands on the C.
+# Digest::Class, and Digest::Base, which runs the algorithm that a
+# subclass gives in its metadata. The extension's ruby part (digest.rb,
+# vendored under vendor/ext/digest) uses it as it uses the C.
 module Digest
   # An algorithm, as rb_digest_metadata_t describes one: which compression
   # the kernel runs, the chaining words it starts from, the lengths, and
@@ -121,7 +121,7 @@ module Digest
       private
 
       # get_digest_base_metadata: the nearest class up the chain that
-      # names an algorithm.
+      # gives an algorithm.
       def metadata_of(klass)
         Primitive.attr! :hidden
         raise NotImplementedError, "Digest::Base is an abstract class" if klass.equal?(Base)

@@ -1,9 +1,9 @@
-# wasi-libc's open(2), flock(2) and fnmatch numbers, as File::Constants
-# names them: the status flags are WASI's fdflags, the creation flags its
-# oflags shifted up 12 bits, and the access modes bits of their own.
+# wasi-libc's open(2), flock(2) and fnmatch numbers, with File::Constants's
+# names for them: the status flags are WASI's fdflags, the creation flags
+# its oflags shifted up 12 bits, and the access modes bits of their own.
 class File < IO
-  # ruby names this module File::Constants and IO takes it by
-  # inclusion, so File::APPEND and IO::APPEND are one constant.
+  # ruby calls this module File::Constants and IO includes it,
+  # so File::APPEND and IO::APPEND are one constant.
   module Constants
     RDONLY = 67108864
     WRONLY = 268435456

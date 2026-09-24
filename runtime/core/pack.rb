@@ -361,7 +361,7 @@ module Packing
     out
   end
 
-  # The `n` bytes from `at` in the other order, where they stand.
+  # The `n` bytes from `at` in the other order, in place.
   def self.reverse_bytes(out, at, n)
     i = 0
     while i < n / 2
@@ -696,7 +696,7 @@ module Packing
     Primitive.zr_float_of_halves(low, high)
   end
 
-  # The double a single's bits stand for.
+  # The double that a single's bits represent.
   def self.single_value(bits)
     sign = bits >> 31
     exponent = (bits >> 23) & 255
@@ -722,7 +722,7 @@ module Packing
   end
 end
 
-# A helper CRuby has no module for: no program names it.
+# A helper that CRuby has no module for: no program refers to it.
 class Object
   private_constant :Packing
 end

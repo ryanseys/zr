@@ -307,7 +307,7 @@ class Regexp
         end
       end
 
-      # ONIGENC_IS_CODE_NAME is TRUE under RUBY: any character names a group.
+      # ONIGENC_IS_CODE_NAME is TRUE under RUBY: any character can be in a group name.
       def code_name?(_c) = true
 
       # fetch_name_with_level: \k<name+n>, \k<name-n>, \k<num+n>, \k<-num+n>;
@@ -418,7 +418,7 @@ class Regexp
       end
 
       # fetch_name: [name (bytes), back_num, position after]. `ref` is
-      # true when a number may stand for the name.
+      # true when a number can be used in place of the name.
       def fetch_name(start_code, p, ref)
         src = p
         back_num = 0
@@ -501,7 +501,7 @@ class Regexp
           end
         end
 
-        # teardown: read on to the closer so the error names the whole name
+        # teardown: read on to the closer so the error shows the whole name
         until pend?(p)
           name_end = p
           c = code_at(p)

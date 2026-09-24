@@ -286,7 +286,7 @@ class Date
     value
   end
 
-  # A year as a whole number; one past every whole number names no date.
+  # A year as a whole number; a year past every whole number is no date.
   def self.integer(value)
     raise Error, "invalid date" unless value.integer? || value.finite?
 

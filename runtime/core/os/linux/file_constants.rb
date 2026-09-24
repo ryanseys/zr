@@ -1,8 +1,8 @@
-# Linux's open(2), flock(2) and fnmatch numbers, as File::Constants
-# names them, with the flags only Linux has.
+# Linux's open(2), flock(2) and fnmatch numbers, with File::Constants's
+# names for them, and the flags that only Linux has.
 class File < IO
-  # ruby names this module File::Constants and IO takes it by
-  # inclusion, so File::APPEND and IO::APPEND are one constant.
+  # ruby calls this module File::Constants and IO includes it,
+  # so File::APPEND and IO::APPEND are one constant.
   module Constants
     RDONLY = 0
     WRONLY = 1

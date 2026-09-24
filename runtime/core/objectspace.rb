@@ -152,9 +152,9 @@ module ObjectSpace
     objects.size
   end
 
-  # CRuby's type names for the heap's type tags. What CRuby keeps as an
-  # object's own type -- an exception, a Proc -- this runtime tags apart,
-  # and the census counts it under CRuby's name.
+  # CRuby's type names for the heap's type tags. This runtime gives a
+  # separate tag to some objects that CRuby keeps as an object's own
+  # type (an exception, a Proc), and the census counts them under CRuby's name.
   TYPE_NAMES = {
     1 => :T_OBJECT, 2 => :T_CLASS, 3 => :T_MODULE, 4 => :T_FLOAT, 5 => :T_STRING, 31 => :T_REGEXP,
     7 => :T_ARRAY, 8 => :T_HASH, 24 => :T_OBJECT, 27 => :T_DATA, 29 => :T_DATA, 30 => :T_DATA,

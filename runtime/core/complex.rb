@@ -65,8 +65,8 @@ class Complex < Numeric
     NUMBER = "[-+]?(?:\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][-+]?\\d+)?(?:\\/\\d+(?:_\\d+)*)?)"
     private_constant :NUMBER
 
-    # The forms a Complex is written in, compiled on first use (a
-    # constant would ask the engine at boot).
+    # The forms in which a Complex is written, compiled on first use (a
+    # constant would call the engine at boot).
     def forms
       Primitive.attr! :hidden
       @forms ||= {
@@ -340,7 +340,7 @@ class Complex < Numeric
   end
 
   # CRuby's f_signbit: a Float shows its own sign bit, so -0.0 takes
-  # the minus and a NaN does not. Anything else is asked `< 0`.
+  # the minus and a NaN does not. Any other value is checked with `< 0`.
   def sign_bit?(v)
     Primitive.attr! :hidden
     return v < 0 unless v.is_a?(Float)

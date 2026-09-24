@@ -54,7 +54,7 @@ class Struct
     private
 
     # The first argument when it is not a member: nil, or a String
-    # that names a constant under Struct.
+    # that is the name of a constant under Struct.
     def class_name(arg)
       return nil if arg.nil?
       raise TypeError, "no implicit conversion of #{conversion_name(arg)} into String" unless arg.is_a?(String)
@@ -87,10 +87,10 @@ class Struct
   end
   private :values_store
 
-  # `members`, and not the class's, which hands out a copy: nothing
-  # here changes the row, and rb_struct_initialize reads the class's
-  # own too. The values bind by index rather than by each_with_index,
-  # which would cost this its own Array and a Proc a call.
+  # `members`, and not the class's, which returns a copy: nothing here
+  # changes the entry, and rb_struct_initialize also reads the class's
+  # own. The values bind by index rather than by each_with_index, which
+  # would cost an Array and a Proc per call.
   def initialize(*args, **keywords)
     members = member_names
     count = Primitive.zr_ary_len_m(members)

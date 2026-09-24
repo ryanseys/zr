@@ -10,7 +10,7 @@
 random_base = Class.new
 
 class Random < random_base
-  # Two generators are the same when they stand in the same place of the
+  # Two generators are equal when they are at the same position in the
   # same seeded stream.
   def ==(other)
     other.is_a?(Random) && seed == other.seed && mti == other.send(:mti) && mt == other.send(:mt)
@@ -294,8 +294,8 @@ class Random
       low + value
     end
 
-    # rand_random: a draw of the kind the argument names; nil for a
-    # bound with nothing under it, false for what names no draw.
+    # rand_random: a draw of the kind that the argument selects; nil for
+    # a bound with nothing under it, false for a value that selects no draw.
     def rand_random(obj, args)
       Primitive.attr! :hidden
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
@@ -382,7 +382,7 @@ class Random::Base
   def seed = Primitive.zr_hidden_get(self, :__seed__)
 
   # random_rand: rand_random, where a bound with nothing under it is an
-  # ArgumentError and what names no draw fails as NUM2LONG does.
+  # ArgumentError and a value that selects no draw fails as NUM2LONG does.
   def rand(*args) = Random.send(:checked, Random.send(:rand_random, self, args), args)
 
   # `n` random bytes, four per draw, least significant first.

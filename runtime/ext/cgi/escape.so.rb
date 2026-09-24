@@ -88,7 +88,7 @@ class CGI
     private
 
     # optimized_escape: each reserved byte as `%XX`, and a space as `+`
-    # where the form encoding asks for one.
+    # when the form encoding requests one.
     def escaped(str, plus:)
       Primitive.attr! :hidden
       bytes = str.b

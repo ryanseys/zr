@@ -39,7 +39,7 @@ class Module
     i = n - 1
     while i >= 0
       # By name, as rb_funcall calls them: a module with a `send` of its
-      # own (REXML::Functions) does not take the hooks.
+      # own (REXML::Functions) does not intercept the hooks.
       modules[i].__send__(splice, self)
       Primitive.zr_warn_prepended_operators(self) if splice == :prepend_features
       modules[i].__send__(hook, self)
@@ -184,7 +184,7 @@ class Module
   end
 
   # `refine C do ... end`: the methods go in a holder module, never on
-  # C itself, so they stay invisible until a `using` names this module.
+  # C itself, so they stay invisible until a `using` of this module.
   def refine(target, &block)
     raise ArgumentError, +"no block given" unless block
     raise TypeError, "wrong argument type #{conversion_name(target)} (expected Class or Module)" unless target.is_a?(Module)

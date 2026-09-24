@@ -39,9 +39,9 @@ class Data
 
 
   # The values in the members' order, filled in one walk over them. A
-  # call that names every member and nothing else makes no Array but
-  # the values' own: `missing` and `unknown` are built where the call
-  # was wrong and the message needs them, which is where
+  # call that gives every member and nothing else makes no Array other
+  # than the values' own: `missing` and `unknown` are built only when
+  # the call was wrong and the message needs them, which is where
   # rb_data_initialize_m builds its own.
   def initialize(**kwargs)
     members = member_names
@@ -70,7 +70,7 @@ class Data
     freeze
   end
 
-  # A copy stays frozen, whatever `clone` was asked.
+  # A copy stays frozen, whatever `clone` was told.
   def initialize_copy(other)
     super
     freeze

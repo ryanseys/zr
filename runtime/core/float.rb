@@ -46,8 +46,8 @@ class Float
   def fdiv(other) = self / other
   def quo(other) = self / other
 
-  # The quotient and the modulo, as CRuby's flodivmod pairs them; an
-  # operand it does not know coerces, as flo_divmod hands it on.
+  # The quotient and the modulo, as CRuby's flodivmod pairs them. An
+  # unknown operand coerces, as flo_divmod passes it on.
   def divmod(other)
     other = other.to_f if other.is_a?(Integer)
     return Primitive.zr_num_coerce_m(self, other, :divmod, 0) unless other.is_a?(Float)

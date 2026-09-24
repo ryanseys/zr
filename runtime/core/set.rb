@@ -741,7 +741,7 @@ class Set
       subclass.extend(compatible::ClassMethods)
     end
 
-    # Set::SubclassCompatible, before the constant names it.
+    # Set::SubclassCompatible, before the constant refers to it.
     def compatible
       Primitive.attr! :hidden
       Primitive.zr_hidden_get(Set, :__compatible__)

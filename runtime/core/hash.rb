@@ -317,9 +317,9 @@ class Hash
     out
   end
 
-  # rb_hash_any_p: each pair, as one value a two-parameter block takes
-  # apart, against the pattern or the block. The walk is the Hash's own,
-  # not a send of `each`.
+  # rb_hash_any_p: each pair, as one value that a two-parameter block
+  # splits, against the pattern or the block. The walk is the Hash's
+  # own, not a send of `each`.
   def any?(*pattern, &block)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     return false if Primitive.zr_hash_len_m(self) == 0
@@ -431,8 +431,8 @@ class Hash
     end
   end
 
-  # Each comparison reads the other side as a Hash, and names what it
-  # got when the argument is not one.
+  # Each comparison reads the other side as a Hash, and gives the class
+  # that it got when the argument is not one.
   def <=(other) = within(hash_operand(other))
 
   def <(other)

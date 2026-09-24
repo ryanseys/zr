@@ -40,7 +40,7 @@ class Encoding
   end
 
   # UTF-8 `text` in `target`: its characters in the multibyte encoding,
-  # then each run of them behind the escape that names its set, and the
+  # then each run of them after the escape that selects its set, and the
   # text back in ASCII at its end.
   def self.stateful_write(text, target, options)
     Primitive.attr! :hidden
@@ -95,8 +95,8 @@ class Encoding
     out.force_encoding(target)
   end
 
-  # A character the multibyte step wrote that the stateful encoding has
-  # no set for: the replacement the caller asked for, else ruby's error.
+  # A character that the multibyte step wrote and the stateful encoding
+  # has no set for: the requested replacement, else ruby's error.
   def self.stateful_undefined(piece, base, step, path, options)
     Primitive.attr! :hidden
     return options[:replace] || +"?" if options[:undef] == :replace || options[:invalid] == :replace
@@ -126,8 +126,8 @@ class Encoding
         if byte == 0x1B
           mode, at = escape_at(bytes, at, from, step, kana)
         elsif mode == :ascii
-          # An eight-bit byte is the multibyte encoding's to read, where a
-          # stateless one does not stand between.
+          # The multibyte encoding reads an eight-bit byte when no
+          # stateless encoding is between the two.
           stateful_invalid([byte], nil, false, from, step) if byte >= 0x80 && (stateless_name || led)
           out << byte
           at += 1
