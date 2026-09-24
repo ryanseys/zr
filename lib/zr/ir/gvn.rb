@@ -6,32 +6,31 @@ require_relative "regions"
 
 module Zr
   module IR
-    # Global value numbering over the dominator tree: an instruction that
-    # computes what one before it already computed, in a block that
-    # dominates it, reads that value instead and goes.
+    # Global value numbering over the dominator tree. An instruction may
+    # compute the same value as an earlier instruction in a dominating
+    # block. The pass then uses the earlier value and deletes the
+    # instruction.
     #
-    # What counts as the same: the opcode, the type, the condition, the
-    # offset and the operands (the two of a commutative opcode in either
-    # order), for an instruction with no effect and one result. A load
-    # counts too, of the same address, offset and type, as long as
-    # nothing on any path between the two can write its region: a store
-    # to the region, a store the lowering could not place, a call whose
-    # effects (`IR::Effects`) include it, or a call through a pointer.
-    # A load or a store is placed as `Regions` says. A load of the
-    # volatile region is never the same as another.
+    # Two pure, single-result instructions are the same when the opcode,
+    # type, condition, offset and operands are equal. The two operands of
+    # a commutative opcode can be in either order. Two loads are the same
+    # when the address, offset and type are equal and no path between
+    # them can write the region. A region is written by a store to it, a
+    # store with no known region, a call whose `IR::Effects` include it,
+    # or an indirect call. `Regions` gives the region of a load or store.
+    # A load of the volatile region is never the same as another load.
     #
-    # The walk goes down the dominator tree with a scoped table, so a
-    # value found in one arm of a branch is not offered to the other.
-    # What the paths between a block and its dominator may write is
-    # summed once a block (`between`): the writes of every block on
-    # such a path, a loop's own writes among them for its header, and
-    # the table forgets those regions on the way in. Within a block the
-    # writes are applied in order.
+    # The walk uses a scoped table, so a value from one arm of a branch
+    # is not used in the other arm. For each block, `between` gives the
+    # regions that the paths from its dominator can write (for a loop
+    # header, this includes the writes of the loop). The table removes
+    # those loads when the walk enters the block. In a block, the pass
+    # applies writes in order.
     class GVN
       include Regions
 
-      # The opcodes with one result and no effect, where the same
-      # operands give the same answer.
+      # The opcodes with one result and no effect. The same operands
+      # give the same result.
       PURE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast
                  fcvt_from_sint fcvt_to_sint_sat] + Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
 
@@ -51,11 +50,12 @@ module Zr
         @block = @f.blocks.to_h { |b| [b.name, b] }
         @placed = placements
         @between = between_dominators
-        # `@by_key`: expression to `[value, region bit]`, the bit nil but
-        # for a load; `@loaded`: region bit to the keys of the loads of
-        # it, so a write forgets them by region; `@undo`: what the block
-        # being walked changed, `[key, what it held]`, put back on the
-        # way up.
+        # `@by_key`: expression to `[value, region bit]`. The bit is nil
+        # for all instructions other than a load.
+        # `@loaded`: region bit to the keys of the loads of that region,
+        # so that a write can remove them by region.
+        # `@undo`: the changes of the current block, as `[key, old entry]`.
+        # The walk puts them back when it leaves the block.
         @by_key = {}
         @loaded = Hash.new { |h, k| h[k] = [] }
         walk(@f.entry_block.name, children)
@@ -92,10 +92,11 @@ module Zr
         v
       end
 
-      # A depth-first walk of the dominator tree, what each block did to
-      # the table undone on the way back up, so a sibling arm sees the
-      # table as their dominator left it. A list rather than recursion:
-      # a chain of blocks is as long as the function.
+      # A depth-first walk of the dominator tree. When the walk leaves a
+      # block, it undoes the changes of that block to the table. Thus a
+      # sibling sees the table as their dominator left it. The walk uses
+      # a work list, not recursion, because a chain of blocks can be as
+      # long as the function.
       def walk(root, children)
         work = [[root, nil]]
         until work.empty?
@@ -118,7 +119,7 @@ module Zr
         @loaded[held[1]] << key if held[1]
       end
 
-      # The table forgets every load whose region `bits` may write.
+      # Removes from the table every load whose region `bits` can write.
       def forget(bits)
         return if bits.zero?
 
@@ -133,9 +134,10 @@ module Zr
         end
       end
 
-      # Each instruction of `b` in order: one the table already holds is
-      # renamed to that value and dies; one it does not is added, and a
-      # write forgets what it may write.
+      # Numbers each instruction of `b` in order. If the table contains
+      # the instruction, the pass renames its result to the table value
+      # and deletes it. If not, the pass adds it. A write removes the
+      # loads of the regions that it can write.
       def number(b)
         insts = b.insts
         n = 0
@@ -162,8 +164,8 @@ module Zr
         end
       end
 
-      # `i` is the same as the value the table holds for `key`, or the
-      # table now holds it, under `bit` when it is a load.
+      # If the table has a value for `key`, `i` becomes that value.
+      # If not, the table adds `i` (under `bit` when `i` is a load).
       def take(i, key, bit)
         held = @by_key[key]
         if held
@@ -176,18 +178,15 @@ module Zr
         end
       end
 
-      # `{ block => bits }`: what the blocks on a path from a block's
-      # immediate dominator to it may write, the dominator's own
-      # instructions apart, since those run before the walk enters the
-      # block. Every predecessor of a block is dominated by the block's
-      # dominator, so a path in from it runs up the predecessor's own
-      # dominator chain: the writes of each block on that chain, and of
-      # the paths between each and its own dominator. A loop's header
-      # meets its latch this way, whose chain passes the header itself:
-      # the loop's writes, the header's own among them, are between the
-      # header and its dominator, since the path comes round again. A
-      # fixpoint over the reverse postorder, since a loop's answers feed
-      # each other.
+      # Returns `{ block => bits }`: the regions that the blocks on a path
+      # from the immediate dominator of a block to that block can write.
+      # The instructions of the dominator are not included, because they
+      # run before the walk enters the block. The block's dominator
+      # dominates each predecessor, so the path goes up the dominator
+      # chain of the predecessor. For a loop header, the chain from the
+      # latch includes the header, so the writes of the loop (and of the
+      # header) are included. The loop calculates a fixpoint over the
+      # reverse postorder, because the values of a loop depend on each other.
       def between_dominators
         written = {}
         @f.blocks.each { |b| written[b.name] = writes_of(b) }

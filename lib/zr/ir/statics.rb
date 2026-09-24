@@ -6,44 +6,38 @@ require_relative "types"
 
 module Zr
   module IR
-    # The kernel's guard words to SSA values, over a finished function.
+    # Promotes the kernel's guard words to SSA values in a finished
+    # function. `PROMOTED` gives each word by symbol and offset.
     #
-    # The words are `PROMOTED`, by symbol and the offset of the one word
-    # promoted. Today that is no word: the gate word, the first, now
-    # lives in a register of its own (`Inst::GATES`, `x28`), which costs
-    # a fast/slow join nothing, where a value carried through one is a
-    # block parameter the allocator mostly keeps in the frame -- a store
-    # and a load an edge for the one load saved (`rake codesize`: the
-    # gate word, the site stamp, the constant stamp and the task pointer
-    # +12%, the gate word alone +1.4%). The pass stays for the stamps, a
-    # wider caller-saved pool being what lets the set grow. The poll
-    # word beside the task pointer can never be one -- the timer thread
-    # writes it between any two instructions, and a load of it hoisted
-    # out of a loop is a loop nothing can interrupt.
+    # `PROMOTED` is empty. The gate word is in its own register
+    # (`Inst::GATES`, `x28`). A promoted word becomes a block parameter
+    # at each fast/slow join, and the allocator usually keeps it in the
+    # frame: a store and a load for each edge, to save one load. With
+    # `rake codesize`, promotion of the gate word, the site stamp, the
+    # constant stamp and the task pointer made code 12% larger (the gate
+    # word alone, 1.4%). The pass is kept for the stamps, for when a
+    # larger caller-saved register pool is available. Never promote the
+    # poll word: the timer thread can write it at any time, and a load
+    # hoisted out of a loop makes a loop that nothing can interrupt.
     #
-    # What writes a word: a store to it in this function; a call whose
-    # callee's effects (`IR::Effects`, from the kernel's description)
-    # include the word's region -- a send may define a method, and the
-    # collector moves a stamp when it frees a class, so most calls do;
-    # a call through a pointer; and a store whose region can hold the
-    # word, or that has none and goes through an address the pass cannot
-    # tell -- a pointer a call answered or a field holds. A slot's
-    # address and a symbol's, with a constant added, it can tell. So a
-    # load reads the value of the last store or the reload after the
-    # last write on the way there, or the load at entry when nothing
-    # precedes it; a reload is made only when something reads it, after
-    # the instruction it follows. A fast path holds no call and stores
-    # only to its record slots, so a fixnum loop carries the gate word
-    # in a register, and a slow path reloads and hands the join the new
-    # value as a parameter. This also covers a continuation: an
-    # activation it restores resumes after the call that captured it,
-    # and reloads.
+    # These write a word: a store to it; a call whose `IR::Effects`
+    # include its region (most calls do, because a send can define a
+    # method and the collector changes a stamp when it frees a class);
+    # an indirect call; a store to a region that can contain the word; a
+    # store with no region through an unknown address (a pointer from a
+    # call or a field). The pass knows slot and symbol addresses, plus a
+    # constant. A load gets the value of the last store, or a reload
+    # after the last write, or a load at entry. The pass adds a reload
+    # only when something reads it. A fast path has no call and stores
+    # only to its record slots, so a fixnum loop keeps the gate word in
+    # a register. A slow path reloads and gives the new value to the join.
+    # A restored continuation resumes after its call, so it also reloads.
     #
-    # A symbol's address must reach nothing but a load or a store through
-    # it, plus a constant to make the address of another word beside it
-    # (the poll word); passed to a call, carried to a block, stored or
-    # compared, it keeps its loads. A store that covers the word in part,
-    # or a load of it as another type, does the same.
+    # The address of a symbol can go only to a load, a store, or an add
+    # of a constant (for a word next to it, such as the poll word). If
+    # the address goes to a call, a block, a store, or a compare, the
+    # pass does not promote the word. A store to part of the word, or a
+    # load of it as a different type, also stops the promotion.
     class Statics < Promotion
       # `symbol => offset` of the word promoted.
       PROMOTED = {}.freeze
@@ -117,7 +111,8 @@ module Zr
         (loaded - refused).to_h { |symbol| [symbol, TYPE] }
       end
 
-      # A promoted symbol whose address is among `args` is refused.
+      # If the address of a promoted symbol is in `args`, the pass does
+      # not promote that symbol.
       def escapes(args, refused)
         k = 0
         while k < args.size
@@ -127,10 +122,10 @@ module Zr
         end
       end
 
-      # `@addr`: each value that is a promoted symbol's address, or one a
-      # constant past it, as `[symbol, offset]`; `@known`: every value
-      # the pass can tell is not one -- a slot's or another symbol's
-      # address, or a constant past either.
+      # `@addr`: each value that is the address of a promoted symbol, or
+      # that address plus a constant, as `[symbol, offset]`.
+      # `@known`: each value that is known to be a different address (a
+      # slot, another symbol, or one of these plus a constant).
       def addresses
         symbol_of = @f.globals.to_h { |g| [g.gv, g.symbol] }
         @addr = {}
@@ -181,8 +176,8 @@ module Zr
         end
       end
 
-      # `[symbol, offset]` of the byte `addr` and `off` name in a promoted
-      # symbol, or nil.
+      # Returns `[symbol, offset]` of the byte at `addr` plus `off` in a
+      # promoted symbol, or nil.
       def word(addr, off)
         symbol, at = @addr[addr]
         symbol && [symbol, at + off]
@@ -196,19 +191,19 @@ module Zr
         at < first + WIDTH && first < at + width
       end
 
-      # Whether it writes the whole word, as the type read.
+      # Whether the store writes the whole word, with the type of the load.
       def defines?(symbol, at, value)
         at == PROMOTED.fetch(symbol) && type_of(value) == TYPE
       end
 
-      # A store to a static is the kernel's alone, so the types are
-      # asked for only when one turns up.
+      # Only the kernel stores to a static, so the pass calculates the
+      # types only when it finds such a store.
       def type_of(v) = (@types ||= Types.of(@f)).fetch(v)
 
-      # A store to the word is a write; so is a call, or a store through
-      # an address the pass cannot tell, after which every word is read
-      # afresh; a load reads what the last of those left, or asks what
-      # entered.
+      # A store to the word is a write. A call, or a store through an
+      # unknown address, is also a write, and each word is loaded again
+      # after it. A load gets the value from the last write, or the value
+      # at block entry.
       def walk(b, keys, last, reads)
         insts = b.insts
         n = 0
@@ -239,13 +234,13 @@ module Zr
         end
       end
 
-      # The words `bits` can write are read afresh after `inst`.
+      # After `inst`, the pass loads again each word that `bits` can write.
       def kill(keys, last, inst, bits)
         keys.each_key { |symbol| last[symbol] = inst if Effects.writes?(bits, Effects.static_region(symbol)) }
       end
 
-      # The word's value after the write `inst`: a reload, placed after
-      # it once, when the first read asks for it.
+      # The value of the word after the write `inst`. This is a reload
+      # after `inst`, added one time, at the first read.
       def after(inst, symbol)
         @reload[[inst, symbol]] ||= begin
           load = fetch(symbol)
@@ -254,7 +249,7 @@ module Zr
         end
       end
 
-      # The word's value where nothing wrote it: a load at the entry.
+      # The value of the word when nothing wrote it: a load at the entry.
       def initial(symbol, _type)
         @initial[symbol] ||= begin
           insts = @f.entry_block.insts
@@ -264,8 +259,8 @@ module Zr
         end
       end
 
-      # A load of the word, through the address the pass itself puts at
-      # the top of the entry block, which every block is dominated by.
+      # A load of the word. The address comes from the top of the entry
+      # block, which dominates all blocks.
       def fetch(symbol)
         Inst.new(:load, type: TYPE, results: [@f.value], args: [address(symbol)], offset: PROMOTED.fetch(symbol),
                  flags: "notrap aligned")
@@ -279,10 +274,10 @@ module Zr
         end
       end
 
-      # The promoted loads go; the reloads go in after the writes they
-      # follow. The stores stay, since the word is memory to every other
-      # function, through the address the pass made where the function
-      # had one of its own, which is then read by nothing.
+      # Deletes the promoted loads and adds each reload after its write.
+      # The stores stay, because other functions read the word from
+      # memory. Uses of the function's own address of the word change to
+      # the address that the pass added.
       def rewrite(keys)
         blocks = @f.blocks
         bi = 0

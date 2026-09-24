@@ -6,28 +6,29 @@ require_relative "../record"
 
 module Zr
   module IR
-    # An interpreter over `IR::Function`: a second answer for every program
-    # the kernel dialect can write, owing nothing to the aarch64 backend. A
-    # disagreement between this and the compiled binary names a miscompile;
-    # the same wrong answer from both names a lowering bug.
+    # An interpreter for `IR::Function`. It gives a second result for each
+    # program in the machine dialect, and does not use the aarch64 backend.
+    # If it and the compiled binary give different results, the cause is a
+    # miscompile. If both give the same wrong result, the cause is a
+    # lowering bug.
     #
-    # It models the machine `Backend::Aarch64::Codegen` targets rather than an abstract one.
-    # Every value lives in a 64-bit slot and each use reads its own type's
-    # width out of it, so a narrowing the backend defers to the next load is
-    # deferred here too. Arithmetic on a type below `i64` runs 32 bits wide,
-    # as the w-registers do. Where the two disagree the backend is right and
-    # this file has the bug.
+    # It models the machine that `Backend::Aarch64::Codegen` targets. Each
+    # value is in a 64-bit slot, and each use reads the width of its own
+    # type. So a narrowing that the backend does at the next load also
+    # occurs at the next load here. Arithmetic on a type narrower than
+    # `i64` is 32 bits wide, as in the w-registers. If the two differ, the
+    # backend is correct and this file has the bug.
     class Interp
       MASK = { 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
       BITS = { "i8" => 8, "i32" => 32, "i64" => 64, "f64" => 64 }.freeze
-      # The stack every program gets, and the deepest call chain Ruby's
-      # own stack will carry for us.
+      # The stack for each program, and the deepest call chain that the Ruby
+      # stack can hold.
       STACK = 1 << 22
       DEPTH = 4096
 
       # The interpreter does not model this program.
       class Refused < StandardError; end
-      # The program did something no machine would carry out.
+      # The program did an operation that no machine can do.
       class Trapped < StandardError; end
       # The program called `abort`.
       class Aborted < Trapped; end
@@ -42,9 +43,9 @@ module Zr
         end
       end
 
-      # A flat byte-addressed store. Addresses are offsets into one string,
-      # and the first page is never handed out, so a null dereference traps
-      # the way it would on the machine.
+      # A flat byte-addressed store. Addresses are offsets into one string.
+      # The first page is never allocated, so a null dereference traps as on
+      # the machine.
       class Memory
         GUARD = 0x1000
 
@@ -59,7 +60,7 @@ module Zr
           at
         end
 
-        # `string` in memory, at its own address.
+        # Puts `string` in memory, at its own address.
         def place(string, align = 8)
           at = reserve(string.bytesize, align)
           @bytes[at, string.bytesize] = string.b
@@ -97,9 +98,9 @@ module Zr
         end
       end
 
-      # The libSystem calls a kernel-dialect program makes. Every one it
-      # can reach is here; anything else is refused by name rather than
-      # answered wrongly.
+      # The libSystem calls that a machine-dialect program makes. All calls
+      # that it can reach are here. Any other call is refused, with a message
+      # that gives the name.
       class Host
         def initialize(memory, out: $stdout, err: $stderr)
           @memory = memory
@@ -126,7 +127,7 @@ module Zr
           raise Aborted, "the program called abort"
         end
 
-        # Anonymous pages only, which is all the collector asks for.
+        # Anonymous pages only, which is all that the collector needs.
         def sys_mmap(_addr, len, _prot, _flags, _fd, _offset)
           @memory.reserve(len, 0x4000)
         end
@@ -134,8 +135,8 @@ module Zr
         CALLS = { "write" => :sys_write, "exit" => :sys_exit, "_exit" => :sys_exit, "abort" => :sys_abort, "mmap" => :sys_mmap }.freeze
       end
 
-      # One call's state: the values it has defined, and the addresses of
-      # the stack slots it owns.
+      # The state of one call: the values it defined, and the addresses of
+      # its stack slots.
       class Frame < Record
         FIELDS = %i[values slot_at types].freeze
         attr_accessor :values, :slot_at, :types
@@ -151,9 +152,9 @@ module Zr
 
       attr_reader :memory
 
-      # `functions` are `IR::Function`s, `data` and `raw` are `Obj::Data`
-      # and `Obj::Function`. A `raw` function is machine code rather than
-      # IR, so a call to one is refused by name rather than skipped over.
+      # `functions` are `IR::Function`s; `data` and `raw` are `Obj::Data`
+      # and `Obj::Function`. A `raw` function is machine code, not IR, so a
+      # call to it is refused, with a message that gives the name.
       def initialize(functions, data: [], raw: [], out: $stdout, err: $stderr)
         @functions = functions.to_h { |f| [f.name, f] }
         @raw = raw.map(&:name)
@@ -165,16 +166,16 @@ module Zr
         @depth = 0
         place_data(data)
         place_code(functions.map(&:name) + @raw)
-        # Only now does every symbol have a place, which is what a
-        # relocation in data needs.
+        # Each symbol has an address only at this point, and a relocation in
+        # data needs that address.
         relocate(data)
         @floor = @memory.reserve(STACK, 16)
         @sp = @floor + STACK
         @host = Host.new(@memory, out: out, err: err)
       end
 
-      # Run `main(argc, argv)` and answer the exit status, as a shell sees
-      # it: what `exit` was given, or what `main` returned.
+      # Runs `main(argc, argv)` and returns the exit status as a shell sees
+      # it: the argument of `exit`, or the return value of `main`.
       def run(argv = [])
         argc, vector = place_argv(argv)
         answer("main", [argc, vector]) & 0xFF
@@ -182,8 +183,8 @@ module Zr
         e.status
       end
 
-      # The raw value `name` answers for `args`. Numbers in and out are the
-      # 64-bit words the machine would pass.
+      # The raw value that `name` returns for `args`. The numbers in and out
+      # are the 64-bit words that the machine passes.
       def answer(name, args = [])
         f = @functions[name] or raise Refused, "no function named #{name}"
         invoke(f, args)
@@ -210,8 +211,8 @@ module Zr
         @memory.write(at, 8, (address_of(reloc.symbol) + reloc.addend.to_i) & MASK[64])
       end
 
-      # Every function gets an address of its own, imports included, so
-      # `func_addr` and a call through a pointer both have one to name.
+      # Each function gets its own address, imports too, so `func_addr` and
+      # an indirect call can refer to it.
       def place_code(names)
         names.each do |name|
           at = @memory.reserve(8, 8)
@@ -254,8 +255,8 @@ module Zr
         @types[f.name] ||= Types.new(f).tap(&:all)
       end
 
-      # The frame: its stack slots in memory, and its parameters bound to
-      # the arguments, each narrowed to the parameter's own type.
+      # Makes the frame: puts its stack slots in memory and binds its
+      # parameters to the arguments, each narrowed to the parameter type.
       def enter(f, t, args)
         entry = f.entry_block
         raise Refused, "#{f.name}: more than eight parameters" if entry.params.size > REGISTER_ARGS
@@ -269,8 +270,8 @@ module Zr
           off += s.bytes
           at
         end
-        # The saved frame pointer and link register are 16 bytes every
-        # frame pays, so a recursion with no slots still reaches the floor.
+        # Each frame uses 16 bytes for the saved frame pointer and link
+        # register, so a recursion with no slots still gets to the stack limit.
         @sp -= round_up(off, 16) + 16
         raise Trapped, "the stack is exhausted" if @sp < @floor
 
@@ -288,7 +289,7 @@ module Zr
         raise Refused, "#{f.name}: a block with no terminator"
       end
 
-      # A block to its successor, or to the value the function answers.
+      # Runs a block. Returns its successor, or the return value of the function.
       def run_block(block, frame, t)
         block.insts.each do |i|
           case i.op
@@ -307,8 +308,8 @@ module Zr
         raise Refused, "#{block.name} has no terminator"
       end
 
-      # A block's arguments to its parameters, every source read before any
-      # parameter is written: the copy is parallel, as the backend's is.
+      # Copies the block arguments to its parameters. It reads all sources
+      # before it writes a parameter: a parallel copy, as in the backend.
       def jump(frame, t, target)
         name, args = target
         block = t.block_named(name)
@@ -319,7 +320,7 @@ module Zr
 
       # --- values -------------------------------------------------------
 
-      # A value as its own type reads it out of the 64-bit slot.
+      # Reads a value from its 64-bit slot, as its own type.
       def read(frame, v)
         raw = frame.values.fetch(v) { raise Refused, "#{v} is used before it is defined" }
         raw & MASK.fetch(BITS.fetch(frame.types.of(v)))
@@ -331,7 +332,7 @@ module Zr
 
       def narrow(raw, type) = raw & MASK.fetch(BITS.fetch(type))
 
-      # The signed reading of `raw`, which holds `bits` of a value.
+      # The signed value of `raw`, which contains `bits` of a value.
       def signed(raw, bits)
         top = 1 << (bits - 1)
         raw >= top ? raw - (top << 1) : raw
@@ -339,8 +340,8 @@ module Zr
 
       def round_up(n, a) = (n + a - 1) & ~(a - 1)
 
-      # An operation on a type below `i64` runs in a w-register, so it is
-      # 32 bits wide and its result has zeros above.
+      # An operation on a type narrower than `i64` runs in a w-register. So
+      # it is 32 bits wide, and the high bits of its result are zero.
       def width_of(frame, v) = BITS.fetch(frame.types.of(v)) == 64 ? 64 : 32
 
       def to_f64(raw) = [raw].pack("Q<").unpack1("E")
@@ -372,8 +373,8 @@ module Zr
         when *Inst::FBINOPS, *Inst::FUNOPS, :fcvt_from_sint, :fcvt_to_sint_sat
           assign(frame, i.results[0], float_op(frame, i))
         when :fcmp then assign(frame, i.results[0], float_compare(frame, i) ? 1 : 0)
-        # The register the gate word lives in is the word itself here,
-        # which every writer stores before it sets the register.
+        # Here, the gate word register is the gate word in memory. Each writer
+        # stores the word before it sets the register.
         when :gates then assign(frame, i.results[0], @memory.read(address_of(GATES), 8))
         when :gates_set, :gates_enter then nil
         else raise Refused, "no interpretation for #{i.op}"
@@ -410,9 +411,9 @@ module Zr
         end
       end
 
-      # The two-operand integer instructions. Division by zero answers zero,
-      # as `udiv` and `sdiv` do, and a shift takes its amount modulo the
-      # width, as the register forms do.
+      # The two-operand integer instructions. Division by zero gives zero,
+      # as `udiv` and `sdiv` do. A shift uses its amount modulo the width, as
+      # the register forms do.
       def binop(frame, i)
         bits = width_of(frame, i.args[0])
         mask = MASK[bits]
@@ -437,8 +438,8 @@ module Zr
         end & mask
       end
 
-      # Division truncating toward zero, which is what arm64 does and what
-      # Ruby's `/` (which floors) does not.
+      # Division that truncates toward zero, as on arm64. The Ruby `/`
+      # operator rounds down, which is different.
       def quotient(a, b) = (a < 0) == (b < 0) ? a.abs / b.abs : -(a.abs / b.abs)
 
       def step_overflow(frame, i)
@@ -457,8 +458,8 @@ module Zr
         assign(frame, i.results[1], exact < -top || exact >= top ? 1 : 0)
       end
 
-      # The bit tricks, as wide as the operand: a count of zero's zeros
-      # is the width.
+      # The bit operations, as wide as the operand. The count of zeros in
+      # zero is the width.
       def bitop(frame, i)
         bits = width_of(frame, i.args[0])
         a = read(frame, i.args[0]) & MASK[bits]
@@ -470,8 +471,8 @@ module Zr
         end
       end
 
-      # `fcvt_to_sint_sat` saturates and answers zero for NaN, as `fcvtzs`
-      # does; every other float instruction is Ruby's own on the same bits.
+      # `fcvt_to_sint_sat` saturates and gives zero for NaN, as `fcvtzs`
+      # does. All other float instructions use Ruby on the same bits.
       def float_op(frame, i)
         return to_bits(signed(read(frame, i.args[0]), width_of(frame, i.args[0])).to_f) if i.op == :fcvt_from_sint
 
@@ -498,8 +499,8 @@ module Zr
         a.clamp(-(2**63).to_f, (2**63 - 1).to_f).truncate.clamp(-(2**63), 2**63 - 1)
       end
 
-      # Every condition but `ne` reads an unordered pair as false, which is
-      # what Ruby's own comparisons answer for NaN.
+      # All conditions except `ne` give false for an unordered pair. Ruby
+      # comparisons also give false for NaN.
       def float_compare(frame, i)
         a = to_f64(read(frame, i.args[0]))
         b = to_f64(read(frame, i.args[1]))
@@ -534,7 +535,7 @@ module Zr
         raw = dispatch(symbol, args.map { |v| read(frame, v) })
         return if i.results.empty?
 
-        # A result narrower than a word comes back with zeros above it.
+        # A result narrower than a word has zeros in the high bits.
         assign(frame, i.results[0], BITS.fetch(sig.ret) == 64 ? raw.to_i : raw.to_i & MASK[32])
       end
 

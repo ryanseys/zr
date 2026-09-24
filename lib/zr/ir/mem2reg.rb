@@ -4,31 +4,29 @@ require_relative "promotion"
 
 module Zr
   module IR
-    # Stack slots to SSA values, over a finished function.
+    # Promotes stack slots to SSA values in a finished function.
     #
-    # The kernel dialect gives every local a slot, and a slot costs a
-    # store at every assignment and a load at every read: most of what a
-    # kernel function did was move words between registers and its frame,
-    # and the register allocator, which sees only values, could do
-    # nothing about it. A slot the function only ever loads and stores
-    # whole, through its address, is a variable no one else can see. Each
-    # load is then the value the last store on the way there put, and a
-    # block that different stores reach takes that value as a parameter.
+    # The machine dialect gives each local a slot. A slot costs a store at
+    # each assignment and a load at each read, and the register allocator
+    # sees only values, so it cannot remove them. A slot that the function
+    # only loads and stores whole, through its address, is a private
+    # variable. Each load gets the value of the last store before it, and a
+    # block that different stores reach takes the value as a parameter.
     #
-    # Which slots: eight bytes, and an address used for nothing but a load
-    # or a store through it at offset 0. An address passed to a call, added
-    # to, carried to a block or stored somewhere keeps its slot. That is
-    # also why no root is lost: the collector reads the kernel's root
-    # frames and the task's frame records, and it reaches both through an
-    # address that was stored or passed, which keeps them in memory.
+    # A slot qualifies when it is eight bytes and its address is used only
+    # for a load or a store at offset 0. An address that is passed to a
+    # call, added to, passed to a block or stored keeps its slot. Thus no
+    # root is lost: the collector reads the kernel root frames and the task
+    # frame records through an address that was stored or passed, and such
+    # a slot stays in memory.
     #
-    # A path with no store at all reads zero. This runs in the kernel
-    # lowering, before `IR::Passes`; a split edge that ends up carrying
-    # nothing `IR::Passes::Blocks` jumps past again.
+    # A path with no store reads zero. This runs in the kernel lowering,
+    # before `IR::Passes`. `IR::Passes::Blocks` removes a split edge that
+    # passes no values.
     class Mem2Reg < Promotion
       private
 
-      # `address value => load type` of every slot that qualifies. A slot
+      # `address value => load type` of each slot that qualifies. A slot that
       # no load reads has type nil: its stores are dead.
       def candidates
         @slot_of = {}
@@ -87,7 +85,7 @@ module Zr
         type.reject { |addr, _| refused.include?(addr) }
       end
 
-      # A slot whose address is among `args` is refused.
+      # If the address of a slot is in `args`, the slot does not qualify.
       def escapes(args, type, refused)
         k = 0
         while k < args.size
@@ -97,8 +95,8 @@ module Zr
         end
       end
 
-      # A store is the write; a load reads what the last store in the
-      # block put, or asks what entered.
+      # A store is a write. A load gets the value of the last store in the
+      # block, or the value at block entry.
       def walk(b, slots, last, reads)
         insts = b.insts
         n = 0

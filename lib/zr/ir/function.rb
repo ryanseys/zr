@@ -7,10 +7,9 @@ require_relative "../record"
 
 module Zr
   module IR
-    # The most parameters a function has and the most arguments a call
-    # takes: eight, where every native target runs out of argument
-    # registers. Every lowering keeps a signature to eight, so no backend
-    # needs a stack argument path.
+    # The maximum number of function parameters and call arguments: eight.
+    # Each native target has eight argument registers. Each lowering keeps
+    # a signature to eight, so no backend needs stack arguments.
     REGISTER_ARGS = 8
 
     class Slot < Record
@@ -49,7 +48,7 @@ module Zr
       def to_a = [@sig, @params, @ret]
     end
     # `from`: the wasm module an imported callee comes from, or nil.
-    # `effects`: the `IR::Effects` bits a call may write.
+    # `effects`: the `IR::Effects` bits that a call can write.
     class Callee < Record
       FIELDS = %i[fn symbol sig colocated from effects].freeze
       attr_accessor :fn, :symbol, :sig, :colocated, :from, :effects
@@ -83,11 +82,11 @@ module Zr
     end
 
     # A function under construction: its stack slots, the symbols and
-    # callees it names, and its blocks in layout order. Values and blocks
-    # are numbered here so the function is in SSA form by construction.
+    # callees that it uses, and its blocks in layout order. The function
+    # numbers its values and blocks, so it is in SSA form by construction.
     class Function
-      # `current` is the block being emitted into: what a caller needs when
-      # it fills a block out of order and then resumes.
+      # `current` is the block that gets new instructions. A caller that
+      # fills a block out of order needs it to resume.
       attr_reader :name, :params, :ret_type, :args, :current, :slots, :globals, :sigs, :callees, :blocks, :entry_block
 
       # `params`/`ret`: IR types. The entry block takes the parameters
@@ -99,13 +98,13 @@ module Zr
         switch(@entry)
       end
 
-      # A fresh stack slot of `bytes`.
+      # A new stack slot of `bytes`.
       def slot(bytes)
         @slots << Slot.new(bytes, 8)
         "ss#{@slots.size - 1}"
       end
 
-      # The global value naming `symbol`.
+      # The global value that refers to `symbol`.
       def symbol(symbol, colocated: true)
         @global_of[symbol] ||= begin
           gv = "gv#{@globals.size}"
@@ -114,9 +113,9 @@ module Zr
         end
       end
 
-      # A function this program defines, or one it imports `from` a wasm
-      # module. `effects` is what a call may write: everything, unless
-      # the kernel's description says less.
+      # A function that this program defines, or that it imports `from` a
+      # wasm module. `effects` is what a call can write: all regions, unless
+      # the kernel description gives less.
       def callee(symbol, params, ret, colocated: true, from: nil, effects: Effects::ALL)
         @callee_of[symbol] ||= begin
           sig = signature(params, ret)
@@ -126,21 +125,20 @@ module Zr
         end
       end
 
-      # A new block; `params` are IR types, and the block's parameter
-      # values are answered beside its name.
+      # A new block. `params` are IR types. Returns the block name and its
+      # parameter values.
       def block(params = [])
         values = params.map { value }
         [block_named(values.zip(params)), values]
       end
 
-      # A block taking no parameters, by name alone.
+      # A block with no parameters, by name only.
       def label
         block.first
       end
 
-      # Continue emitting into `block`. The block being left must have
-      # ended in a jump, a branch or a return, unless the caller says it
-      # will `finish` it later.
+      # Continues to emit into `block`. The current block must end in a jump,
+      # a branch or a return, unless the caller will `finish` it later.
       def switch(block, open: false)
         raise "#{@current.name} of #{@name} was left without a terminator" if @current && !open && !@current.terminated?
 
@@ -168,38 +166,38 @@ module Zr
         nil
       end
 
-      # A call with one result, answered.
+      # A call with one result, which this returns.
       def call_val(fn, args = [])
         v = value
         emit(Inst.new(:call, results: [v], callee: fn, args: args))
         v
       end
 
-      # A call through `ptr` with the signature `sig` names, no result.
+      # A call through `ptr` with the signature `sig`, with no result.
       def call_indirect(sig, ptr, args = [])
         emit(Inst.new(:call_indirect, callee: sig, args: [ptr] + args))
         nil
       end
 
-      # A call through `ptr`, its one result answered.
+      # A call through `ptr` with one result, which this returns.
       def call_indirect_val(sig, ptr, args = [])
         v = value
         emit(Inst.new(:call_indirect, results: [v], callee: sig, args: [ptr] + args))
         v
       end
 
-      # The signature `params -> ret`, named once per function.
+      # The signature `params -> ret`, made one time for each function.
       def sig(params, ret)
         signature(params, ret)
       end
 
-      # An unconditional jump, carrying `args` to the target block's params.
+      # An unconditional jump that passes `args` to the target block params.
       def jump(block, args = [])
         emit(Inst.new(:jump, targets: [[block, args]]))
         nil
       end
 
-      # A branch on `cond`: to `a` when it holds, `b` otherwise.
+      # A branch on `cond`: to `a` when it is true, to `b` if not.
       def brif(cond, a, b)
         emit(Inst.new(:brif, args: [cond], targets: [[a, []], [b, []]]))
         nil
@@ -211,16 +209,16 @@ module Zr
         nil
       end
 
-      # A store of `value` to `addr` (+`offset`), untrapped and aligned: the
-      # only flags the lowering ever writes. `region` is the word's
-      # `IR::Effects` region where the lowering can say.
+      # A store of `value` to `addr` (+`offset`), with no trap and aligned.
+      # The lowering never writes other flags. `region` is the
+      # `IR::Effects` region of the word, when the lowering knows it.
       def store(value, addr, offset = 0, region: nil)
         emit(Inst.new(:store, args: [value, addr], offset: offset, flags: "notrap aligned", region: region))
         nil
       end
 
-      # A load of `type` from `addr` (+`offset`), answered. Named `fetch`,
-      # not `load`: `Kernel#load` already exists.
+      # A load of `type` from `addr` (+`offset`); returns the value. The name
+      # is `fetch`, not `load`, because `Kernel#load` exists.
       def fetch(type, addr, offset = 0, region: nil)
         v = value
         emit(Inst.new(:load, type: type, results: [v], args: [addr], offset: offset, flags: "notrap aligned",
@@ -316,7 +314,7 @@ module Zr
         v
       end
 
-      # A narrowing, and the two widenings: `type` is the type answered.
+      # A narrowing, and the two widenings. `type` is the result type.
       def ireduce(type, a) = width(:ireduce, type, a)
       def sextend(type, a) = width(:sextend, type, a)
       def uextend(type, a) = width(:uextend, type, a)
@@ -344,7 +342,7 @@ module Zr
       def srem(a, b) = binop(:srem, a, b)
       def urem(a, b) = binop(:urem, a, b)
 
-      # The IR's `select`; named `csel` because `Kernel#select` already exists.
+      # The IR `select`. The name is `csel` because `Kernel#select` exists.
       def csel(cond, a, b)
         v = value
         emit(Inst.new(:select, results: [v], args: [cond, a, b]))
@@ -361,17 +359,16 @@ module Zr
         v
       end
 
-      # The address of a data symbol, materialized once per function: for
-      # a word that the function reads again and again.
+      # The address of a data symbol, made one time for each function, for a
+      # word that the function reads many times.
       def symbol_addr(gv)
         hoisted(:symbol_value, gv) { Inst.new(:symbol_value, type: "i64", args: [gv]) }
       end
 
-      # A load materialized once per function: a word that never changes
-      # while the function runs, such as one of a unit's pooled symbol
-      # ids. It stands in the entry block, which dominates every other,
-      # so the value is in scope wherever the lowering wants it -- as an
-      # immediate was before the link started numbering the symbols.
+      # A load made one time for each function, for a word that does not
+      # change while the function runs (for example a pooled symbol id of a
+      # unit). The load goes in the entry block, which dominates all other
+      # blocks, so the value is available at each use.
       def hoisted_fetch(type, addr, offset = 0, region: nil)
         hoisted(:hoisted_fetch, [addr, offset]) do
           Inst.new(:load, type: type, args: [addr], offset: offset, flags: "notrap aligned", region: region)
@@ -384,16 +381,16 @@ module Zr
         v
       end
 
-      # The gate word, out of its register.
+      # Reads the gate word from its register.
       def gates
         v = value
         emit(Inst.new(:gates, type: "i64", results: [v]))
         v
       end
 
-      # The gate word's register takes `word`: after the store of it,
-      # in a writer; at the entry from foreign code, in `enter`, where
-      # the register is given back on return as that code left it.
+      # Puts `word` in the gate word register. A writer calls this after it
+      # stores the word. `enter` calls it at entry from foreign code; at
+      # return, the register gets back the value of the foreign code.
       def gates_set(word)
         emit(Inst.new(:gates_set, args: [word]))
         nil
@@ -404,7 +401,7 @@ module Zr
         nil
       end
 
-      # A constant whose immediate a producer fills in later: the value,
+      # A constant whose immediate a producer sets later. Returns the value,
       # and the instruction whose first argument to set.
       def iconst_later(type)
         v = value
@@ -413,28 +410,26 @@ module Zr
         [v, inst]
       end
 
-      # A constant, materialized once per function.
+      # A constant, made one time for each function.
       def iconst(type, n)
         v = hoisted(ICONST.fetch(type), n) { Inst.new(:iconst, type: type, args: [n]) }
         @iconst_of[v] = n
         v
       end
 
-      # The immediate `v` holds, where `v` came from `iconst`, and nil
-      # where it came from anything else. A function knows its own
-      # constants because it made them; `Passes::Fold` walks the
-      # instructions to learn the same thing, which a lowering has no
-      # reason to do.
+      # The immediate in `v` when `v` came from `iconst`, or nil. The function
+      # knows its own constants because it made them. `Passes::Fold` finds
+      # the same data from the instructions; a lowering does not need to.
       def iconst_of(v) = @iconst_of[v]
 
-      # A value that is the same everywhere, defined once in the entry block.
+      # A value that is the same at all uses, defined one time in the entry
+      # block.
       #
-      # The entry block dominates every other block, so a value defined there
-      # is in scope for all of them, which is what makes one definition legal
-      # where the uses are scattered. It goes in ahead of the entry block's
-      # terminator, and no use can be earlier: this is the first time the key
-      # has been asked for. The block yields an `Inst` with no result; this
-      # fills one in and inserts it.
+      # The entry block dominates all other blocks, so one definition there
+      # is valid for uses in any block. It goes before the terminator of the
+      # entry block; no use can come before it, because this is the first
+      # request for the key. The block yields an `Inst` with no result; this
+      # method sets the result and inserts the instruction.
       def hoisted(kind, key)
         ((@hoisted[kind] ||= {})[key] ||= begin
           v = value
@@ -448,24 +443,23 @@ module Zr
         end)
       end
 
-      # A bucket a kind, so a constant is found by its own number rather
-      # than by an Array built and hashed at every mention of it. The four
-      # types are named here so that `iconst` needs no Array either.
+      # One hash for each kind, so a lookup uses the constant number and not
+      # a new Array for each use. The four types are listed here so `iconst`
+      # also needs no Array.
       ICONST = { "i8" => :iconst_i8, "i32" => :iconst_i32,
                  "i64" => :iconst_i64, "f64" => :iconst_f64 }.freeze
 
-      # The address of a stack slot, materialized once per function.
+      # The address of a stack slot, made one time for each function.
       def stack_addr(slot)
         hoisted(:stack_addr, slot) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
       end
 
-      # A new block with no parameters, laid out right after `after`: what
-      # a pass makes when it splits a block, so the first half falls into
-      # it.
+      # A new block with no parameters, placed just after `after`. A pass
+      # uses this to split a block, so the first half falls through into it.
       def block_after(after) = block_beside(@blocks.index(after) + 1)
 
-      # The same, laid out right before `before`: what a pass makes when
-      # it splits an edge, so the new block falls into its target.
+      # A new block placed just before `before`. A pass uses this to split an
+      # edge, so the new block falls through into its target.
       def block_before(before) = block_beside(@blocks.index(before))
 
       def block_beside(at)
@@ -474,29 +468,29 @@ module Zr
         b
       end
 
-      # A value name no instruction has used: what a pass over the finished
-      # function names a new block parameter with.
+      # A value name that no instruction uses. A pass on a finished function
+      # uses it for a new block parameter.
       def value
         v = "v#{@next_value}"
         @next_value += 1
         v
       end
 
-      # What the passes ask about this function's shape -- predecessors,
-      # order, dominators, uses, loops -- answered once and kept until a
-      # pass says the function changed. See `IR::Analysis`.
+      # The shape of the function for the passes (predecessors, order,
+      # dominators, uses, loops). It is calculated one time and kept until a
+      # pass reports a change. See `IR::Analysis`.
       def analysis
         @analysis ||= Analysis.new(self)
       end
 
-      # Whether an analysis is kept: what the strict check asks before
-      # it holds one to the function.
+      # Whether an analysis is kept. The strict check reads this before it
+      # checks the analysis against the function.
       def analysis? = !@analysis.nil?
 
-      # A pass that edited the function says so: `:cfg` for a block or
-      # an edge added, removed or re-targeted, `:insts` for instructions
-      # alone. The strict check refuses a kept analysis a change was not
-      # reported to.
+      # A pass that changes the function calls this: `:cfg` when it adds,
+      # removes or retargets a block or an edge, `:insts` when it changes
+      # only instructions. The strict check rejects a kept analysis when a
+      # change was not reported.
       def changed!(what)
         case what
         when :cfg then @analysis = nil
@@ -530,8 +524,8 @@ module Zr
         @analysis = nil
       end
 
-      # An instruction after the current block's terminator is a bug in the
-      # lowering, never a legal program: this is the one place that appends.
+      # An instruction after the terminator of the current block is a bug in
+      # the lowering. This is the only method that appends an instruction.
       def emit(inst)
         raise "an instruction after the terminator of #{@current.name} in #{@name}" if @current.terminated?
 

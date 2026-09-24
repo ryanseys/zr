@@ -6,39 +6,31 @@ require_relative "regions"
 
 module Zr
   module IR
-    # Loop-invariant code motion: an instruction a loop computes the
-    # same at every turn is computed once, before the loop.
+    # Loop-invariant code motion. If an instruction computes the same
+    # value in each iteration of a natural loop, the pass moves it to
+    # the preheader of the loop.
     #
-    # The loops are the analysis's natural loops. An instruction with
-    # no effect and one result (`GVN::PURE`) whose operands are all
-    # defined outside the loop, or by an instruction already moved, is
-    # invariant; one that reads no value (a constant, an address)
-    # stays, since a backend makes those where they are used, and so
-    # does one that only a branch reads, itself or through a `band` or
-    # `bor` that only a branch reads: a backend folds a compare or a
-    # bit test into its branch, and moved out it would hold a register
-    # through every turn for what one instruction answers.
+    # A pure, single-result instruction (`GVN::PURE`) is invariant when
+    # all its operands come from outside the loop or from moved
+    # instructions. Two kinds stay in the loop:
+    # - An instruction with no value operands (a constant, an address),
+    #   because a backend makes it where it is used.
+    # - A value that only branches read, directly or through a `band` or
+    #   `bor`. A backend folds the compare into the branch; a moved value
+    #   would use a register for the full loop.
     #
-    # A load is invariant when its address is and nothing in the loop
-    # can write its region (`Regions`: a store to it, a store placed
-    # nowhere, a call whose effects include it, a call through a
-    # pointer). It moves only where the word is known to be there
-    # before the loop, since a loop that turns no times reads nothing,
-    # and a hoisted load of a null pointer is a fault the program never
-    # had: the address is a static's, or a load or a store of the same
-    # address and offset dominates the header, or the load's own block
-    # dominates every block the loop leaves from, so any turn that ends
-    # reads it. A load of the volatile region is never invariant, and a
-    # slot's is `Forward`'s and `Mem2Reg`'s.
+    # A load is invariant when its address is invariant and nothing in
+    # the loop can write its region (see `Regions`). A hoisted load must
+    # not fault if the loop runs zero times. Thus a load moves only if
+    # the address is a static, or a load or store of the same address
+    # and offset dominates the header, or the block of the load
+    # dominates all loop exits. A volatile load never moves. `Forward`
+    # and `Mem2Reg` handle slot loads.
     #
-    # What moves goes to the loop's preheader: a block of its own on
-    # the edges into the header, made when the first instruction moves,
-    # laid out before the header so it falls into it. The header's
-    # parameters, if it has any, the preheader takes and passes on.
-    #
-    # The inner loops go first, so what leaves one lands in its
-    # preheader, inside the loop around it, and may leave that too. A
-    # preheader dominates what its header dominates.
+    # The pass makes the preheader when the first instruction moves. The
+    # preheader goes before the header, takes the header parameters and
+    # jumps to the header. Inner loops go first, so an instruction can
+    # move out of more than one loop.
     class LICM
       include Regions
 
@@ -72,7 +64,7 @@ module Zr
 
       private
 
-      # Every invariant instruction of `loop` moves to its preheader.
+      # Moves each invariant instruction of `loop` to its preheader.
       def hoist(loop, loops)
         @loop = loop
         @in = @body.fetch(loop)
@@ -102,11 +94,12 @@ module Zr
         end
       end
 
-      # What the loop says of itself: `@variant`, the values its body
-      # defines; `@written`, the regions it may write; `@exits`, the
-      # blocks it leaves from, or every latch when it leaves from none;
-      # `@read`, each `[address, offset]` a block that dominates the
-      # header loads or stores.
+      # Collects facts about the loop:
+      # `@variant`: the values that the body defines.
+      # `@written`: the regions that the loop can write.
+      # `@exits`: the blocks that leave the loop (all latches if none do).
+      # `@read`: each `[address, offset]` that a block which dominates
+      # the header loads or stores.
       def survey
         @variant = {}
         @written = 0
@@ -159,8 +152,8 @@ module Zr
         false
       end
 
-      # Whether `i`, in the loop's block `at`, answers the same at every
-      # turn and may be computed before the first.
+      # Whether `i`, in the loop block `at`, gives the same value in each
+      # iteration and can run before the first iteration.
       def invariant?(i, at)
         return load_invariant?(i, at) if i.op == :load
 
@@ -191,10 +184,11 @@ module Zr
         @placed.key?(addr) || @read.key?([addr, i.offset]) || dominates_exits?(at)
       end
 
-      # `{ value => true }` for every value that only branches read,
-      # itself or through the `band`s and `bor`s that only branches
-      # read, which `Chains` turns into branches of their own. A round
-      # over those can make the next one's answers.
+      # Returns `{ value => true }` for each value that only branches
+      # read, directly or through a `band` or `bor` that only branches
+      # read. `Chains` changes such a `band` or `bor` into branches. The
+      # loop repeats until nothing changes, because one pass can find
+      # new values for the next.
       def tested_only
         uses = @analysis.uses
         reads = Hash.new(0)
@@ -247,16 +241,17 @@ module Zr
         true
       end
 
-      # A preheader this pass made dominates what its header does.
+      # A preheader that this pass made dominates all that its header
+      # dominates.
       def dominates?(a, b)
         a == b || @analysis.dominates?(@header_of.fetch(a, a), b)
       end
 
-      # A block of its own on the edges into `loop`'s header from
-      # outside it: every such edge is retargeted to it, and it jumps
-      # on with the header's parameters, which it takes as its own; what
-      # moves goes in ahead of the jump. It joins the body of every loop
-      # around this one.
+      # Makes a new block for the edges into the header of `loop` from
+      # outside the loop. Each such edge changes to target the new block.
+      # The block takes the header parameters and jumps to the header
+      # with them. Moved instructions go before the jump. The block
+      # becomes part of the body of each loop that contains this loop.
       def preheader(loop, loops)
         @moved = true
         header = @block.fetch(loop.header)
@@ -267,7 +262,8 @@ module Zr
         @analysis.preds.fetch(header.name).uniq.each do |p|
           next if @in.key?(p)
 
-          # A new pair and not a write into one: two jumps may share one.
+          # Make a new pair; do not change the old pair, because two
+          # jumps can share it.
           targets = @block.fetch(p).insts.last.targets
           k = 0
           while k < targets.size

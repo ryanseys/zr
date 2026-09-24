@@ -2,51 +2,46 @@
 
 module Zr
   module IR
-    # What a call may write, and what a load or a store touches: a bit a
-    # region of memory. A pass that keeps a value it read from memory
-    # across an instruction asks whether the instruction can write the
-    # value's region; a load of the `volatile` region is never kept
-    # across anything, since a timer thread or a signal handler writes
-    # it between any two instructions.
+    # Memory regions, one bit each. The effects of a call are the
+    # regions that it can write. A pass that keeps a loaded value across
+    # an instruction checks if the instruction can write that region. A
+    # pass never keeps a `volatile` load, because a timer thread or a
+    # signal handler can write it at any time.
     #
     # The regions:
-    # - `gates`: the gate word (`zr_static_gates`), which a redefinition
-    #   of an operator sets a bit of;
-    # - `stamps`: the site, constant and method-cache stamps, which a
-    #   definition moves, and the collector too when it frees a class;
-    # - `task`: the task pointer, the current fiber, the root chain;
-    # - `heap`: a field of a cell;
-    # - `malloc`: a payload the allocator hands out (a String's bytes,
-    #   an Array's elements, a table's rows);
-    # - `statics`: every other static word of the kernel;
-    # - `volatile`: the poll word beside the task pointer, the preempt
+    # - `gates`: the gate word (`zr_static_gates`). A redefinition of an
+    #   operator sets a bit in it.
+    # - `stamps`: the site, constant and method-cache stamps. A definition
+    #   changes them, and the collector also does when it frees a class.
+    # - `task`: the task pointer, the current fiber, the root chain.
+    # - `heap`: a field of a cell.
+    # - `malloc`: a payload from the allocator (String bytes, Array
+    #   elements, table entries).
+    # - `statics`: all other static words of the kernel.
+    # - `volatile`: the poll word next to the task pointer, the preempt
     #   count and the signal words.
+    # A stack slot is not a region. `Forward` and `Mem2Reg` handle slots
+    # by address.
     #
-    # A stack slot is no region: a frame is the function's own, and
-    # `Forward` and `Mem2Reg` reason about it by address.
-    #
-    # A kernel def's effects are the union over its body, closed over
-    # the defs it calls (`Machine::Lower#assign_effects`); a call
-    # through a pointer and a program function write `ALL`. An import
-    # writes what a pointer can reach: libc never holds a guard word's
-    # address, and a signal handler it lets in writes the volatile
-    # words, which nothing keeps. The imports that run zr's own code
-    # before they answer -- a thread start, a library's constructors, a
-    # program's entry -- write `ALL`.
+    # The effects of a kernel def are the union over its body and the
+    # defs it calls (`Machine::Lower#assign_effects`). An indirect call
+    # and a program function write `ALL`. An import writes `UNKNOWN`,
+    # because libc never has the address of a guard word. An import
+    # that can run zr code before it returns (`CALLBACKS`) writes `ALL`.
     module Effects
       BITS = {
         gates: 1, stamps: 2, task: 4, heap: 8, malloc: 16, statics: 32, volatile: 64, slot: 0
       }.freeze
       ALL = 127
       NONE = 0
-      # What a store through an address the lowering cannot place may
-      # write: any word a pointer can reach. A guard word is one only
-      # when its address escapes as a value, which `Machine::Lower`
-      # adds when it sees one.
+      # The regions that a store through an unknown address can write:
+      # each word that a pointer can reach. A pointer can reach a guard
+      # word only if its address escapes as a value. `Machine::Lower`
+      # adds that region when it finds such an escape.
       UNKNOWN = BITS.fetch(:heap) | BITS.fetch(:malloc) | BITS.fetch(:statics)
 
-      # `zr_static_<name>` to its region; the task slot holds the
-      # pointer at 0 and the poll word at 8.
+      # `zr_static_<name>` to its region. The task static contains the
+      # task pointer at offset 0 and the poll word at offset 8.
       STATICS = {
         "gates" => :gates,
         "site_stamp" => :stamps, "const_stamp" => :stamps, "mcache_stamp" => :stamps,
@@ -57,18 +52,19 @@ module Zr
         "chld_count" => :volatile, "chld_pipe" => :volatile
       }.freeze
       PREFIX = "zr_static_"
-      # The imports that may run zr code before they return.
+      # The imports that can run zr code before they return.
       CALLBACKS = %w[pthread_create dlopen dlsym].freeze
 
       module_function
 
-      # What a call of the import or raw function `symbol` may write.
+      # The regions that a call of the import or raw function `symbol`
+      # can write.
       def import(symbol) = symbol.start_with?("zr_") || CALLBACKS.include?(symbol) ? ALL : UNKNOWN
 
       def bit(region) = BITS.fetch(region)
 
       # The region of the word at `offset` of the static `symbol`, or
-      # nil when the symbol is not a static's.
+      # nil when the symbol is not a static.
       def static_region(symbol, offset = 0)
         return nil unless symbol.start_with?(PREFIX)
 

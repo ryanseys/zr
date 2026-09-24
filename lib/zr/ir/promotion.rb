@@ -4,31 +4,31 @@ require_relative "inst"
 
 module Zr
   module IR
-    # Memory to SSA values, over a finished function: what `Mem2Reg`
-    # (a stack slot) and `Statics` (a static word of the kernel) share.
+    # Promotes memory to SSA values in a finished function. This is the
+    # shared part of `Mem2Reg` (a stack slot) and `Statics` (a static word
+    # of the kernel).
     #
-    # A word the function reads and writes whole, through an address it
-    # can tell, is a variable. Each read is then the value the last
-    # write on the way there put, and a block that different writes
-    # reach takes that value as a parameter. What counts as a write is
-    # the subclass's to say: `walk` names, block by block, the value
-    # each write leaves and the reads no write in the block precedes;
-    # `initial` answers a read no write reaches at all; `rewrite` takes
-    # the instructions the values replace out.
+    # A word that the function reads and writes whole, through a known
+    # address, is a variable. Each read gets the value of the last write
+    # before it. A block that different writes reach takes the value as a
+    # parameter. The subclass defines what a write is: `walk` gives, for
+    # each block, the value that each write leaves and the reads before
+    # the first write; `initial` gives the value for a read that no write
+    # reaches; `rewrite` removes the replaced instructions.
     #
-    # The construction is Braun et al.'s, over a CFG that is already
-    # complete, so every block is sealed from the start: a read with no
-    # write ahead of it in its block asks its predecessors, a block with
-    # several makes a parameter first, and a parameter every edge gives
-    # the same value is that value.
+    # The algorithm is from Braun et al. The CFG is complete, so all blocks
+    # are sealed at the start. A read with no earlier write in its block
+    # reads from the predecessors. A block with more than one predecessor
+    # makes a parameter first. A parameter that gets the same value from
+    # each edge is that value.
     #
-    # A `brif` carries no arguments, so an edge one enters a join by is
-    # split when the join takes a parameter: a block of its own that
-    # jumps on, laid out before the join so it falls into it.
+    # A `brif` has no arguments. So when a join takes a parameter, the pass
+    # splits each `brif` edge into it: a new block before the join that
+    # jumps to it.
     #
-    # The walks over the blocks and their instructions are `while`
-    # loops: this runs over every instruction of every function, and a
-    # block call costs the compiled compiler a frame each.
+    # The walks use `while` loops, because this runs on each instruction of
+    # each function, and each block call costs a frame in the compiled
+    # compiler.
     class Promotion
       def self.run(f) = new(f).run
 
@@ -52,8 +52,8 @@ module Zr
 
       private
 
-      # Every block's predecessors, by the terminators that reach it: a
-      # block a `brif` reaches twice lists it twice.
+      # The predecessors of each block, from the terminators that reach it.
+      # A block that a `brif` reaches two times lists it two times.
       def predecessors
         preds = Hash.new { |h, k| h[k] = [] }
         blocks = @f.blocks
@@ -73,9 +73,9 @@ module Zr
         preds
       end
 
-      # Every read's value, and every parameter a join needs, for the
-      # variables in `keys`: `@rename` maps a read's result to what it
-      # reads.
+      # Finds the value of each read, and each parameter that a join needs,
+      # for the variables in `keys`. `@rename` maps the result of a read to
+      # the value that it reads.
       def plan(keys)
         @rename = {}
         @last = Hash.new { |h, k| h[k] = {} }
@@ -104,7 +104,7 @@ module Zr
         drop_trivial(keys)
       end
 
-      # The value of `key`'s variable where control enters `b`.
+      # The value of the variable of `key` where control enters `b`.
       def entering(b, key, keys)
         seen = @entering[key]
         return seen[b.name] if seen.key?(b.name)
@@ -121,9 +121,9 @@ module Zr
                        end
       end
 
-      # The value of `key`'s variable where control leaves `b`: what
-      # the last write in `b` left -- a value, or the instruction after
-      # which the subclass reads it afresh -- else what entered.
+      # The value of the variable of `key` where control leaves `b`. This is
+      # what the last write in `b` left (a value, or the instruction after
+      # which the subclass loads again), or else the value at entry.
       def leaving(b, key, keys)
         last = @last[b.name]
         return entering(b, key, keys) unless last.key?(key)
@@ -132,8 +132,8 @@ module Zr
         left.is_a?(Inst) ? after(left, key) : left
       end
 
-      # A parameter every edge gives one value, or only itself, is that
-      # value; taking one away can make another trivial.
+      # A parameter that gets one value from each edge (or only itself) is
+      # that value. When the pass removes one, another can become trivial.
       def drop_trivial(keys)
         loop do
           dropped = false
@@ -160,8 +160,8 @@ module Zr
         v
       end
 
-      # Each join's parameters, and the value every edge into it
-      # carries; an edge a `brif` takes is split first.
+      # Adds the parameters of each join, and the value that each edge into
+      # it passes. The pass first splits each `brif` edge.
       def apply(keys)
         j = 0
         while j < @joins.size
@@ -173,7 +173,7 @@ module Zr
           while k < into.size
             p = into[k]
             p = into[k] = split(p, b) if p.insts.last.op == :brif
-            # A new Array and not `<<`: two jumps may share one.
+            # Make a new Array; do not use `<<`, because two jumps can share it.
             edge = p.insts.last.targets[0]
             edge[1] = edge[1] + [values[k]]
             k += 1
@@ -182,8 +182,8 @@ module Zr
         end
       end
 
-      # A block of its own on the edge `p`'s `brif` takes into `join`, so
-      # that the edge is a jump that can carry the join's parameters.
+      # Makes a new block on the edge from the `brif` of `p` into `join`, so
+      # that the edge is a jump that can pass the join parameters.
       def split(p, join)
         br = p.insts.last
         side = @f.block_before(join)

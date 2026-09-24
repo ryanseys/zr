@@ -11,19 +11,19 @@ require_relative "verify"
 
 module Zr
   module IR
-    # The passes every emitter runs over a function before it is
-    # assembled, in one order from one place, so the aarch64 backend, the
-    # wasm backend and the eval road all see the same IR.
+    # The passes that each emitter runs on a function before assembly. They
+    # run in one order from one place, so the aarch64 backend, the wasm
+    # backend and eval support all get the same IR.
     #
-    # What every pass keeps: a value is defined once and its definition
-    # dominates its uses, the entry block stays first and keeps its
-    # parameters, every block ends in a terminator, a `brif` carries no
-    # arguments, and a store to a record slot is never removed, because
-    # the collector reads it as a root.
+    # Each pass keeps these invariants: a value has one definition, and the
+    # definition dominates its uses. The entry block stays first and keeps
+    # its parameters. Each block ends in a terminator. A `brif` has no
+    # arguments. A store to a record slot is never removed, because the
+    # collector reads it as a root.
     module Passes
-      # Uses renamed in place through `@rename`, a value to the value that
-      # stands for it now, followed to its end since a replacement may
-      # itself be replaced.
+      # Renames uses in place through `@rename` (a value to its replacement).
+      # The lookup follows the chain, because a replacement can also have a
+      # replacement.
       module Renaming
         def rename_uses
           @f.blocks.each { |b| b.insts.each { |i| rename(i) } }
@@ -44,21 +44,19 @@ module Zr
 
       module_function
 
-      # The unit's small leaves inlined into their callers, before the
-      # pipeline runs over each function.
+      # Inlines the small leaf functions of the unit into their callers,
+      # before the pipeline runs on each function.
       def inline(functions) = Inline.run(functions)
 
       # The pipeline, in order.
       #
-      # `Fold` runs twice because `Forward` uncovers constants for it: a
-      # load whose value it forwards is a constant the first fold could
-      # not see. It earns the second pass -- built without it, the
-      # runtime's object grows by 223 KB, and the whole pass costs 0.6 s
-      # of the 9.3 s that object takes. `Statics` runs after `Forward`,
-      # whose slot loads it need not walk, and before `Chains`, so the
-      # gate test it leaves as a value splits into the branch chain;
-      # `GVN` after it, so the values it made are numbered with the rest,
-      # and `LICM` after that, so a loop's turns hold one of each value.
+      # `Fold` runs two times, because `Forward` finds constants that the
+      # first fold cannot see. Without the second fold, the runtime object is
+      # 223 KB larger; the pass costs 0.6 s of the 9.3 s build of that object.
+      # `Statics` runs after `Forward`, so it does not see the slot loads, and
+      # before `Chains`, so its gate test splits into the branch chain. `GVN`
+      # runs after `Statics` to number its new values. `LICM` runs last, so a
+      # loop has one copy of each value.
       def run(f)
         Fold.run(f)
         Forward.run(f)
@@ -72,26 +70,25 @@ module Zr
         f
       end
 
-      # The pipeline and then the checks: what an emitter takes. The
-      # dominance and type checks cost a pass of their own, so a build
-      # runs them only under `ZR_VERIFY=1`; the checks that run the IR
-      # against the interpreter always do.
+      # Runs the pipeline and then the checks, and returns the IR for an
+      # emitter. The dominance and type checks are slow, so a build runs them
+      # only when `ZR_VERIFY=1`. The checks that run the IR against the
+      # interpreter always run.
       def prepare(f, strict: Zr.flag?("ZR_VERIFY"))
         run(f)
         Verify.check(f, strict: strict)
       end
 
-      # Constant folding. An integer instruction of constants becomes the
-      # constant it answers, as `IR::Interp` answers it: arithmetic below
-      # `i64` runs 32 bits wide, a shift takes its amount modulo the
-      # width, a division by zero answers zero and a remainder by zero
-      # the dividend. An identity (`x + 0`, `x * 1`, `x & 0`) is its
-      # operand or its constant, a multiply, unsigned division or
-      # remainder by a power of two is a shift or a mask, a `select` on
-      # a constant is the arm taken, a widening of a constant is a
-      # constant, and a `brif` on a constant is a `jump`. Uses are
-      # renamed in place; the block the untaken arm named may then be
-      # unreachable, which is `Blocks`'s to remove.
+      # Constant folding. An integer instruction on constants becomes its
+      # result, with the same rules as `IR::Interp`: arithmetic narrower than
+      # `i64` is 32 bits wide, a shift uses its amount modulo the width, a
+      # division by zero gives zero, and a remainder by zero gives the
+      # dividend. An identity (`x + 0`, `x * 1`, `x & 0`) becomes its operand
+      # or constant. A multiply, unsigned division or remainder by a power of
+      # two becomes a shift or a mask. A `select` on a constant becomes the
+      # selected arm. A widened constant becomes a constant. A `brif` on a
+      # constant becomes a `jump`. The pass renames uses in place. `Blocks`
+      # removes blocks that become unreachable.
       class Fold
         include Renaming
 
@@ -100,9 +97,9 @@ module Zr
 
         def self.run(f) = new(f).run
 
-        # Only a constant's type is ever asked for, and a constant's type
-        # is known where it is made, so `@const` keeps each constant's
-        # number with its type and no pass types the whole function.
+        # The pass needs only the types of constants, and it knows each type
+        # where it makes the constant. So `@const` keeps the number and type of
+        # each constant, and no pass calculates types for the whole function.
         def initialize(f)
           @f = f
           @const = {}
@@ -110,13 +107,13 @@ module Zr
           @jumped = false
         end
 
-        # Blocks in layout order. A block whose predecessors all come
-        # before it is settled on entry: no edge from any of them reaches
-        # it unless that predecessor was reached and its terminator, once
-        # folded, still names it. A settled block no edge reaches is dead,
-        # and its own edges count for nothing; a parameter every edge that
-        # does reach it gives the same constant is that constant. A block
-        # a later one jumps back to (a loop's head) is never settled.
+        # Visits blocks in layout order. A block is settled on entry when all
+        # its predecessors come before it. An edge reaches a settled block only
+        # if its predecessor was reached and the folded terminator still targets
+        # the block. A settled block that no edge reaches is dead, and its edges
+        # do not count. If each reaching edge gives a parameter the same
+        # constant, the parameter is that constant. A loop header is never
+        # settled.
         def run
           arriving = Hash.new { |h, name| h[name] = [] }
           laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
@@ -130,10 +127,10 @@ module Zr
             fold_insts(b)
             b.insts.last&.targets&.each { |(name, args)| arriving[name] << args }
           end
-          # A use laid out before its definition, which a loop can do,
-          # is renamed on a second pass.
+          # A use before its definition in the layout (possible in a loop) is
+          # renamed in a second pass.
           rename_uses unless @rename.empty?
-          # A `brif` folded to a `jump` took an edge away.
+          # A `brif` that became a `jump` removed an edge.
           @f.changed!(@jumped ? :cfg : :insts)
         end
 
@@ -149,8 +146,8 @@ module Zr
           @added.reverse_each { |at, inst| b.insts.insert(at, inst) }
         end
 
-        # A constant operand made where the instruction being folded
-        # stands, for a fold that needs one the function does not hold.
+        # Makes a constant operand just before the instruction at `n`, when the
+        # function does not have that constant.
         def constant_before(n, type)
           v = @f.value
           @added << [@at, Inst.new(:iconst, type: type, args: [n], results: [v])]
@@ -158,8 +155,8 @@ module Zr
           v
         end
 
-        # Each parameter of `b` that every edge in `edges` gives the same
-        # constant, known as that constant.
+        # Sets each parameter of `b` to a constant when every edge in `edges`
+        # gives it that same constant.
         def enter(b, edges)
           b.params.each_with_index do |(v, type), k|
             first = constant(edges[0][k])
@@ -169,7 +166,7 @@ module Zr
           end
         end
 
-        # The number `v` holds, masked to its type, or nil.
+        # The number in `v`, masked to its type, or nil.
         def constant(v)
           k, type = @const[v]
           k && k & MASK.fetch(type)
@@ -190,8 +187,8 @@ module Zr
           end
         end
 
-        # A result's type names the width of its arithmetic: 64 bits for
-        # `i64`, 32 for anything narrower.
+        # The type of a result gives the width of its arithmetic: 64 bits for
+        # `i64`, 32 bits for a narrower type.
         def bits_of(type) = type == "i64" ? 64 : 32
 
         def signed(raw, bits)
@@ -216,8 +213,8 @@ module Zr
           a, b = i.args
           ka = constant(a)
           kb = constant(b)
-          # A binop's operands and result share a type, one of them here
-          # a constant's.
+          # The operands and result of a binop have one type. Here, one operand
+          # is a constant, so its type is known.
           type = i.type || constant_type(ka ? a : b) if ka || kb
           return become_constant(i, binop(i.op, ka, kb, bits_of(type)), type) if ka && kb
 
@@ -244,9 +241,9 @@ module Zr
 
         def power_of_two?(n) = (n & (n - 1)).zero?
 
-        # `i` as the cheaper `op` of `a` and the constant `n`: a multiply,
-        # an unsigned division or remainder by a power of two is a shift
-        # or a mask.
+        # Replaces `i` with the cheaper `op` of `a` and the constant `n`. A
+        # multiply, unsigned division or remainder by a power of two becomes a
+        # shift or a mask.
         def reduce(i, op, a, n, type)
           i.op = op
           i.args = [a, constant_before(n, type)]
@@ -301,7 +298,8 @@ module Zr
           become(i, k.zero? ? b : a) if k
         end
 
-        # The bit tricks over a constant, as `IR::Interp` answers them.
+        # Folds the bit operations on constants, with the same rules as
+        # `IR::Interp`.
         def fold_bitop(i)
           k = constant(i.args[0])
           return unless k
@@ -339,16 +337,15 @@ module Zr
         end
       end
 
-      # Store-to-load forwarding over stack slots. A load from a slot at
-      # a constant offset, in the block of the last store there with
-      # nothing between that could write it, is that store's value: the
-      # load goes and the store stays, as a root the collector reads.
-      # `Zr::Lower::Function` stages a send's receiver and arguments in record
-      # slots and reads them back at once, which is this shape at every
-      # send. What can write a slot: a call, which may reach the frame
-      # through an address the function passed out, and a store through
-      # an address that is not a slot's; either forgets everything. A
-      # store to a slot forgets what it overlaps.
+      # Store-to-load forwarding for stack slots. A load from a slot at a
+      # constant offset gets the value of the last store to that slot in the
+      # block, if nothing between them can write the slot. The pass deletes
+      # the load; the store stays as a root for the collector.
+      # `Zr::Lower::Function` stores the receiver and arguments of each send
+      # in record slots and loads them back at once, so this occurs at each
+      # send. A call (which can get a frame address that the function passed
+      # out) or a store through a non-slot address clears all known stores.
+      # A store to a slot clears the stores that it overlaps.
       class Forward
         include Renaming
 
@@ -386,8 +383,8 @@ module Zr
           end
         end
 
-        # `v = base + k` past a slot's address is the slot's address and
-        # a constant more.
+        # `v = base + k`, where `base` is a slot address, is that slot address
+        # plus a constant.
         def note_sum(i)
           a, b = i.args
           a, b = b, a if @const.key?(a)
@@ -397,17 +394,16 @@ module Zr
           @roots[i.results[0]] = [root, k + @const.fetch(b)]
         end
 
-        # `[root, offset]` of the slot byte `addr` and `off` name, or nil.
+        # `[root, offset]` of the slot byte at `addr` plus `off`, or nil.
         def slot(addr, off)
           root, k = @roots[addr]
           root && [root, k + off]
         end
 
-        # A store forgets what it overlaps. A remembered store is at most
-        # eight bytes wide, so one that overlaps starts within seven
-        # bytes below this one or inside it: those keys are probed, not
-        # the whole table, which a block of many stores would scan at
-        # each of them.
+        # A store clears the known stores that it overlaps. A known store is at
+        # most 8 bytes wide, so an overlapping store starts at most 7 bytes
+        # below this one, or inside it. The pass checks only those keys. A scan
+        # of the full table at each store is slow in a block with many stores.
         def remember(known, i)
           v, addr = i.args
           at = slot(addr, i.offset)
@@ -422,8 +418,8 @@ module Zr
           known[at] = [v, width]
         end
 
-        # Whether the load reads what a remembered store put, whole and
-        # as the same type.
+        # Whether the load reads all of a known store's value, with the same
+        # type.
         def forwarded(known, i)
           at = slot(i.args[0], i.offset)
           return false unless at && (held = known[at])
@@ -436,18 +432,17 @@ module Zr
         end
       end
 
-      # A branch on a conjunction is a chain of branches: `brif (band a,
-      # c) T F` becomes `brif a mid F; mid: brif c T F`, and `bor` the
-      # same the other way round, so the backend fuses each compare with
-      # its own branch and the second test runs only when it decides.
-      # What moves into `mid` is `c`'s own chain: the instructions of the
-      # block that nothing but that chain reads, all of them without
-      # effect. A load moves only when no call or store follows it in
-      # the block, since it would then read after them; a chain that
-      # cannot move, or a `c` made elsewhere, stays computed ahead of
-      # both branches, which it was. Both halves are split in turn, so
-      # `a || b || c` is three branches. `Zr::Lower::Function` writes this shape at
-      # every gated operator: the fixnum test and the gate test joined.
+      # Changes a branch on a conjunction into a chain of branches:
+      # `brif (band a, c) T F` becomes `brif a mid F; mid: brif c T F`. `bor`
+      # is the same with the arms swapped. The backend then fuses each compare
+      # with its branch, and the second test runs only when it is necessary.
+      # The chain of `c` moves into `mid`: the instructions of the block that
+      # only that chain reads, all without effects. A load moves only when no
+      # call or store follows it in the block. If the chain cannot move, or
+      # `c` comes from a different block, `c` stays before both branches.
+      # The pass splits both halves again, so `a || b || c` becomes three
+      # branches. `Zr::Lower::Function` makes this shape at each gated
+      # operator: the fixnum test and the gate test.
       class Chains
         MOVABLE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast
                       fcvt_from_sint fcvt_to_sint_sat] +
@@ -461,8 +456,8 @@ module Zr
 
         def run
           @uses = @f.analysis.uses
-          # A split leaves two branches to look at again: the block's,
-          # now on the first operand, and `mid`'s on the second.
+          # A split gives two branches to examine again: the branch of the block
+          # (now on the first operand), and the branch of `mid` (on the second).
           work = @f.blocks.dup
           until work.empty?
             b = work.pop
@@ -474,7 +469,7 @@ module Zr
 
         private
 
-        # The block the second test went to, or nil.
+        # Returns the block of the second test, or nil.
         def split(b)
           br = b.insts.last
           return unless br.op == :brif
@@ -483,25 +478,25 @@ module Zr
           return unless gate && (gate.op == :band || gate.op == :bor) && @uses.fetch(gate.results[0], 0) == 1
 
           first, second = gate.args
-          # A second operand read elsewhere too (`GVN` makes one of two
-          # alike) stays where it is, computed ahead of both branches;
-          # only one read by the gate alone moves behind the first test.
+          # If other instructions also read the second operand (`GVN` can merge
+          # two equal values), it stays before both branches. Only an operand
+          # that only the gate reads moves after the first test.
           moved = (@uses.fetch(second, 0) == 1 && chain_of(b, second, b.insts.index(gate))) || []
           yes, no = br.targets
           mid = @f.block_after(b)
           mid.insts.concat(moved)
           mid.insts << Inst.new(:brif, args: [second], targets: [yes, no])
           b.insts.reject! { |i| i.equal?(gate) || moved.any? { |m| m.equal?(i) } }
-          # `a && c` asks about `c` only when `a` holds; `a || c` only
-          # when it does not.
+          # `a && c` tests `c` only when `a` is true; `a || c` only when `a` is
+          # false.
           to_mid = [mid.name, []]
           b.insts[-1] = Inst.new(:brif, args: [first], targets: gate.op == :band ? [to_mid, no] : [yes, to_mid])
           mid
         end
 
-        # The instructions of `b` before index `stop` that make `v` and
-        # feed nothing else, in order, or nil when `v` is not made in `b`
-        # or its chain cannot move.
+        # Returns, in order, the instructions of `b` before index `stop` that
+        # make `v` and feed nothing else. Returns nil when `v` is not made in
+        # `b` or its chain cannot move.
         def chain_of(b, v, stop)
           by_result = {}
           b.insts.first(stop).each { |i| by_result[i.results[0]] = i if i.results[0] }
@@ -521,18 +516,18 @@ module Zr
               work << d if d && @uses.fetch(a, 0) == 1 && IR.value?(a)
             end
           end
-          # Only what the chain alone reads may move: a value read once
-          # is read by the chain, since its reader is in it.
+          # Only values that the chain alone reads can move. A value with one
+          # reader is read by the chain, because its reader is in the chain.
           b.insts.first(stop).select { |i| moved.key?(i.object_id) }
         end
       end
 
-      # The blocks: one the entry does not reach goes; one that only
-      # jumps on, taking nothing, is jumped past; one with a single
-      # predecessor whose only successor it is joins that predecessor,
-      # its parameters standing for the arguments the jump carried. Each
-      # round can make the next one's work, so the rounds go on until
-      # nothing moves. The entry block stays first and is never joined.
+      # Simplifies the blocks. The pass removes a block that the entry does
+      # not reach. It skips a block that only jumps and has no parameters. It
+      # joins a block to its single predecessor when the block is the only
+      # successor of that predecessor; the block parameters become the jump
+      # arguments. One round can make work for the next, so rounds continue
+      # until nothing changes. The entry block stays first and is never joined.
       class Blocks
         include Renaming
 
@@ -552,7 +547,7 @@ module Zr
         private
 
         # `{ name => [[block, k], ...] }`: each edge into a block, as the
-        # predecessor and which of its targets.
+        # predecessor and the index of the target.
         def edges
           into = Hash.new { |h, k| h[k] = [] }
           @f.blocks.each do |b|
@@ -561,7 +556,7 @@ module Zr
           into
         end
 
-        # The blocks in reverse postorder are the reached ones.
+        # The blocks in reverse postorder are the reachable blocks.
         def unreachable
           reached = @f.analysis.rpo
           return false if reached.size == @f.blocks.size
@@ -592,12 +587,12 @@ module Zr
           changed
         end
 
-        # Every such block joined in one round, in layout order: a block
-        # that takes another's instructions takes its edges out too, so a
-        # later block whose predecessor was joined joins the block that
-        # took it. A predecessor laid out after the block it takes moves
-        # up into that block's place: the layout keeps every definition
-        # ahead of the blocks it dominates, which `Types` walks it for.
+        # Joins all such blocks in one round, in layout order. A block that
+        # takes the instructions of another block also takes its outgoing
+        # edges. So a later block whose predecessor was joined joins the block
+        # that took it. A predecessor after its successor in the layout moves up
+        # to the successor's position. Thus each definition stays before the
+        # blocks that it dominates, which `Types` needs.
         def merge
           into = edges
           joined = {}.compare_by_identity
@@ -637,17 +632,18 @@ module Zr
         end
       end
 
-      # Dead code: an instruction with a result nothing reads and no
-      # effect is removed, to a fixpoint, so a chain of them goes at once.
-      # A call, a store and a terminator stay whatever their results.
+      # Dead code elimination. The pass removes an instruction with no
+      # effect whose result nothing reads. It continues to a fixpoint, so it
+      # removes a full chain in one run. A call, a store and a terminator
+      # always stay.
       class DCE
         PURE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast load
                    fcvt_from_sint fcvt_to_sint_sat] +
                 Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS + Inst::PAIRS).to_set.freeze
 
-        # Each value's readers counted once; an instruction found dead
-        # takes one reader off each of its operands, and an operand's
-        # instruction left with none is dead in turn.
+        # Counts the readers of each value one time. When the pass removes an
+        # instruction, it subtracts one reader from each operand. An operand
+        # with zero readers is then dead.
         def self.run(f)
           readers = f.analysis.uses.dup
           readers.default = 0
@@ -675,21 +671,20 @@ module Zr
 
         def self.unread?(i, readers) = PURE.include?(i.op) && i.results.none? { |r| readers[r].positive? }
       end
-      # The small leaf functions of a unit, inlined where they are called:
-      # a callee with no call, at most LIMIT instructions and at most
-      # SLOT_BYTES of stack (a value's type or class, a frozen test, which
-      # the kernel's own inlining leaves as calls when they loop) is
-      # copied into the caller, its parameters standing for the arguments,
-      # its slots made the caller's own, and each `return` a jump to the
-      # block after the call, which takes the answer as its parameter. A
-      # callee's own calls are inlined first, so what is then a leaf
-      # (zr_class_of after zr_fixnum_p) serves its callers as one; a cycle
-      # is left as calls. A function stays in the unit whatever was copied
-      # out of it, since the unit exports it.
+      # Inlines the small leaf functions of a unit at their call sites. A leaf
+      # has no call, at most LIMIT instructions and at most SLOT_BYTES of
+      # stack (for example a type or class test, or a frozen test, that the
+      # kernel leaves as a call in a loop). The pass copies the callee into
+      # the caller: the parameters become the arguments, the slots become
+      # caller slots, and each `return` becomes a jump to the block after the
+      # call, which takes the result as its parameter. The pass inlines the
+      # calls in a callee first, so a callee can become a leaf (zr_class_of
+      # after zr_fixnum_p). A cycle stays as calls. The original function
+      # stays in the unit, because the unit exports it.
       class Inline
         LIMIT = 24
-        # Every site the callee is copied to holds its slots, so a large
-        # buffer stays behind a call.
+        # Each call site gets a copy of the callee slots, so a callee with a
+        # large buffer stays a call.
         SLOT_BYTES = 128
 
         def self.run(functions) = new(functions).run
@@ -706,8 +701,8 @@ module Zr
 
         private
 
-        # Whether the function named is a leaf small enough to inline,
-        # once its own calls are inlined.
+        # Whether the function is a leaf that is small enough to inline, after
+        # its own calls are inlined.
         def settle(name)
           case @state[name]
           when :leaf then return true
@@ -720,8 +715,8 @@ module Zr
           @state[name] == :leaf
         end
 
-        # No call, few enough instructions, and little stack in the slots
-        # still read (a slot Mem2Reg promoted away is none).
+        # No call, not too many instructions, and little stack in the slots that
+        # are still read (a slot that Mem2Reg promoted does not count).
         def leaf?(f)
           count = 0
           read = []
@@ -747,7 +742,7 @@ module Zr
           f.changed!(:cfg) if expanded
         end
 
-        # A call in `f` to a function this pass inlines: its block, the
+        # A call in `f` to a function that this pass inlines: its block, the
         # index of the call, the call and the callee.
         def site_in(f)
           f.blocks.each do |b|
@@ -766,12 +761,12 @@ module Zr
           nil
         end
 
-        # The call at `k` of `b` replaced by a copy of `target`: `b` ends
-        # in a jump to the copy of the entry, whose parameters are the
-        # arguments themselves when no block of `target` jumps back to its
-        # entry (so a constant argument folds in the copy), else carried
-        # by the jump; what followed the call moves to a block after the
-        # copy, whose parameter is the call's result.
+        # Replaces the call at `k` of `b` with a copy of `target`. `b` ends
+        # with a jump to the copy of the entry. If no block of `target` jumps
+        # back to its entry, the entry parameters become the arguments (so a
+        # constant argument folds in the copy). If not, the jump passes them.
+        # The instructions after the call move to a block after the copy. That
+        # block takes the result of the call as its parameter.
         def expand(f, b, k, call, target)
           rest = f.block_after(b)
           rest.insts.concat(b.insts[(k + 1)..])

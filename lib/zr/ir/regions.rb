@@ -4,24 +4,23 @@ require_relative "effects"
 
 module Zr
   module IR
-    # What a pass that keeps a value read from memory across other
-    # instructions asks of them: the region a load or a store reaches,
-    # and the regions a block's instructions may write. `GVN` and
-    # `LICM` share it.
+    # Region helpers for a pass that keeps a loaded value across other
+    # instructions: the region of a load or a store, and the regions that
+    # the instructions of a block can write. `GVN` and `LICM` use them.
     #
-    # A load or a store with no region of its own is placed by its
-    # address where that is a static's or a slot's, with a constant
-    # added: a static's word has its region (`Effects.static_region`),
-    # a slot is `:slot`, which `Forward` and `Mem2Reg` reason about by
-    # address. One placed nowhere may reach anything.
+    # A load or a store with no region gets one from its address, when the
+    # address is a static or a slot plus a constant. A static word gets its
+    # region from `Effects.static_region`. A slot is `:slot`, which
+    # `Forward` and `Mem2Reg` handle by address. An access with no region
+    # and an unknown address can reach any region.
     #
-    # The including pass sets `@f`, `@placed` (from `placements`) and
-    # `@effects`, `{ callee => bits }`.
+    # The pass that includes this module sets `@f`, `@placed` (from
+    # `placements`) and `@effects` (`{ callee => bits }`).
     module Regions
       private
 
-      # `{ value => [root, offset] }` for every value that is a slot's
-      # address (root `:slot`) or a symbol's, or a constant past one.
+      # `{ value => [root, offset] }` for each value that is the address of a
+      # slot (root `:slot`) or of a symbol, or one of these plus a constant.
       def placements
         symbol_of = @f.globals.to_h { |g| [g.gv, g.symbol] }
         const = {}
@@ -49,8 +48,8 @@ module Zr
         placed
       end
 
-      # The region of the load or store `i` through `addr`: its own, or
-      # the static's or the slot's its address is placed in, or nil.
+      # The region of the load or store `i` through `addr`: its own region,
+      # or the region of the static or slot at its address, or nil.
       def region_of(i, addr)
         return i.region if i.region
 
@@ -61,13 +60,13 @@ module Zr
         Effects.static_region(root, at + i.offset) || :statics
       end
 
-      # What the store `i` may write: its region's bit, or everything.
+      # The regions that the store `i` can write: the bit of its region, or all.
       def write_bits(i)
         region = region_of(i, i.args[1])
         region ? Effects.bit(region) : Effects::ALL
       end
 
-      # The region bits `b`'s own instructions may write.
+      # The region bits that the instructions of `b` can write.
       def writes_of(b)
         bits = 0
         insts = b.insts

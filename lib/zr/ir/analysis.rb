@@ -4,30 +4,27 @@ require_relative "inst"
 
 module Zr
   module IR
-    # What the passes ask about a function's shape, answered once and
-    # kept: each block's predecessors, the blocks in reverse postorder,
-    # the dominator tree with its pre- and post-numbers (so `dominates?`
-    # is two compares), how many times each value is read, and the
-    # natural loops. `Function#analysis` keeps one until a pass says the
-    # function changed.
+    # Facts about the shape of a function, calculated one time and kept:
+    # the predecessors of each block, the blocks in reverse postorder, the
+    # dominator tree with pre- and post-numbers (so `dominates?` is two
+    # compares), the number of reads of each value, and the natural loops.
+    # `Function#analysis` keeps one until a pass reports a change.
     #
-    # The protocol is explicit. A pass that edits the graph -- adds,
-    # removes or re-targets a block or an edge -- calls
-    # `f.changed!(:cfg)`, and the next `analysis` is built again. One
-    # that edits instructions alone calls `f.changed!(:insts)`: the
-    # graph's answers stay and the use counts go. A pass that edits and
-    # says nothing is caught by `Verify::Strict`, which builds the
-    # answers again and refuses a kept one that differs, so a missed
-    # `changed!` cannot pass the checks.
+    # A pass that adds, removes or retargets a block or an edge calls
+    # `f.changed!(:cfg)`, and the next `analysis` is calculated again. A
+    # pass that changes only instructions calls `f.changed!(:insts)`: the
+    # graph facts stay and the use counts are cleared. `Verify::Strict`
+    # calculates the facts again and rejects a kept analysis that is
+    # different, so a missing `changed!` fails the tests.
     #
-    # Each answer is made when first asked, so a pass that wants the
-    # predecessors alone never pays for the dominators. Every answer
-    # names blocks by name, since a pass holds names; `rpo` holds the
-    # blocks themselves, since a walk wants their instructions.
+    # Each fact is calculated at its first use, so a pass that needs only
+    # the predecessors does not calculate the dominators. Facts refer to
+    # blocks by name, because passes use names. `rpo` contains the blocks
+    # themselves, because a walk needs their instructions.
     class Analysis
-      # A natural loop: its header, every block in it (the header
-      # first), the blocks whose back edge closes it, and how many loops
-      # hold it, itself counted.
+      # A natural loop: its header, all its blocks (header first), the
+      # blocks whose back edge closes it, and its depth (the number of loops
+      # that contain it, itself included).
       class Loop
         attr_reader :header, :body, :latches
         attr_accessor :depth
@@ -53,9 +50,9 @@ module Zr
         @depth = nil
       end
 
-      # `{ block name => [predecessor name, ...] }`, an edge an entry: a
-      # block a `brif` reaches on both arms lists that predecessor
-      # twice. Every block has an entry, the unreached with none.
+      # `{ block name => [predecessor name, ...] }`, one entry for each edge.
+      # A block that a `brif` reaches on both arms lists that predecessor two
+      # times. Each block has an entry; an unreachable block has an empty list.
       def preds
         @preds ||= begin
           into = @f.blocks.to_h { |b| [b.name, []] }
@@ -64,24 +61,23 @@ module Zr
         end
       end
 
-      # The blocks the entry reaches, in reverse postorder: a block
-      # before every block it dominates, a loop's header before its
-      # body. A block nothing reaches is not here.
+      # The blocks that the entry reaches, in reverse postorder: a block
+      # comes before each block that it dominates, and a loop header comes
+      # before its body. Unreachable blocks are not included.
       def rpo
         @rpo ||= postorder.reverse
       end
 
-      # `{ block name => immediate dominator's name }` over the reached
-      # blocks, the entry's nil: Cooper, Harvey and Kennedy's iterative
-      # walk over the reverse postorder.
+      # `{ block name => immediate dominator name }` for the reachable
+      # blocks; nil for the entry. This is the iterative algorithm of Cooper,
+      # Harvey and Kennedy over the reverse postorder.
       def idom
         @idom ||= dominators
       end
 
-      # Whether `a` dominates `b` (a block dominates itself): two
-      # compares of the dominator tree's pre- and post-numbers. A block
-      # the entry does not reach dominates nothing and is dominated by
-      # nothing.
+      # Whether `a` dominates `b` (a block dominates itself): two compares of
+      # the pre- and post-numbers of the dominator tree. An unreachable block
+      # dominates nothing, and nothing dominates it.
       def dominates?(a, b)
         number unless @pre
         pa = @pre[a]
@@ -91,9 +87,9 @@ module Zr
         pa <= pb && @post[b] <= @post[a]
       end
 
-      # `{ value => how many operands read it }`, a jump's arguments
-      # counted with the instructions'. A value nothing reads has no
-      # entry: `uses.fetch(v, 0)`.
+      # `{ value => number of operands that read it }`, jump arguments
+      # included. A value that nothing reads has no entry: use
+      # `uses.fetch(v, 0)`.
       def uses
         @uses ||= begin
           counts = Hash.new(0)
@@ -108,30 +104,30 @@ module Zr
         end
       end
 
-      # The natural loops, outermost first: one a header, from every
-      # back edge (an edge to a block that dominates its source), the
-      # body being every block that reaches a latch without passing the
-      # header. Two back edges to one header make one loop.
+      # The natural loops, outermost first, one for each header. Each back
+      # edge (an edge to a block that dominates its source) adds to a loop.
+      # The body is each block that reaches a latch without the header. Two
+      # back edges to one header make one loop.
       def loops
         @loops ||= natural_loops
       end
 
-      # How many loops hold `block`: 0 outside every loop.
+      # The number of loops that contain `block`: 0 when outside all loops.
       def depth_of(block)
         loops unless @depth
         @depth.fetch(block, 0)
       end
 
-      # What `changed!(:insts)` keeps: the graph's answers stay, the
-      # use counts go.
+      # What `changed!(:insts)` keeps: the graph facts stay, and the use
+      # counts are cleared.
       def insts_changed!
         @uses = nil
         self
       end
 
-      # Whether `other`, built again from the function, answers as this
-      # one does for what this one was asked: the strict check's
-      # question of a kept analysis.
+      # Whether `other`, calculated again from the function, gives the same
+      # values for the facts that this one calculated. The strict check uses
+      # this on a kept analysis.
       def same_as?(other)
         (@preds.nil? || @preds == other.preds) &&
           (@rpo.nil? || @rpo.map(&:name) == other.rpo.map(&:name)) &&
@@ -201,8 +197,8 @@ module Zr
         a
       end
 
-      # The dominator tree's pre- and post-numbers, from one walk of
-      # it. A child is a block whose immediate dominator this is.
+      # The pre- and post-numbers of the dominator tree, from one walk. A
+      # child of a block is a block whose immediate dominator is that block.
       def number
         children = Hash.new { |h, k| h[k] = [] }
         idom.each { |b, d| children[d] << b if d }
@@ -238,8 +234,8 @@ module Zr
           end
         end
         loops = by_header.values
-        # A loop's depth is how many loops hold its header; a block's
-        # is its innermost loop's.
+        # The depth of a loop is the number of loops that contain its header.
+        # The depth of a block is the depth of its innermost loop.
         @depth = {}
         loops.each { |l| l.depth = loops.count { |o| o.body.include?(l.header) } }
         loops.sort_by!(&:depth)
@@ -247,8 +243,8 @@ module Zr
         loops
       end
 
-      # Every block that reaches `from` backwards without passing the
-      # loop's header joins the body.
+      # Adds to the body each block that reaches `from` backwards without the
+      # loop header.
       def collect(loop, from)
         seen = loop.body.to_h { |b| [b, true] }
         work = [from]

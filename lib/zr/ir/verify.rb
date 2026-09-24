@@ -6,13 +6,13 @@ require_relative "types"
 
 module Zr
   module IR
-    # The checks every function passes before an emitter sees it: every
-    # block ends in a terminator, every branch names a block and passes as
-    # many arguments as it takes, and every value used is defined once.
-    # Under `strict` also: every use is dominated by its definition,
-    # every argument a jump carries has its parameter's type, and every
-    # operand has the type its opcode takes (`Strict::OPERANDS`). A
-    # failure names the function and the instruction.
+    # The checks for each function before an emitter gets it: each block
+    # ends in a terminator, each branch targets a block and passes the
+    # correct number of arguments, and each used value has one definition.
+    # With `strict`, also: each definition dominates its uses, each jump
+    # argument has the type of its parameter, and each operand has the type
+    # that its opcode takes (`Strict::OPERANDS`). A failure message gives
+    # the function and the instruction.
     module Verify
       class Error < StandardError; end
 
@@ -54,11 +54,11 @@ module Zr
         defined[v] = block
       end
 
-      # Dominance and types, over `IR::Analysis`; a use in a block the
-      # entry does not reach is not checked, since nothing runs it. An
-      # analysis the function kept is held to one built afresh: a pass
-      # that changed the function and did not say `changed!` is refused
-      # here, so the kept answers can be trusted everywhere else.
+      # Checks dominance and types with `IR::Analysis`. A use in an
+      # unreachable block is not checked, because it never runs. A kept
+      # analysis is checked against a new one, so a pass that changed the
+      # function without `changed!` fails here. Thus all other code can trust
+      # a kept analysis.
       class Strict
         INTEGERS = %w[i8 i32 i64].freeze
 
@@ -101,7 +101,7 @@ module Zr
 
         private
 
-        # An analysis built now, and the function's kept one held to it.
+        # Makes a new analysis, and checks the kept analysis against it.
         def fresh
           built = Analysis.new(@f)
           if @f.analysis? && !@f.analysis.same_as?(built)
@@ -111,13 +111,12 @@ module Zr
           built
         end
 
-        # The types an opcode's operands must have, checked against
-        # what `Types` says each value is. An immediate operand has no
-        # type and is not checked. A binary integer opcode takes its
-        # result's type on both sides -- an `i8` compared with an `i64`
-        # is what #43 was, and no backend reads it the same way; a shift
-        # takes any integer amount. A call's arguments have the
-        # signature's parameter types, a return the function's.
+        # Checks the operand types of an opcode against the types from `Types`.
+        # An immediate operand has no type and is not checked. A binary integer
+        # opcode takes its result type on both sides: backends read an `i8`
+        # compared with an `i64` differently (see #43). A shift takes an amount
+        # of any integer type. Call arguments have the parameter types of the
+        # signature, and a return has the return type of the function.
         def operands(i, b)
           case i.op
           when *Inst::BINOPS, *Inst::PAIRS
@@ -155,8 +154,8 @@ module Zr
           args.zip(params) { |a, want| typed(i, b, a, want) }
         end
 
-        # `a` has type `want`, or is an immediate. `to` names the block
-        # a jump passes `a` to.
+        # `a` has type `want`, or is an immediate. `to` is the block that a
+        # jump passes `a` to.
         def typed(i, b, a, want, to: nil)
           got = type_of(a) or return
           return if want.nil? || got == want
@@ -170,8 +169,8 @@ module Zr
           raise Error, "#{@f.name}: #{b.name} #{i.op} takes #{a} (#{got}) where an integer is wanted" unless INTEGERS.include?(got)
         end
 
-        # `a`'s width is more than `type`'s (a reduce), or less than
-        # `to`'s (an extend).
+        # The width of `a` is more than the width of `type` (a reduce), or less
+        # than the width of `to` (an extend).
         def narrower(i, b, type, a, to: nil)
           got = type_of(a) or return
           from, into = to ? [got, to] : [type, got]
