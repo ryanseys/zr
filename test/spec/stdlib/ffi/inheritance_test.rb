@@ -393,9 +393,7 @@ describe "FFI: inheritance and ancestors" do
     OUT
   end
 
-  it "ffi_lib takes candidates only the running process can name, resolving at class-body time" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "ffi_lib takes candidates only the running process can name, resolving at class-body time", only: "macos" do
     result = zr(<<~'RUBY')
 
       # An `ffi_lib` whose candidates zr cannot fold (an ENV read, a local, a

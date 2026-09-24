@@ -318,6 +318,43 @@ module Zr
       end
     end
 
+    # `it "...", needs: "libssl"` and `it "...", only: "macos"` skip an
+    # example that this machine cannot run. The guard runs before the
+    # example, so the example's method keeps the source location of its
+    # block: the default path and the baseline key read it.
+    module Guards
+      # The class side, prepended to `Minitest::Spec.singleton_class`.
+      module It
+        def it(desc = "anonymous", needs: nil, only: nil, &)
+          name = super(desc, &)
+          guards[name] = [Array(needs), Array(only)] if needs || only
+          name
+        end
+
+        def guards = @guards ||= {}
+
+        def guard_of(name)
+          guards.fetch(name) { superclass.respond_to?(:guard_of) ? superclass.guard_of(name) : nil }
+        end
+      end
+
+      # Returns the reason to skip, or nil. The reader gives the same
+      # reasons (`Reader::Sandbox#it`).
+      def self.unmet(needs, only, platform)
+        return "runs only on #{only.join(", ")}" unless only.empty? || only.include?(platform)
+
+        need = needs.find { |name| !Harness::Needs.met?(name, platform) }
+        "needs #{need}" if need
+      end
+
+      def before_setup
+        super
+        needs, only = self.class.guard_of(name)
+        why = needs && Guards.unmet(needs, only, Spec.platform)
+        skip why if why
+      end
+    end
+
     # The spec DSL. `zr "puts 1"` returns a Result, or skips when zr
     # refuses the program or cannot build it.
     module DSL

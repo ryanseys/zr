@@ -102,6 +102,26 @@ it "names the platform" do
 end
 ```
 
+## A guard
+
+An example that needs something this machine may not have gives it to
+`it`. The example skips when the machine does not have it:
+
+```ruby
+it "signs with a key", needs: "libssl" do
+  # ...
+end
+
+it "reads a Mach-O header", only: "macos" do
+  # ...
+end
+```
+
+`needs:` names items from `Zr::Harness::Needs`, as the e2e `needs:` key
+does. `only:` names platforms (`macos`, `linux`, `wasi`). Both take one
+name or a list. The reader (`rake oracle`, `rake spec:verify`) takes
+each `needs:` as met and reads `only:` against the host.
+
 ## A gap
 
 An example that zr cannot pass yet stays in its place, with a `skip`

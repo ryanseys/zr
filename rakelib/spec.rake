@@ -15,27 +15,20 @@
 # they have the same meaning. The full suite fingerprints in seconds.
 #
 # Limits: the reader does not see anything outside an example (file
-# comments, `require` lines, blank lines). It evaluates a guard
-# (`Zr::Spec.platform`) once, on one branch only. Thus it shows that the
+# comments, `require` lines, blank lines). It reads a guard (`only:`)
+# against this host only. Thus it shows that the
 # meaning is the same, not that the file is the same. Use it with
 # `rake oracle`, which checks each example against ruby.
 
 module SpecNet
   ROOT = File.expand_path("..", __dir__)
 
-  # The machine facts that a guard reads. The real methods are in
-  # `test/support/spec.rb`, which loads the whole compiler. These tasks
-  # compile nothing, so they give their own values, as `rake oracle` does.
-  def self.stub!
-    # The requires are here, not at the top of the file, because rake
-    # loads each file in `rakelib/` for `rake -T` and for each test run.
+  # Loads the reader. The requires are here, not at the top of the
+  # file, because rake loads each file in `rakelib/` for `rake -T` and
+  # for each test run.
+  def self.load!
     require "digest"
     require_relative "../test/support/reader"
-    return if defined?(Zr::Spec.platform)
-
-    Zr.const_set(:Spec, Module.new) unless Zr.const_defined?(:Spec, false)
-    Zr::Spec.define_singleton_method(:platform) { "macos" }
-    Zr::Spec.define_singleton_method(:need?) { |_name| true }
   end
 
   module_function
@@ -92,7 +85,7 @@ end
 namespace :spec do
   desc "A digest per example, to diff a rewrite against: rake spec:fingerprint > before.txt"
   task :fingerprint, [:path] do |_, args|
-    SpecNet.stub!
+    SpecNet.load!
     argv = args[:path].to_s.split
     argv = ["test/spec"] if argv.empty?
     n = 0
@@ -104,7 +97,7 @@ namespace :spec do
 
   desc "What moved since a revision: rake 'spec:verify[HEAD]', or '[HEAD --renames]' to allow new sentences"
   task :verify, [:args] do |_, args|
-    SpecNet.stub!
+    SpecNet.load!
     require "tmpdir"
     argv = args[:args].to_s.split
     renames = argv.delete("--renames")
@@ -345,7 +338,7 @@ end
 namespace :spec do
   desc "Which bundled examples can be split, and into what: rake 'spec:split[test/spec/core/hash]'"
   task :split, [:path] do |_, args|
-    SpecNet.stub!
+    SpecNet.load!
     argv = args[:path].to_s.split
     argv = ["test/spec"] if argv.empty?
 
@@ -416,7 +409,7 @@ end
 namespace :spec do
   desc "What ruby answers for a candidate program: rake 'spec:ask[<spec_file> <program.rb>]'"
   task :ask, [:args] do |_, args|
-    SpecNet.stub!
+    SpecNet.load!
     argv = args[:args].to_s.split
     borrow = nil
     OptionParser.new { |o| o.on("-n NAME", "borrow this example's keywords") { |v| borrow = v } }.parse!(argv)

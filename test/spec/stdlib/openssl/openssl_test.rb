@@ -3,9 +3,7 @@
 require "spec_helper"
 
 describe "OpenSSL programs" do
-  it "asn1 values encode and decode as der" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "asn1 values encode and decode as der", needs: "libssl" do
     result = zr(<<~'RUBY')
       # OpenSSL::ASN1 over the host's libssl: values encode to the DER ruby
       # writes, decode back to the same classes, and malformed input raises
@@ -134,9 +132,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "certificate chain verifies through a store" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "certificate chain verifies through a store", needs: "libssl" do
     result = zr(<<~'RUBY')
       # X509 over the host's libssl: a root and a leaf made here, a CSR, a CRL
       # that revokes a second leaf, and a Store that verifies the chain at a
@@ -288,9 +284,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "https keepalive request completes" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "https keepalive request completes", needs: "libssl" do
     result = zr(<<~'RUBY')
       # `OpenSSL::Buffering#read_nonblock` is aliased to `readpartial`, and that
       # alias breaks its contract in three ways. The consequence is that an HTTPS
@@ -393,9 +387,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "keys sign derive and export through the library" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "keys sign derive and export through the library", needs: "libssl" do
     result = zr(<<~'RUBY')
       # PKey over the host's libssl: Ed25519 from fixed bytes answers fixed
       # signatures; RSA, EC, DSA and DH keys generate, sign, derive and export,
@@ -528,9 +520,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "ocsp response answers its request" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "ocsp response answers its request", needs: "libssl" do
     result = zr(<<~'RUBY')
       # OCSP over the host's libssl: a request for two certificates with a
       # nonce, a responder that answers one good and one revoked, and a client
@@ -643,9 +633,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "BN builds from every integer form, converts back, and reports its encodings" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "BN builds from every integer form, converts back, and reports its encodings", needs: "libssl" do
     result = zr(<<~'RUBY')
       # OpenSSL::BN over the vendored libcrypto BIGNUM. BN#inspect is the plain
       # object form (address-bearing), so the golden prints values through
@@ -799,9 +787,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "Buffering is a real module over sysread and syswrite, and it owns the read surface" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "Buffering is a real module over sysread and syswrite, and it owns the read surface", needs: "libssl" do
     result = zr(<<~'RUBY')
       # `OpenSSL::Buffering` is a real module, mixed into SSLSocket, that supplies
       # the whole read/write surface over the receiver's `sysread`/`syswrite`/
@@ -996,9 +982,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "Cipher reports its metadata and round-trips CBC, and a legacy name fails at new" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "Cipher reports its metadata and round-trips CBC, and a legacy name fails at new", needs: "libssl" do
     result = zr(<<~'RUBY')
       # OpenSSL::Cipher over the vendored libcrypto EVP. Legacy-provider names
       # (RC4, BF-CBC) fail at new under OpenSSL 3, in zr as under CRuby.
@@ -1463,9 +1447,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "secure_compare is length-independent, and fixed_length_secure_compare demands equal lengths" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "secure_compare is length-independent, and fixed_length_secure_compare demands equal lengths", needs: "libssl" do
     result = zr(<<~'RUBY')
       require "openssl"
 
@@ -1495,9 +1477,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "the constants, the context defaults and an unconnected SSLSocket all answer offline" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "the constants, the context defaults and an unconnected SSLSocket all answer offline", needs: "libssl" do
     result = zr(<<~'RUBY')
       # OpenSSL::SSL's offline surface: constants, context configuration, and an
       # unconnected SSLSocket. A real handshake needs a network peer, so it is not
@@ -1620,9 +1600,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "an SSLSocket over an unconnected socket answers its configuration and forwards to the socket" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "an SSLSocket over an unconnected socket answers its configuration and forwards to the socket", needs: "libssl" do
     result = zr(<<~'RUBY')
       # The client-TLS surface that needs no network peer: an SSLSocket over an
       # unconnected socket answers its configuration and forwards the
@@ -1704,9 +1682,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "pkcs7 and pkcs12 sign encrypt and bundle" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "pkcs7 and pkcs12 sign encrypt and bundle", needs: "libssl" do
     result = zr(<<~'RUBY')
       # PKCS7 and PKCS12 over the host's libssl: a signed message verifies
       # against its signer, detached or attached; an enveloped message opens
@@ -2079,9 +2055,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "timestamp authority stamps and verifies" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "timestamp authority stamps and verifies", needs: "libssl" do
     result = zr(<<~'RUBY')
       # OpenSSL::Timestamp over the host's libssl: a request for a SHA-256
       # imprint, a factory that answers it with a token from a TSA certificate,
@@ -2213,9 +2187,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "tls handshake completes over loopback" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "tls handshake completes over loopback", needs: "libssl" do
     result = zr(<<~'RUBY')
       # SSL over the host's libssl: a server and a client in one process over
       # 127.0.0.1, with a certificate made here. The client verifies the peer
@@ -2345,9 +2317,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "yaml loads and entropy draws run concurrently under the armed gvl" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "yaml loads and entropy draws run concurrently under the armed gvl", needs: "libssl" do
     result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # The ext tail of the sweep: two threads Psych-load the same file
       # while a third draws OS entropy, all in ZR_TEST_GVL=1 mode.

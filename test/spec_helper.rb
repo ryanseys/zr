@@ -13,6 +13,8 @@ require_relative "support/spec"
 Minitest::Spec.include(Zr::Spec::DSL)
 Minitest::Expectation.include(Zr::Spec::Expectation)
 Minitest::Spec.include(Zr::Spec::Baselined)
+Minitest::Spec.include(Zr::Spec::Guards)
+Minitest::Spec.singleton_class.prepend(Zr::Spec::Guards::It)
 
 
 # Before the workers start: trim the kept binaries to their size limit.

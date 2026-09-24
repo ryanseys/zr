@@ -3,9 +3,7 @@
 require "spec_helper"
 
 describe "Socket: reading and writing" do
-  it "carries its exception hierarchy" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "carries its exception hierarchy", only: "macos" do
     result = zr(<<~'RUBY')
 
       # `SocketError` and `Socket::ResolutionError` are C classes in CRuby

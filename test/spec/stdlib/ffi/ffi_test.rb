@@ -60,9 +60,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "callback exception surfaces from the c call" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "callback exception surfaces from the c call", only: "macos" do
     result = zr(<<~'RUBY')
 
       # An IMP written in Ruby and installed with `class_addMethod`: Objective-C
@@ -1856,9 +1854,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "FFI::Platform reports the host's C ABI" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "FFI::Platform reports the host's C ABI", only: "macos" do
     result = zr(<<~'RUBY')
 
       # `FFI::Platform` answers the host's platform and C-ABI facts as CONSTANTS,
@@ -2714,9 +2710,7 @@ describe "FFI programs" do
     _(result).must_answer "hello\npid-ok\n"
   end
 
-  it "toplevel runs on the process main thread" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "toplevel runs on the process main thread", only: "macos" do
     result = zr(<<~'RUBY')
 
 
@@ -2769,9 +2763,8 @@ describe "FFI programs" do
     OUT
   end
 
-  it "a Thread runs off the process main thread" do
+  it "a Thread runs off the process main thread", only: "macos" do
     skip "a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it"
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
     result = zr(<<~'RUBY')
       require "ffi"

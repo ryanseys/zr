@@ -785,9 +785,7 @@ describe "FFI: formatting and inspection" do
     OUT
   end
 
-  it "FFI::Type::Builtin holds one object per canonical type, and LONG and INT64 are two" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "FFI::Type::Builtin holds one object per canonical type, and LONG and INT64 are two", only: "macos" do
     result = zr(<<~'RUBY')
 
       # `FFI::Type::Builtin` holds one instance per CANONICAL type, and the aliases

@@ -26,16 +26,6 @@ require_relative "../test/support/harness/answer"
 require_relative "../test/support/harness/child"
 require_relative "../lib/zr/native/parallel"
 
-# The machine facts that a guard reads. The real methods are in
-# `test/support/spec.rb`, which loads the whole compiler. This task
-# compiles nothing, so it gives its own values.
-module Zr
-  module Spec
-    def self.platform = "macos"
-    def self.need?(_name) = true
-  end
-end
-
 module Oracle
   ROOT = File.expand_path("..", __dir__)
 

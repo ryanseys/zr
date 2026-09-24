@@ -2119,9 +2119,7 @@ describe "Builtins programs" do
     OUT
   end
 
-  it "errno full surface" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "errno full surface", only: "macos" do
     result = zr(<<~'RUBY')
 
       # `Errno` is generated from one table (`Errno::CODES`), so every name

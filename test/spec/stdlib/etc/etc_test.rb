@@ -204,9 +204,7 @@ describe "Etc programs" do
     OUT
   end
 
-  it "passwd row carries darwins ten fields" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "passwd row carries darwins ten fields", only: "macos" do
     result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
 
       # darwin's struct passwd has ten fields Etc::Passwd carries, in the order

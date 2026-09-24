@@ -559,9 +559,7 @@ describe "IO programs" do
     OUT
   end
 
-  it "fcntl takes a struct in a string" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "fcntl takes a struct in a string", only: "macos" do
     result = zr(<<~'RUBY')
 
       # IO#fcntl passes a String as the struct a command reads and fills, as a

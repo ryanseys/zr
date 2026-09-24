@@ -421,9 +421,7 @@ describe "Builtins: reading and writing" do
     OUT
   end
 
-  it "io file stat rows" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "io file stat rows", only: "macos" do
     result = zr(<<~'RUBY')
 
       # The `IO`, `File` and `File::Stat` rows that answer facts the runtime already

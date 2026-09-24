@@ -20,9 +20,7 @@ describe "Object: searching and matching" do
     _(result).must_answer "false\ntrue\n"
   end
 
-  it "core method owners match" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "core method owners match", only: "macos" do
     result = zr(<<~'RUBY')
 
       # The methods each core class and module defines itself, by visibility,

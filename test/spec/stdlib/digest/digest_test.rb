@@ -515,9 +515,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "subclass of any native class" do
-    skip "needs libssl" unless Zr::Spec.need?("libssl")
-
+  it "subclass of any native class", needs: "libssl" do
     result = zr(<<~'RUBY')
       # Every built-in CLASS can be subclassed. zr used to keep an opt-in
       # allowlist of "payload roots", so a gem subclassing a native class nobody

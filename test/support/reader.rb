@@ -56,9 +56,14 @@ module Zr
         instance_eval(&block)
       end
 
-      def it(name, &block)
+      # A guard that this machine does not meet makes the example skip, as
+      # in the real DSL (`Zr::Spec::Guards`). The reader runs no program,
+      # so it takes each `needs:` as met; `only:` reads the host.
+      def it(name, needs: nil, only: nil, &block)
         @current = Example.new(name: name, about: @about, want: {})
         @seen << @current
+        only = Array(only)
+        skip("runs only on #{only.join(", ")}") unless only.empty? || only.include?(Reader.platform)
         instance_eval(&block)
       rescue StandardError => e
         @current.want[:error] = e
@@ -143,6 +148,9 @@ module Zr
     def path_for(spec_file)
       File.expand_path(spec_file, ROOT).delete_prefix("#{ROOT}/test/spec/")
     end
+
+    # The platform name of this host, as the recordings name it.
+    def platform = RUBY_PLATFORM.include?("darwin") ? "macos" : "linux"
 
     # Returns all examples in a spec file.
     def read(path)

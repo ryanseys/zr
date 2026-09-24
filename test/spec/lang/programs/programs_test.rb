@@ -364,9 +364,7 @@ describe "Whole programs" do
     OUT
   end
 
-  it "fiddle" do
-    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
-
+  it "fiddle", only: "macos" do
     result = zr(<<~'RUBY')
 
       require "fiddle"
