@@ -21,9 +21,10 @@ options of `run`, `build` or `machine`. `zr --version` and `zr -v` are
 the same as `zr version`.
 
 An option takes its value as the next word or after `=`: `--emit wasm`
-and `--emit=wasm` are the same. Options can come before or after
-`<file.rb>`. Put `--` before `<file.rb>` when the file name starts
-with `-`.
+and `--emit=wasm` are the same. For `build` and `machine`, options can
+come before or after `<file.rb>`. For `run`, options come before
+`<file.rb>`, because every word after it goes to the program. Put `--`
+before `<file.rb>` when the file name starts with `-`.
 
 zr builds only on ruby 4.0.6, the version that `.ruby-version` gives.
 On a different ruby, `run`, `build` and `machine` stop with exit
