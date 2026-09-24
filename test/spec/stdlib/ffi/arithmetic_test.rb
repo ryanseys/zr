@@ -129,11 +129,11 @@ describe "FFI: arithmetic" do
     _(result).must_answer "40\n"
   end
 
-  it "a program that attaches libc functions runs the same under CRuby with the gem and under zeo" do
+  it "a program that attaches libc functions runs the same under CRuby with the gem and under zr" do
     result = zr(<<~'RUBY')
       # Real `ffi` gem API, AOT-compiled (#204): `attach_function` emits a
       # compile-time `extern "C"` + `#[link]`; the program runs identically under
-      # CRuby+ffi and zeo.
+      # CRuby+ffi and zr.
       require "ffi"
 
       module LibC

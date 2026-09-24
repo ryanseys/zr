@@ -9,7 +9,7 @@ describe "Thread: frozen literals" do
       # and freezes like one; a Queue is the exception Ruby itself makes (freezing
       # one raises, since a frozen queue could never be pushed to again).
       #
-      # zeo's divergence: `freeze` on a Mutex/ConditionVariable is accepted but
+      # zr's divergence: `freeze` on a Mutex/ConditionVariable is accepted but
       # does not stick -- `frozen?` answers false immediately after. The handle
       # types live outside the `__frozen` AtomicBool convention generated instances
       # carry, so freeze has nowhere to record itself. (Spinel once had the same
@@ -113,7 +113,7 @@ describe "Thread: frozen literals" do
       # on them: equal? / eql? / == / != are pointer comparison and frozen? is
       # false.
       #
-      # zeo's divergences: (1) `x.equal?(x)` answers FALSE for Mutex, Queue and
+      # zr's divergences: (1) `x.equal?(x)` answers FALSE for Mutex, Queue and
       # SizedQueue -- each read of the variable hands out a fresh box and equal?
       # compares the box rather than the handle behind it (ConditionVariable,
       # Fiber and Thread compare the handle and answer true); (2) Fiber#raise on a
@@ -288,7 +288,7 @@ describe "Thread: frozen literals" do
       # Real Ractor move semantics: `send(obj, move: true)` hands the graph to the
       # receiver and poisons the source -- every later send to a moved object
       # raises Ractor::MovedError. (Sibling-duplicate husking and failed-move
-      # partial poisoning are CRuby traversal accidents zeo does not copy; this
+      # partial poisoning are CRuby traversal accidents zr does not copy; this
       # fixture stays on the well-defined surface.)
       $stderr.reopen(IO::NULL) # the experimental warning's file:line is the one nondeterminism
 

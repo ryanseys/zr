@@ -36,7 +36,7 @@ describe "Encoding: packing and unpacking" do
   it "big5 refuses cyrillic" do
     result = zr(<<~'RUBY')
       # Encoding Cyrillic to Big5: CRuby's strict Big5 has no Cyrillic rows and
-      # refuses with UndefinedConversionError; zeo's WHATWG table maps them (the
+      # refuses with UndefinedConversionError; zr's WHATWG table maps them (the
       # HKSCS-adjacent region), so it encodes MORE than ruby. The inverse
       # direction of the decided Big5-HKSCS divergence in docs/COMPATIBILITY.md.
       # (Found by the 2026-08-24 probe sweep.)
@@ -259,7 +259,7 @@ describe "Encoding: packing and unpacking" do
       w.binmode
       w.write("é")
       p [w.string.encoding.to_s, w.string.bytesize]
-      f = Tempfile.new("zeo_binmode")
+      f = Tempfile.new("zr_binmode")
       f.write("é")
       f.flush
       f.rewind
@@ -268,15 +268,15 @@ describe "Encoding: packing and unpacking" do
       f.binmode
       p [f.external_encoding.to_s, f.internal_encoding.inspect, f.read.encoding.to_s, f.binmode?]
       f.close!
-      g = File.open("/tmp/zeo_binmode_golden.bin", "wb")
+      g = File.open("/tmp/zr_binmode_golden.bin", "wb")
       g.write("\xff\xfe".b)
       g.close
-      p File.binread("/tmp/zeo_binmode_golden.bin").encoding.to_s
-      h = File.open("/tmp/zeo_binmode_golden.bin")
+      p File.binread("/tmp/zr_binmode_golden.bin").encoding.to_s
+      h = File.open("/tmp/zr_binmode_golden.bin")
       h.binmode
       p [h.external_encoding.to_s, h.read.encoding.to_s]
       h.close
-      File.delete("/tmp/zeo_binmode_golden.bin")
+      File.delete("/tmp/zr_binmode_golden.bin")
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -691,7 +691,7 @@ describe "Encoding: packing and unpacking" do
   it "euc jp encodes jis x 0212" do
     result = zr(<<~'RUBY')
       # Encoding "é" (and other Latin letters) to EUC-JP: CRuby reaches JIS X
-      # 0212 (the SS3 plane -- bytes 8f ab b1); zeo's encoder (encoding_rs's
+      # 0212 (the SS3 plane -- bytes 8f ab b1); zr's encoder (encoding_rs's
       # WHATWG table, which is decode-only for JIS X 0212) refuses with
       # UndefinedConversionError. Related to but distinct from the DECIDED
       # ISO-2022-JP divergence in docs/COMPATIBILITY.md. (Found by the
@@ -991,7 +991,7 @@ describe "Encoding: packing and unpacking" do
 
   it "print of binary chr strings reaches the file byte for byte" do
     result = zr(<<~'RUBY')
-      path = "/tmp/zeo_e2e_binprint_#{Process.pid}"
+      path = "/tmp/zr_e2e_binprint_#{Process.pid}"
       File.open(path, "wb") { |f| f.print 180.chr, 0.chr, 255.chr }
       p File.binread(path).bytes
       File.delete(path)
@@ -1005,7 +1005,7 @@ describe "Encoding: packing and unpacking" do
       # The second argument already ends in a newline BYTE -- `puts` must
       # not double it, and the 0xB5 byte must survive un-promoted.
 
-      path = "/tmp/zeo_e2e_binputs_#{Process.pid}"
+      path = "/tmp/zr_e2e_binputs_#{Process.pid}"
       File.open(path, "wb") { |f| f.puts 180.chr, (181.chr + "\n") }
       p File.binread(path).bytes
       File.delete(path)
@@ -1059,7 +1059,7 @@ describe "Encoding: packing and unpacking" do
       # `"ĀĀ"` where CRuby answers `"あ"`.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # A literal is emitted one byte at a time, so a character above 127 made each
       # of its bytes an atom of its own and a quantifier bound to the last one:

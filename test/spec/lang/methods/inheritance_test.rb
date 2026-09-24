@@ -149,7 +149,7 @@ describe "Methods: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A `def` nested in a `case`/`if` branch (a platform-conditional definition,
       # as in fileutils' StreamUtils_) is registered as an own method, so
-      # `instance_methods` and `extend` -- both resolved at compile time in zeo --
+      # `instance_methods` and `extend` -- both resolved at compile time in zr --
       # can see it. A branch the compiler folds away (`if false`) still defines
       # nothing, matching CRuby.
 
@@ -608,7 +608,7 @@ describe "Methods: inheritance and ancestors" do
       p u.super_method.bind(Leaf.new).call
 
       # Class methods walk the singleton chain the same way. Their `#owner` is a
-      # SINGLETON CLASS (`#<Class:Child>`), which zeo has no object for, so this
+      # SINGLETON CLASS (`#<Class:Child>`), which zr has no object for, so this
       # asserts the walk itself rather than the owner's spelling.
       class Parent
         def self.build = "parent"
@@ -851,7 +851,7 @@ describe "Methods: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `obj.extend(M)` seats M in THAT OBJECT's singleton ancestry, so the method
       # it supplies is owned by M -- the same rule that now holds for a class-level
-      # `extend` (see an_extended_modules_row_answers_as_the_modules_own.rb). zeo
+      # `extend` (see an_extended_modules_row_answers_as_the_modules_own.rb). zr
       # reports the object's CLASS instead.
       #
       # WHY. A class records the copies an `extend` made in
@@ -1132,10 +1132,10 @@ describe "Methods: inheritance and ancestors" do
 
   it "super from an extended module method resolves the singleton chain" do
     result = zr(<<~'RUBY')
-      # `extend M` puts M in the receiver's SINGLETON-class chain -- a `super`
-      # inside M's method used to panic the compiler ("not found in own
-      # ancestors"); it now resolves that chain statically (most recent extend
-      # first), falling back to the runtime walk for builtin defaults.
+      # `extend M` puts M in the receiver's SINGLETON-class chain, so a
+      # `super` inside M's method must resolve that chain (most recent
+      # extend first), falling back to the runtime walk for builtin
+      # defaults.
 
       module Base
         def greet
@@ -1501,7 +1501,7 @@ describe "Methods: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # Since ruby 3.0 the bind check reads the OWNER, and a MODULE owner imposes no
       # check at all: the receiver does not have to have the module in its ancestry.
-      # zeo read the class the method was FETCHED from and applied the class rule to
+      # zr read the class the method was FETCHED from and applied the class rule to
       # every owner, so both halves of that were wrong.
       M = Module.new { def nest = 1 }
       p M.instance_method(:nest).bind(Object.new).call

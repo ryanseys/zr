@@ -460,7 +460,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -497,7 +497,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -528,7 +528,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -569,7 +569,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -607,7 +607,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -648,7 +648,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -691,7 +691,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -716,7 +716,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -747,7 +747,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -777,7 +777,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -802,7 +802,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -848,7 +848,7 @@ describe "Date: formatting and inspection" do
       # so the order is part of the answer.
       #
       # Known divergence: a string with no date in it raises ArgumentError here where
-      # ruby raises `Date::Error`, a subclass of it that zeo does not model (the date
+      # ruby raises `Date::Error`, a subclass of it that zr does not model (the date
       # extension is native, with no Ruby half to declare the class in).
       require "date"
 
@@ -934,7 +934,7 @@ describe "Date: formatting and inspection" do
       p Date._strptime("50%", "%d%%")
 
       # What the gems actually call. `DateTime.strptime` is deliberately absent
-      # here: zeo's DateTime does not model sub-day fields at all, which predates
+      # here: zr's DateTime does not model sub-day fields at all, which predates
       # this scanner -- see tests/gaps/a_datetime_keeps_its_time_of_day.rb.
       p Date.strptime("2000-10-31", "%Y-%m-%d").to_s
       p Time.strptime("2013-05-24T00:00:00Z", "%Y-%m-%dT%H:%M:%S%Z").utc.iso8601
@@ -1032,7 +1032,7 @@ describe "Date: formatting and inspection" do
     result = zr(<<~'RUBY')
       # An operator redefined on a reopened builtin.
       #
-      # zeo rejected this for EVERY builtin, on the reasoning that a native operator
+      # zr rejected this for EVERY builtin, on the reasoning that a native operator
       # fast path at the call site would silently bypass the override. Only `Int` and
       # `Float` have such a path: `codegen::call::dispatch` emits the four
       # `ops::{INT,FLOAT}_{BINARY,UNARY}_OPS` arms and then the reopened-builtin arm,
@@ -1080,7 +1080,7 @@ describe "Date: formatting and inspection" do
 
       p(DateTime.new(2020, 1, 1) <=> DateTime.new(2021, 1, 1))
 
-      # A Poly receiver. zeo never infers a parameter's type from its call sites, so
+      # A Poly receiver. zr never infers a parameter's type from its call sites, so
       # these reach the runtime-checked fallback -- which matches `Int`/`Float` and
       # sends every other shape through `send_value_in`'s MRO walk, where the
       # reopened row lives.
@@ -1125,10 +1125,10 @@ describe "Date: formatting and inspection" do
       # directive that is NOT a flag.
       #
       # 1. An explicit WIDTH is ignored by every non-numeric directive. Ruby pads a
-      #    string directive to the field width like any other; zeo's `num_pad` is the
+      #    string directive to the field width like any other; zr's `num_pad` is the
       #    only reader of `width`, so `%10a` answers the bare day name.
       #
-      #        Time.at(0).utc.strftime("%10a")   ruby "       Thu"   zeo "Thu"
+      #        Time.at(0).utc.strftime("%10a")   ruby "       Thu"   zr "Thu"
       #
       #    Numeric directives already honour width (`%5Y` is `01970` in both), which
       #    is what makes this specifically the string half.
@@ -1136,7 +1136,7 @@ describe "Date: formatting and inspection" do
       # 2. `%v` (the VMS date, `%e-%^b-%4Y`) is not implemented, so it emits verbatim.
       #
       # A width after a COLON flag is a third shape: ruby rejects `%:5z` outright and
-      # emits it verbatim, where zeo renders the offset and drops the width.
+      # emits it verbatim, where zr renders the offset and drops the width.
       #
       # Found by a 13,800-case directive x flag x width sweep while fixing
       # `tests/strftime_zone_offset_flags.rb`; every case NOT in the three shapes

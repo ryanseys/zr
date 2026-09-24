@@ -41,7 +41,7 @@ describe "Methods: changing in place" do
   it "bang operator override" do
     result = zr(<<~'RUBY')
       # `!` is an ordinary overridable method in ruby (`BasicObject#!`), and a class
-      # that defines it decides its own truthiness under `!`. zeo folds `!x` to a
+      # that defines it decides its own truthiness under `!`. zr folds `!x` to a
       # truthiness test and never dispatches, so the override is ignored.
       #
       # `not x` is the same send and diverges the same way. A plain truthiness test
@@ -223,7 +223,7 @@ describe "Methods: changing in place" do
   it "method object under prepend" do
     result = zr(<<~'RUBY')
       # A `Method` or `UnboundMethod` names ONE entry in the chain. Under `prepend`,
-      # zeo loses which one:
+      # zr loses which one:
       #
       #   * `super_method` does not advance past the prepended module: it answers a
       #     Method with the SAME owner, so the idiomatic `while m; m = m.super_method;
@@ -265,7 +265,7 @@ describe "Methods: changing in place" do
       p Sub.instance_method(:greet).owner
       p Mixin.instance_method(:greet).owner
 
-      # The chain walk, bounded so this file terminates under zeo.
+      # The chain walk, bounded so this file terminates under zr.
       walk = []
       cur = Sub.new.method(:greet)
       20.times do

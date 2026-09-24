@@ -394,7 +394,7 @@ describe "Pattern programs" do
       # and the local is simply nil when the branch that named it is not the one
       # that matched.
       #
-      # zeo treated an underscore name as an ordinary binding and rejected the
+      # zr treated an underscore name as an ordinary binding and rejected the
       # clause, claiming to match real Ruby. It rejected `net/imap`,
       # `sass-embedded` and every openai-shaped API client.
 

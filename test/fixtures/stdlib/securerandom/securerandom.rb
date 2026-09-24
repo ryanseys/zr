@@ -1,7 +1,7 @@
 # SecureRandom: cryptographically secure random values, built on OS entropy
 # (Random.urandom) and the Random::Formatter mixin. Random output can't be
 # printed verbatim, so this prints its OBSERVABLE CONTRACT -- lengths, formats,
-# ranges, encoding -- which is identical under zeo and ruby.
+# ranges, encoding -- which is identical under zr and ruby.
 require "securerandom"
 
 # hex(n) -> 2n lowercase hex chars; default n is 16.

@@ -9,7 +9,7 @@ describe "Require: constants" do
 
       # `autoload :C, "feature"` names a file that PROVIDES `C`. zr has no
       # lazy units, so the file is spliced in and the constant is there before
-      # anything asks for it -- zeo's own stated divergence from CRuby: the
+      # anything asks for it -- zr's own stated divergence from CRuby: the
       # file runs at the `autoload` statement rather than at first constant
       # access, and even if the constant is never referenced.
       #
@@ -57,7 +57,7 @@ describe "Require: constants" do
       # `defined?` and `const_defined?` announce an `autoload`ed constant the moment
       # the `autoload` is written -- and a NESTED ask loads the file to answer.
       #
-      # zeo answered nil to both, and the consequence was not abstract:
+      # zr answered nil to both, and the consequence was not abstract:
       # `rubygems/openssl.rb` is
       #
       #     autoload :OpenSSL, "openssl"
@@ -172,7 +172,7 @@ describe "Require: constants" do
     result = zr(<<~'RUBY', files: files)
       # Reading a constant is what RUNS its `autoload`.
       #
-      # zeo recorded the target and never ran it, except for the one internal case
+      # zr recorded the target and never ran it, except for the one internal case
       # of a concealed builtin class. So every `autoload` a gem declared was a
       # `LoadError` waiting to happen: the read went straight to `const_missing`,
       # which found the record and raised the error the load was never given a
@@ -402,7 +402,7 @@ describe "Require: constants" do
   it "superclass reference runs its autoload" do
     result = zr(<<~'RUBY', files: beside("superclass_reference/base.rb", "superclass_reference/sub.rb"))
       # `class Sub < Base` READS the constant `Base`, and a read is what runs an
-      # `autoload` target. zeo resolves the superclass edge at compile time, so the
+      # `autoload` target. zr resolves the superclass edge at compile time, so the
       # read had no run-time half at all: `sub.rb` linked to a `Base` whose body had
       # never run, and `Base#limit` raised `uninitialized constant Base::LIMIT` for a
       # constant the body assigns.

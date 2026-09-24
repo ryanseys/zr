@@ -33,7 +33,7 @@ describe "Kernel: formatting and inspection" do
       loc = caller_locations(0, 1).first
       p loc.to_s == "#{loc.path}:#{loc.lineno}:in '#{loc.label}'"
       p loc.inspect == loc.to_s.inspect
-      # (`path` is the script as invoked, `absolute_path` the resolved one; zeo's
+      # (`path` is the script as invoked, `absolute_path` the resolved one; zr's
       # frames only ever carry the resolved form, so this holds either way.)
       p loc.absolute_path.end_with?(loc.path)
       p caller_locations(0, 2).size
@@ -712,9 +712,9 @@ describe "Kernel: formatting and inspection" do
       end
 
       # --- globals ----------------------------------------------------------------
-      $zeo_probe_global = 1
-      p Kernel.global_variables.include?(:$zeo_probe_global)
-      p global_variables.include?(:$zeo_probe_global)
+      $zr_probe_global = 1
+      p Kernel.global_variables.include?(:$zr_probe_global)
+      p global_variables.include?(:$zr_probe_global)
       p Kernel.global_variables.include?(:$no_such_global_anywhere)
 
       # --- exit, through a lambda, which is how it shows up in real code ----------

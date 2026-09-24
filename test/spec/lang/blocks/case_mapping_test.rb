@@ -173,7 +173,7 @@ describe "Blocks: case mapping" do
     result = zr(<<~'RUBY')
       # Ruby's block-local rule is TEXTUAL: a name assigned inside a block is
       # block-local unless the enclosing scope assigned it EARLIER in the source.
-      # zeo's capture analysis (codegen::captures::collect_escaping_captures) is
+      # zr's capture analysis (codegen::captures::collect_escaping_captures) is
       # order-blind -- it unions every name an escaping block touches against every
       # name the scope assigns ANYWHERE, so a block-local that happens to share a
       # name with a LATER outer local becomes a shared Captured cell. The block's

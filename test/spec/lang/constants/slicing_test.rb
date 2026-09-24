@@ -180,15 +180,7 @@ describe "Constants: slicing" do
   it "reassigned constant warning" do
     result = zr(<<~'RUBY')
       # Assigning a constant that already has a value warns TWICE on stderr -- once
-      # at the new assignment, once naming where the previous one was. zeo assigns
-      # silently, so the one diagnostic that catches a constant clobbered by a
-      # second file, or by a name a library did not expect to own, never appears.
-      #
-      # The location half is in place: `tests/const_source_location_of_a_module_constant.rb`
-      # records where every constant was assigned, and the warning's second line is
-      # exactly that record read back. What is missing is the check at the write --
-      # `constants.rs`'s `const_set` has no "was it already there" test, and
-      # `warning.rs` is the channel it would report through.
+      # at the new assignment, once naming where the previous one was.
       #
       # CRuby is deliberate about which writes are quiet: a `remove_const` first
       # clears the record, and a `class`/`module` reopen creates nothing, so neither
@@ -215,12 +207,12 @@ describe "Constants: slicing" do
     RUBY
 
     _(result).must_answer "2\n", stderr: <<~'ERR'
-      lang/constants/slicing_test.rb:17: warning: already initialized constant D
-      lang/constants/slicing_test.rb:16: warning: previous definition of D was here
-      lang/constants/slicing_test.rb:22: warning: already initialized constant M::E
-      lang/constants/slicing_test.rb:21: warning: previous definition of E was here
-      lang/constants/slicing_test.rb:33: warning: already initialized constant G
-      lang/constants/slicing_test.rb:32: warning: previous definition of G was here
+      lang/constants/slicing_test.rb:9: warning: already initialized constant D
+      lang/constants/slicing_test.rb:8: warning: previous definition of D was here
+      lang/constants/slicing_test.rb:14: warning: already initialized constant M::E
+      lang/constants/slicing_test.rb:13: warning: previous definition of E was here
+      lang/constants/slicing_test.rb:25: warning: already initialized constant G
+      lang/constants/slicing_test.rb:24: warning: previous definition of G was here
     ERR
   end
 

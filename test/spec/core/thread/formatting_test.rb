@@ -8,7 +8,7 @@ describe "Thread: formatting and inspection" do
       # `&&` / `||` with a concurrency handle on either side must keep the handle's
       # full identity.
       #
-      # zeo's divergence is one probe: a Queue carried through `||` no longer
+      # zr's divergence is one probe: a Queue carried through `||` no longer
       # inspects in the `#<Thread::Queue:0x...>` form (the final
       # `inspect.start_with?` answers false). Every other operand shape -- classes,
       # values, nil, locked? -- already matches. (Imported from spinel, where the
@@ -333,7 +333,7 @@ describe "Thread: formatting and inspection" do
     result = zr(<<~'RUBY')
       # Thread.pass from the main thread yields a turn to runnable siblings
       # without draining them to completion. On a preemptive parallel scheduler
-      # (CRuby, and zeo's OS threads) the interleaving ORDER is nondeterministic,
+      # (CRuby, and zr's OS threads) the interleaving ORDER is nondeterministic,
       # so this asserts only schedule-independent properties: every entry lands,
       # the sibling's own entries stay in its program order, and main is never
       # starved out of completing its loop.
@@ -394,7 +394,7 @@ describe "Thread: formatting and inspection" do
     result = zr(<<~'RUBY')
       # The top level runs on the main Ruby thread: `Thread.current` there IS
       # `Thread.main` -- one object, one native id -- and a spawned thread is
-      # neither. Pinned because zeo once ran the top level on a spawned OS thread
+      # neither. Pinned because zr once ran the top level on a spawned OS thread
       # while the process main thread sat in a join; whether that thread is the
       # PROCESS main thread is a platform fact (macOS: yes, AppKit requires it),
       # and tests/macos/ pins that half.

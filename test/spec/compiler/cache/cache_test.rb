@@ -271,7 +271,7 @@ describe "Cache programs" do
     result = zr(<<~'RUBY')
       # `yield`, `block_given?` and a bare `super` written at a snippet's own
       # level belong to the method the `eval` was called from -- CRuby reads them
-      # off the caller's control frame. zeo publishes the home from every scope
+      # off the caller's control frame. zr publishes the home from every scope
       # that lexically contains a run-time `eval`, so the snippet finds it
       # whichever eval surface ran it.
 

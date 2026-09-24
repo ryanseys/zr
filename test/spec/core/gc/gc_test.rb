@@ -400,10 +400,10 @@ describe "GC programs" do
 
   it "cycle is reclaimed" do
     result = zr(<<~'RUBY', env: {"ZR_TEST_GC" => "1"})
-      # This golden needs zeo's cycle collector armed (`ZR_TEST_GC=1`), which is what
+      # This golden needs zr's cycle collector armed (`ZR_TEST_GC=1`), which is what
       # the harness sets when this sidecar is present. The oracle needs no
       # counterpart: CRuby always collects.
-      # zeo's heap is reference counted, so a cycle's counts never reach zero and
+      # zr's heap is reference counted, so a cycle's counts never reach zero and
       # the collector is what reclaims one. It is off by default because recording
       # every allocation into the registry it walks costs +1.54% geomean over the
       # bench corpus, and a program that never makes a cycle should not pay for
@@ -416,13 +416,13 @@ describe "GC programs" do
       # The golden's whole subject: three Node rings built on purpose and never broken.
 
       # At exit: cycle leak: 3 objects (Node x3)
-      # zeo's heap is reference counted, so a cycle's counts never reach zero and
+      # zr's heap is reference counted, so a cycle's counts never reach zero and
       # nothing in it is ever dropped. The cycle collector reconciles those counts
-      # against an allocation registry instead of tracing from roots -- zeo has no
+      # against an allocation registry instead of tracing from roots -- zr has no
       # enumerable root set and never will -- and reclaims what nothing outside the
       # registry refers to.
       #
-      # `ObjectSpace::WeakMap` is the honest probe. A finalizer is not: zeo runs
+      # `ObjectSpace::WeakMap` is the honest probe. A finalizer is not: zr runs
       # finalizers for everything still alive at exit, so `define_finalizer` on a
       # cycle prints at exit on both sides whether or not the cycle was collected.
       # A weak reference reports what actually happened -- both implementations
@@ -515,9 +515,9 @@ describe "GC programs" do
         seen[e] = true
         nil
       end
-      # Deliberately absent: a cycle closed through `Exception#cause`. zeo reclaims
+      # Deliberately absent: a cycle closed through `Exception#cause`. zr reclaims
       # it; CRuby keeps the most recently raised exception reachable from its own VM
-      # error slot, so the oracle answers one more than zeo does and the shape is
+      # error slot, so the oracle answers one more than zr does and the shape is
       # not portable. The `cause` slot is still enumerated like every other hidden
       # one -- the corpus's own raising goldens exercise it under the collector's
       # debug over-count check.
@@ -663,7 +663,7 @@ describe "GC programs" do
 
       # CRuby scans the machine stack conservatively, so a pointer a returned frame
       # left behind can keep a dead object alive for a while. Overwriting that stack
-      # is what makes the oracle's answer deterministic; zeo needs no such help,
+      # is what makes the oracle's answer deterministic; zr needs no such help,
       # because a reference count is exact.
       def scrub(n) = n.zero? ? [0] * 512 : scrub(n - 1)
 
@@ -726,7 +726,7 @@ describe "GC programs" do
 
   it "cycle is reclaimed beside live threads" do
     result = zr(<<~'RUBY', env: {"ZR_TEST_GC" => "1"})
-      # This golden needs the cycle collector armed: without `ZR_TEST_GC=1` zeo has no
+      # This golden needs the cycle collector armed: without `ZR_TEST_GC=1` zr has no
       # collector at all and both counts read 2. CRuby always collects, so the oracle
       # needs no counterpart.
 
@@ -994,7 +994,7 @@ describe "GC programs" do
   it "GC.count and the :count stat are both positive after an explicit GC.start" do
     result = zr(<<~'RUBY')
       # GC.count is the number of GCs run and GC.stat carries a :count key; after
-      # an explicit GC.start both must be positive. zeo answers 0 and its stat hash
+      # an explicit GC.start both must be positive. zr answers 0 and its stat hash
       # has no :count row.
       GC.start
       puts (GC.count > 0).inspect
@@ -1444,7 +1444,7 @@ describe "GC programs" do
     result = zr(<<~'RUBY')
       # `include` validates: a Class argument is a TypeError ("wrong argument
       # type Class (expected Module)") and a cyclic or self include is an
-      # ArgumentError ("cyclic include detected"). zeo accepts all three
+      # ArgumentError ("cyclic include detected"). zr accepts all three
       # silently. (Found by the 2026-08-24 probe sweep.)
       begin
         Class.new.include(Class.new)
@@ -1843,10 +1843,10 @@ describe "GC programs" do
 
   it "sequential top level begin blocks do not leak handling state" do
     result = zr(<<~'RUBY')
-      # Guards `zeo_rt::handling`'s push/pop discipline: three INDEPENDENT
+      # Guards the exception-handling push/pop discipline: three INDEPENDENT
       # `begin` blocks in sequence, the last a bare re-raise with nothing
-      # currently being handled -- if an earlier block's `pop_handling` were
-      # ever skipped (e.g. on an unusual exit path), this would incorrectly
+      # currently being handled -- if an earlier block's handling state were
+      # ever left in place (e.g. on an unusual exit path), this would incorrectly
       # re-raise a STALE exception instead of falling back to a fresh
       # `RuntimeError`.
 

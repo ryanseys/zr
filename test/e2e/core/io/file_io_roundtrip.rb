@@ -1,6 +1,6 @@
 # File and directory calls in the binary: write, read back, stat and remove.
 require "tmpdir"
-Dir.mktmpdir("zeo-aot") do |dir|
+Dir.mktmpdir("zr-aot") do |dir|
   path = File.join(dir, "note.txt")
   File.write(path, "line one\nline two\n")
   puts File.size(path)

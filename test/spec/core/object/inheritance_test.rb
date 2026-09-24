@@ -64,7 +64,7 @@ describe "Object: inheritance and ancestors" do
       # then `extend M` gives the module one singleton position, because the extend
       # finds the prepended copy; the other order gives it two.
       #
-      # The fix is the shape [[zeo-positional-runtime-flags]] keeps finding, and it
+      # The fix is the shape [[zr-positional-runtime-flags]] keeps finding, and it
       # needed no new mechanism. Both RUNTIME spellings were already right in either
       # order, and `defer_runtime_mixin_in_body` already turns a class-body mixin
       # into a send at its own position -- for a module that defines methods
@@ -143,7 +143,7 @@ describe "Object: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # clone/dup dispatch the user's initialize_copy (deep-copying a
       # shared member), and its bare `super` resolves Object's default no-op
-      # hook instead of panicking.
+      # hook instead of crashing.
 
       class Board
         def initialize
@@ -923,7 +923,7 @@ describe "Object: inheritance and ancestors" do
   it "runtime include propagates to subclasses" do
     result = zr(<<~'RUBY')
       # A runtime `include` into a superclass must be visible to subclasses minted
-      # EARLIER (CRuby ancestry is shared structure; zeo chains are flat snapshots
+      # EARLIER (CRuby ancestry is shared structure; zr chains are flat snapshots
       # that the splice now revisits). rspec's runner does exactly this: `describe`
       # mints ExampleGroup subclasses, then configure_mock_framework includes the
       # mock adapter into ExampleGroup.
@@ -1099,7 +1099,7 @@ describe "Object: inheritance and ancestors" do
       # What the rebind does not carry is the frame kind, so `super` has no method
       # entry to walk up from.
       #
-      # Found while running `extconf.rb` under zeo for the C extension work.
+      # Found while running `extconf.rb` under zr for the C extension work.
       # `lib/mkmf.rb` opens with
       #
       #     STRING_OR_FAILED_FORMAT = "%s"

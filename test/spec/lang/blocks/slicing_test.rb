@@ -1058,7 +1058,7 @@ describe "Blocks: slicing" do
   it "to enum size block" do
     result = zr(<<~'RUBY')
       # `to_enum`/`enum_for` take a block that supplies the enumerator's `size`
-      # lazily. zeo drops it, so a custom Enumerable's `size` answers nil.
+      # lazily. zr drops it, so a custom Enumerable's `size` answers nil.
       #
       #     def each(&b) = block_given? ? (@items.each(&b); self) : to_enum(:each) { @items.size }
       #
@@ -1068,7 +1068,7 @@ describe "Blocks: slicing" do
       # preallocate, to drive a progress bar, or to decide a strategy gets nil and has
       # to fall back to walking.
       #
-      # zeo's Enumerator already carries a size (`each_slice` reports one below), so
+      # zr's Enumerator already carries a size (`each_slice` reports one below), so
       # the field exists; `to_enum` just does not accept the block that fills it.
 
       class Bag

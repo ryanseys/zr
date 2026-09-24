@@ -7,10 +7,7 @@
 # written against. Almost all of the cost this measures is the require graph,
 # not these lines.
 #
-# This file used to enter at `rubygems/version` and four siblings because the
-# umbrella did not compile. It does now; `test/e2e/stdlib/rubygems/require_rubygems.rb`
-# is the regression test, and `crates/zeo/tests/e2e/gems_vendored.rs` asserts
-# that each class in the graph compiles.
+# `test/e2e/stdlib/rubygems/require_rubygems.rb` is the regression test.
 require "rubygems"
 
 # --- Gem::Version: the ordering every gemspec and lockfile depends on -------
@@ -87,14 +84,14 @@ p Gem::Platform.local.is_a?(Gem::Platform)
 
 # --- Gem::Specification: the class the umbrella exists to reach -------------
 spec = Gem::Specification.new do |s|
-  s.name = "zeo-bench"
+  s.name = "zr-bench"
   s.version = "0.1.0"
   s.summary = "a compile-cost input"
   s.authors = ["nobody"]
-  s.files = ["lib/zeo_bench.rb"]
+  s.files = ["lib/zr_bench.rb"]
   s.require_paths = ["lib"]
   s.add_dependency "rake", ">= 13.0"
 end
 p spec.full_name, spec.file_name, spec.require_paths
 p spec.dependencies.map { |d| [d.name, d.type, d.requirement.to_s] }
-p spec.satisfies_requirement?(Gem::Dependency.new("zeo-bench", "~> 0.1"))
+p spec.satisfies_requirement?(Gem::Dependency.new("zr-bench", "~> 0.1"))

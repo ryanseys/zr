@@ -110,7 +110,7 @@ describe "IO::console: reading and writing" do
   it "terminal modes, echo control and the cursor escapes answer, and a pipe raises ENOTTY" do
     result = zr(<<~'RUBY', path: "io_console.rb")
       # `io/console` -- terminal modes, echo control, and the cursor escapes. CRuby
-      # ships it as a require-gated extension; zeo's rows hang unconditionally off
+      # ships it as a require-gated extension; zr's rows hang unconditionally off
       # the IO table, so the require is ceremony (`docs/EXTENSIONS.md`).
       #
       # Nothing here is a terminal, which is the only path a golden can assert
@@ -214,7 +214,7 @@ describe "IO::console: reading and writing" do
       # The `io/console` argument guards, all of them io-console's own.
       #
       # The worst of these was `min:`: a non-numeric went through an "unchecked"
-      # float conversion that PANICS, so `io.raw!(min: "x")` aborted the whole
+      # float conversion that crashed, so `io.raw!(min: "x")` aborted the whole
       # process where ruby raises. An unknown keyword was dropped silently, and a
       # stray positional argument sent `getch` into a blocking read.
 
@@ -345,10 +345,10 @@ describe "IO::console: reading and writing" do
 
   it "a Symbol timeout, a huge read, a zero-capacity ioctl buffer and an i64 overflow all raise, not abort" do
     result = zr(<<~'RUBY')
-      # Every one of these ended a zeo process instead of raising.
+      # Every one of these ended a zr process instead of raising.
       #
-      # `io.wait(:read)` panicked: the Symbol lands in the timeout slot, which went
-      # through an "unchecked" float conversion that is a `panic!`. `f.read(10**18)`
+      # `io.wait(:read)` crashed: the Symbol lands in the timeout slot, which went
+      # through an "unchecked" float conversion that crashes. `f.read(10**18)`
       # allocated eagerly, and an allocation failure is an ABORT, not a rescuable
       # NoMemoryError. `$stdout.ioctl(TIOCGWINSZ, "")` handed the kernel a
       # zero-capacity buffer to write eight bytes through -- heap corruption from
@@ -561,7 +561,7 @@ describe "IO::console: reading and writing" do
       #
       # The header above is spinel's; its claim that a redirected stdout reports
       # [0, 0] is spinel's behaviour, not ruby's. ruby raises Errno::ENOTTY, which
-      # is what this test's re-oracled golden records and what zeo now does.
+      # is what this test's re-oracled golden records and what zr now does.
       require "io/console"
       p STDOUT.winsize
     RUBY

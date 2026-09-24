@@ -6,7 +6,7 @@ describe "TracePoint programs" do
   it "attr reader call backtrace line" do
     result = zr(<<~'RUBY')
       # CRuby compiles an `attr_*` accessor iseq-less, so it appears in no
-      # backtrace. zeo's is frameless too -- but it still stamped its own line, and
+      # backtrace. zr's is frameless too -- but it still stamped its own line, and
       # a stamp with no frame of its own lands in the CALLER's and is never
       # restored: every later raise in `boom` reported the `attr_reader` line.
       class Holder
@@ -187,10 +187,10 @@ describe "TracePoint programs" do
 
   it "backtrace names the scope and the call line" do
     result = zr(<<~'RUBY', files: beside("lib/backtrace_scopes.rb"))
-      # Two questions a backtrace answers that zeo used to answer differently
+      # Two questions a backtrace answers that zr used to answer differently
       # from ruby, both about WHERE a frame is rather than what it does.
       #
-      # (1) The scope a block hangs off. A `require` zeo splices into its
+      # (1) The scope a block hangs off. A `require` zr splices into its
       #     requiring file still has a scope of its own: ruby names a required
       #     file's top level `<top (required)>`, never the requiring file's
       #     `<main>`. It is not cosmetic -- a library filters its own frames out
@@ -521,7 +521,7 @@ describe "TracePoint programs" do
   it "kernel conversion backtrace frame" do
     result = zr(<<~'RUBY')
       # `Kernel#Integer` and its family are ordinary cfuncs in CRuby, so they push a
-      # control frame and a raise from inside one names them. zeo's codegen calls
+      # control frame and a raise from inside one names them. zr's codegen calls
       # them through a fast path that never reaches the dispatch boundary where a
       # builtin's frame is otherwise pushed, so the frame is pushed in the row.
       begin
@@ -810,7 +810,7 @@ describe "TracePoint programs" do
       # TracePoint: lifecycle and error shapes, then oracle-matched event streams
       # over methods, class bodies, blocks, raises, and an unwinding return. Every
       # handler filters to this file's own path: CRuby implements enable/disable
-      # in Ruby, so they inject <internal:trace_point> events zeo's native ones
+      # in Ruby, so they inject <internal:trace_point> events zr's native ones
       # never fire. Line numbers ARE the expectation -- re-bless after any edit.
       def hum(n)
         t = n * 2
@@ -1096,7 +1096,7 @@ describe "TracePoint programs" do
       # `TracePoint#self` and `#binding` answer for a `:line` event, as CRuby's do:
       # `self` is the object the line ran under and `binding` is that scope.
       #
-      # This was a gap. zeo's `Frame` carries a file, a line and a label and nothing
+      # This was a gap. zr's `Frame` carries a file, a line and a label and nothing
       # else -- no receiver, no cell storage -- which is what makes tracing cost one
       # relaxed atomic load when no tracepoint is enabled. The receiver slot is
       # filled only while a tracepoint is armed, and the binding reuses the capture

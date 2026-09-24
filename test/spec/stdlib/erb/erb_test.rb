@@ -99,16 +99,16 @@ describe "ERB programs" do
     result = zr(<<~'RUBY')
       # Rendering an ERB template evaluates the compiled source in a Binding:
       # `ERB#result`/`#result_with_hash` default to `new_toplevel`, which derives
-      # a binding from `TOPLEVEL_BINDING`. zeo has neither the constant nor
+      # a binding from `TOPLEVEL_BINDING`. zr has neither the constant nor
       # `Kernel#binding`, so the vendored gem loads and compiles but cannot render.
       require "erb"
 
-      p ERB.new("<%= 1 + 1 %> and <%= name %>").result_with_hash(name: "zeo")
+      p ERB.new("<%= 1 + 1 %> and <%= name %>").result_with_hash(name: "zr")
       p ERB.new("<%= 2 * 3 %>").result(binding)
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "2 and zeo"
+      "2 and zr"
       "6"
     OUT
   end
@@ -117,7 +117,7 @@ describe "ERB programs" do
     result = zr(<<~'RUBY')
       # An error raised inside an ERB template names the TEMPLATE line: a
       # raise on template line 3 reports "(erb):3" (or "tpl.erb:3" with a
-      # filename). zeo reports one line further (the generated code's
+      # filename). zr reports one line further (the generated code's
       # "#coding:UTF-8" preamble line is being counted). (Found by the
       # 2026-08-24 probe sweep.)
       require "erb"

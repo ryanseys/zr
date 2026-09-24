@@ -582,7 +582,7 @@ describe "Pattern: pattern matching" do
       # frozen_string_literal: true
 
       # The bindings reach the scope around the `case`.
-      case { name: "zeo", version: [0, 1, 0] }
+      case { name: "zr", version: [0, 1, 0] }
       in { name: String => found, version: [major, minor, *] }
         nil
       end
@@ -591,7 +591,7 @@ describe "Pattern: pattern matching" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "zeo"
+      "zr"
       0
       1
     OUT
@@ -958,7 +958,7 @@ describe "Pattern: pattern matching" do
       # wraps it in a ParenthesesNode, and the pattern walk must unwrap it both
       # where it stands alone and where a capture binds it.
       #
-      # zeo's pattern lowering had no parentheses arm, so the node fell through
+      # zr's pattern lowering had no parentheses arm, so the node fell through
       # to the generic expression rejection ("unsupported syntax at \"Integer |
       # String\"") -- anthropic's credential reader and jpt's path parser both
       # spell it this way.

@@ -848,7 +848,7 @@ describe "IO: regressions" do
 
   it "$LOAD_PATH is already an array when the program's first statement runs" do
     result = zr(<<~'RUBY')
-      # `$LOAD_PATH` is still nil when the program's first statement runs: zeo's
+      # `$LOAD_PATH` is still nil when the program's first statement runs: zr's
       # preamble initializes it after user code rather than before it, so `unshift`
       # raises on a nil receiver. ruby has it populated before line 1 executes.
       $:.unshift File.dirname(__FILE__)

@@ -41,7 +41,7 @@ describe "Units programs" do
       # UNIT runs its target when the constant is READ, whichever spelling named it,
       # and whether or not anything else ever requires it.
       #
-      # A `$LOAD_PATH.unshift` of a computed directory makes zeo compile that whole
+      # A `$LOAD_PATH.unshift` of a computed directory makes zr compile that whole
       # directory as units, each with its own compiler and its own `autoload_consts`
       # name set -- so the `autoload` here is seen only by demo.rb's compile while
       # the read is emitted by the main program's, whose set is empty. What closes
@@ -79,7 +79,7 @@ describe "Units programs" do
       # was built, and the constant read that should have run the target found
       # nothing to run. `require "rubygems"` died on `Gem::Requirement` for exactly
       # this reason: specification.rb reaches requirement.rb through a method-body
-      # `require_relative` that zeo splices at the file tail, BELOW the class body
+      # `require_relative` that zr splices at the file tail, BELOW the class body
       # that reads the constant.
       #
       # The read also has to ASK. A compiled-in unit's classes are in the dispatch
@@ -517,7 +517,7 @@ describe "Units programs" do
     result = zr(<<~'RUBY', files: beside("unit_reopen/patch.rb", "unit_reopen/pkg.rb"))
       # A reopen of a builtin inside a LAZY UNIT is positional too.
       #
-      # A reopen normally gets one `.bss` byte -- `zeo_reopen_flags` -- stored at
+      # A reopen normally gets one `.bss` byte -- `zr_reopen_flags` -- stored at
       # the `class Foo ... end` and read by the reopened body, which forwards to
       # the row it replaced while the byte is zero. A unit's file was EXCLUDED
       # from that, because a unit that is never required leaves the byte at zero
@@ -526,14 +526,14 @@ describe "Units programs" do
       #
       # The cost of the exclusion was the whole reason `require "rubygems"` did
       # not work. RubyGems reaches `kernel_require.rb` through `eval
-      # File.read(path)`, and zeo also compiles that file as a unit because the
+      # File.read(path)`, and zr also compiles that file as a unit because the
       # package computes a require. Its `def require` therefore registered at
       # BOOT -- before the `module Kernel` body that declares the constant that
       # body reads -- so the first require in rubygems.rb raised `uninitialized
       # constant RUBYGEMS_ACTIVATION_MONITOR`.
       #
       # A unit's flag now reads the other way: at zero, forward to the native row
-      # IF THERE IS ONE (`zeo_rt_native_row_exists`), and otherwise run the body.
+      # IF THERE IS ONE (`zr_rt_native_row_exists`), and otherwise run the body.
       # A name the unit adds keeps answering; a name it REPLACES answers natively
       # until the unit runs, which is ruby's own order.
       #
@@ -701,7 +701,7 @@ describe "Units programs" do
       # A `class ::Module; def method_added` in a file nothing has required yet is
       # not installed, so nothing announces itself to it.
       #
-      # Zeo's def-hook pass took a whole-program view: seeing that SOME file defines
+      # Zr's def-hook pass took a whole-program view: seeing that SOME file defines
       # `method_added` on `Module`, it spliced an announcement beside every `def` in
       # the program. When the file that defines it is a lazily-loaded feature unit,
       # that announcement runs before the hook exists -- and because the same file

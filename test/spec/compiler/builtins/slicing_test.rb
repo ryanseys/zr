@@ -6,7 +6,7 @@ describe "Builtins: slicing" do
   it "builtin collection via enumerable" do
     result = zr(<<~'RUBY')
       # A collection method CRuby defines on the class itself walks that class's own
-      # storage -- `rb_ary_collect` never calls `each`. zeo routed 23 of these rows
+      # storage -- `rb_ary_collect` never calls `each`. zr routed 23 of these rows
       # through `Enumerable`, whose bodies iterate by SENDING `each`, so overriding
       # `each` at runtime changed all of them at once.
       #
@@ -150,7 +150,7 @@ describe "Builtins: slicing" do
     result = zr(<<~'RUBY')
       # Blocks through a builtin reopen: `yield` + an optional parameter, and an
       # escaping block that captures both a mutated local (a Captured cell) and
-      # `self` (the `__self: RubyValue` clone path).
+      # `self`.
 
       class Integer
         def repeat(sep = "-")
@@ -187,9 +187,9 @@ describe "Builtins: slicing" do
 
   it "builtin reopen nil hash and range" do
     result = zr(<<~'RUBY')
-      # The receiver-kind breadth: NilClass (no static TyKind -- fully dynamic),
-      # Hash (implicit native `size`), and Range (static `self.last`/`self.first`
-      # fast paths inside the reopen body).
+      # The receiver-kind breadth: NilClass (no static type info -- fully
+      # dynamic), Hash (implicit native `size`), and Range (static
+      # `self.last`/`self.first` fast paths inside the reopen body).
 
       class NilClass
         def describe

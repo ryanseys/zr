@@ -649,8 +649,6 @@ describe "Numeric: formatting and inspection" do
   it "an Integer operation given nil raises TypeError rather than ending the process" do
     result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
-      # An Integer operation with a nil argument PANICS the runtime
-      # (crates/zeo-rt/src/builtins/integer.rs) instead of raising TypeError.
       #
       r001 = (1.5.coerce(nil) rescue $!.class)
       p r001

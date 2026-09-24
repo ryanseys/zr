@@ -1,7 +1,7 @@
 # A whole pure-Ruby require graph is spliced into the binary and runs from it.
 require "csv"
 require "set"
-rows = CSV.parse("name,lang\nzeo,rust\nzr,ruby\n", headers: true)
+rows = CSV.parse("name,lang\njruby,java\nzr,ruby\n", headers: true)
 rows.each { |r| puts "#{r['name']} -> #{r['lang']}" }
 langs = Set.new(rows.map { |r| r["lang"] })
-p langs.include?("rust"), langs.size
+p langs.include?("java"), langs.size

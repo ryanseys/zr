@@ -1878,7 +1878,7 @@ describe "Regexp: searching and matching" do
 
   it "regex backreferences and lookaround via fancy engine" do
     result = zr(<<~'RUBY')
-      # Constructs the linear-time `regex` crate can't do; a backtracking engine
+      # Constructs the linear-time regex engine can't do; a backtracking engine
       # transparently backs them. The fast path stays unaffected.
 
       puts("hello" =~ /(\w)\1/)             # 2
@@ -2461,7 +2461,7 @@ describe "Regexp: searching and matching" do
       # sides the way the rest of the pattern already does.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # The backreference comparison was a plain memcmp, so it stayed case-sensitive
       # even when the rest of the pattern was folded. Ported from mruby-regexp
@@ -2545,11 +2545,11 @@ describe "Regexp: searching and matching" do
       #
       # A repetition whose body can match EMPTY runs one final iteration that
       # consumes nothing, and CRuby's captured group holds the empty string at the
-      # position the loop stopped at. zeo's holds the last non-empty match instead,
+      # position the loop stopped at. zr's holds the last non-empty match instead,
       # so the group and the overall match disagree about where the loop ended.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # A repetition whose body can match empty runs one final iteration that
       # consumes nothing, and that iteration is the one that ends the loop: the group
@@ -2594,9 +2594,9 @@ describe "Regexp: searching and matching" do
 
   it "under /x the whitespace and comments in a pattern are not part of it" do
     result = zr(<<~'RUBY')
-      # Under `/x` the `regex` crate strips whitespace INSIDE a character class as
+      # Under `/x` the regex engine strips whitespace INSIDE a character class as
       # well as outside it -- unlike Ruby, which only ignores it between tokens. That
-      # matters because zeo expands `\s` to a class, so a literal space written as one
+      # matters because zr expands `\s` to a class, so a literal space written as one
       # of its members disappeared and `/\s/x` stopped matching a space.
       p(/\s/x =~ " ")
       p(/\S/x =~ "a")
@@ -4038,7 +4038,7 @@ describe "Regexp: searching and matching" do
 
   it "string match position argument" do
     result = zr(<<~'RUBY')
-      # `String#match(pattern, pos)` starts the search at pos; zeo ignores the
+      # `String#match(pattern, pos)` starts the search at pos; zr ignores the
       # second argument and matches from 0. `#match?` takes the same argument.
       # (Found by the 2026-08-24 probe sweep.)
       p "aXbX".match(/X/, 2).begin(0)

@@ -179,7 +179,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -204,7 +204,7 @@ describe "StringScanner programs" do
 
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -247,7 +247,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -287,7 +287,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -338,7 +338,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -413,7 +413,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -503,7 +503,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -603,7 +603,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
-      # A reopened builtin has no generated struct, so zeo rejected this outright.
+      # A reopened builtin has no generated struct, so zr rejected this outright.
       # It never needed one: `emit_builtin_method_fn` already marks these bodies'
       # self dynamic, and `ivar_get_dyn`/`ivar_set_dyn` pick the storage tier from
       # the receiver. All three tiers appear below.
@@ -1039,7 +1039,7 @@ describe "StringScanner programs" do
 
   it "strscan bytes and bounds" do
     result = zr(<<~'RUBY')
-      # Two StringScanner rows: `get_byte` answers the RAW byte (zeo converts
+      # Two StringScanner rows: `get_byte` answers the RAW byte (zr converts
       # through lossy UTF-8 and answers the replacement character for each
       # half of a multibyte char -- data corruption, the to_utf8_lossy
       # family), and `pos=` past the end raises RangeError ("index out of
@@ -1068,7 +1068,7 @@ describe "StringScanner programs" do
     result = zr(<<~'RUBY')
       require "strscan"
 
-      s = StringScanner.new("name=zeo; version=4")
+      s = StringScanner.new("name=zr; version=4")
       p s.scan(/(\w+)=(\w+)/)
       p s[0], s[1], s[2], s[-1], s[9]
       p s.captures
@@ -1139,16 +1139,16 @@ describe "StringScanner programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "name=zeo"
-      "name=zeo"
+      "name=zr"
+      "name=zr"
       "name"
-      "zeo"
-      "zeo"
+      "zr"
+      "zr"
       nil
-      ["name", "zeo"]
-      ["name=zeo", "zeo", nil]
+      ["name", "zr"]
+      ["name=zr", "zr", nil]
       3
-      8
+      7
       ""
       "; version=4"
       "2026"

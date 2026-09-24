@@ -325,12 +325,6 @@ describe "Array: pattern matching" do
     result = zr(<<~'RUBY')
       # `deconstruct` must answer an Array and `deconstruct_keys` a Hash. A
       # wrong return RAISES -- it does not fall through to the next `in` clause.
-      #
-      # The value used to be waved through with `matched = 1` and only failed
-      # one frame later, in an accessor that panics; that entry is `extern "C"`
-      # and cannot unwind, so the panic ended the process instead of raising.
-      # Checking where the value ARRIVES is the fix, and the rule behind it: an
-      # accessor that panics may not be called from a non-unwinding boundary.
 
       bad_array = Class.new { def deconstruct = :not_array }
       begin

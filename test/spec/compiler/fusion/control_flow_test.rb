@@ -262,7 +262,7 @@ describe "Fusion: control flow" do
     result = zr(<<~'RUBY', env: {"ZR_TEST_RT_LEAKCHECK" => "1"})
 
       # A fused `arr.each` splice is guarded twice at run time -- the receiver's
-      # tag must be Array, and `zeo_rt_iter_inline_ok_for` must still hold -- and
+      # tag must be Array, and `zr_rt_iter_inline_ok_for` must still hold -- and
       # the FALLBACK arm is what runs when either fails. That arm reaches the same
       # epilogue as the inline one, so every slot the epilogue releases has to be
       # initialised on it too.

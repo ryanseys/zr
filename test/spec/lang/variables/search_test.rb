@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Variables: searching and matching" do
-  it "array index assign out of range raises index error not a panic" do
+  it "array index assign out of range raises IndexError" do
     result = zr(<<~'RUBY')
       # Before this fix, a negative out-of-range `Array#[]=` index was an
       # unconditional abort -- a real `IndexError` (catchable) is

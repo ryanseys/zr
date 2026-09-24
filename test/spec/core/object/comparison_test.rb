@@ -571,7 +571,7 @@ describe "Object: comparison and equality" do
   it "main object identity" do
     result = zr(<<~'RUBY')
       # The top-level `self` renders as `main`, not as an address. ruby gets there
-      # by installing `to_s`/`inspect` singletons on the object; zeo asks by
+      # by installing `to_s`/`inspect` singletons on the object; zr asks by
       # identity, because installing a singleton at startup would mark the
       # runtime-overlay maps live for every program.
 
@@ -604,7 +604,7 @@ describe "Object: comparison and equality" do
       p Holder.new.inspect.include?("@a=1")
 
       # `TOPLEVEL_BINDING`'s receiver IS main, and reading the constant is what
-      # makes zeo materialize the top-level frame at all.
+      # makes zr materialize the top-level frame at all.
       b = TOPLEVEL_BINDING
       p b.class
       p b.receiver

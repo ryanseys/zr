@@ -115,7 +115,7 @@ describe "Methods: defining and naming methods" do
       # `alias_method :eql?, :==` in one file, `def ==` in another. The alias must
       # bind that `==`, so two equal values are `eql?` and `Array#-` subtracts them.
       #
-      # zeo bound `Kernel#eql?` -- identity -- because `resolve_aliases` compares the
+      # zr bound `Kernel#eql?` -- identity -- because `resolve_aliases` compares the
       # alias's `seq` against the def's, and the analyze walk numbers the whole main
       # file before the first feature unit while a unit's body really runs at its
       # `require`. Across two streams those numbers order nothing, so the def read as
@@ -265,7 +265,7 @@ describe "Methods: defining and naming methods" do
       #
       # A FRAME names the method it was BORN as: CRuby labels it from
       # `me->def->original_id`, so a backtrace through `alias_method :kaboom, :boom`
-      # says `C#boom`. zeo labelled it with the alias.
+      # says `C#boom`. zr labelled it with the alias.
       #
       # `__callee__` is the other half and keeps the name the method was CALLED by,
       # while `__method__` keeps the original. Those two shared one string -- the
@@ -606,15 +606,15 @@ describe "Methods: defining and naming methods" do
       # alias taken BEFORE a reopen still answers the original.
 
       class String
-        alias_method :zeo_gap_old_upcase, :upcase
-        def upcase = "wrapped(#{zeo_gap_old_upcase})"
+        alias_method :zr_gap_old_upcase, :upcase
+        def upcase = "wrapped(#{zr_gap_old_upcase})"
       end
 
       puts "ab".upcase
-      puts "ab".zeo_gap_old_upcase
+      puts "ab".zr_gap_old_upcase
 
       class Array
-        alias_method :zeo_gap_old_first, :first
+        alias_method :zr_gap_old_first, :first
       end
 
       class Array
@@ -622,7 +622,7 @@ describe "Methods: defining and naming methods" do
       end
 
       puts [1, 2].first.inspect
-      puts [1, 2].zeo_gap_old_first.inspect
+      puts [1, 2].zr_gap_old_first.inspect
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -1384,14 +1384,14 @@ describe "Methods: defining and naming methods" do
   it "define method body frame label" do
     result = zr(<<~'RUBY')
       # A `define_method` body is a BLOCK, and ruby labels its frame as one --
-      # `block in <class:Named>` -- because that is literally what it is. zeo labels
+      # `block in <class:Named>` -- because that is literally what it is. zr labels
       # it after the method it installs, so the frame claims a method scope ruby
       # never reports:
       #
       #     class Named; define_method(:dm) { where }; end
-      #     Named.new.dm      ruby "block in <class:Named>"   zeo "Named#dm"
+      #     Named.new.dm      ruby "block in <class:Named>"   zr "Named#dm"
       #
-      # A real `def` is the opposite and zeo now gets it right (see
+      # A real `def` is the opposite and zr now gets it right (see
       # `tests/method_defined_in_a_block_frame_label.rb`): a `def` written inside a
       # block still creates an ordinary method, so ruby names the frame after the
       # method. The two are the same question asked of the two ways to define one,
@@ -1525,7 +1525,7 @@ describe "Methods: defining and naming methods" do
   it "define method from a proc is strict" do
     result = zr(<<~'RUBY')
       # A method defined from a plain proc still checks METHOD arity when called
-      # (`define_method` hardens proc semantics); zeo keeps the proc's lenient
+      # (`define_method` hardens proc semantics); zr keeps the proc's lenient
       # binding and pads with nil. The lambda-sourced form already agrees.
       # (Found by the 2026-08-24 probe sweep.)
       c = Class.new
@@ -1599,7 +1599,7 @@ describe "Methods: defining and naming methods" do
     result = zr(<<~'RUBY')
       # `define_method(name, &value)` -- the body is a value the program computes, so
       # there is no block to desugar into a `def`. Every gem that builds methods in a
-      # loop uses it; zeo rejected it at compile time even though the runtime
+      # loop uses it; zr rejected it at compile time even though the runtime
       # `Module#define_method` installs a Proc, a Method or an UnboundMethod body.
 
       class Greeter
@@ -2048,7 +2048,7 @@ describe "Methods: defining and naming methods" do
   it "per object undef retires the method for that object" do
     result = zr(<<~'RUBY')
       # `undef_method` through an OBJECT's singleton class retires the name for that
-      # one object. zeo recorded nothing: the class still defined the name, so every
+      # one object. zr recorded nothing: the class still defined the name, so every
       # lookup found it and the call answered where ruby raises.
       #
       # A tombstone, not an absence -- there is no method to remove, only a class
@@ -2297,27 +2297,12 @@ describe "Methods: defining and naming methods" do
 
   it "runtime class alias of inherited method" do
     result = zr(<<~'RUBY')
-      # A `Class.new(Base)` where `Base` is a COMPILED class cannot run any method
-      # it inherits: the process aborts with "class_id guarantees this downcast".
-      # `alias_method` is only the shape that reaches it first.
+      # `Class.new(Base)`, where `Base` is a previously defined class, must be
+      # able to run every method it inherits, including a method reached
+      # through `alias_method`, and its instances must support instance
+      # variables.
       #
-      # zeo compiles `Base#greet` into an inherent method on a generated `Base`
-      # struct, reached through a trampoline that downcasts the receiver to that
-      # struct. A compiled `class Sub < Base` is safe because `analyze::mro`
-      # materializes a layout-correct copy of every inherited method onto `Sub` at
-      # compile time. `Class.new(Base)` mints its class at RUN time, so there is no
-      # copy to materialize: `runtime_class_new` gives it a `DynObject` -- name-keyed
-      # ivars, no struct -- and the ancestor walk hands that object to `Base`'s
-      # trampoline, which downcasts and aborts.
-      #
-      # So this is not the `Method`/`UnboundMethod` snapshot bug that
-      # `tests/method_object_freezes_its_entry.rb` fixed, and copying the LAYER
-      # rather than the body does not close it: re-resolving through the layer finds
-      # the same struct-downcasting trampoline. What is missing is the bridge
-      # `builtins/value_subclass.rs` already builds for a builtin root -- an instance
-      # that answers the runtime subclass for `.class` while carrying the compiled
-      # ancestor's own payload for its methods to run against. `Class.new` over a
-      # builtin root (`Class.new(String)`) works today for exactly that reason.
+      # A builtin root (`Class.new(String)`) must keep working the same way.
       #
       # A body written inside the `Class.new` block is unaffected: those become
       # runtime overlay entries, which take their receiver as an argument.
@@ -2413,7 +2398,7 @@ describe "Methods: defining and naming methods" do
     result = zr(<<~'RUBY')
       # `Module#undef_method` called at RUNTIME -- from inside a `def self.x` body,
       # where `self` is the module -- retires the name for every class that already
-      # includes the module. zeo keeps answering with the original body.
+      # includes the module. zr keeps answering with the original body.
       #
       # The name IS collected: `analyze::collect_runtime_undefs` descends into a
       # `def self.x` body precisely so this shape is seen (a `self` that is the
@@ -2423,7 +2408,7 @@ describe "Methods: defining and naming methods" do
       #
       # What is missing is the runtime half: the dispatched `undef_method` has to
       # write a TOMBSTONE into the overlay that the MRO walk then honours for every
-      # includer, the way `zeo_rt`'s dynamic definition path installs a body. Today
+      # includer, the way `zr_rt`'s dynamic definition path installs a body. Today
       # the send resolves and does nothing that a later lookup consults, so the
       # static row keeps winning.
       #
@@ -2464,15 +2449,6 @@ describe "Methods: defining and naming methods" do
       # A `private` in a `class << self` body is a CURSOR that persists across a
       # block: methods `define_method` installs after it are PRIVATE singleton
       # methods. Oracle-verified -- `Vis.hidden` raises NoMethodError.
-      #
-      # zeo consumes a bare `private` in a class body as a COMPILE-TIME cursor
-      # (lower/defs.rs) and bakes it into the `def`s that follow. A runtime
-      # `define_method` is not a `def`, so nothing carries the cursor to it, and the
-      # method comes out public.
-      #
-      # The runtime half already exists: `runtime_define_method` takes a class-body
-      # frame and reads `f.vis`. What is missing is the cursor reaching the
-      # singleton's own class body, where the residual statement now runs.
       class Vis
         class << self
           private
@@ -2498,7 +2474,7 @@ describe "Methods: defining and naming methods" do
   it "undef method on a module reaches its includers" do
     result = zr(<<~'RUBY')
       # A runtime `undef_method` on a MODULE retires the name for every includer.
-      # zeo materializes an included method onto each includer's own flattened
+      # zr materializes an included method onto each includer's own flattened
       # table, so the tombstone -- which sits on the module -- was somewhere the
       # flattened probe never looked, and the includer went on answering.
       module Retiring
@@ -2729,7 +2705,7 @@ describe "Methods: defining and naming methods" do
       #     RuntimeError: implicit argument passing of super from method defined by
       #     define_method() is not supported. Specify all arguments explicitly.
       #
-      # zeo runs it as though `super()` had been written, so a program that ruby
+      # zr runs it as though `super()` had been written, so a program that ruby
       # refuses silently does something -- and something subtly different from what
       # a bare `super` means anywhere else, since a zsuper forwards the CURRENT values
       # of the method's parameters and a `define_method` body has no parameter list to

@@ -496,7 +496,7 @@ describe "String: frozen literals" do
       # that arrived any other way (`s = +"x"; s.freeze`) allocates nothing and
       # dedups nothing, on both engines.
       #
-      # zeo already had the pool -- `String#-@` interns and `-"lit"` was correct --
+      # zr already had the pool -- `String#-@` interns and `-"lit"` was correct --
       # so the fold routes a literal `.freeze` into the same entry the
       # `# frozen_string_literal: true` path already uses. It is guarded on `freeze`
       # not being reopened, exactly as CRuby guards `opt_str_freeze` on its own

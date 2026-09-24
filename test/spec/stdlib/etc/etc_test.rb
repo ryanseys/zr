@@ -8,7 +8,7 @@ describe "Etc programs" do
       # Etc: the system user/group databases, sysconf/confstr, uname, and processor
       # count -- CRuby's native `ext/etc` over libc. Host-specific values (the real
       # uid, hostname, cpu count) can't be printed verbatim, so this prints the
-      # CONTRACT -- types, round-trips, and member sets -- identical under zeo and ruby.
+      # CONTRACT -- types, round-trips, and member sets -- identical under zr and ruby.
       require "etc"
 
       # The current user, and a name/uid round-trip through the database.
@@ -237,7 +237,7 @@ describe "Etc programs" do
       # Message text drifts one site at a time, because each site writes its own.
       # Ruby 3.4 moved the quoting from ``x'` to `'x'`, CRuby names its own C
       # function in an Errno message, and a comparison failure names both operand
-      # classes -- each of which zeo got right in some places and not others.
+      # classes -- each of which zr got right in some places and not others.
       # This probe is how the rest of that family gets found.
 
       require "tmpdir"
@@ -246,14 +246,14 @@ describe "Etc programs" do
 
       def probe(name, &blk) = ROWS[name] = blk
 
-      # Rows zeo does not answer yet, each naming the gap that tracks it. A carved
+      # Rows zr does not answer yet, each naming the gap that tracks it. A carved
       # row is left OUT of the output rather than recorded wrong. When a gap is
       # promoted, delete its entry here and re-bless; the row comes back.
       SKIP = {
         "exec missing" => "tests/gaps/a_failed_exec_names_the_program.rb",
       }.freeze
 
-      DIR = Dir.mktmpdir("zeo-probe")
+      DIR = Dir.mktmpdir("zr-probe")
       MISSING = File.join(DIR, "no-such-file")
       EXISTING = File.join(DIR, "a-file")
       File.write(EXISTING, "hi")
@@ -368,11 +368,11 @@ describe "Etc programs" do
       probe("set_backtrace(bad)") { RuntimeError.new("x").set_backtrace(1) }
       probe("Etc user missing") do
         require "etc"
-        Etc.getpwnam("no-such-user-zeo")
+        Etc.getpwnam("no-such-user-zr")
       end
-      probe("exec missing") { exec("/no/such/program-zeo") }
-      probe("backquote missing") { `/no/such/program-zeo` }
-      probe("system exception") { system("/no/such/program-zeo", exception: true) }
+      probe("exec missing") { exec("/no/such/program-zr") }
+      probe("backquote missing") { `/no/such/program-zr` }
+      probe("system exception") { system("/no/such/program-zr", exception: true) }
 
       ROWS.each do |name, fn|
         next if SKIP.key?(name)
@@ -458,9 +458,9 @@ describe "Etc programs" do
       invalid byte sequence	Encoding::InvalidByteSequenceError: "\xFF" on UTF-8
       negative sleep	ArgumentError: time interval must not be negative
       set_backtrace(bad)	TypeError: backtrace must be an Array of String or an Array of Thread::Backtrace::Location
-      Etc user missing	ArgumentError: can't find user for no-such-user-zeo
-      backquote missing	Errno::ENOENT: No such file or directory - /no/such/program-zeo
-      system exception	Errno::ENOENT: No such file or directory - /no/such/program-zeo
+      Etc user missing	ArgumentError: can't find user for no-such-user-zr
+      backquote missing	Errno::ENOENT: No such file or directory - /no/such/program-zr
+      system exception	Errno::ENOENT: No such file or directory - /no/such/program-zr
     OUT
   end
 
@@ -470,19 +470,16 @@ describe "Etc programs" do
       # as `rb_struct_define` makes them in CRuby -- so the whole struct protocol is
       # INHERITED and each class supplies only its members and accessors.
       #
-      # zeo used to make them ordinary classes with hand-written readers and a
-      # hand-rolled copy of the protocol beside them (`ext/etc/mod.rs` carried a
-      # `StructRow` trait with its own `to_a`/`to_h`/`each`/`[]`/`inspect`). That
-      # lost the member WRITERS entirely -- `pw.name = "x"` raised NoMethodError --
-      # reported the protocol rows as the class's own, kept `Struct` out of
-      # `ancestors`, and left `==` comparing by identity where a Struct compares by
-      # value.
+      # zr used to make them ordinary classes with hand-written readers and a
+      # hand-rolled copy of the protocol beside them, with its own
+      # `to_a`/`to_h`/`each`/`[]`/`inspect`. That lost the member WRITERS
+      # entirely -- `pw.name = "x"` raised NoMethodError -- reported the
+      # protocol rows as the class's own, kept `Struct` out of `ancestors`,
+      # and left `==` comparing by identity where a Struct compares by value.
       #
-      # The bridge is `RubyObject::hidden_ivar_get`/`_set`: a member by INDEX, which
-      # is how `slots_of`/`slot_get`/`slot_set` read one. Implementing those two over
-      # a slot vector is the whole of what makes a native payload a Struct -- every
-      # other row then comes from `Struct` itself, including the ones no one had
-      # written (`dig`, `size`, `values_at`, `each_pair`, `deconstruct`, `Marshal`).
+      # Because they are true Struct subclasses, every other row comes from
+      # `Struct` itself, including the ones no one had written (`dig`, `size`,
+      # `values_at`, `each_pair`, `deconstruct`, `Marshal`).
       #
       # `Etc::Passwd.each` and `Etc::Group.each` were missing outright; they are the
       # database cursors, the same walk `Etc.passwd`/`Etc.group` run with a block.

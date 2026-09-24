@@ -124,7 +124,7 @@ describe "Boxes programs" do
       # places; the DISPLAY id is CRuby's -- master 1, root 2, main 3, user
       # boxes from 4 in creation order -- and is derived, never stored in a key.
       #
-      # `master` and `root` are inert handles: zeo has no boot box, and saying
+      # `master` and `root` are inert handles: zr has no boot box, and saying
       # so is more honest than faking one. They exist so `Ruby::Box.master` and
       # `#master?` answer what ruby answers.
       #
@@ -198,20 +198,11 @@ describe "Boxes programs" do
 
       # `Ruby::Box.new` answers a value that IS a `Ruby::Box`.
       #
-      # In CRuby `Ruby::Box` is a `Module` subclass, so zeo's
-      # `RubyValue::Class(surrogate)` representation is structurally RIGHT --
-      # `b::W` resolves for the same reason. What was wrong was `.class`: it
-      # answered `Module`, so `b.is_a?(Ruby::Box)` was false and `b.eval`
-      # silently resolved `Kernel#eval` instead of `Ruby::Box#eval`. The
-      # class-of walk has an arm for the box table now, beside the two it
-      # already had (a `class X < Module` instance, a refinement holder).
+      # `b.class.to_s` answers "Ruby::Box", and `b.is_a?(Ruby::Box)` is
+      # true. `b.eval` resolves `Ruby::Box#eval`, not `Kernel#eval`.
       #
-      # The other half of what this file used to record was the ENV GATE:
-      # `Ruby::Box.new` answered a box without `RUBY_BOX=1`, where CRuby raises.
-      # The gate is a RUN-TIME question, so asking it during the compile that
-      # allocated the box would bake the build machine's environment into the
-      # program; the handle comes from `zeo_rt_box_handle` instead, which asks
-      # it where the program runs.
+      # `Ruby::Box.new` needs `RUBY_BOX=1` in the environment when the
+      # program RUNS, not when it compiles.
 
       b = Ruby::Box.new
       p b.class.to_s
@@ -583,16 +574,10 @@ describe "Boxes programs" do
       # own scope is `<compiled>` (not the caller's), and the frame between them is
       # `Ruby::Box#eval` (not `Kernel#eval`).
       #
-      # This file was filed because the same shape ABORTED the process -- the
-      # emitter asserted that every box has a compile-time surrogate and a SNIPPET
-      # compile has no boxes at all, and a panic cannot unwind out of `extern "C"`.
-      # G7's B0 fixed that; what was left was the naming, and a computed
-      # `box.eval` reaching `Kernel#eval` rather than the box's own row.
-      #
       # The LITERAL form is spliced at compile time and still reports the
-      # program's own file -- see `tests/gaps/a_box_literal_eval_is_spliced.rb`.
-      # This file computes the source (`["K", ""].first` is opaque to the constant
-      # folder) so the eval is compiled at run time.
+      # program's own file. This file computes the source
+      # (`["K", ""].first` is opaque to the constant folder), so the eval
+      # compiles at run time instead.
       #
       # Oracle: the box cannot see main's `K`, so ruby raises NameError from the
       # snippet's own frame.
@@ -604,8 +589,8 @@ describe "Boxes programs" do
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
       eval:1:in '<compiled>': uninitialized constant K (NameError)
-      	from lang/boxes/boxes_test.rb:24:in 'Ruby::Box#eval'
-      	from lang/boxes/boxes_test.rb:24:in '<main>'
+      	from lang/boxes/boxes_test.rb:18:in 'Ruby::Box#eval'
+      	from lang/boxes/boxes_test.rb:18:in '<main>'
     ERR
   end
 
@@ -740,7 +725,7 @@ describe "Boxes programs" do
 
       # A `class` written in a box belongs to that box: main cannot reach it.
       #
-      # zeo's boxes share one class registry, and a box's top-level class keeps
+      # zr's boxes share one class registry, and a box's top-level class keeps
       # its bare ruby name -- `Escapee` written in a box is called `Escapee`. So
       # the registry's name table alone would hand main the box's class, which is
       # what `Object.constants` and a bare constant read both scan. A
@@ -772,7 +757,7 @@ describe "Boxes programs" do
 
       # `Ruby::Box`'s gate-only rows exist only under `RUBY_BOX=1`, as CRuby's do.
       #
-      # zeo's rows live in a static table the `ruby_class!` DSL builds at compile
+      # zr's rows live in a static table the `ruby_class!` DSL builds at compile
       # time, so they are registered either way -- the GATE has to hide them. That
       # is what `builtins::gate` already does for the require-gated `IO` rows
       # (`io/console`, `io/nonblock`), so `Ruby::Box` joins the same projection
@@ -1088,7 +1073,7 @@ describe "Boxes programs" do
          Ruby::ENGINE_VERSION == RUBY_ENGINE_VERSION]
       p Ruby::Box.superclass
       # CRuby defines the gate-only rows (`main`/`root`/`master` and their
-      # predicates) ONLY under `RUBY_BOX=1`; zeo's are in the static table
+      # predicates) ONLY under `RUBY_BOX=1`; zr's are in the static table
       # either way, so this pins the surface both modes share. See
       # `tests/gaps/a_disabled_box_still_carries_its_gate_rows.rb`.
       GATE_ONLY = %i[main master root main? master? root?]

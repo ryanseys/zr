@@ -1125,7 +1125,7 @@ describe "Exceptions: control flow" do
 
   it "toplevel return from rescue" do
     result = zr(<<~'RUBY')
-      # `return` written at the top level ends the program. Zeo used to fold only
+      # `return` written at the top level ends the program. Zr used to fold only
       # the plain statement form; from a position that RAISES the signal instead of
       # returning literally -- inside a `rescue` clause, an `ensure`, a `begin/end
       # while` -- it escaped every frame and the program died with "uncaught signal

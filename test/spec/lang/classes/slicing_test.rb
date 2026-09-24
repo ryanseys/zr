@@ -85,7 +85,7 @@ describe "Classes: slicing" do
       # beside the `defineclass` instruction, not inside the child -- which is why
       # `class Sub < sup` can read `sup` while `Sub`'s body cannot.
       #
-      # zeo emits each body as its own function for exactly this reason (see
+      # zr emits each body as its own function for exactly this reason (see
       # `codegen::emit_class_body_site_lifted`), so this file is the rule that lift
       # stands on. A body that could see an enclosing local would have to be emitted
       # inside the enclosing scope, and `fn main` would go back to being the whole
@@ -752,7 +752,7 @@ describe "Classes: slicing" do
   it "pre reopen call sees the final body" do
     result = zr(<<~'RUBY')
       # A call that executes BEFORE a class is reopened must run the body that
-      # exists at that moment. zeo compiles one function per surviving method row
+      # exists at that moment. zr compiles one function per surviving method row
       # (last-def-wins across the whole program), so the first call below already
       # dispatches to the reopened body. Fixing this for real means versioned
       # method emission with position-aware call sites, or routing reopened

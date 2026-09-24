@@ -274,7 +274,7 @@ describe "Date programs" do
 
   it "a Range of Dates iterates through succ" do
     result = zr(<<~'RUBY')
-      # A Range of Dates iterates via #succ (`to_a`, `each`, `step`); zeo
+      # A Range of Dates iterates via #succ (`to_a`, `each`, `step`); zr
       # raises TypeError "can't iterate from Date". (Found by the 2026-08-24
       # probe sweep.)
       require "date"
@@ -1892,8 +1892,9 @@ describe "Date programs" do
       # The roots themselves are untouched.
 
       # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
-      # every call-site fast path, `&blk` conversion and `to_proc` matches on
-      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on a
+      # native Proc value directly, so boxing one inside an object would break
+      # all of them.
       # The class rides in the proc itself instead. declarative's
       # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
       # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
@@ -1901,8 +1902,9 @@ describe "Date programs" do
       end
 
       # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
-      # every call-site fast path, `&blk` conversion and `to_proc` matches on
-      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on a
+      # native Proc value directly, so boxing one inside an object would break
+      # all of them.
       # The class rides in the proc itself instead. declarative's
       # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
       # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
@@ -2056,8 +2058,9 @@ describe "Date programs" do
       # The roots themselves are untouched.
 
       # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
-      # every call-site fast path, `&blk` conversion and `to_proc` matches on
-      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on a
+      # native Proc value directly, so boxing one inside an object would break
+      # all of them.
       # The class rides in the proc itself instead. declarative's
       # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
       # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
@@ -2212,8 +2215,9 @@ describe "Date programs" do
       # The roots themselves are untouched.
 
       # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
-      # every call-site fast path, `&blk` conversion and `to_proc` matches on
-      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on a
+      # native Proc value directly, so boxing one inside an object would break
+      # all of them.
       # The class rides in the proc itself instead. declarative's
       # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
       # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
@@ -2377,8 +2381,9 @@ describe "Date programs" do
       # The roots themselves are untouched.
 
       # `Proc` is the fifth native shape, and deliberately NOT a payload wrapper:
-      # every call-site fast path, `&blk` conversion and `to_proc` matches on
-      # `RubyValue::Proc`, so boxing one inside an object would break all of them.
+      # every call-site fast path, `&blk` conversion and `to_proc` matches on a
+      # native Proc value directly, so boxing one inside an object would break
+      # all of them.
       # The class rides in the proc itself instead. declarative's
       # `Declarative::Variables::Proc` is the case -- an empty subclass used purely
       # as a tag (`v.is_a?(Variables::Proc)`) on something that is still called.
@@ -2618,7 +2623,7 @@ describe "Date programs" do
       # week number gets the two characters back instead:
       #
       #     Time.at(1_700_000_000).utc.strftime("%U %W %V %G")
-      #     ruby "46 46 46 2023"      zeo "%U %W %V %G"
+      #     ruby "46 46 46 2023"      zr "%U %W %V %G"
       #
       # Emitting the directive verbatim is the worst available failure: nothing
       # raises, and a log line or a filename silently contains "%U" forever. `%V`/%G`
@@ -2656,11 +2661,11 @@ describe "Date programs" do
 
   it "strftime zone offset flags" do
     result = zr(<<~'RUBY')
-      # `%z` ignores the `-` and `_` pad flags. zeo answers the plain `%z` string
+      # `%z` ignores the `-` and `_` pad flags. zr answers the plain `%z` string
       # for all three spellings; ruby answers something else for each:
       #
-      #     Time.at(0).utc.strftime("%-z")   ruby "-0000"   zeo "+0000"
-      #     Time.at(0).utc.strftime("%_z")   ruby " +000"   zeo "+0000"
+      #     Time.at(0).utc.strftime("%-z")   ruby "-0000"   zr "+0000"
+      #     Time.at(0).utc.strftime("%_z")   ruby " +000"   zr "+0000"
       #
       # Ruby's answers are artifacts rather than intent -- `%z` renders through the
       # same width/precision macro every numeric directive uses, so `-` (which forces
@@ -2669,7 +2674,7 @@ describe "Date programs" do
       # one. They are still what the oracle prints, which is what makes this a
       # divergence rather than a preference.
       #
-      # zeo's `%z` is `offset_str`, which reads neither `pad` nor `width` -- the flag
+      # zr's `%z` is `offset_str`, which reads neither `pad` nor `width` -- the flag
       # loop parses them and the directive never asks. `%0z` and `%^z` agree by
       # accident, since ruby's answer for those IS the plain form.
       #
@@ -2806,7 +2811,7 @@ describe "Date programs" do
       # A bare date or timestamp scalar is a TYPED value psych gates behind
       # `permitted_classes` -- plain `safe_load` RAISES Psych::DisallowedClass
       # for `2001-12-14`, and with `[Time]` permitted the timestamp loads as a
-      # real Time. zeo answers plain strings in every case. (Found by the
+      # real Time. zr answers plain strings in every case. (Found by the
       # 2026-08-24 probe sweep.)
       require "yaml"
       require "date"
@@ -2836,7 +2841,7 @@ describe "Date programs" do
       # as `.inf`, Time/Date as native scalars, a Range with its `!ruby/range`
       # tag, a nil key as `! ''`, a leading-space string double-quoted; the
       # `indentation:`/`line_width:`/`header:` options are honored; and two
-      # references to ONE object dump as an anchor and alias (`&1`/`*1`). zeo
+      # references to ONE object dump as an anchor and alias (`&1`/`*1`). zr
       # quotes-and-inlines everything and ignores the options. (Found by the
       # 2026-08-24 probe sweep.)
       require "yaml"

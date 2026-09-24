@@ -6,7 +6,7 @@ describe "Exceptions: loading files" do
   it "cwd require that misses raises at runtime" do
     result = zr(<<~'RUBY')
       # `require "./x"` resolves against the runtime working directory in real
-      # Ruby. zeo resolves it against the requiring file's directory (the
+      # Ruby. zr resolves it against the requiring file's directory (the
       # deterministic analogue -- `load`'s documented rule), and a MISS defers to
       # a catchable runtime `LoadError` instead of refusing to compile: the gems
       # that write this shape only ever worked when run from the directory the
@@ -200,15 +200,15 @@ describe "Exceptions: loading files" do
                      "raising_feature/r8.rb")
 
     result = zr(<<~'RUBY', files: files)
-      # A `require` zeo resolves at COMPILE time is spliced in place, and the
+      # A `require` zr resolves at COMPILE time is spliced in place, and the
       # spliced body has to land INSIDE the `begin` that wrote the require. CRuby
       # runs the required file during the `require` call, so a raise from the
       # file's top level both reaches the handler around it and aborts the rest of
       # the begin's body.
       #
-      # zeo spliced it out as a SIBLING, and broke both halves: the program died
+      # zr spliced it out as a SIBLING, and broke both halves: the program died
       # where ruby rescues, and the statements after the require ran anyway. It was
-      # hidden because a require zeo CANNOT resolve statically takes the run-time
+      # hidden because a require zr CANNOT resolve statically takes the run-time
       # path, which was always rescuable.
       #
       # `begin; require "optional"; rescue LoadError; end` is the everyday shape.

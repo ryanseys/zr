@@ -1,7 +1,7 @@
 # Etc: the system user/group databases, sysconf/confstr, uname, and processor
 # count -- CRuby's native `ext/etc` over libc. Host-specific values (the real
 # uid, hostname, cpu count) can't be printed verbatim, so this prints the
-# CONTRACT -- types, round-trips, and member sets -- identical under zeo and ruby.
+# CONTRACT -- types, round-trips, and member sets -- identical under zr and ruby.
 require "etc"
 
 # The current user, and a name/uid round-trip through the database.

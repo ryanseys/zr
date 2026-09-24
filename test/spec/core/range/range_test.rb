@@ -667,12 +667,9 @@ describe "Range programs" do
       # `for x in <range>` decides how to iterate from the range's ENDPOINTS, not
       # from the fact that it is a Range.
       #
-      # Every shape below used to end the process with
-      #   thread 'ruby-main' panicked: expected an Int, got c
-      # because the lowering read both endpoints with `as_int_unchecked`. A String
-      # range yields Strings, a Float or beginless one yields nothing (ruby raises a
-      # catchable TypeError from `Range#each`), and an ENDLESS one has no end to
-      # read at all.
+      # A String range yields Strings, a Float or beginless one yields nothing
+      # (ruby raises a catchable TypeError from `Range#each`), and an ENDLESS
+      # one has no end to read at all.
       #
       # The last case is the subtle one: a range reaching the loop through a local
       # whose type is not statically Range still must not be COLLECTED, or an

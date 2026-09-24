@@ -320,7 +320,7 @@ describe "Regexp programs" do
   it "invalid interpolated pattern raises a catchable regexp error" do
     result = zr(<<~'RUBY')
       # A STATIC (non-interpolated) invalid pattern is a real, uncatchable
-      # `SyntaxError` at parse time in real Ruby -- zeo defers that
+      # `SyntaxError` at parse time in real Ruby -- zr defers that
       # check to construction time uniformly (a documented, narrower-timing
       # approximation, see `hir::HirNode::RegexpLit`'s docs), so only the
       # INTERPOLATED case (genuinely runtime-only in real Ruby too) is
@@ -1882,7 +1882,7 @@ describe "Regexp programs" do
   it "RegexpError repeats onig's wording, and a subject with bytes invalid in its encoding is refused" do
     result = zr(<<~'RUBY')
       # `RegexpError` messages, which CRuby words after onig's own reasons and
-      # echoes the pattern into. The engine underneath zeo words several of them
+      # echoes the pattern into. The engine underneath zr words several of them
       # differently, so `regexp::cruby_regex_error` maps them; `a{2,1}` it accepts
       # outright, so that one is checked before the build.
       ["[invalid", "(a", "a)", "a{2,1}", "[z-a]", "*a", "(?"].each do |src|
@@ -2464,7 +2464,7 @@ describe "Regexp programs" do
     result = zr(<<~'RUBY')
       # `Regexp#===` against an instance of a String SUBCLASS.
       #
-      # CRuby's `rb_reg_eqq` takes any String, and a subclass instance is one. zeo
+      # CRuby's `rb_reg_eqq` takes any String, and a subclass instance is one. zr
       # matched on the String representation alone, so a subclass reached the
       # "not a string" arm and answered false -- while `match?`, `=~` and `String#=~`
       # on the very same object all answered true.
@@ -2636,7 +2636,7 @@ describe "Regexp programs" do
   it "an unknown character property raises RegexpError on one line" do
     result = zr(<<~'RUBY')
       # An unknown character property raises RegexpError with ruby's one-line
-      # message ("invalid character property name {Nope}: /\p{Nope}/"); zeo
+      # message ("invalid character property name {Nope}: /\p{Nope}/"); zr
       # leaks the regex engine's own multi-line rendering. The unclosed-paren
       # and bad-quantifier messages already match. (Found by the 2026-08-24
       # probe sweep.)
@@ -2810,17 +2810,16 @@ describe "Regexp programs" do
 
   it "split with no match returns the whole string unsplit" do
     result = zr(<<~'RUBY')
-      # The empty-haystack-returns-an-empty-array case is exercised directly
-      # at the `zeo_rt::regexp_split` unit-test level instead (see
-      # `zeo-rt/src/regexp.rs`) -- `puts`-ing it here would conflate this
-      # phase's own behavior with a separate, pre-existing, unrelated gap:
+      # The empty-haystack-returns-an-empty-array case is exercised elsewhere
+      # instead -- `puts`-ing it here would conflate this phase's own
+      # behavior with a separate, pre-existing, unrelated gap:
       # `Kernel#puts` on an EMPTY `Array` currently prints a blank line
       # (real Ruby prints nothing at all for `puts []`) -- confirmed via a
       # plain, regex-free `puts []; puts "x"` repro, so not something this
       # phase introduces or should fix as a side effect. `Array#length`
-      # doesn't sidestep this cleanly either: `split`'s result has no static
-      # `TyKind` seeding (unlike a literal `[]`), so it stays `Poly` and hits
-      # the same "no static-array fast path" limitation.
+      # doesn't sidestep this cleanly either: `split`'s result stays a
+      # generic type and hits the same "no static-array fast path"
+      # limitation.
 
       puts "abc".split(/x/)
     RUBY

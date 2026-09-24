@@ -8,8 +8,8 @@ describe "Struct: inheritance and ancestors" do
       # #192 feature (1): a `super` inside a method defined in a NON-const
       # `Struct.new`/`Data.define` block resolves through the runtime method-frame
       # stack into the native member-binding `initialize`, where previously it
-      # panicked "`super` outside a method" at codegen. Bare (zsuper) and explicit
-      # positional forms, plus the keyword form for Data.
+      # crashed with "`super` outside a method" at codegen. Bare (zsuper) and
+      # explicit positional forms, plus the keyword form for Data.
 
       pair = Struct.new(:x, :y) do
         def initialize(x)

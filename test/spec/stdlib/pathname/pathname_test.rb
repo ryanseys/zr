@@ -7,7 +7,7 @@ describe "Pathname programs" do
     result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
-      # the arity census proved zeo had drawn in the wrong place.
+      # the arity census proved zr had drawn in the wrong place.
 
       require "pathname"
       require "tmpdir"
@@ -47,7 +47,7 @@ describe "Pathname programs" do
     result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
-      # the arity census proved zeo had drawn in the wrong place.
+      # the arity census proved zr had drawn in the wrong place.
 
       require "pathname"
       require "tmpdir"
@@ -79,7 +79,7 @@ describe "Pathname programs" do
     result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
-      # the arity census proved zeo had drawn in the wrong place.
+      # the arity census proved zr had drawn in the wrong place.
 
       require "pathname"
       require "tmpdir"
@@ -155,7 +155,7 @@ describe "Pathname programs" do
     result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
-      # the arity census proved zeo had drawn in the wrong place.
+      # the arity census proved zr had drawn in the wrong place.
 
       require "pathname"
       require "tmpdir"
@@ -192,11 +192,11 @@ describe "Pathname programs" do
     OUT
   end
 
-  it "the names zeo used to answer that CRuby has nowhere are gone" do
+  it "the names zr used to answer that CRuby has nowhere are gone" do
     result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
-      # the arity census proved zeo had drawn in the wrong place.
+      # the arity census proved zr had drawn in the wrong place.
 
       require "pathname"
       require "tmpdir"
@@ -207,7 +207,7 @@ describe "Pathname programs" do
         "absent"
       end
 
-      # Names zeo used to answer that CRuby has nowhere.
+      # Names zr used to answer that CRuby has nowhere.
       puts "-- not methods at all"
       {
         "Regexp#linear_time?" => -> { /a/.linear_time? },
@@ -246,7 +246,7 @@ describe "Pathname programs" do
     result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
-      # the arity census proved zeo had drawn in the wrong place.
+      # the arity census proved zr had drawn in the wrong place.
 
       require "pathname"
       require "tmpdir"

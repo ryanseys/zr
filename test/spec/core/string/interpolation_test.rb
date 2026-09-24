@@ -45,7 +45,7 @@ describe "String: interpolation" do
   it "autoload interpolated dir feature" do
     result = zr(<<~'RUBY', files: beside("autoload_interp/sprocket.rb"))
       # `autoload :Const, "#{__dir__}/sibling"` -- how puma, rack and sidekiq name a
-      # sibling file. zeo splices the target at compile time, so the interpolation
+      # sibling file. zr splices the target at compile time, so the interpolation
       # has to fold then; only a plain literal and `File.expand_path` did.
 
       autoload :Sprocket, "#{__dir__}/autoload_interp/sprocket"
@@ -202,7 +202,7 @@ describe "String: interpolation" do
       # :"#{kind}_attrs"` -- has no compile-time spelling, but it is still just a
       # runtime install on the default definee, in class-body order.
       #
-      # zeo required a plain symbol and refused the whole file ("`alias`'s target
+      # zr required a plain symbol and refused the whole file ("`alias`'s target
       # must be a plain method name") -- formal_wear builds its DSL in exactly
       # this loop.
       class Suit

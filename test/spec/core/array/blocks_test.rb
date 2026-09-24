@@ -476,7 +476,7 @@ describe "Array: blocks and yields" do
   it "bsearch rejects a non numeric block result" do
     result = zr(<<~'RUBY')
       # `Array#bsearch`'s block must answer numeric, true, false or nil; any
-      # other type is a TypeError naming the class. zeo treats a String result as
+      # other type is a TypeError naming the class. zr treats a String result as
       # a truthy find-minimum hit and answers an element. (Found by the
       # 2026-08-24 probe sweep.)
       begin

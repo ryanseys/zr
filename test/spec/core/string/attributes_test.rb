@@ -428,7 +428,7 @@ describe "String: generated attribute methods" do
     result = zr(<<~'RUBY')
       # attr_reader/attr_accessor/attr_writer only work in a literal `class`/`module`
       # body. Invoked from inside a `Class.new { ... }` or `#class_eval { ... }`
-      # block, zeo raises NoMethodError instead of defining the accessor.
+      # block, zr raises NoMethodError instead of defining the accessor.
       klass = Class.new do
         attr_reader :v
         def initialize(v)

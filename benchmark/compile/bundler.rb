@@ -1,6 +1,6 @@
 # The bundled Bundler, entered at the umbrella. The top rung of the
 # compile-cost ladder: `require "bundler"` pulls rubygems in as well, so this
-# is the largest require graph zeo compiles on demand.
+# is the largest require graph zr compiles on demand.
 #
 # This file used to enter at `bundler/version` because the umbrella did not
 # compile. It does now; `tests/milestones/require_bundler.rb` and

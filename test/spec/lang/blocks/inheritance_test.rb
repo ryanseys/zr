@@ -7,7 +7,7 @@ describe "Blocks: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # A bare `super` written inside a BLOCK forwards the enclosing method's block
       # to the parent, exactly as one written directly in the method body does.
-      # zeo forwards the method's PARAMETERS through this shape correctly -- see
+      # zr forwards the method's PARAMETERS through this shape correctly -- see
       # `tests/a_bare_super_inside_a_block_forwards_the_methods_params.rb` -- but
       # not its BLOCK, so the parent raises `LocalJumpError: no block given`.
       #
@@ -76,7 +76,7 @@ describe "Blocks: inheritance and ancestors" do
       # syntax: the forwarding argument list is synthesized when the call is emitted,
       # so nothing in the block mentions the parameters at all.
       #
-      # zeo's capture analysis walks local reads, found none, and captured nothing.
+      # zr's capture analysis walks local reads, found none, and captured nothing.
       # The block's `move` closure then consumed the enclosing parameter outright,
       # and every later use of it in the method was a borrow-after-move --
       # `require "active_model"` failed to build with 14 of these, over `name`,

@@ -15,10 +15,10 @@ false
 "1.5"
 ["1.9.3", "1.9.10", "1.10.0", "2.0.0.pre"]
 true
-"zeo-milestone"
+"zr-milestone"
 "0.1.0"
-"zeo-milestone-0.1.0"
-"zeo-milestone-0.1.0.gem"
+"zr-milestone-0.1.0"
+"zr-milestone-0.1.0.gem"
 ["lib"]
 [["rake", :runtime, ">= 13.0"], ["minitest", :development, "~> 5.0"]]
 ["rake"]

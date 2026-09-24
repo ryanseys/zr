@@ -207,13 +207,13 @@ describe "Struct: formatting and inspection" do
       #
       #     Coord.new(1)  ->  ArgumentError: missing keyword: :lng
       #
-      # zeo reports "wrong number of arguments (given 1, expected 2)", which is
+      # zr reports "wrong number of arguments (given 1, expected 2)", which is
       # `Struct`'s message -- and `Struct` really does allow the short form
       # (`S.new(1)` leaves `b` nil), so the two classes need different bodies here.
       # `Data` is the immutable half of that pair, and refusing an incomplete
       # instance is the whole reason it exists.
       #
-      # The memberless case has a stray space: zeo inspects `Data.define.new` as
+      # The memberless case has a stray space: zr inspects `Data.define.new` as
       # `#<data D2 >`, ruby as `#<data D2>` -- the separator is emitted before the
       # member list rather than between members.
 
@@ -591,7 +591,7 @@ describe "Struct: formatting and inspection" do
       # CRuby writes `#<struct ` and then the NAME, so the separator belongs to
       # the name's position: a named memberless struct is `#<struct Empty>` and
       # an ANONYMOUS one keeps the space the name would have gone in
-      # (`#<struct >`). zeo dropped it whenever the member list was empty.
+      # (`#<struct >`). zr dropped it whenever the member list was empty.
       #
       # The original header follows. It describes the PREDECESSOR project's
       # version of this test and its own fix.

@@ -187,10 +187,10 @@ describe "Control programs" do
       # Each mapped shape is oracle-verified by `tests/rubyvm_ast.rb`, so closing
       # this is adding rows in that style, one kind at a time, not a redesign.
       #
-      # NOT part of this gap, and worth keeping apart: `Node#node_id`. zeo numbers
+      # NOT part of this gap, and worth keeping apart: `Node#node_id`. zr numbers
       # its own nodes post-order, and CRuby's AST ids are a DIFFERENT scheme from
       # prism's own (`nil.nope` is prism id 3 for the call, CRuby AST id 1), so
-      # neither zeo's numbering nor prism's would serve. See
+      # neither zr's numbering nor prism's would serve. See
       # `rubyvm_iseq_serialization.rb`.
       #
       # Oracle: 13 nodes, and no `:UNKNOWN` among them.
@@ -1775,10 +1775,8 @@ describe "Control programs" do
 
   it "parenthesized body ending in self returns self" do
     result = zr(<<~'RUBY')
-      # `def m = (@x = 2; self)` -- a `Seq` whose tail is `self`. The `Seq`
-      # block emitted its tail unboxed (`Arc<Concrete>`) while every consumer
-      # of a `Seq` (which always infers `Poly`) expects a boxed `RubyValue` --
-      # an E0308 in `Ok(...)` position. The `Seq` now boxes its own tail.
+      # `def m = (@x = 2; self)` -- a method body that is a parenthesized
+      # sequence ending in `self` returns the object itself, not a copy.
 
       class C
         def initialize = (@x = 1)

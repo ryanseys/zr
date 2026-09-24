@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Builtins: formatting and inspection" do
   it "allocate rows" do
     result = zr(<<~'RUBY')
-      # `allocate` -- a blank instance with no `initialize`. zeo raised
+      # `allocate` -- a blank instance with no `initialize`. zr raised
       # "allocator undefined" for `Object`, `BasicObject`, `Range` and every
       # exception class, and `Class.allocate` (ruby declares it on `Class`'s OWN
       # singleton) answered off the generic row.
@@ -503,7 +503,7 @@ describe "Builtins: formatting and inspection" do
       end
 
       # `const_source_location`: an Array for a constant that exists (CRuby fills in
-      # the file and line; zeo answers the empty Array it gives every C-defined
+      # the file and line; zr answers the empty Array it gives every C-defined
       # constant), nil for one that does not, NameError for a bad name.
       puts "source loc known: #{Outer.const_source_location(:INNER_CONST).class}"
       puts "source loc missing: #{Object.const_source_location(:Nope).inspect}"
@@ -745,7 +745,7 @@ describe "Builtins: formatting and inspection" do
   it "process tms rows" do
     result = zr(<<~'RUBY')
       # `Process::Tms` is a Struct in ruby, so its own singleton carries the five
-      # names every generated Struct class carries. zeo had three of them; `new` was
+      # names every generated Struct class carries. zr had three of them; `new` was
       # a NoMethodError and `inspect` came off `Module`.
 
       p Process::Tms.singleton_methods(false).sort

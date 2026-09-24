@@ -33,7 +33,7 @@ describe "Numeric: slicing" do
     result = zr(<<~'RUBY')
       # A `Range` whose endpoint is a BIGNUM is an integer range like any other.
       #
-      # zeo's range machinery narrowed every endpoint to a machine integer and
+      # zr's range machinery narrowed every endpoint to a machine integer and
       # treated a `BigInt` as a non-integer, so `each`, `to_a`, `first(n)`,
       # `last(n)`, `bsearch` and `size` all raised `TypeError: can't iterate from
       # Integer` -- a message that names `Integer` as the thing it cannot iterate
@@ -47,7 +47,7 @@ describe "Numeric: slicing" do
       # back down as it goes.
       #
       # Two rows were WORSE than a divergence: `(1..2**70).sum` and `.count` HUNG,
-      # because zeo iterated where ruby answers in closed form. Those closed forms
+      # because zr iterated where ruby answers in closed form. Those closed forms
       # are why ruby answers at all -- Gauss for `sum`, `size` for `count` -- and
       # `size` is the same story (`end - begin + 1`, which is also why it is
       # instant).

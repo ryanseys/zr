@@ -7,14 +7,14 @@ describe "Builtins: raising and rescuing" do
     result = zr(<<~'RUBY')
       # Ruby's backtrace names the C frames a raise passed through. A raise from
       # inside a block given to `Kernel#then` shows ruby's
-      # `from ...:in 'Kernel#then'` line between the block and its caller; zeo's
+      # `from ...:in 'Kernel#then'` line between the block and its caller; zr's
       # native builtin rows push no frame, so that line is missing and the two frames
       # around it become adjacent.
       #
       # The frame is what makes the trace readable -- it is how a reader sees that
       # the failure came through `then` rather than from the calling line directly --
       # and anything that INDEXES into `caller` counts a different depth than ruby
-      # does. zeo already pushes frames for compiled methods, so the machinery
+      # does. zr already pushes frames for compiled methods, so the machinery
       # exists; the builtin rows do not use it.
       #
       # `caller_locations` from a method reached through such a builtin already
@@ -134,7 +134,7 @@ describe "Builtins: raising and rescuing" do
 
   it "exception owner rows" do
     result = zr(<<~'RUBY')
-      # The four rows ruby declares ON an exception class that zeo used to answer
+      # The four rows ruby declares ON an exception class that zr used to answer
       # from an ancestor. Reflection has to name the same owner, because a rescue
       # handler that asks `SignalException.instance_methods(false)` gets a different
       # answer from `Exception`'s.

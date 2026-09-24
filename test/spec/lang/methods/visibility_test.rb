@@ -114,7 +114,7 @@ describe "Methods: visibility" do
     result = zr(<<~'RUBY')
       # `private_class_method def helper ...` under a `module_function` directive
       # registers the def: `private_class_method` takes the def's symbol as an
-      # argument, and the def itself defines the method as usual. zeo does not model
+      # argument, and the def itself defines the method as usual. zr does not model
       # class-method VISIBILITY (tests/gaps/class_method_visibility.rb), so the
       # helper stays callable -- what this pins is that it EXISTS.
       module M
@@ -174,7 +174,7 @@ describe "Methods: visibility" do
   it "module function governs a runtime define method" do
     result = zr(<<~'RUBY')
       # A bare `module_function` is a MODE: every definition after it in the body
-      # becomes both a module method and a private instance copy. Zeo resolves
+      # becomes both a module method and a private instance copy. Zr resolves
       # that cursor at compile time, which reaches a `def` and reaches the block
       # form of `define_method` (it desugars to a `def`) -- but a
       # `define_method(:name, <a callable>)` installs at RUN time, where the

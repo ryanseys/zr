@@ -6,7 +6,7 @@ describe "Kernel: loading files" do
   it "bare require needs a load path root" do
     result = zr(<<~'RUBY', files: beside("bare_require/lib/thing.rb", "bare_require/vendor/thing/lib/thing.rb"))
       # `require "thing"` names the `thing.rb` sitting under a `$LOAD_PATH` root --
-      # not every loaded file whose path happens to end in `/thing.rb`. zeo compared
+      # not every loaded file whose path happens to end in `/thing.rb`. zr compared
       # `$LOADED_FEATURES` by path SUFFIX alone, so a vendored copy already loaded
       # under its own long path claimed the bare name, the require answered `false`,
       # and the real file never ran.
@@ -52,7 +52,7 @@ describe "Kernel: loading files" do
       # A `require` whose argument is not a literal has to reach the libraries the
       # runtime carries, not just the files on `$LOAD_PATH`.
       #
-      # zeo folds a LITERAL `require "date"` at compile time -- the native half is
+      # zr folds a LITERAL `require "date"` at compile time -- the native half is
       # linked in and registered before line 1, so the fold emits nothing but a
       # loaded-feature marker. A computed target names no feature the compiler can
       # see, so it reaches `Kernel#require` at run time instead, and that path used
@@ -130,7 +130,7 @@ describe "Kernel: loading files" do
       # Loading a feature is only half of a `require`: the constant it gates has to
       # start existing at that line, and not before.
       #
-      # zeo registers a require-gated builtin's class only when some file requires
+      # zr registers a require-gated builtin's class only when some file requires
       # its feature, so a program whose only require is COMPUTED registered nothing
       # and the constant stayed a `NameError` even after the load succeeded. The
       # compiler now registers every gated builtin for such a program, CONCEALED --
@@ -254,7 +254,7 @@ describe "Kernel: loading files" do
   it "native require relative defers to runtime" do
     result = zr(<<~'RUBY')
       # `require_relative` of a NATIVE (.so/.bundle) feature names a compiled
-      # extension zeo cannot load. The call keeps its site and raises the catchable
+      # extension zr cannot load. The call keeps its site and raises the catchable
       # runtime LoadError -- CRuby's own answer when the file is absent -- instead
       # of failing the whole compile. Both the rescued and the bare-but-reached
       # spellings stay programs.
@@ -400,7 +400,7 @@ describe "Kernel: loading files" do
       #
       # Each target below prints when its body runs, so the ORDER and the COUNT are
       # both visible, and every marker is read back through `Object.const_defined?`
-      # rather than `defined?` (a constant a gated unit assigns is one zeo answers
+      # rather than `defined?` (a constant a gated unit assigns is one zr answers
       # for at run time, and `defined?` folds).
 
       def self.never_yields
@@ -581,16 +581,16 @@ describe "Kernel: loading files" do
       # large module, or the `module_eval`-defined names, in a unit the RUN TIME
       # compiled rather than the compile did.
       #
-      # This is the recurring shape zeo's notes keep finding, one layer further in:
+      # This is the recurring shape zr's notes keep finding, one layer further in:
       # a visibility verb the run time owns, applied against a set the compile-time
       # view of the unit assembled. `private_constant` and `K.prepend` were the same
       # bug at the top level and are fixed; this is the eval seam's copy of it.
       #
-      # It BLOCKS DOGFOODING. A ruby tool compiled to a binary with `zeo -o`
-      # but its entry point unshifts a computed path onto `$LOAD_PATH`, so zeo
+      # It BLOCKS DOGFOODING. A ruby tool compiled to a binary with `zr -o`
+      # but its entry point unshifts a computed path onto `$LOAD_PATH`, so zr
       # cannot resolve those requires statically and defers each one to a run-time
       # compile. The first library that requires `fileutils` then dies at load, and
-      # no zeo-compiled tool starts.
+      # no zr-compiled tool starts.
 
       eval(%q{require "fileutils"})
       puts FileUtils::Verbose.name
@@ -611,14 +611,14 @@ describe "Kernel: loading files" do
 
       # A real file on a load-path root: the kind is :rb and the path is absolute.
       Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "zeo_probe_feature.rb"), "ZR_TEST_PROBE_FEATURE = 1\n")
+        File.write(File.join(dir, "zr_probe_feature.rb"), "ZR_TEST_PROBE_FEATURE = 1\n")
         $LOAD_PATH.unshift(dir)
-        r = $LOAD_PATH.resolve_feature_path("zeo_probe_feature")
+        r = $LOAD_PATH.resolve_feature_path("zr_probe_feature")
         # Absolute and REAL: the tmpdir is a symlink on macOS, so the answer is the
         # resolved path rather than the one that was unshifted.
-        p [r[0], File.basename(r[1]), r[1].start_with?("/"), r[1] == File.realpath(File.join(dir, "zeo_probe_feature.rb"))]
+        p [r[0], File.basename(r[1]), r[1].start_with?("/"), r[1] == File.realpath(File.join(dir, "zr_probe_feature.rb"))]
         # The explicit `.rb` spelling names the same file.
-        r = $LOAD_PATH.resolve_feature_path("zeo_probe_feature.rb")
+        r = $LOAD_PATH.resolve_feature_path("zr_probe_feature.rb")
         p [r[0], File.basename(r[1])]
         $LOAD_PATH.delete(dir)
       end
@@ -647,8 +647,8 @@ describe "Kernel: loading files" do
       true
       false
       [:resolve_feature_path]
-      [:rb, "zeo_probe_feature.rb", true, true]
-      [:rb, "zeo_probe_feature.rb"]
+      [:rb, "zr_probe_feature.rb", true, true]
+      [:rb, "zr_probe_feature.rb"]
       nil
       ["set", nil]
       ["fiber", nil]
@@ -728,7 +728,7 @@ describe "Kernel: loading files" do
       # is the whole point: every corpus hit sits inside a `rescue LoadError`
       # optional-dependency helper (wagons, right_support).
       #
-      # zeo's require recognizer checked the argument COUNT (one) before the
+      # zr's require recognizer checked the argument COUNT (one) before the
       # shape, so a single splat slipped past it into the generic lowering and
       # died on "unsupported syntax at \"*names\"".
       def try_require(*names)
@@ -738,7 +738,7 @@ describe "Kernel: loading files" do
         "unavailable"
       end
 
-      puts try_require("zeo_definitely_does_not_ship_this")
+      puts try_require("zr_definitely_does_not_ship_this")
     RUBY
 
     _(result).must_answer "unavailable\n"

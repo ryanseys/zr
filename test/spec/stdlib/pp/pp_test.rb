@@ -13,7 +13,7 @@ describe "PP programs" do
       # PrettyPrint's own graph, reached through `pp`. See pp_pretty_print.rb.gccheck.
 
       # At exit: cycle leak: 11 objects (Array x7, PP x1, PrettyPrint::Group x1, PrettyPrint::GroupQueue x1, Proc x1)
-      # Compiled code must not hand `zeo_rt_release` a stack slot that holds no
+      # Compiled code must not hand `zr_rt_release` a stack slot that holds no
       # live value. This program did, and `ZR_TEST_RT_LEAKCHECK=1` reported tag byte
       # 176 -- not a value tag (they run 0..33) and not the poison byte a released
       # slot is stamped with (0xFF). The release then ran `drop_in_place` over
@@ -34,7 +34,7 @@ describe "PP programs" do
       #     with the slot un-zeroed, so the UNGUARDED `n.times` and range-`each`
       #     splices were exposed too.
       #   * `new_cell_local` had the same defect over an 8-byte pointer slot, which
-      #     is worse: the epilogue loaded it and passed it to `zeo_rt_cell_release`.
+      #     is worse: the epilogue loaded it and passed it to `zr_rt_cell_release`.
       #
       # THE FIX. Every slot is initialised in the ENTRY block. `new_value_slot` and
       # `new_cell_slot` record the slot; `Fx::drain_slot_inits` emits the stores at

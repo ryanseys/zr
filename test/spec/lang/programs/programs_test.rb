@@ -35,7 +35,7 @@ describe "Whole programs" do
   it "case mapping methods take no options" do
     result = zr(<<~'RUBY')
       # `upcase`/`downcase`/`capitalize`/`swapcase` -- and their `!` and `Symbol`
-      # twins -- accept NO arguments in zeo, so every one of ruby's case-mapping
+      # twins -- accept NO arguments in zr, so every one of ruby's case-mapping
       # options is an `ArgumentError`.
       #
       # Ruby's options are four, and they are not decoration:
@@ -50,14 +50,14 @@ describe "Whole programs" do
       #   :lithuanian   the accent rules, currently only for `i`.
       #   :fold         case folding rather than case mapping, for `downcase`.
       #
-      # zeo's rows are declared with no parameters at all, so this is a DSL arity
+      # zr's rows are declared with no parameters at all, so this is a DSL arity
       # question first and a mapping question second: the tables behind the option
       # are Unicode's `SpecialCasing.txt` conditional mappings, which the encoding
       # work already parses for the unconditional case.
       #
       # Two or more options may be given together (`:turkic, :lithuanian`), and an
       # unknown one is `ArgumentError: invalid option` -- a different message from
-      # the arity error zeo raises today, which is what makes a caller's `rescue
+      # the arity error zr raises today, which is what makes a caller's `rescue
       # ArgumentError` around a probe silently take the wrong branch.
       #
       # Oracle: every row answers.
@@ -760,7 +760,7 @@ describe "Whole programs" do
       # assignment, in multi-assignment, and through a splat, each index
       # expression evaluated exactly once.
       #
-      # zeo's multi-assignment arm demanded a single index, and a SPLAT index in
+      # zr's multi-assignment arm demanded a single index, and a SPLAT index in
       # compound assignment fell off the end of the lowering (red-chainer's
       # `gx[*i] += dot / (2 * eps)`).
       class Grid
@@ -991,7 +991,7 @@ describe "Whole programs" do
     OUT
   end
 
-  it "zeo dev promote probe" do
+  it "zr dev promote probe" do
     result = zr(<<~'RUBY')
       puts "promoted"
     RUBY

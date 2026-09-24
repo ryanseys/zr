@@ -144,7 +144,7 @@ describe "String: splitting and joining" do
       # A class opened BARE and reopened with a superclass is ruby's own
       # `TypeError: superclass mismatch for class Sub` -- a real bare `class Sub`
       # gives the class Object as its parent, and a later `< Base` conflicts with
-      # that. A forward SHELL (zeo's own device for a name a later file defines)
+      # that. A forward SHELL (zr's own device for a name a later file defines)
       # carries no such history and the reopen establishes its parent instead.
       module M
         class Base

@@ -5,21 +5,19 @@ require "spec_helper"
 describe "BigDecimal programs" do
   it "allocate refuses where ruby refuses" do
     result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
-      # `Class#allocate` on a native class zeo has no blank value for must RAISE,
+      # `Class#allocate` on a native class zr has no blank value for must RAISE,
       # not hand back a generic object.
       #
-      # The generic answer was a name-keyed dynamic object, and a native class's
-      # rows downcast to their own payload -- so `BigDecimal.allocate` succeeded and
-      # the next method call panicked on the downcast, taking the whole process with
-      # it rather than raising. `Marshal.load(Marshal.dump(BigDecimal("1.25")))`
-      # walked straight into it.
+      # A generic object would let `BigDecimal.allocate` succeed and only fail,
+      # confusingly, on the next method call or in
+      # `Marshal.load(Marshal.dump(BigDecimal("1.25")))`.
       #
       # Ruby's answer is `TypeError: allocator undefined for X`, and that is now
-      # zeo's, message included.
+      # zr's, message included.
 
       require "bigdecimal"
 
-      # `BigDecimal` is the one class in a 52-row differential probe where zeo
+      # `BigDecimal` is the one class in a 52-row differential probe where zr
       # allocated and ruby refused, and it is the one that aborted.
       begin
         BigDecimal.allocate
@@ -100,8 +98,8 @@ describe "BigDecimal programs" do
       # modes, mode/limit state, conversions, and the error shapes.
       require "bigdecimal"
 
-      # The SHAPE, not the number: zeo tracks bigdecimal's latest upstream release
-      # and the oracle reads the copy ruby 4.0.6 ships (`crates/zeo-rt/ext/UPSTREAM.md`).
+      # The SHAPE, not the number: zr vendors bigdecimal's latest upstream release
+      # (vendor/ext/bigdecimal) and the oracle reads the copy ruby 4.0.6 ships.
       p BigDecimal::VERSION.match?(/\A\d+\.\d+\.\d+\z/)
       p [BigDecimal::BASE, BigDecimal.double_fig]
       p [BigDecimal::ROUND_MODE, BigDecimal.mode(BigDecimal::ROUND_MODE), BigDecimal.mode(BigDecimal::EXCEPTION_ALL), BigDecimal.limit]
@@ -519,7 +517,7 @@ describe "BigDecimal programs" do
   it "round with a digits argument answers a BigDecimal, and only the bare form answers an Integer" do
     result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # `BigDecimal#round` with an explicit digits argument answers a
-      # BigDecimal (only the no-argument form answers Integer); zeo answers
+      # BigDecimal (only the no-argument form answers Integer); zr answers
       # Integer for the digits form too. (Found by the 2026-08-24 probe
       # sweep.)
       require "bigdecimal"
@@ -539,7 +537,7 @@ describe "BigDecimal programs" do
     result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # JSON.parse's container-class options: `object_class:`/`array_class:`
       # build the parse result out of the given classes, and `decimal_class:`
-      # parses floats into it (BigDecimal is the use case). zeo ignores all
+      # parses floats into it (BigDecimal is the use case). zr ignores all
       # three. (Found by the 2026-08-24 probe sweep.)
       require "json"
       require "ostruct"
@@ -570,7 +568,7 @@ describe "BigDecimal programs" do
       # Two more looked WORSE than raising, because they looked like they had
       # worked:
       #
-      #   * a `Pathname` loaded back EMPTY. zeo keeps the path in its payload where
+      #   * a `Pathname` loaded back EMPTY. zr keeps the path in its payload where
       #     ruby keeps it in an `@path` ivar, and the generic object dump writes
       #     ivars -- so it wrote none. `RPathname` now answers to the ruby name
       #     through `ivar_pairs`/`ivar_set_named`, which fixes `instance_variables`
@@ -681,7 +679,7 @@ describe "BigDecimal programs" do
       # `eql?` follows NEITHER, which is why the last block pins it as a table.
       # `Set`, `Time`, `Date`, `Pathname` and `BigDecimal` answer it by value;
       # `FFI::Pointer` and an `Exception` answer `==` by value and `eql?` by
-      # IDENTITY. Nothing zeo can see predicts the split, so
+      # IDENTITY. Nothing zr can see predicts the split, so
       # `Kernel#eql?`'s `owns_value_eql` allowlist is measured against the oracle
       # and this table is what keeps it honest.
       #

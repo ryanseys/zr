@@ -317,10 +317,9 @@ describe "Fusion: dispatch" do
 
   it "is a against a poly typed method parameter" do
     result = zr(<<~'RUBY')
-      # A method PARAMETER is always `TyKind::Poly` (zeo never infers a
+      # A method PARAMETER is always generically typed (zr never infers a
       # param's type from its call sites) -- this exercises the runtime
-      # `zeo_rt::is_a` fallback (via the new universal `RubyValue::class_id`)
-      # rather than the static ancestors-constant-fold path.
+      # `is_a?` fallback rather than the static ancestors-constant-fold path.
 
       class Checker
         def check(v)

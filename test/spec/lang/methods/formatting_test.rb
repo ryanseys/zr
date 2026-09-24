@@ -8,7 +8,7 @@ describe "Methods: formatting and inspection" do
       # `__method__` answers the BARE method name, whichever way the method was
       # defined.
       #
-      # zeo read it off the backtrace label and stripped only the `#` separator, so
+      # zr read it off the backtrace label and stripped only the `#` separator, so
       # an instance method answered `:name` and a class method answered `:"Owner.name"`.
       #
       # What that breaks is `to_enum(__method__, ...)` -- the standard way a method
@@ -132,7 +132,7 @@ describe "Methods: formatting and inspection" do
   it "double splat nil" do
     result = zr(<<~'RUBY')
       # `**nil` in a call is ruby's "pass no keywords" spelling -- a no-op, both as
-      # a literal and through a nil-valued variable. zeo lowers every `**expr` splat
+      # a literal and through a nil-valued variable. zr lowers every `**expr` splat
       # through a to-Hash conversion, so it raises TypeError ("no implicit
       # conversion of nil into Hash") before the call happens.
       def kw(a, b: 2, **rest)
@@ -173,7 +173,7 @@ describe "Methods: formatting and inspection" do
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
       # other explicit receiver is checked.
       #
-      # zeo enforced that only where the receiver's class was known at compile time.
+      # zr enforced that only where the receiver's class was known at compile time.
       # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
       # answered nil, and a private method reached through a local that merely HELD
       # self went through.
@@ -234,7 +234,7 @@ describe "Methods: formatting and inspection" do
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
       # other explicit receiver is checked.
       #
-      # zeo enforced that only where the receiver's class was known at compile time.
+      # zr enforced that only where the receiver's class was known at compile time.
       # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
       # answered nil, and a private method reached through a local that merely HELD
       # self went through.
@@ -300,7 +300,7 @@ describe "Methods: formatting and inspection" do
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
       # other explicit receiver is checked.
       #
-      # zeo enforced that only where the receiver's class was known at compile time.
+      # zr enforced that only where the receiver's class was known at compile time.
       # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
       # answered nil, and a private method reached through a local that merely HELD
       # self went through.
@@ -361,7 +361,7 @@ describe "Methods: formatting and inspection" do
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
       # other explicit receiver is checked.
       #
-      # zeo enforced that only where the receiver's class was known at compile time.
+      # zr enforced that only where the receiver's class was known at compile time.
       # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
       # answered nil, and a private method reached through a local that merely HELD
       # self went through.
@@ -412,7 +412,7 @@ describe "Methods: formatting and inspection" do
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
       # other explicit receiver is checked.
       #
-      # zeo enforced that only where the receiver's class was known at compile time.
+      # zr enforced that only where the receiver's class was known at compile time.
       # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
       # answered nil, and a private method reached through a local that merely HELD
       # self went through.
@@ -465,7 +465,7 @@ describe "Methods: formatting and inspection" do
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
       # other explicit receiver is checked.
       #
-      # zeo enforced that only where the receiver's class was known at compile time.
+      # zr enforced that only where the receiver's class was known at compile time.
       # A dynamic call skipped it entirely, so `1.puts("x")` printed, `"ab".initialize`
       # answered nil, and a private method reached through a local that merely HELD
       # self went through.
@@ -513,16 +513,10 @@ describe "Methods: formatting and inspection" do
   it "extended class method keeps its visibility" do
     result = zr(<<~'RUBY')
       # `SomeClass.extend(M)` copies M's instance methods in as CLASS methods and
-      # loses their visibility marks -- the class-receiver twin of
-      # `an_extended_module_keeps_its_visibility`.
-      #
-      # `extend_object_default`'s `RubyValue::Class` arm (`runtime_meta/api.rs`)
-      # writes `entry.class_methods` and `entry.extended_class_methods` and nothing
-      # else. The class-method visibility map (`class_methods_vis`) is left alone, so
-      # a `module_function` name -- private on the module's instance side -- arrives
-      # public on the class's singleton.
-      #
-      # The per-object arm carries the marks; this one does not.
+      # must keep their visibility marks -- the class-receiver twin of the
+      # "extended module keeps its visibility" test. A `module_function` name
+      # -- private on the module's instance side -- must not arrive public
+      # on the class's singleton.
 
       def try(label)
         p [label, yield]
@@ -804,20 +798,16 @@ describe "Methods: formatting and inspection" do
   it "keyword given flag does not travel" do
     result = zr(<<~'RUBY')
       # Ruby distinguishes "the caller wrote keywords" from "the caller passed a
-      # Hash" -- `rb_keyword_given_p`. zeo collapses both into a trailing
-      # `RubyValue::Hash` positional the moment a call leaves the static path, so
-      # every callee that asks the question gets the wrong answer.
+      # Hash". Every callee that asks the question must get the right answer,
+      # no matter which call shape reaches it.
       #
-      # Two call shapes leave that path: a `**h` double-splat (always dispatched
-      # dynamically -- see `codegen::call::splat`) and `send`. A LITERAL keyword at a
-      # statically-resolved site keeps the distinction and already answers correctly,
-      # which is the control in each pair below.
+      # A `**h` double-splat and `send` are the two call shapes to check. A
+      # LITERAL keyword at a statically-resolved site keeps the distinction
+      # and already answers correctly, which is the control in each pair
+      # below.
       #
-      # `**nil` is the sharpest reader of the flag, since refusing keywords is its
-      # whole purpose (`tests/keywords_refused_message.rb` covers the literal form
-      # that works). `tests/gaps/struct_construction_argument_shapes.rb` is the same
-      # root cause reached through `Struct.new`, which decides member binding from
-      # the argument shape because the flag never arrives.
+      # `**nil` is the sharpest reader of the flag, since refusing keywords is
+      # its whole purpose.
       #
       # An EMPTY `**{}` passes no keywords at all, so it must stay silent -- that is
       # the line separating this from a shape-only test.
@@ -1134,11 +1124,11 @@ describe "Methods: formatting and inspection" do
   it "method added sees the superseded body" do
     result = zr(<<~'RUBY')
       # `def v; end; def v; end` fires `method_added(:v)` twice, and at the FIRST
-      # firing ruby has only the first body installed. zeo runs the second.
+      # firing ruby has only the first body installed. zr runs the second.
       #
       # This is not the watermark, which handles a name whose first definition is
       # still ahead (`tests/method_added_dispatch_watermark.rb`). Here `v` is already
-      # defined at both firings -- what differs is WHICH body. zeo keeps one row per
+      # defined at both firings -- what differs is WHICH body. zr keeps one row per
       # name: `analyze::add_own_method` REPLACES an earlier same-name entry rather
       # than appending, which is Ruby's own last-def-wins rule everywhere else, and
       # codegen emits one method per surviving row. The superseded body is not
@@ -1190,7 +1180,7 @@ describe "Methods: formatting and inspection" do
       # `instance_methods(false)` answers `[:a]` alone, and a `def b` written below is
       # not defined yet.
       #
-      # zeo installs every method table before the program's first statement runs, so
+      # zr installs every method table before the program's first statement runs, so
       # there is no such moment to observe. The compiler works out which names are
       # still in the future at each announcement -- it knows them statically -- and
       # the reflection rows subtract that set for as long as the hook body is running.
@@ -2157,9 +2147,9 @@ describe "Methods: formatting and inspection" do
       #
       # The mark rides the existing install in both positions: bits 1-2 of
       # `REG_BOOT_REDEF`'s flag byte for the first body (bit 0 was already the
-      # channel), and a `zeo_rt_install_positional_visibility` call beside each
+      # channel), and a `zr_rt_install_positional_visibility` call beside each
       # later one. That entry is infallible on purpose -- unlike
-      # `zeo_rt_runtime_set_visibility` there is no name to resolve and no
+      # `zr_rt_runtime_set_visibility` there is no name to resolve and no
       # `method_added` to fire, because the install on the line above created the
       # method.
       #
@@ -2560,7 +2550,7 @@ describe "Methods: formatting and inspection" do
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
-      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # WHY THIS FILE EXISTS. zr emits a definition on Object/Kernel/BasicObject
       # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
       # onto every user class -- 22,393 extra bodies on a program that requires
       # rubygems, which is 78 MB of the binary. A builtin receiver already skips
@@ -2705,7 +2695,7 @@ describe "Methods: formatting and inspection" do
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
-      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # WHY THIS FILE EXISTS. zr emits a definition on Object/Kernel/BasicObject
       # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
       # onto every user class -- 22,393 extra bodies on a program that requires
       # rubygems, which is 78 MB of the binary. A builtin receiver already skips
@@ -2809,7 +2799,7 @@ describe "Methods: formatting and inspection" do
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
-      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # WHY THIS FILE EXISTS. zr emits a definition on Object/Kernel/BasicObject
       # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
       # onto every user class -- 22,393 extra bodies on a program that requires
       # rubygems, which is 78 MB of the binary. A builtin receiver already skips
@@ -2911,7 +2901,7 @@ describe "Methods: formatting and inspection" do
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
-      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # WHY THIS FILE EXISTS. zr emits a definition on Object/Kernel/BasicObject
       # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
       # onto every user class -- 22,393 extra bodies on a program that requires
       # rubygems, which is 78 MB of the binary. A builtin receiver already skips
@@ -3009,7 +2999,7 @@ describe "Methods: formatting and inspection" do
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
-      # WHY THIS FILE EXISTS. zeo emits a definition on Object/Kernel/BasicObject
+      # WHY THIS FILE EXISTS. zr emits a definition on Object/Kernel/BasicObject
       # ONCE under its `Object#name` symbol, and ALSO materializes a private copy
       # onto every user class -- 22,393 extra bodies on a program that requires
       # rubygems, which is 78 MB of the binary. A builtin receiver already skips
@@ -3155,7 +3145,7 @@ describe "Methods: formatting and inspection" do
       #
       # The class-method case is the asymmetry that was wrong: in `def self.peek(a);
       # a.balance; end`, `self` is the class object, and a class object is no kind
-      # of the class whose instances hold `balance`. zeo measured the caller by its
+      # of the class whose instances hold `balance`. zr measured the caller by its
       # lexical class instead, so the class method reached a protected method ruby
       # refuses.
 

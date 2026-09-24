@@ -301,7 +301,7 @@ describe "IO: encodings" do
       p big.inspect.lines.last
 
       # ---- direct IO.
-      path = "/tmp/zeo_io_buffer_fixture.txt"
+      path = "/tmp/zr_io_buffer_fixture.txt"
       File.write(path, "ABCDEFGHIJKLMNOPQR")
       fh = File.open(path)
       rb = IO::Buffer.new(10)
@@ -311,7 +311,7 @@ describe "IO: encodings" do
       rb2.clear(0x2e)
       p rb2.pread(fh, 3, 4, 6)
       p rb2.get_string
-      wpath = "/tmp/zeo_io_buffer_fixture_w.txt"
+      wpath = "/tmp/zr_io_buffer_fixture_w.txt"
       File.write(wpath, "")
       wh = File.open(wpath, "r+")
       wsrc = IO::Buffer.for("0123456789").dup
@@ -485,7 +485,7 @@ describe "IO: encodings" do
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
-      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # zr's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
       # ever looked at, and a third argument was `wrong number of arguments (given 3,
       # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
       # it was asked for, and irb's
@@ -496,7 +496,7 @@ describe "IO: encodings" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      DIR = Dir.mktmpdir("zr_io_open_opts")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\nworld\n")
 
@@ -561,7 +561,7 @@ describe "IO: encodings" do
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
-      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # zr's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
       # ever looked at, and a third argument was `wrong number of arguments (given 3,
       # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
       # it was asked for, and irb's
@@ -572,7 +572,7 @@ describe "IO: encodings" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      DIR = Dir.mktmpdir("zr_io_open_opts")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\nworld\n")
 
@@ -641,7 +641,7 @@ describe "IO: encodings" do
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
-      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # zr's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
       # ever looked at, and a third argument was `wrong number of arguments (given 3,
       # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
       # it was asked for, and irb's
@@ -652,7 +652,7 @@ describe "IO: encodings" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      DIR = Dir.mktmpdir("zr_io_open_opts")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\nworld\n")
 
@@ -702,7 +702,7 @@ describe "IO: encodings" do
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
-      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # zr's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
       # ever looked at, and a third argument was `wrong number of arguments (given 3,
       # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
       # it was asked for, and irb's
@@ -713,7 +713,7 @@ describe "IO: encodings" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      DIR = Dir.mktmpdir("zr_io_open_opts")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\nworld\n")
 
@@ -775,7 +775,7 @@ describe "IO: encodings" do
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
-      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # zr's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
       # ever looked at, and a third argument was `wrong number of arguments (given 3,
       # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
       # it was asked for, and irb's
@@ -786,7 +786,7 @@ describe "IO: encodings" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      DIR = Dir.mktmpdir("zr_io_open_opts")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\nworld\n")
 
@@ -833,7 +833,7 @@ describe "IO: encodings" do
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
-      # zeo's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
+      # zr's row was `(fd, mode?)`: the mode was READ and then dropped, no option was
       # ever looked at, and a third argument was `wrong number of arguments (given 3,
       # expected 1..2)`. So a handle over a descriptor always reported UTF-8 whatever
       # it was asked for, and irb's
@@ -844,7 +844,7 @@ describe "IO: encodings" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_open_opts")
+      DIR = Dir.mktmpdir("zr_io_open_opts")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\nworld\n")
 
@@ -959,7 +959,7 @@ describe "IO: encodings" do
       # the descriptor, so a read of a write-only handle is an `IOError` naming
       # the mode -- never the kernel's `EBADF`, and never a made-up answer.
       #
-      # Zeo asked at three rows and not at the other seventeen. Four of the
+      # Zr asked at three rows and not at the other seventeen. Four of the
       # unguarded ones did not even raise: `getc` answered a NUL character,
       # `getbyte` answered 0, `readchar` and `readbyte` answered the same, and
       # `eof?` answered `true`. A byte that is not there, reported as data.

@@ -22,7 +22,7 @@ describe "Syslog programs" do
       p [Syslog::LOG_EMERG, Syslog::LOG_ERR, Syslog::LOG_WARNING, Syslog::LOG_DEBUG]
       p [Syslog.LOG_MASK(Syslog::LOG_ERR), Syslog.LOG_UPTO(Syslog::LOG_ERR)]
 
-      ret = Syslog.open("zeo_golden")
+      ret = Syslog.open("zr_golden")
       p ret == Syslog
       p [Syslog.opened?, Syslog.ident, Syslog.options, Syslog.facility, Syslog.mask]
       p Syslog.inspect
@@ -31,13 +31,13 @@ describe "Syslog programs" do
       rescue RuntimeError => e
         p e.message
       end
-      Syslog.log(Syslog::LOG_DEBUG, "zeo syslog golden %d%% there", 99)
+      Syslog.log(Syslog::LOG_DEBUG, "zr syslog golden %d%% there", 99)
       Syslog.debug("shortcut %s", "row")
       Syslog.mask = Syslog.LOG_UPTO(Syslog::LOG_WARNING)
       p Syslog.mask
       p Syslog.instance == Syslog
 
-      Syslog.reopen("zeo_golden2", Syslog::LOG_NDELAY, Syslog::LOG_LOCAL3)
+      Syslog.reopen("zr_golden2", Syslog::LOG_NDELAY, Syslog::LOG_LOCAL3)
       p [Syslog.ident, Syslog.options, Syslog.facility]
 
       Syslog.close
@@ -49,7 +49,7 @@ describe "Syslog programs" do
         p e.message
       end
 
-      blk = Syslog.open("zeo_blk") { |s| p [s.ident, s.opened?] }
+      blk = Syslog.open("zr_blk") { |s| p [s.ident, s.opened?] }
       p [blk == Syslog, Syslog.opened?]
 
       # The Ruby half: the constant submodules and the include-hook macros.
@@ -57,8 +57,8 @@ describe "Syslog programs" do
       p Syslog::Option::LOG_PID
       p Syslog::Facility::LOG_LOCAL7
       p Syslog::Constants::LOG_ERR
-      # The SHAPE, not the number: zeo tracks syslog's latest upstream release and
-      # the oracle reads the copy ruby 4.0.6 ships (`crates/zeo-rt/ext/UPSTREAM.md`).
+      # The SHAPE, not the number: zr vendors syslog's latest upstream release
+      # (vendor/ext/syslog) and the oracle reads the copy ruby 4.0.6 ships.
       p Syslog::VERSION.match?(/\A\d+\.\d+\.\d+\z/)
 
       class UsesConstants
@@ -74,7 +74,7 @@ describe "Syslog programs" do
 
       # The vendored Syslog::Logger rides on all of the above.
       require "syslog/logger"
-      slog = Syslog::Logger.new("zeo_slogger")
+      slog = Syslog::Logger.new("zr_slogger")
       p slog.class
       slog.info("via Syslog::Logger")
       p slog.level
@@ -88,16 +88,16 @@ describe "Syslog programs" do
       [0, 3, 4, 7]
       [8, 15]
       true
-      [true, "zeo_golden", 3, 8, 255]
-      "<#Syslog: opened=true, ident=\"zeo_golden\", options=3, facility=8, mask=255>"
+      [true, "zr_golden", 3, 8, 255]
+      "<#Syslog: opened=true, ident=\"zr_golden\", options=3, facility=8, mask=255>"
       "syslog already open"
       31
       true
-      ["zeo_golden2", 8, 152]
+      ["zr_golden2", 8, 152]
       [false, nil]
       "<#Syslog: opened=false>"
       "syslog not opened"
-      ["zeo_blk", true]
+      ["zr_blk", true]
       [true, false]
       3
       1

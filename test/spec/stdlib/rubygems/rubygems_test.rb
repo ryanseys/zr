@@ -9,11 +9,11 @@ describe "RubyGems programs" do
       # `method_added`.
       #
       # `Bundler::Thor::Base::ClassMethods#method_added` turns each `def` in
-      # `Bundler::CLI` into a registered command. zeo refused every one of those
+      # `Bundler::CLI` into a registered command. zr refused every one of those
       # announcements: `analyze::def_hooks::fires` cannot order a hook against a
       # definition in ANOTHER file, and thor and the CLI are different files. So
       # `Bundler::CLI` kept 3 of its ~30 commands -- the three `register` adds
-      # directly -- and `zeo bundle install` answered `Could not find command
+      # directly -- and `zr bundle install` answered `Could not find command
       # "install"`.
       #
       # A require GRAPH orders them. `bundler/cli.rb` opens with `require_relative
@@ -26,7 +26,7 @@ describe "RubyGems programs" do
       # the gap "passed" on a divergence that was really a dead child. The milestone
       # tier is where a whole-graph compile belongs.
       #
-      # Shapes, never versions -- see `tests/milestones.rs`.
+      # Shapes, never versions.
 
       require "bundler"
       require "bundler/cli"
@@ -80,17 +80,14 @@ describe "RubyGems programs" do
       # registered before line 1, which is why a literal `require "json"` folds to
       # nothing but a loaded-feature marker. Nothing has to be found, embedded or
       # compiled -- the answer was already in the process, and the run-time require
-      # simply did not know to look. It does now
-      # (`features::load_builtin_feature`), and the compiler registers every gated
-      # builtin CONCEALED for a program with a computed require, so `JSON` starts
-      # absent and this line reveals it.
+      # simply did not know to look. It does now, and the compiler registers every
+      # gated builtin CONCEALED for a program with a computed require, so `JSON`
+      # starts absent and this line reveals it.
       #
       # `--embed-sources` is still the answer for a gem that really is only Ruby
-      # source; `e2e/gems_require.rs` pins that tier. The neighbours still say how
-      # the rest is covered: a computed require of a file under a compile-time `-I`
-      # root works through the unit sweep, and one on the run-time `$LOAD_PATH`
-      # works through the disk tier
-      # (`a_file_the_compiler_never_saw_loads_at_run_time.rb`).
+      # source. The neighbours still say how the rest is covered: a computed
+      # require of a file under a compile-time `-I` root works through the unit
+      # sweep, and one on the run-time `$LOAD_PATH` works through the disk tier.
       name = ["json", ""].first
       require name
       p JSON.generate([1, 2])
@@ -116,7 +113,7 @@ describe "RubyGems programs" do
       # MILESTONE: a real `Gem::Specification` comes back out of YAML.
       #
       # This is the shape a `.gem` archive carries in its `metadata.gz`, and reading
-      # it is the single thing that stood between zeo and opening one. Before the
+      # it is the single thing that stood between zr and opening one. Before the
       # `!ruby/object:` revival landed, the document loaded as a plain Hash and
       # rubygems answered "YAML data doesn't evaluate to gem specification".
       #
@@ -125,11 +122,11 @@ describe "RubyGems programs" do
       # `Psych::Coder` and rubygems does the rest -- including coercing `date` and
       # rebuilding `Gem::Version` from its own nested `!ruby/object:`.
       #
-      # Shapes, never versions -- see `tests/milestones.rs`.
+      # Shapes, never versions.
 
       # Nothing is required but rubygems itself. `Gem::Version`, `Gem::Dependency`
       # and `Gem::Requirement` all arrive through rubygems' own `autoload`, which is
-      # how a real caller meets them -- and which zeo could not run at all until the
+      # how a real caller meets them -- and which zr could not run at all until the
       # read path was given the chance to.
       require "yaml"
       require "rubygems"
@@ -233,7 +230,7 @@ describe "RubyGems programs" do
       # MILESTONE: `require "rubygems" unless defined?(Gem)` loads RUBYGEMS.
       #
       # The idiom `bundler/rubygems_ext.rb:3` opens with, and the shape that made
-      # zeo run a completely different file while answering true.
+      # zr run a completely different file while answering true.
       #
       # A guarded require takes the UNIT path where an unguarded one takes the
       # splice path, and a unit is keyed in a global table by the spelling that
@@ -245,7 +242,7 @@ describe "RubyGems programs" do
       # `Bundler::PubGrub::RubyGems`, returned true, recorded the feature as loaded
       # so no later require could recover, and left `Gem` undefined.
       #
-      # Shapes, never versions -- see `tests/milestones.rs`.
+      # Shapes, never versions.
 
       require "rubygems" unless defined?(Gem)
 
@@ -288,7 +285,7 @@ describe "RubyGems programs" do
       #
       # A golden compares stdout AND stderr, which is what kept this honest.
       #
-      # Shapes, never versions -- see `tests/milestones.rs`.
+      # Shapes, never versions.
 
       require "rubygems"
       require "bundler"

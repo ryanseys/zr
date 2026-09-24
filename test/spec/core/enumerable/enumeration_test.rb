@@ -1135,7 +1135,7 @@ describe "Enumerable: enumeration" do
       # off the end, its return value is carried as StopIteration#result.
       #
       # Note: for a materialized enumerator (arr.each) CRuby's StopIteration#result is
-      # the receiver; Zeo reports nil there. Only the fiber-backed generator, whose
+      # the receiver; Zr reports nil there. Only the fiber-backed generator, whose
       # body value is well-defined, carries a result -- that is what is asserted here.
 
       # --- #feed: y.yield returns the fed value ---
@@ -1705,7 +1705,7 @@ describe "Enumerable: enumeration" do
   it "enumerator produce stop iteration" do
     result = zr(<<~'RUBY')
       # `StopIteration` raised inside a block that an Enumerator is driving ENDS the
-      # enumeration; it is not an error. zeo lets it escape from
+      # enumeration; it is not an error. zr lets it escape from
       # `Enumerator.produce`, so the idiomatic "generate until done" loop aborts the
       # program instead of returning what it produced.
       #
@@ -1715,7 +1715,7 @@ describe "Enumerable: enumeration" do
       # terminating predicate). Ruby catches it in the enumeration driver, the same
       # place `loop` catches it.
       #
-      # zeo already handles the sibling case: `loop` DOES stop on a StopIteration
+      # zr already handles the sibling case: `loop` DOES stop on a StopIteration
       # from `next`, which is the line at the end here. What is missing is the same
       # catch around the block `produce` calls.
 
@@ -1954,18 +1954,13 @@ describe "Enumerable: enumeration" do
     result = zr(<<~'RUBY')
       # `Enumerator#to_s` is `Object#to_s` -- ruby never overrides it, so an
       # enumerator printed with `puts` or interpolated into a string shows its
-      # address, and only `inspect` describes what it iterates. zeo renders both the
-      # same way, from one shared row (`enumerator.rs`) and one arm in
-      # `value.rs`'s `to_display_string`.
+      # address, and only `inspect` describes what it iterates. zr renders both
+      # the same way.
       #
       # It reads like a nicety until a program prints an enumerator INSIDE a string
       # it then parses or compares: the inspect form carries the receiver's own
       # inspect, so the text grows without bound for a nested chain, where ruby's
       # stays one short token.
-      #
-      # `Enumerator::Lazy#to_s` already answers the address form
-      # (`tests/lazy_external_iteration.rb`), so the two halves of one rule
-      # currently disagree with each other as well as with ruby.
 
       def norm(s) = s.sub(/0x\h+/, "0xADDR")
 
@@ -2665,13 +2660,13 @@ describe "Enumerable: enumeration" do
   it "lazy external iteration" do
     result = zr(<<~'RUBY')
       # An `Enumerator::Lazy` IS an Enumerator, so it answers `next`/`peek` and
-      # iterates one element at a time on demand. zeo's lazy has no `next`
+      # iterates one element at a time on demand. zr's lazy has no `next`
       # (`NoMethodError`), which removes the only way to consume an infinite lazy
       # chain incrementally rather than in `first(n)`-sized bites.
       #
       # `inspect` is the same omission seen from outside: ruby describes the chain it
       # has built -- `#<Enumerator::Lazy: #<Enumerator::Lazy: 1..3>:map>` -- so a
-      # lazy value printed in a log or a debugger says what it will produce. zeo
+      # lazy value printed in a log or a debugger says what it will produce. zr
       # answers a bare `#<Enumerator::Lazy>` for every one.
       #
       # The eager Enumerator already has both (`[1,2].each.next` and its inspect both
@@ -2708,7 +2703,7 @@ describe "Enumerable: enumeration" do
 
   it "lazy is not an enumerator" do
     result = zr(<<~'RUBY')
-      # `Enumerator::Lazy < Enumerator` in ruby. In zeo it is a plain Object that
+      # `Enumerator::Lazy < Enumerator` in ruby. In zr it is a plain Object that
       # includes Enumerable, so the parallel hierarchy is flat and every method a
       # lazy shares with an ordinary enumerator has to be re-declared on `Lazy`
       # itself. What a program sees is `.owner` and `instance_methods(false)`
@@ -2721,7 +2716,7 @@ describe "Enumerable: enumeration" do
       # than the source+chain a lazy actually holds.
       #
       # `zip` comes along for the ride: ruby overrides it on Lazy so it stays lazy,
-      # while zeo answers the eager `Enumerable#zip` Array.
+      # while zr answers the eager `Enumerable#zip` Array.
 
       p Enumerator::Lazy.superclass
       p Enumerator::Lazy.ancestors.first(3)
@@ -2804,7 +2799,7 @@ describe "Enumerable: enumeration" do
   it "lazy new constructs a lazy" do
     result = zr(<<~'RUBY')
       # Enumerator::Lazy.new(source) { |yielder, *values| ... } builds a lazy over
-      # the source with an explicit per-element body. zeo has no `new` row on Lazy
+      # the source with an explicit per-element body. zr has no `new` row on Lazy
       # (NoMethodError); the class is only reachable through #lazy. Belongs to the
       # lazy-reparent work tracked in lazy_is_not_an_enumerator.rb.
       gen = Enumerator::Lazy.new([1, 2, 3]) { |y, v| y << v * 100 }
@@ -3058,7 +3053,7 @@ describe "Enumerable: enumeration" do
   it "sort by comparison failure names the operands" do
     result = zr(<<~'RUBY')
       # A failed comparison inside `sort_by`/`min_by`/`max_by` names the operand
-      # classes ("comparison of Float with NaN failed"); zeo says "comparison
+      # classes ("comparison of Float with NaN failed"); zr says "comparison
       # failed" without them. Plain `sort` already names them. (Found by the
       # 2026-08-24 probe sweep.)
       begin
@@ -3328,11 +3323,11 @@ describe "Enumerable: enumeration" do
   it "sort with comparator" do
     result = zr(<<~'RUBY')
       # `Array#sort` with a comparator block leaves equal keys wherever the C
-      # library puts them: `ruby_qsort` IS the system `qsort_r`, and zeo calls the
+      # library puts them: `ruby_qsort` IS the system `qsort_r`, and zr calls the
       # same one, so the mixed-case word list below ("Apple"/"apple" compare equal)
       # and the 60-element tie table at the end are the tie order this pins.
       #
-      # This was a decided divergence while zeo sorted stably. Imported from the
+      # This was a decided divergence while zr sorted stably. Imported from the
       # spinel corpus at c55d9bdb; see tests/spinel/UPSTREAM.md.
       #
       # TWO goldens, because the tie order is libc's and glibc's qsort is not BSD's:

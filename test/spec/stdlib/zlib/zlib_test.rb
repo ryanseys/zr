@@ -8,7 +8,7 @@ describe "Zlib programs" do
       # A class IS a constant of the scope it sits in, and reflection has to see it
       # under a name computed at run time -- an autoloader, `Marshal`, a YAML class
       # tag and a plain `Object.const_get(config_string)` all resolve that way.
-      # zeo registers a class by qualified name and never writes it to the constant
+      # zr registers a class by qualified name and never writes it to the constant
       # table (codegen resolves `Zlib::Error` statically), so both halves of
       # constant reflection have to consult the registry too.
 
@@ -1661,9 +1661,9 @@ describe "Zlib programs" do
   it "an invalid compression level raises StreamError, and a corrupt gzip trailer still reads" do
     result = zr(<<~'RUBY')
       # Zlib rows beyond the (matching) core: an invalid compression level
-      # raises Zlib::StreamError (zeo compresses anyway); `Zlib.crc32_combine`
+      # raises Zlib::StreamError (zr compresses anyway); `Zlib.crc32_combine`
       # and `Zlib.zlib_version`/`Zlib::VERSION` are absent; and a gzip stream
-      # with a corrupted ISIZE trailer still reads in ruby where zeo refuses
+      # with a corrupted ISIZE trailer still reads in ruby where zr refuses
       # with "not in gzip format". (Found by the 2026-08-24 probe sweep.)
       require "zlib"
       require "stringio"

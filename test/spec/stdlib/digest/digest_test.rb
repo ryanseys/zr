@@ -8,19 +8,13 @@ describe "Digest programs" do
       # The WHOLE encode repertoire of the two families whose WHATWG table
       # disagrees with CRuby's, as a count and a checksum.
       #
-      # zeo's multi-byte mapping comes from encoding_rs, and its Big5 maps MORE
-      # than CRuby (the HKSCS-adjacent region, Cyrillic included) while its EUC-JP
-      # is decode-only for JIS X 0212, which CRuby reaches through the SS3 plane.
-      # `enc/mb_encode_delta.rs` carries the difference -- 1,161 + 175 denied
-      # scalars and 414 + 6,072 allowed ones, generated from ruby by
-      # `tools/mb_encode_delta.rb`.
-      #
       # A checksum rather than 27,000 rows: the point is that NOTHING moved, and
       # a diff of one row is as much a failure as a diff of a thousand. The named
-      # rows below are what tells you WHICH direction moved when it does -- one
-      # per reason the delta exists.
+      # rows below show specific cases: Big5 denies Cyrillic the way CRuby does,
+      # and EUC-JP reaches JIS X 0212 through the SS3 plane the way CRuby does.
       #
-      # The DECODE direction has no delta and needs none; it already agreed.
+      # The DECODE direction is untouched and needs no separate check; it
+      # already agrees with CRuby.
 
       require "digest"
 
@@ -188,7 +182,7 @@ describe "Digest programs" do
     result = zr(<<~'RUBY')
       # `Digest::Instance`'s three bang forms answer the current digest and then put
       # the instance back to empty; the plain forms leave it alone. rubygems reaches
-      # `hexdigest!` for every file it unpacks, so `zeo gem install` needed them.
+      # `hexdigest!` for every file it unpacks, so `zr gem install` needed them.
 
       require "digest"
 
@@ -331,7 +325,7 @@ describe "Digest programs" do
       # The digest extension links: the hash is computed by native code in the
       # binary.
       require "digest"
-      puts Digest::SHA256.hexdigest("zeo")
+      puts Digest::SHA256.hexdigest("zr")
       puts Digest::MD5.hexdigest("")
       d = Digest::SHA1.new
       d << "a"
@@ -340,7 +334,7 @@ describe "Digest programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      3d6780af3250f8de07aa3b0b6daccc970b0692d73e566d957e8152f570e3609a
+      853982a0764eba5e9b4348e085c0ee1f8aeeef4d7cc3c253be69fad0bc57693a
       d41d8cd98f00b204e9800998ecf8427e
       da23614e02469a0d7c7bd1bdab5c9c474b1904dc
     OUT
@@ -353,7 +347,7 @@ describe "Digest programs" do
       # picks its checksum with `%w[SHA512 ... MD5].each { break Digest(algo)
       # rescue LoadError }`, so both the answer and the LoadError are load-bearing.
       #
-      # zeo had no such row at all, and `require "pstore"` died in the class body.
+      # zr had no such row at all, and `require "pstore"` died in the class body.
 
       require "digest"
 
@@ -362,7 +356,7 @@ describe "Digest programs" do
       p Digest(:SHA1)
       p Digest(:MD5)
       p Digest("SHA384")
-      p Digest(:SHA512).hexdigest("zeo")
+      p Digest(:SHA512).hexdigest("zr")
 
       # The `rescue LoadError` pstore leans on -- a name with no class behind it.
       begin
@@ -395,7 +389,7 @@ describe "Digest programs" do
       Digest::SHA1
       Digest::MD5
       Digest::SHA384
-      "95a0220cf5fa53d9f9d51559e034f4e75bc34653b5af0fd8517881e95d86d3a7b7c759a825abff954ef8f787c10aaf24d46dc6e6ac22c5395c782296b7518eec"
+      "fced6cde46444ab224b6617ea37948a7e82ed167413a8ca9ae9be698a633aa2ef37ed6553738cb12ae9f1c86f068be2557b8b4a7359365d2633cf78b13e89a34"
       library not found for class Digest::NOPE -- digest/nope
       true
       undefined method 'to_sym' for an instance of Integer
@@ -525,17 +519,17 @@ describe "Digest programs" do
     skip "needs libssl" unless Zr::Spec.need?("libssl")
 
     result = zr(<<~'RUBY')
-      # Every built-in CLASS can be subclassed. zeo used to keep an opt-in
+      # Every built-in CLASS can be subclassed. zr used to keep an opt-in
       # allowlist of "payload roots", so a gem subclassing a native class nobody
-      # had added got a compile error naming zeo rather than a program -- eleven
-      # gems on `OpenSSL::X509::Certificate` alone. The list is a DENYLIST now
-      # (`zeo_abi::NOT_PAYLOAD_ROOTS`): a built-in whose subclass is a different
-      # native shape says so, and everything else is a payload wrapper.
+      # had added got a compile error naming zr rather than a program -- eleven
+      # gems on `OpenSSL::X509::Certificate` alone. The list is a DENYLIST now:
+      # a built-in whose subclass is a different native shape says so, and
+      # everything else is a payload wrapper.
       #
       # What made the default safe is that both halves it needs are generic. A
       # root with no empty form keeps a `nil` payload and the subclass's own
       # `initialize` seats the real one through `super` (the `File` shape), and a
-      # root with no constructor at all answers instead of panicking.
+      # root with no constructor at all answers instead of crashing.
       require "openssl"
       require "digest"
       require "zlib"
@@ -587,7 +581,7 @@ describe "Digest programs" do
       p Tally.superclass
 
       # ...and the two superclasses ruby ITSELF refuses, refused with ruby's own
-      # message rather than a compile error naming zeo.
+      # message rather than a compile error naming zr.
       begin
         class WantsClass < Class
         end

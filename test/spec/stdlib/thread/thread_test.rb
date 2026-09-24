@@ -61,9 +61,9 @@ describe "Thread: the thread library" do
       p Base.subs
 
       # `require "thread"` is a no-op CRuby keeps only so old code still loads --
-      # minitest/parallel.rb opens with it, and zeo used to raise LoadError. Only
+      # minitest/parallel.rb opens with it, and zr used to raise LoadError. Only
       # that it LOADS is asserted: CRuby answers false (the name is already in
-      # $LOADED_FEATURES before the program starts) where zeo answers true, the same
+      # $LOADED_FEATURES before the program starts) where zr answers true, the same
       # way it already does for every other name `is_builtin_feature` satisfies.
       require "thread"
       p defined?(Thread)

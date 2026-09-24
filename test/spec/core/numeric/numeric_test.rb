@@ -124,7 +124,7 @@ describe "Numeric programs" do
     result = zr(<<~'RUBY')
       # A range pattern is Range#=== (rb_case_eq/range_covers), so a Float or
       # Poly scrutinee, an exclusive bound, and a beginless/endless range all
-      # work -- an as_int_unchecked path would panic on non-Int scrutinees.
+      # work correctly.
 
       def classify(x)
         case x
@@ -226,7 +226,7 @@ describe "Numeric programs" do
     result = zr(<<~'RUBY')
       # `Dir.mkdir`/`rmdir` round-trip, and `File.rename`/`delete`.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_mut_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_mut_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         fresh = File.join(dir, "fresh")
@@ -405,14 +405,9 @@ describe "Numeric programs" do
 
   it "implicit self call between sibling class methods dispatches correctly" do
     result = zr(<<~'RUBY')
-      # Found while testing `class << self`: `current_class` is
-      # `None` inside a class method's own `Ctx` (no concrete `self` receiver
-      # exists there), so a no-receiver call to a SIBLING class method
-      # (`def self.a; b; end` calling `def self.b`) always panicked --
-      # the compiler's implicit-self call lowering only ever consulted
-      # `current_class`. Fixed by also checking `defining_class` against
-      # `Compiler::class_method_in_chain`, dispatching as a direct
-      # associated-function call, same as `ClassName.foo(...)`.
+      # Found while testing `class << self`: a no-receiver call from one class
+      # method to a SIBLING class method (`def self.a; b; end` calling
+      # `def self.b`) must dispatch correctly, same as `ClassName.foo(...)`.
 
       class Widget
         def self.create
@@ -1666,12 +1661,12 @@ describe "Numeric programs" do
       # WAITING ON `builtin_frames_in_a_backtrace`. Complex now holds a user
       # `Numeric` subclass and dispatches every component operation, so this file
       # raises ruby's ArgumentError from ruby's line with ruby's message -- what is
-      # left is the three C frames under it. zeo's native rows push no frame, so
+      # left is the three C frames under it. zr's native rows push no frame, so
       # `Comparable#<`, `Complex#inspect` and `Kernel#p` are all missing from the
       # trace. Promote this the moment that gap closes; nothing here needs Complex
       # work any more.
       #
-      # The original cause: `Numeric#i` builds `Complex(0, self)`, and zeo's Complex
+      # The original cause: `Numeric#i` builds `Complex(0, self)`, and zr's Complex
       # held only its own numeric lanes, so a user subclass got a TypeError where
       # ruby builds `(0+Deg(7)*i)`.
       #

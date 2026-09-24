@@ -313,7 +313,7 @@ describe "Regexp: formatting and inspection" do
     result = zr(<<~'RUBY')
       # When a regexp contains a named group, ruby stops plain `(...)` groups from
       # capturing at all (onig's dont-capture-group behavior): group 1 of
-      # /(\d+)(?<tail>\w+)/ is `tail`, and `captures` holds only the named one. zeo
+      # /(\d+)(?<tail>\w+)/ is `tail`, and `captures` holds only the named one. zr
       # compiles the pattern with plain groups still capturing, so md[1], captures,
       # and begin(1) all answer for the wrong group.
       md = "foo123bar".match(/(\d+)(?<tail>\w+)/)

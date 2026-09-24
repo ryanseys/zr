@@ -463,11 +463,11 @@ describe "Exceptions: slicing" do
   it "defined does not swallow nomethoderror" do
     result = zr(<<~'RUBY')
       # `defined?` must answer `nil` for a call chain that cannot run, never raise.
-      # zeo evaluates the receiver chain and lets the `NoMethodError` escape.
+      # zr evaluates the receiver chain and lets the `NoMethodError` escape.
       #
       # Ruby evaluates a method-call `defined?` by resolving each link and stopping at
       # the first miss (`defined?`'s `NODE_CALL` case walks the receiver, then probes
-      # the method table without invoking). zeo emits the chain and guards only the
+      # the method table without invoking). zr emits the chain and guards only the
       # LAST send, so an intermediate miss escapes as an ordinary raise.
       #
       # This is the idiom's whole point -- `defined?(a.b.c)` is how ruby code asks
@@ -1212,7 +1212,7 @@ describe "Exceptions: slicing" do
   it "raise in ensure loses cause" do
     result = zr(<<~'RUBY')
       # An exception raised inside an `ensure` while another is propagating takes the
-      # propagating one as its `cause`. zeo leaves `cause` nil, so the original
+      # propagating one as its `cause`. zr leaves `cause` nil, so the original
       # failure is gone.
       #
       # Ruby sets `cause` from whatever is in flight at the raise -- `$!` -- and an
@@ -1221,7 +1221,7 @@ describe "Exceptions: slicing" do
       # that fails, a rollback that fails) is what surfaces, and the cause is the only
       # remaining record of what went wrong first.
       #
-      # zeo already builds the chain for the ordinary shape -- a raise inside a
+      # zr already builds the chain for the ordinary shape -- a raise inside a
       # `rescue` gets its cause (the second block below) -- so `$!` is tracked and the
       # ensure path simply does not consult it.
 
@@ -1491,7 +1491,7 @@ describe "Exceptions: slicing" do
   it "unknown keyword argument is an error" do
     result = zr(<<~'RUBY')
       # A keyword a method does not declare raises ArgumentError ("unknown
-      # keyword: :b") on EVERY call path. zeo's compile-time arity check gets the
+      # keyword: :b") on EVERY call path. zr's compile-time arity check gets the
       # static shapes right; the DYNAMIC paths -- a runtime-defined method, a
       # `Method#call`, a `send` -- silently drop the extra keyword and the call
       # succeeds. Likely the `**kwrest`-peel shape from the kwargs channel.

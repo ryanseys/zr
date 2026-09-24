@@ -349,10 +349,8 @@ describe "Classes: dispatch" do
 
   it "object new builds a distinct boxed sentinel" do
     result = zr(<<~'RUBY')
-      # `Object.new` emitted `Arc::new(zeo_rt::Object)` -- using the struct
-      # `Object` (a private-field struct, not a unit struct) as a value, an
-      # E0423 that never compiled. It must be `Object::default()`. Each call is
-      # a fresh Arc, so two sentinels are distinct by identity.
+      # Each call to `Object.new` builds a distinct object, so two
+      # sentinels are distinct by identity.
 
       A = Object.new
       B = Object.new

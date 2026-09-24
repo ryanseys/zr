@@ -1386,7 +1386,7 @@ describe "Classes: frozen literals" do
 
       # The hook fires, because `Class.new` fires it -- but during the mint,
       # where ruby fires it after the constant has named the class, so the
-      # child is still anonymous there. `zeo build` desugars the same way and
+      # child is still anonymous there. `zr build` desugars the same way and
       # answers the same.
       Watcher = Class.new do
         def self.inherited(child) = puts("inherited: #{child.equal?(child)}")
@@ -1478,11 +1478,11 @@ describe "Classes: frozen literals" do
 
   it "small core classes" do
     result = zr(<<~'RUBY')
-      # The small classes zeo lacked: `GC::Profiler`, `Thread::Backtrace` (which is
+      # The small classes zr lacked: `GC::Profiler`, `Thread::Backtrace` (which is
       # what makes the `Location` it namespaces reachable at all), the sibling
       # `ObjectSpace::WeakKeyMap`, the `Random::Base`/`Random::Formatter` rungs
       # under `Random`, `Enumerator::Generator`/`Producer`, and the `Ractor` error
-      # tree -- classes only, since zeo runs no ractors.
+      # tree -- classes only, since zr runs no ractors.
 
       def show(label)
         puts "#{label}: #{yield.inspect}"

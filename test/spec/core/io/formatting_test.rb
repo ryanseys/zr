@@ -418,8 +418,8 @@ describe "IO: formatting and inspection" do
       require "tmpdir"
 
       DIR = Dir.tmpdir
-      PROBE = File.join(DIR, "zeo_gap_reopen_#{Process.pid}")
-      SINK = File.join(DIR, "zeo_gap_reopen_sink_#{Process.pid}")
+      PROBE = File.join(DIR, "zr_gap_reopen_#{Process.pid}")
+      SINK = File.join(DIR, "zr_gap_reopen_sink_#{Process.pid}")
 
       def try(label)
         p [label, yield]
@@ -611,14 +611,14 @@ describe "IO: formatting and inspection" do
 
   it "raw descriptor carries the mode it was opened with" do
     result = zr(<<~'RUBY')
-      # `IO.sysopen(path, mode, perm)` opens and hands back the raw fd. zeo read the
+      # `IO.sysopen(path, mode, perm)` opens and hands back the raw fd. zr read the
       # path and dropped everything after it, so the descriptor always came back
       # read-only and `IO.new(fd, "w").write` raised EBADF on a file the program had
       # just asked to open for writing. `File.open` dropped `perm` the same way.
       require "tmpdir"
       require "fileutils"
 
-      dir = Dir.mktmpdir("zeo_sysopen")
+      dir = Dir.mktmpdir("zr_sysopen")
 
       a = File.join(dir, "a.txt")
       File.open(a, "w", 0o600) { |f| f.write "x" }
@@ -655,7 +655,7 @@ describe "IO: formatting and inspection" do
 
       # TWO IO objects over ONE live descriptor, both autoclosing. Ruby's second
       # close(2) fails EBADF: explicitly, that is the exception below; at teardown it
-      # is silence. zeo let the native file object close the fd when it was
+      # is silence. zr let the native file object close the fd when it was
       # dropped, and a failed close there ABORTS -- so this program printed
       # everything and then died at exit.
       d = File.join(dir, "d.txt")

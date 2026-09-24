@@ -451,7 +451,7 @@ describe "Classes programs" do
   it "a class body built at run time reads and writes its own constants" do
     result = zr(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
-      # lay out, so zeo builds it with `Class.new(parent) { ... }`. A block is not a
+      # lay out, so zr builds it with `Class.new(parent) { ... }`. A block is not a
       # class body in two ways ruby cares about, and both used to leak:
       #
       #   * a block SHARES the enclosing local scope, where a class body has its own;
@@ -497,7 +497,7 @@ describe "Classes programs" do
   it "the body's local never reaches the enclosing scope, and its class variable is real storage" do
     result = zr(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
-      # lay out, so zeo builds it with `Class.new(parent) { ... }`. A block is not a
+      # lay out, so zr builds it with `Class.new(parent) { ... }`. A block is not a
       # class body in two ways ruby cares about, and both used to leak:
       #
       #   * a block SHARES the enclosing local scope, where a class body has its own;
@@ -692,7 +692,7 @@ describe "Classes programs" do
       #       class JavaThreadPoolExecutor < RubyThreadPoolExecutor
       #   ...
       #
-      # zeo resolves class shape at compile time, so it lowers a definition inside a
+      # zr resolves class shape at compile time, so it lowers a definition inside a
       # top-level `if` only when the condition is compile-time decidable (such as
       # `defined?(SomeConstant)`), or when the body only reopens an already-defined
       # class to add methods. A method call is neither, so the compile stops.
@@ -911,7 +911,7 @@ describe "Classes programs" do
   it "class name already taken is a type error" do
     result = zr(<<~'RUBY')
       # Ruby raises before anything is minted. (It also warns
-      # `previous definition of TOP was here`, which zeo does not track --
+      # `previous definition of TOP was here`, which zr does not track --
       # hence the stdout-only check rather than a golden.)
 
       TOP = 1
@@ -1806,7 +1806,7 @@ describe "Classes programs" do
 
   it "constructor pushes the frames ruby pushes" do
     result = zr(<<~'RUBY')
-      # `Foo.new` pushes NO backtrace frame of its own. zeo pushed `Class#new` for
+      # `Foo.new` pushes NO backtrace frame of its own. zr pushed `Class#new` for
       # every construction, so a raise from any `initialize` reported one frame ruby
       # does not have.
       #
@@ -1818,7 +1818,7 @@ describe "Classes programs" do
       #     then `Class#new`;
       #   * a `Data` class, whose `new` is a distinct cfunc and reports as `D.new`.
       #
-      # The rule is therefore about the RECEIVER, where zeo's frame-label table is
+      # The rule is therefore about the RECEIVER, where zr's frame-label table is
       # keyed by the row's OWNER -- and the owner is `Class` in every case above.
       # So the row is silenced in that table and the two framing shapes push their
       # own.
@@ -2015,7 +2015,7 @@ describe "Classes programs" do
   it "definition hooks when compiled" do
     result = zr(<<~'RUBY')
       # The same six hooks as `definition_hooks_at_runtime.rb`, but for definitions
-      # written in a class body -- which zeo compiles into a method table rather than
+      # written in a class body -- which zr compiles into a method table rather than
       # running, so the report has to be put back at the definition's position.
       #
       # Two rules do most of the work here. A `def self.x` (or one in `class << self`)
@@ -2598,7 +2598,7 @@ describe "Classes programs" do
       # should raise RuntimeError ("class variable access from toplevel"): class
       # variables resolve through the LEXICAL scope, and a `do...end` block (unlike
       # a literal `class ... end`) doesn't open a new lexical scope, so `@@cv1`
-      # resolves to the top-level scope instead of the new anonymous class. zeo
+      # resolves to the top-level scope instead of the new anonymous class. zr
       # silently accepts the assignment instead of raising.
       klass = Class.new do
         @@cv1 = 1
@@ -3168,12 +3168,12 @@ describe "Classes programs" do
       #
       # CRuby declares a private `initialize` on every class whose constructor takes
       # arguments `Exception`'s does not, and reflection has to say so.
-      # zeo's exception tree already registered each body -- flat dispatch puts a row
+      # zr's exception tree already registered each body -- flat dispatch puts a row
       # on every id -- but marked only `Exception` as the OWNER, so all eleven
       # subclasses named `Exception` back.
       #
       # The copy hooks are the second pattern: ruby owns `initialize_copy`,
-      # `initialize_dup` and `initialize_clone` on KERNEL. zeo defined the first as a
+      # `initialize_dup` and `initialize_clone` on KERNEL. zr defined the first as a
       # top-level `def` in the compiler prelude, which lands in Object's own_methods
       # -- making it the one name in `Object.private_instance_methods(false)`, where
       # ruby answers `[]`, and leaving the other two absent entirely.
@@ -3286,7 +3286,7 @@ describe "Classes programs" do
       # inside `Class.new do ... end`.
       #
       # `protected` asks whether the CALLER's `self` is a kind of the method's owner,
-      # and zeo answers it from a class baked into the call site at compile time
+      # and zr answers it from a class baked into the call site at compile time
       # (`codegen::call::visibility`, recorded in the `CallSite`). Inside a
       # `Class.new` block the enclosing lexical class is `Object` -- the class the
       # body will belong to does not exist until the block runs -- so the site records
@@ -3328,7 +3328,7 @@ describe "Classes programs" do
   it "reading an undefined class variable" do
     result = zr(<<~'RUBY')
       # Reading a class variable that was never assigned raises NameError
-      # ("uninitialized class variable @@missing in ..."). zeo's cvar read answers
+      # ("uninitialized class variable @@missing in ..."). zr's cvar read answers
       # nil instead.
       class CvarHost
         def self.read
@@ -3752,10 +3752,10 @@ describe "Classes programs" do
   it "superclass must be a plain class" do
     result = zr(<<~'RUBY')
       # Superclass validation: a Module raises TypeError "superclass must be an
-      # instance of Class (given an instance of Module)" (zeo: NoMethodError on
-      # 'inherited'); a non-class names the given class the same way (zeo's
+      # instance of Class (given an instance of Module)" (zr: NoMethodError on
+      # 'inherited'); a non-class names the given class the same way (zr's
       # message is the older "must be a Class"); and `Class.new(Class)` is
-      # refused outright ("can't make subclass of Class") where zeo mints one.
+      # refused outright ("can't make subclass of Class") where zr mints one.
       # (Found by the 2026-08-24 probe sweep.)
       def show
         yield

@@ -1274,7 +1274,7 @@ describe "Modules programs" do
   it "module def is one body for every includer" do
     result = zr(<<~'RUBY')
       # A definition on a module is inherited by every class that includes it, and
-      # zeo emits its body ONCE rather than once per includer. This pins what that
+      # zr emits its body ONCE rather than once per includer. This pins what that
       # makes observable.
       #
       # The body may not depend on the carrier. A constant it reads must resolve

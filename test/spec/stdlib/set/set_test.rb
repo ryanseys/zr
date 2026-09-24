@@ -263,14 +263,14 @@ describe "Set programs" do
       # stream in binary mode, which sets the external encoding to `ASCII-8BIT`,
       # and everything read from it comes back binary.
       #
-      #   StringIO.new("a").binmode.external_encoding   ruby ASCII-8BIT  zeo UTF-8
+      #   StringIO.new("a").binmode.external_encoding   ruby ASCII-8BIT  zr UTF-8
       #   File#binmode                                  the same
       #
       # On a platform with no newline translation the OTHER half of binary mode is
       # a no-op, which is presumably why this looked harmless: nothing about the
       # BYTES changes. The encoding does, and that is observable everywhere the
       # bytes are later interpreted -- a string written to a binmode stream comes
-      # back tagged UTF-8 in zeo, so a caller that binmodes a stream precisely to
+      # back tagged UTF-8 in zr, so a caller that binmodes a stream precisely to
       # stop it interpreting bytes still gets them interpreted.
       #
       # `File.binread` already answers ASCII-8BIT, so the encoding-carrying
@@ -300,9 +300,9 @@ describe "Set programs" do
   it "const set validates the name" do
     result = zr(<<~'RUBY')
       # `const_set` validates the constant name ("wrong constant name lower");
-      # zeo sets the lowercase constant. `const_get` already validates. And
+      # zr sets the lowercase constant. `const_get` already validates. And
       # `remove_const` on a missing name prints the RECEIVER in its NameError
-      # ("constant #<Module:0x...>::Nope not defined"); zeo names only the
+      # ("constant #<Module:0x...>::Nope not defined"); zr names only the
       # constant. (Found by the 2026-08-24 probe sweep.)
       begin
         Module.new.const_set(:lower, 1)
@@ -542,7 +542,7 @@ describe "Set programs" do
     result = zr(<<~'RUBY')
       # String#scan with a block is supposed to set `$~` (and $1, $~.pre_match,
       # etc) to the current match on each iteration, the same way #sub/#gsub with
-      # a block do. zeo leaves `$~` nil inside the scan block instead of updating
+      # a block do. zr leaves `$~` nil inside the scan block instead of updating
       # it per match.
       s = "1a2b3c"
       results = []
@@ -834,7 +834,7 @@ describe "Set programs" do
   it "Exception#set_backtrace names an Array of String or of Location in its TypeError" do
     result = zr(<<~'RUBY')
       # `Exception#set_backtrace`'s TypeError names what ruby 4 accepts: "an
-      # Array of String or an Array of Thread::Backtrace::Location"; zeo's
+      # Array of String or an Array of Thread::Backtrace::Location"; zr's
       # message still offers "a single String" (an older contract). (Found by
       # the 2026-08-24 probe sweep.)
       begin
@@ -1494,7 +1494,7 @@ describe "Set programs" do
       #                          `union`, `intersect?`, `uniq`, `Hash#slice`,
       #                          `Hash#except`, `Array#eql?`, `Struct#eql?`.
       #
-      # `1.0` against `1` separates the two: they are `==` but not `eql?`. Zeo
+      # `1.0` against `1` separates the two: they are `==` but not `eql?`. Zr
       # drove every row with `==`, so a set operation answered the search's
       # answer -- `[1.0] - [1]` came back EMPTY where ruby keeps the Float. That
       # is a silently wrong answer on an ordinary mixed-numeric list.

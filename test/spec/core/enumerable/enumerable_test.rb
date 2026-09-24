@@ -1311,8 +1311,8 @@ describe "Enumerable programs" do
     result = zr(<<~'RUBY')
       # The fallible-display contract: a user `to_s`/`inspect` that raises
       # surfaces as a CATCHABLE exception from puts/print/p/warn/format/
-      # interpolation (string and regexp)/Array+Hash to_s -- never a
-      # runtime panic. Partial-output rules are CRuby's own: puts/print/p
+      # interpolation (string and regexp)/Array+Hash to_s -- it never
+      # crashes the process. Partial-output rules are CRuby's own: puts/print/p
       # flush what rendered before the raise, warn flushes nothing.
       # Expected output is verbatim ruby 4.0.6.
 

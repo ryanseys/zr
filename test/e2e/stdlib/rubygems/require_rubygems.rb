@@ -5,7 +5,7 @@
 # not work; this file is what retires that workaround.
 #
 # Shapes, never versions. Ruby has RubyGems loaded before the program starts,
-# so its `require` answers false where zeo's answers true, and zeo's bundled
+# so its `require` answers false where zr's answers true, and zr's bundled
 # copy is ahead of the reference ruby's. Both sides agree on what the API
 # does; printing either of those two records a difference that means nothing.
 
@@ -38,11 +38,11 @@ p Gem::Version.new("2.0.0.pre").prerelease?
 
 # A specification built the way a gemspec builds one.
 spec = Gem::Specification.new do |s|
-  s.name = "zeo-milestone"
+  s.name = "zr-milestone"
   s.version = "0.1.0"
   s.summary = "a milestone"
   s.authors = ["nobody"]
-  s.files = ["lib/zeo_milestone.rb"]
+  s.files = ["lib/zr_milestone.rb"]
   s.require_paths = ["lib"]
   s.add_dependency "rake", ">= 13.0"
   s.add_development_dependency "minitest", "~> 5.0"

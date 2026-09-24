@@ -2033,7 +2033,7 @@ describe "Methods: regressions" do
       # `.expected` beside it is ruby 4.0.6's own answers, so every row is a
       # differential assertion and a divergence fails the suite.
       #
-      # The point is to convert a long tail of one-off "zeo accepts what ruby
+      # The point is to convert a long tail of one-off "zr accepts what ruby
       # refuses" findings into a finite list. Sixteen gap files were written one
       # at a time before this existed.
       #
@@ -2044,7 +2044,7 @@ describe "Methods: regressions" do
 
       def probe(name, &blk) = ROWS[name] = blk
 
-      # Rows zeo does not answer yet, each naming the gap that tracks it. A carved
+      # Rows zr does not answer yet, each naming the gap that tracks it. A carved
       # row is left OUT of the output rather than recorded wrong -- one row cannot
       # be allowed to hold the other 74 out of the suite. When a gap is promoted,
       # delete its entry here and re-bless; the row comes back.

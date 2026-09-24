@@ -60,12 +60,12 @@ describe "String: evaluating a string" do
   it "class eval string constant scope" do
     result = zr(<<~'RUBY')
       # The STRING forms of `class_eval`/`module_eval`/`instance_eval` evaluate with
-      # the receiver as the constant lookup scope. zeo evaluates them with the
+      # the receiver as the constant lookup scope. zr evaluates them with the
       # caller's scope, so a constant owned by the receiver is not found.
       #
-      #     Outer::Host.class_eval("HOST_C")   ruby :host   zeo NameError
+      #     Outer::Host.class_eval("HOST_C")   ruby :host   zr NameError
       #
-      # The BLOCK form is the opposite and zeo gets it right: a block keeps the
+      # The BLOCK form is the opposite and zr gets it right: a block keeps the
       # lexical scope where it was written, which is why `class_eval { VAL }` sees
       # the caller's constants and `class_eval("VAL")` does not. That contrast is the
       # documented reason both forms exist, and a library that builds code as a
@@ -73,7 +73,7 @@ describe "String: evaluating a string" do
       # the string form seeing the receiver.
       #
       # The NameError message shows the same missing scope: ruby names the constant
-      # it looked for as `Outer::Host::VAL`, zeo as a bare `VAL`.
+      # it looked for as `Outer::Host::VAL`, zr as a bare `VAL`.
 
       module Outer
         VAL = :outer_val
@@ -133,7 +133,7 @@ describe "String: evaluating a string" do
   it "eval string defines a module" do
     result = zr(<<~'RUBY')
       # `eval` of a literal string that defines a `class`/`module`. At the TOP LEVEL
-      # zeo parses the snippet at compile time and inlines it, so the definition is
+      # zr parses the snippet at compile time and inlines it, so the definition is
       # ordinary; inside a METHOD body it falls through to the runtime eval VM,
       # which had no constant-write node -- `WHO = "made"` was the whole refusal,
       # not the `module` the gap header blamed.

@@ -131,11 +131,9 @@ describe "Object programs" do
       # `singleton_class.ancestors`.
       #
       # It was expected to fall out of the singleton-surrogate work, and it did not.
-      # `class_method_prepends` is a compile-time MRO input (see analyze/mro.rs) that
-      # nothing carries into the runtime registry, and this body mints no surrogate
-      # for the registry to carry it ON -- the surrogate exists only where the body
-      # needs a compile-time class. Making the ancestry right means minting one for a
-      # mixin too, and registering the module in its ancestors.
+      # The prepended module is a compile-time input to the method resolution
+      # order that nothing carries into the runtime's ancestor registry. Making
+      # the ancestry right means registering the module in its ancestors too.
       module Loud
         def greet = "LOUD " + super
       end
@@ -261,7 +259,7 @@ describe "Object programs" do
   it "constant inside class of an object resolves in its singleton methods" do
     result = zr(<<~'RUBY')
       # `class << obj; MAX = ...; def m; MAX; end; end` -- a constant on an
-      # object's singleton class (tmpdir's `class << RANDOM`). zeo hoists the
+      # object's singleton class (tmpdir's `class << RANDOM`). zr hoists the
       # constant to the enclosing lexical scope, where the singleton method
       # resolves it.
 
@@ -374,7 +372,7 @@ describe "Object programs" do
   it "define singleton method on a class does not reach back" do
     result = zr(<<~'RUBY')
       # `Later.define_singleton_method(:mode)` must replace the compiled
-      # `def self.mode` only from the point it RUNS. zeo answers `:runtime` for the
+      # `def self.mode` only from the point it RUNS. zr answers `:runtime` for the
       # call written before it, so the redefinition reaches backwards in time.
       #
       # Pre-existing, and unrelated to class-method call-site caching: the same two
@@ -415,8 +413,8 @@ describe "Object programs" do
       #   Module. Naming the enclosing class answered both the other way round: the
       #   method appeared on the class, and `define_method` quietly succeeded.
       #
-      # `boxed_implicit_self` is already the "self here, as a RubyValue" rule and is
-      # total, so the receiver is read from it rather than re-derived.
+      # `boxed_implicit_self` is already the "self here, as a runtime value" rule
+      # and is total, so the receiver is read from it rather than re-derived.
 
       class C
         def install_singleton
@@ -1082,7 +1080,7 @@ describe "Object programs" do
 
   it "objectspace each object is declined" do
     result = zr(<<~'RUBY')
-      # ObjectSpace.each_object is DECLINED: zeo has no heap enumeration (objects
+      # ObjectSpace.each_object is DECLINED: zr has no heap enumeration (objects
       # are native values with no global registry), and the row raises a
       # NotImplementedError saying so. The divergence is stepped around here -- the
       # row exists and reflects on both sides; only CALLING it differs, and this
@@ -1473,7 +1471,7 @@ describe "Object programs" do
   it "singleton methods on objects constants and modules" do
     result = zr(<<~'RUBY')
       # Singleton methods on an ordinary object. Three things that were broken
-      # together: `super` inside a `class << obj` body (it panicked the compiler with
+      # together: `super` inside a `class << obj` body (it crashed the compiler with
       # "`super` outside a method", since a per-object singleton has no compile-time
       # class to splice an ancestor chain against); a block passed to a runtime
       # singleton method on a class/module (`M.wrap { }` -- dispatch dropped it and

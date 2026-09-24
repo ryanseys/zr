@@ -120,7 +120,7 @@ describe "IO::console programs" do
       # at once. Every effect of loading a feature -- `$LOADED_FEATURES` naming it,
       # a require-gated builtin row becoming answerable -- starts at this line.
       #
-      # zeo satisfies `io/console` and `set` natively and splices `prime` from a
+      # zr satisfies `io/console` and `set` natively and splices `prime` from a
       # vendored gem, so all three used to be recorded at startup: a program that
       # required one on its last line already answered for it on its first.
       # `HirNode::FeatureLoaded` is CRuby's `rb_provide_feature`, emitted at the

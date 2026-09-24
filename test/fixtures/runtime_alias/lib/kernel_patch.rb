@@ -1,4 +1,4 @@
 module Kernel
-  alias_method :zeo_orig_frozen, :frozen?
-  private :zeo_orig_frozen
+  alias_method :zr_orig_frozen, :frozen?
+  private :zr_orig_frozen
 end

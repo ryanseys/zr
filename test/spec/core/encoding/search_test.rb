@@ -47,7 +47,7 @@ describe "Encoding: searching and matching" do
     result = zr(<<~'RUBY')
       # `String#encode` to an unknown encoding raises
       # Encoding::ConverterNotFoundError naming the pair ("code converter not
-      # found (UTF-8 to NO-SUCH-ENC)"); zeo routes through the registry lookup
+      # found (UTF-8 to NO-SUCH-ENC)"); zr routes through the registry lookup
       # first and raises ArgumentError ("unknown encoding name"). The Converter
       # and Encoding.find paths already match -- only #encode misroutes. (Found
       # by the 2026-08-24 probe sweep.)
@@ -78,7 +78,7 @@ describe "Encoding: searching and matching" do
   it "issue posix alpha class ascii only" do
     result = zr(<<~'RUBY')
       # The POSIX bracket class `[[:alpha:]]` (and presumably its siblings) only
-      # matches ASCII letters in zeo's regex engine -- CRuby's onig engine matches
+      # matches ASCII letters in zr's regex engine -- CRuby's onig engine matches
       # any Unicode letter (e.g. "e" with an accent) against `[[:alpha:]]`.
       p "café".match?(/\A[[:alpha:]]+\z/)
       p "abc".match?(/\A[[:alpha:]]+\z/)
@@ -95,7 +95,7 @@ describe "Encoding: searching and matching" do
   it "issue word char class ascii scope" do
     result = zr(<<~'RUBY')
       # `\w` in a regex should only match ASCII word characters ([a-zA-Z0-9_]) by
-      # default in CRuby's onig engine, excluding accented/Unicode letters. zeo's
+      # default in CRuby's onig engine, excluding accented/Unicode letters. zr's
       # `\w` is Unicode-aware and matches "e" with an accent too.
       p "café bar".scan(/\w+/)
     RUBY
@@ -106,7 +106,7 @@ describe "Encoding: searching and matching" do
   it "match answers in the subjects encoding" do
     result = zr(<<~'RUBY')
       # Every string a match hands back carries the SUBJECT's encoding, not the
-      # engine's. zeo decodes a haystack to UTF-8 to search it, and used to slice
+      # engine's. zr decodes a haystack to UTF-8 to search it, and used to slice
       # the groups out of that copy, so a binary or Latin-1 subject answered UTF-8
       # for every one of them.
       #
@@ -383,11 +383,11 @@ describe "Encoding: searching and matching" do
       #              ^
       #
       # CRuby reads a braced `\u{}` as a space-separated LIST of codepoints, so
-      # `/\u{61 62}/` is `/ab/`. zeo's escape reader takes one and refuses the
+      # `/\u{61 62}/` is `/ab/`. zr's escape reader takes one and refuses the
       # space.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # The engine returned every unknown escape as itself, so \u lost its backslash
       # and the rest became literal text: /µ/ named the text "u00b5", and

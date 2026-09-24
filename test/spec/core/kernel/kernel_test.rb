@@ -345,7 +345,7 @@ describe "Kernel programs" do
       # A `require` written in a `class`/`module` BODY runs AT ITS OWN POSITION in
       # CRuby, at the top-level cref -- not after the whole enclosing file.
       #
-      # zeo used to append the target's statements to the file-trailing splice, so
+      # zr used to append the target's statements to the file-trailing splice, so
       # `module M; puts "before"; require_relative "x"; puts "after"; p X; end`
       # printed before/after/inner and then raised `uninitialized constant M::X`:
       # wrong order, and the constant landed in the wrong namespace on the way.
@@ -1189,7 +1189,7 @@ describe "Kernel programs" do
   it "a def written inside module Kernel reaches every class and is emitted once" do
     result = zr(<<~'RUBY')
       # A `def` written inside `module Kernel` reaches every class in the program,
-      # and zeo emits its body ONCE. This is the same rule as a top-level `def`
+      # and zr emits its body ONCE. This is the same rule as a top-level `def`
       # (see `a_toplevel_def_is_one_body_for_every_class`), reached by the other
       # spelling -- and the spelling mattered: the spine lookup asks a map that
       # was filled from TOP-LEVEL defs only, so a
@@ -1343,7 +1343,7 @@ describe "Kernel programs" do
       # So the mark rides on the HANDLE. `ProcData::literal_block` is set for every
       # proc the emitter builds -- each one came from a block written in the source
       # -- and cleared where a handle turns into CRuby's proc handler: the `&expr`
-      # conversion (`zeo_rt_block_arg_to_proc`), `public_send`, and `Method#call`.
+      # conversion (`zr_rt_block_arg_to_proc`), `public_send`, and `Method#call`.
       # `send` forwards the iseq handler unchanged, which is the CRuby wart that
       # makes it and `public_send` disagree about the same block.
       #
@@ -1560,7 +1560,7 @@ describe "Kernel programs" do
   it "proc compose requires a callable" do
     result = zr(<<~'RUBY')
       # `Proc#>>`/`#<<` type-check their operand AT COMPOSE TIME ("callable
-      # object is expected"); zeo builds the composite and would only fail when
+      # object is expected"); zr builds the composite and would only fail when
       # called. (Found by the 2026-08-24 probe sweep.)
       begin
         p(->(x) { x } >> 5)
@@ -1872,7 +1872,7 @@ describe "Kernel programs" do
 
   it "random prng" do
     result = zr(<<~'RUBY')
-      # `Random` -- a seedable PRNG. zeo's generator is xorshift64*, not CRuby's
+      # `Random` -- a seedable PRNG. zr's generator is xorshift64*, not CRuby's
       # MT19937, so raw sequences differ; this example prints only the DETERMINISTIC
       # guarantees that hold for any correct PRNG (reproducibility, ranges, return
       # types), never a raw random value.

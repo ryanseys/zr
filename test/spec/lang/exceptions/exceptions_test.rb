@@ -659,24 +659,24 @@ describe "Exceptions programs" do
       # a broken program. A `begin ... rescue TypeError` around one catches it, prints,
       # and carries on, so a program that does that has to compile and do the same.
       #
-      # Unrescued, zeo refuses the compile instead of emitting a program that aborts:
+      # Unrescued, zr refuses the compile instead of emitting a program that aborts:
       # same problem, named earlier. That split is the whole point of this file -- the
       # rescued half is what a compile-time-only rejection would have made impossible.
       #
       # The KIND mismatch at the bottom is the same rule with a two-line message, and
       # both lines were wrong. `unmatched_redefinition` (vm_insnhelper.c) names the
       # LEAF -- `rb_id2str(id)`, the id off the cpath -- so `module Outer::Inner`
-      # reports `Inner`, where zeo reported the qualified `Outer::Inner`. Then it
+      # reports `Inner`, where zr reported the qualified `Outer::Inner`. Then it
       # appends the previous definition's position, read from
       # `rb_const_source_location_at`: the point the CONSTANT was created, which is
-      # the first declaring site, so a reopen leaves the first line standing. zeo
+      # the first declaring site, so a reopen leaves the first line standing. zr
       # omitted that line entirely.
 
       class A; end
       class B < A; end
 
       # A cycle: `A < B` while `B < A`. Ruby raises rather than closing the loop --
-      # and zeo must not build it either, because a superclass chain that points at
+      # and zr must not build it either, because a superclass chain that points at
       # itself is an infinite walk for every pass that follows it.
       begin
         class A < B; end
@@ -828,11 +828,12 @@ describe "Exceptions programs" do
 
   it "dup and clone of uncopyable handles raise cruby shapes" do
     result = zr(<<~'RUBY')
-      # The former loud-panic tier is real, rescuable raises now -- every
-      # message verbatim from ruby 4.0.6. Fiber is the special one: CRuby's
-      # shallow copy succeeds but skips the machine stack, so the COPY is an
-      # uninitialized fiber (resume raises) while the original still runs.
-      # Concurrent join/value on one Thread hands every joiner the outcome.
+      # Duplicating or cloning an uncopyable handle raises a real, rescuable
+      # error, with every message verbatim from ruby 4.0.6. Fiber is the
+      # special one: CRuby's shallow copy succeeds but skips the machine
+      # stack, so the COPY is an uninitialized fiber (resume raises) while
+      # the original still runs. Concurrent join/value on one Thread hands
+      # every joiner the outcome.
 
       begin; Thread.current.dup; rescue TypeError => e; puts "thread: #{e.message}"; end
       begin; Queue.new.clone; rescue NoMethodError => e; puts "queue: #{e.message}"; end
@@ -919,7 +920,7 @@ describe "Exceptions programs" do
       # A SystemCallError message's `@ site` names CRuby's own C function, not
       # the syscall: `@ rb_sysopen`, `@ io_fread`, `@ dir_chdir0`,
       # `@ rb_check_realpath_internal`, `@ rb_file_s_stat`, `@ apply2files`, and
-      # `@ rb_file_s_rename - (a, b)` with BOTH paths. zeo names the syscall
+      # `@ rb_file_s_rename - (a, b)` with BOTH paths. zr names the syscall
       # (`@ read`, `@ chdir`, ...). `File.expand_path("~nouser")` also words its
       # ArgumentError differently. (Found by the 2026-08-24 probe sweep.)
       def show
@@ -928,21 +929,21 @@ describe "Exceptions programs" do
         puts "#{e.class}: #{e.message}"
       end
       show { File.read("/tmp") }
-      show { Dir.chdir("/nonexistent_zeo_probe_xyz") { } }
-      show { File.realpath("/nonexistent_zeo_probe_xyz") }
-      show { File.stat("/nonexistent_zeo_probe_xyz") }
-      show { File.delete("/nonexistent_zeo_probe_xyz") }
-      show { File.rename("/nonexistent_zeo_probe_xyz", "/tmp/zzz") }
+      show { Dir.chdir("/nonexistent_zr_probe_xyz") { } }
+      show { File.realpath("/nonexistent_zr_probe_xyz") }
+      show { File.stat("/nonexistent_zr_probe_xyz") }
+      show { File.delete("/nonexistent_zr_probe_xyz") }
+      show { File.rename("/nonexistent_zr_probe_xyz", "/tmp/zzz") }
       show { File.expand_path("~xyz_no_such_user_probe") }
     RUBY
 
     _(result).must_answer <<~'OUT'
       Errno::EISDIR: Is a directory @ io_fread - /tmp
-      Errno::ENOENT: No such file or directory @ dir_chdir0 - /nonexistent_zeo_probe_xyz
-      Errno::ENOENT: No such file or directory @ rb_check_realpath_internal - /nonexistent_zeo_probe_xyz
-      Errno::ENOENT: No such file or directory @ rb_file_s_stat - /nonexistent_zeo_probe_xyz
-      Errno::ENOENT: No such file or directory @ apply2files - /nonexistent_zeo_probe_xyz
-      Errno::ENOENT: No such file or directory @ rb_file_s_rename - (/nonexistent_zeo_probe_xyz, /tmp/zzz)
+      Errno::ENOENT: No such file or directory @ dir_chdir0 - /nonexistent_zr_probe_xyz
+      Errno::ENOENT: No such file or directory @ rb_check_realpath_internal - /nonexistent_zr_probe_xyz
+      Errno::ENOENT: No such file or directory @ rb_file_s_stat - /nonexistent_zr_probe_xyz
+      Errno::ENOENT: No such file or directory @ apply2files - /nonexistent_zr_probe_xyz
+      Errno::ENOENT: No such file or directory @ rb_file_s_rename - (/nonexistent_zr_probe_xyz, /tmp/zzz)
       ArgumentError: user xyz_no_such_user_probe doesn't exist
     OUT
   end
@@ -1585,7 +1586,7 @@ describe "Exceptions programs" do
   it "invalid attribute name is a name error" do
     result = zr(<<~'RUBY')
       # `attr_accessor`/`attr_reader`/`attr_writer` validate the name ("invalid
-      # attribute name '1bad'"); zeo accepts anything and mints :"1bad" rows,
+      # attribute name '1bad'"); zr accepts anything and mints :"1bad" rows,
       # which then leak into instance_methods. (Found by the 2026-08-24 probe
       # sweep.)
       c = Class.new
@@ -1711,7 +1712,7 @@ describe "Exceptions programs" do
     result = zr(<<~'RUBY')
       # CRuby's uncaught-exception report puts the class tag at the end of the
       # message's FIRST line and lets the rest run underneath, unindented -- the
-      # `error_pos`/`print_errinfo` split. zeo appended it after the whole message,
+      # `error_pos`/`print_errinfo` split. zr appended it after the whole message,
       # which nothing noticed while the only multi-line messages came from
       # constructs that failed to compile.
       #
@@ -1777,7 +1778,7 @@ describe "Exceptions programs" do
       #
       #     1: String === 1 does not return true
       #
-      # zeo raises the same class with the message "no matching pattern", which says
+      # zr raises the same class with the message "no matching pattern", which says
       # only that something did not match.
       #
       # The detail is the whole diagnostic. A `case/in` with several branches, each
@@ -1787,7 +1788,7 @@ describe "Exceptions programs" do
       # staying generic.
       #
       # `NoMatchingPatternKeyError` carries the same information structurally, in
-      # `#key` and `#matchee`, which zeo does answer -- so the data is present and
+      # `#key` and `#matchee`, which zr does answer -- so the data is present and
       # only the `NoMatchingPatternError` message is not built from it.
 
       begin
@@ -1896,15 +1897,14 @@ describe "Exceptions programs" do
   it "pattern key error class" do
     result = zr(<<~'RUBY')
       # A hash pattern that misses a KEY raises `NoMatchingPatternKeyError` in CRuby,
-      # carrying the key it wanted and the Hash it was asked of. zeo raised the parent
+      # carrying the key it wanted and the Hash it was asked of. zr raised the parent
       # `NoMatchingPatternError` with no detail.
       #
       # A pattern compiles to ONE boolean, so by the time the `expr => pattern` arm
       # raises, the expression tree that knew which key was absent is gone. The miss
-      # is recorded where it happens and read back at the raise
-      # (`zeo_rt::pattern_match_error`), and the record is cleared at the start of
-      # every required match so a `case/in` arm that simply did not apply cannot leak
-      # into a later failure.
+      # is recorded where it happens and read back at the raise, and the record is
+      # cleared at the start of every required match so a `case/in` arm that simply
+      # did not apply cannot leak into a later failure.
       #
       # A key that is PRESENT with a non-matching value is a different failure and
       # keeps the parent class, which is why the two are kept apart at the check.
@@ -2514,7 +2514,7 @@ describe "Exceptions programs" do
       #
       # pundit writes `raise NotAuthorizedError, query: query, record: record,
       # policy: policy`, and its error class takes a positional options hash. Reading
-      # those as keywords zeo had to accept made the whole gem a compile error.
+      # those as keywords zr had to accept made the whole gem a compile error.
 
       class Denied < StandardError
         def initialize(options = {})
@@ -2673,8 +2673,7 @@ describe "Exceptions programs" do
   it "raising a non exception is a type error" do
     result = zr(<<~'RUBY')
       # `raise <non-exception>` coerces at runtime -- a String becomes a
-      # RuntimeError, everything else is CRuby's TypeError -- instead of
-      # panicking when the raise machinery unwraps a non-Object.
+      # RuntimeError, everything else raises CRuby's TypeError.
 
       def try
         yield
@@ -3043,7 +3042,7 @@ describe "Exceptions programs" do
     result = zr(<<~'RUBY')
       # `rescue A, *list => e` splats `list` by the SAME rule an argument list does.
       #
-      # zeo tested the splat's value as if it were always one class, so `*nil` --
+      # zr tested the splat's value as if it were always one class, so `*nil` --
       # which splices nothing -- was tested as a nil class and raised
       # `TypeError: class or module required for rescue clause` INSTEAD of whatever
       # the body raised. It only showed when no earlier entry matched, which is why
@@ -3216,7 +3215,7 @@ describe "Exceptions programs" do
       # NOTE: `"x" * (1 << 60)` is deliberately NOT exercised here. CRuby's guard
       # only covers the length multiplication, so a 1-byte string times 2^60 reaches
       # the allocator and raises NoMemoryError -- which, not being a StandardError,
-      # escapes `rescue => e` and kills the program. zeo caps the total size and
+      # escapes `rescue => e` and kills the program. zr caps the total size and
       # raises a catchable ArgumentError instead, so the two cannot share a golden
       # file; the corpus `string_multiply_overflow` pins that behavior separately.
       puts err { "x" * -1 }

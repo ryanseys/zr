@@ -106,16 +106,10 @@ describe "Singleton: formatting and inspection" do
 
   it "extended module is not the singletons own" do
     result = zr(<<~'RUBY')
-      # `obj.extend(M)` files M's rows as the singleton class's OWN methods, where
-      # CRuby puts M in the singleton's SUPER chain. So
-      # `obj.singleton_class.instance_methods(false)` lists names that belong to the
-      # module.
-      #
-      # zeo copies the module's bodies into the object's identity-keyed singleton
-      # table (`extend_object_default`, `runtime_meta/api.rs`) and records the
-      # provenance separately in `extended_names` -- the same split the CLASS side
-      # makes with `extended_class_methods`, where `singleton_methods(false)` already
-      # consults it. The object side records the provenance and no reader asks.
+      # `obj.extend(M)` puts M in the singleton class's SUPER chain, so
+      # `obj.singleton_class.instance_methods(false)` must NOT list names
+      # that belong to the module. An own `def obj.x` defined beside the
+      # extend must still show up in the narrow form.
       #
       # `singleton_methods` is deliberately NOT part of this: CRuby's wide form does
       # report an extended module's methods, and only the narrow `false` form skips
@@ -162,14 +156,10 @@ describe "Singleton: formatting and inspection" do
 
   it "object methods report their own singletons" do
     result = zr(<<~'RUBY')
-      # `Object#methods` and `#public_methods` report only what the receiver's CLASS
-      # chain carries, so a method installed on the OBJECT is missing from both --
-      # and a private one wrongly shows up in `public_methods`.
-      #
-      # All three rows read `instance_method_names(recv.class_id(), filter, inherit)`
-      # (`builtins/kernel.rs`), which walks a class id. A per-object singleton row
-      # sits AHEAD of that chain and is keyed by identity, so no class-id walk can
-      # reach it. `singleton_methods` is the only row that asks by identity.
+      # `Object#methods` and `#public_methods` must report a method installed
+      # on the OBJECT itself, not just what the receiver's CLASS chain
+      # carries -- and a private one must not wrongly show up in
+      # `public_methods`.
 
       def try(label)
         p [label, yield]
@@ -226,7 +216,7 @@ describe "Singleton: formatting and inspection" do
       # class at all. The `self` just has to evaluate to the right object, and
       # `self.singleton_class` in the enclosing class body IS that object.
       #
-      # zeo refused the whole shape, because the mapping works by rewriting a
+      # zr refused the whole shape, because the mapping works by rewriting a
       # statement's RECEIVER and this one has no receiver to rewrite.
       # `Mongoid.deprecate(self, :from_hash)` is 99 corpus rows of exactly it.
       class Sink
@@ -324,7 +314,7 @@ describe "Singleton: formatting and inspection" do
     result = zr(<<~'RUBY')
       # Every shape where a `class << X` body's receiverless call reaches a method
       # that is private on the singleton class. Ruby runs those with no receiver, so
-      # no visibility barrier applies -- zeo rebinds them onto a synthesized
+      # no visibility barrier applies -- zr rebinds them onto a synthesized
       # `X.singleton_class` and must keep the barrier down.
 
       module Priv
@@ -426,21 +416,14 @@ describe "Singleton: formatting and inspection" do
 
   it "a visibility directive in a compiled class << obj body leaves every method public" do
     result = zr(<<~'RUBY')
-      # A compiled `class << obj` body's visibility directives never reach the
-      # object, so every method it writes installs PUBLIC.
-      #
-      # The body runs against a compiled SURROGATE class id. A bare `private` there
-      # has no runtime body frame to record into, so `runtime_set_visibility` parks
-      # it as the surrogate's `singleton_default_vis` (`runtime_meta/api.rs:998`),
-      # and `runtime_define_method`'s singleton redirect reads it back. That redirect
-      # then applies the mark ONLY when the owner is a `Class` -- it calls
-      # `runtime_class_method_visibility`, and an ordinary object has no class-method
-      # table. For an object owner the cursor is dropped on the floor.
-      #
-      # `private :name` and `private def` in the same body take the other half of
-      # `runtime_set_visibility`, which writes `methods_vis` on the SURROGATE id --
-      # a table no reader of this object's rows ever consults, because per-object
-      # singleton rows are keyed by identity.
+      # `private` (bare, `private def`, and `private :name`) inside a
+      # compiled `class << obj` body must mark the method PRIVATE on the
+      # object, the same as it would on a class. A fresh `def` after that
+      # resets to the running default. `clone` carries the singleton table,
+      # and the visibility marks with it; `dup` does not carry the
+      # singleton table at all. A non-object heap value (for example, a
+      # String) keeps its own singleton table, and the marks must follow it
+      # there too.
       #
       # The three spellings are one cause and are pinned together here.
 

@@ -249,7 +249,7 @@ describe "Classes: defining and naming methods" do
 
   it "nested class undef stays in that class" do
     result = zr(<<~'RUBY')
-      # `undef_method` under a guard zeo cannot decide is a RUNTIME fact, so the
+      # `undef_method` under a guard zr cannot decide is a RUNTIME fact, so the
       # name goes on the class's `runtime_undefs` and codegen stops emitting a
       # direct call for it. The walk that collects those names had no stops, so a
       # nested class's undef was credited to the ENCLOSING class too -- which only
@@ -287,11 +287,11 @@ describe "Classes: defining and naming methods" do
       # A run-time `alias_method` on Kernel whose source is a BUILTIN row landed
       # where an ordinary receiver could reach it and nowhere a Class or Module
       # receiver looks -- while `respond_to?` answered true for both, so the
-      # disagreement was between two of zeo's own tables.
+      # disagreement was between two of zr's own tables.
       #
       # rubygems' `kernel_require.rb` is exactly this shape
       # (`alias_method :gem_original_require, :require`), and it is required at run
-      # time, so `zeo gem install` died with "undefined method
+      # time, so `zr gem install` died with "undefined method
       # 'gem_original_require' for class Gem::Net::HTTP".
       #
       # The require must be COMPUTED: spliced through `-I` the alias and its callers
@@ -308,9 +308,9 @@ describe "Classes: defining and naming methods" do
       anon = Module.new
       obj = Object.new
 
-      p Widget.respond_to?(:zeo_orig_frozen, true)
+      p Widget.respond_to?(:zr_orig_frozen, true)
       [Widget, Trait, anon, (class << obj; self; end), obj].each do |recv|
-        p recv.send(:zeo_orig_frozen)
+        p recv.send(:zr_orig_frozen)
       end
     RUBY
 

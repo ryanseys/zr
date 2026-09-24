@@ -56,9 +56,9 @@ describe "Reline programs" do
       # is built on, and the module-level surface it delegates to its Core.
       require "reline"
 
-      # The SHAPE, not the number. Zeo vendors reline's latest upstream release and
-      # the oracle reads the copy ruby 4.0.6 ships, so the two versions differ on
-      # purpose -- see `crates/zeo-rt/ext/UPSTREAM.md`. What has to agree is everything below.
+      # The SHAPE, not the number. Zr vendors reline's latest upstream release,
+      # and the oracle reads the copy ruby 4.0.6 ships, so the two versions differ
+      # on purpose. What has to agree is everything below.
       p Reline::VERSION.match?(/\A\d+\.\d+\.\d+\z/)
 
       # --- the SingleForwardable delegators the module surface is made of ---------

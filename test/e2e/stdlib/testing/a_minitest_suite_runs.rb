@@ -5,16 +5,16 @@
 # whole backtrace, and ruby's answer becomes seventeen absolute paths
 # into whoever's gem store recorded it.
 # MILESTONE: a REAL minitest suite, written the way anyone writes one, runs
-# under zeo and reports what ruby reports -- passes, failures, errors, skips,
+# under zr and reports what ruby reports -- passes, failures, errors, skips,
 # assertion counts and the exit status.
 #
 # `--seed 42` is pinned because minitest randomizes test order, and it is
 # passed the way ruby passes it: option parsing stops at the file name, so
-# `zeo test.rb --seed 42` hands all of it to ARGV. That only became possible
-# when zeo adopted ruby's rule; before it, `--seed` was "invalid option".
+# `zr test.rb --seed 42` hands all of it to ARGV. That only became possible
+# when zr adopted ruby's rule; before it, `--seed` was "invalid option".
 #
-# Shapes, never versions -- see `tests/milestones.rs`. Timings are the one
-# thing that cannot match, so nothing here prints one.
+# The program prints shapes, never versions. Timings cannot match, so
+# nothing here prints one.
 
 # Minitest prints a duration and a random seed, and neither can match across
 # two engines. They are normalized HERE rather than by the harness: an

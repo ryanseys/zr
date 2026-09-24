@@ -88,7 +88,7 @@ describe "FFI programs" do
       end
       def sel(s) = OC.sel_registerName(s)
       calls = []
-      klass = OC.objc_allocateClassPair(OC.objc_getClass("NSObject"), "ZeoProbe", 0)
+      klass = OC.objc_allocateClassPair(OC.objc_getClass("NSObject"), "ZrProbe", 0)
       imps = []
       imps << (f = FFI::Function.new(:void, [:pointer, :pointer, :pointer], proc { |_s, _c, _a| calls << :void; nil }))
       OC.class_addMethod(klass, sel("note:"), f, "v@:@")
@@ -120,13 +120,13 @@ describe "FFI programs" do
 
   it "callback parameter naming a struct class" do
     result = zr(<<~'RUBY')
-      # A `callback` whose parameter names an `FFI::Struct` subclass. zeo refused
+      # A `callback` whose parameter names an `FFI::Struct` subclass. zr refused
       # these outright, on the belief that ruby-ffi hands the Proc a Struct instance
       # there and a raw pointer would be silently different behaviour.
       #
       # It hands a pointer. `StructByReference#from_native` would build a Struct, but
       # the callback path never routes an argument through the Ruby data converter --
-      # the block below receives an `FFI::Pointer`, in ruby as in zeo. The old
+      # the block below receives an `FFI::Pointer`, in ruby as in zr. The old
       # rejection even told the author to "take :pointer and wrap it yourself", which
       # is exactly what the gem does for them.
       #
@@ -602,7 +602,7 @@ describe "FFI programs" do
       # An `FFI::Library` declaration written inside a run-time `eval` attaches
       # for real.
       #
-      # zeo resolves the whole FFI surface at compile time -- `extend
+      # zr resolves the whole FFI surface at compile time -- `extend
       # FFI::Library`, `ffi_lib`, `attach_function` and a `class < FFI::Struct`'s
       # `layout` are directives the whole-program walk consumes into one
       # `FfiCall` tree in `.rodata` -- and a SNIPPET has no such walk. So a
@@ -751,11 +751,11 @@ describe "FFI programs" do
 
   it "declarations reach wider than the scalar keywords" do
     result = zr(<<~'RUBY')
-      # Three declaration forms the real `ffi` gem takes and zeo refused.
+      # Three declaration forms the real `ffi` gem takes and zr refused.
       require "ffi"
 
       # 1. C typedefs. The gem resolves ~200 of them from the headers of the machine
-      #    it runs on; zeo takes only the ones whose width and signedness are the
+      #    it runs on; zr takes only the ones whose width and signedness are the
       #    same on every target it builds for -- the C99 exact-width names, the
       #    pointer-width names, and the POSIX types that agree. `mode_t`, `dev_t`,
       #    `nlink_t`, `sa_family_t` and friends genuinely differ between macOS and
@@ -780,7 +780,7 @@ describe "FFI programs" do
       p [Sized.size, Sized.offset_of(:b), Sized.offset_of(:c)]
 
       # 2. `attach_function`'s options hash. `blocking: true` releases the GVL for
-      #    the call, which is a no-op under zeo's default parallel threads and the
+      #    the call, which is a no-op under zr's default parallel threads and the
       #    real handoff under ZR_TEST_GVL=1.
       module Blocking
         extend FFI::Library
@@ -886,7 +886,7 @@ describe "FFI programs" do
   it "enum members fold the constants of the body they sit in" do
     result = zr(<<~'RUBY')
       # An enum member's VALUE and an inline array's COUNT are compile-time
-      # integers to zeo -- they decide marshaling tables and field offsets. Both
+      # integers to zr -- they decide marshaling tables and field offsets. Both
       # now fold through one folder that also reads constants the class body
       # already set (`BASE`, `WIDTH * 2`). `FLAGS = enum :flags, [...]` is the
       # gem's NAMED form spelled as an assignment: registered under the tag AND
@@ -976,7 +976,7 @@ describe "FFI programs" do
   it "a function takes its body as a block" do
     result = zr(<<~'RUBY')
       # The ffi gem takes an `FFI::Function`'s body as a BLOCK as readily as a Proc
-      # in the third position -- the two spellings build the same closure. zeo's
+      # in the third position -- the two spellings build the same closure. zr's
       # constructor counted the block as a missing argument.
 
       require "ffi"
@@ -1619,7 +1619,7 @@ describe "FFI programs" do
       # `GssBufferDescLayout` carries the two fields AND the two readers, and the
       # structs themselves have empty bodies apart from the `include`.
       #
-      # zeo saw a struct class with no layout, so embedding one inline in another
+      # zr saw a struct class with no layout, so embedding one inline in another
       # struct reported "its `layout` directive never lowered".
       #
       # The hook's block SOURCE is recorded when the module lowers (a prism node is
@@ -1722,7 +1722,7 @@ describe "FFI programs" do
     result = zr(<<~'RUBY')
       # An ARRAY argument to `ffi_lib` is a list of ALTERNATIVE spellings of ONE
       # library, and ruby loads the first that dlopens. (Separate arguments are
-      # separate libraries, all required -- a different thing.) zeo has to name one
+      # separate libraries, all required -- a different thing.) zr has to name one
       # library at compile time, so it takes the first alternative it can DECIDE.
       #
       # It used to accept only a bare string or `FFI::Library::LIBC`, which refused
@@ -1741,7 +1741,7 @@ describe "FFI programs" do
       end
       puts ListForm.pow(2.0, 10.0)
 
-      # A candidate zeo cannot decide is SKIPPED, not refused -- libusb leads with two
+      # A candidate zr cannot decide is SKIPPED, not refused -- libusb leads with two
       # locals holding bundled paths and only then names the system library.
       module SkipsTheUndecidable
         extend FFI::Library
@@ -1862,7 +1862,7 @@ describe "FFI programs" do
     result = zr(<<~'RUBY')
 
       # `FFI::Platform` answers the host's platform and C-ABI facts as CONSTANTS,
-      # not only as the four predicates zeo used to carry. A gem reads them
+      # not only as the four predicates zr used to carry. A gem reads them
       # directly -- crabstone picks `:size_t`'s width with
       # `FFI::Platform::ADDRESS_SIZE == 32`, and smartcard its entry-point suffix
       # from `FFI::Platform.windows?` -- so an absent constant is a NameError at
@@ -2183,8 +2183,8 @@ describe "FFI programs" do
       #
       # Every step of the build is a compile-time fact: the array literal, the
       # guarded `push`es, the `<<`/`concat` appends, and the `case` that sizes the
-      # char arrays. zeo folds the guards and replays the array, so the struct
-      # lowers to the same fixed layout the C header describes. A build step zeo
+      # char arrays. zr folds the guards and replays the array, so the struct
+      # lowers to the same fixed layout the C header describes. A build step zr
       # could NOT follow stays a rejection -- a short struct would be a wrong one.
       require "ffi"
 
@@ -2464,7 +2464,7 @@ describe "FFI programs" do
     result = zr(<<~'RUBY')
       # The FFI type registry is whole-program: `FFI.typedef` writes it from
       # whatever namespace it stands in, and every `layout` after it reads it. The
-      # C99 and POSIX names whose width is the same on every target zeo emits for
+      # C99 and POSIX names whose width is the same on every target zr emits for
       # resolve without a typedef at all.
       require "ffi"
 
@@ -2724,7 +2724,7 @@ describe "FFI programs" do
       # the thread Apple's frameworks insist on: AppKit raises
       # `NSInternalInconsistencyException: NSWindow should only be instantiated on
       # the main thread!` from any other, WebKit, Metal and the Cocoa run loop share
-      # the rule, and no dispatch trick satisfies the check. zeo once ran the top
+      # the rule, and no dispatch trick satisfies the check. zr once ran the top
       # level on a spawned 64 MiB thread; the darwin link line now sizes the main
       # thread's stack instead (`-stack_size`, see `link_binary`). The portable
       # half -- `Thread.current` at the top level is `Thread.main` -- is

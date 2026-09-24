@@ -53,12 +53,12 @@ describe "Refinements: inheritance and ancestors" do
 
   it "issue runtime refinement module" do
     result = zr(<<~'RUBY')
-      # An anonymous refinement module built and used at RUNTIME. Zeo implements
+      # An anonymous refinement module built and used at RUNTIME. Zr implements
       # refinements as a compile-time lexical rewrite over a NAMED module's `refine`
       # blocks, so `Module.new` produces a plain runtime module with no `refine` on
       # it, and `using` has no compile-time module to apply.
       #
-      # This is the one thing still standing between zeo and irb. The gem is
+      # This is the one thing still standing between zr and irb. The gem is
       # vendored and compiles CLEAN -- zero errors, down from 51 -- and runs
       # deep into its own initialization before stopping at completion.rb:164,
       # which is written exactly like this. Closing it means teaching the existing
@@ -154,7 +154,7 @@ describe "Refinements: inheritance and ancestors" do
   it "refine in an anonymous module" do
     result = zr(<<~'RUBY')
       # `refine` is a private method of `Module`, so every module has it -- including
-      # one built with `Module.new`. zeo defines it only for a module introduced by a
+      # one built with `Module.new`. zr defines it only for a module introduced by a
       # `module` KEYWORD, so the anonymous form raises
       # `NoMethodError: undefined method 'refine'`.
       #
@@ -720,7 +720,7 @@ describe "Refinements: inheritance and ancestors" do
   it "reflection entry sees the refinements active at it" do
     result = zr(<<~'RUBY')
       # `send`, `respond_to?` and `method` all honour a refinement in ruby, and all
-      # three are ordinary Kernel methods any class may shadow. zeo folded the two
+      # three are ordinary Kernel methods any class may shadow. zr folded the two
       # questions at compile time, which works only where the receiver's class is
       # known -- inside a method body a parameter's class is not, so a refined name
       # was invisible to all three, and a class carrying its own `respond_to?` was

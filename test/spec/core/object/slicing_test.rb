@@ -71,7 +71,7 @@ describe "Object: slicing" do
       #   codegen's escaping-block refusal (active_fields, unparser, proc_to_ast).
       #
       #   A BARE `super` IS AN ERROR IN IT. Ruby refuses to guess the arguments for
-      #   a method whose body is a block (`scope_is_define_method`); zeo ran it.
+      #   a method whose body is a block (`scope_is_define_method`); zr ran it.
       #
       #   ITS FRAME IS NAMED AFTER THE BLOCK, not after the method it creates --
       #   `block in <class:Traced>`, the same label `define_method` gets.
@@ -348,7 +348,7 @@ describe "Object: slicing" do
   it "module new with only definitions is a real module" do
     result = zr(<<~'RUBY')
       # `Readers = Module.new` (rspec-core writes exactly that) and its block form
-      # build a module the rest of the program mixes in -- so zeo compiles the pair
+      # build a module the rest of the program mixes in -- so zr compiles the pair
       # to the `module Readers ... end` they are equivalent to, and `include` becomes
       # a static ancestry edge instead of a runtime splice no compiled class can see.
       Readers = Module.new
@@ -449,7 +449,7 @@ describe "Object: slicing" do
       # line the surviving value is on, which is not always the line of the key it
       # overwrote.
       #
-      # These are the only warnings zeo forwards. They arrive on stderr before any
+      # These are the only warnings zr forwards. They arrive on stderr before any
       # program output, which is where CRuby prints them too -- see the sidecar
       # golden.
 
@@ -573,7 +573,7 @@ describe "Object: slicing" do
       # on `Object` there -- checked at the bottom, since re-pointing it would be
       # just as wrong in the other direction.
       #
-      # The three compiler panics that led here (danger, gitlab-labkit,
+      # The three compiler crashes that led here (danger, gitlab-labkit,
       # activeadmin_settings_cached) are fixed and separate: those reached codegen
       # through directives the rewrite table had no row for at all.
 
@@ -661,7 +661,7 @@ describe "Object: slicing" do
       # on `Object` there -- checked at the bottom, since re-pointing it would be
       # just as wrong in the other direction.
       #
-      # The three compiler panics that led here (danger, gitlab-labkit,
+      # The three compiler crashes that led here (danger, gitlab-labkit,
       # activeadmin_settings_cached) are fixed and separate: those reached codegen
       # through directives the rewrite table had no row for at all.
 
@@ -787,7 +787,7 @@ describe "Object: slicing" do
       # on `Object` there -- checked at the bottom, since re-pointing it would be
       # just as wrong in the other direction.
       #
-      # The three compiler panics that led here (danger, gitlab-labkit,
+      # The three compiler crashes that led here (danger, gitlab-labkit,
       # activeadmin_settings_cached) are fixed and separate: those reached codegen
       # through directives the rewrite table had no row for at all.
 
@@ -821,7 +821,7 @@ describe "Object: slicing" do
 
   it "singleton class surrogate is a class" do
     result = zr(<<~'RUBY')
-      # A singleton class IS a Class in ruby. zeo's compile-time `#<Class:self>`
+      # A singleton class IS a Class in ruby. zr's compile-time `#<Class:self>`
       # surrogate -- the class a `class << self` body's constants, `def`s and
       # residual statements register under -- was filed as a MODULE, because holding
       # constants was all the registry first needed of it. Every question about its

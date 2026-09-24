@@ -45,19 +45,13 @@ describe "Modules: constants" do
 
   it "const source location of a module constant" do
     result = zr(<<~'RUBY')
-      # `Module#const_source_location` answers where a constant was assigned. zeo
-      # answers `nil` for a constant written in a module or class body -- the ordinary
-      # case -- so the method is only ever right about constants that do not exist.
+      # `Module#const_source_location` answers where a constant was assigned,
+      # including a constant written in a module or class body, not just one
+      # set at run time.
       #
-      # zeo records source locations for methods (`Method#source_location` works) but
-      # a constant write is emitted as a plain `zeo_rt::const_set` carrying no span,
-      # so `constants.rs` has nothing to report. The information exists at compile
-      # time: the same `ClassDef`/assignment node the write is emitted from is the one
-      # `const_added` was taught to announce from.
-      #
-      # It is what a reloader or a diagnostic uses to say WHERE a duplicate constant
-      # came from -- the "already initialized constant" warning quotes it -- so
-      # answering nil turns a precise message into a vague one.
+      # It is what a reloader or a diagnostic uses to say WHERE a duplicate
+      # constant came from -- the "already initialized constant" warning
+      # quotes it -- so this must stay precise.
 
       module NS
         X = 1
@@ -79,12 +73,12 @@ describe "Modules: constants" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      16
-      18
-      21
-      nil
+      10
+      12
       15
-      30
+      nil
+      9
+      24
     OUT
   end
 
@@ -151,17 +145,11 @@ describe "Modules: constants" do
 
   it "mixin of a constant holding a runtime module" do
     result = zr(<<~'RUBY')
-      # A constant the program ASSIGNS a module to, then mixes in. zeo used to
-      # refuse this outright: a compiled class dispatches off a static MRO, so an
-      # ancestry edit no compile-time name can describe would vanish silently, and a
-      # loud refusal beat a wrong answer.
-      #
-      # It does not have to vanish. The directive keeps its runtime self-send --
-      # `runtime_meta::splice_mixin` performs the edit and fires the hook when the
-      # body executes -- and every call site widens, so nothing folds to the class's
-      # own body underneath an override the splice installed. Widening EVERY name is
-      # blunt, but a module minted at run time has no method list to read, and it
-      # costs the fast path only in programs that do this.
+      # A constant the program ASSIGNS a module to, then mixes in, must work
+      # correctly. Including a module minted at run time performs a real
+      # ancestry edit and fires the `included` hook when the body executes,
+      # and every call site must see it -- nothing may fold to the class's
+      # own body underneath an override the mixin installed.
       #
       # The shape is everywhere. net-ssh picks its `Prompt` out of three candidates
       # behind a rescued require; rspec-rails builds `ControllerAssertionDelegator`

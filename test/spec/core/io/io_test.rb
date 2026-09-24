@@ -269,7 +269,7 @@ describe "IO programs" do
       # alternation, and Ruby's hidden-file rule (a leading `.` is invisible to a
       # wildcard).
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_glob_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_glob_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         Dir.chdir(dir) do
@@ -373,7 +373,7 @@ describe "IO programs" do
     result = zr(<<~'RUBY')
       # `Dir` listing: `entries` includes `.`/`..`, `children` does not.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_list_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_list_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         File.write(File.join(dir, "a.rb"), "")
@@ -697,7 +697,7 @@ describe "IO programs" do
       p [IO::READABLE, IO::PRIORITY, IO::WRITABLE]
       p File::Constants.constants.include?(:SEEK_SET)
 
-      # Regexp's two encoding option bits, which zeo never sets but a program may
+      # Regexp's two encoding option bits, which zr never sets but a program may
       # still AND against.
       p [Regexp::FIXEDENCODING, Regexp::NOENCODING]
       p(/a/.options & Regexp::FIXEDENCODING)
@@ -908,7 +908,7 @@ describe "IO programs" do
       # block's value. A LENGTHED read at EOF is nil where a whole-rest read is
       # `""` -- the asymmetry a `while chunk = f.read(n)` loop relies on.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_open_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_open_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         path = File.join(dir, "counted.txt")
@@ -966,7 +966,7 @@ describe "IO programs" do
       # `File.open`'s block form closes the file even when the block RAISES --
       # that ensure is the whole reason the idiom exists.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_raise_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_raise_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         path = File.join(dir, "x.txt")
@@ -996,7 +996,7 @@ describe "IO programs" do
       # than raising -- and `size?` is nil for a missing OR empty file, though
       # `size` is 0 for an empty one.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_pred_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_pred_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         full = File.join(dir, "full.txt")
@@ -1195,7 +1195,7 @@ describe "IO programs" do
       # moves the file position has to see the descriptor where RUBY consumed to,
       # never where the read-ahead left it.
 
-      path = "/tmp/zeo_buffered_read_#{Process.pid}.txt"
+      path = "/tmp/zr_buffered_read_#{Process.pid}.txt"
       File.open(path, "w") { |f| f.write("alpha\nbeta\ngamma\ndelta\n") }
 
       # `pos` after a buffered line read.
@@ -1337,7 +1337,7 @@ describe "IO programs" do
     result = zr(<<~'RUBY')
       # Reading a write-only IO (or writing a read-only one) is an IOError ("not
       # opened for reading"/"not opened for writing") -- ruby checks the mode
-      # before touching the fd. zeo lets the syscall fail and raises
+      # before touching the fd. zr lets the syscall fail and raises
       # Errno::EBADF. (Found by the 2026-08-24 probe sweep.)
       begin
         File.open("/dev/null", "w") { |f| f.read }
@@ -1654,7 +1654,7 @@ describe "IO programs" do
   it "pipe read to eof does not seek" do
     result = zr(<<~'RUBY')
       # `read` (to EOF) and `eof?` on a PIPE must not seek: with the write end
-      # closed, ruby answers "" and true. zeo's eof probe seeks and raises
+      # closed, ruby answers "" and true. zr's eof probe seeks and raises
       # Errno::ESPIPE ("Illegal seek"). (Found by the 2026-08-24 probe sweep.)
       r, w = IO.pipe
       w.close
@@ -1915,7 +1915,7 @@ describe "IO programs" do
     result = zr(<<~'RUBY')
       # Stable values plus a self-consistency check that RUBY_DESCRIPTION is
       # composed from its parts exactly as CRuby's version.c does (portable
-      # across build hosts; RUBY_PLATFORM is build-target-derived via build.rs).
+      # across build hosts; RUBY_PLATFORM is derived from the build target).
 
       puts RUBY_VERSION
       puts RUBY_ENGINE

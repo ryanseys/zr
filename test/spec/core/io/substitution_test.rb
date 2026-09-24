@@ -136,7 +136,7 @@ describe "IO: substitution" do
 
   it "file dir extended" do
     result = zr(<<~'RUBY')
-      base = "/tmp/zeo_w1i_example"
+      base = "/tmp/zr_w1i_example"
 
       # Start clean without external requires: remove any leftover entries.
       if Dir.exist?(base)
@@ -427,7 +427,7 @@ describe "IO: substitution" do
     result = zr(<<~'RUBY')
       # Whole-file read/write/readlines, including `chomp: true`.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_rw_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_rw_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         path = File.join(dir, "lines.txt")

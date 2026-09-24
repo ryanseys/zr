@@ -7,7 +7,7 @@ describe "Methods: blocks and yields" do
     result = zr(<<~'RUBY')
       # Ruby rejects the `class` keyword inside a `def`, and accepts it inside a
       # BLOCK -- so `define_method(:x) { module M; end }` is legal, and the module
-      # takes the block's own lexical cref. zeo desugars a literal-symbol
+      # takes the block's own lexical cref. zr desugars a literal-symbol
       # `define_method` into the same node a `def` produces, which made the walk
       # stop there and the definition reach codegen unregistered.
       #
@@ -56,8 +56,8 @@ describe "Methods: blocks and yields" do
 
       # A cref-absolute reopen from inside one reaches the real top-level class,
       # and a branch inside the block is descended into just as at the top level.
-      # (No `defined?` probe before the call: zeo registers a definition at compile
-      # time whatever position it is written in, so `defined?(1.zeo_shout)` answers
+      # (No `defined?` probe before the call: zr registers a definition at compile
+      # time whatever position it is written in, so `defined?(1.zr_shout)` answers
       # "method" before the block has run where ruby answers nil. That divergence
       # belongs to the registration model and predates this shape -- a plain block
       # shows it too.)
@@ -65,18 +65,18 @@ describe "Methods: blocks and yields" do
         case which
         when :kernel
           module ::Kernel
-            def zeo_shout = "SHOUT"
+            def zr_shout = "SHOUT"
           end
         when :string
           class ::String
-            def zeo_shout = "str shout"
+            def zr_shout = "str shout"
           end
         end
       end
 
       patch(:kernel)
       patch(:string)
-      p [1.zeo_shout, "s".zeo_shout]
+      p [1.zr_shout, "s".zr_shout]
 
       # Calling twice re-runs the body, which is what makes the counter climb --
       # the same thing a plain block does. (A `module` reopen, so no constant is
@@ -151,7 +151,7 @@ describe "Methods: blocks and yields" do
 
   it "defined yield outside a method" do
     result = zr(<<~'RUBY')
-      # `defined?(yield)` at the top level makes zeo emit a program that does not
+      # `defined?(yield)` at the top level makes zr emit a program that does not
       # compile: `__blk` is not in scope.
       #
       # Codegen lowers `defined?(yield)` to a test of the enclosing method's block
@@ -238,7 +238,7 @@ describe "Methods: blocks and yields" do
       # A lambda written as a parameter DEFAULT closes over the parameters bound
       # before it: the default is evaluated in the callee's frame, so `dest` and
       # `out` are that frame's locals and the lambda captures them like any block
-      # in the body would. zeo walked the body alone for escaping blocks, so the
+      # in the body would. zr walked the body alone for escaping blocks, so the
       # parameters stayed plain slots and the lambda's read of `dest` had nothing
       # to read.
 
@@ -284,7 +284,7 @@ describe "Methods: blocks and yields" do
       # than a per-site one.)
       #
       # The reopen is now POSITIONAL, and both ends are emitted: one `.bss` byte per
-      # `(builtin class, method name)` in `zeo_reopen_flags`, stored where the
+      # `(builtin class, method name)` in `zr_reopen_flags`, stored where the
       # `class Foo ... end` stands, read by a prologue in the reopened body. Above
       # that line the body forwards to the row it replaced. No table registers, the
       # runtime looks nothing up, and the inline caches stay valid -- a positional

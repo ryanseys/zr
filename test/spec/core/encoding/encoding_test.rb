@@ -513,7 +513,7 @@ describe "Encoding programs" do
   it "frozen string refuses force encoding" do
     result = zr(<<~'RUBY')
       # `String#force_encoding` on a frozen string raises FrozenError -- even
-      # when the new encoding equals the current one. zeo answers the string
+      # when the new encoding equals the current one. zr answers the string
       # silently: force_encoding skips the frozen guard every other mutator
       # has. (Found by the 2026-08-24 probe sweep.)
       f = "x".freeze
@@ -616,7 +616,7 @@ describe "Encoding programs" do
 
   it "io shovel chains binary and text arguments byte faithfully" do
     result = zr(<<~'RUBY')
-      path = "/tmp/zeo_e2e_binshovel_#{Process.pid}"
+      path = "/tmp/zr_e2e_binshovel_#{Process.pid}"
       File.open(path, "wb") { |f| f << 180.chr << "a" }
       p File.binread(path).bytes
       File.delete(path)
@@ -631,7 +631,7 @@ describe "Encoding programs" do
       # 1 binary byte + 2 UTF-8 bytes for "é" + 2 display bytes for 42 = 5;
       # the count is BYTES, not characters.
 
-      path = "/tmp/zeo_e2e_binwrite_#{Process.pid}"
+      path = "/tmp/zr_e2e_binwrite_#{Process.pid}"
       File.open(path, "wb") { |f| p f.write(180.chr, "é", 42) }
       p File.binread(path).bytes
       File.delete(path)
@@ -752,7 +752,7 @@ describe "Encoding programs" do
   it "issue string ops on broken encoding" do
     result = zr(<<~'RUBY')
       # Ruby REFUSES a String operation that has to READ characters when the
-      # receiver's bytes are not valid in its own encoding. zeo renders a bad byte as
+      # receiver's bytes are not valid in its own encoding. zr renders a bad byte as
       # U+FFFD (`StrBuf::to_utf8_lossy`) and used to answer anyway.
       #
       # The gate is selective, exactly as CRuby's is: `#length`, `#chars`, `#reverse`,
@@ -1347,12 +1347,11 @@ describe "Encoding programs" do
 
   it "string encode newline option" do
     result = zr(<<~'RUBY')
-      # `String#encode`'s newline-rewrite options are ignored: zeo returns the
+      # `String#encode`'s newline-rewrite options are ignored: zr returns the
       # input unchanged for `newline: :cr`/`:crlf` and the `cr_newline:`/
       # `crlf_newline:` spellings, where ruby rewrites the newlines.
-      # `universal_newline: true` already agrees. Hypothesis: the encode option
-      # parser (`builtins/string.rs::parse_encode_opts`) reads the universal
-      # option only. (Found by the 2026-08-24 probe sweep.)
+      # `universal_newline: true` already agrees. (Found by the 2026-08-24
+      # probe sweep.)
       p "a\nb".encode("UTF-8", newline: :cr)
       p "a\nb".encode("UTF-8", newline: :crlf)
       p "a\nb".encode("UTF-8", crlf_newline: true)
@@ -1486,7 +1485,7 @@ describe "Encoding programs" do
 
   it "string scrub with a block" do
     result = zr(<<~'RUBY')
-      # `String#scrub` ignores its BLOCK: zeo substitutes the default replacement
+      # `String#scrub` ignores its BLOCK: zr substitutes the default replacement
       # where ruby yields each invalid byte run and splices the block's result.
       # The no-argument and string-argument forms agree. (Found by the 2026-08-24
       # probe sweep.)

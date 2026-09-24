@@ -8,7 +8,7 @@ describe "JSON programs" do
       # A `begin; require "x"; rescue LoadError; <fallback def>` guard: when the
       # require RESOLVES (a builtin/shim/file satisfied it), the rescue is DEAD --
       # CRuby's behavior when the extension IS present -- so its fallback definitions
-      # never take effect. zeo drops the dead rescue at compile time (the shape
+      # never take effect. zr drops the dead rescue at compile time (the shape
       # rubygems' erb/strscan guards use).
       begin
         require "json"
@@ -253,9 +253,10 @@ describe "JSON programs" do
 
   it "parse keeps an integer beyond f64 exact" do
     result = zr(<<~'RUBY')
-      # `JSON.parse` keeps an integer beyond f64 EXACT (a Bignum); zeo's
-      # serde_json path converts it to Float and silently loses precision --
-      # wrong DATA, the sharpest kind. (Found by the 2026-08-24 probe sweep.)
+      # `JSON.parse` keeps an integer beyond a double's precision EXACT (a
+      # Bignum); a naive numeric parser converts it to Float and silently
+      # loses precision -- wrong DATA, the sharpest kind. (Found by the
+      # 2026-08-24 probe sweep.)
       require "json"
       p JSON.parse('{"x":123456789012345678901234567890}')["x"]
       p JSON.parse("[9007199254740993]").first
@@ -274,11 +275,11 @@ describe "JSON programs" do
       # `a << a` -- the circular reference the generator is supposed to name.
       # At exit: cycle leak: 1 objects (Array x1)
       # `JSON.generate` on a self-referential array raises JSON::NestingError
-      # ("Did you try to serialize objects with circular references?"); zeo's
-      # serializer re-enters the container guard and the process ABORTS
-      # (`value/collections.rs:174`) -- the third surface of the recursive-
-      # traversal guard family beside `Array#join` and twin-`<=>`. (Found by
-      # the 2026-08-24 probe sweep.)
+      # ("Did you try to serialize objects with circular references?"); the
+      # serializer used to re-enter the container guard and crash the whole
+      # process instead -- the third surface of the recursive-traversal guard
+      # family beside `Array#join` and twin-`<=>`. (Found by the 2026-08-24
+      # probe sweep.)
       require "json"
       a = [1]
       a << a
@@ -320,7 +321,7 @@ describe "JSON programs" do
     result = zr(<<~'RUBY')
       # JSON.generate refuses what is not valid UTF-8: an invalid-UTF-8 string
       # raises JSON::GeneratorError ("source sequence is illegal/malformed
-      # utf-8"), and a binary string raises on the transcode. zeo lossy-
+      # utf-8"), and a binary string raises on the transcode. zr lossy-
       # replaces the first and transcodes the second -- silent data
       # corruption. The float form also differs: 1e100.to_json is "1e+100",
       # not "1.0e+100". (Found by the 2026-08-24 probe sweep.)
@@ -378,7 +379,7 @@ describe "JSON programs" do
   it "dump takes a depth limit and an IO, and load takes nil, a proc and allow_nan:" do
     result = zr(<<~'RUBY')
       # JSON.dump/load surface: dump with a LIMIT raises ArgumentError beyond
-      # it; dump to an IO WRITES to it (zeo returns "" and writes nothing --
+      # it; dump to an IO WRITES to it (zr returns "" and writes nothing --
       # silent data loss); load(nil) answers nil; load's proc argument visits
       # every parsed object; JSON.parse! exists (NaN/Infinity allowed); and
       # `allow_nan: true` admits the literals to parse. (Found by the
@@ -416,10 +417,7 @@ describe "JSON programs" do
     result = zr(<<~'RUBY')
       # JSON's depth control: too-deep input raises JSON::NestingError (a
       # distinct class rescue code depends on), and `max_nesting:` bounds the
-      # parse. zeo raises ParserError with serde's text for the first and
-      # ignores the option outright for the second. The parser MESSAGE texts
-      # are the decided serde_json substitution; the missing CLASS and the
-      # ignored OPTION are not. (Found by the 2026-08-24 probe sweep.)
+      # parse. (Found by the 2026-08-24 probe sweep.)
       require "json"
       begin
         JSON.parse("[" * 200 + "]" * 200)
@@ -532,18 +530,13 @@ describe "JSON programs" do
       # Every hostile shape the JSON parser has to survive, as ANSWERS rather than
       # as a promise. The point of the file is that none of these ends the process:
       # each row is either a value or a Ruby exception, and the golden pins which.
-      #
-      # Written after the parser was rewritten off serde_json
-      # (`crates/zeo-rt/ext/json/ext/json/src/parser.rs`), and it found real defects rather
-      # than confirming a design -- see `json_parser_stress.rb` for the generated
-      # half.
+      # It found real defects rather than confirming a design.
       #
       # ONE ROW IS A DECIDED DIVERGENCE and it is not here: a document nested past
       # 10,000 deep. Ruby's parser keeps its own stack and reads a million-deep
       # document with `max_nesting: false`; this one recurses, so it refuses past
       # a ceiling far short of the frames the stack holds. A loud NestingError
-      # beats ending the process. `tests/json_nesting_is_bounded_by_the_stack.rb`
-      # records it.
+      # beats ending the process.
 
       require "json"
 
@@ -657,7 +650,7 @@ describe "JSON programs" do
       show("invalid utf-8") { JSON.parse("[\"\xFF\"]".b) }
       show("truncated utf-8") { JSON.parse("[\"\xE3\x81\"]".b) }
       # NOT here: a high byte OUTSIDE a string. Ruby quotes the raw byte back in
-      # the message, so the message itself is not valid UTF-8; zeo's message
+      # the message, so the message itself is not valid UTF-8; zr's message
       # builder takes UTF-8 only and renders the byte U+FFFD. Display only, and
       # `tests/json_message_bytes_are_lossy.rb` records it.
 
@@ -782,10 +775,9 @@ describe "JSON programs" do
 
   it "-0 parses as Integer, and a trailing comma and a trailing comment are accepted" do
     result = zr(<<~'RUBY')
-      # Three parser rows where ruby's json is LOOSER or differently typed
-      # than zeo's serde path: `-0` parses as INTEGER 0 (zeo: Float -0.0),
-      # `allow_trailing_comma: true` admits `[1,]`, and trailing `// c` after
-      # the document is accepted. (Found by the 2026-08-24 probe sweep.)
+      # Three parser rows: `-0` parses as INTEGER 0, `allow_trailing_comma: true`
+      # admits `[1,]`, and trailing `// c` after the document is accepted.
+      # (Found by the 2026-08-24 probe sweep.)
       require "json"
       def show
         p yield
@@ -921,7 +913,7 @@ describe "JSON programs" do
       end
 
       # --- Nesting, either side of every limit ---------------------------------
-      # 2,001 is NOT here: past zeo's stack ceiling the two engines deliberately
+      # 2,001 is NOT here: past zr's stack ceiling the two engines deliberately
       # disagree, and `tests/json_nesting_is_bounded_by_the_stack.rb` is where
       # that row lives. Everything below the ceiling must agree exactly.
       [0, 1, 2, 99, 100, 101, 1_999, 2_000].each do |n|
@@ -967,7 +959,7 @@ describe "JSON programs" do
       # The json extension links into the binary: generation and parsing both run
       # native code the link line has to carry.
       require "json"
-      doc = { "name" => "zeo", "tags" => %w[ruby aot], "n" => 42, "ok" => true, "nil" => nil }
+      doc = { "name" => "zr", "tags" => %w[ruby aot], "n" => 42, "ok" => true, "nil" => nil }
       text = JSON.generate(doc)
       puts text
       p JSON.parse(text) == doc
@@ -976,7 +968,7 @@ describe "JSON programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      {"name":"zeo","tags":["ruby","aot"],"n":42,"ok":true,"nil":null}
+      {"name":"zr","tags":["ruby","aot"],"n":42,"ok":true,"nil":null}
       true
       {
         "a": [
@@ -1037,9 +1029,8 @@ describe "JSON programs" do
 
   it "native half still works through its ruby half" do
     result = zr(<<~'RUBY')
-      # Loading the Ruby half must not cost the native half: `require "strscan"`
-      # resolves `crates/zeo-rt/ext/strscan/lib/strscan.rb`, which pulls the
-      # native half in with `require "strscan.so"` -- CRuby's loader idiom.
+      # Loading one stdlib gem must not disturb another: `require "strscan"`
+      # then `require "json"` still both work end to end.
 
       require "strscan"
       require "json"
@@ -1129,7 +1120,7 @@ describe "JSON programs" do
       # This is the highest-yield way to catch SILENT corruption, because it needs
       # no reference output to compare against: a value that does not survive its
       # own serializer is wrong on its own terms, and the row says so on both
-      # engines. The differential half then catches the cases where zeo and ruby
+      # engines. The differential half then catches the cases where zr and ruby
       # BOTH answer, differently.
       #
       # The Hash key-identity rows exist because a table keyed on a user `hash`
@@ -1145,7 +1136,7 @@ describe "JSON programs" do
 
       def probe(name, &blk) = ROWS[name] = blk
 
-      # Rows zeo does not answer yet, each naming the gap that tracks it. A carved
+      # Rows zr does not answer yet, each naming the gap that tracks it. A carved
       # row is left OUT of the output rather than recorded wrong. When a gap is
       # promoted, delete its entry here and re-bless; the row comes back.
       SKIP = {

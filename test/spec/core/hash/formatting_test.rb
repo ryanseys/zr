@@ -914,12 +914,6 @@ describe "Hash: formatting and inspection" do
     result = zr(<<~'RUBY')
       # A user `hash` that raises is an ordinary exception, not a crash.
       #
-      # zeo projects a Hash key through an infallible `hash_key`, reached from
-      # ~40 places, so a raise from the user's `hash` had no return channel and
-      # was a `panic!` -- which a `extern "C"` boundary cannot unwind out of, so
-      # it ENDED THE PROCESS. The exception is parked instead and the enclosing
-      # builtin row reports it.
-      #
       # The backtrace shape is the other half: `Hash#[]` and `Array#[]` are
       # `opt_aref`, a VM instruction with no control frame, so ruby names the
       # raising method and the caller and nothing between. `String#[]` is NOT

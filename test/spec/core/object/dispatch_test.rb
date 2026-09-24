@@ -518,7 +518,7 @@ describe "Object: dispatch" do
       # literal-freeze fold stands down.
       #
       # It lives in a file of its own because the gate is a WHOLE-PROGRAM fact:
-      # zeo decides once per compile, where CRuby checks its redefinition flag when
+      # zr decides once per compile, where CRuby checks its redefinition flag when
       # the instruction runs. Putting this reopen at the foot of
       # `a_frozen_string_literal_is_not_deduplicated.rb` would therefore change
       # every probe above it, which is the divergence rather than the rule.

@@ -53,7 +53,7 @@ describe "Object: defining and naming methods" do
 
   it "basic object method missing" do
     result = zr(<<~'RUBY')
-      # A `BasicObject` subclass's `method_missing` is never reached: zeo raises
+      # A `BasicObject` subclass's `method_missing` is never reached: zr raises
       # `NoMethodError` from the send instead of calling it.
       #
       # `BasicObject` is the blank slate you inherit from precisely to catch
@@ -136,7 +136,7 @@ describe "Object: defining and naming methods" do
 
   it "class method method missing" do
     result = zr(<<~'RUBY')
-      # `method_missing` defined as a CLASS method is never consulted: zeo raises
+      # `method_missing` defined as a CLASS method is never consulted: zr raises
       # NoMethodError for the missing class method instead of routing to it. Both
       # spellings are affected -- `def self.method_missing` and a `method_missing`
       # inside `class << self`.
@@ -368,7 +368,7 @@ describe "Object: defining and naming methods" do
   it "issue method missing dynamic class body" do
     result = zr(<<~'RUBY')
       # method_missing defined inside a `Class.new { ... }` block isn't wired up as
-      # the receiver's dispatch fallback; zeo raises NoMethodError for the unknown
+      # the receiver's dispatch fallback; zr raises NoMethodError for the unknown
       # method instead of routing it to method_missing.
       klass = Class.new do
         def method_missing(name, *args)
@@ -385,7 +385,7 @@ describe "Object: defining and naming methods" do
     result = zr(<<~'RUBY')
       # Object#respond_to?(:name) (the one-argument form) should return false for
       # a private method -- only the two-argument form (`respond_to?(:name,
-      # true)`) should include private methods. zeo returns true in both cases,
+      # true)`) should include private methods. zr returns true in both cases,
       # not distinguishing the default `include_all` value.
       klass = Class.new do
         private
@@ -500,7 +500,7 @@ describe "Object: defining and naming methods" do
       # 0 -- but `respond_to?` reports false, which is how a program is meant to
       # detect the absence before calling.
       #
-      # zeo names the rows instead (`dispatch::is_notimplement_row`). The question is
+      # zr names the rows instead (`dispatch::is_notimplement_row`). The question is
       # asked at `respond_to?`'s own entry rather than in `responds_to`, which doubles
       # as an EXISTENCE predicate: a stub does exist, so `instance_method` must still
       # build an `UnboundMethod` for it.
@@ -713,13 +713,10 @@ describe "Object: defining and naming methods" do
 
   it "public send still enforces visibility unlike send" do
     result = zr(<<~'RUBY')
-      # Same intent as when this asserted a compile-time panic, now asserting
-      # the CORRECT mechanism: real Ruby resolves visibility at call time
-      # (`rb_method_call_status`, vm_eval.c:837) and raises a rescuable
-      # NoMethodError. Rejecting it during codegen was wrong -- it killed any
-      # program that merely mentions such a call, even in a rescued branch --
-      # so the program must now compile and the raise must be catchable, while
-      # `send` stays visibility-blind.
+      # Asserts the CORRECT mechanism: real Ruby resolves visibility at call
+      # time (`rb_method_call_status`, vm_eval.c:837) and raises a rescuable
+      # NoMethodError. The program must compile and the raise must be
+      # catchable, while `send` stays visibility-blind.
 
       class Box
         private
@@ -1561,11 +1558,8 @@ describe "Object: defining and naming methods" do
       # An override intercepts it first -- which is how a delegator or a proxy
       # forwards a name its target keeps private.
       #
-      # zeo's refusal sites call `raise_method_missing` directly
-      # (`explicit_call_barrier` in `dispatch/caches.rs`, `send_value_public_in` and
-      # `refined_send_in` in `dispatch/mod.rs`), which BUILDS the error rather than
-      # dispatching the hook. `method_missing_or_raise` -- the miss path for a name
-      # nothing defines -- is the shape they should share, and it already exists.
+      # zr's refusal sites build the error directly rather than dispatching
+      # the hook.
       #
       # The bug is general: the class side has it too, and the per-object singleton
       # side inherits it. All three are pinned here.

@@ -6,7 +6,7 @@ describe "Constants programs" do
   it "bare constant searches every enclosing scope" do
     result = zr(<<~'RUBY')
       # Ruby resolves a bare constant by searching every entry of `Module.nesting`
-      # outward, then the cref's ancestors, then Object. zeo's emitted lookup jumped
+      # outward, then the cref's ancestors, then Object. zr's emitted lookup jumped
       # straight from the innermost scope to the top, so any name the compile-time
       # owner map cannot place -- every constant on a class built at RUNTIME -- was
       # searched for in two scopes where Ruby searches three or more.
@@ -605,18 +605,14 @@ describe "Constants programs" do
 
   it "const get on a shadowed namespace head" do
     result = zr(<<~'RUBY')
-      # `Klass.const_get(:NAME)` on a statically-known class folds at compile time.
-      # The fold took an already-resolved class and round-tripped it through
-      # `fq_name` -- an UNANCHORED string -- then re-resolved that string against the
-      # emit site's own cref chain. Any name shadowing along that chain makes the
-      # round trip lossy.
+      # `Klass.const_get(:NAME)` must resolve correctly even when a namespace
+      # segment is shadowed by a nested class or module of the same name.
       #
-      # appraisal2 3.2.2 is the shape: a module with a same-named class nested inside
-      # it. Resolving the head segment `Appraisal` from inside `module Appraisal`
-      # finds the nested CLASS, which has no `Hooks`, so the fold panicked with
-      # `internal error: unknown class/module 'Appraisal::Hooks' in const_owner_id`.
-      # The gem's own source is correctly anchored (`::Appraisal::Hooks`); it was
-      # `fq_name` that dropped the anchor.
+      # appraisal2 3.2.2 is the shape: a module with a same-named class nested
+      # inside it. Resolving the head segment `Appraisal` from inside `module
+      # Appraisal` must not stop at the nested CLASS, which has no `Hooks` --
+      # `Appraisal::Hooks` must still resolve, the same as the gem's own
+      # anchored form `::Appraisal::Hooks`.
       module Sample
         # The shadow: `Sample::Sample`, so the head segment resolves to a class that
         # knows nothing about the modules beside it.
@@ -634,9 +630,9 @@ describe "Constants programs" do
 
       p Sample.gemfile
 
-      # The panic was the LUCKY case. When the shadowing class also answers the name,
-      # nothing raises -- the fold silently resolves against the WRONG owner and
-      # reads the wrong constant. Same lookup, a miscompile instead of a crash.
+      # When the shadowing class also answers the name, nothing raises, and
+      # the read must still resolve against the RIGHT owner, not read the
+      # wrong constant.
       module Twin
         class Twin
           module Inner
@@ -758,7 +754,7 @@ describe "Constants programs" do
       #    the definition it names comes LATER in the flattened program.
 
       # A gate on something the program DOES define: the branch compiles and runs.
-      # (Asked BEFORE the definition, zeo answers "constant" where ruby answers nil --
+      # (Asked BEFORE the definition, zr answers "constant" where ruby answers nil --
       # a constant's document-order visibility is a separate, pre-existing
       # over-approximation, filed as `tests/gaps/issue_defined_before_the_definition.rb`.)
       class DefinedBelow; end
@@ -1077,7 +1073,7 @@ describe "Constants programs" do
     result = zr(<<~'RUBY')
       # `rb_is_const_id` runs BEFORE the lookup: a string that is not a constant
       # name raises `wrong constant name`, carrying the name, rather than reporting
-      # an `uninitialized constant` miss. zeo checked only the FIRST character, so
+      # an `uninitialized constant` miss. zr checked only the FIRST character, so
       # `Bad.Name` and `Bad Name` passed the gate and came back as misses -- and
       # `const_defined?` ran no check at all.
       #
@@ -1722,7 +1718,7 @@ describe "Constants programs" do
     result = zr(<<~'RUBY')
       # `private_constant` and `public_constant` are RUN-TIME flags, and each runs
       # where it is written -- a read between two directives sees whichever had
-      # run by then. zeo applied the whole program's directives at STARTUP, so a
+      # run by then. zr applied the whole program's directives at STARTUP, so a
       # read before a `private_constant` raised and a read before a later
       # `public_constant` did not.
 
@@ -1853,7 +1849,7 @@ describe "Constants programs" do
       # with the module, `instance_eval`/`instance_exec` with the receiver's
       # singleton, and an ordinary block changes it not at all.
       #
-      # zeo derived it from `self` instead, which is right for those three and wrong
+      # zr derived it from `self` instead, which is right for those three and wrong
       # for every other block: a `def` there came out as a singleton method of
       # whatever object happened to be self, so the CREF's class never gained it.
       [1].each { def in_block = "block" }
@@ -2362,7 +2358,7 @@ describe "Constants programs" do
   it "leading colon colon skips a shadowing scope" do
     result = zr(<<~'RUBY')
       # `::Widget` means the TOP-LEVEL `Widget`, whatever the enclosing scopes call
-      # their own. zeo lowered the anchor to a read scoped to `Object`, and when that
+      # their own. zr lowered the anchor to a read scoped to `Object`, and when that
       # found nothing it re-resolved the BARE name -- through the lexical chain,
       # which is precisely what the `::` prefix says not to do. Inside a scope that
       # shadows the name, the anchored reference answered the shadow.
@@ -3476,11 +3472,11 @@ describe "Constants programs" do
 
   it "the RUBY_* build constants and the File::SEPARATOR family match the oracle's" do
     result = zr(<<~'RUBY')
-      # RUBY_* version/build constants and the File::SEPARATOR family that zeo
+      # RUBY_* version/build constants and the File::SEPARATOR family that zr
       # shares with its ruby 4.0.6 oracle. The platform/revision are machine- and
       # build-specific, so this checks the STABLE shared values exactly and the
       # dynamic ones structurally, keeping the golden output portable across build
-      # hosts AND identical between zeo and the oracle.
+      # hosts AND identical between zr and the oracle.
       #
       # The ENGINE-IDENTITY constants (RUBY_ENGINE, RUBY_ENGINE_VERSION,
       # RUBY_DESCRIPTION) mirror CRuby's own ("ruby", RUBY_VERSION, version.c's
@@ -3583,7 +3579,7 @@ describe "Constants programs" do
 
   it "small namespaces" do
     result = zr(<<~'RUBY')
-      # Three namespaces ruby carries that zeo lacked, none of which has a method
+      # Three namespaces ruby carries that zr lacked, none of which has a method
       # of its own -- they are names, and a name is the whole contract.
 
       def show(label)
@@ -3907,7 +3903,7 @@ describe "Constants programs" do
     result = zr(<<~'RUBY')
       # A top-level `def` is a PRIVATE instance method of Object. Writing it where a
       # value is read does not change that -- `p(def m; end)` is the same definition,
-      # and only the `:m` it answers with is new. zeo registers the bare spelling at
+      # and only the `:m` it answers with is new. zr registers the bare spelling at
       # analyze time and reaches codegen's expression form for this one, which
       # installs through `define_method` and so came out public.
       p(def top; end)
@@ -3963,7 +3959,7 @@ describe "Constants programs" do
       # `ruby2_keywords`, `to_s`, `using`); each of the mixin ones lands on
       # `Object`, which is what makes what it does visible everywhere afterwards.
       #
-      # zeo installs no singleton on main at all -- doing it at startup would mark
+      # zr installs no singleton on main at all -- doing it at startup would mark
       # the runtime-overlay maps live for every program -- so dispatch routes the
       # names instead. Only `include` was routed, and a bare `private` at top level
       # (plain Ruby, and the shape rubygems' own files open with) was a
@@ -4130,7 +4126,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4212,7 +4208,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4282,7 +4278,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4349,7 +4345,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4413,7 +4409,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4479,7 +4475,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4550,7 +4546,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4621,7 +4617,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4684,7 +4680,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is
@@ -4747,7 +4743,7 @@ describe "Constants programs" do
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
-      # zeo decides at LOWERING time whether a `class X < Super` is a compile-time
+      # zr decides at LOWERING time whether a `class X < Super` is a compile-time
       # class or a runtime `X = Class.new(Super)`, and that decision reads two
       # whole-program tables: "is this constant assigned?" and "is this constant a
       # class definition?". The second always asked from the CREF the site is

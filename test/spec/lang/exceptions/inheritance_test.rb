@@ -388,13 +388,10 @@ describe "Exceptions: inheritance and ancestors" do
 
   it "exception subclass instance is a boxed value everywhere" do
     result = zr(<<~'RUBY')
-      # `EE.new` for a user `class EE < Exception` constructs a native-backed
-      # `RubyValue` (no generated struct exists) -- but registration-time type
-      # inference consulted the not-yet-linearized `ancestors` and typed the
-      # local as an unboxed struct handle, baking `new_handle` calls to a type
-      # codegen never emits (an invalid program, from the timeout gem's
-      # `ExitException`). The ancestry predicates now walk the recorded
-      # superclass links, which exist from registration.
+      # A user-defined `class EE < Exception` instance works correctly
+      # wherever it is passed, even through indirect construction and
+      # yielding across module and class boundaries (the shape used by the
+      # timeout gem's `ExitException`).
 
       module T
         class EE < Exception
@@ -685,11 +682,11 @@ describe "Exceptions: inheritance and ancestors" do
 
   it "module superclass raises rubys own type error" do
     result = zr(<<~'RUBY')
-      # Every built-in CLASS is subclassable (`zeo_abi::NOT_PAYLOAD_ROOTS` is a
+      # Every built-in CLASS is subclassable (`zr_abi::NOT_PAYLOAD_ROOTS` is a
       # denylist of the shapes that are not payload wrappers, not an allowlist
       # of the ones that are). What is left is the two superclasses RUBY
-      # refuses, and zeo compiles each into ruby's own raise rather than a
-      # compile error naming zeo.
+      # refuses, and zr compiles each into ruby's own raise rather than a
+      # compile error naming zr.
 
       begin
         class WantsModule < Comparable

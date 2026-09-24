@@ -376,7 +376,7 @@ describe "Methods: searching and matching" do
     result = zr(<<~'RUBY')
       # Visibility is not only a call-time gate: `respond_to?`, `singleton_methods`
       # and the `*_instance_methods` family all report it, and code branches on what
-      # they say. Three places where zeo enforced the gate but recorded nothing.
+      # they say. Three places where zr enforced the gate but recorded nothing.
 
       puts "-- Module's own directives are private methods of Module"
       p Module.private_instance_methods(false).sort &
@@ -670,8 +670,8 @@ describe "Methods: searching and matching" do
       # The argument-less runtime directives, forced through string `eval` so no
       # compile-time resolution helps: a bare `private` switches the body default,
       # a bare `module_function` switches the mode, and `include` on a compiled
-      # class splices the overlay ancestry. Each once read as a documented no-op
-      # in `runtime_meta/api.rs`; this golden keeps the docs honest.
+      # class splices the overlay ancestry. Each must take effect, not act as
+      # a silent no-op.
       puts "-- bare private via string eval --"
       class Foo; end
       eval(["Foo.class_eval do", "  private", "  def hidden = 'h'", "end"].join("\n"))

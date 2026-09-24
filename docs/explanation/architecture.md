@@ -34,8 +34,8 @@ forms become a small set of nodes. The HIR build also follows
 
 The HIR exists because the step from Ruby to machine operations is too
 large for one pass. Compilers with more than one target keep a layer
-for the language above a layer for the machine: rustc has HIR over MIR,
-and ZJIT has an SSA HIR over a LIR. zr refuses a form that it does not
+for the language above a layer for the machine: ZJIT has an SSA HIR
+over a LIR. zr refuses a form that it does not
 support in the HIR, with a message that gives the form and the line.
 
 ## The IR: one form for every backend

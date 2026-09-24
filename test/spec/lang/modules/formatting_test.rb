@@ -205,7 +205,7 @@ describe "Modules: formatting and inspection" do
       #
       #   include M   mixes M into the singleton class, so M's instance methods
       #               become the enclosing class's CLASS methods, behind its own.
-      #               zeo lowers it to `extend M`, which is ruby's own meaning.
+      #               zr lowers it to `extend M`, which is ruby's own meaning.
       #   prepend M   the same, AHEAD of the class's own `def self.x`.
       #   extend M    mixes M into the SINGLETON's singleton, one level further
       #               out, so it is a run-time send rather than an ancestry edit.
@@ -335,7 +335,7 @@ describe "Modules: formatting and inspection" do
       #   include A, B      -> [self, A, B]      prepend A, B      -> [A, B, self]
       #   include A; include B -> [self, B, A]   prepend A; prepend B -> [B, A, self]
       #
-      # zeo's mro flattens the registered mixin list with a uniform
+      # zr's mro flattens the registered mixin list with a uniform
       # "later-registered-is-closer" reversal (correct for the separate-statement
       # case), so a single multi-arg statement registers its modules in reverse to
       # come out in source order. Verified against ruby for the class-body form, the
@@ -672,7 +672,7 @@ describe "Modules: formatting and inspection" do
   it "reopen mixin applies where it stands" do
     result = zr(<<~'RUBY')
       # An `include`/`prepend` written in a REOPEN is a runtime event with a
-      # position: code between the two bodies must not see the edit. zeo recorded it
+      # position: code between the two bodies must not see the edit. zr recorded it
       # as a compile-time ancestry fact, so it applied from program start.
       module Extra
         def tag = :from_module

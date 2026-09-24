@@ -88,33 +88,13 @@ describe "Singleton: searching and matching" do
 
   it "extended module keeps its visibility" do
     result = zr(<<~'RUBY')
-      # `obj.extend(M)` copies M's instance methods onto the object's singleton and
-      # LOSES their visibility marks. A `module_function` name is private on the
-      # instance side, so CRuby refuses `obj.extend(MF).public_send(:helper)` and
-      # zeo allows it.
-      #
-      # The cause is a missing dimension, not a wrong rule. The per-object
-      # singleton table is `singletons: FMap<usize, FMap<Symbol, MethodImpl>>`
-      # (`runtime_meta/mod.rs:239`) -- a name and a body, with nowhere to record
-      # whether the row is public, protected or private. `extend_object_default`
-      # (`runtime_meta/api.rs:1718`) copies through `module_extendable_method_names`
-      # and has nothing to copy the mark into, and `instance_method_visibility` has
-      # nothing to read.
+      # `obj.extend(M)` copies M's instance methods onto the object's
+      # singleton and must keep their visibility marks. A `module_function`
+      # name is private on the instance side, so
+      # `obj.extend(MF).public_send(:helper)` must raise, the same as CRuby.
       #
       # The class-receiver twin is already right: `class C; extend M; end` puts M in
-      # the singleton chain, where `class_method_is_private` walks real ancestors.
-      # Only the per-object copy is flat.
-      #
-      # The fix is a parallel `singleton_vis` map written by `extend_object_default`
-      # (from the source module's per-name visibility) and by
-      # `runtime_define_singleton_method` (from the visibility cursor), read by
-      # `instance_method_visibility` and by the `singleton_methods` /
-      # `public_methods` / `private_methods` reflection trio. It is the same shape
-      # the memory note calls "the per-object `extend` COPY that no overlay write
-      # reaches".
-      #
-      # Found by widening `a_module_function_is_public_on_the_singleton.rb`, which
-      # covers every route that IS right.
+      # the singleton chain, where visibility is checked by walking real ancestors.
 
       module MF
         module_function
@@ -189,20 +169,18 @@ describe "Singleton: searching and matching" do
   it "five recorded divergences that are not" do
     result = zr(<<~'RUBY')
       # Five behaviours recorded in comments and docs as known divergences, all
-      # of which zeo already answers exactly as ruby 4.0.6 does.
+      # of which zr already answers exactly as ruby 4.0.6 does.
       #
       # Each was fixed at some point and its note left behind, so the record said
-      # zeo was less correct than it is. The notes are deleted; these rows are
+      # zr was less correct than it is. The notes are deleted; these rows are
       # what replaces them, so a regression is caught rather than re-discovered
       # and re-filed.
       #
-      #   1. Mixed Integer/Float comparison past 2**53 (docs/ROADMAP.md)
+      #   1. Mixed Integer/Float comparison past 2**53
       #   2. A class-level `@x` read through an INHERITED class method
-      #      (dispatch/send_value.rs)
       #   3. `UnboundMethod#bind` onto a subclass that overrides the name
-      #      (runtime_meta/api.rs)
-      #   4. `Struct.new("Name", ...)` namespacing (tests/e2e/variables.rs)
-      #   5. A struct constant as a STATIC superclass (builtins/rstruct.rs)
+      #   4. `Struct.new("Name", ...)` namespacing
+      #   5. A struct constant as a STATIC superclass
 
       # 1. Exact, not through `as f64`.
       p 2**53 == (2**53).to_f
@@ -277,7 +255,7 @@ describe "Singleton: searching and matching" do
     result = zr(<<~'RUBY')
       # A value IS an instance of its own singleton class. CRuby gets this free --
       # `CLASS_OF(Foo)` literally IS `#<Class:Foo>`, and `#<Class:Sub>` inherits
-      # `#<Class:Foo>` in a parallel chain. zeo mints singleton classes on demand, so
+      # `#<Class:Foo>` in a parallel chain. zr mints singleton classes on demand, so
       # every reader of the relation has to answer it from the id's OWNER instead.
       #
       # `#class` still reports the real class: CRuby skips singletons there, which is
@@ -462,7 +440,7 @@ describe "Singleton: searching and matching" do
     result = zr(<<~'RUBY')
       # `v.singleton_class` must answer the SAME object every time. For a value
       # receiver -- a String, an Array, a Hash, a Range, anything not an
-      # `Object`-backed instance -- zeo minted a fresh one per call, so `equal?` was
+      # `Object`-backed instance -- zr minted a fresh one per call, so `equal?` was
       # false and any state written on it was lost.
       #
       # An `Object.new` receiver was already right, which is what narrowed it to the

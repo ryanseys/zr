@@ -152,7 +152,7 @@ describe "Modules: changing in place" do
       # a module that is merely included below. DOCUMENT ORDER therefore decides:
       # whichever verb runs first is the one that finds an empty chain.
       #
-      # The duplicate is what makes `super` interesting. zeo's ancestry is a flat
+      # The duplicate is what makes `super` interesting. zr's ancestry is a flat
       # `Vec<ClassId>` and every walk positions by the FIRST match, so a `super`
       # written in the doubled module resumed past the first copy forever and
       # re-found itself. The baked `defining_class` a compiled body hands `super`
@@ -1235,7 +1235,7 @@ describe "Modules: changing in place" do
   it "runtime prepend lands where it is written" do
     result = zr(<<~'RUBY')
       # `K.prepend M` with an explicit receiver is an ordinary send, so the
-      # ancestry changes where the CALL is written. zeo recorded it as a
+      # ancestry changes where the CALL is written. zr recorded it as a
       # compile-time ancestry edit instead, and the prepend was in place from the
       # program's first line -- `K.ancestors` read ABOVE the call already showed
       # the module. What the edit bought was reach: a statically dispatched `K#m`

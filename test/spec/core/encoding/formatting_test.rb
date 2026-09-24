@@ -145,7 +145,7 @@ describe "Encoding: formatting and inspection" do
   it "encode to the same encoding" do
     result = zr(<<~'RUBY')
       # `str.encode(enc)` where str is ALREADY in enc is a no-op in ruby -- no byte
-      # validation happens, invalid bytes ride through untouched. zeo runs the
+      # validation happens, invalid bytes ride through untouched. zr runs the
       # transcoder anyway and raises InvalidByteSequenceError on the bad bytes.
       s = "\xFF\xFE".dup.force_encoding("UTF-8")
       r = s.encode("UTF-8", "UTF-8")
@@ -470,7 +470,7 @@ describe "Encoding: formatting and inspection" do
       # `dst_bytesize` limit. (This first line avoids naming the class outright:
       # ruby would read `coding:` inside it as a magic comment.)
       #
-      # This was a gap. zeo used to refuse the first character whose bytes would not
+      # This was a gap. zr used to refuse the first character whose bytes would not
       # fit and consume nothing more, so its source kept every character that did
       # not convert while CRuby's was shorter. `ConvState` now holds the output
       # produced past the limit and drains it ahead of the next conversion, which is
@@ -574,11 +574,11 @@ describe "Encoding: formatting and inspection" do
       # `ljust`/`rjust`/`center` family.
       #
       # The rule is one rule -- CRuby's `rb_enc_check`. An ASCII-only side never
-      # moves the answer, because every encoding zeo carries is ASCII-compatible;
+      # moves the answer, because every encoding zr carries is ASCII-compatible;
       # two non-ASCII sides in different encodings do not combine at all, and that
       # is an `Encoding::CompatibilityError`.
       #
-      # zeo used to tag every one of these UTF-8, which lost the receiver's
+      # zr used to tag every one of these UTF-8, which lost the receiver's
       # encoding, lost the argument's, and never raised.
 
       def show(label)
@@ -912,7 +912,7 @@ describe "Encoding: formatting and inspection" do
       # else, so `Symbol::intern` was handed `to_utf8_lossy` text and the encoding
       # was gone by the time the id existed. Ruby interns by BYTES plus encoding --
       # `:"caf\xE9"` in ISO-8859-1 and the same bytes in UTF-8 are two different
-      # symbols -- and so does zeo now.
+      # symbols -- and so does zr now.
       #
       # Each row pins the round trip for one non-UTF-8 encoding.
       {
@@ -1244,13 +1244,13 @@ describe "Encoding: formatting and inspection" do
       #
       # And a spec's internal half spelled `-` asks for NO transcoding rather than
       # naming an encoding: `Encoding.find("-")` raises, so looking it up would warn
-      # about a spelling that is correct. zeo raised where ruby warns, and warned
+      # about a spelling that is correct. zr raised where ruby warns, and warned
       # about `-`, so `File.open(f, "r:UTF-8:-")` -- the shape irb reads its history
       # file with -- printed a warning ruby does not.
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_open_enc")
+      DIR = Dir.mktmpdir("zr_open_enc")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\n")
 
@@ -1339,7 +1339,7 @@ describe "Encoding: formatting and inspection" do
       # A mode string is `access[:extenc[:intenc]]`, and everything after the first
       # `:` names encodings rather than access.
       #
-      # zeo matched the WHOLE string against its access table, so `File.open(path,
+      # zr matched the WHOLE string against its access table, so `File.open(path,
       # "r:UTF-8")` raised `ArgumentError: invalid access mode` before it touched the
       # filesystem -- and `"r:big5"` holds a `b`, so a scan for the binary flag
       # called that one binmode. Bundler reads every gemspec through
@@ -1550,7 +1550,7 @@ describe "Encoding: formatting and inspection" do
         show("#{k}/squeeze")    { s.squeeze }
         show("#{k}/tr")         { s.tr("x", "z") }
         # Printed directly, not through `show`: `show` reports its argument's own
-        # encoding, and `Array#inspect` answers US-ASCII in ruby where zeo answers
+        # encoding, and `Array#inspect` answers US-ASCII in ruby where zr answers
         # UTF-8 -- a separate divergence this test is not about.
         puts "#{k}/chars\t#{s.chars.map { |c| "#{c.encoding} #{c.bytes.inspect}" }}"
         puts "#{k}/codepoints\t#{s.codepoints}"

@@ -1,6 +1,6 @@
 # Why zr has no C
 
-zr has no C, Rust or assembler source of its own, and it includes no C
+zr has no C or assembler source of its own, and it includes no C
 library. The parser, the regular expression engine, zlib, the collector
 and the code generator are all Ruby. This page explains why, and how
 the ports stay correct.

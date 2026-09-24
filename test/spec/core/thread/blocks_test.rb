@@ -635,7 +635,7 @@ describe "Thread: blocks and yields" do
 
   it "fiber yield from a deep method call stack" do
     result = zr(<<~'RUBY')
-      # The zeo-fiber shim's raison d'etre: suspension from inside a chain
+      # The zr-fiber shim's raison d'etre: suspension from inside a chain
       # of ordinary compiled method frames that never saw a yielder.
 
       class Chain
@@ -901,10 +901,10 @@ describe "Thread: blocks and yields" do
 
   it "ractor block isolates at runtime" do
     result = zr(<<~'RUBY')
-      # `Ractor.new { ... }` -- isolation is CRuby's runtime verdict, not zeo's
+      # `Ractor.new { ... }` -- isolation is CRuby's runtime verdict, not zr's
       # compile-time one.
       #
-      # zeo used to refuse to compile a block that touched an outer local or the
+      # zr used to refuse to compile a block that touched an outer local or the
       # enclosing object's ivars. Ruby compiles both, and answers differently for
       # each:
       #
@@ -919,7 +919,7 @@ describe "Thread: blocks and yields" do
       Warning[:experimental] = false
       # A ractor that aborts also prints `#<Thread:0x...> terminated with exception`
       # on stderr, and the address makes that unpinnable in a golden. Silenced here
-      # so the test compares the part that is deterministic; zeo does not print the
+      # so the test compares the part that is deterministic; zr does not print the
       # report at all, which is a separate (recorded) divergence.
       Thread.report_on_exception = false
 
@@ -994,7 +994,7 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # Ruby isolates the Proc and rebinds its `self` to the RACTOR, so `@n` is
       # an ivar of a shareable object -- `Ractor::IsolationError` in the ractor,
-      # surfacing as `Ractor::RemoteError` at `#value`. zeo used to refuse to
+      # surfacing as `Ractor::RemoteError` at `#value`. zr used to refuse to
       # compile it.
 
       Thread.report_on_exception = false
@@ -1020,7 +1020,7 @@ describe "Thread: blocks and yields" do
     result = zr(<<~'RUBY')
       # `Ractor.new(&proc)` -- a dynamic proc converts like any `&` block
       # argument, and its isolability is decided at Ractor.new TIME with CRuby's
-      # plain ArgumentError (only a literal block gets zeo's earlier static
+      # plain ArgumentError (only a literal block gets zr's earlier static
       # check). The proc carries its capture verdict from its creation site.
       pred = proc { |x| x * 2 }
       puts Ractor.new(21, &pred).value

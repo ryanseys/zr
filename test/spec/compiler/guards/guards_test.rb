@@ -216,11 +216,10 @@ describe "Guards programs" do
       #
       #   NameError: uninitialized constant #<Class:Outer::Target>::SPLIT
       #
-      # This file pins the ORDER OF EVENTS against ruby. The regression test for
-      # the drop itself is `an_autoload_and_a_guarded_require_of_one_file_share_
-      # its_unit` in `tests/e2e/gems_require.rs`: reproducing it needs the autoload
-      # to name a LOAD-PATH feature, so a name that resolves to nothing has no file
-      # to fall back to, and a golden has no `-I` of its own.
+      # This file pins the ORDER OF EVENTS against ruby. Reproducing the drop
+      # needs the autoload to name a LOAD-PATH feature, so a name that resolves
+      # to nothing has no file to fall back to, and a golden has no `-I` of its
+      # own.
 
       def self.never_yields
         :no_yield
@@ -824,7 +823,7 @@ describe "Guards programs" do
       # That is CRuby's documented split and the reason `casecmp?` exists beside
       # it: `casecmp` is `rb_str_casecmp`, which walks bytes and folds only
       # `A-Z`, while `casecmp?` is `rb_str_casecmp?`, which case-folds both
-      # sides first. zeo implemented both as the Unicode comparison, so
+      # sides first. zr implemented both as the Unicode comparison, so
       # `casecmp` answered `casecmp?`'s question -- `"Ä".casecmp("ä")` was 0
       # where ruby says -1, and nothing raised.
 
@@ -947,7 +946,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A conditional `def` inside `class << self` -- erb/compiler.rb's
       # `class << self; if defined?(Ractor); def register_scanner ...; else; ...`.
-      # zeo statically decides the version/`defined?` guard and registers ONLY the
+      # zr statically decides the version/`defined?` guard and registers ONLY the
       # taken branch's class methods, matching ruby (which runs one branch).
       class Scanner
         class << self
@@ -1056,7 +1055,7 @@ describe "Guards programs" do
 
   it "a def under a false guard is absent to a call and to reflection alike" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1095,7 +1094,7 @@ describe "Guards programs" do
 
   it "a def under a true guard is present by every one of those readings" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1129,7 +1128,7 @@ describe "Guards programs" do
 
   it "a conditional def does not displace one that always runs when its guard is false" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1163,7 +1162,7 @@ describe "Guards programs" do
 
   it "the conditional def wins when its guard is true, as last-def-wins says" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1195,7 +1194,7 @@ describe "Guards programs" do
 
   it "a false-guarded def does not shadow an ancestor's, so the inherited body answers" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1240,7 +1239,7 @@ describe "Guards programs" do
 
   it "where both branches define the name, the taken branch is what answers" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1273,7 +1272,7 @@ describe "Guards programs" do
 
   it "a top-level class X ... end if cond reopens through the same path" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1311,7 +1310,7 @@ describe "Guards programs" do
 
   it "a definition carries more than one trailing modifier, and the pair is read together" do
     result = zr(<<~'RUBY')
-      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # A `def` inside a class-body `if` whose guard zr cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
       # guard installs goes into the runtime overlay instead, and the overlay is what
@@ -1361,7 +1360,7 @@ describe "Guards programs" do
   it "conditional reopen adds method" do
     result = zr(<<~'RUBY')
       # A class REOPENING that only ADDS methods, guarded by a runtime-undecidable
-      # condition (`... end if enabled`). zeo pushes the guard into the class body
+      # condition (`... end if enabled`). zr pushes the guard into the class body
       # (`class Widget; if enabled; def extra; ...`) so the method is defined
       # conditionally at runtime and still registered for reflection -- matching real
       # Ruby (this is the pp.rb `class Set ... end if set_pp` monkeypatch idiom).
@@ -1530,7 +1529,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A top-level class/module definition guarded by `defined?(Mod::VALUE_CONST)`
       # where the constant is a plain VALUE (not a class) that the module's own body
-      # assigns. zeo must statically decide the guard (this is the rubygems idiom
+      # assigns. zr must statically decide the guard (this is the rubygems idiom
       # `unless defined?(Psych::VERSION); module Psych; ...`).
       module Lib
         VERSION = "1.2.3"
@@ -1557,7 +1556,7 @@ describe "Guards programs" do
   it "explicit so require resolves a statically linked extension" do
     result = zr(<<~'RUBY')
       # A `.so` require resolves through the static-ext table rather than the
-      # filesystem -- zeo is a Ruby built with `--with-static-linked-ext`, and
+      # filesystem -- zr is a Ruby built with `--with-static-linked-ext`, and
       # CRuby registers static exts under `"<feature>.so"` (`load.c:1161`).
       #
       # A .so naming no static ext resolves to nothing, so (like any unresolvable
@@ -1581,7 +1580,7 @@ describe "Guards programs" do
       #     class SpecificationPolicy ... end
       #   end
       # On a target whose Specification HAS the method, the boolean constant is true,
-      # so the compat reopen is dropped (which zeo cannot express at runtime under
+      # so the compat reopen is dropped (which zr cannot express at runtime under
       # static MRO). This fixture mirrors that shape in a collision-free namespace.
       module App
         class Spec
@@ -2583,7 +2582,7 @@ describe "Guards programs" do
       # FFI types -- following the require compiled code written for a platform this
       # build is not, and failed on the first `:dword`.
       #
-      # `windows_only.rb` here contains exactly that: a `:dword` field zeo has no type
+      # `windows_only.rb` here contains exactly that: a `:dword` field zr has no type
       # for. If the require were followed, this file would not compile at all, which
       # is what makes the assertions below more than a `defined?` check.
 
@@ -2754,7 +2753,7 @@ describe "Guards programs" do
       # counterparts as a class rather than to fold in place.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # /i folds by Unicode simple case folding: the counterparts of a non-ASCII
       # literal are emitted as a class, since a counterpart need not have the same
@@ -2814,7 +2813,7 @@ describe "Guards programs" do
   it "reopen guarded by an outer local" do
     result = zr(<<~'RUBY')
       # A class reopened under a trailing `if` that reads a local of the ENCLOSING
-      # scope. Zeo runs a class body at its document position, inside the enclosing
+      # scope. Zr runs a class body at its document position, inside the enclosing
       # scope's own block, but built that body's context from the body's own
       # statements alone -- so the guard, which the site carries in with it, read the
       # outer local as an ordinary value while the enclosing scope was keeping it in
@@ -2825,36 +2824,36 @@ describe "Guards programs" do
       # something else in the program makes that scope hold its locals by reference.
       #
       # Only a TAKEN guard is exercised here. A `def` inside a reopen whose guard is
-      # false still registers in zeo -- dispatch-table registration is hoisted and
+      # false still registers in zr -- dispatch-table registration is hoisted and
       # only the body's EXECUTION is guarded -- which is its own divergence, and not
       # the one this covers.
       on = true
 
       class String
-        def zeo_probe = "string probed"
+        def zr_probe = "string probed"
       end if on
 
-      p "x".zeo_probe
+      p "x".zr_probe
 
       # The guard is an ordinary expression, not just a bare read.
       label = "yes"
 
       class Symbol
-        def zeo_probe = "symbol probed"
+        def zr_probe = "symbol probed"
       end if label == "yes"
 
-      p :s.zeo_probe
+      p :s.zr_probe
 
       # A class body's OWN local shadows the enclosing one rather than sharing it.
       shadowed = "outer"
 
       class Array
         shadowed = "inner"
-        def zeo_probe = "array probed"
+        def zr_probe = "array probed"
       end if on
 
       p shadowed
-      p [].zeo_probe
+      p [].zr_probe
 
       # What makes the enclosing scope keep its locals by reference in the first
       # place.
@@ -3295,7 +3294,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3330,7 +3329,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3363,7 +3362,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3375,7 +3374,7 @@ describe "Guards programs" do
       # The gems: addressable writes the first; httpclient, em-websocket, highline and
       # test-prof write the second.
 
-      # A capability probe on a string literal. zeo answers `bytesize` from String's
+      # A capability probe on a string literal. zr answers `bytesize` from String's
       # own native surface, so the guard folds FALSE and the definition never reaches
       # codegen -- the native method is what runs.
       unless "".respond_to?(:bytesize)
@@ -3401,7 +3400,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3456,7 +3455,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3490,7 +3489,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3522,7 +3521,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3558,7 +3557,7 @@ describe "Guards programs" do
     result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
-      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # zr has to decide such a guard at compile time -- it registers definitions in
       # one whole-program walk, so a definition it cannot prove reachable is a
       # rejection rather than a runtime branch. `guard_fold` does the deciding, and
       # two shapes it could not read cover most of the real gem guards.
@@ -3687,7 +3686,7 @@ describe "Guards programs" do
       # so a top-level guard reading it picks its branch at compile time -- and a
       # METHOD-BODY `require_relative` under the same (parse-undecidable) guard
       # defers to a gated unit instead of splicing eagerly, so a windows-only file
-      # full of FFI vocabulary zeo has no types for never blocks the build.
+      # full of FFI vocabulary zr has no types for never blocks the build.
       module Platform
         def self.windows?
           !!File::ALT_SEPARATOR
@@ -3835,16 +3834,16 @@ describe "Guards programs" do
   it "version gate defs fold" do
     result = zr(<<~'RUBY')
       # Version-gate guards wrapping whole definitions fold at compile time against
-      # zeo's fixed target version, exactly as CRuby decides them at load time.
+      # zr's fixed target version, exactly as CRuby decides them at load time.
       # `RUBY_VERSION` is a build-time String, so `RUBY_VERSION <op> "x"` folds by the
       # same lexicographic String comparison CRuby evaluates natively -- letting this
-      # fixture's oracle and zeo agree without any runtime stub. (The `Gem::Version`
+      # fixture's oracle and zr agree without any runtime stub. (The `Gem::Version`
       # segment path is covered by `guard_fold`'s unit tests, which can't share a
       # fixture with a real-rubygems oracle.)
 
       class Widget
         # "4.0.6" < "3.0" is false -> the compat module + prepend are dropped (a
-        # conditional `prepend` zeo cannot express under static MRO).
+        # conditional `prepend` zr cannot express under static MRO).
         if RUBY_VERSION < "3.0"
           module LegacyPatch
             def name

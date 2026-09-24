@@ -659,7 +659,7 @@ describe "Array: searching and matching" do
       # into one ordinary Hash element, the same value the braced form builds --
       # `[1, k: 2]` is `[1, {k: 2}]`, two elements, not three.
       #
-      # prism spells it `KeywordHashNode` rather than `HashNode`, and zeo lowered
+      # prism spells it `KeywordHashNode` rather than `HashNode`, and zr lowered
       # that shape only in a CALL's argument list (where it means keyword arguments,
       # which bind differently). Anywhere else it fell through to the generic
       # rejection -- so activerecord's

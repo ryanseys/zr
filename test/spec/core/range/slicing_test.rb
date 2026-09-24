@@ -7,7 +7,7 @@ describe "Range: slicing" do
     result = zr(<<~'RUBY')
       # A `cond..cond` expression is only a flip-flop in a conditional context;
       # anywhere else it builds a Range, and a Range of booleans raises
-      # ArgumentError ("bad value for range") the moment it is compared. zeo treats
+      # ArgumentError ("bad value for range") the moment it is compared. zr treats
       # the block-body form as a flip-flop and happily yields values. The
       # if-modifier control below is a REAL flip-flop and works on both sides.
       picked = []
@@ -161,7 +161,7 @@ describe "Range: slicing" do
   it "endless range reverse each is lazy" do
     result = zr(<<~'RUBY')
       # `(1..).reverse_each` answers an Enumerator (the raise comes only when it
-      # is iterated); zeo raises TypeError at the call. (Found by the 2026-08-24
+      # is iterated); zr raises TypeError at the call. (Found by the 2026-08-24
       # probe sweep.)
       e = (1..).reverse_each
       puts e.class
@@ -922,7 +922,7 @@ describe "Range: slicing" do
       # answers, because the Enumerator it returns re-invokes the block form, and
       # those roll a buffer through the source instead of materializing it first.
       #
-      # The trailing comments record what spinel answered; zeo answers ruby's.
+      # The trailing comments record what spinel answered; zr answers ruby's.
       r = ((1..5).cycle(2).to_a rescue $!.class)
       p r
 
@@ -2024,7 +2024,7 @@ describe "Range: slicing" do
   it "an explicit nil endpoint is the open end, and Range.new builds the same range" do
     result = zr(<<~'RUBY')
       # An explicit `nil` endpoint IS the open end: `nil..5` and `..5` are the SAME
-      # range. zeo kept the two apart, so `(1..nil).min` read a bounded range and
+      # range. zr kept the two apart, so `(1..nil).min` read a bounded range and
       # iterated forever, `(nil..5).first` answered nil instead of raising, and the
       # pair compared unequal.
       #

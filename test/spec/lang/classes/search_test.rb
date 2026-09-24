@@ -671,7 +671,7 @@ describe "Classes: searching and matching" do
   it "toplevel def is one body for every class" do
     result = zr(<<~'RUBY')
       # A definition on the universal spine -- Object, Kernel, BasicObject -- is
-      # inherited by every class in the program, and zeo emits its body ONCE rather
+      # inherited by every class in the program, and zr emits its body ONCE rather
       # than once per class. This pins the four things that makes observable.
       #
       # An ivar a shared body touches must land on the RECEIVER, a constant it reads
@@ -750,7 +750,7 @@ describe "Classes: searching and matching" do
       # A superclass naming a constant the program never defines.
       #
       # CRuby evaluates the superclass expression when the definition RUNS, raises
-      # `NameError` there, and never brings the class into being. zeo does the same by
+      # `NameError` there, and never brings the class into being. zr does the same by
       # rewriting the whole definition to the bare constant read -- but only once it
       # agrees the name is unknown, and the test for that read the LAST segment only.
       #

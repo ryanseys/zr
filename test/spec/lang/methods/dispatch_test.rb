@@ -126,7 +126,7 @@ describe "Methods: dispatch" do
     result = zr(<<~'RUBY')
       # A `def self.x` added to a REOPENED builtin -- or written in a `class << Time`
       # body -- is a class method like any other, so it has to answer a DYNAMIC send
-      # too, not only a call zeo resolved statically. It used to answer just the
+      # too, not only a call zr resolved statically. It used to answer just the
       # static one: `Time.tag` worked while `Time.__send__(:tag)` and the `self.tag`
       # inside a sibling class method both raised NoMethodError.
       class Time
@@ -159,7 +159,7 @@ describe "Methods: dispatch" do
       p holder.public_send(:tag)
 
       # Reflection agrees: the method sits on the singleton class.
-      # (`Time.method(:tag).owner` is left out -- zeo answers the class where ruby
+      # (`Time.method(:tag).owner` is left out -- zr answers the class where ruby
       # answers its singleton class, for a USER class equally, so it is a separate
       # divergence rather than anything this file is about.)
       p Time.singleton_methods.include?(:tag)
@@ -682,10 +682,10 @@ describe "Methods: dispatch" do
 
   it "operators on dynamic operands fall through to dispatch" do
     result = zr(<<~'RUBY')
-      # The old "isn't supported yet for non-Int/Float operands" panic is now
-      # dynamic dispatch: String#+ via send_value's table, and a user class's
-      # own operator method chained through a Poly intermediate (`a << 1`
-      # returns self as Poly; the second `<<` dispatches dynamically).
+      # Operators on operands that are not Int/Float fall through to dynamic
+      # dispatch: String#+, and a user class's own operator method chained
+      # through an intermediate value of unknown type (`a << 1` returns
+      # self; the second `<<` dispatches dynamically).
 
       module Cat
         def self.concat2(a, b)
@@ -4713,9 +4713,9 @@ describe "Methods: dispatch" do
 
   it "top level def is callable from a class body and a class method" do
     result = zr(<<~'RUBY')
-      # `self` in a class body/class method is the CLASS OBJECT -- there's no
-      # concrete receiver to clone, so implicit-self dispatch must go through
-      # `RubyValue::Class`, not an invalid `self.clone()`.
+      # `self` in a class body/class method is the CLASS OBJECT, so
+      # implicit-self dispatch, such as calling a top-level `def`, must
+      # resolve correctly against the class object itself.
 
       def helper(tag)
         "helped-#{tag}"

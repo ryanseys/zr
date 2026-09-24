@@ -7,16 +7,14 @@ describe "Variables: slicing" do
     result = zr(<<~'RUBY')
       # Ruby warns when a conditional's test is an assignment of a LITERAL --
       # `warning: found '= literal' in conditional, should be ==` -- the classic
-      # `if x = 1` typo. zeo emits nothing.
+      # `if x = 1` typo.
       #
       # The warning is deliberately narrow: only a literal right-hand side triggers
       # it, because `if (m = gets)` is an idiom and must stay quiet. So the cases it
       # does fire on are almost always the mistake it is named for, which is what
       # makes it worth having.
       #
-      # zeo already emits parse warnings from `zeo_rt::emit_parse_warnings`, so the
-      # channel exists; this diagnostic is not among the ones it carries. Both
-      # streams below are compared, and the warning belongs on stderr.
+      # Both streams below are compared, and the warning belongs on stderr.
 
       x = 0
       if x = 1
@@ -49,9 +47,9 @@ describe "Variables: slicing" do
       call ok: 1
       done
     OUT
-      lang/variables/slicing_test.rb:15: warning: found '= literal' in conditional, should be ==
-      lang/variables/slicing_test.rb:19: warning: found '= literal' in conditional, should be ==
-      lang/variables/slicing_test.rb:23: warning: found '= literal' in conditional, should be ==
+      lang/variables/slicing_test.rb:13: warning: found '= literal' in conditional, should be ==
+      lang/variables/slicing_test.rb:17: warning: found '= literal' in conditional, should be ==
+      lang/variables/slicing_test.rb:21: warning: found '= literal' in conditional, should be ==
     ERR
   end
 

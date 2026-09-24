@@ -276,7 +276,7 @@ describe "Singleton: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # `rb_extend_object` is `rb_include_module(rb_singleton_class(obj), module)`,
       # so a class body's `extend M` seats M in the singleton chain WHERE THE
-      # STATEMENT STANDS. zeo knows the edge at compile time and used to have it in
+      # STATEMENT STANDS. zr knows the edge at compile time and used to have it in
       # place from program start, which made four things visible too early.
 
       module MR
@@ -403,7 +403,7 @@ describe "Singleton: inheritance and ancestors" do
       #
       # CRuby's `rb_obj_extend` (`object.c`) walks its arguments BACKWARDS -- `argc-1`
       # down to `0` -- and each `extend` inserts above the one before it, so the
-      # FIRST argument ends up closest. zeo's `Kernel#extend` walked forwards, which
+      # FIRST argument ends up closest. zr's `Kernel#extend` walked forwards, which
       # reverses the chain, and with it which module wins a name both define.
       #
       # `Module#include(A, B)` has the same backwards rule and was already right;
@@ -623,7 +623,7 @@ describe "Singleton: inheritance and ancestors" do
   it "extended singleton class ancestors" do
     result = zr(<<~'RUBY')
       # The singleton class of a plain object renders as
-      # #<Class:#<Object:0xADDR>>; zeo renders it as the singleton of the object's
+      # #<Class:#<Object:0xADDR>>; zr renders it as the singleton of the object's
       # CLASS (#<Class:Object>) once the object has been extended, losing the
       # per-object identity in ancestors output.
       mod = Module.new do
@@ -864,7 +864,7 @@ describe "Singleton: inheritance and ancestors" do
       # `undef` through a singleton class retires a name the singleton INHERITS, not
       # only one the owner defined: `#<Class:Guarded>`'s ancestors run through
       # `Module`, and `rb_undef` resolves with `rb_method_entry`, which walks the
-      # whole chain. zeo checked the owner's class-METHOD space alone, so the line
+      # whole chain. zr checked the owner's class-METHOD space alone, so the line
       # above raised NameError for a method `private_method_defined?` reported on the
       # very same receiver.
       #
@@ -964,7 +964,7 @@ describe "Singleton: inheritance and ancestors" do
   it "runtime extend binds the class" do
     result = zr(<<~'RUBY')
       # `Klass.extend M` written as a RUNTIME call, as opposed to `extend M` in the
-      # class body. Zeo ran the module's compiled body against a fresh blank
+      # class body. Zr ran the module's compiled body against a fresh blank
       # instance of the class, one per call -- so `self` was not the class, an
       # `@ivar` write went to a throwaway object and vanished, and an implicit-self
       # call could only see instance methods. Nothing raised; the writes were simply
@@ -1419,24 +1419,11 @@ describe "Singleton: inheritance and ancestors" do
 
   it "a per-object mixin copies the method table, so super and the module's position are what that costs" do
     result = zr(<<~'RUBY')
-      # Two limits of zeo's per-object singleton, both reachable through plain
-      # `obj.extend(M)` and therefore PRE-EXISTING -- routing `class << obj; include
-      # M` to the same machinery does not create them, it just gives them a second
-      # spelling.
-      #
-      # zeo implements a singleton as a COPIED method table
-      # (`runtime_meta::extend_object_default`), where CRuby splices the module into
-      # the singleton class's ancestry. Copying loses the module's POSITION, so:
-      #
-      #   1. `super` from a mixed-in method has nowhere to resume -- it should reach
-      #      the receiver class's own definition.
-      #   2. a mixed-in method does not reliably outrank the class's own for a
-      #      statically-bound call site, because the compiled site resolved before
-      #      the extend ran.
-      #
-      # Fix shape: the singleton needs real spliced ancestry the owner's dispatch
-      # walks, not a copied table -- which is also what would let `include` and
-      # `prepend` differ from each other, as CRuby's do.
+      # `super` from a method mixed in through plain `obj.extend(M)`, or
+      # through the `class << obj; prepend M` spelling, must resume in the
+      # receiver class's own definition, and the mixed-in method must
+      # outrank the class's own method even for a statically-bound call
+      # site.
 
       module Loud
         def speak
@@ -1491,7 +1478,7 @@ describe "Singleton: inheritance and ancestors" do
   it "super from an extended module" do
     result = zr(<<~'RUBY')
       # `super` written in a module that a class `extend`s, called on a SUBCLASS of
-      # that class. Zeo materializes the module's methods onto every class in the
+      # that class. Zr materializes the module's methods onto every class in the
       # chain, so both `Base` and `Sub` carry their own copy -- and the runtime
       # resumed a class-method `super` after the DEFINING class's position in the
       # receiver's ancestry. An extended module is not in that ancestry at all, so
@@ -1595,10 +1582,9 @@ describe "Singleton: inheritance and ancestors" do
 
   it "super in a constant bearing singleton body" do
     result = zr(<<~'RUBY')
-      # A `class << self` body holding a CONSTANT registers its `def`s against a
-      # singleton surrogate, so a bare `super` inside one looked for its own scope in
-      # a pool that never held it and panicked codegen. faker's `Faker::Base` is this
-      # shape.
+      # A `class << self` body holding a CONSTANT must still let a bare
+      # `super` inside one of its methods resolve correctly. faker's
+      # `Faker::Base` is this shape.
 
       class Parent
         def self.describe(prefix)

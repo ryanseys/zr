@@ -8,7 +8,7 @@ describe "Time programs" do
       # `Time.allocate` answers a Time whose instant was never set, and every row
       # that reads the instant refuses it -- CRuby's `uninitialized Time`.
       #
-      # zeo used to raise `allocator undefined for Time` at the `allocate` itself,
+      # zr used to raise `allocator undefined for Time` at the `allocate` itself,
       # so the refusal came one step early and under the wrong message. The marker
       # costs no field: `RTime::den` is a rational denominator and is positive for
       # every real instant, so zero is free.
@@ -237,7 +237,7 @@ describe "Time programs" do
       # an absolute path. Those used to be a flat `LoadError`.
       #
       # They reach the same compiler an `eval` does now
-      # (`features::UnitCompiler`, installed by the same `zeo_eval_install`), so
+      # (`features::UnitCompiler`, installed by the same `zr_eval_install`), so
       # a program that can reach one carries exactly the machinery a program
       # that can `eval` carries -- and one that cannot still links neither.
       #
@@ -572,7 +572,7 @@ describe "Time programs" do
       # `0x1B4` truncates to its low byte; a BINARY string contributes its
       # first BYTE (never a UTF-8 promotion of it).
 
-      path = "/tmp/zeo_e2e_binputc_#{Process.pid}"
+      path = "/tmp/zr_e2e_binputc_#{Process.pid}"
       File.open(path, "wb") { |f| f.putc 0x1b4; f.putc 180.chr + "xx" }
       p File.binread(path).bytes
       File.delete(path)
@@ -906,9 +906,8 @@ describe "Time programs" do
     result = zr(<<~'RUBY')
       # Time's argument errors carry CRuby's exact texts: an out-of-range
       # component names the FIELD ("mon out of range", "mday out of range"), and
-      # `Time + Time` says "time + time?". zeo answers generic messages. (Found
-      # by the 2026-08-24 probe sweep; matches the TODO(plan P-B) markers in
-      # builtins/time.rs.)
+      # `Time + Time` says "time + time?". zr answers generic messages. (Found
+      # by the 2026-08-24 probe sweep.)
       def show
         yield
       rescue StandardError => e

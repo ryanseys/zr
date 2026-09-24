@@ -9,7 +9,7 @@ module Libc
   attach_function :abs, [:int], :int
 end
 
-puts Libc.strlen("zeo compiles ruby")
+puts Libc.strlen("zr compiles ruby")
 puts Libc.abs(-42)
 buf = FFI::MemoryPointer.new(:char, 8)
 buf.put_bytes(0, "abcdefg\0")

@@ -23,7 +23,7 @@ describe "Numeric: searching and matching" do
       # `String`.
       #
       # Its sibling is `a_bignum_range_endpoint_is_not_an_integer_range.rb`: this
-      # file is about a range zeo declines to convert, that one about a range zeo
+      # file is about a range zr declines to convert, that one about a range zr
       # declines to walk.
       #
       # Oracle: a bignum index raises.

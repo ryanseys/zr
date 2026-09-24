@@ -81,7 +81,7 @@ describe "Methods: frozen literals" do
   it "a class method reopened across class bodies answers each body's own version" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -117,7 +117,7 @@ describe "Methods: frozen literals" do
   it "module_function reaches the same timeline" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -155,7 +155,7 @@ describe "Methods: frozen literals" do
   it "three bodies each answer in their own window" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -194,7 +194,7 @@ describe "Methods: frozen literals" do
   it "two definitions in one body with a statement between them each hold their window" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -227,7 +227,7 @@ describe "Methods: frozen literals" do
   it "the class-method and instance-method channels do not interfere" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -265,7 +265,7 @@ describe "Methods: frozen literals" do
   it "a redefined class method keeps its arguments, its block and its defaults" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -301,7 +301,7 @@ describe "Methods: frozen literals" do
   it "self is the class in every body, so class-level ivars carry across them" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -339,7 +339,7 @@ describe "Methods: frozen literals" do
   it "super from a redefined class method reaches the parent's" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -378,7 +378,7 @@ describe "Methods: frozen literals" do
   it "a subclass sees the timeline of the parent's class method" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -414,7 +414,7 @@ describe "Methods: frozen literals" do
   it "a module's own def self.x follows the same timeline" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -450,7 +450,7 @@ describe "Methods: frozen literals" do
   it "reflection names the owner, and the last body's report is the one that stands" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -489,7 +489,7 @@ describe "Methods: frozen literals" do
   it "singleton_method_added reports each definition where it is written" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.
@@ -529,7 +529,7 @@ describe "Methods: frozen literals" do
   it "a redefinition clears the private mark, as ruby does" do
     result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
+      # same-name definitions answers the FIRST body. zr's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
       # runtime overlay instead: the first body installs at boot, and each later one
       # re-installs at its own document position.

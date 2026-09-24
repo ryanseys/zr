@@ -1,5 +1,5 @@
 # Never loaded on this platform -- and it must not be COMPILED either, which is
-# what the `:dword` below proves: it is a windows FFI typedef zeo does not know,
+# what the `:dword` below proves: it is a windows FFI typedef zr does not know,
 # so following this require at all is a compile error.
 require "ffi"
 

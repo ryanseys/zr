@@ -6,7 +6,7 @@ require "fileutils"
 puts FileUtils::VERSION
 puts FileUtils.respond_to?(:mkdir_p)
 
-d = "/tmp/zeo_fileutils_example"
+d = "/tmp/zr_fileutils_example"
 FileUtils.rm_rf(d) # a clean slate, idempotent across runs
 
 FileUtils.mkdir_p("#{d}/a/b/c")

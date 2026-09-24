@@ -157,7 +157,7 @@ describe "Struct: frozen literals" do
       #   * one that never calls `super` leaves the instance MUTABLE, because
       #     nothing froze it.
       #
-      # zeo froze after dispatching `initialize`, so the first shape silently
+      # zr froze after dispatching `initialize`, so the first shape silently
       # succeeded and the second was frozen when ruby leaves it open.
       #
       # The message that raise carries needed one more fix. `check_frozen` renders
@@ -244,7 +244,7 @@ describe "Struct: frozen literals" do
       # AS KEYWORDS (`rb_class_new_instance_kw` + `RB_PASS_KEYWORDS`), so a user
       # `initialize(max: 256, live: [])` binds them by name -- and, as with any
       # `**{}`, an empty one is no argument at all, which is what lets that
-      # override's defaults apply to a bare `P.new`. zeo handed it one positional
+      # override's defaults apply to a bare `P.new`. zr handed it one positional
       # Hash: "wrong number of arguments (given 1, expected 0)".
 
       P = Data.define(:max, :live)

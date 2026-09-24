@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "String: enumeration" do
-  it "each cons each slice argument panic" do
+  it "each cons each slice raises TypeError for a bad argument" do
     result = zr(<<~'RUBY')
       begin
         [1, 2, 3].each_cons("l")

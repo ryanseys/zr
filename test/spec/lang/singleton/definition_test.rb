@@ -163,7 +163,7 @@ describe "Singleton: defining and naming methods" do
   it "receiverless call sees the receivers own singleton" do
     result = zr(<<~'RUBY')
       # A receiverless call inside a method is a send to `self` like any other, and
-      # `self` may carry a per-object singleton method that shadows the class's. zeo
+      # `self` may carry a per-object singleton method that shadows the class's. zr
       # resolved the receiverless form straight to the class's compiled definition,
       # so the explicit `self.` spelling and a call from outside saw the singleton
       # and the bare name written in the method next door did not.
@@ -398,7 +398,7 @@ describe "Singleton: defining and naming methods" do
   it "undef in a reopened singleton class reaches back" do
     result = zr(<<~'RUBY')
       # `class << self; undef away; end` written in a LATER reopening retires the
-      # class method from that point on. zeo retires it for the whole program, so
+      # class method from that point on. zr retires it for the whole program, so
       # the call written before the reopening raises NoMethodError instead of
       # answering `:here`.
       #
@@ -432,7 +432,7 @@ describe "Singleton: defining and naming methods" do
       # `undef :close` inside a singleton body retires the name for ONE object. It
       # had no arm in the per-object desugar and fell through to the pass-through
       # catch-all (an `undef` names no `self`), which put a definition-level node
-      # where a value belongs -- so zeo refused the whole program with "a
+      # where a value belongs -- so zr refused the whole program with "a
       # definition-level construct used as a VALUE: undef". The refusal was right
       # while there was nowhere for the retirement to be recorded; there is a
       # per-object tombstone now.
@@ -473,7 +473,7 @@ describe "Singleton: defining and naming methods" do
       p a.respond_to?(:close), a.respond_to?(:read), a.flush
 
       # An `alias` in a singleton body copies the definition the RECEIVER would have
-      # run, and the copy survives the original's retirement. zeo wrote the copy into
+      # run, and the copy survives the original's retirement. zr wrote the copy into
       # an instance table the singleton id never had, where no send for that object
       # looks -- so `c.shut` raised where ruby answers.
       c = Foo.new

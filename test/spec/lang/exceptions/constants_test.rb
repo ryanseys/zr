@@ -8,7 +8,7 @@ describe "Exceptions: constants" do
       # `class A::B` evaluates `A` when the definition RUNS. If nothing defines it,
       # ruby raises NameError right there and the class never comes into being --
       # it is not a load-time error, and the rest of the file is unaffected until
-      # execution reaches it. zeo used to fail the whole compile instead, which cost
+      # execution reaches it. zr used to fail the whole compile instead, which cost
       # 68 gems: mostly Rails extensions reopening a host they don't depend on.
 
       # Reached and rescued: the constant read is what raises.

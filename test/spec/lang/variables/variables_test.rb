@@ -48,8 +48,8 @@ describe "Variables programs" do
     result = zr(<<~'RUBY')
       # CRuby scopes $~ (and so $1/$&/$`/$') per method frame (the svar slot on the
       # frame): a match inside a called method never touches the caller's backrefs.
-      # zeo stores one process-global last-match, so the callee's match leaks out.
-      # Second half: String#scan must SET $~ to its last match; zeo's scan leaves
+      # zr stores one process-global last-match, so the callee's match leaks out.
+      # Second half: String#scan must SET $~ to its last match; zr's scan leaves
       # the global untouched.
       "hello world" =~ /(w\w+)/
       puts $1.inspect
@@ -302,9 +302,8 @@ describe "Variables programs" do
 
   it "class method dispatches dynamically through a class valued variable" do
     result = zr(<<~'RUBY')
-      # The receiver isn't a literal constant, so codegen can't emit a direct
-      # `H1::__cm_run(...)` -- it goes through the registry's class-method
-      # table on a `RubyValue::Class` receiver.
+      # The receiver isn't a literal constant, so the call must dispatch
+      # dynamically to the right class method at run time.
 
       class H1
         def self.run(x); "h1:#{x}"; end
@@ -389,17 +388,10 @@ describe "Variables programs" do
 
   it "compound assignment on a plain non class constant dispatches correctly" do
     result = zr(<<~'RUBY')
-      # A real, previously-undetected bug, found alongside the `||=` fix
-      # above: the compiler's call lowering treated ANY `HirNode::ClassRef`
-      # receiver as a `ClassName.foo(...)` class-method call, UNCONDITIONALLY
-      # -- but `ClassRef` is also how an ordinary bare constant read lowers
-      # (see its own docs). So `MAX += 1` (desugared to `MAX.+(1)`, where
-      # `MAX` is a plain `Integer` constant, not a class) panicked with a
-      # confusing "unknown class/module `MAX`" instead of reading/writing
-      # its actual value -- EVERY compound-assignment operator except `||=`
-      # on any non-class constant was completely broken. Fixed by only
-      # taking the class-method-call branch when the name is ACTUALLY a
-      # registered class/module.
+      # A compound assignment on a plain, non-class constant must dispatch
+      # correctly: `MAX += 1` (desugared to `MAX.+(1)`, where `MAX` is a
+      # plain `Integer` constant, not a class) must read and write its
+      # actual value, the same as every other compound-assignment operator.
 
       MAX = 100
       MAX += 1
@@ -412,10 +404,10 @@ describe "Variables programs" do
       101
       51
     OUT
-      lang/variables/variables_test.rb:14: warning: already initialized constant MAX
-      lang/variables/variables_test.rb:13: warning: previous definition of MAX was here
-      lang/variables/variables_test.rb:16: warning: already initialized constant MAX
-      lang/variables/variables_test.rb:14: warning: previous definition of MAX was here
+      lang/variables/variables_test.rb:7: warning: already initialized constant MAX
+      lang/variables/variables_test.rb:6: warning: previous definition of MAX was here
+      lang/variables/variables_test.rb:9: warning: already initialized constant MAX
+      lang/variables/variables_test.rb:7: warning: previous definition of MAX was here
     ERR
   end
 
@@ -576,11 +568,10 @@ describe "Variables programs" do
       # bm_ao_render's shape: `.times` on an UNTYPED receiver makes every
       # level a real escaping Proc, and the innermost block both assigns its
       # own local (`vf`) and reads outer block params. The mid-chain block
-      # used to panic ("capturing its enclosing BLOCK's own local") because
-      # the guard ran before the nested-capture cell machinery classified
-      # the name; it now recognizes a deeper block's own local. The
-      # accumulator (`rad`) round-trips through three closure levels via its
-      # cell. Output oracle-verified.
+      # must recognize a deeper block's own local rather than mistaking it
+      # for a capture of its own enclosing local. The accumulator (`rad`)
+      # round-trips through three closure levels via its cell. Output
+      # oracle-verified.
 
       def render(n)
         n.times do |x|
@@ -1101,7 +1092,7 @@ describe "Variables programs" do
   it "indexed assignment value" do
     result = zr(<<~'RUBY')
       # An assignment expression evaluates to its RIGHT-HAND SIDE, never to what the
-      # setter returned. zeo answers the setter's return value.
+      # setter returned. zr answers the setter's return value.
       #
       # Ruby compiles `recv[i] = v` and `recv.x = v` to a send followed by a pop --
       # the value left on the stack is always `v`, whatever `[]=` or `x=` answered.
@@ -1109,7 +1100,7 @@ describe "Variables programs" do
       # and it is what makes chained assignment (`a = b[0] = 1`) give every target the
       # same value.
       #
-      # zeo emits the send and uses its result. For the builtin containers the two
+      # zr emits the send and uses its result. For the builtin containers the two
       # agree -- `Array#[]=` answers the value it stored -- so only a USER-defined
       # setter shows the divergence, which is also where it matters most: a DSL whose
       # `[]=` answers `self` for chaining silently changes the meaning of every
@@ -1548,15 +1539,10 @@ describe "Variables programs" do
 
   it "multi assign into attr targets correctly calls the setter" do
     result = zr(<<~'RUBY')
-      # A real, previously-undetected bug: `CallTargetNode::name()` is
-      # ALREADY the setter name (`:x=`, confirmed via `Prism.parse`), but
-      # `parse::lower_multi_target` appended ANOTHER `=`, building an
-      # unresolvable `x==` method name -- so ANY multi-assignment into two
-      # attr targets (`b.x, b.y = b.y, b.x`, the idiomatic in-place swap)
-      # panicked with a confusing "unsupported call `x==`" instead of
-      # swapping the values. Array-index multi-assign targets (`arr[0],
-      # arr[1] = ...`) were unaffected (a distinct code path, `[]=`, not
-      # string-formatted from a name at all).
+      # Multi-assignment into two attr targets (`b.x, b.y = b.y, b.x`, the
+      # idiomatic in-place swap) must call each setter correctly, and swap
+      # the values. Array-index multi-assign targets (`arr[0], arr[1] =
+      # ...`) must work too.
 
       arr = [1, 2, 3, 4]
       arr[0], arr[1] = arr[1], arr[0]
@@ -2100,7 +2086,7 @@ describe "Variables programs" do
   it "object local written in a branch" do
     result = zr(<<~'RUBY')
       # A local holding a user-class instance, assigned somewhere other than a
-      # top-level statement of its scope. Zeo gives such a local an unboxed
+      # top-level statement of its scope. Zr gives such a local an unboxed
       # `Arc<Concrete>` slot whose binding comes from the assignment itself, so
       # writing it inside an `if` arm scoped the binding to that arm and every read
       # after the `if` named something that was not there -- the generated program
@@ -2180,12 +2166,9 @@ describe "Variables programs" do
 
   it "object typed local widened to poly across branches boxes correctly" do
     result = zr(<<~'RUBY')
-      # `x`'s two branches assign DIFFERENT classes, so
-      # `analyze::locals::merge_locals` widens its whole-scope type to `Poly`
-      # (a plain `RubyValue` slot) -- but each branch's own `HirNode::New` codegen
-      # still produces a bare, unboxed value unless the write site itself boxes
-      # it. Before this fix, this was a genuine type mismatch in the GENERATED
-      # program, not just a wrong answer.
+      # `x`'s two branches assign DIFFERENT classes, so the local must widen
+      # to a common type across the branches, and each branch's own object
+      # must still work correctly through it afterward.
 
       class Foo
         def initialize
@@ -2790,10 +2773,10 @@ describe "Variables programs" do
       # Verified against real Ruby first: a subclass's own `@@x = ...`
       # does NOT shadow -- it finds and mutates the SAME storage inherited
       # from the superclass (real Ruby's actual, if slightly surprising,
-      # class-variable semantics). This is also the exact scenario zeo's
+      # class-variable semantics). This is also the exact scenario zr's
       # own C implementation gets wrong (a subclass writing a superclass-only
       # cvar allocates fresh, separate storage there -- an outright compile
-      # failure in zeo's case).
+      # failure in zr's case).
 
       class Base
         @@x = 1

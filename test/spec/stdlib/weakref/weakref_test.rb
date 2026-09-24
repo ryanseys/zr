@@ -210,7 +210,7 @@ describe "WeakRef programs" do
       # A `WeakRef` is now allocated UNSEATED and `initialize` seats it, so a
       # subclass's body runs and its `super(obj)` reaches `WeakRef#initialize`, the
       # same split CRuby's pure-Ruby weakref.rb has. That split also made the rest
-      # of the surface expressible, and the oracle disagreed with zeo on all of it:
+      # of the surface expressible, and the oracle disagreed with zr on all of it:
       #
       #   - `__setobj__` is a NO-OP answering nil. The referent lives in a map keyed
       #     on the WeakRef object, which `__setobj__` never touches; the method

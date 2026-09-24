@@ -12,8 +12,8 @@ describe "Socket: reading and writing" do
       # (`ext/socket/init.c`). A feature-gated native class here cannot register a
       # constructible exception, so they live in the gem's Ruby half -- the shape
       # `strscan` and `zlib` already use. Without them a resolution failure reached
-      # `raise_error` with a class nothing had registered, which PANICS and ends the
-      # process rather than raising.
+      # for a class nothing had registered, which crashed the process rather than
+      # raising.
       require "socket"
 
       p SocketError.superclass
@@ -283,7 +283,7 @@ describe "Socket: reading and writing" do
       # Three socket-surface rows: `BasicSocket.do_not_reverse_lookup` (the
       # class-level accessor), `Socket.sockaddr_un`/`unpack_sockaddr_un`, and
       # the ECONNREFUSED message shape ('Connection refused - connect(2) for
-      # "127.0.0.1" port N'; zeo leaks the io layer's own text). (Found by the
+      # "127.0.0.1" port N'; zr leaks the io layer's own text). (Found by the
       # 2026-08-24 probe sweep.)
       require "socket"
       def show
@@ -340,7 +340,7 @@ describe "Socket: reading and writing" do
       # `sock_define_const` (ext/socket/constants.c) defines each one TWICE -- once
       # here, once on `Socket` -- so neither table is derived from the other, and the
       # module is included NOWHERE: a lookup through `Socket` never reaches it.
-      # zeo seeded only `Socket`, so `Socket::Constants` raised NameError; celluloid-io
+      # zr seeded only `Socket`, so `Socket::Constants` raised NameError; celluloid-io
       # aliases it (`Constants = ::Socket::Constants`) and never got past that line.
       p Socket::Constants.class
       p Socket::Constants.name
@@ -456,7 +456,7 @@ describe "Socket: reading and writing" do
   it "const_defined?(:AF_INET6) folds the IPv6 fallback out on a platform that has it" do
     result = zr(<<~'RUBY')
       # `unless Socket.const_defined?(:AF_INET6)` drops an IPv6 fallback definition on
-      # a platform that already defines it (the rubygems/ipaddr shape). zeo folds the
+      # a platform that already defines it (the rubygems/ipaddr shape). zr folds the
       # guard at compile time against the seeded Socket constants.
       require "socket"
 
@@ -517,7 +517,7 @@ describe "Socket: reading and writing" do
   it "eof? on a socket does not seek, so the rest of the stream is still readable" do
     result = zr(<<~'RUBY')
       # `eof?` on a SOCKET must not seek: after a partial read, ruby answers
-      # false and the rest of the stream is readable. zeo's eof? probe seeks
+      # false and the rest of the stream is readable. zr's eof? probe seeks
       # and raises Errno::ESPIPE -- the same root as
       # `a_pipe_read_to_eof_does_not_seek.rb`, found via Net::HTTP keep-alive
       # (the second request in one `Net::HTTP.start` dies on this). (Found by
@@ -865,7 +865,7 @@ describe "Socket: reading and writing" do
       # UDPSocket over loopback. A datagram socket binds a local port, another
       # connects to it and writes; recvfrom answers the payload plus the sender's
       # [family, port, host, ip] array. (Data is written with IO#write rather than
-      # UDPSocket#send, which zeo's `send` intrinsic shadows for untyped receivers --
+      # UDPSocket#send, which zr's `send` intrinsic shadows for untyped receivers --
       # see tests/gaps/socket_send.rb.) Ports are kernel-assigned, so only their shape
       # is asserted.
       require "socket"
@@ -994,7 +994,7 @@ describe "Socket: reading and writing" do
       # (only compared), so the golden stays deterministic.
       require "socket"
 
-      path = "/tmp/zeo_unix_test_#{Process.pid}.sock"
+      path = "/tmp/zr_unix_test_#{Process.pid}.sock"
       File.unlink(path) if File.exist?(path)
 
       server = UNIXServer.new(path)

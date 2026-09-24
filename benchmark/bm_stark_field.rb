@@ -7,7 +7,7 @@
 # Integer or an array of them, so it measures how much of that a backend can
 # keep unboxed. Imported from the predecessor project, where it was a
 # regression gate for a type inferencer; the shapes it collects are the ones
-# that defeated it, and each is still a fair question to ask zeo:
+# that defeated it, and each is still a fair question to ask zr:
 #
 #   - `acc = ExtField.add(acc, x)` -- a value flowing back into the parameter
 #     it came from
@@ -18,7 +18,7 @@
 #     through a read
 #   - `Array.new(n) { Array.new(n, 0) }` -- a nested int table
 #
-# zeo has no type inferencer of that kind: its `TyKind` map is per-local and
+# zr has no type inferencer of that kind: its `TyKind` map is per-local and
 # the emitter does not consult it yet (the recorded perf lever). So this
 # runs as a shape benchmark today and becomes a gate if that lever lands.
 #

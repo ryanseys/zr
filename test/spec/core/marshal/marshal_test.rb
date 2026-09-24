@@ -147,7 +147,7 @@ describe "Marshal programs" do
   it "dump takes an IO and a depth limit, and load takes an IO, freeze: and a proc" do
     result = zr(<<~'RUBY')
       # Marshal's entry surface beyond the byte format (which matches
-      # exactly): `dump(obj, io)` WRITES to the IO (zeo writes nothing),
+      # exactly): `dump(obj, io)` WRITES to the IO (zr writes nothing),
       # `load` accepts an IO source, `freeze: true` freezes the graph, the
       # proc argument visits every object, the depth-limit argument raises
       # ArgumentError past the limit, and the incompatible-format TypeError
@@ -185,7 +185,7 @@ describe "Marshal programs" do
   it "an exception loads back, and an extended module travels with the object" do
     result = zr(<<~'RUBY')
       # A dumped exception loads back. `marshal_allocate` has no Exception arm,
-      # so it reports "allocator undefined" for a class `rclass.rs` already knows
+      # so it reports "allocator undefined" for a class it already knows
       # how to allocate.
       begin
         e = Marshal.load(Marshal.dump(Errno::EINTR.new))
@@ -339,7 +339,7 @@ describe "Marshal programs" do
       eh = rt([sh, sh])
       eh[0][:m] = 5
       p eh[1][:m]
-      # Complex and Rational (CRuby `U` user-marshal form). Zeo's Complex is
+      # Complex and Rational (CRuby `U` user-marshal form). Zr's Complex is
       # float-only, so its components round-trip as Floats.
       p rt(Rational(3, 4))
       p rt(Rational(-1, 2))
@@ -471,7 +471,7 @@ describe "Marshal programs" do
   it "an instance variable on a String survives the round trip" do
     result = zr(<<~'RUBY')
       # Instance variables on a STRING survive a Marshal round-trip (the I
-      # prefix carries them); zeo drops them silently -- object ivars already
+      # prefix carries them); zr drops them silently -- object ivars already
       # round-trip. Data loss, not a missing error. (Found by the 2026-08-24
       # probe sweep.)
       s = +"payload"
@@ -530,7 +530,7 @@ describe "Marshal programs" do
       #
       # Ruby marshals a Range as an ordinary object with three ivars (`@begin`,
       # `@end`, `@excl`) and writes a hash's default alongside its entries
-      # (`marshal.c`'s `w_object` has a dedicated `TYPE_HASH_DEF`). zeo's dumper
+      # (`marshal.c`'s `w_object` has a dedicated `TYPE_HASH_DEF`). zr's dumper
       # reaches neither, and the Range case surfaces as an error about a C-extension
       # hook that has nothing to do with what the caller wrote.
       #
@@ -736,7 +736,7 @@ describe "Marshal programs" do
   it "refuses the undumpable" do
     result = zr(<<~'RUBY')
       # `Marshal.dump` refuses what cannot round-trip: an object with a singleton
-      # ("singleton can't be dumped") and an IO ("can't dump IO"). zeo dumps both
+      # ("singleton can't be dumped") and an IO ("can't dump IO"). zr dumps both
       # happily, silently losing the singleton and the stream -- wrong DATA, not
       # just a missing error. (Found by the 2026-08-24 probe sweep.)
       o = Object.new

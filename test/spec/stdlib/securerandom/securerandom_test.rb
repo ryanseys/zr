@@ -6,7 +6,7 @@ describe "SecureRandom programs" do
   it "builtin row reports its parameter names" do
     result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       # `Method#parameters` on a native row used to answer the anonymous descriptor
-      # derived from its arity -- `[[:req]]` where ruby says `[[:req, :fmt]]`. zeo
+      # derived from its arity -- `[[:req]]` where ruby says `[[:req, :fmt]]`. zr
       # reported a parameter NAME on no builtin row at all.
       #
       # The DSL now spells a row's signature (`params "fmt, buffer: nil"`), which is
@@ -36,7 +36,7 @@ describe "SecureRandom programs" do
       # An anonymous forwarding slot is named for its own sigil, ruby's own answer.
       p Ractor.instance_method(:send).parameters
 
-      # A hand-registered exception row reaches no arity table, so zeo's two
+      # A hand-registered exception row reaches no arity table, so zr's two
       # catch-alls answered it differently: `-1` through `#arity` and `[]` through
       # `#parameters`. Every one of them is declared now, beside its ownership mark.
       p Exception.instance_method(:set_backtrace).parameters
@@ -48,12 +48,12 @@ describe "SecureRandom programs" do
 
       # A `ruby def` spells the signature ONCE, in the parameter list, and the macro
       # derives both the binding and the report from it. `random` below is bound
-      # directly as `Option<RubyValue>` -- the exact type the hand-written peel it
+      # directly as an optional value -- the same type the hand-written peel it
       # replaced returned -- so a converted row keeps its semantics.
       p Array.instance_method(:shuffle).parameters
       p Array.instance_method(:shuffle!).parameters
 
-      # Ruby refuses a keyword the method does not declare. zeo used to ignore it
+      # Ruby refuses a keyword the method does not declare. zr used to ignore it
       # silently, because the whole options Hash arrived as one `**opts` slot that
       # nothing checked.
       begin
@@ -142,7 +142,7 @@ describe "SecureRandom programs" do
       # SecureRandom: cryptographically secure random values, built on OS entropy
       # (Random.urandom) and the Random::Formatter mixin. Random output can't be
       # printed verbatim, so this prints its OBSERVABLE CONTRACT -- lengths, formats,
-      # ranges, encoding -- which is identical under zeo and ruby.
+      # ranges, encoding -- which is identical under zr and ruby.
       require "securerandom"
 
       # hex(n) -> 2n lowercase hex chars; default n is 16.

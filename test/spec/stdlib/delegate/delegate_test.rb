@@ -103,11 +103,11 @@ describe "Delegate programs" do
 
   it "weakref is not a delegator" do
     result = zr(<<~'RUBY')
-      # CRuby's `WeakRef < Delegator`. zeo's is a native class under `Object`, so
+      # CRuby's `WeakRef < Delegator`. zr's is a native class under `Object`, so
       # the superclass, the ancestry and `is_a?(Delegator)` all answer differently,
       # and a `rescue`/`case`/guard written against `Delegator` never matches.
       #
-      # The gap is NARROWER than "no delegate library". zeo has `Delegator` and
+      # The gap is NARROWER than "no delegate library". zr has `Delegator` and
       # `SimpleDelegator`, and `DelegateClass(Hash)` answers a class whose
       # superclass really is `Delegator` -- the shape
       # `a_class_nested_in_a_runtime_minted_namespace.rb` is built on. Two things
@@ -116,7 +116,7 @@ describe "Delegate programs" do
       # 1. `require "weakref"` does not pull delegate.rb in. Requiring it FIRST does
       #    not help either, which is what makes this a reparenting job and not a
       #    require-graph one.
-      # 2. zeo's native `WeakRef` is registered under `Object` and never reparented.
+      # 2. zr's native `WeakRef` is registered under `Object` and never reparented.
       #
       # The consequence with the sharpest edge is `is_a?(Object)`: CRuby's
       # `Delegator` descends from `BasicObject` and undefines most of Object, so a
@@ -134,7 +134,7 @@ describe "Delegate programs" do
       p WeakRef.superclass.to_s
       p WeakRef.ancestors.map(&:to_s).include?("Delegator")
 
-      # A strong reference kept on purpose: zeo's weak handles are `Arc::downgrade`d,
+      # A strong reference kept on purpose: zr's weak handles are `Arc::downgrade`d,
       # so an unreferenced referent is collected the instant the literal goes out of
       # scope, where MRI's GC has simply not run yet. That is a separate, documented
       # divergence and would drown this one.
@@ -144,7 +144,7 @@ describe "Delegate programs" do
       p w.is_a?(Object)
       p w.upcase
 
-      # What zeo DOES have, so a fix must not disturb it.
+      # What zr DOES have, so a fix must not disturb it.
       p SimpleDelegator.superclass.to_s
       p DelegateClass(Hash).superclass.to_s
       p SimpleDelegator.new([1, 2]).size

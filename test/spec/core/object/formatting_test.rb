@@ -7,7 +7,7 @@ describe "Object: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Method#parameters` and `#arity` on a BUILTIN row.
       #
-      # CRuby reports NO parameter name on most of its C rows, so zeo's default is
+      # CRuby reports NO parameter name on most of its C rows, so zr's default is
       # the anonymous descriptor its arity implies. The rows below are the ones ruby
       # DOES name -- because it writes them in Ruby (Pathname), or because its C
       # function declares a real signature -- and each carries a `ruby def` or a
@@ -18,7 +18,7 @@ describe "Object: formatting and inspection" do
       #     because CRuby defines the two separately.
       #   * a Struct WRITER's parameter is named `_`, a reader has none.
 
-      require "pathname" # a no-op in zeo and in ruby 4.0: the class is already there
+      require "pathname" # a no-op in zr and in ruby 4.0: the class is already there
       require "tmpdir"   # what adds `Pathname.mktmpdir`
 
       def show(label)
@@ -152,7 +152,7 @@ describe "Object: formatting and inspection" do
   it "clone carries the singleton class" do
     result = zr(<<~'RUBY')
       # Object#clone copies the receiver's singleton class (dup deliberately does
-      # not). zeo's clone builds a plain copy of the underlying object, so a
+      # not). zr's clone builds a plain copy of the underlying object, so a
       # singleton method defined on the original is gone on the clone -- the copy
       # answers the class's method instead.
       class Cloneable
@@ -223,7 +223,7 @@ describe "Object: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `class <expr>::Name` -- a definition whose NAMESPACE is a runtime value
       # rather than a constant path. Four spellings in the corpus, all the same
-      # thing said differently, and zeo used to reject every one of them with
+      # thing said differently, and zr used to reject every one of them with
       # "expected a constant name or path":
       #
       #   class self::Task            (inside an `included do ... end` hook)
@@ -307,7 +307,7 @@ describe "Object: formatting and inspection" do
 
   it "dollar star is argv" do
     result = zr(<<~'RUBY')
-      # `$*` is an alias of ARGV. zeo maps ARGV but leaves $* an ordinary
+      # `$*` is an alias of ARGV. zr maps ARGV but leaves $* an ordinary
       # (nil-valued) global.
       puts $*.inspect
       puts ARGV.inspect
@@ -640,8 +640,8 @@ describe "Object: formatting and inspection" do
     result = zr(<<~'RUBY')
       # Two compounding divergences in the default inspect of an anonymous
       # Class/Module: (1) an anonymous Module renders as `#<Class:0x...>` instead
-      # of `#<Module:0x...>` -- zeo doesn't distinguish the two; (2) the address
-      # zeo renders is a short sequential counter (`0x40000000`) rather than a
+      # of `#<Module:0x...>` -- zr doesn't distinguish the two; (2) the address
+      # zr renders is a short sequential counter (`0x40000000`) rather than a
       # real pointer padded to 16 hex digits like every other object's default
       # inspect, so it never matches the golden's `0xADDR` address-normalization
       # even once the Module/Class mislabeling above is fixed.
@@ -833,13 +833,13 @@ describe "Object: formatting and inspection" do
       # front of it.
       #
       # Three divergences this file deliberately steps around, all in the rendering
-      # of methods zeo did not compile from Ruby source:
+      # of methods zr did not compile from Ruby source:
       #
       #   * CRuby reports a location for the parts of ITSELF written in Ruby
-      #     (`#<Method: Integer#zero?() <internal:numeric>:288>`); zeo's are native,
-      #     so they print unlocated. zeo's `Integer#zero?` also lives on `Numeric`,
+      #     (`#<Method: Integer#zero?() <internal:numeric>:288>`); zr's are native,
+      #     so they print unlocated. zr's `Integer#zero?` also lives on `Numeric`,
       #     so it prints `Integer(Numeric)#zero?`. Both are declines: they describe
-      #     CRuby's own source tree, which zeo does not have.
+      #     CRuby's own source tree, which zr does not have.
       #   * A per-object singleton (`def obj.m(x)`) is a runtime-defined body here
       #     and reports no signature at all -- a real gap, tracked at
       #     `tests/gaps/method_inspect_native.rb`.
@@ -849,7 +849,7 @@ describe "Object: formatting and inspection" do
       # The anonymous forwarding slots (`*`/`**`/`&`/`...`) DO match, and are pinned
       # in `tests/method_inspect_forwarding.rb`.
       #
-      # Everything below is a method zeo compiled, or a native one whose arity is
+      # Everything below is a method zr compiled, or a native one whose arity is
       # declared -- the surface an inspect implementation is actually responsible for.
 
       def shape(m) = m.inspect.sub(/ [^ ]+:\d+>\z/, ">")
@@ -1017,13 +1017,13 @@ describe "Object: formatting and inspection" do
     result = zr(<<~'RUBY')
       # An object's instance variables are reported in ASSIGNMENT order -- by
       # `instance_variables` and by the `inspect` built on it. For a class minted at
-      # run time, zeo reports them in hash order instead.
+      # run time, zr reports them in hash order instead.
       #
       # A compiled class gets a generated struct whose fields are laid out in source
       # order, so its objects already answer correctly (the first pair below). A
-      # `Class.new` instance is a `runtime_meta::DynObject`, whose ivars live in a
-      # `FMap` -- foldhash, deliberately unordered -- so the order it reports is
-      # whatever the hash produced, and it is not even stable across ivar names.
+      # `Class.new` instance stores its ivars in a deliberately unordered map,
+      # so the order it reports is whatever the map produced, and it is not
+      # even stable across ivar names.
       #
       # Ruby's order is a property of the OBJECT, not the class: an ivar assigned
       # later appears later, including one added after construction. That is what
@@ -1068,10 +1068,10 @@ describe "Object: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Proc#inspect` identifies the proc: its address, where it was written, and
       # whether it is a lambda -- `#<Proc:0x000...7318 /path/to/file.rb:3>`, with
-      # ` (lambda)` appended for one. zeo answers a bare `#<Proc>` for every proc in
+      # ` (lambda)` appended for one. zr answers a bare `#<Proc>` for every proc in
       # the program, so no two are distinguishable.
       #
-      # The information is all present: zeo already reports `Proc#source_location`
+      # The information is all present: zr already reports `Proc#source_location`
       # and `#lambda?` correctly (both below), and every other heap value's `inspect`
       # carries an address. Only the assembled string is missing.
       #

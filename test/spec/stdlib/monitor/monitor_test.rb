@@ -10,7 +10,7 @@ describe "Monitor programs" do
       # builtins join that list, each because a gem subclasses it for the payload.
       #
       # `Pathname` is the one worth naming: it is pure Ruby over a `@path` ivar in
-      # CRuby, so it looks like it should need nothing at all -- but zeo reimplements
+      # CRuby, so it looks like it should need nothing at all -- but zr reimplements
       # it natively, so it needs the payload treatment like the rest.
       require "pathname"
       require "monitor"

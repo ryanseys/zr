@@ -12,7 +12,7 @@ describe "Process programs" do
       # waits on main, main waits on the Gvl) and the test hangs.
 
 
-      flag = File.join(ENV["TMPDIR"] || "/tmp", "zeo_gvl_probe_#{Process.pid}")
+      flag = File.join(ENV["TMPDIR"] || "/tmp", "zr_gvl_probe_#{Process.pid}")
       t = Thread.new { `until [ -e #{flag} ]; do sleep 0.05; done; echo done` }
       sleep 0.2
       File.write(flag, "go")
@@ -62,7 +62,7 @@ describe "Process programs" do
       puts $?.exitstatus
 
       # Interpolation uses the normal string path; a `;` forces the shell.
-      name = "zeo"
+      name = "zr"
       print `echo hi #{name}`
       print `echo a; echo b`
       puts $?.exited?
@@ -79,7 +79,7 @@ describe "Process programs" do
       false
       false
       1
-      hi zeo
+      hi zr
       a
       b
       true
@@ -206,7 +206,7 @@ describe "Process programs" do
   it "deadlocked wait raises fatal" do
     result = zr(<<~'RUBY')
       # A wait only another Ruby thread can end, with no other Ruby thread left to
-      # end it, is a deadlock. zeo used to HANG there; CRuby raises `fatal`.
+      # end it, is a deadlock. zr used to HANG there; CRuby raises `fatal`.
       #
       # The check rides the poll the blocking waits already do. A wait registers
       # itself, and when every live thread is registered none of them can be the one
@@ -227,7 +227,7 @@ describe "Process programs" do
       # DIVERGENCE, deliberate: CRuby's message continues past the first line with a
       # thread dump -- native addresses, `rb_thread_t` pointers, a per-thread
       # backtrace. Those describe MRI's VM, are different on every run, and no
-      # program can act on them. zeo's message is the first line, which is the part
+      # program can act on them. zr's message is the first line, which is the part
       # that describes the program, and it is what this golden compares. The
       # uncaught render matches too:
       # `file:LINE:in 'Thread::Queue#pop': No live threads left. Deadlock? (fatal)`.
@@ -421,7 +421,7 @@ describe "Process programs" do
       # because there is nobody left to finish the thread being waited on.
       #
       # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
-      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # verdict surfaces in the MAIN thread's `join` frame, while zr's surfaces
       # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
       # The exception, its class and its message agree; only the frame that
       # reports it differs, so the rows below read the class and message and the
@@ -475,7 +475,7 @@ describe "Process programs" do
       # because there is nobody left to finish the thread being waited on.
       #
       # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
-      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # verdict surfaces in the MAIN thread's `join` frame, while zr's surfaces
       # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
       # The exception, its class and its message agree; only the frame that
       # reports it differs, so the rows below read the class and message and the
@@ -523,7 +523,7 @@ describe "Process programs" do
       # because there is nobody left to finish the thread being waited on.
       #
       # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
-      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # verdict surfaces in the MAIN thread's `join` frame, while zr's surfaces
       # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
       # The exception, its class and its message agree; only the frame that
       # reports it differs, so the rows below read the class and message and the
@@ -585,7 +585,7 @@ describe "Process programs" do
       # because there is nobody left to finish the thread being waited on.
       #
       # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
-      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # verdict surfaces in the MAIN thread's `join` frame, while zr's surfaces
       # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
       # The exception, its class and its message agree; only the frame that
       # reports it differs, so the rows below read the class and message and the
@@ -631,7 +631,7 @@ describe "Process programs" do
       # because there is nobody left to finish the thread being waited on.
       #
       # DIVERGENCE, recorded rather than fixed: for a mutex deadlock CRuby's
-      # verdict surfaces in the MAIN thread's `join` frame, while zeo's surfaces
+      # verdict surfaces in the MAIN thread's `join` frame, while zr's surfaces
       # in the blocked thread's own `Mutex#lock` -- whichever poll comes first.
       # The exception, its class and its message agree; only the frame that
       # reports it differs, so the rows below read the class and message and the
@@ -916,7 +916,7 @@ describe "Process programs" do
   it "instance exec def singleton" do
     result = zr(<<~'RUBY')
       # A `def` inside instance_exec defines a singleton method on the receiver
-      # at runtime (CRuby), and zeo matches.
+      # at runtime (CRuby), and zr matches.
       class Box
         def initialize(v)
           @v = v
@@ -1875,7 +1875,7 @@ describe "Process programs" do
       # The `$$` global answers the running process id, the same value
       # `Process.pid` does. Checked by equality and positivity rather than the
       # literal number, which necessarily differs between the ruby oracle run and
-      # the zeo run.
+      # the zr run.
       p $$ == Process.pid
       p $$.is_a?(Integer) && $$ > 0
     RUBY
@@ -1943,11 +1943,11 @@ describe "Process programs" do
       # compiler cannot see the rows those classes have.
       #
       # The exception hierarchy is written in ruby but carries hand-registered
-      # NATIVE rows (`exception.rs`'s `mark_owned_names`). Neither table the fold
-      # consults holds them: they are not compiled `def`s, so `method_in_chain`
-      # misses, and they reach no `ruby_class!` header, so the projected surface
-      # misses too. The walk then concluded "not found, and fully projected" --
-      # a confident FALSE about rows the class really has.
+      # NATIVE rows. Neither table the fold consults holds them: they are not
+      # compiled `def`s, so the method lookup misses, and they reach no class
+      # header, so the projected surface misses too. The walk then concluded
+      # "not found, and fully projected" -- a confident FALSE about rows the
+      # class really has.
       #
       # The cost was silent and total: `error_highlight`'s core_ext gates its whole
       # API on `Exception.method_defined?(:detailed_message)`, so a false answer
@@ -2591,10 +2591,10 @@ describe "Process programs" do
       # on the ERRNO NUMBER, so any object answering that number matches, and the
       # bare `SystemCallError` matches every one of its instances outright.
       #
-      # zeo answered this off `Module#===` (a plain kind-of test), which is right for
+      # zr answered this off `Module#===` (a plain kind-of test), which is right for
       # the two common cases and wrong for the duck-typed one.
 
-      # Asked by inclusion, not by the whole list: zeo registers `exception` and
+      # Asked by inclusion, not by the whole list: zr registers `exception` and
       # `to_tty?` on every exception id (flat dispatch), so its list carries two
       # names ruby keeps on `Exception` alone.
       p SystemCallError.singleton_methods(false).include?(:===)

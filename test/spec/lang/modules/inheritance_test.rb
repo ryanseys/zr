@@ -711,19 +711,10 @@ describe "Modules: inheritance and ancestors" do
   it "module super into a value builtin" do
     result = zr(<<~'RUBY')
       # A module mixed into a subclass of a VALUE builtin, whose method calls
-      # `super`, crashes the generated program:
-      #
-      #   thread 'ruby-main' panicked at crates/zeo-rt/src/builtins/array.rs:144:
-      #   internal error: entered unreachable code: Array table row dispatched on a
-      #   non-Array receiver
-      #
-      # The same `super` written directly in the subclass works (the second pair
-      # below), so this is about reaching the builtin THROUGH a module in the
-      # ancestry rather than about the value-super channel itself.
-      #
-      # Not a sharing bug: `ZR_TEST_SHARE=0` panics identically. Found while building
-      # divergence shapes for `codegen::class_query`, whose `ValueSuper` question
-      # exists precisely because this channel is per-receiver -- `DoubledArray`
+      # `super`, must reach the builtin's own method correctly. The same
+      # `super` written directly in the subclass works (the second pair
+      # below), so this checks reaching the builtin THROUGH a module in the
+      # ancestry, not just the value-super channel itself. `DoubledArray`
       # reaches `Array#size` where `DoubledPlain` reaches a user body.
 
       module Doubled

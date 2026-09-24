@@ -16,7 +16,7 @@ describe "Readline programs" do
 
       p Readline.respond_to?(:readline)
 
-      path = File.join(Dir.tmpdir, "zeo_readline_input_#{Process.pid}.txt")
+      path = File.join(Dir.tmpdir, "zr_readline_input_#{Process.pid}.txt")
       File.write(path, "alpha\n\nbeta\n")
       Readline.input = File.open(path)
       Readline.output = File.open("/dev/null", "w")

@@ -13,7 +13,7 @@ describe "FileUtils programs" do
       puts FileUtils::VERSION
       puts FileUtils.respond_to?(:mkdir_p)
 
-      d = "/tmp/zeo_fileutils_example"
+      d = "/tmp/zr_fileutils_example"
       FileUtils.rm_rf(d) # a clean slate, idempotent across runs
 
       FileUtils.mkdir_p("#{d}/a/b/c")
@@ -56,7 +56,7 @@ describe "FileUtils programs" do
       require "fileutils"
       puts FileUtils::VERSION
       puts FileUtils.respond_to?(:mkdir_p)
-      d = "/tmp/zeo_fu_e2e_#{Process.pid}"
+      d = "/tmp/zr_fu_e2e_#{Process.pid}"
       FileUtils.rm_rf(d)
       FileUtils.mkdir_p("#{d}/a/b")
       puts Dir.exist?("#{d}/a/b")

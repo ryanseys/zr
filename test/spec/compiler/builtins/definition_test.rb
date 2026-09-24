@@ -115,12 +115,12 @@ describe "Builtins: defining and naming methods" do
       #
       # A builtin CLASS method's declared arity is wider than CRuby's, so a call
       # CRuby rejects is accepted and the ArgumentError names the wrong range:
-      # zeo reports `expected 1..4` where CRuby says `1..3`.
+      # zr reports `expected 1..4` where CRuby says `1..3`.
       #
       # One row the arity census gated before it was retired at zero.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # A builtin class/module method called with a count CRuby rejects raises
       # CRuby's ArgumentError. File.open with no arguments crashed the compiler.
@@ -170,11 +170,10 @@ describe "Builtins: defining and naming methods" do
       # A builtin instance method called with a count CRuby rejects raises
       # CRuby's own ArgumentError, with its message.
       #
-      # What this file was FILED for is fixed, and it was a PANIC:
-      # `Enumerable#first` with two arguments reached an `expect` in the body,
-      # and a panic cannot unwind out of `extern "C"`, so it ended the process.
-      # An `expect` is the wrong instrument for an argument the CALLER controls;
-      # ten of them in `builtins/enumerable.rs` are ordinary raises now.
+      # What this file was FILED for is fixed, and it crashed the whole
+      # process: `Enumerable#first` with two arguments hit an internal
+      # assumption about the argument count that the CALLER actually controls.
+      # Ten such cases are ordinary raises now.
       #
       # Two more rows were silently LENIENT rather than loud: `Array#first` read
       # `args[0]` out of a `*args` it never counted, and `Range#first`/`#last`
@@ -748,7 +747,7 @@ describe "Builtins: defining and naming methods" do
     result = zr(<<~'RUBY')
       # Comprehensive Method#arity / #parameters coverage, byte-diffed against the
       # ruby oracle. Each line prints the code expression next to its result so a
-      # zeo-vs-oracle diff points straight at the failing method. Builtin arities
+      # zr-vs-oracle diff points straight at the failing method. Builtin arities
       # are declared per-name at each method's `builtin_methods!` definition site
       # (mirroring CRuby's `rb_define_method` argc), so this is their regression gate.
 
@@ -1186,7 +1185,7 @@ describe "Builtins: defining and naming methods" do
 
   it "new with the wrong arity raises a rescuable runtime error" do
     result = zr(<<~'RUBY')
-      # Was a COMPILE-TIME panic, from `.new`'s own hand-rolled argument
+      # Was a COMPILE-TIME crash, from `.new`'s own hand-rolled argument
       # binding. Now that `.new` binds through the same call-argument
       # lowering every other call site uses, it inherits that posture,
       # which is real Ruby's: arity resolves at RUNTIME, the error is
@@ -1509,10 +1508,10 @@ describe "Builtins: defining and naming methods" do
 
   it "value trampoline wrong arity raises a rescuable argument error" do
     result = zr(<<~'RUBY')
-      # The `ValueMethodFn` trampoline (`emit_value_trampoline`) backs both a
-      # user CLASS method reached dynamically and a reopened-builtin instance
-      # method. Its arity guard shared the same `panic!` bug as the dynamic
-      # trampoline; both now raise a rescuable ArgumentError. Oracle-verified.
+      # This dynamic-dispatch trampoline backs both a user CLASS method reached
+      # dynamically and a reopened-builtin instance method. Its arity guard
+      # used to crash the process the same way the other dynamic trampoline
+      # did; both now raise a rescuable ArgumentError. Oracle-verified.
 
       class A
         def self.cm(a, b) = a + b

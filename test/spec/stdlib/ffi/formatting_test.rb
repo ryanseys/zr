@@ -165,7 +165,7 @@ describe "FFI: formatting and inspection" do
 
   it "a declaration the compiler could not see attaches over the gem's runtime objects" do
     result = zr(<<~'RUBY')
-      # zeo has two tiers for an `FFI::Library` declaration, and which one runs is
+      # zr has two tiers for an `FFI::Library` declaration, and which one runs is
       # decided by whether the COMPILER could see it.
       #
       # A declaration in a file the compiler lowered is consumed there: the whole
@@ -218,10 +218,10 @@ describe "FFI: formatting and inspection" do
           module Mathy
             extend FFI::Library
             ffi_lib "m"
-            attach_function :zeo_cos, :cos, [:double], :double
+            attach_function :zr_cos, :cos, [:double], :double
           end
         SRC
-        p Mathy.zeo_cos(0.0)
+        p Mathy.zr_cos(0.0)
       end
 
       # A variadic signature attaches as the gem's `VariadicInvoker`, so the
@@ -432,13 +432,13 @@ describe "FFI: formatting and inspection" do
 
   it "a platform typedef is legal in argument and return position, where a struct field fixes a width" do
     result = zr(<<~'RUBY')
-      # A POSIX typedef whose width differs between zeo's targets (mode_t is u16
+      # A POSIX typedef whose width differs between zr's targets (mode_t is u16
       # on macOS, u32 on glibc) is legal in argument/return position -- the
       # generated code spells the TARGET's own libc alias, so the C toolchain
       # supplies the real width.
       #
       # A struct FIELD cannot wait that long: its width fixes every following
-      # field's offset while the layout lowers. zeo answers from the libc the
+      # field's offset while the layout lowers. zr answers from the libc the
       # COMPILER was built against, which is exact for the one target it emits for
       # -- the same assumption the baked RUBY_PLATFORM and RbConfig::CONFIG already
       # make. The struct checks below print only facts that hold on every target,
@@ -453,7 +453,7 @@ describe "FFI: formatting and inspection" do
         attach_function :clock, [], :clock_t
       end
 
-      f = Tempfile.new("zeo-mode")
+      f = Tempfile.new("zr-mode")
       puts C.chmod(f.path, 0o644)
       puts format("%o", File.stat(f.path).mode & 0o7777)
       puts C.chmod(f.path, 0o600)
@@ -554,7 +554,7 @@ describe "FFI: formatting and inspection" do
     result = zr(<<~'RUBY')
       # A struct class describes itself: `.offsets`, and a `.layout` reader
       # answering an `FFI::StructLayout` whose fields carry each field's name,
-      # offset, size, alignment and TYPE. zeo builds all of it from the layout its
+      # offset, size, alignment and TYPE. zr builds all of it from the layout its
       # compiler already walked, so the descriptors describe exactly the bytes the
       # generated accessors read.
       #
@@ -643,7 +643,7 @@ describe "FFI: formatting and inspection" do
       # place, so it is the field that decides where every following one starts --
       # and reading it yields ruby's own proxy OVER that memory, not a copy.
       #
-      # zeo refused the whole struct: `[:uint8, 4]` is not a symbol, so the layout
+      # zr refused the whole struct: `[:uint8, 4]` is not a symbol, so the layout
       # never parsed. The offsets, the two proxy classes, and which of them answers
       # `to_s` are all observable, so all three are matched here rather than
       # approximated.

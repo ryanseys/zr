@@ -1047,10 +1047,10 @@ describe "Blocks: formatting and inspection" do
 
   it "nested block capture in a dsl" do
     result = zr(<<~'RUBY')
-      # zeo refuses to compile this program:
+      # zr refuses to compile this program:
       #
       #     a nested escaping block capturing its enclosing BLOCK's own local `n`
-      #     isn't supported yet (zeo limitation)
+      #     isn't supported yet (zr limitation)
       #
       # The shape is the standard class-macro: a block receives a value and closes
       # over it in a `define_method` body. Every Rails-style declaration is written
@@ -1134,7 +1134,7 @@ describe "Blocks: formatting and inspection" do
   it "new with block no block param" do
     result = zr(<<~'RUBY')
       # `Klass.new { ... }` where `initialize` declares no block parameter. Ruby runs
-      # the block through `Proc.new`/`block_given?` and otherwise ignores it; zeo's
+      # the block through `Proc.new`/`block_given?` and otherwise ignores it; zr's
       # static `.new` path passes it as a second argument to an `initialize` whose
       # generated signature has no block slot, so the generated program does not
       # compile.

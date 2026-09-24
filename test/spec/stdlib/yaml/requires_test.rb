@@ -88,7 +88,7 @@ describe "YAML: loading files" do
   it "YAML's octal is 017, so the ruby spelling 0o17 loads as a String" do
     result = zr(<<~'RUBY')
       # YAML's octal scalar is `017`; the Ruby-spelling `0o17` is a plain
-      # STRING to psych. zeo parses it as octal 15. (Found by the 2026-08-24
+      # STRING to psych. zr parses it as octal 15. (Found by the 2026-08-24
       # probe sweep.)
       require "yaml"
       p YAML.safe_load("w: 0o17")
@@ -134,11 +134,11 @@ describe "YAML: loading files" do
       # The last row loads a mapping whose `*x` alias resolves to the mapping itself, which is why it prints `{...}`.
       # At exit: cycle leak: 1 objects (Hash x1)
       # `YAML.safe_load`'s option machinery: an alias without `aliases: true`
-      # raises Psych::AliasesNotEnabled (zeo silently resolves `*x` to nil --
+      # raises Psych::AliasesNotEnabled (zr silently resolves `*x` to nil --
       # data loss -- and ignores the option, so even `aliases: true` answers
       # nil); a Symbol without `permitted_classes: [Symbol]` raises
-      # Psych::DisallowedClass (zeo loads it); and `permitted_classes: [Date]`
-      # loads a date scalar as Date (zeo raises NameError). (Found by the
+      # Psych::DisallowedClass (zr loads it); and `permitted_classes: [Date]`
+      # loads a date scalar as Date (zr raises NameError). (Found by the
       # 2026-08-24 probe sweep.)
       require "yaml"
       begin

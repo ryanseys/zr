@@ -6,7 +6,7 @@ describe "YAML programs" do
   it "binary string survives a yaml round trip" do
     result = zr(<<~'RUBY')
       # A BINARY string is not valid UTF-8, so YAML carries it as a `!!binary`
-      # base64 scalar and loads it back byte-for-byte. zeo's round trip answers a
+      # base64 scalar and loads it back byte-for-byte. zr's round trip answers a
       # string that no longer equals the one it dumped.
       #
       # Carved out of tests/probe_roundtrip.rb ("yaml:string_binary").
@@ -462,7 +462,7 @@ describe "YAML programs" do
       built_alias = aliased.to_ruby
       show "alias resolved", built_alias["a"].equal?(built_alias["b"])
 
-      # `Nodes::Node#yaml` is deliberately absent from these rows: zeo refuses it
+      # `Nodes::Node#yaml` is deliberately absent from these rows: zr refuses it
       # (see tests/gaps/a_psych_node_tree_emits_yaml.rb) and ruby raises a
       # different error again for a bare Document, so the row would compare two
       # unrelated refusals rather than one behaviour.
@@ -532,7 +532,7 @@ describe "YAML programs" do
       # is gated (Psych::Set needs permitting), `!!omap` loads as a Hash,
       # `!ruby/symbol` is gated behind `permitted_classes: [Symbol]` (and
       # converts when permitted, incl. under unsafe_load), and `!ruby/object:`
-      # is gated. zeo ignores the tags wholesale. (Found by the 2026-08-24
+      # is gated. zr ignores the tags wholesale. (Found by the 2026-08-24
       # probe sweep.)
       require "yaml"
       def show
@@ -569,7 +569,7 @@ describe "YAML programs" do
   it "a << merge key splices the referenced mapping in, as an alias, a list or an inline mapping" do
     result = zr(<<~'RUBY')
       # The `<<` merge key splices the referenced mapping(s) into the host
-      # mapping -- single alias, alias list, and inline mapping forms. zeo
+      # mapping -- single alias, alias list, and inline mapping forms. zr
       # keeps a literal "<<" key (with the earlier alias bug feeding it nil).
       # (Found by the 2026-08-24 probe sweep.)
       require "yaml"

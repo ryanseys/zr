@@ -683,7 +683,7 @@ describe "Exceptions: frozen literals" do
   it "reopening a frozen class raises" do
     result = zr(<<~'RUBY')
       # A REOPEN of a frozen class is a `FrozenError` and its body never runs -- so
-      # the methods that body would have installed do not exist. zeo's compile-time
+      # the methods that body would have installed do not exist. zr's compile-time
       # tables already carry them, so the guard retires them at the reopen's own
       # position. Gated on the program calling `freeze` at all: without one the shape
       # is unreachable and no name loses its static dispatch.

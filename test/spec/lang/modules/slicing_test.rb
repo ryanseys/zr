@@ -39,7 +39,7 @@ describe "Modules: slicing" do
       # class that mixed the module in, in a module that includes it, and in an
       # object that extended it.
       #
-      # zeo used to answer the last body everywhere, because a module's rows reach
+      # zr used to answer the last body everywhere, because a module's rows reach
       # a host by MATERIALIZATION -- analyze copies them onto each includer once,
       # for the whole program -- so the reopen's body was the one that got copied
       # and there was no position to install it at. `analyze::redefs` gives it the
@@ -346,25 +346,23 @@ describe "Modules: slicing" do
 
   it "reopen module and class" do
     result = zr(<<~'RUBY')
-      # Reopening `Module` and `Class` themselves. Zeo rejected both outright --
-      # they were the last two builtins excluded from the reopen path, on the
-      # reasoning that a `RubyValue::Class` receiver has no per-value dispatch to
-      # hang a method on. It does: a class value's own ancestry runs `Class ->
-      # Module -> Object`, which is exactly the chain the MRO walk already takes, so
-      # the added methods register as value methods like any other builtin reopen.
+      # Reopening `Module` and `Class` themselves must work. A class value's
+      # own ancestry runs `Class -> Module -> Object`, so a method added by
+      # reopening either one registers correctly, like any other builtin
+      # reopen.
       #
       # minitest's spec.rb opens with `class Module; def infect_an_assertion ...`
       # and calls it 34 times to build the expectations DSL.
       class Module
-        def zeo_tag = "mod:#{name}"
+        def zr_tag = "mod:#{name}"
 
-        def zeo_define(sym)
+        def zr_define(sym)
           class_eval "def #{sym}; :#{sym}_ran; end"
         end
       end
 
       class Class
-        def zeo_kind = "class:#{name}"
+        def zr_kind = "class:#{name}"
       end
 
       module M; end
@@ -372,26 +370,26 @@ describe "Modules: slicing" do
       class D < C; end
 
       # Every module and every class answers the Module reopen...
-      p M.zeo_tag
-      p C.zeo_tag
-      p String.zeo_tag
-      p Comparable.zeo_tag
+      p M.zr_tag
+      p C.zr_tag
+      p String.zr_tag
+      p Comparable.zr_tag
 
       # ...and only classes answer the Class reopen.
-      p C.zeo_kind
-      p D.zeo_kind
-      p Integer.zeo_kind
-      p M.respond_to?(:zeo_kind)
+      p C.zr_kind
+      p D.zr_kind
+      p Integer.zr_kind
+      p M.respond_to?(:zr_kind)
 
       # A method added to Module is a real instance method of it, so the reflection
       # surface agrees.
-      p Module.instance_method(:zeo_tag).owner
-      p Class.method_defined?(:zeo_tag)
+      p Module.instance_method(:zr_tag).owner
+      p Class.method_defined?(:zr_tag)
       p M.is_a?(Module)
 
       # The reopened method doing what minitest's does: defining methods on the
       # receiver from a computed string.
-      C.zeo_define(:greet)
+      C.zr_define(:greet)
       p C.new.greet
 
       # A reopen must not displace the builtin surface it sits beside.

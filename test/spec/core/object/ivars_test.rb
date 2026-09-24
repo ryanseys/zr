@@ -347,9 +347,9 @@ describe "Object: instance and class variables" do
 
   it "class ivar is reachable from a block inside a class method" do
     result = zr(<<~'RUBY')
-      # The block captures `self` as a plain `RubyValue::Class`, so the ivar
-      # resolves through `ivar_get_dyn`/`ivar_set_dyn`'s Class arm rather than
-      # the static class-id path -- the two must agree on the same storage.
+      # The block captures `self` as the class itself, so the ivar
+      # resolves through the dynamic lookup path rather than the static
+      # class-id path -- the two must agree on the same storage.
 
       class Blk
         @vals = []
@@ -1501,7 +1501,7 @@ describe "Object: instance and class variables" do
     result = zr(<<~'RUBY')
       # `instance_variable_get`/`set` validate the whole name: "@@bad" (a class
       # variable spelling) raises NameError "'@@bad' is not allowed as an
-      # instance variable name". zeo answers nil for the get. A plain bad name
+      # instance variable name". zr answers nil for the get. A plain bad name
       # (:novar) is already refused. (Found by the 2026-08-24 probe sweep.)
       begin
         p Object.new.instance_variable_get("@@bad")
@@ -2237,7 +2237,7 @@ describe "Object: instance and class variables" do
     result = zr(<<~'RUBY')
       # Ruby lets you hang an instance variable on almost anything. An Object keeps
       # its ivars in its own struct and a class keeps them in `civars`; a bare
-      # Array/String/Hash/Proc has neither, so zeo stores theirs in an
+      # Array/String/Hash/Proc has neither, so zr stores theirs in an
       # identity-keyed table beside the value (`value_ivars`).
       #
       # The permanently-frozen tier is the only refusal, and it is a FrozenError
@@ -2505,11 +2505,11 @@ describe "Object: instance and class variables" do
   it "module method serves two ivar layouts" do
     result = zr(<<~'RUBY')
       # One `def` in a module, included into classes that lay their ivars out
-      # differently. `codegen::share` emits a widely-inherited body ONCE, over a
-      # `RubyValue` receiver, and an ivar access in that body carries the SLOT INDEX
-      # -- so a group whose members disagree about where a name sits must not share.
+      # differently. A widely-inherited method body is compiled ONCE, and an
+      # ivar access in that body carries the SLOT INDEX -- so a group whose
+      # members disagree about where a name sits must not share.
       #
-      # `analyze::mro` lays slots out furthest-ancestor-first, which makes the module's
+      # Slots are laid out furthest-ancestor-first, which makes the module's
       # own names sort ahead of the includer's: `A` and `B` below would agree if the
       # only difference were their own ivars. A SUPERCLASS is what splits them --
       # `Base#initialize`'s `@a` takes slot 0 on `A`, pushing the module's `@x` to

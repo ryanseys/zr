@@ -14,14 +14,14 @@ describe "Hash programs" do
       # caller left on the Hash is what separates the two calls. `File.open` reads its
       # mode the same way.
       #
-      # Zeo peeled ANY trailing Hash off a `**kwrest` row, which could not tell them
+      # Zr peeled ANY trailing Hash off a `**kwrest` row, which could not tell them
       # apart. The strict peel (`**opts!`) takes only a Hash the caller marked,
       # leaving a braced one where the caller put it -- in the mode slot, where
       # converting it to a String is the whole of CRuby's answer.
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_braced_mode")
+      DIR = Dir.mktmpdir("zr_braced_mode")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\n")
 
@@ -204,7 +204,7 @@ describe "Hash programs" do
     result = zr(<<~'RUBY')
       # `Dir.chdir`'s block form restores the previous directory afterwards.
 
-      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_chdir_#{Process.pid}")
+      dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_e2e_chdir_#{Process.pid}")
       Dir.mkdir(dir)
       begin
         before = Dir.pwd
@@ -828,7 +828,7 @@ describe "Hash programs" do
   it "adding a key during each raises, where writing an existing one does not" do
     result = zr(<<~'RUBY')
       # Ruby forbids adding a new key to a Hash while iterating it: RuntimeError
-      # "can't add a new key into hash during iteration". zeo's Hash#each takes no
+      # "can't add a new key into hash during iteration". zr's Hash#each takes no
       # iteration borrow, so the insert silently succeeds. Updating an EXISTING key
       # stays legal on both sides (the control below).
       h = { a: 1, b: 2 }

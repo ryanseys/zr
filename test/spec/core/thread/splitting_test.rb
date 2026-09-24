@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Thread: splitting and joining" do
   it "blocked thread is asleep" do
     result = zr(<<~'RUBY')
-      # A thread waiting on a blocking primitive is "sleep", not "run". zeo used to
+      # A thread waiting on a blocking primitive is "sleep", not "run". zr used to
       # answer "run" for every one of them, because only the `Thread.stop` latch
       # said "sleep" -- and that latch cannot be reused, since the stop loop spins
       # on it.

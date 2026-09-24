@@ -101,7 +101,7 @@ describe "Eval programs" do
       p seen.sort
       p shadowed
 
-      # A destructuring block parameter binds the names it destructures, and zeo's
+      # A destructuring block parameter binds the names it destructures, and zr's
       # own internal slot for the un-destructured value is not one of them.
       names = nil
       [[[1, 2], 9]].each do |(x, y), i|
@@ -776,7 +776,7 @@ describe "Eval programs" do
       #
       # The definition itself always reached the right class: a brand-new name works
       # even without any of this. What failed was the CALL -- a receiver whose class
-      # zeo knows folds to the compiled body and never asks the overlay. So the names
+      # zr knows folds to the compiled body and never asks the overlay. So the names
       # a block-position `def` installs join `Compiler::runtime_redefs` beside the
       # explicit `define_method` calls, and the fold stands down for them.
       #
@@ -1124,7 +1124,7 @@ describe "Eval programs" do
   it "destructured param in a binding" do
     result = zr(<<~'RUBY')
       # A parenthesized destructuring block parameter, in a scope that materializes
-      # a Binding. Zeo names the un-destructured slot internally (`__destr_0`) and
+      # a Binding. Zr names the un-destructured slot internally (`__destr_0`) and
       # listed it among the scope's own locals, which did two wrong things at once:
       # `local_variables` reported the synthetic name, and the slot was promoted to
       # a shared cell -- while the destructure that READS it runs in the prologue,
@@ -1228,7 +1228,7 @@ describe "Eval programs" do
       # `unexpected \'end\'`, at a line the program never wrote.
       #
       # `rubygems/vendor/uri/lib/uri/common.rb` is written exactly that way, and
-      # this was the second thing standing between zeo and `require "rubygems"`.
+      # this was the second thing standing between zr and `require "rubygems"`.
       #
       # Slicing from the end of the class HEADER hands back the text the program
       # wrote, openers included.
@@ -2872,14 +2872,14 @@ describe "Eval programs" do
   it "protected reach from instance eval" do
     result = zr(<<~'RUBY')
       # `protected` asks whether the CALLER's `self` is a kind of the method's owner.
-      # zeo answers that from the class the call SITE sits in -- a compile-time
+      # zr answers that from the class the call SITE sits in -- a compile-time
       # constant baked into the site (`codegen::call::visibility::caller_class`,
       # recorded in the `CallSite`) -- so anything that changes `self` at RUN time
       # without changing the enclosing class is invisible to it.
       #
       # `instance_eval` and `instance_exec` are the whole population: the block's
       # `self` becomes the receiver, so ruby lets it reach that receiver's protected
-      # methods, while zeo still sees the class the block was WRITTEN in.
+      # methods, while zr still sees the class the block was WRITTEN in.
       #
       # Fix shape: the caller class is the only compile-time input to
       # `dispatch::explicit_call_barrier`. A block that `instance_eval` re-homes

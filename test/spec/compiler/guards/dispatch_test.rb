@@ -76,7 +76,7 @@ describe "Guards: dispatch" do
       # where it is written -- inside the class-body frame, with `self` bound to the
       # class.
       #
-      # Zeo lifts a class body's sole `if` statement back out into the enclosing
+      # Zr lifts a class body's sole `if` statement back out into the enclosing
       # scope, because analyze SYNTHESIZES exactly that shape when it pushes a
       # `class X ... end if cond` guard into the body: there the condition was
       # written outside, and its locals live outside. A guard the source wrote
@@ -111,34 +111,34 @@ describe "Guards: dispatch" do
       # A trailing `if`/`unless` on a `class` keyword belongs to the ENCLOSING
       # scope, not to the class body: ruby evaluates it there (a raise inside one
       # reports the enclosing frame, never `<class:X>`), and the locals it reads are
-      # the enclosing scope's. zeo lifts a class body to its own function, so the
+      # the enclosing scope's. zr lifts a class body to its own function, so the
       # guard has to stay outside it.
 
       on = true
 
       class String
-        def zeo_probe = "string probed"
+        def zr_probe = "string probed"
       end if on
 
-      p "x".zeo_probe
+      p "x".zr_probe
 
       # `unless` puts the body in the other branch and runs when the guard is FALSE.
       off = false
 
       class Symbol
-        def zeo_probe = "symbol probed"
+        def zr_probe = "symbol probed"
       end unless off
 
-      p :s.zeo_probe
+      p :s.zr_probe
 
       # The guard is an ordinary expression, not just a bare read.
       label = "yes"
 
       class Integer
-        def zeo_probe = "integer probed"
+        def zr_probe = "integer probed"
       end if label == "yes"
 
-      p 1.zeo_probe
+      p 1.zr_probe
 
       # A guard that does NOT pass defines nothing at all.
       class NeverDefined
@@ -156,7 +156,7 @@ describe "Guards: dispatch" do
       def boom = raise("guard raised")
       begin
         class Float
-          def zeo_probe = 1
+          def zr_probe = 1
         end if boom
       rescue => e
         puts e.message
@@ -168,21 +168,21 @@ describe "Guards: dispatch" do
       FLAG = false
       class Array
         if FLAG
-          def zeo_probe = "never"
+          def zr_probe = "never"
         else
-          def zeo_probe = "array probed"
+          def zr_probe = "array probed"
         end
       end
-      p [].zeo_probe
+      p [].zr_probe
 
       # A class body's own local shadows the enclosing one rather than sharing it.
       shadowed = "outer"
       class Hash
         shadowed = "inner"
-        def zeo_probe = "hash probed"
+        def zr_probe = "hash probed"
       end if on
       p shadowed
-      p({}.zeo_probe)
+      p({}.zr_probe)
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -748,7 +748,7 @@ describe "Guards: dispatch" do
 
   it "folded guard still sets the match" do
     result = zr(<<~'RUBY')
-      # A condition zeo folds at compile time must not eat the condition's own
+      # A condition zr folds at compile time must not eat the condition's own
       # EFFECT. `=~` writes `$~`, so `if RUBY_PLATFORM =~ /darwin|linux/` leaves a
       # match behind in ruby and the next line may read it.
       #
@@ -952,7 +952,7 @@ describe "Guards: dispatch" do
       end
       p Native.new.which
 
-      # A predicate whose body zeo cannot decide leaves its guard to run, exactly as
+      # A predicate whose body zr cannot decide leaves its guard to run, exactly as
       # an undecidable guard written inline would.
       module Runtime
         def self.enabled? = ENV.fetch("ZR_TEST_NAMED_PREDICATE_UNSET", "off") == "on"
@@ -1036,7 +1036,7 @@ describe "Guards: dispatch" do
     result = zr(<<~'RUBY')
       # Ruby's parser creates a local binding for an assignment it never runs, so
       # `if false; x = 1; end; p x` answers nil rather than raising NameError. A
-      # class-body guard zeo decides at compile time is spliced away entirely --
+      # class-body guard zr decides at compile time is spliced away entirely --
       # and the binding has to survive it, because the line after usually reads
       # the name. resolv.rb's `DefaultFileName = hosts || '/etc/hosts'` sits right
       # under the windows-only `if` that assigns `hosts`.
@@ -1148,7 +1148,7 @@ describe "Guards: dispatch" do
     result = zr(<<~'RUBY')
       # A gem writes `if RUBY_ENGINE == "truffleruby"` around a whole `class`/`def`
       # to pick an engine-specific implementation (prism's serializer does exactly
-      # this for its StringIO). zeo reports MRI's own identity, so the guard decides
+      # this for its StringIO). zr reports MRI's own identity, so the guard decides
       # at compile time and only the CRuby branch is registered -- without the fold,
       # the class in the untaken branch reached codegen as a definition the analyze
       # walk never registered.
@@ -1191,7 +1191,7 @@ describe "Guards: dispatch" do
       p Engine.new.which
       p Engine.built
 
-      # A guard whose predicate zeo cannot decide keeps BOTH branches and settles it
+      # A guard whose predicate zr cannot decide keeps BOTH branches and settles it
       # at runtime, which is what protects every gate this fold does not reach.
       class Dynamic
         if ENV.fetch("ZR_TEST_NOT_SET", "") == "yes"

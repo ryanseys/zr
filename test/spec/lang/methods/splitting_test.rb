@@ -280,7 +280,7 @@ describe "Methods: splitting and joining" do
       # Redefining an already-compiled method AT RUNTIME has to take effect.
       #
       # A runtime definition lands in the overlay, and only DYNAMIC dispatch consults
-      # it -- so a call whose receiver class zeo knows at compile time keeps answering
+      # it -- so a call whose receiver class zr knows at compile time keeps answering
       # with the compiled body. Path 1 therefore de-optimizes any name a runtime
       # definition site could install (`Compiler::runtime_redefs`), the same way a
       # guarded `undef_method` already de-optimizes its own.
@@ -299,7 +299,7 @@ describe "Methods: splitting and joining" do
       n = Node.new(7)
       p n.value
 
-      # A COMPUTED name, so the literal-name `define_method` lowering (which zeo
+      # A COMPUTED name, so the literal-name `define_method` lowering (which zr
       # compiles as an ordinary `def`) cannot see it.
       name = [:va, :lue].join.to_sym
       Node.send(:define_method, name) { "dyn-#{@value}" }
@@ -679,7 +679,7 @@ describe "Methods: splitting and joining" do
         puts e.message
       end
 
-      # `class << self` writes its visibility verbs with no receiver at all: zeo
+      # `class << self` writes its visibility verbs with no receiver at all: zr
       # synthesizes one, and that synthetic receiver must not raise the barrier.
       # (The verbs' RUNTIME form -- `private(*names)` -- is a separate question
       # about which table a singleton body writes; see the singleton-visibility

@@ -296,8 +296,7 @@ describe "OpenSSL programs" do
       # alias breaks its contract in three ways. The consequence is that an HTTPS
       # request over a KEEP-ALIVE connection never returns -- not a timeout, a hang.
       #
-      # The three divergences, which the module header in
-      # `ext/openssl/ssl/buffering.rs` already admits to:
+      # The three divergences:
       #
       #   1. it BLOCKS. `readpartial` waits for a byte; `read_nonblock` must answer
       #      `:wait_readable` at once when none is ready.
@@ -328,7 +327,7 @@ describe "OpenSSL programs" do
       #
       # The module mixes into any object supplying the `sys*` primitives, which is
       # what lets this run with no socket and no network. That reaches divergences
-      # 2 and 3 directly, and proves the first by omission: zeo never calls
+      # 2 and 3 directly, and proves the first by omission: zr never calls
       # `sysread_nonblock` at all, because its `read_nonblock` IS `readpartial`.
       #
       # Blocks the gem probe's port to ruby, which fetches over HTTPS.
@@ -1002,7 +1001,7 @@ describe "OpenSSL programs" do
 
     result = zr(<<~'RUBY')
       # OpenSSL::Cipher over the vendored libcrypto EVP. Legacy-provider names
-      # (RC4, BF-CBC) fail at new under OpenSSL 3, in zeo as under CRuby.
+      # (RC4, BF-CBC) fail at new under OpenSSL 3, in zr as under CRuby.
       require "openssl"
 
       puts "-- metadata --"
@@ -1128,7 +1127,7 @@ describe "OpenSSL programs" do
         p [e.class, e.message]
       end
       # RC4/BF live in OpenSSL 3's legacy provider, so `new` fails on both
-      # runtimes. (Camellia/IDEA/SEED are additionally absent from zeo's vendored
+      # runtimes. (Camellia/IDEA/SEED are additionally absent from zr's vendored
       # build -- a documented divergence, so they are not exercised here.)
       %w[DES-EDE3-CBC RC4 BF-CBC aes-192-cbc].each do |n|
         begin
@@ -1217,7 +1216,7 @@ describe "OpenSSL programs" do
   it "the library version strings keep the shape a build-specific value allows" do
     result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
-      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # Library version STRINGS are build-specific (zr vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
       require "openssl"
 
@@ -1241,7 +1240,7 @@ describe "OpenSSL programs" do
   it "Digest answers its name and its hexdigest" do
     result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
-      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # Library version STRINGS are build-specific (zr vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
       require "openssl"
 
@@ -1311,7 +1310,7 @@ describe "OpenSSL programs" do
   it "HMAC answers the digest of a key and a message" do
     result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
-      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # Library version STRINGS are build-specific (zr vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
       require "openssl"
 
@@ -1362,7 +1361,7 @@ describe "OpenSSL programs" do
   it "the KDF rows derive a key from a password and a salt" do
     result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
-      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # Library version STRINGS are build-specific (zr vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
       require "openssl"
 
@@ -1401,7 +1400,7 @@ describe "OpenSSL programs" do
   it "Random answers binary bytes of the length it is asked for" do
     result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
-      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # Library version STRINGS are build-specific (zr vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
       require "openssl"
 
@@ -1433,7 +1432,7 @@ describe "OpenSSL programs" do
   it "OpenSSLError descends from StandardError, and each module's error from it" do
     result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
-      # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
+      # Library version STRINGS are build-specific (zr vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
       require "openssl"
 
@@ -2356,8 +2355,8 @@ describe "OpenSSL programs" do
 
       require "yaml"
       require "openssl"
-      y = File.join(ENV["TMPDIR"] || "/tmp", "zeo_yaml_probe_#{Process.pid}.yml")
-      File.write(y, "name: zeo\ncount: 3\n")
+      y = File.join(ENV["TMPDIR"] || "/tmp", "zr_yaml_probe_#{Process.pid}.yml")
+      File.write(y, "name: zr\ncount: 3\n")
       loads = 2.times.map { Thread.new { YAML.load_file(y) } }
       entropy = Thread.new { OpenSSL::Random.random_bytes(16) }
       docs = loads.map(&:value)
@@ -2369,7 +2368,7 @@ describe "OpenSSL programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "zeo"
+      "zr"
       3
       16
     OUT

@@ -8,7 +8,7 @@ describe "Struct programs" do
       # A generated WRITER's reported parameter, which differs by where it came from.
       #
       # ruby names an `attr_writer`/`attr_accessor` slot NOTHING -- the C accessor
-      # entry declares only a count -- and names a Struct member's slot `_`. zeo
+      # entry declares only a count -- and names a Struct member's slot `_`. zr
       # spells both as the same generated accessor, so the struct half renames its
       # slot after lowering; the mark that elides the frame survives either way.
 
@@ -1353,7 +1353,7 @@ describe "Struct programs" do
     result = zr(<<~'RUBY')
       # A custom `initialize` in the block calls `super` (bare or explicit,
       # positional) into the synthesized member-setter, reached via a two-level
-      # base/leaf hierarchy -- not the old "no initialize above" panic.
+      # base/leaf hierarchy -- not the old "no initialize above" crash.
 
       Trip = Struct.new(:x, :y, :z) do
         def initialize(x, y)
@@ -1565,10 +1565,10 @@ describe "Struct programs" do
       # KEYWORDS to a Struct constructor build the wrong instance. A Struct
       # declared WITHOUT `keyword_init:` still accepts keywords -- ruby decides by
       # whether the CALLER passed keywords, not by how the class was declared --
-      # and zeo takes the trailing Hash as the first member's value instead:
+      # and zr takes the trailing Hash as the first member's value instead:
       #
       #     Pair.new(a: 1)   ruby #<struct Pair a=1, b=nil>
-      #                      zeo  #<struct Pair a={a: 1}, b=nil>
+      #                      zr  #<struct Pair a={a: 1}, b=nil>
       #
       # `bind_members` decides from the argument shape plus the declared
       # `keyword_init`, because the keyword-vs-positional-Hash flag ruby reads

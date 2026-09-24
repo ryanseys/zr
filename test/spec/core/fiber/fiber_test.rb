@@ -309,7 +309,7 @@ describe "Fiber programs" do
         Fiber.schedule do
           ops << :started
           File.open(__FILE__) { |f| ops << f.gets }
-          path = File.join(Dir.tmpdir, "zeo_blocking_#{$$}")
+          path = File.join(Dir.tmpdir, "zr_blocking_#{$$}")
           File.write(path, "x")
           ops << File.exist?(path) << File.size(path)
           File.delete(path)

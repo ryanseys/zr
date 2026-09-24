@@ -861,8 +861,8 @@ describe "Fusion programs" do
 
   it "freeze and frozen predicate work on a poly typed receiver" do
     result = zr(<<~'RUBY')
-      # A method parameter is always statically Poly -- the universal
-      # `RubyValue::freeze_value`/`is_frozen` path, not the type-gated ones.
+      # A method parameter is always generically typed, so `freeze`/`frozen?`
+      # take the universal path, not one of the type-gated fast paths.
 
       class Once
         def run(x)
@@ -1311,7 +1311,8 @@ describe "Fusion programs" do
       p K.new(1).size
 
       # A runtime subclass of a value-backed builtin reaches its rows THROUGH the
-      # payload -- handing the row a boxed object instead panicked its downcast.
+      # payload -- handing it the wrong kind of boxed object used to crash
+      # instead of raising.
       A2 = Class.new(Array)
       p [A2.new([1, 2, 3]).size, A2.new([1, 2]).first, A2.new([1]).class == A2]
       S3 = Class.new(String)
@@ -1867,12 +1868,12 @@ describe "Fusion programs" do
   it "keywords refused message" do
     result = zr(<<~'RUBY')
       # `**nil` in a signature declares that the method takes NO keywords. Passing
-      # some is `ArgumentError: no keywords accepted`; zeo reports an arity error
+      # some is `ArgumentError: no keywords accepted`; zr reports an arity error
       # instead, having folded the keywords into a trailing positional Hash.
       #
       # The distinction is the point of the syntax (ruby 3.0): before it, a method
       # with no keyword parameters silently accepted `f(1, b: 2)` as a Hash argument,
-      # and `**nil` is how you say that the old behaviour is not wanted. zeo's message
+      # and `**nil` is how you say that the old behaviour is not wanted. zr's message
       # -- "wrong number of arguments (given 2, expected 1)" -- describes exactly the
       # conversion `**nil` exists to forbid, so the diagnosis points the reader at the
       # wrong problem.
@@ -1943,7 +1944,7 @@ describe "Fusion programs" do
     result = zr(<<~'RUBY')
       # The FIRST line pins the tie order of `Array#sort!`: this comparator orders by
       # a pair of ranks, so ties are common, and the answer is whatever the C library
-      # leaves behind. It was a divergence until zeo sorted through the same
+      # leaves behind. It was a divergence until zr sorted through the same
       # `qsort_r` CRuby's `ruby_qsort` calls. That makes the line PER PLATFORM, so
       # there are two goldens: `.expected` is macOS, `.linux.expected` linux.
       #
@@ -2423,7 +2424,7 @@ describe "Fusion programs" do
     result = zr(<<~'RUBY')
       # `require X if RUBY_ENGINE == "jruby"` names another engine's code; a
       # whole-program AOT compiler eager-splices every literal require it sees,
-      # but this one's guard folds statically false on CRuby-targeting zeo, so
+      # but this one's guard folds statically false on CRuby-targeting zr, so
       # the target must be PRUNED, not spliced (splicing would fail to resolve
       # it). The program compiles and the guarded require is simply dead.
 
@@ -2457,7 +2458,7 @@ describe "Fusion programs" do
       # Visibility is a RUNTIME property in ruby: `private :name` re-marks a method
       # that already exists, and every later call sees the new mark.
       #
-      # A call whose receiver class zeo knows at compile time is a direct call to the
+      # A call whose receiver class zr knows at compile time is a direct call to the
       # generated function, and it decided visibility once -- when it was emitted. So
       # the names a runtime visibility verb could re-mark join the same
       # `Compiler::runtime_patches` set a runtime `define_method` feeds, and the fold
@@ -2921,7 +2922,7 @@ describe "Fusion programs" do
 
   it "spliced files locals stay isolated through control flow" do
     result = zr(<<~'RUBY', files: beside("spliced_locals/inner.rb"))
-      # Real Ruby gives every `require`d file its own top-level local scope. zeo
+      # Real Ruby gives every `require`d file its own top-level local scope. zr
       # splices every file into one `Program`, so it renames each file's top-level
       # locals to keep them apart. That renaming walk had a hand-written arm for
       # every node kind an assignment can hide behind -- `if`, `while`, `case`,

@@ -6,13 +6,13 @@ describe "Builtins programs" do
   it "accessor devirtualized surface" do
     result = zr(<<~'RUBY')
       # A method whose whole body is one ivar access reaches the field directly
-      # from the dynamic dispatch table (`zeo_tramp!`'s `rd`/`wr` heads) instead of
+      # from the dynamic dispatch table (`zr_tramp!`'s `rd`/`wr` heads) instead of
       # downcasting and calling the generated method. Everything OBSERVABLE about
       # such a method must survive that: reflection, visibility, arity errors, the
       # frozen guard, inheritance and aliasing.
       #
       # A RUNTIME redefinition winning over an accessor is the one part not pinned
-      # here -- zeo does not honour it for a plain method either, so it lives in
+      # here -- zr does not honour it for a plain method either, so it lives in
       # `tests/gaps/issue_runtime_redefine_accessor.rb` rather than pretending to be
       # something devirtualization introduced.
       class Node
@@ -475,7 +475,7 @@ describe "Builtins programs" do
       # names nothing where ruby names nothing.
       #
       # CLOSED 2026-08-24. The whole-surface census is zero: over 2,594 rows both
-      # ruby 4.0.6 and zeo declare, `#parameters` and `#arity` agree on every one.
+      # ruby 4.0.6 and zr declare, `#parameters` and `#arity` agree on every one.
       #
       # The mechanism landed 2026-08-21 -- the DSL spells a row's signature per NAME
       # (`params "fmt, buffer: nil"`) in ruby's own `def` spelling, and the ARITY
@@ -511,7 +511,7 @@ describe "Builtins programs" do
       #     answered `[] / 0` where ruby says `[[:rest]] / -1`.
       #
       #   * A generated WRITER. ruby names an `attr_accessor` slot NOTHING and a
-      #     Struct member's slot `_`; zeo spelled both `value`. Both are the same
+      #     Struct member's slot `_`; zr spelled both `value`. Both are the same
       #     generated accessor here, so the attr slot became `__value` (which
       #     `param_entries` reports anonymously) and the struct fold renames its
       #     slot after lowering -- keeping the mark that elides the frame.
@@ -564,7 +564,7 @@ describe "Builtins programs" do
 
       # A protected builtin row IS reachable when the CALLER's self is a kind of the
       # owner, which is the whole point of the third state rather than a second
-      # flavour of private. Spelled as a REOPEN, because zeo decides the caller from
+      # flavour of private. Spelled as a REOPEN, because zr decides the caller from
       # the class the call site sits in -- a compile-time answer, so `instance_eval`
       # does not move it (see tests/gaps/protected_reach_from_instance_eval.rb).
       class Pathname
@@ -943,7 +943,7 @@ describe "Builtins programs" do
       # compares the first against nothing and answers a value unrelated to the pair.
       # Every pair then ties or contradicts, and the order that comes out is the sort
       # algorithm's rather than the program's -- which makes line 7 a pin on the
-      # algorithm itself. It was a divergence until zeo sorted through the same
+      # algorithm itself. It was a divergence until zr sorted through the same
       # `qsort_r` CRuby's `ruby_qsort` calls.
 
       p [1, 5, 3].max { |x| -x }
@@ -1602,7 +1602,7 @@ describe "Builtins programs" do
         end
       end
       begin
-        Dir.chroot("/nonexistent-zeo-probe")
+        Dir.chroot("/nonexistent-zr-probe")
       rescue SystemCallError => e
         puts "Dir.chroot: #{e.class}"
       end
@@ -1616,12 +1616,11 @@ describe "Builtins programs" do
 
   it "dynamic dispatch wrong arity raises a rescuable argument error" do
     result = zr(<<~'RUBY')
-      # `send` routes through `emit_dynamic_trampoline`, whose arity guard used
-      # to `panic!` -- a process abort where Ruby raises a RESCUABLE
-      # ArgumentError. Now it emits `return Err(raise_error("ArgumentError",
-      # ...))`, so the program survives every mismatch and the final line
-      # prints. All three message shapes -- fixed `N`, range `N..M`, and the
-      # rest form `N+` -- are oracle-verified against ruby 4.0.6.
+      # `send`'s arity guard used to abort the whole process instead of raising
+      # a RESCUABLE ArgumentError, as Ruby does. Now the program survives every
+      # mismatch and the final line prints. All three message shapes -- fixed
+      # `N`, range `N..M`, and the rest form `N+` -- are oracle-verified against
+      # ruby 4.0.6.
 
       class A
         def fixed(a) = a
@@ -1682,11 +1681,11 @@ describe "Builtins programs" do
       # ordinary subclass owns none of them.
       puts "invalid own: #{Encoding::InvalidByteSequenceError.instance_methods(false).sort.inspect}"
       puts "undef own: #{Encoding::UndefinedConversionError.instance_methods(false).sort.inspect}"
-      # `respond_to?` is the one row zeo files on Kernel rather than Exception -- an
+      # `respond_to?` is the one row zr files on Kernel rather than Exception -- an
       # accepted owner divergence in the census, subtracted so the rest can be exact.
       puts "Exception own: #{(Exception.instance_methods(false).sort - [:respond_to?]).inspect}"
       # `#initialize` is Exception's and PRIVATE, so it appears here and in neither
-      # public listing. (zeo files `method_missing`/`respond_to_missing?` on
+      # public listing. (zr files `method_missing`/`respond_to_missing?` on
       # BasicObject rather than restating them here, which reflection does not gate.)
       puts "Exception private initialize: #{Exception.private_instance_methods(false).include?(:initialize)}"
       puts "KeyError own: #{KeyError.instance_methods(false).sort.inspect}"
@@ -2125,7 +2124,7 @@ describe "Builtins programs" do
 
     result = zr(<<~'RUBY')
 
-      # `Errno` is generated from one table (`zeo_abi::ERRNO_CLASSES`), so every name
+      # `Errno` is generated from one table (`Errno::CODES`), so every name
       # the platform errno list carries exists -- not just the dozen the runtime
       # happened to raise. A name the platform does not define is bound to
       # `Errno::NOERROR`, and a second spelling of one value is bound to the class
@@ -2239,7 +2238,7 @@ describe "Builtins programs" do
 
   it "exception private rows" do
     result = zr(<<~'RUBY')
-      # `Exception` declares three private rows of its own, not one. zeo had only
+      # `Exception` declares three private rows of its own, not one. zr had only
       # `#initialize`, so `method_missing` and `respond_to_missing?` reported
       # `BasicObject` and `Kernel` as their owners and went missing from
       # `Exception.private_instance_methods(false)`.
@@ -2441,7 +2440,7 @@ describe "Builtins programs" do
     result = zr(<<~'RUBY')
       # `Kernel#autoload`/`#autoload?` -- the receiverless spellings, which ruby
       # files as private instance methods AND public singleton methods of `Kernel`.
-      # zeo answered `Kernel.autoload` off `Module`, so the call worked but every
+      # zr answered `Kernel.autoload` off `Module`, so the call worked but every
       # reflection question named the wrong owner.
 
       p Kernel.singleton_methods(false).grep(/autoload/).sort
@@ -2578,7 +2577,7 @@ describe "Builtins programs" do
       # A module's ancestry is itself alone, so a `Kernel` row is not in it -- and
       # CRuby's `rb_alias` retries the lookup on `Object` for exactly that case
       # (`vm_method.c`, the `RB_TYPE_P(klass, T_MODULE)` branch before
-      # `rb_print_undef`). Zeo checked only the ancestry and raised `NameError` at
+      # `rb_print_undef`). Zr checked only the ancestry and raised `NameError` at
       # program start.
       #
       # irb opens `IRB::IrbLoader` with two of them -- `alias ruby_load load` and
@@ -3861,7 +3860,7 @@ describe "Builtins programs" do
       puts Process.warmup
 
       # setproctitle echoes the title string back.
-      puts(Process.setproctitle("zeo-batch1") == "zeo-batch1")
+      puts(Process.setproctitle("zr-batch1") == "zr-batch1")
 
       # maxgroups reads back a positive Integer, and a write is clamped by the OS
       # ceiling (never larger than what we asked for) but stays positive.
@@ -3897,8 +3896,8 @@ describe "Builtins programs" do
       # `new_ostruct_member!` shape (`nil.instance_eval { Proc.new { ... } }`
       # then `::Ractor.make_shareable(proc)`), where the `::Ractor` cpath form
       # exercises the runtime class-method rows rather than the static fold.
-      # Oracle-verified. (zeo freezes without CRuby's isolation check -- see
-      # ractor.rs -- so the IsolationError arm is deliberately not pinned.)
+      # Oracle-verified. (zr freezes without CRuby's isolation check, so the
+      # IsolationError arm is deliberately not pinned.)
 
       name = :a
       pr = nil.instance_eval { Proc.new { name } }
@@ -4005,7 +4004,7 @@ describe "Builtins programs" do
 
   it "require gated builtin row is always present" do
     result = zr(<<~'RUBY')
-      # zeo registers a builtin's require-gated rows unconditionally, so a method
+      # zr registers a builtin's require-gated rows unconditionally, so a method
       # that ruby only grows after `require "io/console"` (or `"io/nonblock"`)
       # answers `respond_to?` and appears in `instance_methods(false)` in a program
       # that never required it.
@@ -4019,14 +4018,14 @@ describe "Builtins programs" do
       #
       # 36 rows on `IO` today. It matters beyond reflection because
       # `respond_to?(:getch)` is how a library decides whether the console
-      # extension is available, and zeo answers yes before the require.
+      # extension is available, and zr answers yes before the require.
       #
       # `IO#to_s` is a different bug in the same list: ruby inherits it from
-      # `Object` and zeo declares it as IO's own, so it shows up in
+      # `Object` and zr declares it as IO's own, so it shows up in
       # `instance_methods(false)`. And `pathconf` is MISSING, which is the
       # ordinary direction and belongs to the method census.
       #
-      # The census gates the "zeo is missing a row" direction only; this EXTRA
+      # The census gates the "zr is missing a row" direction only; this EXTRA
       # direction is ungated, which is why a cluster this size went unrecorded.
       #
       # Oracle: none of these rows exist until the library is required.
@@ -4048,7 +4047,7 @@ describe "Builtins programs" do
 
   it "require gated row waits for its require" do
     result = zr(<<~'RUBY')
-      # `io/console` and `io/nonblock` are require-gated extensions in ruby. zeo
+      # `io/console` and `io/nonblock` are require-gated extensions in ruby. zr
       # implements them natively, so their rows sit in `IO`'s own table -- one
       # class owns one table -- and used to be answerable before the require.
       #
@@ -4057,7 +4056,7 @@ describe "Builtins programs" do
       # `NoMethodError` is what it expects when it is not.
       #
       # `IO#to_s` is the same list's other half in the opposite direction: ruby
-      # inherits it from `Kernel` and zeo declared it as IO's own.
+      # inherits it from `Kernel` and zr declared it as IO's own.
       p IO.instance_methods(false).include?(:getch)
       p IO.instance_methods(false).include?(:nonblock)
       p IO.instance_methods(false).include?(:to_s)

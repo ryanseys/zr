@@ -25,7 +25,7 @@ describe "StringIO programs" do
   it "string io answers the same off either implementation" do
     result = zr(<<~'RUBY')
       # stringio -- the differential matrix all three implementations answer:
-      # ruby's C gem (the recorded text), zeo's native ext, and the pure port.
+      # ruby's C gem (the recorded text), zr's native ext, and the pure port.
       require "stringio"
 
       def t(label)
@@ -399,7 +399,7 @@ describe "StringIO programs" do
       #     `IO#printf`, so an explicit receiver is refused.
       #   * `each_char` -- absent entirely.
       #
-      # The shared cause is that zeo's StringIO carries its own hand-written row set
+      # The shared cause is that zr's StringIO carries its own hand-written row set
       # rather than inheriting IO's, so a name IO has and StringIO's list omits simply
       # is not there. `each_line` and `readlines` DO exist; only their `chomp:`
       # keyword is unmodelled.
@@ -436,7 +436,7 @@ describe "StringIO programs" do
     result = zr(<<~'RUBY')
       # `StringIO.open(string) { |io| ... }` must YIELD the new StringIO to the
       # block and answer the block's value, closing the io afterwards -- the same
-      # contract `File.open` has. zeo's row builds the StringIO and returns it,
+      # contract `File.open` has. zr's row builds the StringIO and returns it,
       # dropping the block entirely, so the answer is the io rather than what the
       # block computed.
       #
@@ -449,7 +449,7 @@ describe "StringIO programs" do
       p StringIO.open("hi") { |f| f.read }
       p StringIO.open("a\nb") { |f| f.readlines }
 
-      # Without a block it answers the io, which zeo already does.
+      # Without a block it answers the io, which zr already does.
       p StringIO.open("hi").class
 
       # The io is closed once the block returns.
@@ -505,9 +505,9 @@ describe "StringIO programs" do
   it "append mode seeks to the end before each write, and a read-only io refuses one" do
     result = zr(<<~'RUBY')
       # StringIO's write modes: append mode seeks to the END before each write
-      # (zeo overwrites from position 0 -- "cb" instead of "abc": data
+      # (zr overwrites from position 0 -- "cb" instead of "abc": data
       # corruption, not a missing error), and a read-only StringIO refuses a
-      # write with IOError (zeo writes and answers the byte count). (Found by
+      # write with IOError (zr writes and answers the byte count). (Found by
       # the 2026-08-24 probe sweep.)
       require "stringio"
       s = StringIO.new(+"ab", "a")
@@ -555,7 +555,7 @@ describe "StringIO programs" do
         def open? = !closed?
       end
 
-      path = File.join(Dir.tmpdir, "zeo_value_subclass_example.txt")
+      path = File.join(Dir.tmpdir, "zr_value_subclass_example.txt")
       File.write(path, "data")
       f = Managed.new(path)
       p [f.open?, f.read, f.class]

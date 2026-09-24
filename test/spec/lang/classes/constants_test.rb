@@ -101,7 +101,7 @@ describe "Classes: constants" do
 
   it "class body runs in document order" do
     result = zr(<<~'RUBY')
-      # A class body runs WHERE IT IS WRITTEN. zeo already emitted it there for a
+      # A class body runs WHERE IT IS WRITTEN. zr already emitted it there for a
       # body reached directly from the top level, but the reachability walk deciding
       # which bodies those are only descended through a class body and a box scope --
       # so a `class` inside any other statement container fell back to the prelude and
@@ -555,7 +555,7 @@ describe "Classes: constants" do
       # `const_missing` is never called for a constant read off a class the compiler
       # can name: `ClsHost::Whatever` raises `NameError` directly.
       #
-      # zeo resolves a qualified constant whose left side is a known class at COMPILE
+      # zr resolves a qualified constant whose left side is a known class at COMPILE
       # time, and a miss is baked as the raise. Ruby's miss is a call --
       # `rb_const_missing` -- so the hook gets its chance at run time. The hook exists
       # only to serve misses, so folding the miss removes the whole mechanism.
@@ -846,7 +846,7 @@ describe "Classes: constants" do
       #   class Token < Struct.new(:type, :value, :position, :binding_power)
       #     NULL_TOKEN = Token.new(:eof, '', nil)
       #
-      # zeo builds such a class as `Name = Class.new(sup) { body }`, which assigns the
+      # zr builds such a class as `Name = Class.new(sup) { body }`, which assigns the
       # constant only after the body has run -- so the self-reference raised
       # `uninitialized constant`. In the body `self` IS the class, which is the exact
       # answer; inside a `def` the constant is bound by the time the method can run,

@@ -11,7 +11,7 @@ describe "PTY programs" do
       require "expect"
       PTY.spawn("sh", "-c", "printf 'name? '; read n; echo hello $n") do |r, w, pid|
         p r.expect(/name\? /, 5)
-        w.puts "zeo"
+        w.puts "zr"
         p r.expect(/hello \w+/, 5)&.first&.strip
         p r.expect(/never/, 0.2)
       end
@@ -20,7 +20,7 @@ describe "PTY programs" do
 
     _(result).must_answer <<~'OUT'
       ["name? "]
-      "zeo\r\nhello z"
+      "zr\r\nhello z"
       nil
     OUT
   end
@@ -130,7 +130,7 @@ describe "PTY programs" do
 
       # A command that cannot start blames "fork failed", whatever the errno.
       begin
-        PTY.spawn("this-command-does-not-exist-zeo")
+        PTY.spawn("this-command-does-not-exist-zr")
       rescue SystemCallError => e
         p [e.class.to_s, e.message]
       end

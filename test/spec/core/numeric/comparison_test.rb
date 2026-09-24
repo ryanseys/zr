@@ -491,7 +491,7 @@ describe "Numeric: comparison and equality" do
       #
       # ONE ROW IS DELIBERATELY ABSENT. CRuby heap-allocates a NaN (it is outside
       # the flonum range), so two SEPARATELY COMPUTED NaNs are different objects
-      # and `[0.0/0.0] == [0.0/0.0]` is false there. Zeo's Float is an immediate,
+      # and `[0.0/0.0] == [0.0/0.0]` is false there. Zr's Float is an immediate,
       # so the two are one value and the answer is true. Giving a Float allocation
       # identity to recover that costs the whole numeric representation, and every
       # row below -- the ones a program actually writes -- already agrees.
@@ -607,12 +607,12 @@ describe "Numeric: comparison and equality" do
       # Comparing a Float against a BIGNUM answers the wrong way for the values
       # that do not fit a double's integer range.
       #
-      # CRuby compares exactly. zeo agrees on the ordinary pairs and diverges on
+      # CRuby compares exactly. zr agrees on the ordinary pairs and diverges on
       # the ones where the conversion loses -- which is the dangerous direction:
       # the comparison silently answers, rather than raising.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # A Float against a Bignum was coerced INTO a bignum, which truncates the
       # double to int64 and saturates there, so `1.0 / 0 > 10 ** 100` answered false

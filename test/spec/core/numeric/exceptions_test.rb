@@ -587,7 +587,7 @@ describe "Numeric: raising and rescuing" do
   it "integer conversion base zero" do
     result = zr(<<~'RUBY')
       # `Integer(str, 0)` means "detect the base from the literal prefix" (0x, 0b,
-      # 0o/0, else decimal) -- the C strtol convention. zeo's Integer() only accepts
+      # 0o/0, else decimal) -- the C strtol convention. zr's Integer() only accepts
       # explicit bases and raises ArgumentError for base 0.
       puts Integer("0b101", 0)
       puts Integer("0x1A", 0)

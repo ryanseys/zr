@@ -1080,7 +1080,7 @@ describe "Array programs" do
       # of ten, so the SCALED product's own representation error becomes part of
       # the value:
       #
-      #   64.781995.round(5)   CRuby 64.782   zeo 64.78199
+      #   64.781995.round(5)   CRuby 64.782   zr 64.78199
       #
       # `64.781995 * 1e5` is `6478199.4999999991`, so the digit that should round
       # up rounds down. CRuby does not scale: `flo_round` works from the decimal
@@ -1091,7 +1091,7 @@ describe "Array programs" do
       # a half.
       #
       # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zeo's divergence above.
+      # version of this test and its own fix, not zr's divergence above.
       #
       # Rounding at a positive digit count by scaling with a power of ten reads the
       # scaled product's own representation error as part of the value: 64.781995 *
@@ -2201,8 +2201,7 @@ describe "Array programs" do
 
   it "splatting a non array follows rubys to a rules" do
     result = zr(<<~'RUBY')
-      # Splatting a non-Array is ordinary Ruby, not an error -- it used to
-      # PANIC ("expected an Array to splat"), taking down `a, b = *1`.
+      # Splatting a non-Array is ordinary Ruby, not an error.
       # `[*"str"]` is the case worth pinning: it looks like it should split
       # into characters and doesn't, because String has no `to_a`. Probing
       # respond_to? rather than special-casing types gets that right, and

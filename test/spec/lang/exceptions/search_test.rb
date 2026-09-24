@@ -34,7 +34,7 @@ describe "Exceptions: searching and matching" do
     result = zr(<<~'RUBY')
       # A `class Foo` after `module Foo`, and a reopen that names a different
       # superclass, are both TypeError in ruby -- a real exception at the definition,
-      # not a broken program. zeo used to REFUSE these at compile time whenever no
+      # not a broken program. zr used to REFUSE these at compile time whenever no
       # `rescue` was lexically visible inside the definition's own statement, on the
       # reasoning that an uncatchable raise aborts and a compile error naming the
       # same problem is the better version of aborting.
@@ -292,7 +292,7 @@ describe "Exceptions: searching and matching" do
       # `rescue => target` accepts every lvalue Ruby accepts -- including an
       # attribute setter and an index write, which run only when the clause
       # fires (receiver evaluated at that moment, then `attr=`/`[]=` called
-      # with the exception). zeo lowered only the variable-shaped targets and
+      # with the exception). zr lowered only the variable-shaped targets and
       # rejected these two.
       class Holder
         attr_accessor :err

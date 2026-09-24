@@ -1,7 +1,7 @@
 # Dependencies
 
 This page lists everything that zr uses and does not own. None of it
-is C, Rust or assembler source in the repository.
+is C or assembler source in the repository.
 
 ## To use the gem
 

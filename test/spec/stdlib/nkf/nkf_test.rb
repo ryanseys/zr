@@ -47,7 +47,7 @@ describe "NKF programs" do
 
   it "conversion between the Japanese encodings, detection and the text passes all answer by bytes" do
     result = zr(<<~'RUBY')
-      # nkf -- Network Kanji Filter over zeo's own encoding engine: conversion
+      # nkf -- Network Kanji Filter over zr's own encoding engine: conversion
       # between UTF-8/Shift_JIS/EUC-JP/ISO-2022-JP (and the UTF-16/32 forms),
       # encoding detection, and the text passes (MIME words, katakana folding,
       # -Z, newlines). ISO-2022-JP strings print via unpack1("H*") -- bytes, not

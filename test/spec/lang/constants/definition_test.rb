@@ -94,7 +94,7 @@ describe "Constants: defining and naming methods" do
       # A class/module DEFINITION binds its name in the immediately enclosing scope.
       # Ruby never searches outward for it, so a `NAME = SomeClass` alias written in
       # another scope is a different constant and cannot be what the definition
-      # reopens. zeo used to consult a whole-program scan of every `NAME = ...` here,
+      # reopens. zr used to consult a whole-program scan of every `NAME = ...` here,
       # unscoped, first match wins -- which bound these to the alias instead.
 
       # 1. An alias in an OUTER scope, to a class, vs a nested MODULE of that name.

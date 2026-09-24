@@ -177,10 +177,10 @@ describe "Methods: slicing" do
       # methods and through `send`, but an explicit receiver raises, and the default
       # reflection stops reporting it.
       #
-      # Enforcement is compile-time, like the instance half -- so a call zeo resolves
+      # Enforcement is compile-time, like the instance half -- so a call zr resolves
       # statically reads the visibility the class BODY declared. A `private_class_method`
       # run later, against an already-compiled class, still changes what the
-      # reflection reports but cannot retract a call site already bound (zeo's
+      # reflection reports but cannot retract a call site already bound (zr's
       # documented Path-1 posture, which the instance half shares).
       def err
         yield
@@ -1184,7 +1184,7 @@ describe "Methods: slicing" do
 
   it "singleton body writes the class method table" do
     result = zr(<<~'RUBY')
-      # A `class << self` body's statements are RECEIVERLESS in ruby. zeo rebinds
+      # A `class << self` body's statements are RECEIVERLESS in ruby. zr rebinds
       # them onto `self.singleton_class`, so the receiver must be the surrogate --
       # that is the table those methods live in -- while the visibility barrier the
       # receiverless form never raises must stay down.

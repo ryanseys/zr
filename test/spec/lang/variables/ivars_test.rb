@@ -813,7 +813,7 @@ describe "Variables: instance and class variables" do
     result = zr(<<~'RUBY')
       # A bare `@@x` outside any class/module body has no owning cref, and ruby
       # 4.0.6 raises `RuntimeError: class variable access from toplevel` for both
-      # the write and the read (it was only a warning in older rubies). zeo used
+      # the write and the read (it was only a warning in older rubies). zr used
       # to store it on `Object` and read it back; this pins the corrected
       # behaviour, message included.
 

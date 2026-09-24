@@ -15,7 +15,7 @@ Hello, Ruby!
 ```
 
 The compiler, the runtime, the core library, the parser and the
-garbage collector are all Ruby. The repository has no C, Rust or
+garbage collector are all Ruby. The repository has no C or
 assembler.
 
 ## Install

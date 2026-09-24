@@ -12,7 +12,7 @@ describe "Fusion: formatting and inspection" do
       #
       # `inline_accessor` devirtualizes a self-call whose target
       # `accessor_shape` recognizes: `attr_reader :v`, `attr_writer`, and a `Struct`
-      # member. The fold now asks `zeo_rt_is_live` first and takes the ordinary
+      # member. The fold now asks `zr_rt_is_live` first and takes the ordinary
       # dispatch once anything has been defined at run time.
       #
       # The guard is emitted only for a name `may_be_patched_at_runtime` answers

@@ -143,18 +143,18 @@ describe "Singleton programs" do
   it "constant in singleton class body" do
     result = zr(<<~'RUBY')
       # A constant assigned inside `class << self` belongs to the SINGLETON class,
-      # not to the module the singleton is of. zeo stores it on the module.
+      # not to the module the singleton is of. zr stores it on the module.
       #
       #     module M
       #       class << self
       #         SC = 1
       #       end
       #     end
-      #     M.const_defined?(:SC, false)                   ruby false  zeo true
-      #     M.singleton_class.const_defined?(:SC, false)   ruby true   zeo false
+      #     M.const_defined?(:SC, false)                   ruby false  zr true
+      #     M.singleton_class.const_defined?(:SC, false)   ruby true   zr false
       #
       # `Module.nesting` shows the same thing from the other side: inside
-      # `class << self` ruby reports `["#<Class:M>", "M"]` and zeo reports `["M"]`,
+      # `class << self` ruby reports `["#<Class:M>", "M"]` and zr reports `["M"]`,
       # so the singleton body is not treated as its own lexical scope at all.
       #
       # Reading `SC` from a method defined in that body works either way, which is
@@ -1102,7 +1102,7 @@ describe "Singleton programs" do
       end
 
       # A receiver the SOURCE wrote gets ruby's answer, not the rebound form's --
-      # only the rebound `self.singleton_class` zeo synthesizes for a receiverless
+      # only the rebound `self.singleton_class` zr synthesizes for a receiverless
       # call is exempt. (The message names the surrogate a module where ruby names
       # it a class -- see tests/gaps/a_singleton_class_surrogate_is_a_module.rb.)
       begin
@@ -1195,7 +1195,7 @@ describe "Singleton programs" do
       # A constant written in the nested body is read lexically by the `def` beside
       # it, and `RESULT` -- a constant whose value the statement order decides --
       # sees the method the nested body just defined. (WHERE the constant lives is
-      # the one-level-deeper form of zeo's existing singleton-constant divergence;
+      # the one-level-deeper form of zr's existing singleton-constant divergence;
       # see tests/gaps/a_nested_singleton_bodys_constant_is_hoisted.rb.)
       class WithConst
         class << self
@@ -1315,10 +1315,10 @@ describe "Singleton programs" do
 
   it "nested singleton bodys constant is hoisted" do
     result = zr(<<~'RUBY')
-      # zeo hoists a `class << self` body's constant one level out -- documented in
+      # zr hoists a `class << self` body's constant one level out -- documented in
       # docs/COMPATIBILITY.md, and unchanged since the surrogate was first minted.
       # A NESTED `class << self` body's constant hoists the same one level: ruby
-      # homes it on `K.singleton_class.singleton_class`, zeo on
+      # homes it on `K.singleton_class.singleton_class`, zr on
       # `K.singleton_class`.
       #
       # The property that carries the corpus is unaffected: the `def` beside it
@@ -1506,7 +1506,7 @@ describe "Singleton programs" do
 
   it "a class nested in a class << self body belongs to the singleton, and self:: roots a path there" do
     result = zr(<<~'RUBY')
-      # Two things a `class << self` body can hold that zeo used to reject outright,
+      # Two things a `class << self` body can hold that zr used to reject outright,
       # both straight out of irb: a nested `class` (color.rb's `class
       # ColorizeVisitor < Prism::Visitor`), and a constant path rooted at `self`
       # (input-method.rb's `self::Readline::HISTORY`).
@@ -1760,7 +1760,7 @@ describe "Singleton programs" do
   it "the backtrace frame of a class << self body is spelled 'singleton class'" do
     result = zr(<<~'RUBY')
       # Ruby labels the backtrace frame of a `class << self` body `singleton class`
-      # -- a fixed spelling, not a class name. zeo homes such a body on a surrogate
+      # -- a fixed spelling, not a class name. zr homes such a body on a surrogate
       # class under the reserved name `#<Class:self>`, and printed THAT: an internal
       # name, unwritable in ruby, reaching a user's backtrace.
       class Config
@@ -2109,7 +2109,7 @@ describe "Singleton programs" do
       # Ruby gives a `class << self` body a backtrace frame of its own, labelled
       # `singleton class`, with the enclosing `<class:Config>` frame beneath it.
       #
-      # zeo splices the body's statements into the ENCLOSING class body -- that is
+      # zr splices the body's statements into the ENCLOSING class body -- that is
       # the whole point of the retagging model, and moving them out was ruled out
       # (a class body opens its own LOCAL SCOPE, and a singleton body's locals are
       # shared across the whole of it, so `class << self; x = 1; puts x; end` would
@@ -2253,7 +2253,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2278,7 +2278,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2321,7 +2321,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2367,7 +2367,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2419,7 +2419,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2489,7 +2489,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2559,7 +2559,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2641,7 +2641,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2736,7 +2736,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2837,7 +2837,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -2940,7 +2940,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3051,7 +3051,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3172,7 +3172,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3305,7 +3305,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3442,7 +3442,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3587,7 +3587,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3737,7 +3737,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -3910,7 +3910,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -4087,7 +4087,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -4276,7 +4276,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -4481,7 +4481,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -4696,7 +4696,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -4916,7 +4916,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -5135,7 +5135,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -5357,7 +5357,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -5587,7 +5587,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -5822,7 +5822,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -6057,7 +6057,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -6304,7 +6304,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -6553,7 +6553,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -6809,7 +6809,7 @@ describe "Singleton programs" do
       # `super`, `defined?(super)`, `Method#owner`, `#super_method` and the
       # reflection surface answer at each position.
       #
-      # zeo has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
+      # zr has no singleton-class OBJECTS, so `#<Class:K>` is derived from the
       # instance ancestry: per non-module ancestor, its singleton prepends, its own
       # `def self.x` layer, then its extends. A class method resolves down that
       # derived chain exactly as an instance method resolves down an ordinary one --
@@ -7399,12 +7399,12 @@ describe "Singleton programs" do
       #
       #     String.singleton_class.superclass  #=> #<Class:Object>
       #
-      # zeo answers `Class`, collapsing the parallel hierarchy to its base. That
+      # zr answers `Class`, collapsing the parallel hierarchy to its base. That
       # chain is what makes class methods inherit -- `Sub.some_class_method` resolves
       # by walking `#<Class:Sub>` -> `#<Class:Base>` -> ... -> `Class` -- so a flat
       # answer describes an inheritance that is not the one actually used.
       #
-      # Class-method inheritance itself already WORKS in zeo (the `Sub.f` line
+      # Class-method inheritance itself already WORKS in zr (the `Sub.f` line
       # below), so the walk is right and only its reflection is wrong. Anything that
       # reasons about the chain rather than calling through it -- a library deciding
       # where to install a class method, `ancestors` on a singleton class -- reads
@@ -7513,10 +7513,8 @@ describe "Singleton programs" do
     result = zr(<<~'RUBY')
       # A bare `private` sets the default only for subsequent INSTANCE defs; a
       # singleton def (`def self.name` / `def Recv.name`) that follows is a
-      # method on another object and stays public. (Regression: the running
-      # default used to be force-applied to the singleton def, panicking the
-      # lowerer because it isn't a plain instance `DefMethod`. net/protocol's
-      # `private; def Protocol.protocol_param` hit exactly this.)
+      # method on another object and stays public. net/protocol's
+      # `private; def Protocol.protocol_param` is this shape.
 
       class Proto
         private
@@ -7602,7 +7600,7 @@ describe "Singleton programs" do
       # `super` inside it reaches the class's own `def self.x` and `Method#owner`
       # names the module.
       #
-      # zeo flattens a singleton prepend: the module's body becomes the class's
+      # zr flattens a singleton prepend: the module's body becomes the class's
       # winning class-method row and the class's own `def self.x` becomes that
       # row's super target. Two reflection answers have to say what ruby says in
       # spite of the flattening -- `defined?(super)`, which asked the CLASS's
@@ -7717,7 +7715,7 @@ describe "Singleton programs" do
       # A module prepended into a SINGLETON class, reached from every direction a
       # subclass chain gives it.
       #
-      # zeo has no singleton-class objects: a class method resolves through the
+      # zr has no singleton-class objects: a class method resolves through the
       # `class_method_prepends` stack, the extend sources and the flattened
       # `class_methods` tables. Three things that model got wrong, and each needed a
       # different half of the answer.

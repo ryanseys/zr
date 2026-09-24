@@ -7,7 +7,7 @@ describe "Classes: formatting and inspection" do
     result = zr(<<~'RUBY')
       # `Class#allocate` on a value class -- the gap this promotes.
       #
-      # Only 2 of zeo's 98 native classes declared a blank value, so `Regexp`,
+      # Only 2 of zr's 98 native classes declared a blank value, so `Regexp`,
       # `Mutex` and `Queue` all refused where ruby allocates, and `MatchData` gave
       # the wrong refusal (`TypeError` for a name ruby `undef`s, which is a
       # `NoMethodError`). Every row here now matches ruby.
@@ -1219,7 +1219,7 @@ describe "Classes: formatting and inspection" do
       # (`Dir.mktmpdir`/`Dir.tmpdir` are stdlib's tmpdir.rb, not core -- built by
       # hand here so the example needs no require. The pid keeps concurrent runs
       # from colliding.)
-      root = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_core_classes_#{Process.pid}")
+      root = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_core_classes_#{Process.pid}")
       Dir.mkdir(root)
       begin
         Dir.chdir(root) do
@@ -1441,12 +1441,12 @@ describe "Classes: formatting and inspection" do
       # method of `K`.
       #
       # `class << self`'s body is retagged onto the enclosing class, so a plain `def`
-      # there becomes a class method (see `zeo-singleton-model`). Retagging a
+      # there becomes a class method (see `zr-singleton-model`). Retagging a
       # `def self.x` the same way put it one level too low, which was two divergences
       # from one drop: `K.x` answered where ruby raises NoMethodError, and
       # `K.singleton_class.x` was undefined.
       #
-      # The level it belongs to has no compile-time namespace in zeo, and needs
+      # The level it belongs to has no compile-time namespace in zr, and needs
       # none: a singleton class is an ordinary OBJECT at run time, so the def is a
       # per-object singleton method on it -- exactly what `class << obj` already
       # spells, through the same `define_singleton_method` lowering. `class << obj`
@@ -1503,17 +1503,17 @@ describe "Classes: formatting and inspection" do
       # allocates, and refuses for every one ruby refuses -- with ruby's own error
       # class each time.
       #
-      # 30 of these 52 rows used to diverge. Only 2 of zeo's 98 native classes
+      # 30 of these 52 rows used to diverge. Only 2 of zr's 98 native classes
       # declared a blank value, so `allocate` fell through to a refusal for the
       # other 26 that ruby allocates, and `Marshal.load` -- which allocates before
       # it fills -- could not load any of them.
       #
-      # The three shapes ruby uses, and now zeo too:
+      # The three shapes ruby uses, and now zr too:
       #
       #   * a blank instance, for a class whose payload has an empty form;
       #   * `TypeError: allocator undefined for X`, for a class with no blank;
       #   * `NoMethodError: undefined method 'allocate' for class X`, for the five
-      #     ruby UNDEFINES the name on (`zeo_abi::ALLOCATE_UNDEFINED`). The two
+      #     ruby UNDEFINES the name on (`zr_abi::ALLOCATE_UNDEFINED`). The two
       #     refusals are not interchangeable: `rescue TypeError` around
       #     `MatchData.allocate` catches nothing.
 
@@ -2066,7 +2066,7 @@ describe "Classes: formatting and inspection" do
       # the ANCESTORS of the innermost one. A superclass clause is a bare constant,
       # so `class Leaf < Inner` nested in `class Mid < Base` finds `Base::Inner`.
       #
-      # Zeo did only the first half for a superclass clause -- ordinary reads
+      # Zr did only the first half for a superclass clause -- ordinary reads
       # already did both -- so the definition resolved to nothing, was rewritten
       # into a runtime `Leaf = Class.new(Inner)`, and the next line's `Leaf.new`
       # raised `uninitialized constant`.
@@ -2198,7 +2198,7 @@ describe "Classes: formatting and inspection" do
     result = zr(<<~'RUBY')
       # Visibility is positional: `private :name` in a REOPENED class body applies
       # from that point in program order, and calls made while the method was still
-      # public succeed. zeo's analyze folds visibility into one order-insensitive
+      # public succeed. zr's analyze folds visibility into one order-insensitive
       # table (the later `private` is visible to reflection from the start), and
       # compiled static call sites never re-check visibility at all -- so the
       # explicit-receiver call after the reopen still succeeds where ruby raises

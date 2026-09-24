@@ -686,10 +686,10 @@ describe "Process: blocks and yields" do
   it "system(exception: true) raises on failure, and a missing command names itself in the ENOENT message" do
     result = zr(<<~'RUBY')
       # Process-launch error shapes: `system(cmd, exception: true)` raises
-      # RuntimeError on failure and Errno::ENOENT on a missing command (zeo
+      # RuntimeError on failure and Errno::ENOENT on a missing command (zr
       # answers false/nil, ignoring the option), and a bare `spawn` of a
       # missing command names it in the ENOENT message ("No such file or
-      # directory - cmd"); zeo's message is the @-form with an empty site.
+      # directory - cmd"); zr's message is the @-form with an empty site.
       # (Found by the 2026-08-24 probe sweep.)
       def show
         p yield

@@ -43,10 +43,10 @@ describe "Base64 programs" do
   it "gated constant appears at its require" do
     result = zr(<<~'RUBY')
       # A require-gated builtin's CONSTANT does not exist until its `require` runs.
-      # zeo registers the class for the whole program (a feature no file requires
+      # zr registers the class for the whole program (a feature no file requires
       # registers nothing at all), and `HirNode::FeatureLoaded` reveals it at the
       # require's own line -- so `defined?` and a bare reference ask instead of
-      # folding, exactly as they already did for a class defined under a guard zeo
+      # folding, exactly as they already did for a class defined under a guard zr
       # cannot decide.
 
       p Object.const_defined?(:Base64)
@@ -273,7 +273,7 @@ describe "Base64 programs" do
   it "require positions and paths" do
     result = zr(<<~'RUBY')
       # `require` behaviors that follow from CRuby's load.c, in the two places
-      # zeo's compile-time resolver used to reject outright.
+      # zr's compile-time resolver used to reject outright.
 
       # 1. A `require` of a feature the runtime already provides natively works from
       #    ANY position -- inside a conditional, a method body, or a value position.

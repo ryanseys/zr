@@ -114,7 +114,7 @@ describe "FFI: packing and unpacking" do
       module Libc
         extend FFI::Library
         ffi_lib FFI::Library::LIBC
-        attach_function :zeo_memcpy, :memcpy, [:pointer, :pointer, size = :size_t], :pointer
+        attach_function :zr_memcpy, :memcpy, [:pointer, :pointer, size = :size_t], :pointer
       end
 
       p [Metrics.size, Metrics.members, Metrics.offset_of(:iScrollWidth)]
@@ -131,7 +131,7 @@ describe "FFI: packing and unpacking" do
       src = FFI::MemoryPointer.new(4)
       src.put_bytes(0, "abc\0")
       dst = FFI::MemoryPointer.new(4)
-      Libc.zeo_memcpy(dst, src, 4)
+      Libc.zr_memcpy(dst, src, 4)
       p dst.read_string
 
       # The assignment's local belongs to the module body it was written in, so it
@@ -157,7 +157,7 @@ describe "FFI: packing and unpacking" do
     result = zr(<<~'RUBY')
       # ruby-ffi's third element per field: an explicit byte OFFSET. Every Win32
       # header struct in winwindow is written that way, and readline-ffi, PAPI,
-      # musicbeeipc, snarl and windows_gui all spell at least one. zeo read the
+      # musicbeeipc, snarl and windows_gui all spell at least one. zr read the
       # argument list as `:name, :type` pairs only, so an odd count was an outright
       # rejection.
       #
@@ -266,7 +266,7 @@ describe "FFI: packing and unpacking" do
   it "the typed array accessors answer in all four spellings, at offset zero and beyond" do
     result = zr(<<~'RUBY')
       # `FFI::Pointer`'s typed ARRAY accessors, in all four spellings ruby-ffi has:
-      # `read_`/`write_` start at offset 0, `get_`/`put_` take one. zeo had six of
+      # `read_`/`write_` start at offset 0, `get_`/`put_` take one. zr had six of
       # the ninety-odd, so a gem reading a C array back (`put_array_of_int32`,
       # `get_array_of_pointer`, ...) hit a NoMethodError at run time.
       #
@@ -494,7 +494,7 @@ describe "FFI: packing and unpacking" do
       # A gem that wraps `FFI::Struct` once and declares every real struct against
       # the wrapper. gssapi does exactly this -- `GssUMStruct < FFI::Struct` exists
       # only to hide `[]`/`[]=`, and nothing else in the gem names `FFI::Struct`
-      # again -- so zeo, which recognized only a DIRECT superclass, saw none of them
+      # again -- so zr, which recognized only a DIRECT superclass, saw none of them
       # as structs at all and reported the grandchildren as undeclared FFI types.
       #
       # A subclass of a struct class is a struct class. `FFI::ManagedStruct` joins

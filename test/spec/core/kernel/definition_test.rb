@@ -423,7 +423,7 @@ describe "Kernel: defining and naming methods" do
       # name. Resolution order is real Ruby's: a `def fail` in the receiver's
       # chain wins over the Kernel meaning, however many arguments it takes.
       #
-      # zeo desugared every receiverless `fail` to `HirNode::Raise` at parse
+      # zr desugared every receiverless `fail` to `HirNode::Raise` at parse
       # time, before method resolution existed -- riot's reporter (`def fail(
       # description, message, line, file)`, four arguments) died with "wrong
       # number of arguments (given 4, expected 0..3)", and took ten gems with it.

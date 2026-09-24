@@ -111,7 +111,7 @@ describe "Builtins: reading and writing" do
       # `klass.new`, which reaches `rb_file_initialize` for a File and
       # `rb_io_initialize` for an IO.
       #
-      # That one indirection decides four separate answers, and zeo -- which declared
+      # That one indirection decides four separate answers, and zr -- which declared
       # `File.open` in File's own block -- got each of them wrong: `#owner` named
       # File, `File.for_fd` and `File.sysopen` did not exist at all, a subclass
       # receiver lost its class, and one method could not report `1..3` to File and
@@ -119,7 +119,7 @@ describe "Builtins: reading and writing" do
       require "tmpdir"
       require "fileutils"
 
-      DIR = Dir.mktmpdir("zeo_io_rows")
+      DIR = Dir.mktmpdir("zr_io_rows")
       SRC = File.join(DIR, "src.txt")
       File.binwrite(SRC, "hello\n")
 

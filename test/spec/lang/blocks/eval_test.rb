@@ -19,7 +19,7 @@ describe "Blocks: evaluating a string" do
       # `define_method` block are all refused, and refused at COMPILE time, before
       # the snippet runs a statement.
       #
-      # zeo got two of these wrong, in opposite directions.
+      # zr got two of these wrong, in opposite directions.
       #
       # A `class << self` body lowers to BOTH a `DefMethod` and the
       # `define_method`-shaped `Lambda` that installs it at run time, sharing one
@@ -227,7 +227,7 @@ describe "Blocks: evaluating a string" do
       # A block nested inside another block, in a program that anywhere asks a Proc
       # for its `binding`. The inner Proc's construction carries a Binding of the
       # scope it is WRITTEN in -- the outer block -- and that Binding holds the
-      # outer block's `self`. Zeo built the Binding in the outer block's own
+      # outer block's `self`. Zr built the Binding in the outer block's own
       # prelude, inside the closure that captures by value, while the outer block
       # took no `self` parameter of its own because nothing it does mentions
       # `self`. So the closure swallowed the method's receiver whole: a closure

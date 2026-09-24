@@ -11,7 +11,7 @@ describe "Thread programs" do
       # open the write end: a deadlock, and this test hangs.
 
 
-      fifo = File.join(ENV["TMPDIR"] || "/tmp", "zeo_fifo_probe_#{Process.pid}")
+      fifo = File.join(ENV["TMPDIR"] || "/tmp", "zr_fifo_probe_#{Process.pid}")
       system("mkfifo", fifo)
       reader = Thread.new { File.open(fifo, "r") { |f| f.gets } }
       sleep 0.2
@@ -235,7 +235,7 @@ describe "Thread programs" do
       # The concurrency classes answer as VALUES, and a SizedQueue is a real
       # subclass of Queue.
       #
-      # zeo's divergence: a SizedQueue instance answers `is_a?(SizedQueue)` and
+      # zr's divergence: a SizedQueue instance answers `is_a?(SizedQueue)` and
       # `instance_of?(SizedQueue)` FALSE while `is_a?(Queue)` stays true -- the
       # instance carries Queue's class id (SizedQueue shares Queue's runtime
       # representation, told apart only by its bound). Everything else here
@@ -353,7 +353,7 @@ describe "Thread programs" do
       # ConditionVariable — thread coordination paired with a Mutex.
 
       cv = ConditionVariable.new
-      # (Class#name is `Thread::ConditionVariable` upstream; zeo simplifies the
+      # (Class#name is `Thread::ConditionVariable` upstream; zr simplifies the
       # nested `Thread::*` sync classes to top-level, exactly as it does for Mutex.)
       p cv.class.name.include?("ConditionVariable")   # true
 
@@ -1744,7 +1744,7 @@ describe "Thread programs" do
     result = zr(<<~'RUBY')
       # Thread#[] / Thread#[]= are FIBER-local storage (thread_variable_get/set are
       # the thread-local pair). A write inside a Fiber must be invisible after the
-      # fiber ends. zeo keeps one locals map per thread, so the fiber's write leaks
+      # fiber ends. zr keeps one locals map per thread, so the fiber's write leaks
       # out.
       Thread.current[:v] = 5
       puts Thread.current[:v]
@@ -1777,7 +1777,7 @@ describe "Thread programs" do
 
       # The three are HELD blocked while they are counted. A thread that has run to
       # the end leaves the registry whether or not anyone joined it, so counting
-      # threads that race the count would count luck -- zeo runs real OS threads,
+      # threads that race the count would count luck -- zr runs real OS threads,
       # where they finish before the next line.
       gate = Queue.new
       threads = (1..3).map { Thread.new { gate.pop } }

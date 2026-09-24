@@ -5,7 +5,7 @@ require "spec_helper"
 describe "Require programs" do
   it "bundled libraries" do
     result = zr(<<~'RUBY')
-      # zr searches the same library tiers `zeo build` does -- the Ruby halves of
+      # zr searches the same library tiers `zr build` does -- the Ruby halves of
       # the runtime's extensions, the pure-Ruby ports, rubygems and bundler, and
       # the store `Gemfile.lock` resolves -- so a plain `require` of a bundled gem
       # reaches one library on both roads.
@@ -160,7 +160,7 @@ describe "Require programs" do
   it "issue load path global nil" do
     result = zr(<<~'RUBY')
       # $LOAD_PATH (and its `$:` alias) should be the Array of require search
-      # paths -- zeo leaves it nil instead of populating it.
+      # paths -- zr leaves it nil instead of populating it.
       p $LOAD_PATH.class
       p $LOAD_PATH.is_a?(Array)
       p $:.class
@@ -534,13 +534,12 @@ describe "Require programs" do
 
     result = zr(<<~'RUBY', files: files)
       # ruby's top-level `return` ends the FILE it is written in; reading
-      # resumes in the file that required it. zeo ends `<main>` instead, so
-      # everything after the first required file's `return` is lost.
+      # resumes in the file that required it.
       #
       # Each file that writes one gets its own end to jump to, and every later
       # run of that file -- and every run spliced inside it -- is skipped.
       #
-      # `crates/zeo-rt/ext/digest/lib/digest.rb:12` opens with a guarded one, and
+      # `vendor/ext/digest/lib/digest.rb:12` opens with a guarded one, and
       # stdlib files use the form to bail out early.
 
       puts "main: start"
@@ -585,12 +584,12 @@ describe "Require programs" do
       # Two compiled-in files can share a basename, and each `require_relative
       # "version"` must load ITS OWN sibling.
       #
-      # `zeo_rt::features::UNITS` is a map, so a unit registered under a bare
-      # relative spelling is a COLLISION rather than an alias -- one file silently
-      # answers for the other, the require reports success, and the feature is
-      # recorded loaded so no later require can recover. That is exactly what
-      # `pub_grub/static_package_source.rb`'s `require_relative 'rubygems'` did to
-      # `require "rubygems"`.
+      # A unit registered under a bare relative spelling would be a COLLISION
+      # rather than an alias -- one file silently answering for the other,
+      # the require reporting success, and the feature recorded loaded so no
+      # later require could recover. That is exactly what
+      # `pub_grub/static_package_source.rb`'s `require_relative 'rubygems'`
+      # would do to `require "rubygems"`.
       #
       # A `require_relative` therefore registers its unit under the target's
       # ABSOLUTE spelling, which is what the runtime `require_relative` builds

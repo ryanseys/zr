@@ -84,8 +84,7 @@ module Zr
     # Removes the parts of an output that change from run to run, so that
     # two outputs can be compared. It changes CRLF to LF, and the
     # program's absolute path to its path relative to the run directory.
-    # It also removes the run directory, object addresses and panic
-    # thread ids.
+    # It also removes the run directory and object addresses.
     module Normalize
       module_function
 
@@ -102,8 +101,7 @@ module Zr
         rel = abs.start_with?("#{cwd}/") ? abs.byteslice((cwd.bytesize + 1)..) : File.basename(abs)
         out = out.gsub(abs, rel)
         out = out.gsub("#{cwd}/", "")
-        out = out.gsub(/0x[0-9a-f]+/) { |m| (8..16).cover?(m.bytesize - 2) ? "0xADDR" : m }
-        out.gsub(/' \(\d+\)/, "' (TID)")
+        out.gsub(/0x[0-9a-f]+/) { |m| (8..16).cover?(m.bytesize - 2) ? "0xADDR" : m }
       end
     end
   end

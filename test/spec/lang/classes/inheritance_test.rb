@@ -520,7 +520,7 @@ describe "Classes: inheritance and ancestors" do
   it "defined super reports super" do
     result = zr(<<~'RUBY')
       # `defined?(super)` answers "super" when a super method exists from the
-      # current method's position and nil when none does. zeo's defined? fold
+      # current method's position and nil when none does. zr's defined? fold
       # classifies the super keyword as a plain method reference and answers
       # "method" in both cases -- it never consults the resolution emit_super uses.
       class DefBase
@@ -919,7 +919,7 @@ describe "Classes: inheritance and ancestors" do
 
   it "inherited def is one body for every subclass" do
     result = zr(<<~'RUBY')
-      # A definition on a superclass is inherited by every subclass, and zeo emits
+      # A definition on a superclass is inherited by every subclass, and zr emits
       # its body ONCE rather than once per subclass. This pins what that makes
       # observable -- the class half of the module rule beside it.
       #
@@ -1079,7 +1079,7 @@ describe "Classes: inheritance and ancestors" do
       # the class of the receiver it was called on. An inherited method called on a
       # subclass still says `Base#boom`.
       #
-      # zeo named the carrier -- `S1#boom` -- so every backtrace through an
+      # zr named the carrier -- `S1#boom` -- so every backtrace through an
       # inherited method reported a class that never defined the method. The rule
       # was already right for a module (`M#mixed`, never `Bar#mixed`) and the
       # superclass half was simply excluded.
@@ -1947,7 +1947,7 @@ describe "Classes: inheritance and ancestors" do
       # class methods, and answers `ancestors`/`superclass` -- but `.new` raises
       # NoMethodError, and every instance the runtime hands out is of the builtin
       # class itself. Gems subclass them to hang a namespace or a class method off
-      # the name, never to build one, so zeo registers the definition and lets
+      # the name, never to build one, so zr registers the definition and lets
       # `.new` raise exactly what CRuby raises.
       class MyBinding < Binding
         def self.label = :binding
@@ -3073,7 +3073,7 @@ describe "Classes: inheritance and ancestors" do
 
   it "superclass never defined" do
     result = zr(<<~'RUBY')
-      # A superclass naming a constant the program never defines. Zeo used to
+      # A superclass naming a constant the program never defines. Zr used to
       # reject the whole compile ("unknown superclass"), which meant a library that
       # subclasses something from a gem it failed to load -- irb's `class CallTracer
       # < ::CallTracer`, guarded by a `require "tracer"` that already raised
@@ -3162,13 +3162,8 @@ describe "Classes: inheritance and ancestors" do
 
   it "to enum from a super bridge" do
     result = zr(<<~'RUBY')
-      # `to_enum(:meth)` on the implicit self, inside a method that some subclass
-      # reaches with `super`. Such a method is emitted a SECOND time, into a bridge
-      # container where `self` arrives as a plain `RubyValue` rather than the usual
-      # typed receiver -- and `to_enum`'s own fast path boxed it as though it were
-      # typed, so the generated program did not compile. prism's `Pattern#scan`
-      # (`return to_enum(:scan, root) unless block_given?`) is the shape; irb pulls
-      # in forty-odd of them.
+      # `to_enum(:meth)` on the implicit self works correctly inside a
+      # method that a subclass reaches with `super`.
       class Base
         def each
           return to_enum(:each) unless block_given?

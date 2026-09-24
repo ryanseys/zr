@@ -9,9 +9,9 @@ describe "Methods programs" do
       # nor anywhere in the ancestry COMPILES (the compiler can't distinguish a
       # typo from a runtime-table builtin source, `alias_method :dup!, :dup`)
       # and raises `NameError` at program start instead -- real Ruby's timing,
-      # the class body executing. See `mro::resolve_aliases` /
-      # `zeo_rt::validate_aliases`; the full-message shape is asserted in
-      # `methods::an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start`.
+      # the class body executing. The full-message shape is asserted in the
+      # "alias whose source resolves nowhere is a name error at program
+      # start" test.
 
       class Foo
         alias bar undefined_method
@@ -139,7 +139,7 @@ describe "Methods programs" do
       # elements is a `LIST`; a splat concatenates onto it (`ARGSCAT`, whose body is
       # the splatted VALUE, not a `SPLAT` node); a plain element after a splat
       # pushes onto that (`ARGSPUSH`); and a SECOND plain element folds the push
-      # back into an `ARGSCAT` over a two-element `LIST`. zeo emitted a flat `LIST`
+      # back into an `ARGSCAT` over a two-element `LIST`. zr emitted a flat `LIST`
       # of everything, which was right only when there was no splat -- for a call's
       # arguments, an array literal, a `when`'s conditions and a multiple
       # assignment alike.
@@ -1019,7 +1019,7 @@ describe "Methods programs" do
   it "attributes undefined dsl" do
     result = zr(<<~'RUBY')
       # The spinel-era compile-time `attributes` DSL does not exist: CRuby (and
-      # zeo) raise NoMethodError when the class body executes. Rescued inside
+      # zr) raise NoMethodError when the class body executes. Rescued inside
       # the body so the output is path-portable.
       class BadAttributes
         begin
@@ -2021,8 +2021,8 @@ describe "Methods programs" do
       p "ab\n".lines(chomp: f)
       p "ab\n".lines(chomp: t)
       p "ab\n".each_line(chomp: t).to_a
-      one = "/tmp/zeo_kwflag_#{Process.pid}_1.txt"
-      two = "/tmp/zeo_kwflag_#{Process.pid}_2.txt"
+      one = "/tmp/zr_kwflag_#{Process.pid}_1.txt"
+      two = "/tmp/zr_kwflag_#{Process.pid}_2.txt"
       File.write(one, "a\nb\nc\n")
       File.open(one) do |fh|
         p fh.gets(chomp: "yes")
@@ -3146,7 +3146,7 @@ describe "Methods programs" do
       # already defines itself must not shadow the class's own method. `Array`
       # includes `Enumerable`, and `Array#none?`/`Array#size` are defined on `Array`
       # -- so `Array` comes first in the ancestry and its own definitions win.
-      # CRuby answers `true` / `3`; zeo answers `:from_enumerable` /
+      # CRuby answers `true` / `3`; zr answers `:from_enumerable` /
       # `:from_enumerable_size`, taking the module's.
       #
       # The cause is which side of the MRO the BUILTIN rows sit on. A user's `def`
@@ -3163,7 +3163,7 @@ describe "Methods programs" do
       # claiming the name -- the same `seen.insert` an `undef` already performs --
       # so a further ancestor's user definition cannot supply it. That needs the
       # builtin method list per class at materialization time, which is
-      # `zeo_abi::BUILTINS` and is already indexed by ClassId.
+      # `zr_abi::BUILTINS` and is already indexed by ClassId.
       #
       # Independent of the fused-iterator work: this reproduces byte-identically on
       # the binary built before Wave 8's kinds existed, with the site unfused.
@@ -4289,7 +4289,7 @@ describe "Methods programs" do
     result = zr(<<~'RUBY')
       # CRuby compiles an optional parameter's DEFAULT as an assignment to the NAME,
       # not to the slot -- so a repeated `_`'s later default overwrites the local the
-      # FIRST `_` owns, which is the one every read answers. zeo bound each slot
+      # FIRST `_` owns, which is the one every read answers. zr bound each slot
       # independently, so a later default was invisible.
       def both_default(_ = 1, _ = 2) = _
       p [both_default, both_default(9), both_default(9, 8)]
@@ -4499,9 +4499,9 @@ describe "Methods programs" do
 
   it "self inside a class method is the class object" do
     result = zr(<<~'RUBY')
-      # A class method's `self` is the class object (a `RubyValue::Class`
-      # value), so `self` and the class constant are interchangeable --
-      # including as a receiver for the class's OWN other class methods.
+      # A class method's `self` is the class object, so `self` and the
+      # class constant are interchangeable -- including as a receiver for
+      # the class's OWN other class methods.
 
       class Foo
         def self.bar
@@ -4527,19 +4527,13 @@ describe "Methods programs" do
 
   it "singleton class instance methods" do
     result = zr(<<~'RUBY')
-      # `obj.singleton_methods` finds a `def obj.x`, but the singleton CLASS does not
-      # report it: `instance_methods(false)` is empty, `method_defined?` is false and
-      # `instance_method` raises `NameError`.
+      # `obj.singleton_methods` finds a `def obj.x`, and the singleton CLASS
+      # must report it too: `instance_methods(false)`, `public_instance_methods(false)`,
+      # `method_defined?`, and `instance_method` must all agree with
+      # `singleton_methods`.
       #
-      # A per-object singleton lives in `runtime_meta`'s identity-keyed `singletons`
-      # table, and `singleton_methods` reads it by identity. `singleton_class` mints a
-      # class id and records the owner both ways (`singleton_classes`/
-      # `singleton_owner`), but Module's reflection rows answer from the CLASS-keyed
-      # tables, which that id has no rows in -- so the two views of the same method
-      # disagree.
-      #
-      # A CLASS's singleton (`def K.cm`) already reports correctly, because a class
-      # method is stored class-keyed to begin with. Only the per-object case splits.
+      # A CLASS's singleton (`def K.cm`) must report the same way, since a
+      # class method is stored class-keyed to begin with.
 
       o = Object.new
       def o.hi = 1
@@ -4784,7 +4778,7 @@ describe "Methods programs" do
 
   it "user method named eval" do
     result = zr(<<~'RUBY')
-      # zeo's divergence: a receiverless `eval(x)` inside a class that DEFINES its
+      # zr's divergence: a receiverless `eval(x)` inside a class that DEFINES its
       # own `eval` is taken for Kernel#eval -- the eval recognizer in lower/parse
       # runs before sibling-method resolution -- so the recursive call at line 14
       # coerces its argument to String and raises TypeError ("no implicit conversion

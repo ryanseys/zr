@@ -11,7 +11,7 @@ describe "Numeric: arithmetic" do
 
   it "arithmetic on a plain method parameter works" do
     result = zr(<<~'RUBY')
-      # Method params are always statically `Poly` (zeo never infers a
+      # Method params are always statically `Poly` (zr never infers a
       # param's type from call sites) -- this exercises the runtime-checked
       # numeric fallback, not just literal or local `Int` operands.
 

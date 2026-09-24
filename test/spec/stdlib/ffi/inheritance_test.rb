@@ -29,9 +29,9 @@ describe "FFI: inheritance and ancestors" do
     result = zr(<<~'RUBY')
       # An inline array field whose element COUNT is `OtherStruct.size * N`.
       #
-      # zeo laid `OtherStruct` out itself, so its extent is as much a compile-time
+      # zr laid `OtherStruct` out itself, so its extent is as much a compile-time
       # constant as the literal the gem could have written -- j-law-ruby sizes every
-      # one of its inline storage arrays this way, and zeo refused the whole file
+      # one of its inline storage arrays this way, and zr refused the whole file
       # because the count "must be an integer literal".
       require "ffi"
 
@@ -279,7 +279,7 @@ describe "FFI: inheritance and ancestors" do
       # An `enum` whose MEMBER LIST is not a literal. ethon writes
       # `EasyCode = enum(:easy_code, easy_codes)`, where `easy_codes` is a method on
       # a module it `extend`ed and returns eighty-odd symbols; gir_ffi reads its flag
-      # sets out of a shared library at load time. zeo used to refuse both.
+      # sets out of a shared library at load time. zr used to refuse both.
       #
       # The ABI never depended on the members: an enum is a C `int` either way, so
       # the extern signature is settled at compile time and only the symbol<->integer
@@ -398,7 +398,7 @@ describe "FFI: inheritance and ancestors" do
 
     result = zr(<<~'RUBY')
 
-      # An `ffi_lib` whose candidates zeo cannot fold (an ENV read, a local, a
+      # An `ffi_lib` whose candidates zr cannot fold (an ENV read, a local, a
       # splat) is not a rejection: the expressions evaluate when the class body
       # executes, with the gem's exact shape -- every top-level argument is its
       # own required library, an Array argument lists alternatives for one, and a
@@ -416,7 +416,7 @@ describe "FFI: inheritance and ancestors" do
 
       module Alternatives
         extend FFI::Library
-        candidates = ["zeo-definitely-absent", "m"]
+        candidates = ["zr-definitely-absent", "m"]
         ffi_lib candidates
         attach_function :my_floor, :floor, [:double], :double
       end
@@ -433,7 +433,7 @@ describe "FFI: inheritance and ancestors" do
       begin
         module Nope
           extend FFI::Library
-          ffi_lib "zeo-definitely-absent-#{Process.pid}"
+          ffi_lib "zr-definitely-absent-#{Process.pid}"
         end
       rescue LoadError => e
         puts "raised #{e.class} at ffi_lib"
@@ -481,7 +481,7 @@ describe "FFI: inheritance and ancestors" do
       # subclass is a `ValueSubclass` around a pointer payload and inherits the
       # whole `FFI::Pointer` read/write surface through the ancestry.
       #
-      # What zeo does NOT do is run `self.release`: there is no finalizer, so a
+      # What zr does NOT do is run `self.release`: there is no finalizer, so a
       # handle that closes an OS resource stays open until the process exits.
       # Nothing LEAKS that the runtime would not also free: an owned buffer is
       # reference counted.

@@ -4,4 +4,4 @@ text = "compress me " * 40
 packed = Zlib::Deflate.deflate(text)
 puts packed.bytesize < text.bytesize
 puts Zlib::Inflate.inflate(packed) == text
-puts Zlib.crc32("zeo")
+puts Zlib.crc32("zr")

@@ -20,7 +20,7 @@ describe "RSpec programs" do
       # copy -- so there is nothing here to compare against.
       #
       # A suite whose examples all pass never reaches that path, which is what
-      # `../an_rspec_suite_runs.rb` holds. This file is the other half: the day zeo
+      # `../an_rspec_suite_runs.rb` holds. This file is the other half: the day zr
       # can answer `require "ripper"`, or rspec stops needing it, this starts
       # matching and the suite says so.
 
@@ -87,7 +87,7 @@ describe "RSpec programs" do
     result = zr(<<~'RUBY')
 
       # MILESTONE: a REAL rspec suite, written the way anyone writes one, runs under
-      # zeo and reports what rspec reports -- examples, matchers, doubles, hooks,
+      # zr and reports what rspec reports -- examples, matchers, doubles, hooks,
       # the counts and the exit status.
       #
       # A failing or a pending example renders through `RSpec::Support::Source`,
@@ -96,20 +96,20 @@ describe "RSpec programs" do
       #
       # Both engines read the SAME rspec, from `vendor/bundle` -- the Gemfile.lock
       # set that `make deps` resolves. The oracle reaches it through
-      # bundler, zeo through `-I` on each gem's `lib/`. That makes this a true
+      # bundler, zr through `-I` on each gem's `lib/`. That makes this a true
       # differential rather than a recording: neither engine has rspec of its own,
-      # and comparing zeo against nothing would prove nothing.
+      # and comparing zr against nothing would prove nothing.
       #
       # rspec is deliberately NOT vendored under `gems/`. Everything there is a
       # library ruby itself ships, so a `require` reaches the same code on both
-      # sides; vendoring rspec would make zeo answer a require ruby refuses.
+      # sides; vendoring rspec would make zr answer a require ruby refuses.
       #
       # rspec prints a duration that cannot match across two engines, so an
       # `at_exit` registered BEFORE rspec's rewrites that one line -- handlers are
       # LIFO, so this sees the finished report. Everything else is compared byte for
       # byte.
       #
-      # Shapes, never versions -- see `tests/milestones.rs`.
+      # Shapes, never versions.
 
       require "stringio"
       real_stdout = $stdout

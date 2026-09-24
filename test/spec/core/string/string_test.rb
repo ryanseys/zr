@@ -516,7 +516,7 @@ describe "String programs" do
       #
       # The earlier answer copied in and copied back at block exit: the END state
       # matched and a mid-block read of the string saw the original. The recorded
-      # fix shape was a stable byte address for the string, which zeo's
+      # fix shape was a stable byte address for the string, which zr's
       # `Arc<Mutex<StrBuf>>` does not have and which is a value-model change.
       #
       # It was not needed. The buffer already held its source string, so the
@@ -675,7 +675,7 @@ describe "String programs" do
     result = zr(<<~'RUBY')
       # Instantiating a String subclass with a constructor argument
       # (`klass.new("x")`) raises ArgumentError ("wrong number of arguments") --
-      # zeo doesn't forward the argument to String's own initializer for a
+      # zr doesn't forward the argument to String's own initializer for a
       # dynamically-created subclass.
       klass = Class.new(String) do
         def foo

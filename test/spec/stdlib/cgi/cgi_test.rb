@@ -185,7 +185,7 @@ describe "CGI programs" do
     result = zr(<<~'RUBY')
       # `CGI.escapeHTML` is not a class method of `CGI`. It is an instance method of
       # `CGI::EscapeExt`, reached because `CGI` both INCLUDES and EXTENDS
-      # `CGI::Escape`, and `Escape` PREPENDS `EscapeExt`. zeo hung the helpers
+      # `CGI::Escape`, and `Escape` PREPENDS `EscapeExt`. zr hung the helpers
       # straight on CGI's singleton and had neither module, so erubi's
       # `defined?(::CGI::Escape)` and net-http-persistent's `defined?(CGI::EscapeExt)`
       # both answered nil and took their fallback branch.
@@ -281,7 +281,7 @@ describe "CGI programs" do
     result = zr(<<~'RUBY')
       # `extend M` seats M in the SINGLETON class's ancestry: the class method it
       # supplies is still M's own instance method, and every reflection answer says
-      # so. zeo scanned only the class ancestry for a class-method owner, so it
+      # so. zr scanned only the class ancestry for a class-method owner, so it
       # found nothing there and fell back to reporting `Class`.
       module Ext
         def hi = 1
@@ -380,13 +380,13 @@ describe "CGI programs" do
       require "digest"
       require "zlib"
 
-      # --- json (serde_json parse + hand-rolled generate) ---
+      # --- json (parse and generate) ---
       puts JSON.generate({ "a" => 1, "b" => [2, 3.5, nil, true] })
       puts JSON.parse('{"x":[1,2,3],"y":"hi"}').inspect
       puts JSON.pretty_generate({ "k" => [1, 2] })
 
       # --- yaml / psych (load, and a Psych-style dump) ---
-      print YAML.dump({ "name" => "zeo", "tags" => ["aot", "ruby"] })
+      print YAML.dump({ "name" => "zr", "tags" => ["aot", "ruby"] })
       puts YAML.load("port: 8080\nhosts:\n- a\n- b").inspect
 
       # --- stringio (in-memory IO buffer) ---
@@ -403,7 +403,7 @@ describe "CGI programs" do
       puts sc.scan(/\w+/)
 
       # --- cgi (url/html escaping) ---
-      puts CGI.escape("name=zeo rs&v=1")
+      puts CGI.escape("name=zr rb&v=1")
       puts CGI.escapeHTML("<b>bold & 'quoted'</b>")
 
       # --- digest (hashing) ---
@@ -425,7 +425,7 @@ describe "CGI programs" do
         ]
       }
       ---
-      name: zeo
+      name: zr
       tags:
       - aot
       - ruby
@@ -434,7 +434,7 @@ describe "CGI programs" do
       got: line two
       key
       value
-      name%3Dzeo+rs%26v%3D1
+      name%3Dzr+rb%26v%3D1
       &lt;b&gt;bold &amp; &#39;quoted&#39;&lt;/b&gt;
       2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
       5d41402abc4b2a76b9719d911017c592
@@ -446,7 +446,7 @@ describe "CGI programs" do
   it "is a class not a module" do
     result = zr(<<~'RUBY')
       # CRuby's `CGI` is a CLASS whose superclass is `Object` -- `CGI.new(...)` is the
-      # whole CGI API -- and cgi/escape.rb opens it as one (`class CGI`). zeo had it
+      # whole CGI API -- and cgi/escape.rb opens it as one (`class CGI`). zr had it
       # registered as a module, so every gem that reopened it stopped at `CGI is not a
       # class`, and thin's `class CGIWrapper < ::CGI` had nothing to subclass.
 

@@ -329,7 +329,7 @@ describe "Thread: raising and rescuing" do
   it "negative sleep is an argument error" do
     result = zr(<<~'RUBY')
       # `sleep(-1)` raises ArgumentError "time interval must not be negative";
-      # zeo raises TypeError with a conversion message. (Found by the 2026-08-24
+      # zr raises TypeError with a conversion message. (Found by the 2026-08-24
       # probe sweep.)
       begin
         sleep(-1)
@@ -391,9 +391,9 @@ describe "Thread: raising and rescuing" do
   it "queue argument validation" do
     result = zr(<<~'RUBY')
       # Queue-family argument surfaces: `Queue#pop(true)` takes the non_block
-      # flag and raises ThreadError ("queue empty") on an empty queue; zeo's row
+      # flag and raises ThreadError ("queue empty") on an empty queue; zr's row
       # takes no arguments at all. `SizedQueue.new(0)` raises ArgumentError
-      # ("queue size must be positive"); zeo mints the queue. (Found by the
+      # ("queue size must be positive"); zr mints the queue. (Found by the
       # 2026-08-24 probe sweep.)
       begin
         Queue.new.pop(true)
@@ -418,7 +418,7 @@ describe "Thread: raising and rescuing" do
       # mechanism -- a program sees both.
       #
       # CRuby runs a ractor's body on a thread, so what it prints is that thread's
-      # own banner followed by the ordinary uncaught report. zeo printed nothing:
+      # own banner followed by the ordinary uncaught report. zr printed nothing:
       # `ractor::finish` recorded the outcome and no one reported it, so a ractor
       # that died without anyone calling `#value` failed silently. The banner
       # carries no origin where `Thread#inspect`'s does, because a ractor's thread
@@ -654,7 +654,7 @@ describe "Thread: raising and rescuing" do
   it "Thread#raise on the current thread raises where the call is, so the rescue around it catches" do
     result = zr(<<~'RUBY')
       # `Thread#raise` on the CURRENT thread raises synchronously -- the rescue
-      # around the call catches it. zeo defers it like a cross-thread interrupt,
+      # around the call catches it. zr defers it like a cross-thread interrupt,
       # so the rescue misses and the exception escapes afterwards. (Found by the
       # 2026-08-24 probe sweep.)
       begin
