@@ -334,44 +334,42 @@ module Zr
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = external ? external.units.dup : {}
-          # A build that has already read the program knows it evals; a
-          # build over the road never learns it again, because the files
-          # that told it are the road's and are named rather than read.
+          # A build that already read the program knows that it evals. A
+          # build with eval support cannot find it again, because the
+          # files that told it are in eval support and are not read.
           @evals = evals
           @normalizes = external&.normalizes? || false
           @pretty_prints = external&.pretty_prints? || false
           @irbs = external&.irbs? || false
           @asts = false
           @configures = external&.configures? || false
-          # A `using` row is a place in one table the whole program
-          # shares, so a build must not number a row something already
-          # running holds. A program that evals goes on from the road's
-          # rows -- the road's own files activate refinements as they
-          # load, the prism port among them -- and a build at run time
-          # goes on from the rows the program it compiles for holds.
+          # A `using` entry is a slot in one table that the whole program
+          # shares, so a build must not use an entry that running code
+          # already uses. A program with eval continues after eval
+          # support's entries (its files, for example the prism port,
+          # activate refinements when they load). A compile at run time
+          # continues after the entries of its program.
           @activations = activations || external&.activations || 0
           @back_refs = {}
           @alias_flags = {}
         end
 
-        # `alias $MATCH $&` and its family: the old name lives in the
-        # frame, not the global table, so the new name is a second
-        # spelling the lowering resolves rather than a row it writes.
-        # English.rb is where every one of them comes from.
+        # `alias $MATCH $&` and similar: the old name is in the frame, not
+        # the global table, so the new name is a second name that the
+        # lowering resolves. It does not write a global entry. All of them
+        # come from English.rb.
         def back_ref(name) = @back_refs[name]
 
-        # Whether some file names TracePoint or set_trace_func, and whether
-        # this build fires the events one asks for.
+        # Whether a file uses TracePoint or set_trace_func, and whether
+        # this build fires the events that a TracePoint listens for.
         def traces? = @traces
         def tracing? = @trace
 
-        # What a program that wants `:line` events names. The bytes are
-        # asked first, because almost no file holds any of these words
-        # and a regexp over the source costs far less than a walk; a
-        # file that does hold one is then read, so that prose does not
-        # decide. A comment that says TracePoint used to arm the events
-        # for every statement of every file, and pay for a second whole
-        # build, which is a large cost for a word.
+        # The names in a program that wants `:line` events. The source
+        # bytes are checked first, because almost no file contains these
+        # words, and a regexp is much faster than a tree walk. If a file
+        # contains one, the tree is walked, so a word in a comment does
+        # not arm the events for every statement and cause a second build.
         TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage)\b/
         TRACE_CONSTANTS = %i[TracePoint Coverage].freeze
         TRACE_CALLS = %i[set_trace_func add_trace_func].freeze
@@ -383,12 +381,11 @@ module Zr
 
         def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [], COVERAGE_WORDS)
 
-        # Whether the tree names one of `constants`, calls one of
-        # `calls`, or writes one of `words` as a symbol or a string. The
-        # last of the three is what keeps this as safe as the regexp it
-        # replaced: a name reached by `const_get` of a string still
-        # counts, because arming a program that does not trace costs
-        # time and missing one that does costs the answer.
+        # Whether the tree uses one of `constants`, calls one of `calls`,
+        # or contains one of `words` as a symbol or a string. The words
+        # make this as safe as a plain regexp: a name got by `const_get` of
+        # a string also counts. To arm a program that does not trace costs
+        # time, but to miss one that does gives wrong output.
         def names_of?(tree, constants, calls, words)
           !tree.breadth_first_search do |n|
             case n
@@ -400,9 +397,9 @@ module Zr
           end.nil?
         end
 
-        # Whether some file names Coverage, and the lines of each file a
-        # traced build fires :line events on, with the file's line count:
-        # what Coverage answers nil for and what it counts.
+        # Whether a file uses Coverage. Also, for each file, its line count
+        # and the lines where a traced build fires :line events. Coverage
+        # returns nil for the other lines and counts these.
         def covers? = @covers
         COVERAGE_NAMES = /\bCoverage\b/
         attr_reader :coverable
@@ -411,15 +408,16 @@ module Zr
           @coverable[file]&.last&.push(line)
         end
 
-        # The branch rows of each measured file, in the order Coverage
-        # numbers them: a root, then its sides, then the next root.
+        # The branch records of each measured file, in Coverage's order: a
+        # root, then its branches, then the next root.
         attr_reader :branches
 
-        # A row for branch `kind` over `span`, answering `[id, row]`: the
-        # id its `Cover` carries, which is the program's since one
-        # counter array holds every file's, and the row's place in its
-        # own file, which is what Coverage shows and what a side names
-        # its root by. `under` is that place for a side, nil for a root.
+        # Adds a record for branch `kind` over `span`, and returns
+        # `[id, index]`. `id` is its `Cover` id, unique in the program,
+        # because one counter array contains all files' counters. `index`
+        # is the record's position in its file: Coverage shows it, and a
+        # branch refers to its root by it. `under` is the root's index for
+        # a branch, nil for a root.
         def branch!(file, kind, span, under: nil)
           rows = (@branches[file] ||= [])
           id = @branch_count
@@ -428,12 +426,12 @@ module Zr
           [id, rows.size - 1]
         end
 
-        # Where each scope Coverage can name a method by was written, by
-        # file. A `def` and a block both get a row, since `define_method`
-        # makes a method of a block and ruby locates that one at the
-        # block; which of the two ever becomes a method is the run's to
-        # say, so the row is the span alone -- the name and the owner
-        # come from the definition that claims it.
+        # The location of each scope that Coverage can report as a method,
+        # by file. A `def` and a block both get a record, because
+        # `define_method` makes a method from a block and ruby gives that
+        # method the block's location. Only the run knows which becomes a
+        # method, so the record is only the span. The name and owner come
+        # from the definition that uses it.
         attr_reader :defs
 
         def def_site!(file, span)
@@ -443,14 +441,14 @@ module Zr
           id
         end
 
-        # How many `using` rows stand taken once this build is done, and
-        # the next row it takes.
+        # The number of `using` entries in use after this build, and the
+        # next entry that it takes.
         attr_reader :activations
 
         def next_activation = @activations.tap { @activations += 1 }
 
-        # `flag` names the global an alias that may not run sets when it
-        # does, or is nil for one that always runs.
+        # `flag` is the global that a conditional alias sets when it runs,
+        # or nil for an alias that always runs.
         def back_ref!(new_name, old_name, flag = nil)
           @back_refs[new_name] = old_name
           @alias_flags[new_name] = flag
@@ -468,7 +466,7 @@ module Zr
 
         attr_reader :preloaded
 
-        # A file the program names that only its run can find.
+        # A file that the program requires but that only run time can find.
         def compiles_at_run_time!
           @evals = true
         end
@@ -477,9 +475,10 @@ module Zr
         LOAD_PATH_CHANGES = %i[unshift push << concat insert prepend append replace clear shift pop delete delete_at delete_if
                                reject! select! filter! keep_if map! collect! []= fill].freeze
 
-        # A change to $LOAD_PATH the compiler cannot follow -- anything but
-        # a literal directory added -- can make a require find a file the
-        # program was not compiled with, so the compiler comes along.
+        # A change to $LOAD_PATH that the compiler cannot follow (anything
+        # other than a literal directory added) can make a require find a
+        # file that was not compiled in, so the program links in the
+        # compiler.
         def load_path_changed!(node, file)
           return unless node.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(node.receiver.name)
           return unless LOAD_PATH_CHANGES.include?(node.name)
@@ -488,18 +487,18 @@ module Zr
           @evals = true unless literal
         end
 
-        # Whether this build is an eval. A string of ruby cannot add a
-        # unit to a program that is already linked, and it cannot see
-        # the methods of the class it runs inside, so `require` and
-        # `load` there are ordinary sends that dispatch decides.
+        # Whether this build is an eval. A string of ruby cannot add a unit
+        # to a program that is already linked, and it cannot see the
+        # methods of its enclosing class. So `require` and `load` there are
+        # normal sends, and dispatch decides.
         def eval? = @eval
 
-        # Each file this loader reached, by path: its unit's index, or the
-        # entry an external road answers for it.
+        # Each file that this loader reached, by path: its unit's index, or
+        # its entry in an external EvalSupport.
         def entries = @index
 
-        # The unit at `path` and everything it loads, built as the eval
-        # road's own.
+        # The unit at `path` and all that it loads, built as eval support
+        # files (hidden).
         def hidden(path)
           @hiding = true
           add(path)
@@ -507,14 +506,14 @@ module Zr
           @hiding = false
         end
 
-        # A require, require_relative or load that reaches Kernel's as a
-        # send: its name is computed, so the file it finds may be one the
-        # program was not compiled with, and the compiler comes along to
-        # compile it then.
+        # A require, require_relative or load that goes to Kernel's method
+        # as a send. Its name is computed, so it can find a file that was
+        # not compiled in, and the program links in the compiler to
+        # compile that file at run time.
         LOADS = %i[require require_relative load].freeze
 
-        # A method a program writes over one of these that calls `super`
-        # hands a name to Kernel's or Module's where no site shows it.
+        # A program's method that replaces one of these and calls `super`
+        # passes a name to Kernel's or Module's method that no site shows.
         def loads_by_def!(node)
           return unless (LOADS.include?(node.name) || node.name == :autoload) && node.body
 
@@ -522,10 +521,10 @@ module Zr
           @evals = true if supers
         end
 
-        # `kernel` says the call reaches Kernel's method: it has no
-        # receiver, or `Kernel` is the receiver. `YAML.load` does not.
-        # An `autoload` that reaches this far names a feature the program
-        # computes, whatever the receiver: Module#autoload takes one too.
+        # `kernel` tells that the call goes to Kernel's method: it has no
+        # receiver, or `Kernel` is the receiver. `YAML.load` does not. An
+        # `autoload` that gets here has a computed feature, with any
+        # receiver, because Module#autoload also takes one.
         def evals!(name, args, kernel: true)
           @evals = true if name == :autoload
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
@@ -540,8 +539,8 @@ module Zr
           @evals = true if ruby_command?(name, args)
         end
 
-        # The calls that take a command, which runs as Ruby when it is a
-        # String; trap's own words name a handling and run nothing.
+        # The calls that take a command, which runs as Ruby if it is a
+        # String. trap's special words select a handler and run no code.
         COMMANDS = %i[trap trace_var].freeze
         TRAP_WORDS = ["", "IGNORE", "SIG_IGN", "DEFAULT", "SIG_DFL", "SYSTEM_DEFAULT", "EXIT"].freeze
 
@@ -552,10 +551,9 @@ module Zr
           command.is_a?(Interp) || (command.is_a?(Literal) && command.value.is_a?(String) && !(name == :trap && TRAP_WORDS.include?(command.value)))
         end
 
-        # A program that names Ruby::Box or RubyVM::InstructionSequence
-        # compiles ruby while it runs: everything a box holds, and every
-        # string an instruction sequence compiles, goes through the
-        # compiler.
+        # A program that uses Ruby::Box or RubyVM::InstructionSequence
+        # compiles ruby at run time: all code in a box, and every string
+        # that an instruction sequence compiles, goes through the compiler.
         COMPILES = %i[Ruby InstructionSequence].freeze
 
         def compiles!(name)
@@ -563,17 +561,17 @@ module Zr
           @asts = true if name == :AbstractSyntaxTree
         end
 
-        # Whether a file names RubyVM::AbstractSyntaxTree, whose trees the
-        # translator over prism builds.
+        # Whether a file uses RubyVM::AbstractSyntaxTree. The translator
+        # builds its trees from prism.
         def asts? = @asts
 
-        # Whether a file names rubygems' API, which then loads as the
+        # Whether a file uses rubygems' API. If so, it loads when the
         # program boots, as ruby loads it for every program.
         def gems? = @gems
         GEM_NAMES = %i[Gem Bundler].freeze
 
-        # rubygems evals as it loads, so a program that carries it carries
-        # the compiler.
+        # rubygems evals when it loads, so a program that includes it also
+        # links in the compiler.
         def gems!(name)
           return unless GEM_NAMES.include?(name)
 
@@ -581,12 +579,12 @@ module Zr
           @evals = true
         end
 
-        # A program that names one of these carries ruby's normalize.rb,
-        # which String loads on the first call, as CRuby does.
+        # A program that calls one of these includes ruby's normalize.rb,
+        # which String loads at the first call, as CRuby does.
         NORMALIZES = %i[unicode_normalize unicode_normalize! unicode_normalized?].freeze
-        # A conversion can need the same tables without naming them: the
-        # Mac's own UTF-8 holds every character taken apart, and reading
-        # one is a normalization.
+        # A conversion can need the same tables: the Mac's UTF-8 (UTF8-MAC)
+        # keeps every character decomposed, and a conversion from it is a
+        # normalization.
         ENCODES = %i[encode encode!].freeze
 
         def normalizes? = @normalizes
@@ -596,7 +594,7 @@ module Zr
         def configures? = @configures
         def configures! = @configures = true
 
-        # Whether a file names the toplevel `RbConfig`, bare or as
+        # Whether a file uses the toplevel `RbConfig`, bare or as
         # `::RbConfig`.
         def names_rbconfig?(tree)
           !tree.breadth_first_search do |n|
@@ -611,9 +609,9 @@ module Zr
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
-          # A program that names pp carries pp.rb, which the first call loads.
+          # A program that calls pp includes pp.rb, which the first call loads.
           @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp)
-          # And one that names irb carries irb, which `binding.irb` loads.
+          # A program that calls irb includes irb, which `binding.irb` loads.
           @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)
         end
 
@@ -639,8 +637,8 @@ module Zr
           @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value), root: result.value)
           build.within_method(method, scopes) if scopes && method
-          # An activation row is the program's, not the file's, so a
-          # file that takes one cannot be read back from the cache.
+          # An activation entry belongs to the program, not the file, so
+          # the unit cache cannot keep a file that takes one.
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
           unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
@@ -650,11 +648,11 @@ module Zr
                    source, @activations != rows)
         end
 
-        # The SyntaxError an eval's string raises for a `yield` outside any
-        # `def` of its own, when the eval itself stands outside a method:
-        # there is no block for it to reach. prism reports it only when it
-        # is not told the string runs inside other scopes, so it is asked
-        # that way; ruby names every one, a line each.
+        # The SyntaxError for a `yield` in an eval string, outside any
+        # `def` in the string, when the eval is outside a method: there is
+        # no block to yield to. prism reports it only if it does not know
+        # about the outer scopes, so parse again without them. Ruby
+        # reports each one, one line each.
         def invalid_yields(source, file, line)
           yields = Zr.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
           return nil if yields.empty?
@@ -665,9 +663,9 @@ module Zr
           end
         end
 
-        # The definees this file gives a `require`, `require_relative` or
-        # `load` of its own. A call in one of them dispatches to that
-        # method, so it may not take the road that compiles a file in.
+        # The definees for which this file defines its own `require`,
+        # `require_relative` or `load`. A call in one of them dispatches to
+        # that method, so it must not compile the file in.
         def shadowed(node, path = [Object.name], singleton = false, found = {})
           case node
           when Prism::ClassNode, Prism::ModuleNode
@@ -682,10 +680,10 @@ module Zr
           found
         end
 
-        # Ruby's parse-time warnings for the file, `key :k is duplicated
-        # and overwritten on line 24` and friends, as ruby prints them.
-        # prism knows the rules and the line each one names; `-w` tier
-        # warnings are not printed by a plain run.
+        # Ruby's parse-time warnings for the file (`key :k is duplicated
+        # and overwritten on line 24` and similar), as ruby prints them.
+        # prism knows the rules and the line of each. A plain run does not
+        # print `-w` level warnings.
         def warnings(result, file)
           result.warnings.filter_map do |w|
             next unless w.level == :default
@@ -694,18 +692,18 @@ module Zr
           end
         end
 
-        # The index of `path`'s unit, built on first sight. The row is
-        # claimed before the file is read, so two files that require each
-        # other end where ruby ends them: the second require answers
-        # false and the first one finishes.
+        # The index of `path`'s unit, built at first use. The index entry
+        # is set before the file is read, so two files that require each
+        # other stop where ruby stops: the second require returns false
+        # and the first one finishes.
         def add(path)
           return @index[path] if @index.key?(path)
-          # A build that has learned the program evals is a build the
-          # road will be built over again (`Build.program` reads it
-          # again with the road as `external`), so from here on it names
-          # every file the road holds as that build will, and reads
-          # none of them: `require "rubygems"` evals at its first line,
-          # and its hundred files were read, built and thrown away.
+          # After a build finds that the program evals, it will run again
+          # with eval support (`Build.program` uses it as `external`). So
+          # from here, it refers to each eval support file as that build
+          # will, and reads none of them. Without this, `require "rubygems"`
+          # (which evals at its first line) reads and builds about a
+          # hundred files only to discard them.
           if @prebuilt_eval && @evals && (entry = @prebuilt_eval.units[path])
             return @index[path] = entry
           end
@@ -717,22 +715,23 @@ module Zr
           i
         end
 
-        # A unit that stops by name when it runs, which is what an
-        # autoload of a feature this runtime has no file for becomes:
-        # the row is real, and reading the constant is what stops.
+        # A unit that stops with a message when it runs. An autoload of a
+        # feature that this runtime has no file for becomes this: the
+        # autoload entry exists, and a read of the constant stops.
         def stop_unit(what, line)
           i = @units.size
           @units << Unit.new(what, [], Stop.new(what, line), [], false)
           i
         end
 
-        # The file `feature` names from `from`, or nil.
+        # The file for `feature`, required from `from`, or nil.
         def resolve(kind, feature, from)
           if kind == :require_relative
             candidate(File.expand_path(feature, File.dirname(from)))
           elsif feature.start_with?("/", "./", "../", "~")
-            # A name against the working directory, which the program can
-            # change; the file that names it is the second place to look.
+            # A path relative to the working directory, which the program
+            # can change. The requiring file's directory is the second
+            # place to look.
             candidate(File.expand_path(feature)) || candidate(File.expand_path(feature, File.dirname(from)))
           else
             @roots.each do |root|
@@ -746,9 +745,9 @@ module Zr
         # A native extension's name: `strscan.so`, `date.bundle`.
         NATIVE = /\.(?:so|bundle|dylib|o)\z/
 
-        # The file that stands in for native extension `feature` under
-        # `root`: the extension's own Ruby, `strscan.rb`, where the root
-        # holds this runtime's native halves.
+        # The file in place of native extension `feature` under `root`:
+        # the extension's own Ruby (`strscan.rb`), if the root contains
+        # this runtime's native parts.
         def native(root, feature)
           native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
