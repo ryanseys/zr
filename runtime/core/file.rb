@@ -52,10 +52,10 @@ class File < IO
   def self.split(path) = [dirname(path), basename(path)]
 
   # `DATA`: the main program's text after its `__END__` line, as a File
-  # at that byte. ruby reads it from the script it keeps open; a binary
-  # has no script beside it, so the text it was built from goes into a
-  # file that is unlinked at once, and the File answers the script's
-  # path as ruby's does.
+  # at that byte. ruby reads it from the script that it keeps open. A
+  # binary has no script next to it, so its source text goes into a file
+  # that is unlinked immediately, and the File returns the script's path
+  # as ruby's does.
   def self.data(source, at, path)
     Primitive.attr! :hidden
     name = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr-data-#{Process.pid}-#{rand(1 << 32)}")
@@ -67,13 +67,13 @@ class File < IO
     file
   end
 
-  # ruby's rb_file_join: one separator at each seam, taken from
-  # whichever side already carries one, so "a//" and "//b" meet as
+  # ruby's rb_file_join: one separator at each join, taken from
+  # the side that already has one, so "a//" and "//b" join as
   # "a//b" and not "a////b".
   def self.join(*parts) = joined(parts, {}.compare_by_identity)
 
-  # rb_file_join: an Array among the parts is joined first, and one that
-  # holds itself is refused.
+  # rb_file_join: an Array in the parts is joined first, and an Array
+  # that contains itself is refused.
   def self.joined(parts, joining)
     Primitive.attr! :hidden
     out = +""
@@ -144,10 +144,10 @@ class File < IO
   def self.file?(path) = kind_of_path(path) == 2
   def self.directory?(path) = kind_of_path(path) == 1
 
-  # IO_WITHOUT_GVL: a file system call that may block, which the
-  # scheduler of a non-blocking fiber may run on its own terms. The
-  # block makes the call and answers what it gave, and whatever raises
-  # does so after, here.
+  # IO_WITHOUT_GVL: a file system call that can block, which the
+  # scheduler of a non-blocking fiber can run as it decides. The block
+  # makes the call and returns its result. An exception from the call
+  # raises after, here.
   def self.without_gvl(&) = Fiber.send(:offloaded, &)
 
   # What a path names, as rb_stat reads it: 0 nothing, 1 a directory,
@@ -164,7 +164,7 @@ class File < IO
   # A path, with a mode string ("r", "w+", "ab", ...) or open(2) flags;
   # or, as rb_file_initialize reads one or two arguments, a descriptor.
   def initialize(path, mode = (no_mode = true; +"r"), perm = (no_perm = true; 0o666), **options)
-    # A File that holds a descriptor is not opened again, as CRuby's
+    # A File that has a descriptor is not opened again, as CRuby's
     # rb_file_initialize refuses.
     raise RuntimeError, "reinitializing #{self.class}" unless Primitive.zr_hidden_get(self, :fd).nil?
 
@@ -174,7 +174,7 @@ class File < IO
 
     mode = options[:mode] if options.key?(:mode)
     perm = options[:perm] if options.key?(:perm)
-    # rb_io_extract_modeenc: flags when `to_int` answers, else a mode string.
+    # rb_io_extract_modeenc: flags when `to_int` returns a value, else a mode string.
     mode = Integer.try_convert(mode) || mode unless mode.nil? || mode.is_a?(String)
     perm = perm.nil? ? 0o666 : implicit_integer(perm)
     path = File.send(:path_of, path)
@@ -201,8 +201,8 @@ class File < IO
     super(fd, mode, **options, path: path)
   end
 
-  # The descriptor for a FIFO, waited for a turn at a time. A write end
-  # answers ENXIO until a reader shows up; a read end opens at once.
+  # The descriptor for a FIFO, which waits one scheduler step at a time. A
+  # write end gives ENXIO until a reader opens; a read end opens immediately.
   def fifo_fd(path, text)
     Primitive.attr! :hidden
     flags = File.send(:open_flags, text) | File::NONBLOCK
@@ -390,7 +390,7 @@ class File < IO
   end
 
   # A shell pattern against a path: `*`, `?` and `[...]` never cross a
-  # `/` under FNM_PATHNAME, where `**/` also stands for any run of
+  # `/` under FNM_PATHNAME, where `**/` also matches any run of
   # directories; a leading dot needs FNM_DOTMATCH; `\` escapes unless
   # FNM_NOESCAPE; braces alternate under FNM_EXTGLOB.
   def self.fnmatch(pattern, path, flags = 0)
@@ -457,7 +457,7 @@ class File < IO
   # A `[...]` set as fnmatch reads it: `!` or `^` right after the bracket
   # negates, the first `]` closes even with nothing before it, `\` escapes
   # unless FNM_NOESCAPE, and `[:name:]` is six ordinary characters.
-  # Answers the regexp source and the closing bracket's index.
+  # Returns the regexp source and the closing bracket's index.
   def self.char_class(pattern, open, escape, one)
     Primitive.attr! :hidden
     i = open + 1
@@ -528,7 +528,7 @@ class File < IO
     each_path(paths) { |path| Primitive.zr_lutimes_m(path, a, m) }
   end
 
-  # time_timespec: a Time, a number, or whatever answers `divmod(1)`.
+  # time_timespec: a Time, a number, or an object that responds to `divmod(1)`.
   def self.microseconds(time)
     Primitive.attr! :hidden
     return (time.to_r * 1_000_000).round if time.is_a?(Time) || time.is_a?(Integer) || time.is_a?(Float)
@@ -539,9 +539,9 @@ class File < IO
   end
   private_class_method :microseconds
 
-  # apply2files: the block over each path in one call that may block,
-  # answering how many it touched; the first failure raises with CRuby's
-  # own label.
+  # apply2files: runs the block over each path in one call that can
+  # block, and returns how many paths it changed. The first failure
+  # raises with CRuby's own label.
   def self.each_path(paths)
     Primitive.attr! :hidden
     paths = paths.map { |path| path_of(path) }
@@ -666,8 +666,7 @@ class File < IO
     left.is_a?(Array) && right.is_a?(Array) && left[0] == right[0] && left[1] == right[1]
   end
 
-  # `access(2)` answers for the real user, which is the one the plain
-  # forms ask about too.
+  # `access(2)` checks the real user. The plain forms also check that user.
   def self.readable_real?(path) = readable?(path)
   def self.writable_real?(path) = writable?(path)
   def self.executable_real?(path) = executable?(path)
@@ -683,8 +682,8 @@ class File < IO
     File.join(realpath(dirname(path)), basename(path))
   end
 
-  # A path argument, as CRuby's rb_get_path takes it: a String, or what
-  # `to_path` or `to_str` answers, with no NUL byte in it.
+  # A path argument, as CRuby's rb_get_path takes it: a String, or the
+  # value of `to_path` or `to_str`, with no NUL byte in it.
   def self.path_of(path)
     Primitive.attr! :hidden
     unless path.is_a?(String)
@@ -777,8 +776,8 @@ class File < IO
   end
 end
 
-# `FileTest` asks the same questions File does, as a module a program can
-# mix in. Ruby gives both the one set of answers.
+# `FileTest` has the same predicates as File, as a module that a program
+# can mix in. Ruby gives the same results for both.
 module FileTest
   module_function
 
@@ -843,7 +842,7 @@ class Dir
   # A Dir is the directory's names and a cursor over them, read once
   # when it opens.
   # CRuby writes Dir's opening and globbing in Ruby (its dir.rb), so
-  # they answer their own parameters, under CRuby's names.
+  # they return their own parameters, under CRuby's names.
   def initialize(name, encoding: nil)
     Primitive.attr! :ruby
     @path = File.path(name)
@@ -856,8 +855,8 @@ class Dir
     take_names(@path, names, fd)
   end
 
-  # A directory holds its names, a cursor over them, and the descriptor
-  # it was opened under, which is what #fileno answers.
+  # A directory contains its names, a cursor over them, and the descriptor
+  # it was opened with, which #fileno returns.
   def take_names(path, names, fd)
     Primitive.attr! :hidden
     @path = path
@@ -894,8 +893,8 @@ class Dir
     open_names[@pos].tap { @pos += 1 if @pos < open_names.size }
   end
 
-  # The cursor is the index of the next name. CRuby answers whatever
-  # `telldir` gives, which is a cookie for `seek` and nothing more.
+  # The cursor is the index of the next name. CRuby returns the value of
+  # `telldir`, which is a cookie for `seek` only.
   def pos = @pos
 
   def tell = @pos
@@ -941,7 +940,7 @@ class Dir
     @fd
   end
 
-  # The names, or the error a closed directory answers with.
+  # The names, or the error that a closed directory raises.
   def open_names
     Primitive.attr! :hidden
     @names or raise IOError, +"closed directory"
@@ -1095,7 +1094,7 @@ class Dir
     private
 
     # The paths under `dir` that match the segments from `i` on. A
-    # `**` before more segments stands for zero or more directories; a
+    # `**` before more segments matches zero or more directories; a
     # last `**` matches like `*`.
     def walk(dir, i, out)
       segment = @segments[i]

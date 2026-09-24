@@ -6,16 +6,16 @@
 class IO
   include Enumerable
 
-  # IO_WBUF_CAPA_MIN: what a stream holds before it writes. A write
-  # that would fill the buffer writes what waits and the text with it,
-  # as CRuby's io_binwrite does.
+  # IO_WBUF_CAPA_MIN: how many bytes a stream buffers before it writes.
+  # A write that would fill the buffer writes the waiting bytes and the
+  # new text together, as CRuby's io_binwrite does.
   WBUF_CAPA = 8192
   NEWLINE = "\n".freeze
   private_constant :WBUF_CAPA, :NEWLINE
 
-  # The streams that hold bytes nothing has written yet. The end of the
-  # program writes them; `exit!` never does, because _exit(2) drops
-  # whatever stdio holds.
+  # The streams that contain bytes not yet written. The end of the
+  # program writes them. `exit!` never does, because _exit(2) discards
+  # all that stdio buffers.
   PENDING = []
   private_constant :PENDING
 
@@ -41,8 +41,8 @@ class IO
     binmode = options.delete(:binmode)
     reader.set_encoding(external, internal, **options) if external
     [reader, writer].each(&:binmode) if binmode
-    # rb_io_synchronized: the write end of a pipe holds nothing back,
-    # so a reader of the other end sees each write as it happens.
+    # rb_io_synchronized: the write end of a pipe buffers nothing, so a
+    # reader of the other end sees each write immediately.
     writer.sync = true
     # rb_pipe marks both ends non-blocking, and a program that asks sees
     # the flag ruby set.
@@ -180,10 +180,10 @@ class IO
     [text, binary, external, internal]
   end
 
-  # A name a spec gives -- a mode string's tail, or an `encoding:`
-  # string -- as parse_mode_enc reads it: a name no encoding answers to
-  # warns and leaves the slot at its default, a `-` asks for no
-  # transcoding, and a `bom|` prefix leaves the mark to the bytes.
+  # An encoding name from a spec (a mode string's tail, or an
+  # `encoding:` string), as parse_mode_enc reads it. A name that matches
+  # no encoding warns and leaves the slot at its default. A `-` means no
+  # transcoding. A `bom|` prefix lets the bytes give the mark.
   def self.spec(name)
     Primitive.attr! :hidden
     return name if name.nil? || name.is_a?(Encoding)
@@ -198,9 +198,9 @@ class IO
     end
   end
 
-  # What a pair of names stands for: a `-` where the internal encoding
-  # goes asks for no transcoding and names no encoding to look up, and
-  # an internal one that repeats the external leaves none either.
+  # What a pair of names means. A `-` in the internal position means no
+  # transcoding and no encoding to look up. An internal encoding that
+  # repeats the external one also gives no internal encoding.
   def self.encodings(external, internal)
     Primitive.attr! :hidden
     external = Encoding.find(external) unless external.nil? || external.is_a?(Encoding)
@@ -210,7 +210,7 @@ class IO
     [external, internal]
   end
   # rb_io_modestr_fmode: `r`, `w` or `a`, then any of `b`, `t` and `+`,
-  # and `x` after a `w`, up to the encodings a colon names. The answer is
+  # and `x` after a `w`, up to the encodings after a colon. It returns
   # the mode without its letters for binary, text and exclusive.
   def self.access_mode(string)
     Primitive.attr! :hidden
@@ -258,9 +258,9 @@ class IO
   ROOM_AT_MOST = 9_223_372_036_854_775_807
   private_constant :ROOM_FREELY, :ROOM_AT_MOST
 
-  # CRuby fills a read's whole buffer before it reads, so a length no
-  # allocator can serve raises NoMemoryError and reads nothing. The
-  # answer comes from the machine, not from a limit named here.
+  # CRuby fills a read's whole buffer before it reads, so a length that
+  # no allocator can supply raises NoMemoryError and reads nothing. The
+  # machine sets the limit, not a constant in this file.
   def self.room_for!(length)
     Primitive.attr! :hidden
     return if length.nil? || length < ROOM_FREELY
@@ -289,7 +289,7 @@ class IO
       Array(list).map { |io| [io, select_stream(io), event] }
     end
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-    # A reader whose buffer holds bytes is ready without a wait.
+    # A reader whose buffer contains bytes is ready without a wait.
     deadline = if rows.any? { |_, stream, event| event == POLL_IN && stream.send(:buffered?) } then now
                elsif timeout then now + (timeout * 1e9).to_i
                end
@@ -302,9 +302,9 @@ class IO
     [POLL_IN, POLL_OUT, POLL_PRI].map { |event| chosen.filter_map { |(io, _, wanted), _| io if wanted == event } }
   end
 
-  # What a `select` list entry stands for: a stream, or whatever its
-  # `to_io` answers. Anything that has no `to_io` is no stream at all,
-  # and ruby says so of it by name.
+  # What a `select` list entry represents: a stream, or the value that
+  # its `to_io` returns. An object with no `to_io` is not a stream, and
+  # ruby gives its name in the error.
   def self.select_stream(entry)
     Primitive.attr! :hidden
     return entry if entry.is_a?(IO)
@@ -318,8 +318,8 @@ class IO
   private_class_method :select_stream
 
   # Runs the command with a pipe on its standard input or output. With
-  # a block the stream closes and the child is waited for after it, and
-  # the block's value is the answer.
+  # a block, the stream closes and the child is waited for after the
+  # block, and the block's value is the return value.
   def self.popen(*args, **options, &block)
     env = args.first.is_a?(Hash) ? args.shift : nil
     command, mode = args
@@ -573,9 +573,9 @@ class IO
       end
     end
     text, binary, external, internal = IO.send(:open_options, mode, options)
-    # rb_io_ext_int_to_encs: a text stream that names no internal encoding
-    # takes the default one as it opens, unless the two are the same, and
-    # then holds the external one it converts from.
+    # rb_io_ext_int_to_encs: a text stream that gives no internal encoding
+    # takes the default one as it opens, unless the two are the same.
+    # Then it keeps the external one it converts from.
     if internal.nil? && !binary && !(default = Encoding.default_internal).nil? && !Encoding::BINARY.equal?(external) &&
        !default.equal?(external || Encoding.default_external)
       internal = default
@@ -617,7 +617,7 @@ class IO
   def path = @path || @name
   attr_reader :sync
 
-  # A stream that becomes synchronous writes what it holds at once.
+  # A stream that becomes synchronous writes its buffered bytes immediately.
   def sync=(flag)
     @sync = flag
     write_pending if flag && !@closed
@@ -688,9 +688,9 @@ class IO
     self
   end
 
-  # `reopen`: this stream's descriptor number comes to name the other
-  # stream's open file, so every reference already held follows along.
-  # That is what saving and restoring $stdout is built on.
+  # `reopen`: this stream's descriptor number comes to refer to the other
+  # stream's open file, so every existing reference follows along.
+  # Saving and restoring $stdout uses this.
   def reopen(other, mode = nil)
     check_open
     write_pending
@@ -724,9 +724,9 @@ class IO
     0
   end
 
-  # Every stream that holds bytes, written out. The end of the program
-  # calls this, and a stream that cannot take them any more is not the
-  # program's to hear about.
+  # Writes out every stream that contains buffered bytes. The end of the
+  # program calls this. If a stream cannot take the bytes any more, the
+  # program does not see the error.
   def self.flush_pending
     Primitive.attr! :hidden
     until PENDING.empty?
@@ -742,7 +742,7 @@ class IO
   end
 
   # CRuby flushes the two standard streams before it starts a child, so
-  # that what the parent holds cannot arrive after what the child writes.
+  # that the parent's buffered bytes cannot arrive after the child's output.
   def self.flush_std
     Primitive.attr! :hidden
     [$stdout, $stderr].each do |io|
@@ -753,12 +753,12 @@ class IO
     nil
   end
 
-  # Binary mode: what is read from here on is binary, and so is what the
-  # buffer already holds.
+  # Binary mode: all that is read after this is binary, and so are the
+  # bytes already in the buffer.
   def binmode
     @binmode = true
-    # Binary mode answers for the stream's encoding, whatever name it
-    # was opened with.
+    # Binary mode sets the stream's encoding, whatever encoding it was
+    # opened with.
     @external = nil
     @internal = nil
     @buffer.force_encoding(Encoding::BINARY)
@@ -806,8 +806,8 @@ class IO
     result
   end
 
-  # posix_fadvise is a hint, and darwin has none: ruby answers nil
-  # wherever the call is absent.
+  # posix_fadvise is a hint, and darwin has none: ruby returns nil
+  # where the call is absent.
   def advise(kind, offset = 0, length = 0)
     check_open
     raise NotImplementedError, "Unsupported advice: #{kind.inspect}" unless %i[normal sequential random willneed dontneed noreuse].include?(kind)
@@ -823,8 +823,8 @@ class IO
     close
   end
 
-  # A duplex handle half-closes for real: the twin goes and the child
-  # reads its end of input, while what it answers stays readable here.
+  # A duplex handle really half-closes: the twin closes and the child
+  # reads its end of input, while its output stays readable here.
   def close_write
     raise IOError, +"closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
     return close unless @twin
@@ -897,7 +897,7 @@ class IO
     result
   end
 
-  # The offset the seek lands on, as lseek answers it.
+  # The offset where the seek lands, as lseek returns it.
   def sysseek(offset, whence = SEEK_SET)
     seek(offset, whence)
     pos
@@ -909,9 +909,9 @@ class IO
   def external_encoding
     return @external unless @external.nil?
     return Encoding::BINARY if @binmode
-    # A stream that writes as well as reads answers for nothing until
-    # something names its encoding, as rb_io_external_encoding asks
-    # whether the stream is writable rather than write-only.
+    # A stream that writes and reads returns nil until something sets
+    # its encoding, because rb_io_external_encoding checks whether the
+    # stream is writable rather than write-only.
     return nil unless @readable && !@writable
 
     Encoding.default_external
@@ -965,8 +965,8 @@ class IO
     text.encode(@external)
   end
 
-  # rb_io_syswrite: the bytes straight to the descriptor, past the
-  # buffer, which ruby warns still holds some.
+  # rb_io_syswrite: writes the bytes directly to the descriptor, past
+  # the buffer. Ruby warns if the buffer still contains bytes.
   def syswrite(text)
     check_writable
     text = Primitive.zr_obj_as_string(text)
@@ -1009,8 +1009,8 @@ class IO
 
     objects.each do |object|
       if object.is_a?(Array)
-        # An array that holds itself shows the marker in its own place
-        # rather than walking for ever.
+        # An array that contains itself shows the marker in its own
+        # place, so the walk does not go on for ever.
         next yield(+"[...]", +"\n") if Primitive.zr_recursive_enter(object, :puts)
 
         begin
@@ -1091,7 +1091,7 @@ class IO
 
   def readpartial(length, buffer = nil) = filled(read_some(length), buffer)
 
-  # CRuby writes these three in Ruby (its io.rb), so they answer their
+  # CRuby writes these three in Ruby (its io.rb), so they return their
   # own parameters, under CRuby's names.
   def read_nonblock(len, buf = nil, exception: true)
     Primitive.attr! :ruby
@@ -1133,16 +1133,16 @@ class IO
     c
   end
 
-  # The byte setup_narg writes after a buffer, which the answer must
-  # leave alone, and the mask that reads a command's own length.
+  # The byte that setup_narg writes after a buffer, which the result must
+  # not change, and the mask that reads a command's own length.
   IOCTL_SENTINEL = 17
   IOCPARM_MASK = 0x1fff
   private_constant :IOCTL_SENTINEL, :IOCPARM_MASK
 
   # ioctl(2). rb_io_ctl reads the argument as setup_narg does: nil and
-  # false are 0, true is 1, an Integer stands for itself, and a String is
-  # the buffer the command fills -- grown to the length the command names,
-  # with one byte after it that the answer must not reach.
+  # false are 0, true is 1, an Integer represents itself, and a String is
+  # the buffer that the command fills. The buffer grows to the length in
+  # the command, with one byte after it that the result must not reach.
   def ioctl(command, argument = 0)
     check_open
     command = Numeric.send(:int_operand, command)
@@ -1365,9 +1365,9 @@ class IO
   end
 
   # A system call on a descriptor that is not ready would stop every
-  # green thread, so a task that shares the process with others hands
-  # the turn on until the descriptor answers. A lone task waits in the
-  # system call itself, or in poll(2) when the descriptor cannot wait.
+  # green thread. So a task that shares the process with others yields
+  # to the scheduler until the descriptor is ready. A single task waits
+  # in the system call itself, or in poll(2) when the descriptor cannot wait.
   def park_until(event, fd = @fd)
     Primitive.attr! :hidden
     # rb_io_wait: a non-blocking fiber hands a descriptor that is not
@@ -1383,8 +1383,8 @@ class IO
   end
 
   # Whether a call on this descriptor would wait. A non-blocking call
-  # asks this first and then makes the ordinary call, which a descriptor
-  # that is ready answers at once.
+  # checks this first and then makes the ordinary call, which returns
+  # immediately on a ready descriptor.
   def would_block?(event)
     Primitive.attr! :hidden
     ready = Primitive.zr_io_wait(@fd, event, 0)
@@ -1402,8 +1402,8 @@ class IO
     @nonblock = on
   end
 
-  # The flag as the descriptor itself holds it, which another process or
-  # an accepted socket can have set.
+  # The flag as the descriptor itself has it. Another process or an
+  # accepted socket can have set it.
   def nonblock_flag?
     Primitive.attr! :hidden
     flags = Primitive.zr_io_flags(@fd)
@@ -1504,8 +1504,8 @@ class IO
   end
 
   # io_bufread: `length` bytes, or fewer at the end. With nothing buffered
-  # they come straight from the descriptor, as many reads as it takes;
-  # otherwise the buffer hands out what it holds and fills again.
+  # they come directly from the descriptor, with as many reads as necessary.
+  # Otherwise the buffer gives out its bytes and fills again.
   def bufread(length)
     Primitive.attr! :hidden
     out = +"".b
@@ -1572,7 +1572,7 @@ class IO
     @twin || @fd
   end
 
-  # What the buffer holds, written out.
+  # Writes out the bytes in the buffer.
   def write_pending
     Primitive.attr! :hidden
     return nil if @wbuf.empty?
@@ -1623,11 +1623,11 @@ class IO
     result
   end
 
-  # What a read answered, into `buffer` when one was given. The end of
+  # The result of a read, into `buffer` when one was given. The end of
   # the stream is an error here, not a nil.
-  # What one read(2) gives: what waits in the buffer already, else one
+  # What one read(2) gives: the bytes already in the buffer, else one
   # fill of it. A partial read never waits for the whole length, so a
-  # reader of a pipe answers as soon as anything arrives.
+  # reader of a pipe returns as soon as any bytes arrive.
   def read_some(length)
     Primitive.attr! :hidden
     check_readable
@@ -1686,9 +1686,9 @@ class IO
       @eof = true
     elsif chunk.is_a?(Integer)
       # A descriptor that cannot wait says "nothing yet" rather than
-      # waiting, so the read comes round again.
-      # A directory answers EISDIR only on the read, which ruby reports
-      # from the outer call rather than the buffer filler.
+      # waiting, so the read tries again.
+      # A directory gives EISDIR only on the read. Ruby reports it
+      # from the outer call, not from the buffer filler.
       site = -chunk == Errno::EISDIR::Errno ? +"io_fread" : +"io_fillbuf"
       raise SystemCallError.new(label, -chunk, site) unless -chunk == Errno::EAGAIN::Errno
 
@@ -1705,11 +1705,11 @@ class IO
   end
 
   # An empty read buffer in the stream's encoding: binary in binary mode.
-  # The access a mode asks for must be one the descriptor carries, as
+  # The access that a mode needs must be one that the descriptor has, as
   # rb_io_initialize checks it with fcntl.
-  # Bytes a read already took from the descriptor and did not hand out.
-  # A stream that holds them is ready to read whatever the descriptor
-  # itself would say.
+  # Bytes that a read took from the descriptor and did not give out.
+  # A stream that contains them is ready to read, whatever the
+  # descriptor itself says.
   def buffered?
     Primitive.attr! :hidden
     !@buffer.empty?
@@ -1812,7 +1812,7 @@ class IO
   end
 
   # A limit that falls inside a character grows to that character's
-  # end, as ruby's does, never past what the buffer holds. A binary
+  # end, as ruby's does, but never past the bytes in the buffer. A binary
   # stream counts bytes.
   def whole_char(n)
     Primitive.attr! :hidden
@@ -1829,7 +1829,7 @@ class IO
     Primitive.zr_str_shift_front(@buffer, n)
   end
 
-  # What the buffer holds, `length` bytes of it at most unless negative.
+  # The bytes in the buffer: at most `length` bytes, unless it is negative.
   def buffered_bytes(length)
     Primitive.attr! :hidden
     take(length.negative? ? @buffer.bytesize : [length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
@@ -1874,10 +1874,10 @@ module Kernel
     nil
   end
 
-  # `$,` goes between the objects and `$\` after the last one, which is
-  # what makes `print` and `puts` differ. `$stdout` is asked for `write`
-  # and nothing else, so an object that stands in for it needs only that
-  # one method, which is all CRuby needs of it.
+  # `$,` goes between the objects and `$\` after the last one. This is
+  # the difference between `print` and `puts`. Only `write` is called on
+  # `$stdout`, so an object in its place needs only that one method.
+  # CRuby needs no more than that.
   def print(*objects) = IO.print_to($stdout, objects)
 
   # Alone among the writers, `p` flushes: CRuby's rb_f_p ends with
@@ -1913,9 +1913,9 @@ module Kernel
 
   def readlines(*args, **options) = ARGF.readlines(*args, **options)
 
-  # rb_f_open: an object that answers `to_open` opens itself, and the
-  # block's stream closes after the block; anything else names a file,
-  # a leading `|` included.
+  # rb_f_open: an object that responds to `to_open` opens itself, and
+  # the block's stream closes after the block. Any other object is a
+  # file name, a leading `|` included.
   def open(path, *rest, **options, &block)
     return File.open(path, *rest, **options, &block) unless path.respond_to?(:to_open)
 
@@ -1933,15 +1933,15 @@ module Kernel
   module_function :puts, :print, :p, :printf, :gets, :readline, :readlines, :open
 end
 
-# The errors libSystem answers, each a class under Errno with the
-# errno it stands for.
+# The errors that libSystem returns, each a class under Errno with the
+# errno that it represents.
 class SystemCallError
   # The errno hides from reflection, as ruby's does.
   def errno = Primitive.zr_hidden_get(self, :__errno__)
 
   # SystemCallError itself takes an errno, and becomes the Errno class
-  # that stands for it; an Errno class has its own. `func` names the call
-  # that failed, and shows only beside a message.
+  # that represents it; an Errno class has its own. `func` is the name of
+  # the call that failed, and shows only next to a message.
   def initialize(*args)
     if self.class.equal?(SystemCallError)
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
@@ -1998,8 +1998,8 @@ module Errno
   end
 end
 
-# How a non-blocking call reports "would block": the error class the
-# caller rescues carries the direction as a module.
+# How a non-blocking call reports "would block": the error class that
+# the caller rescues includes the direction as a module.
 class IO
   module WaitReadable; end
   module WaitWritable; end
@@ -2027,8 +2027,8 @@ class IO
   EWOULDBLOCKWaitWritable = EAGAINWaitWritable
 end
 
-# Waiting on one descriptor, over poll(2). Named events answer the
-# stream itself; a plain events mask answers the events that came ready.
+# Waiting on one descriptor, over poll(2). Named events return the
+# stream itself; a plain events mask returns the events that became ready.
 class IO
   EVENT_NAMES = { read: POLL_IN, readable: POLL_IN, r: POLL_IN,
                   write: POLL_OUT, writable: POLL_OUT, w: POLL_OUT,

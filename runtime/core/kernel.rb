@@ -20,18 +20,18 @@ module Kernel
     raise SystemExit.new(exit_status(status), +"exit")
   end
 
-  # How a conversion message names a value: nil, true and false by
-  # themselves, and anything else by its class -- an anonymous class by
-  # the path it carries instead of a name, which is what
-  # rb_builtin_class_name answers. A user's own `==` never decides this,
-  # so the two singletons are compared by identity.
+  # How a conversion message shows a value: nil, true and false as
+  # themselves, and any other value by its class. An anonymous class
+  # shows its path in place of a name, as rb_builtin_class_name returns.
+  # A user's own `==` never decides this, so the two singletons are
+  # compared by identity.
   def conversion_name(value)
     Primitive.attr! :hidden
     value.nil? || value.equal?(true) || value.equal?(false) ? value.inspect : value.class.to_s
   end
   private :conversion_name
 
-  # The message goes to stderr at once; the SystemExit carries it.
+  # The message goes to stderr immediately; the SystemExit contains it.
   def abort(*args)
     raise SystemExit.new(1, +"exit") if args.empty?
 
@@ -107,10 +107,10 @@ module Kernel
     Primitive.attr! :hidden
     return found(File.expand_path(name)) if name.start_with?("/", "./", "../", "~")
 
-    # The library the program was compiled against lists pure Ruby first,
-    # then the gems whose native half this runtime carries. Those come
-    # ahead of $LOAD_PATH: an installed copy of such a gem that rubygems
-    # activates has a C half no program here can load.
+    # The library that the program was compiled against lists pure Ruby
+    # first, then the gems whose native part this runtime includes. Those
+    # come before $LOAD_PATH: an installed copy of such a gem that rubygems
+    # activates has a C part that no program here can load.
     pure, *native = Primitive.zr_load_names(0).split("\n")
     dirs = native + $LOAD_PATH.map { |dir| File.path(dir) } + [pure].compact
     dirs.each do |dir|
@@ -133,10 +133,10 @@ module Kernel
   end
 
   # Whether a require of `feature` would read no file, because the
-  # runtime holds it already or a require read it before. `autoload`
-  # asks: ruby keeps no row for such a feature and declares the name
-  # alone, and a name no file answers is not loaded, so it keeps its row
-  # and raises where the constant is read.
+  # runtime contains it already or an earlier require read it.
+  # `autoload` calls this: ruby keeps no entry for such a feature and
+  # declares only the name. A name that matches no file is not loaded,
+  # so it keeps its entry and raises where the constant is read.
   def self.loaded_feature?(feature)
     Primitive.attr! :hidden
     return true if preloaded?(feature)
@@ -145,11 +145,11 @@ module Kernel
     !path.nil? && $LOADED_FEATURES.include?(path)
   end
 
-  # Where a require of `feature` would read, or nil where no file of
-  # that name stands on any road. An autoload keeps this beside the
+  # The path that a require of `feature` would read, or nil when no file
+  # of that name is on any load path. An autoload keeps this next to the
   # feature as it was written, so that a require of the same file is
-  # recognised whatever name it asks for the file by -- ruby settles
-  # that question afresh every time, and here it is settled once.
+  # recognised by any name. Ruby finds the file again each time; here it
+  # is found once.
   def self.feature_file(feature)
     Primitive.attr! :hidden
     feature_path(feature)
@@ -158,27 +158,27 @@ module Kernel
   end
 
   # A require (kind 0), require_relative (1) or load (2) of the file at
-  # `path`, which `feature` named: its compiled toplevel when the program
-  # was compiled with the file, or the file compiled now. A feature ruby
-  # carries that this runtime has no file for stops by name.
+  # `path`, which `feature` gave: its compiled toplevel when the program
+  # was compiled with the file, or the file compiled now. A feature that
+  # ruby includes but this runtime has no file for is a refusal.
   def self.load_file(path, feature, kind)
     Primitive.attr! :hidden
     missing(feature, kind) unless path
-    # An autoload of this feature stops waiting whichever way the file
-    # arrives here: through this require, or through an earlier one.
-    # ruby asks `rb_feature_provided` afresh each time it is asked
-    # whether a row is pending; this is the same question, answered once
-    # where both the name and the file it resolved to are in hand.
+    # An autoload of this feature stops waiting however the file arrives
+    # here: through this require, or through an earlier one. Ruby calls
+    # `rb_feature_provided` again each time it checks whether an entry is
+    # pending. This is the same check, done once, where both the name
+    # and its resolved file are available.
     Primitive.zr_autoload_provided(feature, path) if kind != 2
     return false if kind != 2 && $LOADED_FEATURES.include?(path)
 
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
   end
 
-  # A name no file answers: ruby's LoadError, or a stop by name for a
-  # feature ruby carries that this runtime has no file for. A row of the
-  # table carries the reason after a tab where there is one to give, and
-  # that reason is the whole of what the stop says.
+  # A name that matches no file: ruby's LoadError, or a refusal for a
+  # feature that ruby includes but this runtime has no file for. An
+  # entry of the table contains the reason after a tab when there is
+  # one, and that reason is the full refusal message.
   def self.missing(feature, kind)
     Primitive.attr! :hidden
     if kind == 0
@@ -191,8 +191,8 @@ module Kernel
     raise error
   end
 
-  # A file the program was not compiled with, compiled by the compiler a
-  # program that computes a require carries.
+  # A file that the program was not compiled with, compiled by the
+  # compiler that a program with a computed require links in.
   def self.compile(path)
     Primitive.attr! :hidden
     return Primitive.zr_unimplemented(+"require of a file the program was not compiled with") unless defined?(::Zr::Eval)
@@ -252,8 +252,8 @@ module Kernel
     raise TypeError, "can't convert #{conversion_name(value)} into String"
   end
 
-  # rb_Array: to_ary, else to_a, else the value alone. Either answering
-  # nil passes to the next; answering anything but an Array is refused.
+  # rb_Array: to_ary, else to_a, else the value alone. If either returns
+  # nil, the next is tried; if either returns a non-Array, it is refused.
   def Array(value)
     converted = Array.try_convert(value)
     return converted if converted
@@ -268,7 +268,7 @@ module Kernel
 
 
   # The current thread sleeps `duration` seconds, or until `wakeup`
-  # without one; the answer is the seconds slept, rounded.
+  # with no duration. It returns the seconds slept, rounded.
   def sleep(duration = (forever = true; nil))
     # rb_f_sleep: a non-blocking fiber sleeps through its scheduler.
     if (scheduler = Fiber.current_scheduler)
@@ -280,8 +280,8 @@ module Kernel
       raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
       raise ArgumentError, +"time interval must not be negative" if duration < 0
     end
-    # The answer is whole seconds of the wall clock, time(2) after less
-    # time(2) before, as rb_f_sleep counts them.
+    # The return value is whole seconds of the wall clock: time(2) after
+    # minus time(2) before, as rb_f_sleep counts them.
     began = Process.clock_gettime(Process::CLOCK_REALTIME, :second)
     deadline = duration.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (duration * 1e9).to_i
     Thread.current.send(:wait, deadline, false)
@@ -295,9 +295,9 @@ module Kernel
     Primitive.zr_obj_clone(self, freeze)
   end
 
-  # Every message on its own line, the first carrying the position
-  # `uplevel` frames above this call. A category the program turned off
-  # says nothing at all.
+  # Each message on its own line. The first line contains the position
+  # `uplevel` frames above this call. A category that the program turned
+  # off writes nothing.
   def warn(*msgs, uplevel: nil, category: nil)
     Primitive.attr! :ruby
     # rb_warn_m: silence, with $VERBOSE nil, says nothing at all.
@@ -316,7 +316,7 @@ module Kernel
   private
 
   # An Integer argument as CRuby's NUM2LONG reads one: an Integer, a
-  # Float truncated, or whatever `to_int` answers.
+  # truncated Float, or the value that `to_int` returns.
   def implicit_integer(value)
     Primitive.attr! :hidden
     return value if value.is_a?(Integer)
@@ -427,9 +427,9 @@ class FalseClass
 end
 
 module Kernel
-  # A program that names an eval carries the compiler, and the eval road
-  # defines this again over the compiler it brought. One that reaches an
-  # eval any other way stops here, by name.
+  # A program that calls eval by name links in the compiler, and eval
+  # support defines this method again over that compiler. A program that
+  # reaches eval any other way stops here, with a refusal.
   def eval(source, binding = nil, file = "(eval)", line = 1) = Primitive.zr_unimplemented(+"eval reached in a program built without the compiler")
 
   def catch(tag = Object.new, &block)
@@ -523,8 +523,8 @@ module Kernel
     READ_ONLY_GLOBALS = %i[$! $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W].freeze
 
     # A program assigns `value` to the global `name`, which it wrote as
-    # `shown`: the setter ruby hooks on that global checks the value and
-    # answers what the global holds.
+    # `shown`. The setter that ruby hooks on that global checks the value
+    # and returns the global's contents.
     def hooked_global(shown, name, value)
       Primitive.attr! :hidden
       case name
@@ -634,7 +634,7 @@ module Kernel
     PRETTY_PRINTER[0] = load
   end
 
-  # The load pp arms, taken once: pp.rb's own pp answers every call
+  # The load that pp arms, done once: pp.rb's own pp handles every call
   # after the first.
   def self.pretty_printer
     Primitive.attr! :hidden
@@ -642,9 +642,9 @@ module Kernel
   end
 
   # CRuby's prelude: the first pp requires ruby's own pp.rb, whose
-  # Kernel#pp replaces this one. A program that names pp carries pp.rb
-  # and arms that require; one that reaches pp only through a name it
-  # builds prints inspect on a line each, as `p` does.
+  # Kernel#pp replaces this one. A program that calls pp by name includes
+  # pp.rb and arms that require. A program that reaches pp only through
+  # a computed name prints inspect on one line each, as `p` does.
   def pp(*objs)
     Primitive.attr! :ruby
     if (load = Kernel.send(:pretty_printer))
@@ -693,7 +693,7 @@ module Kernel
 
   def !~(other) = !(self =~ other)
 
-  # The same call as IO.select, which Kernel carries too.
+  # The same call as IO.select, which Kernel also has.
   def select(*) = IO.select(*)
 
   private :putc, :pp, :Hash, :exit!, :select

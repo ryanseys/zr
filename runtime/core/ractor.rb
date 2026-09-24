@@ -1,24 +1,24 @@
 # frozen_string_literal: true
 
-# Ractor: a task of its own with a boundary around it. Every value that
+# Ractor: a separate task with a boundary around it. Every value that
 # crosses the boundary is shareable or a copy of its whole graph, so two
-# ractors never hold the same mutable object. The tasks are green, as
-# every task in this runtime is, so a program that measures answers
-# instead of parallelism gets ruby's answers.
+# ractors never share a mutable object. The tasks are green, as every
+# task in this runtime is. A program that measures results, not
+# parallelism, gets the same results as ruby.
 class Ractor
   class Error < RuntimeError; end
   class IsolationError < Error; end
   class ClosedError < StopIteration; end
   class MovedError < Error; end
   class RemoteError < Error
-    # The ractor whose failure this stands for.
+    # The ractor whose failure this represents.
     def ractor = Primitive.zr_hidden_get(self, :__ractor__)
   end
   class UnsafeError < Error; end
 
   # What a moved object becomes. CRuby swaps the class of the graph it
-  # gave away, so the sender still holds the cell and every message to it
-  # refuses. These are all the methods a husk has.
+  # gave away, so the sender still has the cell and every message to it
+  # is refused. These are all the methods of a husk.
   class MovedObject < BasicObject
     def !
       ::Ractor.__send__(:moved!)
@@ -58,9 +58,9 @@ class Ractor
   end
 
   # A port: one end of a message queue, which belongs to the ractor that
-  # made it. Anyone may send to a port; only its owner receives. A port is
-  # shareable, so it is frozen, and the queue it holds is state beside the
-  # object rather than an instance variable of it.
+  # made it. Any ractor can send to a port; only its owner receives. A
+  # port is shareable, so it is frozen. Its queue is state kept next to
+  # the object, not an instance variable of it.
   class Port
     def initialize
       Primitive.zr_state_set(self, :__queue__, [])
@@ -193,8 +193,8 @@ class Ractor
   end
   private_class_method :isolate
 
-  # A copy of the block that any ractor may call: frozen, answering to
-  # `self:` (nil unless given), with no Binding to reach its scope by.
+  # A copy of the block that any ractor can call: frozen, with `self:`
+  # as its self (nil unless given), and no Binding to reach its scope.
   def self.shareable_proc(**options, &block)
     raise ArgumentError, "tried to create Proc object without a block" unless block
 
@@ -263,9 +263,9 @@ class Ractor
     alias recv receive
   end
 
-  # The first message any of the ports holds, or the value of the first
-  # ractor to end. A Ractor stands for a port of its own here: it is
-  # watched, and the token its end sends is the answer.
+  # The first message in any of the ports, or the value of the first
+  # ractor to end. A Ractor is in place of a port of its own here: it is
+  # watched, and the token that its end sends is the return value.
   def self.select(*ports)
     raise ArgumentError, "specify at least one Ractor::Port or Ractor" if ports.empty?
 
@@ -339,9 +339,9 @@ class Ractor
   end
 
   # Whether every object reachable from `obj` is frozen. A number, a
-  # symbol, a class and the three singletons are shareable as they are,
-  # and so is a Ractor: what it holds is the runtime's own. A husk left
-  # by a move answers no message, and is shareable for that reason.
+  # symbol, a class and the three singletons are shareable as they are.
+  # So is a Ractor, because its contents belong to the runtime. A husk
+  # left by a move accepts no message, so it is shareable.
   def self.shareable?(obj)
     return true if moved?(obj) || immutable?(obj) || obj.is_a?(Ractor)
 
@@ -418,7 +418,7 @@ class Ractor
     return if immutable?(obj) || moved?(obj) || obj.is_a?(Ractor) || seen.key?(obj)
 
     raise Error, "can not make shareable object for #{obj.inspect}" if unshareable?(obj)
-    # A Proc answers to its self wherever it runs, so that must be
+    # A Proc keeps its self wherever it runs, so the self must be
     # shareable first.
     raise IsolationError, "Proc's self is not shareable: #{obj.inspect}" if obj.is_a?(Proc) && !shareable?(Primitive.zr_proc_self_m(obj))
 
@@ -435,10 +435,10 @@ class Ractor
     end
   end
 
-  # What one object refers to, each to the block: its parts, then its
-  # instance variables. A walk over a graph of Strings and numbers
-  # makes no Array a node, and the answer is true, so a caller may
-  # `return` out of the block with its own.
+  # Gives each object that one object refers to, to the block: its parts,
+  # then its instance variables. A walk over a graph of Strings and
+  # numbers makes no Array a node. The return value is true, so a caller
+  # can `return` its own value out of the block.
   def self.each_reachable(obj)
     Primitive.attr! :hidden
     case obj
@@ -478,8 +478,8 @@ class Ractor
   end
   private_class_method :cross
 
-  # The parts of a copy that are not instance variables: what the class
-  # itself holds.
+  # The parts of a copy that are not instance variables: the contents
+  # that the class itself stores.
   def self.fill(value, copy, seen, deeply, given = nil)
     Primitive.attr! :hidden
     case value
@@ -494,10 +494,10 @@ class Ractor
   end
   private_class_method :fill
 
-  # A value the sender gives up: the receiver holds the graph, and every
-  # node of it the sender still points at becomes a husk. A graph with
-  # something unmovable in it refuses before anything moves, so the
-  # sender keeps what it had.
+  # A value that the sender gives up: the receiver gets the graph, and
+  # every node of it that the sender still points at becomes a husk. A
+  # graph with an unmovable object in it is refused before anything
+  # moves, so the sender keeps what it had.
   def self.hand_over(value)
     Primitive.attr! :hidden
     unmovable!(value, {}.compare_by_identity)
@@ -531,7 +531,7 @@ class Ractor
   # itself receives from.
   def default_port = Primitive.zr_hidden_get(self, :__port__)
 
-  # A message for the ractor: its default port holds it until the ractor
+  # A message for the ractor: its default port keeps it until the ractor
   # takes it, in the order it arrived.
   def send(...)
     Primitive.attr! :ruby
@@ -541,9 +541,9 @@ class Ractor
 
   alias << send
 
-  # What the ractor's block answered, once it ends. A failure inside it
-  # arrives here wrapped, with the original as its cause, and the same
-  # ractor may be asked again, which answers the same object.
+  # The return value of the ractor's block, after it ends. A failure in
+  # the block arrives here wrapped, with the original as its cause. A
+  # second call on the same ractor returns the same object.
   def value = finished
 
   def join
@@ -551,9 +551,9 @@ class Ractor
     self
   end
 
-  # A token on `port` when the ractor ends: `:exited` when its block
-  # answered, `:aborted` when something was raised out of it. A ractor
-  # that has ended already sends the token at once and says false.
+  # Sends a token on `port` when the ractor ends: `:exited` when its
+  # block returned, `:aborted` when something was raised out of it. A
+  # ractor that has already ended sends the token immediately and returns false.
   def monitor(port)
     unless live?
       port.send(token)
@@ -595,10 +595,10 @@ class Ractor
   end
 
   # The ractor's own state. CRuby keeps it in C fields, so a program sees
-  # no instance variable on a Ractor at all: these names carry no `@`,
-  # which keeps them out of every list and out of Marshal. An `@name` a
-  # program writes inside a ractor is then the program's own, and the
-  # runtime refuses it where CRuby does.
+  # no instance variable on a Ractor. These names have no `@`, which
+  # keeps them out of every list and out of Marshal. An `@name` that a
+  # program writes inside a ractor is the program's own, and the runtime
+  # refuses it where CRuby does.
   def locals
     Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :__locals__)
@@ -629,8 +629,8 @@ class Ractor
     Primitive.zr_hidden_get(self, :__token__) || :exited
   end
 
-  # The main ractor: the task the program starts in, which holds a port
-  # of its own so that a ractor can answer it.
+  # The main ractor: the task where the program starts. It has a port of
+  # its own, so that a ractor can send it a reply.
   def setup_main
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__locals__, {})
@@ -649,8 +649,8 @@ class Ractor
     RACTORS << self
     Primitive.zr_hidden_set(self, :__site__, where && where[0, where.index(":in ") || where.size])
     own_port
-    # The block answers to the ractor, as ruby's isolated block does. Its
-    # own copy is rebound, so a block the program still holds keeps the
+    # The block's self is the ractor, as with ruby's isolated block. Its
+    # own copy is rebound, so a block that the program still has keeps the
     # self it was written with.
     body = Primitive.zr_proc_rebind_m(block.dup, self)
     task = Thread.new do
@@ -697,8 +697,8 @@ class Ractor
     thread.alive?
   end
 
-  # Waits for the ractor to end and keeps what it answered, copied over
-  # the boundary once, so every ask answers the same object. A failure
+  # Waits for the ractor to end and keeps its return value, copied over
+  # the boundary once, so every call returns the same object. A failure
   # inside it is ruby's RemoteError here, with the failure as its cause.
   def finished
     Primitive.attr! :hidden

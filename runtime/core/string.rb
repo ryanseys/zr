@@ -85,13 +85,13 @@ class String
 
   def bytesize = Primitive.zr_str_bytesize(self)
 
-  # The index converts as NUM2LONG converts one: a Float truncated, a
-  # `to_int` answered, a Bignum out of range refused.
+  # The index converts as NUM2LONG converts one: a Float is truncated,
+  # `to_int` is called, and a Bignum out of range is refused.
   def getbyte(i) = Primitive.zr_str_byte_at(self, Primitive.zr_index_operand_m(i))
 
-  # The index converts as getbyte's does and is checked first, then the
-  # byte converts as rb_to_int converts one, and its low eight bits are
-  # written; the answer is the byte as it was given.
+  # The index converts as getbyte's index does and is checked first.
+  # Then the byte converts as rb_to_int converts one, and its low eight
+  # bits are written. The return value is the byte as it was given.
   def setbyte(i, byte)
     at = Primitive.zr_index_operand_m(i)
     size = Primitive.zr_str_bytesize(self)
@@ -141,7 +141,7 @@ class String
 
   def replace(other) = Primitive.zr_str_replace(self, Primitive.zr_str_operand(other))
 
-  # `slice!`: the part `[]` would answer, cut out of the receiver.
+  # `slice!`: removes the part that `[]` returns from the receiver.
   def slice!(*args)
     part = OWN[:[]].bind_call(self, *args)
     return nil if part.nil?
@@ -233,7 +233,7 @@ class String
   def capitalize(*options) = mapped_case(:title, options)
   def swapcase(*options) = mapped_case(:swap, options)
 
-  # The bang forms answer nil when nothing changed.
+  # The bang forms return nil when nothing changed.
   def upcase!(*options) = mutate(OWN[:upcase].bind_call(self, *options))
   def downcase!(*options) = mutate(OWN[:downcase].bind_call(self, *options))
   def capitalize!(*options) = mutate(OWN[:capitalize].bind_call(self, *options))
@@ -502,10 +502,10 @@ class String
     out
   end
 
-  # rb_default_rs: the separator `$/` holds until a program sets
-  # another. Lines split at this one object read it in the text's own
-  # encoding, so a UTF-16 text splits at its own newline.
-  # Made on first use: the Encoding constants come later in this file.
+  # rb_default_rs: the separator `$/` until a program sets another.
+  # Lines split at this object read it in the text's own encoding, so
+  # a UTF-16 text splits at its own newline.
+  # It is made on first use because the Encoding constants come later in this file.
   DEFAULT_RS = []
   private_constant :DEFAULT_RS
 
@@ -677,9 +677,9 @@ class String
     self
   end
 
-  # `sub`: the first match replaced by `replacement` with its `\1`,
-  # `\k<name>`, `\0` and `\&` filled in, by the Hash's entry for the
-  # match, or by what the block answers with `$~` set.
+  # `sub`: replaces the first match with `replacement` (with its `\1`,
+  # `\k<name>`, `\0` and `\&` filled in), with the Hash's entry for the
+  # match, or with the block's return value (with `$~` set).
   def sub(pattern, replacement = nil, &block)
     raise ArgumentError, +"wrong number of arguments (given 1, expected 2)" if replacement.nil? && block.nil?
 
@@ -1021,10 +1021,10 @@ class String
     end
   end
 
-  # enc_succ_alnum_char: a letter or digit moved one on within its run
-  # of letters or digits, [:found], or wrapped to the run's first with
-  # the character that carries, [:wrapped, carry]; [:not_char] for any
-  # other character, or a run of one.
+  # enc_succ_alnum_char: moves a letter or digit one step in its run of
+  # letters or digits and returns [:found]. If it wraps to the first of
+  # the run, it returns [:wrapped, carry]. It returns [:not_char] for any
+  # other character, or for a run of one.
   def succ_alnum_char(char, onig)
     Primitive.attr! :hidden
     len = char.bytesize
@@ -1251,13 +1251,12 @@ class String
     characters.map(&:ord)
   end
 
-  # Every match in turn: the matched text, or the groups when the
-  # pattern has any; an empty match steps one character.
-  # Each match in turn, as rb_str_scan walks them: the whole match where
-  # the pattern has no group, else the groups. The items are sliced
-  # from the offsets a search answers; a MatchData is made for each
-  # match only under a block, which may read `$~`, and otherwise for
-  # the last alone, which `$~` keeps.
+  # Each match in sequence, as rb_str_scan finds them: the whole match
+  # when the pattern has no group, else the groups. An empty match steps
+  # one character. The items are sliced from the offsets that a search
+  # returns. A MatchData is made for each match only under a block,
+  # which can read `$~`. Otherwise only the last match gets one, which
+  # `$~` keeps.
   def scan(pattern)
     found = []
     last = nil
@@ -1384,8 +1383,8 @@ class String
   end
 
   # Whether inspect escapes this code point rather than showing it.
-  # onigmo calls a code point with no category of its own unprintable,
-  # and the table holds those as runs of a first point and a length.
+  # onigmo calls a code point with no category of its own unprintable.
+  # The table contains those as runs of a first point and a length.
   def self.unprintable?(point)
     Primitive.attr! :hidden
     return false if point < 128
@@ -1412,8 +1411,8 @@ class String
   # that make no character as \x.
   def utf8_inspect
     Primitive.attr! :hidden
-    # A character prints as itself only in the encoding inspect answers
-    # in; UTF8-MAC and the carriers' UTF-8 show its code point.
+    # A character prints as itself only in the encoding that inspect
+    # returns; UTF8-MAC and the carriers' UTF-8 show its code point.
     own = Encoding.at(Primitive.zr_str_encoding_index_m(self)).equal?(Encoding::UTF_8)
     out = +"\""
     i = 0
@@ -1424,8 +1423,8 @@ class String
         out << if (escape = UNIT_ESCAPES[byte]) then escape
                elsif byte == 35 then [123, 36, 64].include?(Primitive.zr_str_byte_at(self, i + 1)) ? "\\#" : "#"
                elsif byte < 32 || byte == 127 then format("\\u%04X", byte)
-               # A byte on its own above ASCII makes no character here,
-               # so it stands for itself rather than for a code point.
+               # A single byte above ASCII makes no character here, so
+               # it represents itself, not a code point.
                elsif byte > 127 then format("\\x%02X", byte)
                else Primitive.zr_str_from_byte(byte)
                end
@@ -1560,8 +1559,8 @@ class String
     sign * n
   end
 
-  # `casecmp` folds ASCII alone; `casecmp?` folds all of Unicode. Two
-  # Strings with no encoding in common answer nil, as str_casecmp does.
+  # `casecmp` folds ASCII only; `casecmp?` folds all of Unicode. Two
+  # Strings with no encoding in common return nil, as str_casecmp does.
   def casecmp(other)
     return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
 
@@ -1627,9 +1626,9 @@ class String
     if from.equal?(target) && !implicit && options[:invalid] == :replace && !text.valid_encoding?
       text = text.scrub(Encoding.send(:replacement, target, options))
     end
-    # The quotes an attribute stands in are characters of the text, so
-    # they cross into the target with it: written after the conversion
-    # they would carry the source's own bytes instead.
+    # The quotes around an attribute are characters of the text, so
+    # they convert to the target with it. If they were written after the
+    # conversion, they would contain the source's own bytes.
     text = "\"#{text}\"" if options[:xml] == :attr
     # ruby's newline decorators work on the ASCII side of the
     # conversion: before it when the source is ASCII-compatible, after
@@ -1650,9 +1649,9 @@ class String
   end
 
   # A String in a multibyte encoding, as CRuby's rb_str_inspect writes
-  # one: a character that stands for no Unicode point prints as the
-  # number its own bytes spell, and bytes that make no character print
-  # one by one. CESU-8's characters are Unicode's, and print as theirs.
+  # one. A character that represents no Unicode point prints as the
+  # number of its own bytes. Bytes that make no character print one by
+  # one. CESU-8's characters are Unicode's, and print as Unicode's.
   def mb_inspect
     Primitive.attr! :hidden
     cesu = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name == +"CESU-8"
@@ -1681,8 +1680,8 @@ class String
     out << ascii_escaped(run) << "\""
   end
 
-  # An ASCII run escaped as any String is, which the runtime's own
-  # inspect answers once the bytes are tagged as UTF-8.
+  # An ASCII run escaped as any String is. The runtime's own inspect
+  # returns this after the bytes are tagged as UTF-8.
   def ascii_escaped(run)
     Primitive.attr! :hidden
     return +"" if run.empty?
@@ -1706,8 +1705,8 @@ class String
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
     return text.gsub(pattern, marks) unless encoding.ascii_compatible?
 
-    # The escape reads bytes, as the converter does: a byte no character
-    # holds goes through as it is.
+    # The escape reads bytes, as the converter does: a byte that is in no
+    # character goes through as it is.
     text.b.gsub(pattern, marks).force_encoding(encoding)
   end
 
@@ -1729,11 +1728,11 @@ class String
     end
   end
 
-  # `String.new(source, encoding:, capacity:)`. The room asked for is
-  # not held: the buffer grows as the bytes arrive.
+  # `String.new(source, encoding:, capacity:)`. The capacity is not
+  # reserved: the buffer grows as the bytes arrive.
   #
-  # With no source the String keeps what it holds, unless a capacity is
-  # asked for, which discards the bytes; either way it keeps its
+  # With no source the String keeps its bytes, unless a capacity is
+  # given, which discards the bytes. In both cases it keeps its
   # encoding. A new String is binary because `allocate` made it so.
   def initialize(source = (none = true), encoding: nil, capacity: nil)
     # A frozen String takes no argument, as CRuby's rb_str_init checks;
@@ -1761,8 +1760,8 @@ class String
 
   def valid_encoding? = Primitive.zr_str_valid_p(self)
 
-  # Every invalid byte replaced by `replacement` (U+FFFD, or the
-  # block's answer for the bad bytes).
+  # Replaces every invalid byte with `replacement` (U+FFFD, or the
+  # block's return value for the bad bytes).
   def scrub(replacement = nil)
     return copied if Primitive.zr_str_valid_p(self)
 
@@ -1893,8 +1892,8 @@ class String
     self
   end
 
-  # A byte no character holds is a cluster by itself, and an encoding
-  # that is not Unicode has characters alone.
+  # A byte that is in no character is a cluster by itself. An encoding
+  # that is not Unicode has only characters.
   def grapheme_clusters
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     return characters unless GRAPHEMES.include?(encoding.name)
@@ -2039,8 +2038,8 @@ class String
     at
   end
 
-  # The codepoint at place `n` in the expanded spec. The last one
-  # stands in for every place past the end.
+  # The codepoint at position `n` in the expanded spec. The last one
+  # is used for every position past the end.
   def charset_at(ranges, n)
     Primitive.attr! :hidden
     base = 0
@@ -2280,8 +2279,8 @@ class String
   end
 
   # The offsets of the first match of `pattern` at or after byte
-  # `start` -- `[position, begin, end, ...]` as a search answers them
-  # -- or nil. A String pattern matches itself, with no group.
+  # `start` (`[position, begin, end, ...]`, as a search returns them),
+  # or nil. A String pattern matches itself, with no group.
   def match_offsets(pattern, start)
     Primitive.attr! :hidden
     return Primitive.zr_regexp_search(pattern, pattern.send(:program_for, self), self, start, false) if pattern.is_a?(Regexp)
@@ -2295,8 +2294,8 @@ class String
     at && [at, at, at + pattern.bytesize]
   end
 
-  # What replaces one match: the block's answer, the Hash's entry, or
-  # the replacement text with its backreferences filled in by
+  # What replaces one match: the block's return value, the Hash's entry,
+  # or the replacement text with its backreferences filled in by
   # rb_reg_regsub. `regexp` is nil for a String pattern.
   def replacement_for(match, replacement, regexp, &block)
     Primitive.attr! :hidden
@@ -2431,10 +2430,10 @@ class String
     self
   end
 
-  # rb_enc_cr_str_buf_cat: `piece` onto the receiver, a buffer only its
-  # caller holds. The buffer takes the piece's encoding while it is
-  # empty and the two cannot share one, or while it is plain ASCII and
-  # the piece is not; two encodings past ASCII on both sides raise.
+  # rb_enc_cr_str_buf_cat: appends `piece` to the receiver, a buffer
+  # that only its caller can see. The buffer takes the piece's encoding
+  # while it is empty and the two cannot share one, or while it is plain
+  # ASCII and the piece is not. Two non-ASCII encodings raise.
   def buf_cat(piece)
     Primitive.attr! :hidden
     enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
@@ -2768,9 +2767,9 @@ end
 class Symbol
   include Comparable
 
-  # A name that holds a character outside ASCII. One whose characters
-  # all carry a category of their own stands as the runtime writes it;
-  # one that needs an escape is quoted and escaped.
+  # A name that contains a character outside ASCII. If all its
+  # characters have a category of their own, it shows as the runtime
+  # writes it. If one needs an escape, the name is quoted and escaped.
   def utf8_inspect
     Primitive.attr! :hidden
     text = to_s
@@ -2789,8 +2788,8 @@ class Symbol
   def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(to_s, other.to_s) : nil
   alias id2name to_s
 
-  # Ruby holds one frozen name String per symbol, so `name` answers the
-  # same object every time it is asked.
+  # Ruby keeps one frozen name String per symbol, so `name` returns the
+  # same object each time.
   NAMES = Hash.new { |cache, symbol| cache[symbol] = symbol.to_s.freeze }
   private_constant :NAMES
 
@@ -2799,14 +2798,14 @@ class Symbol
   def self.all_symbols = Primitive.zr_all_symbols
 end
 
-# Every encoding ruby registers is named here; a String carries one of
-# the three the runtime walks: UTF-8, ASCII-8BIT and US-ASCII.
+# Every encoding that ruby registers is defined here. A String has one
+# of the three that the runtime walks: UTF-8, ASCII-8BIT and US-ASCII.
 class Encoding
   class CompatibilityError < EncodingError; end
   class ConverterNotFoundError < EncodingError; end
 
-  # The two failures a conversion can answer with name both of its ends,
-  # and the character or the bytes it stopped at.
+  # The two failures that a conversion can return give both of its ends,
+  # and the character or the bytes where it stopped.
   class UndefinedConversionError < EncodingError
     def source_encoding_name = @names ? @names[0] : @source&.name
 
@@ -2868,7 +2867,7 @@ class Encoding
     private :setup, :named
   end
 
-  # The two failures, built with everything they answer about.
+  # The two failures, built with all their attributes.
   def self.byte_error(message, source, destination, bytes, again, incomplete)
     Primitive.attr! :hidden
     InvalidByteSequenceError.new(message).send(:setup, source, destination, bytes.b, again&.b, incomplete)
@@ -2895,8 +2894,8 @@ class Encoding
     @bytewise = bytewise
   end
 
-  # Ruby's own place for this encoding in `Encoding.list`, which is the
-  # number a String carries.
+  # Ruby's own index for this encoding in `Encoding.list`. A String
+  # stores this number.
   def index
     Primitive.attr! :hidden
     @index
@@ -2912,16 +2911,16 @@ class Encoding
   def name = @names.first
   alias to_s name
 
-  # Marshal carries an encoding by name, as ruby does.
+  # Marshal writes an encoding by name, as ruby does.
   def _dump(_limit = nil) = name.dup.force_encoding(Encoding::US_ASCII)
 
   # CRuby's `_load` hands back the name; Marshal's own loader for
   # Encoding turns it into the encoding.
   def self._load(name) = name
 
-  # BINARY is the name the report shows, ASCII-8BIT the one it answers.
-  # A dummy encoding says so, and so does one whose table a fresh ruby
-  # has not read, in that order, as enc_inspect writes them.
+  # BINARY is the name that the report shows, and ASCII-8BIT is the one
+  # that `name` returns. A dummy encoding says so, and so does one whose
+  # table a fresh ruby has not read, in that order, as enc_inspect writes them.
   def inspect
     shown = @names[1] == +"BINARY" ? +"BINARY (ASCII-8BIT)" : name
     "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless @loaded}>".force_encoding(US_ASCII)
@@ -2977,8 +2976,8 @@ class Encoding
     CASED.include?(encoding.name)
   end
 
-  # A String carries a byte-oriented encoding, UTF-8, or UTF-16 or
-  # UTF-32. The rest need byte tables this runtime does not have.
+  # A String has a byte-oriented encoding, UTF-8, or UTF-16 or UTF-32.
+  # The others need byte tables that this runtime does not have.
   def self.carried(encoding)
     Primitive.attr! :hidden
     unless encoding.bytewise? || encoding.equal?(UTF_8) || wide?(encoding) || mb?(encoding) || utf8_like?(encoding)
@@ -2988,8 +2987,8 @@ class Encoding
     encoding.send(:load).index
   end
 
-  # Whether a String in this encoding walks by the multibyte rules that
-  # runtime/kernel/enc_mb.rb carries, or by UTF-8's own.
+  # Whether a String in this encoding walks by the multibyte rules in
+  # runtime/kernel/enc_mb.rb, or by UTF-8's own rules.
   def self.mb?(encoding)
     Primitive.attr! :hidden
     MB.key?(encoding.name)
@@ -3000,8 +2999,8 @@ class Encoding
     MB_UTF8.include?(encoding.name)
   end
 
-  # Whether a conversion out of this multibyte encoding has rows to read.
-  # Ruby holds no converter for a few of them, and a String in one of
+  # Whether a conversion out of this multibyte encoding has entries to
+  # read. Ruby has no converter for some of them. A String in one of
   # those is walked and never converted.
   def self.mb_converts?(encoding)
     Primitive.attr! :hidden
@@ -3015,14 +3014,13 @@ class Encoding
     raise ArgumentError, "invalid byte sequence in #{text.encoding.name}"
   end
 
-  # A multibyte encoding's rows, unpacked the first time it is asked
-  # about: from the bytes before a character's last byte to what a
-  # conversion makes of each last byte. A code point stands for itself, a
-  # String for a character one code point is not enough for, `true` for a
-  # character the encoding gives no code point, and `:more` for the start
-  # of a longer character. Where a character ends is another question,
-  # which the kernel's own rules answer: ruby's converters are narrower
-  # than its character counts.
+  # A multibyte encoding's entries, unpacked on first use. They map the
+  # bytes before a character's last byte to the result of converting each
+  # last byte. A code point represents itself. A String is a character
+  # that needs more than one code point. `true` is a character that the
+  # encoding gives no code point. `:more` starts a longer character.
+  # The kernel's own rules find where a character ends, because ruby's
+  # converters are narrower than its character counts.
   MB_TABLES = {}
   MB_WRITERS = {}
   private_constant :MB_TABLES, :MB_WRITERS
@@ -3065,15 +3063,15 @@ class Encoding
         value = 0
         shift = 0
       end
-      # The rows are written as literals, which carry the source's own
+      # The entries are written as literals, which have the source's own
       # encoding; a walk reaches them with bytes.
       out[key] = row
     end
   end
 
-  # The characters of an encoding that one code point is not enough for,
-  # keyed by the bytes a walk reaches them with. The generated table's own
-  # keys are source literals, which carry the source's encoding.
+  # The characters of an encoding that need more than one code point,
+  # keyed by the bytes that a walk uses to reach them. The generated
+  # table's own keys are source literals, which have the source's encoding.
   def self.mb_multi(name)
     Primitive.attr! :hidden
     rows = MB_MULTI[name]
@@ -3102,7 +3100,7 @@ class Encoding
           next unless slot.is_a?(Integer)
 
           bytes = prefix + byte.chr
-          # The shortest sequence stands for the code point, and the
+          # The shortest sequence represents the code point, with the
           # lowest bytes of that length, as ruby writes one.
           held = out[slot]
           if held.nil? || bytes.bytesize < held.bytesize || (bytes.bytesize == held.bytesize && bytes < held)
@@ -3192,9 +3190,9 @@ class Encoding
     encoding.equal?(ASCII_8BIT) ? +"BINARY (ASCII-8BIT)" : encoding.name
   end
 
-  # The code point each byte from 128 up stands for, nil where the
-  # encoding leaves the byte out. Bytes below 128 stand for themselves
-  # in every encoding that has a table.
+  # The code point that each byte from 128 up represents, or nil where
+  # the encoding leaves the byte out. Bytes below 128 represent
+  # themselves in every encoding that has a table.
   def points
     Primitive.attr! :hidden
     @points ||= HIGH.fetch(name).scan(/..../).map { |hex| hex == +"----" ? nil : hex.to_i(16) }
@@ -3241,7 +3239,7 @@ class Encoding
 
         raise ConverterNotFoundError, not_found(path, decorators)
       end
-      # Ruby names these encodings and carries no converter for them.
+      # Ruby defines these encodings but has no converter for them.
       raise ConverterNotFoundError, not_found(path, decorators) if %w[UTF-7 ISO-2022-JP-2].include?(encoding.name)
       Primitive.zr_unimplemented("String#encode to the #{encoding} encoding") unless shaped?(encoding)
       raise ConverterNotFoundError, not_found(path, decorators) if shape_of(encoding).nil? && (!ascii || !decorators.empty?)
@@ -3271,8 +3269,8 @@ class Encoding
   end
   private_class_method :decorators
 
-  # How ruby words a failure for an encoding: the single-byte rows and
-  # the multibyte ones answer the same three questions.
+  # How ruby words a failure for an encoding. The single-byte entries
+  # and the multibyte ones give the same three facts.
   def self.shaped?(encoding)
     Primitive.attr! :hidden
     SHAPES.key?(encoding.name) || MB_SHAPES.key?(encoding.name)
@@ -3501,10 +3499,10 @@ class Encoding
   private_class_method :unit_step
 
   # Each character of a multibyte String read as its code point, written
-  # as UTF-8. The rows say where a character ends: a slot that starts a
-  # longer one carries the walk on, one with no code point is a
-  # character this pair cannot convert, and no slot at all is bytes that
-  # make no character.
+  # as UTF-8. The entries show where a character ends: a slot that starts
+  # a longer one continues the walk. A slot with no code point is a
+  # character that this pair cannot convert. No slot at all is bytes
+  # that make no character.
   def self.mb_to_utf8(text, from, path, options)
     Primitive.attr! :hidden
     table = mb_table(from)
@@ -3558,9 +3556,9 @@ class Encoding
   end
   private_class_method :mb_to_utf8
 
-  # Whether the bytes from `at` start a character the text ends inside.
-  # A conversion in pieces holds those back for the next piece rather
-  # than refusing them.
+  # Whether the bytes from `at` start a character that the text ends
+  # inside. A conversion in pieces keeps those bytes for the next piece
+  # rather than refusing them.
   def self.incomplete_tail?(bytes, at, encoding)
     Primitive.attr! :hidden
     rest = bytes.bytesize - at
@@ -3592,8 +3590,8 @@ class Encoding
   end
 
   # An encoding that writes its characters as UTF-8 writes them: only
-  # the form parts. UTF8-MAC holds each one taken apart, which is what
-  # ruby calls NFD, and reads back together.
+  # the form parts. UTF8-MAC stores each one decomposed, which ruby
+  # calls NFD, and reads it back composed.
   def self.utf8_like_read(text, from, path, options)
     Primitive.attr! :hidden
     return exchange(text, UTF_8, path, options) if carrier?(from)
@@ -3736,8 +3734,8 @@ class Encoding
            elsif again then "#{shown} followed by #{again.pack('C*').dump}"
            else shown
            end
-    # The failure answers about itself, as CRuby's own carries the bytes
-    # it stopped on and the ones it will read again.
+    # The failure describes itself, as CRuby's does: it contains the
+    # bytes where it stopped and the bytes it will read again.
     raise byte_error("#{text} on #{name}", find(name), destination, error.pack("C*"), again&.pack("C*"), ended)
   end
   private_class_method :invalid
@@ -3760,15 +3758,15 @@ class Encoding
       return yield(written.encode(UTF_8))
     end
 
-    # The failure carries the character it stopped on, as CRuby's does.
+    # The failure contains the character where it stopped, as CRuby's does.
     raise char_error(message(shown, from, to, path), from, to, char)
   end
   private_class_method :undefined
 
-  # The text a `fallback:` gives for a character the target has no room
-  # for, as transcode_loop asks it: a Proc or a Method is called, and a
-  # Hash or any other object that answers `[]` is indexed. nil when it
-  # has none, or when the option names nothing that answers.
+  # The text that a `fallback:` gives for a character the target cannot
+  # encode, as transcode_loop calls it: a Proc or a Method is called,
+  # and a Hash or any other object that responds to `[]` is indexed.
+  # nil when there is no fallback, or when the option gives no usable object.
   def self.fallback(fallback, char)
     Primitive.attr! :hidden
     return nil if fallback.nil?
@@ -3796,7 +3794,7 @@ class Encoding
     return "#{shown} from #{from.name} to #{to.name}" if path.size == 2 && (to.equal?(UTF_8) ? row[2] : row[0])
 
     step = to.equal?(UTF_8) ? +"UTF-8" : row[1]
-    # A hub step stands in the path as its transcoder's own name.
+    # A hub step shows in the path as its transcoder's own name.
     named = path.map { |encoding| encoding.is_a?(String) ? encoding : (encoding.equal?(to) ? step : encoding.name) }
     "#{shown} to #{step} in conversion from #{named.join(' to ')}"
   end
@@ -3846,9 +3844,9 @@ class Encoding
     raise ArgumentError, "unknown encoding name - #{text}"
   end
 
-  # Each name an encoding answers to, as written and upper-cased, the
-  # first encoding in the list to carry it: a lookup by an ASCII name,
-  # which every encoding name is, in one step.
+  # Each name of an encoding, as written and upper-cased, mapped to the
+  # first encoding in the list that has it. This makes a lookup by an
+  # ASCII name (every encoding name is ASCII) one step.
   def self.by_name
     Primitive.attr! :hidden
     @by_name ||= LIST.each_with_object({}) do |encoding, index|
@@ -3859,7 +3857,7 @@ class Encoding
     end
   end
 
-  # Both ends of a conversion. A name no encoding answers to is not an
+  # Both ends of a conversion. A name that matches no encoding is not an
   # ArgumentError here: ruby looks for a converter by the two names and
   # finds none.
   def self.pair(source, target)
@@ -3951,9 +3949,9 @@ class Encoding
     end
   end
 
-  # What writing a code point into `target` needs: the width and order of
-  # its code units, its byte table, its multibyte rows, and whether it
-  # writes UTF-8 or holds a state between characters.
+  # What writing a code point into `target` needs: the width and order
+  # of its code units, its byte table, its multibyte entries, and whether
+  # it writes UTF-8 or keeps a state between characters.
   def self.writing(target)
     Primitive.attr! :hidden
     unit, big = UNITS[target.name]
@@ -3963,17 +3961,17 @@ class Encoding
     [unit, big, points, writer, target.equal?(UTF_8) || utf8_like?(target), target.name.start_with?("ISO-2022-JP", "CP5022")]
   end
 
-  # ISO-2022-JP holds a state: its characters are the bytes of
+  # ISO-2022-JP keeps a state: its characters are the bytes of
   # stateless-ISO-2022-JP with the high bit off, inside an escape that
   # says so, and the text ends back in ASCII.
   JIS_IN = "\e$B"
   JIS_OUT = "\e(B"
   private_constant :JIS_IN, :JIS_OUT
 
-  # JIS X 0208's own rows, which are the set the escape names. Ruby marks
-  # that set with a 0x92 byte in stateless-ISO-2022-JP, and the two bytes
-  # after it are the character with their high bits on. A character the
-  # marker never carries is one ISO-2022-JP cannot write at all.
+  # JIS X 0208's own entries, which are the set that the escape selects.
+  # Ruby marks that set with a 0x92 byte in stateless-ISO-2022-JP, and
+  # the two bytes after it are the character with their high bits on. A
+  # character that never follows the marker is one ISO-2022-JP cannot write.
   JIS_0208 = []
   private_constant :JIS_0208
 
@@ -4000,10 +3998,10 @@ class Encoding
     jis_writer[point]
   end
 
-  # enc_compatible_p: the encoding two objects that carry one can join
-  # in, or nil. A String, a Symbol, a Regexp, an IO and an Encoding carry
-  # one; a String's is read from its own bytes, so a subclass's encoding,
-  # empty? and ascii_only? are not called.
+  # enc_compatible_p: the encoding that two objects with encodings can
+  # join in, or nil. A String, a Symbol, a Regexp, an IO and an Encoding
+  # have one. A String's encoding is read from its own bytes, so a
+  # subclass's encoding, empty? and ascii_only? are not called.
   def self.compatible?(a, b)
     ea = encoding_of(a) or return nil
     eb = encoding_of(b) or return nil
@@ -4014,7 +4012,7 @@ class Encoding
     return ea if b_string && Primitive.zr_str_bytesize(b) == 0
     return ea.ascii_compatible? && Primitive.zr_str_ascii_only_m(b) ? ea : eb if a_string && b_string && Primitive.zr_str_bytesize(a) == 0
     return nil unless ea.ascii_compatible? && eb.ascii_compatible?
-    # An object that is not a String holds only what its encoding names.
+    # An object that is not a String has no bytes to check: only its encoding counts.
     return ea if !b_string && eb == US_ASCII
     return eb if !a_string && ea == US_ASCII
     # All ASCII, a String takes the other side's encoding; two Strings
@@ -4027,9 +4025,9 @@ class Encoding
     nil
   end
 
-  # rb_enc_get_index: the encoding `object` carries, or nil for one that
-  # carries none. is_a? rather than case: String's own boot runs before
-  # Module#=== is there.
+  # rb_enc_get_index: the encoding of `object`, or nil for an object
+  # with no encoding. is_a? rather than case: String's own boot runs
+  # before Module#=== is defined.
   def self.encoding_of(object)
     Primitive.attr! :hidden
     if object.is_a?(String)

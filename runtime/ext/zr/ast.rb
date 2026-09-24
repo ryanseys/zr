@@ -2,8 +2,8 @@
 
 # RubyVM::AbstractSyntaxTree over prism.
 #
-# CRuby 4.0 answers RubyVM::AbstractSyntaxTree.parse with parse.y's node
-# tree (the NODE_* taxonomy that ast.c shows through Node#children). zeo has
+# CRuby 4.0 returns parse.y's node tree from RubyVM::AbstractSyntaxTree.parse
+# (the NODE_* taxonomy that ast.c shows through Node#children). zr has
 # no parse.y, so this file rebuilds that tree from prism's tree. The
 # Translator walks prism's nodes and replays the grammar actions of parse.y
 # (revision 03b6d3f8898a): it builds nodes with the same fields, calls the
@@ -17,9 +17,9 @@
 
 require "prism"
 
-# In zeo's runtime these classes are RubyVM::AbstractSyntaxTree's own,
-# which the runtime defines empty before it loads this file on a first
-# parse, so they carry its names; on a CRuby host, which has its own,
+# In zr's runtime these classes are RubyVM::AbstractSyntaxTree's own. The
+# runtime defines them empty before it loads this file on a first parse,
+# so they have its names. On a CRuby host, which has its own classes,
 # they stay in Zr::AST.
 if RubyVM::AbstractSyntaxTree::Node.instance_methods(false).empty?
   module Zr
@@ -73,7 +73,7 @@ module Zr
     end
 
     # A node of RubyVM::AbstractSyntaxTree: its type, span, and children, as
-    # CRuby's Node answers them.
+    # CRuby's Node returns them.
     class Node
       # The keyword locations each node type reports after its own span.
       EXTRA_LOCATIONS = {
@@ -90,7 +90,7 @@ module Zr
           raise TypeError, "allocator undefined for RubyVM::AbstractSyntaxTree::Node"
         end
 
-        # Makes a node; `spans` holds the node's own span and then its keyword
+        # Makes a node; `spans` contains the node's own span and then its keyword
         # spans, each [first_lineno, first_column, last_lineno, last_column] or nil.
         def build(type, spans, children, node_id, tree)
           node = allocate
@@ -160,7 +160,7 @@ module Zr
       end
     end
 
-    # One parse.y node while the translator builds it. It holds the fields a
+    # One parse.y node while the translator builds it. It contains the fields a
     # NODE_* struct has (`head`, `next`, `body`, ...), which parse.y's helpers
     # rewrite in place; #children reads them the way ast.c's node_children does.
     class Draft
@@ -329,8 +329,8 @@ module Zr
       end
 
       # Parses source the way RubyVM::AbstractSyntaxTree.parse does. A source
-      # prism refuses raises SyntaxError unless error_tolerant is set, which
-      # answers a tree with ERROR nodes where the source is broken.
+      # that prism refuses raises SyntaxError unless error_tolerant is set,
+      # which returns a tree with ERROR nodes where the source is broken.
       def parse(source, keep_script_lines: false, error_tolerant: false, keep_tokens: false)
         unless source.respond_to?(:to_str)
           raise TypeError, "no implicit conversion of #{source.nil? ? 'nil' : source.class} into String"
@@ -381,7 +381,7 @@ module Zr
       end
     end
 
-    # The token list keep_tokens: true answers: parse.y's tokens, rebuilt
+    # The token list that keep_tokens: true returns: parse.y's tokens, rebuilt
     # from prism's lexer. Each token is
     # [id, type, text, [first_lineno, first_column, last_lineno, last_column]].
     # parse.y's lexer states decide some token types, so a few of them
@@ -537,7 +537,7 @@ module Zr
 
 
       # parse.y's lexer reads the comment lines right after a newline before
-      # it answers the newline, so their tokens come first.
+      # it returns the newline, so their tokens come first.
       def reorder_newlines(lexed)
         ordered = []
         index = 0
@@ -659,7 +659,7 @@ end
 
 module Zr
   module AST
-    # Rebuilds parse.y's tree from prism's. Each visit method answers the
+    # Rebuilds parse.y's tree from prism's. Each visit method returns the
     # Draft that parse.y's grammar action builds for the same source, with
     # the span that rule gives it; #scope turns the drafts into Nodes.
     #
@@ -668,7 +668,7 @@ module Zr
     # empty statement list is a zero-width `BEGIN nil` at the end of the
     # grammar symbol before it, and a list of statements runs through its
     # terminators. The translator scans the source for those terminators
-    # (`;` and the newlines parse.y's lexer answers as tokens) itself.
+    # (`;` and the newlines that parse.y's lexer returns as tokens) itself.
     class Translator < Prism::BasicVisitor
       # A prism node kind without a mapping degrades to an UNKNOWN leaf.
       Prism::Visitor.instance_methods(false).each do |name|
@@ -686,8 +686,8 @@ module Zr
       UNARY_OPERATORS = %i[-@ +@ ! ~].freeze
 
       # result: the Prism::ParseResult of the source. The source itself is
-      # read back from the result; `file` is the value `__FILE__` answers,
-      # and `tree` holds what every node shares.
+      # read back from the result; `file` is the value that `__FILE__` returns,
+      # and `tree` contains what every node shares.
       def initialize(result, source = nil, file: "", tree: nil)
         super()
         @result = result
@@ -785,7 +785,7 @@ module Zr
         [*first_of(thing), *last_of(thing)]
       end
 
-      # `then`: a terminator, the `then` keyword, or both. Answers its span.
+      # `then`: a terminator, the `then` keyword, or both. Returns its span.
       def then_span(offset, keyword, newline: true)
         semicolons = @semicolons
         term = scan_terms(offset, newline).first
@@ -1018,7 +1018,7 @@ module Zr
 
       # Walks the value-producing tail of a body and drops a trailing nil or
       # a BEGIN wrapper, the way reduce_nodes does. The block stores the
-      # replacement for the slot that held the node.
+      # replacement for the slot that contained the node.
       def reduce_tail(node, &store)
         while node
           case node.type
@@ -1191,7 +1191,7 @@ module Zr
       # grammar symbol before them, `newline` says whether a newline is a
       # token right after it, and `absorb` says whether the rule before the
       # body takes one terminator itself (`then`, `do`, a def's arglist).
-      # Answers [node, first, last, offset].
+      # Returns [node, first, last, offset].
       def compstmt(statements, prev, offset, newline: false, absorb: false)
         body = statements.is_a?(Array) ? statements : (statements&.body || [])
         terms = scan_terms(offset, newline)
@@ -2404,7 +2404,7 @@ module Zr
         match = visit(node.call)
         first = match.first_pos
         last = match.last_pos
-        # reg_named_capture_assign appends to a placeholder and answers what follows it.
+        # reg_named_capture_assign appends to a placeholder and returns what follows it.
         assigns = mk(:ERROR, first, last)
         node.targets.each do |target|
           assign = assignable(target.name, first, last, mk(:SYM, first, last, lit: target.name))
@@ -2559,7 +2559,7 @@ module Zr
       end
 
       # block_param_def: the ARGS node, and where the body's statements start
-      # (a newline right after `|` or `{` is no token). Answers [args, prev, offset].
+      # (a newline right after `|` or `{` is no token). Returns [args, prev, offset].
       def block_parameters(params, block)
         return [nil, last_of(block.opening_loc), end_offset(block.opening_loc)] unless params.is_a?(Prism::BlockParametersNode)
 
@@ -2675,7 +2675,7 @@ module Zr
           info[:block_arg] = :&
         end
         if kw && !kwrest.is_a?(Prism::KeywordRestParameterNode)
-          # new_args_tail answers a nameless DVAR spanning the keywords.
+          # new_args_tail returns a nameless DVAR spanning the keywords.
           info[:kw_rest_arg] = mk(:DVAR, first_of(params.keywords.first), last_of(params.keywords.last), vid: nil)
         end
         if (block = params.block)
@@ -2727,7 +2727,7 @@ module Zr
       # Definitions
 
       # bodystmt: statements, then rescue clauses, else, and ensure.
-      # Answers [node, first, last, offset].
+      # Returns [node, first, last, offset].
       def bodystmt(node, prev, offset, newline: false, absorb: false)
         unless node.is_a?(Prism::BeginNode)
           return compstmt(node, prev, offset, newline: newline, absorb: absorb)
@@ -2834,7 +2834,7 @@ module Zr
       def visit_def_node(node)
         receiver = node.receiver
         if receiver.is_a?(Prism::ParenthesesNode)
-          # singleton: `'(' expr rparen` answers the expression itself.
+          # singleton: `'(' expr rparen` returns the expression itself.
           receiver = receiver.body.is_a?(Prism::StatementsNode) ? receiver.body.body.first : receiver.body
         end
         recv = receiver ? visit(receiver) : nil
@@ -3050,7 +3050,7 @@ module Zr
         keyword = type == :IF ? node.if_keyword_loc : node.keyword_loc
         then_loc = then_span(end_offset(node.predicate), then_keyword)
         end_loc = nested ? nil : kw(node.end_keyword_loc)
-        # parse.y gives an `if`'s end to whatever IF its tail answers.
+        # parse.y gives an `if`'s end to the IF that its tail returns.
         if type == :IF && !nested && else_node&.type == :IF && else_node.keyword_locations
           else_node.keyword_locations[2] = kw(node.end_keyword_loc)
         end
