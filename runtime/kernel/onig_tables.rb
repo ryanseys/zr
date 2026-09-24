@@ -1,10 +1,10 @@
 # Generated from ruby 4.0.6's enc/unicode/17.0.0 headers. Do not edit.
-# The generator is not in this repository; `git log` shows where it is.
+# The generator is not carried here; `git log` finds it.
 #
-# The byte tables that the kernel's Onigmo matcher reads. The license is
-# in runtime/kernel/regexp.rb.
+# The byte tables the kernel's Onigmo matcher reads; the license is in
+# runtime/kernel/regexp.rb.
 
-# EncLen_UTF8: the character length that each UTF-8 lead byte gives, 256 bytes (utf_8.c).
+# EncLen_UTF8: the length a UTF-8 lead byte announces, 256 bytes (utf_8.c).
 sig [] => Ptr
 machine def zr_onig_utf8_len
   Machine.bytes(
@@ -263,7 +263,7 @@ machine def zr_onig_word_ranges
 \x4A\x13\x03\x00\x50\x13\x03\x00\x79\x34\x03\x00\x00\x01\x0E\x00\xEF\x01\x0E\x00")
 end
 
-# CaseFold_11 sorted by code point: the count, then entries of five words (from, how many, three codes).
+# CaseFold_11 sorted by code point: the count, then rows of five words (from, how many, three codes).
 sig [] => Ptr
 machine def zr_onig_fold_rows
   Machine.bytes(

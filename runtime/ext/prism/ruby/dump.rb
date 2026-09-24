@@ -7,17 +7,17 @@
 
 module Prism
   module Ruby
-    # serialize.c: a parse as the bytes that prism's C library writes for
-    # it, which `Prism.dump` returns and `Prism.load` reads back.
+    # serialize.c: a parse as the bytes prism's C library writes for it,
+    # which `Prism.dump` answers and `Prism.load` reads back.
     #
-    # A tree of nodes does not contain everything that the bytes contain,
-    # so the writer takes the rest next to the result:
+    # A tree of nodes does not carry everything the bytes hold, so the
+    # writer takes the rest beside the result:
     #
-    # * `pool`, the constant pool as the parser built it. It responds to
-    #   `size` and `each_bucket`, which yields `[id, bytes, source_offset]`
-    #   for each constant in the order of its hash table's buckets (the
-    #   order in which the C writes owned constants' bytes); `source_offset`
-    #   is nil for a constant that the pool owns.
+    # * `pool`, the constant pool as the parser built it. It answers `size`,
+    #   and `each_bucket`, which yields `[id, bytes, source_offset]` for each
+    #   constant in the order of its hash table's buckets (the order the C
+    #   writes owned constants' bytes in); `source_offset` is nil for a
+    #   constant the pool owns.
     # * `shared`, a Hash by identity from each String that is a slice of the
     #   source to its offset there. Every other String is written as bytes
     #   of its own.

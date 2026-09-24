@@ -1,10 +1,10 @@
 # Generated as zlib's crc32.c and trees.c make them. Do not edit. The
-# generator is not in this repository; `git log` shows where it is.
+# generator is not carried here; `git log` finds it.
 #
-# zlib's tables, made as crc32.c and trees.c make them. The license is
+# zlib's tables, made as crc32.c and trees.c make them; the license is
 # in runtime/kernel/zlib.rb.
 
-# The CRC of each byte value, 256 words: crc32.c's crc_table, which get_crc_table also returns.
+# The CRC of every byte value, 256 words: crc32.c's crc_table, which get_crc_table answers too.
 sig [] => Ptr
 machine def zr_crc_table
   Machine.bytes(
@@ -172,7 +172,7 @@ machine def zr_inflate_dext
 \x1B\x00\x00\x00\x1B\x00\x00\x00\x1C\x00\x00\x00\x1C\x00\x00\x00\x1D\x00\x00\x00\x1D\x00\x00\x00\x40\x00\x00\x00\x40\x00\x00\x00")
 end
 
-# The order in which the code length code lengths arrive: inflate.c's order.
+# The order the code length code lengths arrive in: inflate.c's order.
 sig [] => Ptr
 machine def zr_inflate_order
   Machine.bytes(
@@ -439,7 +439,7 @@ machine def zr_tr_bl_order
 \x0E\x00\x00\x00\x01\x00\x00\x00\x0F\x00\x00\x00")
 end
 
-# The good, lazy, nice and chain lengths of each level: deflate.c's configuration_table. zr_deflate_kind returns its func column.
+# Each level's good, lazy, nice and chain lengths: deflate.c's configuration_table, whose func column zr_deflate_kind answers.
 sig [] => Ptr
 machine def zr_deflate_config_table
   Machine.bytes(

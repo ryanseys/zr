@@ -5,7 +5,7 @@
 # `test/unit/os_api_test.rb` checks each OS against this list, by name
 # and signature.
 #
-# Each OS also defines these constants:
+# The constants each OS defines:
 #   EINTR EBADF EPROTOTYPE EAI_SYSTEM NSIG CLOCK_MONOTONIC
 #   O_NONBLOCK O_NONBLOCK_OFF O_CLOEXEC PTY_OPEN_FLAGS
 #   TIOCGWINSZ TIOCSWINSZ TIOCSCTTY TERMIOS_LEN STAT_LEN MSGHDR_LEN MSGHDR_FLAGS

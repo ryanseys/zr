@@ -54,27 +54,27 @@ class EvalDetectionTest < Minitest::Test
   # support would overwrite them. Thus program ids start after the ids
   # of eval support, as symbol ids and site indices do.
   def test_refinement_ids_start_after_eval_support_ids
-    road = Zr.eval_support(Zr::Target.default)
-    assert_operator road.activations, :>, 0, "the road activates refinements of its own"
+    support = Zr.eval_support(Zr::Target.default)
+    assert_operator support.activations, :>, 0, "eval support activates refinements of its own"
 
-    loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default), external: road)
-    assert_equal road.activations, loader.activations
+    loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default), external: support)
+    assert_equal support.activations, loader.activations
 
-    Dir.mktmpdir("zr-road-") do |work|
+    Dir.mktmpdir("zr-eval-") do |work|
       rb = File.join(work, "using.rb")
       source = "module M; refine Integer do; def trip = self * 3; end; end\nusing M\np 7.trip\n"
       File.write(rb, source)
       loader.unit(rb, source)
     end
-    assert_equal road.activations + 1, loader.activations
+    assert_equal support.activations + 1, loader.activations
   end
 
   private
 
   # Returns true if the program in `source` links in eval support.
   def carried?(source)
-    Dir.mktmpdir("zr-road-") do |work|
-      rb = File.join(work, "road.rb")
+    Dir.mktmpdir("zr-eval-") do |work|
+      rb = File.join(work, "eval_probe.rb")
       File.write(rb, source)
       loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default))
       loader.unit(rb, source)
