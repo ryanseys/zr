@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# darwin's dlopen(3) flags, as FFI::DynamicLibrary names them.
+# darwin's dlopen(3) flags, with FFI::DynamicLibrary's names for them.
 module FFI
   class DynamicLibrary
     RTLD_LAZY = 0x1

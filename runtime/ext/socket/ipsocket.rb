@@ -218,7 +218,7 @@ class UDPSocket < IPSocket
   def __recvfrom_nonblock(len, flags, str, exception) = receive_nonblock(:ip, len, flags, str, exception)
 
   # rsock_fd_family: the family of the socket's own address, AF_UNSPEC
-  # when it has none to ask.
+  # when it has none.
   def descriptor_family
     Primitive.attr! :hidden
     sockaddr = @fd.nil? ? -1 : Primitive.zr_sock_name(@fd, false)

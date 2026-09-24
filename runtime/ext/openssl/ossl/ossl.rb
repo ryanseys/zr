@@ -44,7 +44,7 @@ module OpenSSL
   VERSION_TEXT = Lib.OpenSSL_version(Lib::OPENSSL_VERSION).force_encoding(Encoding::US_ASCII).freeze
   private_constant :VERSION_TEXT
 
-  # The C extension names the headers it was built against here, and the
+  # The C extension gives the headers it was built against here, and the
   # library it runs on below; the port has only the library.
   OPENSSL_VERSION = VERSION_TEXT
   OPENSSL_LIBRARY_VERSION = VERSION_TEXT

@@ -656,7 +656,7 @@ module Prism
         true_expression = parse_expression(BINDING_POWER_DEFINED, false, false, :ternary_expression_true, depth + 1)
 
         if @recovering
-          # Missing pieces stand in before `expect` can pass a later `:`.
+          # Placeholders for missing pieces go in before `expect` can pass a later `:`.
           colon = Token.new(:MISSING, @previous_end, @previous_end)
           false_expression = missing_node(colon.start, colon.end)
 

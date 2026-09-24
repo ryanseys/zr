@@ -185,7 +185,7 @@ module Fiddle
     }
 
     # rb_fiddle_type_ensure: a type as its Integer, from a Symbol or String
-    # that names it or from anything with to_int.
+    # that is its name or from any object with to_int.
     def type_ensure(type)
       original = type
       unless type.is_a?(Symbol)
@@ -1132,7 +1132,7 @@ module Fiddle
         map.get_pointer(FFI::Type::Builtin::POINTER.size).get_string(0)
       end
 
-      # dlclose() at garbage collection, when the handle asks for it.
+      # dlclose() at garbage collection, when the handle requests it.
       def finalizer
         proc do
           Native.dlclose(Native.memory(@address)) if @address != 0 && @open && @enable_close

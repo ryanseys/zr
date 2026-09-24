@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# musl's dlopen(3) flags, as FFI::DynamicLibrary names them: the ones
-# musl lacks are 0, and the masks are what ffi_c builds from the rest.
+# musl's dlopen(3) flags, with FFI::DynamicLibrary's names for them: the
+# ones that musl does not have are 0, and ffi_c builds the masks from the rest.
 module FFI
   class DynamicLibrary
     RTLD_LAZY = 0x1

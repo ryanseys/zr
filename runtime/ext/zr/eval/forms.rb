@@ -6,10 +6,10 @@
 # the block-only builtins that these replace.
 
 module Kernel
-  # Ruby run where this call stands: over the locals and under the cref
-  # of the frame that asked, which is what an eval with no binding gets,
-  # with the receiver as self, which is that frame's own self unless a
-  # `send` named another.
+  # Ruby run at the position of this call: over the locals and under the
+  # cref of the calling frame, as an eval with no binding gets. The
+  # receiver is self, which is that frame's own self unless a `send`
+  # gave another.
   def eval(source, binding = nil, file = nil, line = 1)
     unless binding.nil?
       raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)

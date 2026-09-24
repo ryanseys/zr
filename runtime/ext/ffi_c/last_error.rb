@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# LastError.c: the errno each thread's last C call left, kept apart from
-# errno itself, which ruby's own calls change.
+# LastError.c: the errno that each thread's last C call left, kept
+# separate from errno itself, which ruby's own calls change.
 module FFI
   module LastError
     module_function

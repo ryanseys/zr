@@ -588,8 +588,8 @@ module Psych
 
       def tag_suffix_length = @tag_data_suffix ? @tag_data_suffix.bytesize : 0
 
-      # yaml_emitter_select_scalar_style: the style the scalar can take,
-      # starting from the one the event asks for.
+      # yaml_emitter_select_scalar_style: the style that the scalar can
+      # take, starting from the one that the event requests.
       def select_scalar_style(event)
         style = event.style
         no_tag = @tag_data_handle.nil? && @tag_data_suffix.nil?
@@ -902,7 +902,7 @@ module Psych
       end
 
       # yaml_emitter_write_indent: start a new line at the indentation,
-      # unless the output already stands there.
+      # unless the output is already there.
       def write_indent
         indent = @indent >= 0 ? @indent : 0
 

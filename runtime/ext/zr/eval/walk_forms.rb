@@ -8,8 +8,8 @@
 # and are here without changes.
 
 module Kernel
-  # Ruby run where this call stands: over the locals and under the cref
-  # of the frame that asked, with the receiver as self.
+  # Ruby run at the position of this call: over the locals and under the
+  # cref of the calling frame, with the receiver as self.
   def eval(source, binding = nil, file = nil, line = 1)
     unless binding.nil?
       raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)

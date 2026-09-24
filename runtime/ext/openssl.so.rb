@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-# openssl.so: the C half of ruby's openssl gem (4.0.2), in Ruby over the
+# openssl.so: the C part of ruby's openssl gem (4.0.2), in Ruby over the
 # host's own libssl and libcrypto 3, which `require "openssl"` opens
 # (runtime/ext/openssl/ossl/library.rb). Nothing cryptographic is done here:
 # each method converts its arguments, calls the library as the C
 # extension does, and raises what the C extension raises. The gem's
-# Ruby half (vendor/ext/openssl/lib) stands on these classes as it
-# stands on the C.
+# Ruby part (vendor/ext/openssl/lib) uses these classes as it uses
+# the C.
 #
-# The files under openssl/ossl each stand for the C file of the same
-# name, and load in the order Init_openssl calls them.
+# The files under openssl/ossl each represent the C file of the same
+# name, and load in the order in which Init_openssl calls them.
 require "digest"
 
 require_relative "openssl/ossl/native"

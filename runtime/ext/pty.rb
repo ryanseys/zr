@@ -11,7 +11,7 @@ module PTY
   end
 
   # The master and the slave of a new pair. The master is an IO whose
-  # path names the pair rather than any file; the slave is a File on the
+  # path refers to the pair, not to a file; the slave is a File on the
   # device itself. A block takes the pair and leaves both closed.
   def self.open
     answer = Primitive.zr_pty_open
@@ -20,8 +20,8 @@ module PTY
     descriptor, name = answer
     master = IO.new(descriptor, "r+", path: "masterpty:#{name}".freeze)
     master.sync = true
-    # PTY.open asks for a slave no other user can write to, which is
-    # what prevent_messages does with its own chmod.
+    # PTY.open requests a slave that no other user can write to, which
+    # is what prevent_messages does with its own chmod.
     File.chmod(0o600, name)
     slave = File.open(name, "r+")
     slave.sync = true
@@ -76,9 +76,9 @@ module PTY
     alias getpty spawn
   end
 
-  # Whether a child changed state: nil while it runs, its status once it
-  # ended or stopped, and a ChildExited when the caller asks to be told
-  # by exception.
+  # Whether a child changed state: nil while it runs, its status after
+  # it ended or stopped, and a ChildExited raise when the caller
+  # requests an exception.
   def self.check(pid, want_raise = nil)
     answer = begin
       Process.wait2(pid, Process::WNOHANG | Process::WUNTRACED)

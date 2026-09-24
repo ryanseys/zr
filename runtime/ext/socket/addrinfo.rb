@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# raddrinfo.c's Addrinfo: an address's bytes with the protocol family,
-# socket kind and protocol it is for, the canonical name the resolver
-# gave, and the name it was asked for as an inspect shows it.
+# raddrinfo.c's Addrinfo: an address's bytes with its protocol family,
+# socket kind and protocol, the canonical name that the resolver gave,
+# and the requested name as an inspect shows it.
 class Addrinfo
   # union_sockaddr's size.
   SOCKADDR_MAX = 2048
@@ -257,8 +257,8 @@ class Addrinfo
       Primitive.zr_class_build(Addrinfo).__send__(:assign, sockaddr, pfamily, socktype, protocol, canonname, inspectname)
     end
 
-    # call_getaddrinfo: the resolver's rows for these hints, each hint nil
-    # or as a socket names it.
+    # call_getaddrinfo: the resolver's entries for these hints, each hint
+    # nil or in a socket's form.
     def call_getaddrinfo(node, service, family, socktype, protocol, flags, socktype_hack: false)
       Primitive.attr! :hidden
       Socket.resolve(node, service,

@@ -101,7 +101,7 @@ module Psych
       end
 
       # yaml_parser_update_raw_buffer: move the unread raw bytes to the
-      # front and ask the read handler for as many bytes as fit after them.
+      # front and read as many bytes as fit after them from the read handler.
       def update_raw_buffer
         return if @raw_pointer.zero? && @raw_buffer.bytesize == RAW_BUFFER_SIZE
         return if @eof

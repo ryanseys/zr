@@ -64,8 +64,8 @@ class Ripper
 
   def filename = @cursor.filename
 
-  # Where the event being dispatched stands, and the lexer's state and
-  # token there; nil outside a parse.
+  # The position of the event being dispatched, and the lexer's state
+  # and token there; nil outside a parse.
   def lineno = @cursor.parsing ? @cursor.lineno : nil
   def column = @cursor.parsing ? @cursor.column : nil
   def state = @cursor.parsing ? @cursor.state : nil
@@ -100,7 +100,7 @@ class Ripper
 
   def dedent_string(input, width) = Ripper.dedent_string(input, width)
 
-  # A parse's source and where its events stand.
+  # A parse's source and the positions of its events.
   Cursor = Struct.new(:source, :filename, :first_lineno, :lineno, :column, :state, :token, :parsing, :parsed, :error) do
     def at(line, col, lex_state = state, text = token)
       self.lineno = line
@@ -112,7 +112,7 @@ class Ripper
   private_constant :Cursor
 
   # prism's walk of the tree, which calls each event on the Ripper that
-  # asked for the parse.
+  # requested the parse.
   class Events < Prism::Translation::Ripper
     def initialize(ripper, cursor)
       super(cursor.source, cursor.filename, cursor.first_lineno)

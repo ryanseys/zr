@@ -106,7 +106,7 @@ module OpenSSL
   module ASN1
     class ASN1Error < OpenSSLError; end
 
-    # The UNIVERSAL tags by number, where the C extension names one.
+    # The UNIVERSAL tags by number, where the C extension gives a name.
     UNIVERSAL_TAG_NAME = %w[
       EOC BOOLEAN INTEGER BIT_STRING OCTET_STRING NULL OBJECT OBJECT_DESCRIPTOR
       EXTERNAL REAL ENUMERATED EMBEDDED_PDV UTF8STRING RELATIVE_OID

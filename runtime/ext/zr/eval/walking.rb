@@ -19,10 +19,10 @@ module Zr
     module World
       module_function
 
-      # The lexical scope of the frame that asked -- the caller's, since
-      # this method's own frame is the one on top. A block the walk made
+      # The lexical scope of the calling frame (the caller's, because
+      # this method's own frame is on top). A block that the walk made
       # reads it to see whether `class_eval` or `instance_exec` gave it
-      # a scope other than the one it was written in.
+      # a scope other than the one where it was written.
       def cref = Primitive.zr_eval_cref
 
       # Two crefs, or any two Values, as the same object. A cref accepts
@@ -39,8 +39,8 @@ module Zr
       # lexical scope rather than an eval's.
       def cref_klass(cref) = Primitive.zr_cref_klass(cref)
       def cref_lexical(cref) = Primitive.zr_cref_lexical(cref)
-      # The visibility a `def` under `cref` gets: 0 public, 1 private,
-      # 2 protected; and whether `module_function` asks for a copy on
+      # The visibility that a `def` under `cref` gets: 0 public, 1 private,
+      # 2 protected; and whether `module_function` requests a copy on
       # the singleton class.
       def definition_vis(name, cref) = Primitive.zr_definition_vis_m(name, cref)
       def module_function?(cref) = Primitive.zr_cref_modfn_p(cref)
@@ -61,8 +61,8 @@ module Zr
       # the class itself where the object can hold no singleton.
       def singleton_of(obj) = Primitive.zr_eval_class_of(obj)
 
-      # The scopes a Binding names, innermost first, each an Array of
-      # the names its slots hold; and one slot of one scope.
+      # The scopes of a Binding, innermost first, each an Array of the
+      # names of its slots; and one slot of one scope.
       def binding_scopes(b) = Primitive.zr_binding_scopes(b)
       def binding_get(b, depth, index) = Primitive.zr_binding_get(b, depth, index)
       def binding_set(b, depth, index, v) = Primitive.zr_binding_set(b, depth, index, v)

@@ -166,7 +166,7 @@ module FFI
     def _async_cb_dispatcher_atfork_child = nil
   end
 
-  # The typedefs a program adds, kept apart from TypeDefs.
+  # The typedefs that a program adds, kept separate from TypeDefs.
   module_function def custom_typedefs = @custom_typedefs ||= {}
 
   # libffi's ffi_type: a size, an alignment, a kind and, for an aggregate,

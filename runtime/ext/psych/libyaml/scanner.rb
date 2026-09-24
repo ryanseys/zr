@@ -883,8 +883,8 @@ module Psych
       end
 
       # yaml_parser_scan_tag_uri: the URI of a tag or a %TAG prefix, after
-      # `head` without its leading '!'. libyaml hands the result on as a C
-      # string, so an escaped NUL ends it.
+      # `head` without its leading '!'. libyaml passes the result on as a
+      # C string, so an escaped NUL ends it.
       def scan_tag_uri(uri_char, directive, head, start_mark)
         length = head ? head.bytesize : 0
         string = new_string
@@ -1108,7 +1108,7 @@ module Psych
 
           max_indent = @mark_column if @mark_column > max_indent
 
-          # A tab must not stand where the indentation is.
+          # A tab must not be in the indentation.
           if (indent.zero? || @mark_column < indent) && tab_at?(@buffer, @pointer)
             scanner_error("while scanning a block scalar", start_mark,
                           "found a tab character where an indentation space is expected")
@@ -1404,7 +1404,7 @@ module Psych
 
           while blank_at?(@buffer, @pointer) || break_at?(@buffer, @pointer)
             if blank_at?(@buffer, @pointer)
-              # A tab must not stand where the indentation is.
+              # A tab must not be in the indentation.
               if leading_blanks && @mark_column < indent && tab_at?(@buffer, @pointer)
                 scanner_error("while scanning a plain scalar", start_mark,
                               "found a tab character that violates indentation")

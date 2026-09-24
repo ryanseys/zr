@@ -36,7 +36,7 @@ module OpenSSL
       def bn_or_nil(bn) = bn.zero? ? nil : bn_new(bn)
 
       # The EVP_PKEY of `object` when its type is `type`, as the Get
-      # macros of each key type check it; `name` names the type.
+      # macros of each key type check it; `name` is the type's name.
       def typed_pkey(object, type, name)
         pkey = PKEY.fetch(object)
         raise error(RuntimeError, "THIS IS NOT A #{name}!") if Lib.EVP_PKEY_get_base_id(pkey) != type

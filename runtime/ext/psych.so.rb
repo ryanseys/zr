@@ -10,8 +10,8 @@
 # The emitter is a handler, which is the one thing this file needs
 # from the gem's Ruby half before the gem requires it.
 require "psych/handler"
-# The parser raises Psych::SyntaxError, so the class must stand before
-# the gem's own half loads, which is where CRuby's psych.so seats it too.
+# The parser raises Psych::SyntaxError, so the class must exist before
+# the gem's own part loads, which is also where CRuby's psych.so defines it.
 require "psych/syntax_error"
 
 require_relative "psych/libyaml/yaml"

@@ -103,7 +103,7 @@ module Prism
       def global_name_punctuation?(byte) = byte > 0x20 && byte <= 0x7E && GLOBAL_NAME_PUNCTUATION.include?(byte)
 
       # The width of the character at `at` in the source's encoding, as
-      # parser_char_width asks it: never 0.
+      # parser_char_width calculates it: never 0.
       def parser_char_width
         width = @encoding_changed ? @encoding.char_width(@source, @current_end, @end - @current_end) : Encodings::UTF_8.char_width(@source, @current_end, @end - @current_end)
         width == 0 ? 1 : width

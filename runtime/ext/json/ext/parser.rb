@@ -674,8 +674,8 @@ module JSON
         raise_error(format)
       end
 
-      # raise_parse_error: the message with up to 32 bytes of what stands
-      # at the cursor, and the cursor's line and column.
+      # raise_parse_error: the message with up to 32 bytes of the text at
+      # the cursor, and the cursor's line and column.
       def raise_error(format)
         # parser.c keeps no lines across a resumable source's pieces.
         if @resumable
@@ -726,7 +726,7 @@ module JSON
   end
 
   # parser.c's ResumableParser: a walk that takes its source in pieces
-  # and hands out each document once it is whole.
+  # and gives out each document when it is complete.
   class ResumableParser
     def initialize(opts = nil)
       raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?

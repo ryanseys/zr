@@ -33,8 +33,8 @@ module OpenSSL
     # BIO_reset (bio.h).
     def self.BIO_reset(bio) = RETURNS[:int].(BIO_ctrl(bio, BIO_CTRL_RESET, 0, nil))
 
-    # The address of a function the library frees with, to hand it back
-    # as a pointer: sk_X509_pop_free(sk, X509_free).
+    # The address of a function that the library frees with, to give it
+    # back as a pointer: sk_X509_pop_free(sk, X509_free).
     def self.function_address(name) = Native.symbol(@handle, name.to_s)
   end
 

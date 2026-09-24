@@ -14,7 +14,7 @@ module Prism
   module Ruby
     # pm_token_t, where a token is copied by value.
     Token = Struct.new(:type, :start, :end) do
-      # Whether the token is not the PM_TOKEN_NOT_PROVIDED stand-in.
+      # Whether the token is not the PM_TOKEN_NOT_PROVIDED placeholder.
       def provided? = type != :NOT_PROVIDED
 
       # PM_LOCATION_TOKEN_VALUE, packed as `(start << 32) | length`.
@@ -24,8 +24,8 @@ module Prism
       def optional_location = provided? ? location : nil
     end
 
-    # not_provided: the stand-in for a token that is absent without error,
-    # at the start of the source.
+    # not_provided: the placeholder for a token that is absent without
+    # error, at the start of the source.
     NOT_PROVIDED = Token.new(:NOT_PROVIDED, 0, 0).freeze
 
     # A diagnostic in discovery order: its id (a ParseError#type Symbol),

@@ -7,7 +7,7 @@ require "io/console"
 
 class IO
   # LINES and COLUMNS from the environment, and 25 by 80 when neither
-  # names a positive number.
+  # gives a positive number.
   def self.default_console_size
     lines = ENV["LINES"].to_i
     columns = ENV["COLUMNS"].to_i
@@ -15,7 +15,7 @@ class IO
   end
 
   # The terminal's own size. A process with no terminal has no winsize
-  # to ask for, and falls back on the environment.
+  # to read, and uses the environment instead.
   def self.console_size
     console.winsize
   rescue NoMethodError

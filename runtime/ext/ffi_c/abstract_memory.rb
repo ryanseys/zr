@@ -45,7 +45,7 @@ module FFI
       end
     end
 
-    # The methods each number kind has, as rb_define_method names them.
+    # The methods of each number kind, with rb_define_method's names for them.
     { int8: :INT8, int16: :INT16, int32: :INT32, int64: :INT64, long: :LONG }.each do |name, kind|
       unsigned = :"U#{kind}"
       [[name, kind], [:"u#{name}", unsigned]].each do |spelled, native|

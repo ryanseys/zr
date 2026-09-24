@@ -656,7 +656,7 @@ module Zlib
 
     # What follows one pass of zlib: the input it left is kept for the
     # next run, and an error is raised. Returns true when a dictionary
-    # that the stream asked for was set and the pass runs again.
+    # that the stream requested was set and the pass runs again.
     def settle(source, err, flush)
       left = avail_in
       @flags |= IN_STREAM if flush != FINISH && err == Z_BUF_ERROR && @avail_out > 0
@@ -911,7 +911,7 @@ module Zlib
     Primitive.zr_define_alloc(self)
 
     class << self
-      # rb_inflate_s_allocate: a stream, and the dictionaries it may ask for.
+      # rb_inflate_s_allocate: a stream, and the dictionaries it can request.
       def allocate
         Primitive.attr! :hidden
         inflate = Primitive.zr_class_build(self)

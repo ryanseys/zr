@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 # json's generator.c, in ruby. The gem's own ruby (json/common and
-# json/ext/generator/state, vendored under vendor/ext/json) stands on it
-# the way it stands on the C extension: JSON::Ext::Generator::State with
-# the fields generator.c keeps in its struct, its accessors, and the walk
-# that writes a document.
+# json/ext/generator/state, vendored under vendor/ext/json) uses it
+# as it uses the C extension: JSON::Ext::Generator::State with
+# the fields that generator.c keeps in its struct, its accessors, and
+# the walk that writes a document.
 require "json/common"
 
 module JSON
@@ -458,7 +458,7 @@ module JSON
             end
           end
 
-          # raw_generate_json_string: the escapes the state asks for.
+          # raw_generate_json_string: the escapes that the state requests.
           def raw_string(str)
             raise_error(str, "source sequence is illegal/malformed utf-8") unless str.valid_encoding?
 

@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# The reach into C the port stands on, over the kernel's calls
+# The access to C that the port uses, over the kernel's calls
 # (runtime/kernel/ffi.rb): dlopen and dlsym, a call through an address with
 # up to eight integer or pointer arguments, or through libffi with more,
-# raw memory by address, and the kernel's callback entries. This is the one file of the port
-# that names Primitive.
+# raw memory by address, and the kernel's callback entries. This is the
+# only file of the port that refers to Primitive.
 module OpenSSL
   module Native
     # dlopen's mode: every symbol bound now, and none of them seen by a
