@@ -4,23 +4,35 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: macos-15
     environment: release
+    timeout-minutes: 90
     permissions:
       contents: write
       id-token: write # trusted publishing to rubygems.org
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      # Builds pkg/zr-<version>.gem and pushes it to rubygems.org.
-      - uses: rubygems/release-gem@v1
-      # The same file to gem.coop. Check its push host and key before the
-      # first release.
+      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+      # Publish only a commit whose unit tests pass. bin/test builds the
+      # runtime first.
+      - name: Run the unit tests
+        run: bin/test test/unit
+      # Runs `rake release`: builds pkg/zr-<version>.gem and pushes it to
+      # rubygems.org.
+      - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1.4.1
+      # The same file to gem.coop. The key is a push-only key for this
+      # gem, kept in the release environment.
       - name: Push to gem.coop
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}

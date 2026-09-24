@@ -1,0 +1,22 @@
+name: Runtime cache
+description: >-
+  Restores and saves the built runtime (the runtime object, the prelinked
+  images, eval support and the wasm prelude). The key covers every input
+  of the runtime's digest, so a run with no change under lib, runtime or
+  vendor skips the build. The unit, parse and binary caches are not
+  kept: they are gigabytes.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: |
+          tmp/cache/runtime-*.o
+          tmp/cache/symbols-*.json
+          tmp/cache/gem-prelude-*.json
+          tmp/cache/prelink-*.bin
+          tmp/cache/skeleton-*.bin
+          tmp/cache/eval-*
+          tmp/cache/wasm-*.marshal
+          tmp/cache/built-*.ok
+        key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'runtime/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}

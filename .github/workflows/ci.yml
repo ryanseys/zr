@@ -5,32 +5,24 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   macos:
     name: checks and gem (macOS arm64)
     runs-on: macos-15
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      - uses: bytecodealliance/actions/wasmtime/setup@v1
-      # The runtime caches -- the object, the images, the road, the wasm
-      # prelude -- kept between runs under the digest's inputs, so a run
-      # whose lib and rt did not move skips the build's minutes. Not the
-      # unit, parse and binary caches, which are gigabytes.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            tmp/cache/rt-*.o
-            tmp/cache/prelink-*.bin
-            tmp/cache/skeleton-*.bin
-            tmp/cache/eval-*
-            tmp/cache/wasm-*.marshal
-            tmp/cache/built-*.ok
-          key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'runtime/**', '.ruby-version') }}
+      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+      - uses: ./.github/actions/runtime-cache
       # Under ZR_VERIFY=1 every IR function is checked for dominance and
       # operand types before it is assembled, and a pass that changed a
       # function without saying so is refused: the runtime's forty
@@ -63,11 +55,11 @@ jobs:
           /opt/zr/gems/bin/zr build sum.rb -o sum.wasm --emit wasm
           /opt/zr/gems/bin/zr build sum.rb -o sum.o --emit obj
           test "$(wasmtime sum.wasm)" = 6
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gem
           path: zr-*.gem
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: outputs-macos
           path: |
@@ -81,21 +73,14 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      - uses: actions/cache@v4
-        with:
-          path: |
-            tmp/cache/rt-*.o
-            tmp/cache/prelink-*.bin
-            tmp/cache/skeleton-*.bin
-            tmp/cache/eval-*
-            tmp/cache/wasm-*.marshal
-            tmp/cache/built-*.ok
-          key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'runtime/**', '.ruby-version') }}
+      - uses: ./.github/actions/runtime-cache
       - name: Build the runtime for the checks
         run: bundle exec rake build
       - run: bundle exec rake stage1
@@ -108,8 +93,10 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: .ruby-version
           bundler-cache: true
@@ -121,11 +108,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: "4.0.6"
-      - uses: bytecodealliance/actions/wasmtime/setup@v1
-      - uses: actions/download-artifact@v4
+      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: gem
       - name: Install the gem
@@ -145,7 +132,7 @@ jobs:
           status=$?
           set -e
           test "$status" = 3
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: outputs-linux
           path: |
@@ -161,7 +148,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Start ruby 4.0.6 on Alpine
         run: |
           docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.6-alpine sleep infinity
@@ -192,24 +181,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-      - uses: bytecodealliance/actions/wasmtime/setup@v1
-      # The runtime caches, kept between runs under the digest's inputs:
-      # a run whose lib and rt did not move skips the build's minutes.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            tmp/cache/rt-*.o
-            tmp/cache/prelink-*.bin
-            tmp/cache/skeleton-*.bin
-            tmp/cache/eval-*
-            tmp/cache/wasm-*.marshal
-            tmp/cache/built-*.ok
-          key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'runtime/**', '.ruby-version') }}
+      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+      - uses: ./.github/actions/runtime-cache
       - name: Build the runtime for the checks, and the wasm32-wasi one
         run: bundle exec rake build:all
       - name: Run the units this target answers
@@ -229,11 +209,11 @@ jobs:
     needs: [macos, linux]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: outputs-macos
           path: macos
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: outputs-linux
           path: linux

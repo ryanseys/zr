@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["Ryan Seys"]
   spec.email = ["ryan@ryanseys.com"]
 
-  spec.summary = "A Ruby compiler, written in Ruby, that answers what ruby 4.0.6 answers or refuses by name"
+  spec.summary = "A Ruby compiler, written in Ruby: its programs give ruby 4.0.6's output, or zr refuses them by name"
   spec.description = <<~TEXT
     zr compiles Ruby programs to native aarch64-apple-darwin binaries on an
     Apple Silicon Mac, and to WASI modules on any host. The compiler and the
@@ -18,9 +18,14 @@ Gem::Specification.new do |spec|
   TEXT
   spec.homepage = "https://github.com/ryanseys/zr"
   spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
+  # Exactly the ruby that zr checks its output against (.ruby-version).
+  # Another ruby has another standard library, which zr is not tested with.
   spec.required_ruby_version = "= #{Zr::RUBY}"
 
   spec.metadata = {
+    "homepage_uri" => spec.homepage,
+    "source_code_uri" => spec.homepage,
+    "documentation_uri" => "#{spec.homepage}/tree/main/docs",
     "changelog_uri" => "#{spec.homepage}/blob/main/CHANGELOG.md",
     "bug_tracker_uri" => "#{spec.homepage}/issues",
     "rubygems_mfa_required" => "true"
@@ -28,11 +33,9 @@ Gem::Specification.new do |spec|
 
   # The compiler, its runtime and the vendored sources. The tests and
   # the tasks stay in the repository.
-  spec.files = Dir.chdir(__dir__) do
-    `git ls-files -z`.split("\x0").select do |file|
-      file.match?(%r{\A(exe|lib|runtime|vendor/(ext|lib|prelude))/}) ||
-        %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
-    end
+  spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL, &:read).split("\x0").select do |file|
+    file.match?(%r{\A(exe|lib|runtime|vendor/(ext|lib|prelude))/}) ||
+      %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
   end
   spec.bindir = "exe"
   spec.executables = ["zr"]
