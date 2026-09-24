@@ -7,6 +7,8 @@
 #   rake 'compile[hello bundler]'    the programs whose name contains a word
 #   rake 'compile[--write]'          write the table to tmp/bench/compile.txt
 #   rake 'compile[--zr]'             also time the compiled compiler
+#   rake 'compile[--zr --commit]'    write a baseline to benchmark/results/compile/
+#   rake 'compile[--zr --check]'     fail if slower than the newest baseline
 #
 # `rake bench` times what a binary does; this task times how long it
 # takes to make one. The programs in `benchmark/compile` have require
@@ -41,6 +43,20 @@ module CompileBench
   # Where `--write` puts the table: under `tmp`, next to the report of
   # `rake bench`. It is not committed.
   RESULTS = File.join(ROOT, "tmp/bench/compile.txt")
+  # Where `--commit` puts a baseline. A subdirectory, because the glob of
+  # `rake bench:check` (Zr::Harness::Bench.results) reads the files
+  # directly under `benchmark/results/`.
+  BASELINES = File.join(ROOT, "benchmark/results/compile")
+  WHOLE = "the whole build"
+  RATIO = "compiled / ruby"
+  # `--check` fails when the whole build is this much slower and at least
+  # this many seconds slower, or when the ratio rises by this much. A
+  # phase is only reported.
+  MOVED = 0.08
+  SLOWER = 0.5
+  RATIO_MOVED = 0.05
+  PHASE_MOVED = 0.15
+  PHASE_SLOWER = 0.25
   RUNS = 3
   # The compiled compiler and its cache, under `tmp`.
   COMPILED = File.join(ROOT, "tmp/compile/zr")
@@ -53,14 +69,17 @@ module CompileBench
 
   def run(argv)
     runs = RUNS
-    write = false
+    write = commit = check = false
     compiled = false
     OptionParser.new do |o|
-      o.banner = "usage: rake 'compile[--runs N --write <filter>...]'"
+      o.banner = "usage: rake 'compile[--runs N --write --zr --commit --check <filter>...]'"
       o.on("--runs N", Integer) { |v| runs = v }
       o.on("--write") { write = true }
       o.on("--zr") { compiled = true }
+      o.on("--commit") { commit = true }
+      o.on("--check") { check = true }
     end.parse!(argv)
+    abort("rake compile: --commit and --check need --zr") if (commit || check) && !compiled
     abort("rake compile: --runs takes a count of one or more") if runs < 1
 
     rungs = Dir[File.join(DIR, "*.rb")].sort
@@ -74,7 +93,9 @@ module CompileBench
       h["#{name}*"] = median(rb, runs, compiled: true) if compiled
     end
     table(rows)
-    write!(rows, runs) if write
+    write!(rows, runs, RESULTS) if write
+    write!(rows, runs, baseline_path) if commit
+    exit(check(read(File.read(newest_baseline)), rows) ? 0 : 1) if check
   end
 
   # Runs one build and returns its phases as `{label => seconds}`. The
@@ -121,6 +142,7 @@ module CompileBench
   def compiled!(rung)
     Dir.mktmpdir("zr-compile-") { |work| build(rung, File.join(work, "out")) }
     print "the compiled compiler ... "
+    FileUtils.mkdir_p(File.dirname(COMPILED))
     took = Benchmark.realtime do
       system(Zr::CLI::GC_ENV, RbConfig.ruby, File.join(ROOT, "exe/zr"), "build", File.join(ROOT, "exe/zr"),
              "-o", COMPILED, out: File::NULL, chdir: ROOT) or abort("rake compile: the compiler did not build")
@@ -156,15 +178,91 @@ module CompileBench
     io.puts format("%-#{width}s  %s", "compiled / ruby", cells.join(" "))
   end
 
-  # Writes the same table, under a line that gives the time and revision.
-  def write!(rows, runs)
-    at = `git -C #{ROOT} rev-parse --short HEAD`.strip
-    FileUtils.mkdir_p(File.dirname(RESULTS))
-    File.open(RESULTS, "w") do |f|
-      f.puts "# zr compile cost, the median of #{runs} run(s) at #{at}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+  # Writes the same table to `path`, under a line that gives the time,
+  # the revision and the host. `check` compares only the ratio row when
+  # the host differs.
+  def write!(rows, runs, path)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.open(path, "w") do |f|
+      f.puts "# zr compile cost, the median of #{runs} run(s) at #{revision}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+      f.puts "# host: #{host}"
       table(rows, f)
     end
-    warn "wrote #{RESULTS}"
+    warn "wrote #{path.delete_prefix("#{ROOT}/")}"
+  end
+
+  def revision = IO.popen(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], &:read).strip
+
+  def host
+    require "etc"
+    "#{RbConfig::CONFIG["host_cpu"]}-#{RbConfig::CONFIG["host_os"]} cpus=#{Etc.nprocessors} jobs=#{ENV.fetch("ZR_JOBS", "-")}"
+  end
+
+  def baseline_path = File.join(BASELINES, "#{Time.now.utc.strftime("%Y%m%d-%H%M")}-#{revision}.txt")
+
+  def newest_baseline
+    Dir[File.join(BASELINES, "*.txt")].max || abort("rake compile: no baseline under #{BASELINES}; run rake 'compile[--zr --commit]'")
+  end
+
+  # Reads a table that `write!` wrote: `{rung => {phase => seconds}}`,
+  # plus the ratio row under RATIO and the host under :host.
+  def read(text)
+    lines = text.lines.map(&:chomp)
+    host = lines.find { |l| l.start_with?("# host: ") }&.delete_prefix("# host: ")
+    body = lines.reject { |l| l.start_with?("#") || l.empty? }
+    names = body.shift.split.drop(1)
+    rows = names.to_h { |n| [n, {}] }
+    body.each do |line|
+      cells = line.split
+      label = line[/\A.+?(?=\s{2,}[-\d])/].to_s.strip
+      cells.last(names.size).each_with_index do |cell, i|
+        next if cell == "-"
+
+        rows[names[i]][label] = cell.delete_suffix("x").to_f
+      end
+    end
+    rows.merge(host: host)
+  end
+
+  # Compares a run with a baseline. Only a slower build fails. On another
+  # host only the ratio row is compared, because it does not depend on the
+  # speed of the machine.
+  def check(was, now)
+    same_host = was[:host] == host
+    failed = []
+    now.each do |name, phases|
+      before = was[name] or next
+      phases.each do |label, secs|
+        old = before[label] or next
+        next unless same_host
+
+        moved = (secs - old) / old
+        line = format("%-9s %-40s %8.3f -> %8.3f  %+.0f%%", name, label, old, secs, moved * 100)
+        if label == WHOLE
+          failed << line if moved >= MOVED && secs - old >= SLOWER
+          puts "#{line}  (faster; re-baseline)" if moved <= -MOVED
+        elsif moved >= PHASE_MOVED && secs - old >= PHASE_SLOWER
+          puts "#{line}  (phase; noted)"
+        end
+      end
+    end
+    ratios(now).each do |name, ratio|
+      old = was.dig(name, RATIO) or next
+      line = format("%-9s %-40s %8.2fx -> %7.2fx", name, RATIO, old, ratio)
+      failed << line if ratio - old >= RATIO_MOVED
+    end
+    puts "compile --check: #{same_host ? "same host" : "another host, only #{RATIO} compared"}"
+    failed.each { |line| puts line }
+    puts(failed.empty? ? "compile --check: no regression" : "compile --check: #{failed.size} regression(s)")
+    failed.empty?
+  end
+
+  def ratios(rows)
+    rows.filter_map do |name, p|
+      next unless name.end_with?("*") && (ruby = rows[name.delete_suffix("*")])
+
+      [name, p.fetch(WHOLE) / ruby.fetch(WHOLE)]
+    end
   end
 end
 

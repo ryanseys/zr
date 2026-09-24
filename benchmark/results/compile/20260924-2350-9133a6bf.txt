@@ -1,0 +1,8 @@
+# zr compile cost, the median of 3 run(s) at 9133a6bf, runtime warm, 2026-09-24 23:50 UTC
+# host: arm64-darwin23 cpus=12 jobs=-
+phase                                bundler  bundler*     hello    hello*  rubygems rubygems*    stdlib   stdlib*
+hir built                              1.750     2.133     0.006     0.002     0.058     0.043     0.289     0.295
+program lowered and assembled          1.117     0.431     0.131     0.008     0.725     0.404     0.284     0.047
+program object written and linked      2.473     2.884     0.085     0.101     0.359     0.399     0.407     0.584
+the whole build                        5.702     5.800     0.498     0.281     1.448     1.060     1.281     1.159
+compiled / ruby                            -     1.02x         -     0.56x         -     0.73x         -     0.90x
