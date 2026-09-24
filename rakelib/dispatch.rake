@@ -72,7 +72,7 @@ module Dispatch
   # A receiver of a fresh subclass. The eval runs against `Object`, so
   # the subclass is the top-level `Probe` the generated program names.
   def fresh(name, make)
-    Object.class_eval("#{probe_class(name)}; end; #{make}", __FILE__, __LINE__) # rubocop:disable Security/Eval
+    Object.class_eval("#{probe_class(name)}; end; #{make}", __FILE__, __LINE__)
   ensure
     Object.send(:remove_const, :Probe) if Object.const_defined?(:Probe, false)
   end

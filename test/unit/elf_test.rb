@@ -38,7 +38,7 @@ class ElfTest < Minitest::Test
     shnum = first[5] if shnum.zero?
     shstrndx = first[6] if shstrndx == Elf::SHN_XINDEX
     raw = (0...shnum).map { |i| bytes[shoff + (i * 64), 64].unpack("L<L<Q<Q<Q<Q<L<L<Q<Q<") }
-    strings = ->(section, at) { bytes[section[4] + at..].unpack1("Z*") }
+    strings = ->(section, at) { bytes[(section[4] + at)..].unpack1("Z*") }
     names = raw[shstrndx]
     sections = raw.map { |r| Section.new(strings.call(names, r[0]), r[1], r[2], r[4], r[5], r[6], r[7], r[8], r[9]) }
     symtab = sections.find { |s| s.type == Elf::SHT_SYMTAB }

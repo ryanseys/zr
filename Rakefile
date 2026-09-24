@@ -121,4 +121,7 @@ else
   task(:test) { zr_bin_test(*ZR_TEST_ARGV) }
 end
 
-task default: :test
+desc "Check the code with RuboCop's Lint cops (.rubocop.yml)"
+task(:lint) { sh "rubocop", verbose: false }
+
+task default: %i[lint test]

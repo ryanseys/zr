@@ -1,0 +1,43 @@
+# Only the Lint cops: they find bugs (unused values, shadowed names,
+# unreachable code) and do not change the style of the code.
+AllCops:
+  TargetRubyVersion: 4.0
+  NewCops: enable
+  DisabledByDefault: true
+  SuggestExtensions: false
+  Exclude:
+    - "runtime/**/*"      # compiled by zr, not run by ruby
+    - "vendor/**/*"       # third-party code
+    - "benchmark/**/*"    # programs that zr compiles
+    - "test/e2e/**/*"
+    - "test/programs/**/*"
+    - "test/fixtures/**/*"
+    - "test/rt/**/*"
+    - "test/zr/**/*"
+    - "test/hir/**/*"     # input programs for the HIR snapshots
+    - "tmp/**/*"
+    - "lib/zr/hir/features.rb"      # generated
+    - "lib/zr/library_digests.rb"   # generated
+
+Lint:
+  Enabled: true
+
+# Off: these report deliberate choices in this code, not bugs.
+Lint/AmbiguousOperatorPrecedence: { Enabled: false } # style
+Lint/AmbiguousBlockAssociation: { Enabled: false }   # style
+Lint/DuplicateBranch: { Enabled: false }             # a case keeps one branch per form
+Lint/MissingSuper: { Enabled: false }                # a Record sets its own fields
+Lint/UselessConstantScoping: { Enabled: false }      # style
+Lint/RedundantDirGlobSort: { Enabled: false }        # zr's own Dir.glob, in a compiled compiler, may not sort
+Lint/HashCompareByIdentity: { Enabled: false }       # style
+Lint/BooleanSymbol: { Enabled: false }               # the compiler handles :true and :false as symbols
+Lint/EmptyBlock: { Enabled: false }                  # an empty task body is deliberate
+Lint/NonAtomicFileOperation: { Enabled: false }      # style
+Lint/NonLocalExitFromIterator: { Enabled: false }    # a return from a File.open block is deliberate
+Lint/InterpolationCheck: { Enabled: false }          # tests write Ruby source in single quotes
+Lint/InheritException: { Enabled: false }            # the eval interpreter's control flow is not a StandardError
+Lint/StructNewOverride: { Enabled: false }           # test fixtures
+
+# A method that takes a keyword for its interface need not read it.
+Lint/UnusedMethodArgument:
+  AllowUnusedKeywordArguments: true

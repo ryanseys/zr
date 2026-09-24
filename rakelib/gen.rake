@@ -43,7 +43,6 @@ module Gen
     def write(io)
       require "rbconfig"
       require "rubygems"
-      require "set"
 
       roots = [RbConfig::CONFIG["rubylibdir"], RbConfig::CONFIG["rubyarchdir"]]
       Gem::Specification.default_stubs.each { |stub| roots.concat(stub.full_require_paths) }
@@ -248,7 +247,7 @@ module Gen
     def points(hex) = [hex].pack("H*").force_encoding(Encoding::UTF_8).codepoints.map { |point| format("%X", point) }
 
     def write(io)
-      eval(Gen.cruby("enc/trans/emoji-exchange-tbl.rb"), TOPLEVEL_BINDING) # rubocop:disable Security/Eval
+      eval(Gen.cruby("enc/trans/emoji-exchange-tbl.rb"), TOPLEVEL_BINDING)
 
       pairs = EMOJI_EXCHANGE_TBL.flat_map do |from, targets|
         targets.map do |to, rows|

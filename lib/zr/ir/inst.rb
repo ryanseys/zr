@@ -73,7 +73,6 @@ module Zr
       # word, or nil when the lowering could not place it.
       attr_accessor :op, :type, :args, :results, :cond, :offset, :targets, :callee, :flags, :region
 
-      # rubocop:disable Metrics/ParameterLists
       def initialize(op, type: nil, args: [], results: [], cond: nil, offset: 0, targets: nil, callee: nil, flags: nil,
                      region: nil)
         @op = op
@@ -87,7 +86,6 @@ module Zr
         @flags = flags
         @region = region
       end
-      # rubocop:enable Metrics/ParameterLists
 
       def terminator?
         TERMINATORS.include?(@op)

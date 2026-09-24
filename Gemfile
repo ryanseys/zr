@@ -2,18 +2,17 @@
 
 source "https://rubygems.org"
 
-# zr's own dependencies are in zr.gemspec. The stage-0 host is ruby
-# 4.0.6 (.ruby-version), which is also the oracle every corpus program
-# was recorded from.
+# zr's own dependencies are in zr.gemspec. zr runs on ruby 4.0.6
+# (.ruby-version), which is also the ruby that every test's expected
+# output comes from.
 gemspec
 
 group :development, :test do
   gem "rake", "~> 13.0"
-  # The test framework. `rake test:*` is `Minitest::TestTask`, and the
-  # `minitest` command runs one file or one example.
+  # The test framework. `bin/test` runs it.
   gem "minitest", "~> 6.0"
-  # A progress bar with an ETA, because the spec tier runs for minutes,
-  # and the JUnit file CI renders a failure from.
+  # The slowest-tests report (SLOW=1), and the JUnit file CI shows a
+  # failure from.
   gem "minitest-reporters", "~> 1.8"
   # The arm64 encoder the checks hold ours to. It is generated from the ARM
   # specification, so it is the authority on an encoding; it builds its own
@@ -28,8 +27,10 @@ group :development, :test do
   gem "benchmark", "~> 0.5"
 end
 
-# Never part of a build or a check: the sampling profiler the compiler's
-# own hot paths are measured with.
+# Not part of a build or a test run.
 group :development do
+  # The sampling profiler for the compiler's hot paths.
   gem "vernier", "~> 1.0"
+  # `rake lint`: RuboCop's Lint cops only (.rubocop.yml).
+  gem "rubocop", "~> 1.89", require: false
 end

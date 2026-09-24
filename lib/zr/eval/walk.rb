@@ -56,7 +56,7 @@ module Zr
 
     # `RubyVM::InstructionSequence.compile` and a Ractor's own loader ask
     # the road for code to run later. The walk has none to give.
-    def compile(source, file, line = 1, scopes = [], method = nil)
+    def compile(_source, file, line = 1, _scopes = [], _method = nil)
       raise Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
     end
 

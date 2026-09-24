@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
 require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"

@@ -725,7 +725,7 @@ module Zr
         end
       end
 
-      def super_method(node, ctx)
+      def super_method(_node, ctx)
         chain = ctx.self_.class.ancestors
         chain = ctx.self_.singleton_class.ancestors if ctx.self_.singleton_class.ancestors.include?(ctx.owner)
         at = chain.index(ctx.owner)
@@ -808,12 +808,12 @@ module Zr
         current.public_send(op, walk(value_node, ctx))
       end
 
-      def alias_node(node, ctx, new_name, old_name)
+      def alias_node(_node, ctx, new_name, old_name)
         World.alias_method(World.cref_klass(ctx.cref), new_name.to_sym, old_name.to_sym)
         nil
       end
 
-      def undef_node(node, ctx, names)
+      def undef_node(_node, ctx, names)
         mod = World.cref_klass(ctx.cref)
         names.each { |name| mod.send(:undef_method, name.to_sym) }
         nil
@@ -888,7 +888,7 @@ module Zr
         raise ::ArgumentError, "unknown keyword: #{rest.keys.first.inspect}" if strict && !rest.empty?
       end
 
-      def check_arity(params, args, kwargs, _ctx)
+      def check_arity(params, args, _kwargs, _ctx)
         min = params.required.size + params.post.size
         max = params.rest ? nil : min + params.optional.size
         return if args.size >= min && (max.nil? || args.size <= max)

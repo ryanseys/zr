@@ -204,7 +204,7 @@ module Zr
             answer(@job.first.new(name).run, back)
             @job = nil
           end
-        rescue EOFError, IOError
+        rescue IOError # EOFError is an IOError
           nil # the parent has gone
         rescue Exception => e # rubocop:disable Lint/RescueException
           escaped(e, back) if @job
@@ -311,7 +311,7 @@ module Zr
 
           result, @resident, @grown = Marshal.load(@back)
           result
-        rescue EOFError, IOError, ArgumentError, TypeError
+        rescue IOError, ArgumentError, TypeError
           nil
         end
 

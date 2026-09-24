@@ -11,7 +11,6 @@
 # `gen:enc_mb`'s question, answered from Onigmo's own tables. Bytes
 # below 128 stand for themselves in every one of them.
 
-require "set"
 require_relative "../lib/zr/record"
 
 module Gen

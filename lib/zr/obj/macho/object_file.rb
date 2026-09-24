@@ -217,7 +217,7 @@ module Zr
         def laid_out(unit)
           items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] }
           placed = []
-          sections = SECTIONS.map do |name, seg, flags, kinds|
+          sections = SECTIONS.map do |name, seg, flags, _kinds|
             { name: name, seg: seg, flags: flags, bytes: +"".b, size: 0, align: 0, items: [], relocs: [] }
           end
           # Place every item: addresses run through the segment, each section

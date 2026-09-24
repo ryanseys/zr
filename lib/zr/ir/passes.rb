@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
 
 require_relative "function"
 require_relative "../flags"
@@ -223,7 +222,7 @@ module Zr
           return become_constant(i, binop(i.op, ka, kb, bits_of(type)), type) if ka && kb
 
           # `x op 0`, `x op 1` and their commuted forms.
-          a, b, ka, kb = b, a, kb, ka if ka && !kb && Inst::COMMUTATIVE.include?(i.op)
+          a, kb = b, ka if ka && !kb && Inst::COMMUTATIVE.include?(i.op)
           return unless kb
 
           case i.op

@@ -63,7 +63,8 @@ class BinaryCacheTest < Minitest::Test
     File.write(File.join(@work, "q.rb"), source)
     program = Dir.chdir(@work) { Zr::Native::Build.lower(source, "q.rb") }
     bin = File.join(@work, "q")
-    raise why if (why = Zr::Native::Build.program(program, bin, work: @work))
+    why = Zr::Native::Build.program(program, bin, work: @work)
+    raise why if why
     kept = File.join(@work, "kept")
 
     Binaries.keep(kept, bin, program, @work)

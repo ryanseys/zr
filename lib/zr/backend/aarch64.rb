@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
 require_relative "aarch64/codegen"
 require_relative "aarch64/relocs"
 require_relative "../obj/model"

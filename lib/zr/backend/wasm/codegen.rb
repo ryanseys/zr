@@ -259,7 +259,7 @@ module Zr
         # When emitting a prelude, the pending functions take the indices
         # right after ours, and the pending data the addresses right after
         # ours, each eight bytes wide but the last, which may be any size.
-        def promise(used)
+        def promise(_used)
           @promised = { functions: [], data: {} }
           return unless @pending
 
@@ -773,8 +773,8 @@ module Zr
               args.each { |a| get(a) }
               get(ptr)
               @code << "\xA7".b
-              _params, results = @m.sig_type(sig_named(i.callee))
-              @code << "\x11".b << @m.leb(@m.type_index([_params, results])) << "\x00".b
+              params, results = @m.sig_type(sig_named(i.callee))
+              @code << "\x11".b << @m.leb(@m.type_index([params, results])) << "\x00".b
               if i.results.empty?
                 # An answer the instruction does not take is dropped.
                 @code << "\x1A".b unless results.empty?

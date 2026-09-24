@@ -237,7 +237,7 @@ module Zr
               symbols: fields[5], strings: fields[6], names: fields[7].split("\0"), addresses: fields[8].unpack("Q<*"),
               blobs: { text: fields[9], got: fields[11], data: fields[13] },
               hashes: { text: fields[10], got: fields[12], data: fields[14] })
-        rescue ArgumentError, IndexError, KeyError
+        rescue ArgumentError, IndexError # KeyError is an IndexError
           nil
         end
       end
