@@ -5,17 +5,18 @@ require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 
-# The wasm backend keeps values whose lives do not overlap in one local
-# (lib/zr/backend/wasm/locals.rb). Held here two ways: an independent
-# liveness says no write lands in a local a live value holds, and a
-# program shaped like the one that once broke runs under wasmtime.
+# The wasm backend puts values whose lifetimes do not overlap in one
+# local (lib/zr/backend/wasm/locals.rb). This test checks it two ways: a
+# separate liveness analysis finds no write to a local that a live value
+# uses, and a program with the shape of a known failure runs under
+# wasmtime.
 #
-# What broke: a loop's join block took three parameters, the first of
-# them dead. The dead one was given a local and gave it back at once, so
-# the next parameter took the same local; the jump writes every
-# parameter, the dead one last, and wrote over the live one. The kernel's
-# binary search over code ranges (zr_onig_in_code_range_p) then answered
-# true for every code point, and `\p{Han}` matched katakana.
+# The failure: a loop's join block had three parameters, and the first
+# was dead. The dead parameter got a local and released it at once, so
+# the next parameter got the same local. The jump writes every
+# parameter, the dead one last, so it wrote over the live one. The
+# kernel's binary search over code ranges (zr_onig_in_code_range_p) then
+# returned true for every code point, and `\p{Han}` matched katakana.
 class WasmLocalsTest < Minitest::Test
   SEARCH = <<~RUBY
     sig [Ptr, Word] => Bool
@@ -65,7 +66,7 @@ class WasmLocalsTest < Minitest::Test
     end
   end
 
-  def test_the_binary_search_answers_under_wasmtime
+  def test_binary_search_returns_the_expected_bits_under_wasmtime
     skip "wasmtime is not installed" unless Checks.wasmtime?
 
     functions, data = Zr::Machine.compile(SEARCH, "search.rb")
@@ -91,13 +92,14 @@ class WasmLocalsTest < Minitest::Test
     out
   end
 
-  # Every write into a local another value live across it holds, found by
-  # a liveness of its own: Sets to a fixed point, as plain as it can be.
+  # Every write into a local that another live value uses, found by a
+  # separate liveness analysis: Sets iterated to a fixed point, as simple
+  # as possible.
   def clashes(f)
     body = Zr::Backend::Wasm::Codegen::Body.new(Zr::Backend::Wasm::Codegen.new([], []), f)
     body.send(:assign)
-    # A value with no local (a constant, written where it is read) holds
-    # none, and so shares none.
+    # A value with no local (a constant, written where it is read) cannot
+    # share a local.
     local = Hash.new { |h, k| h[k] = Object.new }.merge!(body.instance_variable_get(:@local))
     byname = f.blocks.to_h { |b| [b.name, b] }
     live_in = Hash.new { |h, k| h[k] = Set.new }

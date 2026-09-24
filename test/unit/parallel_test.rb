@@ -5,11 +5,11 @@ require "test_helper"
 require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 
-# A unit assembled in workers: the answers in item order whatever the
-# bins, the first failure in item order, and the bytes of the kernel's
-# object the same for one process and for three.
+# A unit assembled in workers. Results come back in item order for any
+# split, the first failure in item order is raised, and the kernel
+# object has the same bytes from one process and from three.
 class ParallelTest < Minitest::Test
-  def test_answers_come_back_in_item_order_for_any_jobs
+  def test_map_returns_results_in_item_order_for_any_job_count
     items = (1..40).to_a
     [1, 2, 3, 7].each do |jobs|
       assert_equal items.map { |x| x * x }, Zr::Native::Parallel.map(items, jobs: jobs, weight: ->(x) { x % 5 }) { |x| x * x }
@@ -28,7 +28,7 @@ class ParallelTest < Minitest::Test
     assert_equal "first 11", error.message
   end
 
-  def test_the_kernel_object_is_the_same_bytes_from_any_number_of_workers
+  def test_kernel_object_bytes_are_the_same_for_any_worker_count
     one, three = [1, 3].map do |jobs|
       unit = Zr::Machine.unit(Zr.kernel_files)
       image = Zr::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
@@ -38,12 +38,11 @@ class ParallelTest < Minitest::Test
     assert one == three, "the kernel object differs between one worker and three"
   end
 
-  # A worker costs about what the parent holds, since it inherits that
-  # heap and grows one of its own beside it. Six workers of the compiled
-  # compiler, ten gigabytes each, drove a sixteen gigabyte machine into
-  # swap, and a run that swaps does not fail -- it takes ten times as
-  # long.
-  def test_the_worker_count_is_bounded_by_what_the_machine_holds
+  # A worker uses about as much memory as the parent, because it inherits
+  # that heap and grows its own heap too. Six workers of the compiled
+  # compiler, ten gigabytes each, pushed a sixteen gigabyte machine into
+  # swap. A run that swaps does not fail, but it takes ten times as long.
+  def test_worker_count_is_limited_by_machine_memory
     on_a_machine_of(16) do
       assert_equal 6, holding(1) { Parallel.afforded(6) }
       assert_equal 3, holding(4) { Parallel.afforded(6) }
@@ -51,14 +50,14 @@ class ParallelTest < Minitest::Test
     end
   end
 
-  def test_a_machine_that_will_not_say_its_memory_is_treated_as_a_small_one
+  def test_machine_bytes_is_8gb_when_sysconf_fails
     stub_method(Etc, :sysconf, -> { raise NotImplementedError }) do
       assert_equal 8 << 30, Parallel.machine_bytes
     end
   end
 
-  # However little the machine has, one worker is what a fork pool is.
-  def test_a_machine_smaller_than_the_compiler_still_runs_one_worker
+  # A fork pool needs one worker, however little memory the machine has.
+  def test_worker_count_is_one_when_machine_memory_is_small
     on_a_machine_of(4) { assert_equal 1, holding(8) { Parallel.afforded(6) } }
   end
 

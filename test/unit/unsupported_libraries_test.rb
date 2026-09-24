@@ -4,14 +4,15 @@ require "test_helper"
 require_relative "../../lib/zr/hir"
 require_relative "../../lib/zr/runtime"
 
-# A feature ruby carries that zr has no file for stops by name. Most of
-# them stop because the work is not done; a few stop because the answer
-# is a decision, and those say what the decision was.
+# A library that ruby includes and zr has no file for stops with a
+# message that gives its name. Most stop because the work is not done.
+# A few stop because of a design decision, and their message gives the
+# decision.
 #
-# The stop reads "<what> is not implemented yet" (`zr_raise_stop`), and
-# both roads to it must say the same thing: a require the compiler reads
-# as a literal, and one whose name the program computes, which reads the
-# reason off the table the program carries.
+# The stop message reads "<what> is not implemented yet"
+# (`zr_raise_stop`). Both paths to it must give the same text: a require
+# that the compiler reads as a literal, and a require whose name the
+# program computes, which reads the reason from the table in the program.
 class UnsupportedLibrariesTest < Minitest::Test
   Build = Zr::Hir::Build
 
@@ -20,17 +21,17 @@ class UnsupportedLibrariesTest < Minitest::Test
                  stop(%(require "mkmf"\n))
   end
 
-  def test_a_name_with_no_reason_stops_by_name
+  def test_a_name_with_no_reason_stops_with_the_name
     assert_equal %(require of "ractor"), stop(%(require "ractor"\n))
   end
 
-  def test_every_reason_is_for_a_name_no_root_holds
+  def test_every_reason_is_for_a_library_with_no_file
     assert_equal Build::UNSUPPORTED_LIBRARIES.keys.sort, (Build::UNSUPPORTED_LIBRARIES.keys & Build.missing_features).sort
   end
 
-  # The table a program carries: the name, then the reason after a tab
-  # where there is one, which `Kernel.missing` reads back.
-  def test_the_table_a_program_carries_holds_the_reason_beside_the_name
+  # The table in a program: the name, then a tab and the reason when
+  # there is one. `Kernel.missing` reads the table.
+  def test_load_names_table_has_the_reason_after_the_name
     rows = Zr.load_tables([], evals: true).find { |data| data.name == "zr_load_names_1" }.bytes.split("\n")
 
     assert_includes rows, "mkmf\t#{Build::UNSUPPORTED_LIBRARIES.fetch("mkmf")}"
@@ -39,7 +40,7 @@ class UnsupportedLibrariesTest < Minitest::Test
 
   private
 
-  # What the only statement of `source` stops for.
+  # The reason that the only statement of `source` stops for.
   def stop(source)
     node = Zr::Hir.build(source, "uncarried.rb").body.stmts.last
 

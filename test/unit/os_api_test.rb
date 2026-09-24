@@ -3,14 +3,14 @@
 require "test_helper"
 require "zr/runtime"
 
-# The OS layer's contract: runtime/kernel/os.rb names every `zr_os_*` call and
-# its signature, and each OS layer under runtime/kernel/os/ defines exactly
-# those, where the rest of the kernel defines none of them.
+# The contract of the OS layer: runtime/kernel/os.rb lists every `zr_os_*`
+# call and its signature. Each OS layer under runtime/kernel/os/ defines
+# exactly those calls, and no other part of the kernel defines them.
 class OsApiTest < Minitest::Test
   SPEC = File.join(ROOT, "runtime/kernel/os.rb")
   ROW = /\A#\s+(zr_(?:os|arch)_\w+)\s+\[([^\]]*)\]\s*=>\s*(\w+)\s*\z/
 
-  # `{ name => [[param types], return type] }` from the comment rows.
+  # `{ name => [[param types], return type] }` from the comment lines.
   def spec
     File.readlines(SPEC, chomp: true).filter_map do |line|
       m = ROW.match(line) or next
@@ -29,12 +29,12 @@ class OsApiTest < Minitest::Test
     lines.drop(start + 1).take_while { |line| line.start_with?("#   ") }.flat_map { |line| line.delete_prefix("#").split }
   end
 
-  def test_the_spec_names_calls
+  def test_spec_lists_os_calls
     assert_operator spec.size, :>, 20
   end
 
-  # RUBY_PLATFORM comes from the layer, and says what the target does.
-  def test_the_layer_names_the_target_s_platform
+  # The OS layer sets RUBY_PLATFORM to the platform string of the target.
+  def test_os_layer_sets_target_ruby_platform
     Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.each do |target|
       text = File.read(File.join(ROOT, "runtime/kernel/os/#{target.os}/env.rb"))
       assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple

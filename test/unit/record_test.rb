@@ -27,8 +27,8 @@ class RecordTest < Minitest::Test
 
   private
 
-  # A `klass` whose every field holds its own name as a String, made
-  # through `initialize`, by position or by keyword. A parameter named
+  # A `klass` made through `initialize`, by position or by keyword, where
+  # each field contains its own name as a String. A parameter named
   # `next_` sets the field `next`.
   def make(klass)
     positional = []

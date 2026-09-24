@@ -7,18 +7,18 @@ require_relative "../../lib/zr/parse_cache"
 require_relative "../../lib/zr/runtime"
 require_relative "../support/harness/prism_diff"
 
-# The host parses with the Ruby port, and keeps each parse in the cache
-# (lib/zr/parse_cache.rb). The cache fails closed: every input of a parse
-# is in the key, and a file that does not read back is a miss.
+# The host parses with the Ruby port and keeps each parse in the cache
+# (lib/zr/parse_cache.rb). The cache fails closed: the key contains every
+# input of a parse, and a file that does not read back is a miss.
 class ParseCacheTest < Minitest::Test
   ParseCache = Zr::ParseCache
 
-  # Asked in a child, and not of this process. A process that loaded
-  # ruby's own C prism first keeps it (`lib/zr/prism.rb` says so), and
-  # this tier holds the harness that loads the C on purpose -- so what
-  # this process ended up with says nothing about what the compiler uses.
-  # A fresh ruby that requires `zr/prism` is the compiler's own case.
-  def test_the_host_parses_with_the_ruby_port_and_the_vendored_ruby_half
+  # The facts come from a child process, not from this process. A process
+  # that loaded ruby's own C prism first keeps it (see `lib/zr/prism.rb`).
+  # This tier includes the harness that loads the C prism on purpose, so
+  # this process does not show what the compiler uses. A fresh ruby that
+  # requires `zr/prism` is the same case as the compiler.
+  def test_host_parses_with_ruby_port_and_no_c_extension
     parse, gem, node, native = compiler_process.lines(chomp: true)
 
     assert_equal File.join(ROOT, "runtime/ext/prism/prism.rb"), parse
@@ -40,7 +40,7 @@ class ParseCacheTest < Minitest::Test
     assert_equal variants.size + 1, [base, *variants].uniq.size
   end
 
-  def test_the_parser_digest_covers_the_port_the_backend_and_the_gems_ruby_half
+  def test_parser_files_include_port_backend_and_gem_ruby_files
     files = ParseCache.parser_files
     [
       "runtime/ext/prism/ruby/parser/core.rb", "runtime/ext/prism/ruby/lexer.rb", "runtime/ext/prism/ruby/ast.rb", "runtime/ext/prism/prism.rb",
@@ -51,9 +51,9 @@ class ParseCacheTest < Minitest::Test
     assert_includes files, File.join(File.dirname(gem), "prism/node.rb")
   end
 
-  # The parser's part of the key is each file's path and digest, so a
-  # compiled compiler, which carries the digests of the files it was built
-  # from and not the files, keys a parse the same way over its own set.
+  # The parser part of the key is the path and digest of each file. Thus a
+  # compiled compiler, which contains the digests of its source files but
+  # not the files, makes the same key from its own set.
   def test_the_parser_key_is_the_digest_of_each_parser_file
     digests = ParseCache.parser_files.to_h { |file| [file, Digest::SHA256.hexdigest(File.binread(file))] }
     assert_equal ParseCache.parser, ParseCache.parser_key(digests)
@@ -71,10 +71,10 @@ class ParseCacheTest < Minitest::Test
     assert ParseCache.parser_file?(File.join(ROOT, "runtime/ext/prism/ruby/parser/core.rb"))
   end
 
-  # The process parses with the port it loaded, and the key names the
-  # files on disk when the digest was taken: a port file that moves
-  # after that keeps the build from writing a parse under the old key.
-  def test_a_parser_file_that_moved_stops_a_write
+  # The process parses with the port that it loaded, and the key identifies
+  # the files on disk when the digest was taken. If a port file changes
+  # after that, the build does not write a parse under the old key.
+  def test_write_raises_when_a_parser_file_changed
     ParseCache.parser
     stamps = ParseCache.instance_variable_get(:@stamps)
     file = stamps.keys.first
@@ -88,8 +88,8 @@ class ParseCacheTest < Minitest::Test
     ParseCache.instance_variable_set(:@stamps, stamps)
   end
 
-  # What a build derives from a tree (error_highlight's spots) is kept
-  # beside the parse, under the parse's key and the digest of the code
+  # A build keeps what it derives from a tree (error_highlight's spots)
+  # next to the parse, under the parse's key and the digest of the code
   # that derives it.
   def test_a_derived_form_is_made_once_and_read_back_after
     source = "derived_#{Process.pid} = 1\n"
@@ -105,7 +105,7 @@ class ParseCacheTest < Minitest::Test
     assert_equal "other", ParseCache.derived("spots", source, options, spotter + [File.join(ROOT, "lib/zr/hir.rb")]) { "other" }
   end
 
-  def test_a_derived_form_whose_maker_is_not_there_is_made_and_not_kept
+  def test_derived_form_is_not_cached_when_its_maker_is_missing
     source = "underived_#{Process.pid} = 1\n"
     options = { filepath: "derived.rb", line: 1 }
     missing = [File.join(ROOT, "lib/zr/no_such_maker.rb")]
@@ -113,11 +113,11 @@ class ParseCacheTest < Minitest::Test
     assert_equal "b", ParseCache.derived("spots", source, options, missing) { "b" }
   end
 
-  # The second ask for a source this process has parsed answers with the
-  # tree it already holds, and reads no file. A worker of the spec tier
-  # runs a hundred examples that each require "set", and unmarshalling
-  # set.rb's tree a hundred times is the whole of what that costs.
-  def test_a_source_parsed_before_answers_without_reading_the_cache_again
+  # A second parse of a source in the same process returns the tree that
+  # the memo contains, and reads no file. A worker of the spec tier runs a
+  # hundred examples that each require "set". Without the memo, almost all
+  # of that time goes to unmarshalling the tree of set.rb a hundred times.
+  def test_parse_returns_memoized_tree_without_reading_the_cache
     source = "def memoized(a) = a + 1\n"
     first = ParseCache.parse(source, filepath: "memo.rb")
     File.delete(File.join(ParseCache.directory, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
@@ -136,9 +136,9 @@ class ParseCacheTest < Minitest::Test
     ParseCache.memo.clear
   end
 
-  # The memo is bounded, because a build parses each file once and would
-  # otherwise hold every tree it ever made until the build ended.
-  def test_the_memo_drops_the_least_recently_used_once_its_bound_is_passed
+  # The memo has a size limit. A build parses each file once, and without
+  # a limit the memo keeps every tree until the build ends.
+  def test_memo_drops_least_recently_used_entry_when_full
     memo = Zr::ParseCache::Memo.new(10)
     memo.keep("a", :first, 4)
     memo.keep("b", :second, 4)
@@ -151,7 +151,7 @@ class ParseCacheTest < Minitest::Test
     assert_equal 8, memo.bytes
   end
 
-  def test_a_source_larger_than_the_whole_bound_is_answered_and_not_held
+  def test_memo_does_not_keep_an_entry_larger_than_its_limit
     memo = Zr::ParseCache::Memo.new(10)
     memo.keep("small", :kept, 4)
 
@@ -160,7 +160,7 @@ class ParseCacheTest < Minitest::Test
     assert_equal :kept, memo["small"]
   end
 
-  def test_a_result_read_back_answers_as_the_parse_did
+  def test_read_returns_the_tree_that_write_wrote
     Dir.mktmpdir("zr-parse-") do |dir|
       path = File.join(dir, "result.marshal")
       source = File.read(File.join(ROOT, "lib/zr/hir/build.rb"))
@@ -189,7 +189,7 @@ class ParseCacheTest < Minitest::Test
 
   private
 
-  # What a fresh `require "zr/prism"` leaves standing, one fact a line.
+  # What a fresh `require "zr/prism"` loads, one fact on each line.
   def compiler_process
     said = IO.popen(Zr::Harness::CleanEnv.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
       require "zr/prism"

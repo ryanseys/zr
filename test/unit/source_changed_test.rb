@@ -6,12 +6,13 @@ require_relative "../../lib/zr/unit_cache"
 require_relative "../../lib/zr/parse_cache"
 require_relative "../support/binaries"
 
-# A cache key names the digest of the sources a build read; a source
-# edited while the build runs makes what the build builds after that a
-# mix of two trees, and a cache would answer for the key with it until
-# the source moved again (the spec tier once kept three hundred such
-# binaries). So a runtime remembers the stat of every file its digest
-# covers, and every cache write asks first whether one has moved.
+# A cache key contains the digest of the sources that a build read. If a
+# source changes while the build runs, what the build makes after that
+# is a mix of two trees. A cache then returns that mix for the key until
+# the source changes again (the spec tier had three hundred such
+# binaries). Thus a runtime records the file stamp (mtime and size) of
+# every file that its digest covers, and each cache write first checks
+# whether one of them has changed.
 class SourceChangedTest < Minitest::Test
   def setup
     @runtime = Zr.runtime
@@ -32,12 +33,12 @@ class SourceChangedTest < Minitest::Test
     yield
   end
 
-  def test_nothing_has_moved_while_the_sources_stand
+  def test_source_change_is_nil_when_files_are_unchanged
     assert_nil Zr.moved
     watching { assert_nil Zr.moved }
   end
 
-  def test_a_source_rewritten_is_the_one_that_moved
+  def test_source_change_returns_a_rewritten_file
     watching do
       File.write(@file, "12\n")
       assert_equal @file, Zr.moved
@@ -45,14 +46,14 @@ class SourceChangedTest < Minitest::Test
     end
   end
 
-  def test_a_source_gone_is_the_one_that_moved
+  def test_source_change_returns_a_deleted_file
     watching do
       File.delete(@file)
       assert_equal @file, Zr.moved
     end
   end
 
-  def test_no_cache_takes_a_write_while_a_source_has_moved
+  def test_cache_writes_raise_when_a_source_changed
     watching do
       File.write(@file, "12\n")
       error = assert_raises(Zr::SourceChanged) { Zr.settled! }

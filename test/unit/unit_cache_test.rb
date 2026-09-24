@@ -4,13 +4,14 @@ require "test_helper"
 require "tmpdir"
 require_relative "../../lib/zr/native/build"
 
-# The unit cache fails closed on the other units' names. A `require` of
-# a load-path file spells that unit's entry, which is made from the
-# file's absolute path; the same program compiled in another directory
-# names the unit otherwise, and a unit kept from the first compile
-# would call an entry nothing defines. The second build must link.
+# The unit cache fails closed on the entry names of other units. A
+# `require` of a load-path file refers to the entry of that unit, whose
+# name comes from the absolute path of the file. The same program
+# compiled in another directory gives the unit a different name, so a
+# unit kept from the first compile would call an entry that nothing
+# defines. The second build must link.
 class UnitCacheTest < Minitest::Test
-  # One unit as the key reads it: a plain program file.
+  # One unit, as the key reads it: a plain program file.
   class StandIn
     def source = "puts 1\n"
     def file = "a.rb"
@@ -26,11 +27,11 @@ class UnitCacheTest < Minitest::Test
     puts Demo::VALUE + User::VALUE
   RUBY
   DEMO = "module Demo\n  VALUE = 40\nend\n"
-  # A second unit that requires the first: its bytes spell the first
-  # unit's entry, which is made from that file's absolute path.
+  # A second unit that requires the first: its bytes refer to the entry
+  # of the first unit, whose name comes from the absolute path of that file.
   USER = "require \"demo\"\nmodule User\n  VALUE = 2\nend\n"
 
-  def test_a_program_links_in_a_second_directory_after_its_units_were_kept_in_a_first
+  def test_program_links_with_units_cached_in_another_directory
     2.times do
       Dir.mktmpdir("zr-unit-cache-") do |dir|
         dir = File.realpath(dir)
@@ -47,7 +48,7 @@ class UnitCacheTest < Minitest::Test
     end
   end
 
-  def test_the_key_moves_with_another_units_entry
+  def test_key_changes_with_the_entry_of_another_unit
     Dir.mktmpdir("zr-unit-cache-") do |dir|
       unit = StandIn.new
       keys = %w[one two].map do |entry|

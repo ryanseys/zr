@@ -3,22 +3,22 @@
 require "test_helper"
 require_relative "../../lib/zr/hir"
 
-# The files a program carries ahead of its own first line: rbconfig,
+# The files that a program includes before its own first line: rbconfig,
 # the compiler, rubygems, the normalizer, the pretty printer, the file
-# that arms `binding.irb`, and the syntax tree translator. Each stands
-# under a loader flag, and `Hir::Build.preludes` reads the ones the
-# flags ask for.
+# that enables `binding.irb`, and the syntax tree translator. Each file
+# has a loader flag, and `Hir::Build.preludes` reads the files whose
+# flags are set.
 #
-# The loader here is a stand-in. What these rows pin is the walk over
-# the table -- its order, and that it goes again -- and building the
-# real thing would read irb's 73 files to ask one question.
+# The loader here is a stub. These tests check the loop over the table:
+# its order, and that it runs again. The real loader reads the 73 files
+# of irb to check one fact.
 class PreludesTest < Minitest::Test
   Build = Zr::Hir::Build
 
-  # A loader that answers the flags it was given and keeps what each
-  # prelude asked it to read. Reading the file that arms irb turns
-  # `evals?` on, which is what irb does: it requires fileutils, and
-  # fileutils writes ninety of its methods with `module_eval`.
+  # A loader that returns the flags it was given and records each file
+  # that a prelude reads. Reading the file that enables irb sets `evals?`,
+  # as irb does: it requires fileutils, and fileutils defines ninety of
+  # its methods with `module_eval`.
   class Loader
     FLAGS = %i[configures? evals? gems? normalizes? pretty_prints? irbs? asts?].freeze
 
@@ -44,7 +44,7 @@ class PreludesTest < Minitest::Test
     end
   end
 
-  def test_a_loader_that_asks_for_nothing_carries_nothing
+  def test_preludes_are_empty_when_no_flag_is_set
     assert_empty preludes(Loader.new)
   end
 
@@ -56,17 +56,17 @@ class PreludesTest < Minitest::Test
     assert_equal ["zr/syntax_tree"], preludes(Loader.new(asts?: true))
   end
 
-  # rubygems reads rbconfig as it boots, so it can never stand first.
-  def test_the_order_is_the_table_s_and_not_the_order_the_flags_turned_on
+  # rubygems reads rbconfig when it boots, so rubygems can never be first.
+  def test_preludes_follow_table_order_not_flag_order
     asked = preludes(Loader.new(asts?: true, gems?: true, configures?: true))
 
     assert_equal %w[rbconfig rubygems bundled_gems zr/syntax_tree], asked
   end
 
-  # What the bug was: the flags were read once, before any prelude had
-  # been, so a program whose only eval came from a prelude's own files
-  # left the compiler out -- and `binding.irb` then stopped in fileutils
-  # with "class_eval with a string is not implemented yet".
+  # The only eval of a program can come from the files of a prelude, so
+  # the loop reads the flags again after each prelude. If it does not, the
+  # compiler is not included, and `binding.irb` stops in fileutils with
+  # "class_eval with a string is not implemented yet".
   def test_a_prelude_that_evals_brings_the_compiler_with_it
     loader = Loader.new(irbs?: true)
     asked = preludes(loader)
@@ -77,6 +77,6 @@ class PreludesTest < Minitest::Test
 
   private
 
-  # The features `loader` asks for, in the order the program loads them.
+  # The features that `loader` reads, in the order the program loads them.
   def preludes(loader) = Build.preludes(loader, Zr::Target.default).map(&:feature)
 end

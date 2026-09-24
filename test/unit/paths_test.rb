@@ -3,10 +3,10 @@
 require "test_helper"
 require_relative "../../lib/zr/paths"
 
-# The compiler's own directory helpers, which stand in for fileutils and
-# tmpdir so a compiled compiler never loads them.
+# The compiler's own directory helpers. They are in place of fileutils
+# and tmpdir, so a compiled compiler never loads those libraries.
 class PathsTest < Minitest::Test
-  def test_a_scratch_directory_is_named_as_mktmpdir_names_one_and_removed_after
+  def test_tmpdir_uses_mktmpdir_name_and_is_removed_after_block
     kept = nil
     Zr::Paths.tmpdir("zr-paths-") do |dir|
       kept = dir
@@ -37,9 +37,9 @@ class PathsTest < Minitest::Test
     end
   end
 
-  # A build under a path root (`--path-root`) writes a path below zr's
-  # root or below the directory it runs in as the root plus the rest.
-  def test_a_path_root_writes_paths_below_the_gem_and_the_build_directory_under_it
+  # A build with a path root (`--path-root`) writes a path below zr's root
+  # or below its working directory as the path root plus the rest of the path.
+  def test_path_root_replaces_gem_and_build_directory_prefixes
     Zr::Paths.tmpdir("zr-paths-") do |dir|
       Dir.chdir(dir) do
         Zr::Paths.root = "/src/"
@@ -66,8 +66,8 @@ class PathsTest < Minitest::Test
     assert_same path, Zr::Paths.shown(path)
   end
 
-  # The longer of the two directories wins, so a gem inside the build
-  # directory writes its files below the root as a gem outside it does.
+  # The longer of the two directories wins. Thus a gem inside the build
+  # directory writes its files below the root, the same as a gem outside it.
   def test_the_longer_directory_is_the_one_a_path_is_written_below
     Dir.chdir(File.dirname(Zr::Paths::ROOT)) do
       Zr::Paths.root = "/src"

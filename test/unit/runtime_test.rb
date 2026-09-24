@@ -8,8 +8,8 @@ require "support/runtime_programs"
 # `<name>.status` (0 when there is none), both normally and with a
 # collection at every allocation.
 #
-# wasm_test.rb builds the same programs as modules, so a failure there
-# is the wasm backend's, and a failure here is the aarch64 backend's.
+# wasm_test.rb builds the same programs as modules. Thus a failure there
+# is in the wasm backend, and a failure here is in the aarch64 backend.
 class RuntimeTest < Minitest::Test
   Zr::Test::RuntimePrograms::FILES.each do |rb|
     name = File.basename(rb, ".rb")

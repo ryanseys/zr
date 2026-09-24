@@ -4,8 +4,8 @@ require "test_helper"
 require_relative "../../lib/zr/ir/passes"
 require_relative "../../lib/zr/ir/interp"
 
-# The IR passes, one shape each: what a pass makes of a function, and
-# that the interpreter answers the same before and after it.
+# The IR passes, one shape for each test: what a pass does to a function,
+# and that the interpreter returns the same result before and after it.
 class PassesTest < Minitest::Test
   def function(name, params, ret)
     f = Zr::IR::Function.new(name, params, ret)
@@ -19,11 +19,11 @@ class PassesTest < Minitest::Test
     Zr::IR::Interp.new([f]).answer(f.name, args)
   end
 
-  # A lowering that wants to drop a sequence a constant operand has
-  # already decided -- the collector's write barrier, whose whole test a
-  # literal answers -- asks the function what a value holds. The function
-  # made its own constants, so it can say; anything else answers nil, and
-  # a caller that reads nil emits what it would have emitted before.
+  # A lowering can drop a sequence when a constant operand already decides
+  # it (for example, the collector's write barrier, where a literal
+  # decides the whole test). It gets the constant of a value from the
+  # function, which made its own constants. For any other value the
+  # function returns nil, and the caller then emits the full sequence.
   def test_a_function_says_which_of_its_values_are_constants
     f = function("constants", ["i64"], "i64") do |f, arg|
       eight = f.iconst("i64", 8)
@@ -51,8 +51,8 @@ class PassesTest < Minitest::Test
     assert_equal (42 - 3 + 2) & 0xFFFF_FFFF_FFFF_FFFF, was
   end
 
-  # The bit tricks over constants fold as the interpreter answers them,
-  # as wide as the constant: a count of zero's zeros is the width.
+  # Bit operations on constants fold to the value that the interpreter
+  # returns, at the width of the constant: the zero count of zero is the width.
   def test_the_bit_tricks_fold_over_constants
     f = function("bits", [], "i64") do |f|
       ctz = f.bitop(:ctz, f.iconst("i64", 0x50))
@@ -67,9 +67,9 @@ class PassesTest < Minitest::Test
     assert_equal was, answer(f, [])
     assert_equal 4 + 32 + 9 + 0x0403_0201, was
   end
-  # `x * 8`, `x / 8` and `x % 8` unsigned are a shift, a shift and a
-  # mask; a signed division is not, and a multiply by 6 is a multiply.
-  def test_a_multiply_division_or_remainder_by_a_power_of_two_is_a_shift_or_a_mask
+  # Unsigned `x * 8`, `x / 8` and `x % 8` become a shift, a shift and a
+  # mask. A signed division does not, and a multiply by 6 stays a multiply.
+  def test_power_of_two_mul_div_rem_become_shift_or_mask
     f = function("reduce", %w[i64], "i64") do |f, x|
       a = f.imul(x, f.iconst("i64", 8))
       b = f.udiv(x, f.iconst("i64", 8))
@@ -86,7 +86,7 @@ class PassesTest < Minitest::Test
     assert_equal 1_000_003 * 8 + 125_000 + 3 + 125_000 + 1_000_003 * 6, was
   end
 
-  def test_an_identity_is_its_operand_and_a_branch_on_a_constant_is_a_jump
+  def test_identity_folds_to_operand_and_constant_branch_to_jump
     f = function("identity", %w[i64], "i64") do |f, x|
       y = f.iadd(x, f.iconst("i64", 0))
       z = f.imul(f.iconst("i64", 1), y)
@@ -104,7 +104,7 @@ class PassesTest < Minitest::Test
     assert_equal 9, answer(f, [9])
   end
 
-  def test_a_parameter_every_edge_gives_one_constant_folds_where_it_is_read
+  def test_block_parameter_with_same_constant_on_all_edges_folds
     f = function("joined", %w[i64], "i64") do |f, p|
       yes = f.label
       no = f.label
@@ -196,7 +196,7 @@ class PassesTest < Minitest::Test
     assert_equal [1, 0, 0], was
   end
 
-  def test_a_branch_on_a_disjunction_asks_the_second_only_when_the_first_fails
+  def test_disjunction_branch_tests_second_only_when_first_fails
     f = function("either", %w[i64 i64], "i64") do |f, x, y|
       a = f.icmp("slt", x, f.iconst("i64", 10))
       c = f.icmp("sgt", y, f.iconst("i64", 3))
@@ -216,8 +216,8 @@ class PassesTest < Minitest::Test
     assert_equal [1, 1, 0], [[1, 1], [20, 9], [20, 1]].map { |args| answer(f, args) }
   end
 
-  # Three tests in one are three branches, the second and third each
-  # behind the one before it, whichever way the disjunction nests.
+  # Three tests in one become three branches. The second and third branch
+  # each come after the one before, however the disjunction nests.
   def test_a_branch_on_three_tests_is_three_branches
     f = function("three", %w[i64 i64 i64], "i64") do |f, x, y, z|
       a = f.icmp("slt", x, f.iconst("i64", 10))
@@ -242,9 +242,9 @@ class PassesTest < Minitest::Test
     assert_equal [1, 1, 1, 0], was
   end
 
-  # A conjunction's second test read elsewhere too stays ahead of the
-  # branch chain, since the other reader needs it whichever way the
-  # first test goes.
+  # When other code also reads the second test of a conjunction, that test
+  # stays before the branch chain. The other reader needs it on both paths
+  # of the first test.
   def test_a_second_test_read_elsewhere_stays_ahead_of_the_chain
     f = function("shared", %w[i64 i64], "i64") do |f, x, y|
       a = f.icmp("slt", x, f.iconst("i64", 10))
@@ -264,8 +264,8 @@ class PassesTest < Minitest::Test
 
   def test_blocks_fold_away
     f = function("blocks", %w[i64], "i64") do |f, x|
-      # An unreachable arm, a block that only jumps on, and a join with
-      # one predecessor left once the arm is gone.
+      # An unreachable arm, a block that only jumps to the next block, and
+      # a join that has one predecessor after the arm is removed.
       join, (y,) = f.block(%w[i64])
       hop = f.label
       dead = f.label
@@ -283,9 +283,9 @@ class PassesTest < Minitest::Test
     assert_equal 6, answer(f, [5])
   end
 
-  # A block joined into a predecessor laid out after it: the joined
-  # instructions keep the block's place, ahead of the blocks that read
-  # what they define.
+  # A block joined into a predecessor that comes after it in the layout.
+  # The joined instructions keep the position of the block, before the
+  # blocks that read the values they define.
   def test_a_block_joined_into_a_later_predecessor_keeps_its_place
     f = function("place", %w[i8 i8 i64], "i64") do |f, c1, c2, x|
       p, (y,) = f.block(%w[i64])
@@ -327,8 +327,8 @@ class PassesTest < Minitest::Test
     assert_equal ["v1"], f.entry_block.insts.first.args
   end
 
-  # `Statics`: a word the kernel keeps in a static, `bss` here, and a
-  # program that answers with the words it read.
+  # `Statics`: a word that the kernel keeps in a static (`bss` here), and
+  # a program that returns the words it read.
   def static(name, bytes = "\0".b * 8) = Zr::Obj::Data.new("zr_static_#{name}", :data, bytes, align: 16)
 
   def answer_with(functions, data, args)
@@ -337,11 +337,11 @@ class PassesTest < Minitest::Test
 
   def loads(f) = f.blocks.flat_map { |b| b.insts.select { |i| i.op == :load } }
 
-  # The gate word, read out of its register at every turn of a loop
-  # with a call on one arm that writes it: each read stays where it
-  # is, no pass moves or merges one, and the loop's head carries no
-  # word. The interpreter reads the static, which every write stores
-  # to as well, and the entry from foreign code loads from.
+  # The gate word is read from its register on each iteration of a loop
+  # that has a call on one arm that writes the word. Each read stays where
+  # it is, no pass moves or merges a read, and the loop head has no
+  # parameter for the word. The interpreter reads the static. Every write
+  # also stores to the static, and the entry from foreign code loads it.
   def test_the_gate_word_is_read_out_of_its_register
     bump = function("bump", [], nil) do |f|
       at = f.symbol_addr(f.symbol("zr_static_gates"))
@@ -382,11 +382,11 @@ class PassesTest < Minitest::Test
     assert_equal 3 + 3 + 3 + 3 + 3 + 4 + 4 + 4 + 4 + 4, was
   end
 
-  # A static that is not a promoted word is still one load across a
-  # call that cannot write it (`GVN`): the task pointer, over an
-  # allocation. The poll word beside it is volatile: every load of it
-  # stays, even two with nothing between.
-  def test_a_static_that_is_not_promoted_is_numbered_and_a_volatile_word_never
+  # `GVN` merges the loads of a static that is not a promoted word across
+  # a call that cannot write it: here, the task pointer across an
+  # allocation. The poll word next to it is volatile, so every load of it
+  # stays, even two loads with nothing between them.
+  def test_gvn_merges_static_loads_but_keeps_volatile_loads
     f = function("poll", [], "i64") do |f|
       at = f.symbol_addr(f.symbol("zr_static_current_task"))
       a = f.fetch("i64", at)
@@ -403,10 +403,11 @@ class PassesTest < Minitest::Test
     assert_equal 27, answer_with([f, allocate], [static("current_task", [7, 3].pack("q<q<"))], [])
   end
 
-  # A static's word is read again across a store to a slot, and not
-  # across a call, or a store through an address the pass cannot tell
-  # -- one a call answered -- which is a write to every word.
-  def test_a_static_is_read_again_across_a_slot_store_and_not_across_a_call
+  # A load of a static reuses the earlier value across a store to a slot.
+  # It does not reuse it across a call, or across a store through an
+  # unknown address (here, one that a call returned), which can write any
+  # word.
+  def test_static_load_is_reused_across_slot_store_but_not_call
     where = function("where", [], "i64") { |f| f.ret(f.symbol_value(f.symbol("zr_static_site_stamp"))) }
     f = function("stores", [], "i64") do |f|
       at = f.symbol_addr(f.symbol("zr_static_site_stamp"))
@@ -424,11 +425,11 @@ class PassesTest < Minitest::Test
     assert_equal 4 + 9 + 9, answer_with([f, where], [static("site_stamp")], [])
   end
 
-  # A call whose callee's effects leave the word alone does not make
-  # the reader load it again; one whose effects may write it does. A
-  # store through a pointer with a region of its own is the same as
-  # such a call; one with no region is a write to everything.
-  def test_a_write_that_cannot_reach_the_word_leaves_its_value_alone
+  # A call whose effects cannot write the word does not make the reader
+  # load it again. A call whose effects can write it does. A store through
+  # a pointer that has its own region acts like the first call. A store
+  # with no region can write everything.
+  def test_static_load_is_reused_across_write_to_other_region
     f = function("effects", %w[i64], "i64") do |f, p|
       at = f.symbol_addr(f.symbol("zr_static_site_stamp"))
       a = f.fetch("i64", at)
@@ -445,9 +446,9 @@ class PassesTest < Minitest::Test
     assert_equal %i[symbol_value load call iconst store call load iconst store load iadd iadd iadd return], ops(f)
   end
 
-  # `GVN`: a value computed in a dominator is read there, in either
-  # order of a commutative opcode; one computed in one arm of a branch
-  # is not offered to the other.
+  # `GVN`: a value computed in a dominator is reused, in either operand
+  # order of a commutative opcode. A value computed in one arm of a branch
+  # is not reused in the other arm.
   def test_a_value_computed_by_a_dominator_is_not_computed_again
     f = function("numbering", %w[i64 i64 i8], "i64") do |f, x, y, c|
       a = f.iadd(x, y)
@@ -470,9 +471,9 @@ class PassesTest < Minitest::Test
     assert_equal [20, 20], was
   end
 
-  # A load is read again only past what cannot write its region: a
-  # store to another region, a call that leaves it alone; a store to
-  # its region, on any path between, makes it load again.
+  # A load reuses the earlier value only across code that cannot write its
+  # region: a store to another region, or a call that does not write it.
+  # A store to its region on any path between makes it load again.
   def test_a_load_is_read_again_only_across_what_cannot_write_it
     f = function("reloads", %w[i64 i8], "i64") do |f, p, c|
       a = f.fetch("i64", p, 8, region: :heap)
@@ -518,11 +519,11 @@ class PassesTest < Minitest::Test
     assert_equal 2, loads(f).size
   end
 
-  # `LICM`: what a loop computes the same at every turn -- a product of
-  # two values from outside it, a load of a word the loop cannot write
-  # -- is computed once, in a block before the loop's head, and the
-  # loop's turns read the values.
-  def test_what_a_loop_computes_the_same_at_every_turn_is_computed_before_it
+  # `LICM`: a value that a loop computes the same on each iteration (a
+  # product of two values from outside the loop, or a load of a word that
+  # the loop cannot write) is computed once, in a block before the loop
+  # head. Each iteration reads those values.
+  def test_licm_moves_loop_invariant_values_before_the_loop
     f = function("hoisted", %w[i64 i64], "i64") do |f, n, m|
       word = f.symbol_addr(f.symbol("zr_static_word"))
       stamp = f.symbol_addr(f.symbol("zr_static_site_stamp"))
@@ -553,8 +554,8 @@ class PassesTest < Minitest::Test
   end
 
   # A compare that only a branch reads stays in the loop, where the
-  # backend folds it into the branch; the sum it guards, which the arm
-  # reads, moves out.
+  # backend folds it into the branch. The sum that it guards, which the
+  # arm reads, moves out.
   def test_a_test_only_a_branch_reads_stays_in_the_loop
     f = function("tested", %w[i64 i64], "i64") do |f, n, m|
       head, (i, acc) = f.block(%w[i64 i64])
@@ -582,11 +583,11 @@ class PassesTest < Minitest::Test
     assert_equal [21, 0], [[3, 3], [3, 1]].map { |args| answer(f, args) }
   end
 
-  # A load the loop's test guards -- a word behind a pointer the head
-  # tests for null -- stays behind it, and a load of the volatile
-  # region stays where it is; a word a store before the loop proves is
-  # there is read before it.
-  def test_a_load_a_test_guards_and_a_volatile_load_stay_in_the_loop
+  # A load that the loop test guards (a word behind a pointer that the
+  # head checks for null) stays after the test. A load of the volatile
+  # region stays where it is. A word that a store before the loop proves
+  # present is read before the loop.
+  def test_guarded_and_volatile_loads_stay_in_the_loop
     f = function("guarded", %w[i64 i64], "i64") do |f, p, r|
       poll = f.symbol_addr(f.symbol("zr_static_current_task"))
       f.store(f.iconst("i64", 1), r, 16, region: :malloc)
@@ -613,7 +614,7 @@ class PassesTest < Minitest::Test
 
   # An address that reaches a call, or a store of part of the word,
   # keeps every load of the word.
-  def test_a_word_whose_address_escapes_or_that_is_written_in_part_keeps_its_loads
+  def test_loads_stay_when_address_escapes_or_store_is_partial
     escapes = function("escapes", [], "i64") do |f|
       stamp = f.symbol_addr(f.symbol("zr_static_site_stamp"))
       a = f.fetch("i64", stamp)
@@ -631,7 +632,7 @@ class PassesTest < Minitest::Test
       assert_equal 2, loads(f).size, f.name
     end
   end
-def test_a_small_leaf_is_inlined_into_its_caller_and_a_cycle_is_left_as_calls
+def test_inline_expands_small_leaf_and_keeps_calls_in_a_cycle
   plus = function("plus_one", %w[i64], "i64") { |f, x| f.ret(f.iadd(x, f.iconst("i64", 1))) }
   twice = function("twice_plus", %w[i64], "i64") do |f, x|
     a = f.call_val(f.callee("plus_one", %w[i64], "i64"), [x])
@@ -652,9 +653,9 @@ def test_a_small_leaf_is_inlined_into_its_caller_and_a_cycle_is_left_as_calls
   assert_equal 43, was
 end
 
-  # A leaf that keeps a value in a slot of its own is inlined with the
-  # slot made the caller's; one whose slots are large stays a call.
-  def test_a_leaf_with_a_small_slot_is_inlined_and_a_large_one_stays_a_call
+  # A leaf that keeps a value in its own slot is inlined, and its slot
+  # becomes a slot of the caller. A leaf with large slots stays a call.
+  def test_inline_expands_leaf_with_small_slot_but_not_large_slot
     through = function("through_slot", %w[i64], "i64") do |f, x|
       at = f.stack_addr(f.slot(8))
       f.store(x, at)

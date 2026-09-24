@@ -3,12 +3,12 @@
 require "test_helper"
 require_relative "../../lib/zr/runtime"
 
-# The core's side of Regexp (runtime/core/regexp_pattern.rb and
-# runtime/core/regexp/onig/*) under this ruby, against Regexp.new: every
-# error Onigmo and ruby's preprocess name, with its text and the pattern
-# after it, every warning quiet and verbose, the group names, and the
-# ceilings, pattern by pattern. The match side is onig_match_test's and
-# regexp_diff_test's.
+# Compares the core's side of Regexp (runtime/core/regexp_pattern.rb and
+# runtime/core/regexp/onig/*) under this ruby with Regexp.new, pattern
+# by pattern. It checks each error from Onigmo and from ruby's
+# preprocess (the text and the pattern after it), each warning (quiet
+# and verbose), the group names, and the limits. onig_match_test and
+# regexp_diff_test check matching.
 Zr.require_onig
 require File.join(ROOT, "runtime/core/regexp_pattern.rb")
 
@@ -78,7 +78,7 @@ class OnigParseTest < Minitest::Test
     end
   end
 
-  def test_every_error_names_its_reason_and_the_pattern
+  def test_error_message_matches_ruby_for_each_pattern
     ERRORS.each do |pattern|
       [0, Regexp::IGNORECASE | Regexp::EXTENDED].each { |options| assert_like_ruby(pattern, options) }
     end
@@ -100,9 +100,10 @@ class OnigParseTest < Minitest::Test
     NAMES.each { |pattern| assert_like_ruby(pattern) }
   end
 
-  # Onigmo's parse depth limit (4096) is deeper than this ruby's VM stack
-  # lets the recursive parser go, so the nesting cases run in a child
-  # with a larger one; the compiled runtime's own stack is the corpus's.
+  # Onigmo's parse depth limit (4096) is deeper than the recursive parser
+  # can go on this ruby's VM stack. Thus the nesting cases run in a child
+  # process with a larger stack. The corpus tests the stack of the
+  # compiled runtime.
   def test_the_ceilings
     assert_like_ruby("()" * 32_767)
     assert_like_ruby("()" * 32_768)

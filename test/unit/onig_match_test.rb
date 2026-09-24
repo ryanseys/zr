@@ -4,10 +4,10 @@ require "test_helper"
 require_relative "../support/harness/kernel_jit"
 require_relative "../../lib/zr/runtime"
 
-# The kernel matcher (runtime/kernel/onig_*.rb) against ruby's own engine:
-# the core compiles each pattern under this ruby, the kernel unit is
-# JIT-loaded and searches, and `Regexp` on the same subject is the
-# oracle for the position and every capture's byte offsets.
+# Compares the kernel matcher (runtime/kernel/onig_*.rb) with ruby's own
+# engine. The core compiles each pattern under this ruby. The test
+# JIT-loads the kernel unit, which does the search. `Regexp` on the same
+# subject gives the expected position and byte offsets of each capture.
 Zr.require_onig
 
 class OnigMatchTest < Minitest::Test
@@ -20,7 +20,7 @@ class OnigMatchTest < Minitest::Test
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
-  # The kernel's answer: nil, [:error, code], or [position, offsets].
+  # The kernel's result: nil, [:error, code], or [position, offsets].
   def kernel(pat, opts, subject, start: 0, backward: false, at: false, limit: 0)
     enc = O::Enc.for(subject.encoding)
     reg, = O.compile(pat.b, opts, enc)
@@ -44,8 +44,8 @@ class OnigMatchTest < Minitest::Test
     [at ? r : r, region[0, 16 * n].unpack("q<*")]
   end
 
-  # ruby's answer in the same shape; the search position only where
-  # ruby shows it (`=~`, from the start, forward).
+  # ruby's result in the same shape. It gives the search position only
+  # where ruby shows it (`=~`, from the start, forward).
   def oracle(pat, opts, subject, start: 0, backward: false, at: false)
     re = Regexp.new(pat.dup.force_encoding(subject.encoding), opts)
     char_start = subject.byteslice(0, start).length

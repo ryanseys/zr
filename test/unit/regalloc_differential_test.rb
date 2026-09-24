@@ -6,23 +6,22 @@ require_relative "../../lib/zr/ir/passes"
 require_relative "../../lib/zr/ir/interp"
 require_relative "../../lib/zr/obj/jit/fiddle"
 
-# The register allocator, held to the road that allocates nothing.
+# Checks the register allocator against code that allocates no registers.
 #
-# A seeded generator writes small functions over the integer
-# operations, comparisons, selects, block parameters, a loop and calls
-# to a callee in the same unit -- the shapes that put a value in a
-# register across a call, or across a back edge -- and each runs three
-# ways: through `IR::Interp`, and through the JIT with every value
-# allocated and with every value in its frame home. The three must
-# agree. A failure prints the seed and the function, and `ZR_SEED=`
+# A seeded generator writes small functions with integer operations,
+# comparisons, selects, block parameters, a loop, and calls to a callee
+# in the same unit. These shapes keep a value in a register across a
+# call or across a back edge. Each function runs three ways: through
+# `IR::Interp`, through the JIT with every value allocated, and through
+# the JIT with every value in its frame home. The three results must be
+# the same. A failure prints the seed and the function, and `ZR_SEED=`
 # runs that seed again.
 #
-# A probe takes four integers and a double, and its callee three
-# integers in an order the probe picks: the argument registers are
-# in the allocator's pool, so a parameter may be homed in another's
-# arrival register, an argument in another's, and a float's home may
-# be a register an integer had yet to leave (the case that reached a
-# spec before it reached this test).
+# A probe takes four integers and a double, and its callee takes three
+# integers in an order that the probe selects. The argument registers
+# are in the allocator's pool. Thus a parameter can have its home in the
+# arrival register of another parameter, an argument can too, and the
+# home of a float can be a register that an integer has not left yet.
 class RegallocDifferentialTest < Minitest::Test
   COUNT = Integer(ENV.fetch("ZR_DIFFERENTIAL", 500))
   CALLEE = "probe_callee"
@@ -33,7 +32,7 @@ class RegallocDifferentialTest < Minitest::Test
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
-  def test_allocated_and_unallocated_code_answer_as_the_interpreter_does
+  def test_allocated_and_spilled_code_match_the_interpreter
     seed = Integer(ENV.fetch("ZR_SEED") { Random.new_seed % (1 << 31) })
     rng = Random.new(seed)
     functions = [callee] + COUNT.times.map { |n| generate(rng, "probe_#{n}") }
@@ -52,7 +51,7 @@ class RegallocDifferentialTest < Minitest::Test
 
   private
 
-  # The 64-bit word: the interpreter answers it unsigned, Fiddle signed.
+  # The 64-bit word: the interpreter returns it unsigned, Fiddle signed.
   def word(n) = n & 0xFFFF_FFFF_FFFF_FFFF
 
   # The functions loaded into this process, each callable by name.
@@ -65,8 +64,8 @@ class RegallocDifferentialTest < Minitest::Test
     end
   end
 
-  # `probe_callee(x, y, z) = x * 3 + y * 5 + z * 7 + 1`, in the unit
-  # beside the probes.
+  # `probe_callee(x, y, z) = x * 3 + y * 5 + z * 7 + 1`, in the same unit
+  # as the probes.
   def callee
     f = Zr::IR::Function.new(CALLEE, %w[i64 i64 i64], "i64")
     x, y, z = f.args
@@ -75,9 +74,9 @@ class RegallocDifferentialTest < Minitest::Test
     f
   end
 
-  # A function of four i64 arguments and an f64 one, read as its bits:
-  # a run of operations, a loop of a few passes carrying two values, a
-  # run more, and an answer.
+  # A function of four i64 arguments and an f64 argument (read as its
+  # bits): some operations, a loop of a few iterations that passes two
+  # values between iterations, more operations, and a return value.
   def generate(rng, name)
     f = Zr::IR::Function.new(name, %w[i64 i64 i64 i64 f64], "i64")
     callee = f.callee(CALLEE, %w[i64 i64 i64], "i64")
@@ -103,7 +102,7 @@ class RegallocDifferentialTest < Minitest::Test
     f
   end
 
-  # One instruction over values in `pool`, or a constant, answering
+  # One instruction on values in `pool`, or on a constant, that returns
   # an i64 value.
   def operation(f, rng, pool, callee)
     a = pool.sample(random: rng)

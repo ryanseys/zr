@@ -3,9 +3,9 @@
 require "test_helper"
 require_relative "../support/scratch"
 
-# A tier sweeps the temporary directories whose makers are gone
-# (test/support/scratch.rb), and only those.
-class ScratchTest < Minitest::Test
+# A tier removes the temporary directories whose creating process has
+# exited (test/support/scratch.rb), and only those.
+class TmpdirSweepTest < Minitest::Test
   def setup
     @root = Dir.mktmpdir("scratch-")
   end

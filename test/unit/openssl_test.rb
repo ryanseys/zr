@@ -4,9 +4,10 @@ require "test_helper"
 require_relative "../support/harness/answer"
 
 # `require "openssl"` opens the host's libssl 3 when the program runs.
-# Where the library is absent it raises LoadError naming each place it
-# looked, and a program that rescues it goes on. ruby links its OpenSSL
-# in, so no corpus recording can hold this answer; the check holds it.
+# When the library is not there, it raises LoadError with a message that
+# gives each path it tried. A program that rescues the error continues.
+# ruby links its OpenSSL in, so no corpus recording can contain this
+# output. This test checks it.
 class OpenSSLTest < Minitest::Test
   PROGRAM = <<~RUBY
     begin
@@ -27,7 +28,7 @@ class OpenSSLTest < Minitest::Test
                  "Looked for: /nonexistent/lib/libssl.3.dylib (no such file)\n", ran
   end
 
-  def test_the_host_library_answers_when_present
+  def test_digest_uses_host_library_when_present
     skip "libssl 3 is not installed" unless Zr::Harness::Needs.met?("libssl", "macos")
 
     assert_equal "#{`printf zr | shasum -a 256`.split.first}\n", run_program({})
@@ -35,7 +36,7 @@ class OpenSSLTest < Minitest::Test
 
   private
 
-  # The program's stdout, built once per process.
+  # Runs the program and returns its stdout. The binary is built once per process.
   def run_program(env)
     answer = Checks.run([binary], env: env)
     assert_nil Checks.killed(answer), "the program was killed"

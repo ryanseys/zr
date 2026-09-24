@@ -3,9 +3,10 @@
 require "test_helper"
 require_relative "../../lib/zr/ir/verify"
 
-# The strict checks type every operand, not only a jump's arguments:
-# an `i8` compared with an `i64` (#43) is refused where it is made,
-# on every target, and so is a call with the wrong arguments.
+# The strict verifier checks the type of every operand, not only the
+# arguments of a jump. It refuses an `i8` compared with an `i64` (#43)
+# where the instruction is made, on every target. It also refuses a
+# call with the wrong arguments.
 class VerifyTest < Minitest::Test
   Verify = Zr::IR::Verify
 

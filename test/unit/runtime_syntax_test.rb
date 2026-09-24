@@ -4,7 +4,7 @@ require "test_helper"
 require "stringio"
 
 # Every runtime file is valid Ruby, and `ruby -wc` gives no warning for
-# it. The kernel dialect runs only when zr compiles it, but its syntax
+# it. The machine dialect runs only when zr compiles it, but its syntax
 # is ordinary Ruby syntax, so ruby's own parser checks it.
 class RuntimeSyntaxTest < Minitest::Test
   FILES = Dir[File.join(ROOT, "runtime/**/*.rb")].sort.freeze
@@ -24,7 +24,7 @@ class RuntimeSyntaxTest < Minitest::Test
 
   private
 
-  # What ruby says as it compiles `path` with warnings on.
+  # What ruby prints when it compiles `path` with warnings on.
   def compile(path)
     verbose, stderr = $VERBOSE, $stderr
     $VERBOSE = true

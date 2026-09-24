@@ -4,14 +4,14 @@ require "test_helper"
 require "stringio"
 require_relative "../support/slow"
 
-# The report `ZR_SLOW` asks for: the slowest tests by name, and what
-# the examples that build a program spent, by directory. It runs after
-# every test has, so a fault in it would show only there -- once, at
-# the end of a whole tier.
+# The report that `ZR_SLOW` enables: the slowest tests by name, and the
+# time that the examples that build a program spent, by directory. It
+# runs after all tests, so a fault in it shows only there, once, at the
+# end of a full tier.
 class SlowTest < Minitest::Test
   Slow = Zr::Test::Slow
 
-  def test_it_names_the_slowest_tests_and_sums_what_each_directory_spent
+  def test_report_lists_slowest_tests_and_time_per_directory
     io = StringIO.new
     reporter = Slow::Reporter.new(io, 2)
     reporter.record(result("Fast", "quick", 0.1, "test/spec/core/time/time_test.rb"))
@@ -26,7 +26,7 @@ class SlowTest < Minitest::Test
     assert_match(/all 2 directories\s+2\s+3\.0\s+1\.0\s+0\.8\s+5\.5/, io.string)
   end
 
-  def test_a_run_with_no_examples_that_build_reports_the_tests_alone
+  def test_report_without_build_examples_lists_only_tests
     io = StringIO.new
     reporter = Slow::Reporter.new(io, 20)
     reporter.record(result("Plain", "one", 0.5, "test/unit/plain_test.rb"))
@@ -36,7 +36,7 @@ class SlowTest < Minitest::Test
     refute_match(/What the examples/, io.string)
   end
 
-  def test_the_clock_adds_to_the_row_it_is_given_and_runs_the_block_without_one
+  def test_clock_adds_time_to_hash_and_runs_block_without_one
     row = {}
     assert_equal 3, Slow.clock(row, :lower) { 3 }
     Slow.clock(row, :lower) { nil }

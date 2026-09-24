@@ -3,11 +3,10 @@
 require "test_helper"
 require_relative "../support/harness/regexp_diff"
 
-# The Ruby Onigmo held to ruby's own engine over a fixed sample of
+# Checks the Ruby Onigmo against ruby's own engine over a fixed sample of
 # harvested and fuzzed cases (test/unit/regexp_diff_sample.jsonl): the
-# compile error, the
-# warnings quiet and verbose, the position and every capture's byte
-# offsets, all as ruby answers them.
+# compile error, the warnings (quiet and verbose), the position, and the
+# byte offsets of each capture, all as ruby returns them.
 class RegexpDiffTest < Minitest::Test
   SAMPLE = File.join(__dir__, "regexp_diff_sample.jsonl")
 

@@ -5,12 +5,12 @@ require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/native/link"
 require_relative "../../test/native/fixtures"
 
-# The native floor, on IR written by hand: each `Native::Fixtures` method
-# becomes an object, links against libSystem alone, runs, exits 0, and
-# prints `test/native/<name>.stdout`. Nothing of Ruby-the-language is in
-# the loop: this is the ground every runtime program stands on.
+# Native code from IR written by hand. Each `Native::Fixtures` method
+# becomes an object file, links against libSystem only, runs, exits 0,
+# and prints `test/native/<name>.out`. No Ruby language feature is in
+# the test. Every runtime program depends on this layer.
 class NativeTest < Minitest::Test
-  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  # Only a darwin host has Mach-O, libSystem and the darwin JIT.
   def setup
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
@@ -32,7 +32,7 @@ class NativeTest < Minitest::Test
     end
   end
 
-  # A fact that fails must show: the broken copy exits with its bit set.
+  # A failed fact must be visible: the broken copy exits with the bit of that fact set.
   def test_a_failing_fact_is_visible
     functions, data = Zr::Native::Fixtures.build("arith")
     broken = functions.last.blocks.flat_map(&:insts).find { |i| i.args == [81_985_529_216_486_894] }
@@ -44,7 +44,7 @@ class NativeTest < Minitest::Test
       assert_nil Zr::Native::Build.object(functions, data, obj)
       assert_nil Zr::Native::Link.run([obj], bin)
       IO.popen([bin], &:read)
-      # The constant fact is the fourth from the end: three facts follow it.
+      # The constant fact is fourth from the end, so three facts follow it.
       assert_equal 8, $?.exitstatus, "the broken fact was not seen"
     end
   end

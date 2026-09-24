@@ -3,13 +3,14 @@
 require "test_helper"
 require_relative "../support/harness/regexp_diff"
 
-# The core's compiler (runtime/core/regexp/onig/*) over every regexp the
-# corpus writes, under this ruby: each pattern ruby compiles compiles
-# here too, into a program String the kernel reads, holding as many
-# groups as ruby's MatchData has and the names ruby's Regexp#names
-# lists; each pattern ruby refuses is refused with ruby's words. The
-# median compile time is printed, since StringScanner and String
-# methods given a String compile per call.
+# Compiles every regexp in the test corpus with the core's compiler
+# (runtime/core/regexp/onig/*) under this ruby. Each pattern that ruby
+# compiles also compiles here, into a program String that the kernel
+# reads. The program has the same number of groups as ruby's MatchData,
+# and the names that ruby's Regexp#names returns. Each pattern that ruby
+# refuses gets ruby's error message. The test prints the median compile
+# time, because StringScanner and String methods compile a String
+# argument on each call.
 class OnigCompileTest < Minitest::Test
   Diff = Zr::Harness::RegexpDiff
   Pattern = Regexp.const_get(:Pattern)
@@ -18,8 +19,8 @@ class OnigCompileTest < Minitest::Test
     Dir[File.join(ROOT, "test/**/*.rb")].sort.flat_map { |path| Diff.harvest_file(path).first }.uniq
   end
 
-  # The groups a MatchData of `re` holds: a match forced by an empty
-  # alternative after the pattern.
+  # The number of groups in a MatchData of `re`. An empty alternative
+  # after the pattern forces a match.
   def groups_of(re)
     Regexp.new("(?:#{re.source})|", re.options).match("").size - 1
   rescue RegexpError, ArgumentError

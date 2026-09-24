@@ -4,18 +4,20 @@ require "test_helper"
 require_relative "../../lib/zr/ir"
 require_relative "../../lib/zr/backend/aarch64"
 
-# The backend's work grows with the function, not with its square.
+# The backend's work grows with the size of the function, not with its
+# square.
 #
 # Every constant is made in the entry block, so one read at the end of a
-# long function is live across every block before it. Liveness kept as a
-# set a block grew as blocks times values: a method of 3000 statements
-# held more than 2.6 GB to compile. The shape here is that one at its
-# smallest -- a chain of blocks, each comparing against a constant wide
-# enough to need a register -- compiled at two sizes, and the processor
-# time the compile takes is held to the ratio of the sizes, with room for
-# a noisy machine: four times the blocks took sixteen times as long when
-# the sets grew as their product. The objects allocated do not show it,
-# as a Set's entries are not objects of their own.
+# long function is live across every block before it. When each block
+# keeps liveness as a set, memory grows as blocks times values: then a
+# method of 3000 statements used more than 2.6 GB to compile. This test
+# uses the smallest form of that shape: a chain of blocks, each compared
+# against a constant wide enough to need a register. It compiles the
+# chain at two sizes and checks that the processor time follows the
+# ratio of the sizes, with a margin for a noisy machine. With sets per
+# block, four times the blocks took sixteen times as long. The count of
+# allocated objects does not show the problem, because the entries of a
+# Set are not separate objects.
 class RegallocScaleTest < Minitest::Test
   def chain(n)
     f = Zr::IR::Function.new("chain_#{n}", %w[i64], "i64")
@@ -32,8 +34,8 @@ class RegallocScaleTest < Minitest::Test
     f
   end
 
-  # The fastest of three compiles, so one pause for something else on
-  # the machine does not decide it.
+  # The fastest of three compiles, so that one pause for other work on
+  # the machine does not decide the result.
   def seconds(n)
     f = chain(n)
     Array.new(3) do

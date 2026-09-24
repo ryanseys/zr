@@ -6,11 +6,11 @@ require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 require "support/runtime_programs"
 
-# The wasm road: every hand-written IR program, every kernel-dialect
-# program that names no raw function, and every kernel core becomes one
-# WASI module, and wasmtime prints what the binary prints.
+# The wasm target: every hand-written IR program, every machine-dialect
+# program that refers to no raw function, and every kernel core becomes
+# one WASI module, and wasmtime prints what the native binary prints.
 #
-# Every wasm row is here, so a failure names the wasm backend and
+# All wasm tests are here, so a failure identifies the wasm backend and
 # nothing else. The same programs go through the aarch64 backend in
 # `native_test.rb`, `machine_test.rb` and `runtime_test.rb`.
 class WasmTest < Minitest::Test
@@ -34,9 +34,9 @@ class WasmTest < Minitest::Test
     end
   end
 
-  # Every hand-written module is well-formed by the specification's
-  # own validator, which reads the types wasmtime may forgive: a value
-  # the backend typed otherwise than the IR did would show here first.
+  # Every hand-written module passes the validator of the specification,
+  # which checks types that wasmtime can accept anyway. A value that the
+  # backend typed differently from the IR shows here first.
   def test_the_modules_validate
     skip "wasm-tools is not installed" unless system("wasm-tools", "--version", out: File::NULL, err: File::NULL)
 
@@ -51,8 +51,8 @@ class WasmTest < Minitest::Test
     end
   end
 
-  # A dialect import that names its wasm module reaches the host's own
-  # call, and a native build refuses it by name.
+  # A dialect import that gives its wasm module reaches the host's own
+  # call, and a native build refuses it with a message that gives the name.
   IMPORTED = <<~RUBY
     Machine.import "fd_write", [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
 
@@ -77,9 +77,9 @@ class WasmTest < Minitest::Test
     end
   end
 
-  # Initialized data goes before bss, and objects side by side share a
-  # segment. A module that carries the compiler has some 90,000 data
-  # objects, and wasmtime 48 cannot compile past 65,535 segments.
+  # Initialized data goes before bss, and adjacent objects share a
+  # segment. A module that includes the compiler has about 90,000 data
+  # objects, and wasmtime 48 cannot compile more than 65,535 segments.
   def test_data_objects_share_a_segment
     functions, data = Zr::Machine.compile(IMPORTED, "imported.rb")
     data += 100.times.flat_map do |i|
@@ -93,7 +93,7 @@ class WasmTest < Minitest::Test
     end
   end
 
-  # How many segments a module's data section holds.
+  # The number of segments in the data section of a module.
   def data_segments(bytes)
     at = 8
     leb = lambda do
@@ -117,10 +117,10 @@ class WasmTest < Minitest::Test
     0
   end
 
-  # A program on the WASI layer reads what the host hands it: its
+  # A program on the WASI layer reads what the host gives it: its
   # arguments, its environment, and the files of a preopened directory.
-  # The answer is what ruby 4.0 for wasm32-wasi printed for the same
-  # program under the same wasmtime flags.
+  # The expected output is what ruby 4.0 for wasm32-wasi printed for the
+  # same program under the same wasmtime flags.
   HOST = <<~'RUBY'
     p ARGV, ENV["X"], ENV.key?("NOPE")
     ENV["Y"] = "set"

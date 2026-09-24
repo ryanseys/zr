@@ -5,11 +5,11 @@ require_relative "../support/harness/prism_diff"
 require_relative "../../runtime/ext/prism/ruby"
 require "stringio"
 
-# The pure-Ruby prism held to ruby's C prism: its
-# generated files current with the vendored config.yml and templates,
-# Prism.dump's writer equal to the C byte for byte on every dump read back,
-# the parser's dumps equal to the C's, and the C extension's entry points
-# answering as the C's do, object for object.
+# Checks the pure-Ruby prism against ruby's C prism: the generated files
+# match the vendored config.yml and templates, the Prism.dump writer
+# matches the C byte for byte on every dump read back, the parser's
+# dumps match the C dumps, and the C extension's entry points return
+# the same objects as the C.
 class PrismTest < Minitest::Test
   PrismDiff = Zr::Harness::PrismDiff
 
@@ -20,13 +20,12 @@ class PrismTest < Minitest::Test
     assert $?.success?, out
   end
 
-  # A comparison over thousands of cases as SHARDS tests over slices of
-  # them, and one more that there are as many cases as there should be.
-  # A test is one worker's: as one test, five thousand cases ground on
-  # in one worker for two minutes while seven stood idle. The cases are
-  # listed here, once, in the process that forks the workers. Where the
-  # cases want a prism checkout this machine does not have, the one
-  # test skips and says so.
+  # A comparison over thousands of cases runs as SHARDS tests over slices
+  # of them, plus one test that checks the case count. Each test runs in
+  # one worker. As one test, five thousand cases ran in one worker for two
+  # minutes while seven workers were idle. The cases are listed once, here,
+  # in the process that forks the workers. If the cases need a prism
+  # checkout that this machine does not have, one test skips and says so.
   SHARDS = 8
 
   def self.compare(name, cases, at_least:, &check)
@@ -47,11 +46,11 @@ class PrismTest < Minitest::Test
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
-  # The lexer with no parser behind it: every fixture and error file lexes
-  # in every mode and gives C's tokens, except where the parser moves the
+  # The lexer without the parser: every fixture and error file lexes in
+  # every mode and gives the C tokens, except where the parser changes the
   # lex state (lambda braces, `do` loops, labels, ignored newlines,
-  # interpolation), and none raises.
-  def test_the_lexer_alone_lexes_prisms_fixtures_and_errors_as_the_c_does
+  # interpolation). No file raises.
+  def test_lexer_matches_c_tokens_on_prism_fixtures_and_errors
     skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
 
     cases = PrismDiff.cases(%w[fixtures errors])
@@ -61,8 +60,8 @@ class PrismTest < Minitest::Test
     assert_operator cases.size - failures.size, :>=, 4744
   end
 
-  # The Ruby parser: Prism::Ruby.dump equal to Prism.dump byte for byte, on
-  # zr's own Ruby and on every fixture and error file under each syntax
+  # The Ruby parser: Prism::Ruby.dump is equal to Prism.dump byte for byte,
+  # on zr's own Ruby and on every fixture and error file under each syntax
   # version.
   compare("the_parser_dumps_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[runtime lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
@@ -73,8 +72,8 @@ class PrismTest < Minitest::Test
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
-  # Broken sources: truncated, cut or with a stray byte, the parser recovers
-  # as the C does.
+  # Broken sources (truncated, cut, or with a stray byte): the parser
+  # recovers as the C does.
   compare("the_parser_dumps_broken_fixtures_as_the_c_does",
           upstream_cases(%w[fixtures errors], only: "**/*@4.1")&.then { |cases| PrismDiff.fuzz(cases, 2, 1) },
           at_least: 2500) do |cases|
@@ -87,9 +86,9 @@ class PrismTest < Minitest::Test
   end
 
   # Prism.parse, lex, parse_lex, parse_comments and parse_success? in Ruby:
-  # every node, token, comment and diagnostic equal to the C extension's,
-  # down to each String's encoding and frozenness.
-  compare("the_entry_points_answer_prisms_fixtures_and_errors_as_the_c_extension_does",
+  # every node, token, comment and diagnostic is equal to the C extension's,
+  # down to the encoding and frozen state of each String.
+  compare("entry_points_match_c_extension_on_prism_fixtures_and_errors",
           upstream_cases(%w[fixtures errors], only: "**/*@4.1"), at_least: 1200) do |cases|
     %i[parse lex parse_lex parse_comments parse_success?].each do |method|
       assert_empty PrismDiff.api(cases, method).first(5), method
@@ -101,7 +100,7 @@ class PrismTest < Minitest::Test
 
   # Encodings from a magic comment or an option, invalid names, a BOM, a
   # shebang, and the errors bad options raise.
-  def test_the_entry_points_read_encodings_and_options_as_the_c_extension_does
+  def test_entry_points_match_c_for_encodings_and_options
     sources = ["# encoding: shift_jis\nx = \"\x82\xa0\"".b, "# -*- coding: binary -*-\n:\"\xff\"\n\"\xe9\"".b, "x = \"\xff\"".b,
                "\xEF\xBB\xBFputs 1".b, "#!/usr/bin/env ruby\n# encoding: euc-jp\nx".b, "def \xff; end".b, "x = 1\n__END__\nstuff"]
     options = [{}, { freeze: true }, { encoding: "Shift_JIS" }, { encoding: Encoding::EUC_JP, freeze: true }, { encoding: false },
@@ -126,8 +125,8 @@ z" }], ["x", { scopes: [1] }], ["x", { scopes: [["a"]] }],
   end
 
   # The _file entry points read a file, and raise for a missing file or a
-  # directory; parse_stream reads lines again while the source is cut.
-  def test_the_file_and_stream_entry_points_read_as_the_c_extension_does
+  # directory. parse_stream reads more lines while the source is cut off.
+  def test_file_and_stream_entry_points_match_c_extension
     Dir.mktmpdir("prism-files-") do |dir|
       File.binwrite(File.join(dir, "sjis.rb"), "# encoding: shift_jis\nx = \"\x82\xa0\"\n".b)
       File.write(File.join(dir, "plain.rb"), "x = 1\n")
@@ -149,7 +148,7 @@ junk"), 5]
   end
 
   # Prism::Pack.parse and Prism::StringQuery's native halves.
-  def test_pack_and_string_query_answer_as_the_c_extension_does
+  def test_pack_and_string_query_match_c_extension
     random = Random.new(5)
     letters = "CSLQJcsljqIinNvVUwDdFfEeGgAaZBbHhuMmPp@Xx%K _!<>*0123456789#\n".chars
     templates = Array.new(2000) { Array.new(random.rand(0..8)) { letters.sample(random: random) }.join }
@@ -182,11 +181,11 @@ end
   end
 
   # `Prism.lex_compat` reaches `Prism::Translation::Ripper::Lexer::State`,
-  # which `prism/translation.rb` autoloads. That one file was not
-  # vendored, so the compiler's prism raised a NameError where ruby's
-  # answers tokens -- and syntax_suggest, which ruby's report for a file
-  # that does not parse goes through, lexes with exactly that call.
-  def test_lex_compat_answers_the_tokens_the_gems_prism_answers
+  # which `prism/translation.rb` autoloads, so that file must be vendored.
+  # Without it, the compiler's prism raises NameError. syntax_suggest lexes
+  # with this call, and ruby's report for a file that does not parse goes
+  # through syntax_suggest.
+  def test_lex_compat_returns_same_tokens_as_gem_prism
     source = File.read(File.join(ROOT, "lib/zr/clock.rb"))
     tokens = lexed(source, "zr/prism")
 
@@ -196,7 +195,7 @@ end
 
   private
 
-  # What a fresh ruby that loaded `feature` lexes `source` into.
+  # The tokens that a fresh ruby with `feature` loaded makes from `source`.
   def lexed(source, feature)
     program = "require #{feature.inspect}\nputs Prism.lex_compat(ARGV[0]).value.map(&:inspect)\n"
     said = IO.popen(Zr::Harness::CleanEnv.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", program, source],

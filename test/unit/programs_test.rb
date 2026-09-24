@@ -5,50 +5,49 @@ require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 require_relative "../support/harness/answer"
 
-# Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs
-# under ruby, the oracle, and then compiled with the kernel and under
-# wasmtime; stdout, stderr and the exit status must agree.
+# Ruby programs on the zr runtime. Each `test/programs/<name>.rb` runs
+# under ruby (the reference), then compiled with the kernel, and under
+# wasmtime. stdout, stderr and the exit status must be the same.
 #
-# A program under `test/programs/native/` reads the host -- its
-# environment, its working directory, its libSystem, or a stack a fiber
-# switches -- and only the native road runs it. The directory says so,
-# so nothing here reads a comment back out of a program.
+# A program under `test/programs/native/` reads the host (its
+# environment, its working directory, its libSystem, or the stack that
+# a fiber switches), so only the native target runs it. The directory
+# identifies these programs, so no test reads a comment from a program.
 #
-# `ZR_GC_STRESS=1` adds the collect-at-every-allocation column.
+# `ZR_GC_STRESS=1` adds a run that collects at every allocation.
 #
-# Compiling a program peaks high, and ruby grows its heap to the peak
-# and does not give the pages back: over eight programs the live slots
-# barely move (617,088 to 618,493) while the allocated heap pages go
-# from 881 to 8,938, and `GC.compact` returns none of it. That is what
-# the fork pool is for: each program runs in a worker, and a worker
-# that has grown is closed and forked again.
+# Compiling a program uses much memory at its peak. ruby grows its heap
+# to the peak and does not give the pages back: over eight programs the
+# live slots barely change (617,088 to 618,493), but the allocated heap
+# pages go from 881 to 8,938, and `GC.compact` returns none of it. Thus
+# each program runs in a fork pool worker, and a worker that has grown
+# is closed and forked again.
 class ProgramsTest < Minitest::Test
-  # Longer than the pool allows an example by default. Building a
-  # program for wasm is slow rather than stuck -- `sets` takes 44 s on
-  # its own, most of it in the backend's block ladder -- and the tier
-  # runs eight of these at once, each forking six more processes, so one
-  # of them passed three minutes and was reported as a hang it was not.
+  # Longer than the default time limit of the pool for an example. A wasm
+  # build is slow, not stuck: `sets` alone takes 44 s, mostly in the
+  # backend's block ladder. The tier runs eight of these at once, each
+  # forking six more processes, so one build can take more than three
+  # minutes. With the default limit, the pool reported it as a hang.
   def self.deadline = 600
 
   # These allocate too much for a collection at every allocation.
   NO_STRESS = %w[heap_growth].freeze
 
-  # Defects of the wasm road, named so the run stays honest about them.
-  # Each is a program whose native road is right and whose wasm road is
-  # not, and each skips with what it does instead.
+  # Known defects of the wasm target, listed so that the run reports them.
+  # Each is a program that is correct on the native target but not on
+  # wasm. Each skips with a message that says what it does instead.
   #
-  # `ZR_TEST_WASM_DEFECTS=0` runs them anyway. A row here is a claim about
-  # what the road does today, and a claim goes stale: the only way to
-  # find out that one has is to ask, and asking should not mean editing
-  # this file. A row that passes under it comes out, with what it now
-  # answers in the commit.
+  # `ZR_TEST_WASM_DEFECTS=0` runs them anyway. An entry here is a claim
+  # about the wasm target today, and a claim can become false. The
+  # variable checks the claims without an edit to this file. Remove an
+  # entry that passes, and give its new output in the commit message.
   WASM_DEFECTS = {
     "core_batch" => "wasmtime holds 2325 MB to compile the 114 MB module and 2511 MB to run it, past the 2048 MB bound"
   }.freeze
 
-  # `[stdout, stderr, status]` of `argv` under `env`. A run that passes
-  # a bound is killed, and its status says which bound rather than
-  # nothing, so the check fails and names the program.
+  # `[stdout, stderr, status]` of `argv` under `env`. A run that goes past
+  # a limit is killed, and its status gives the limit, so the test fails
+  # and identifies the program.
   def capture(env, argv)
     answer = Checks.run(argv, env: env)
     why = Checks.killed(answer)
@@ -98,8 +97,8 @@ class ProgramsTest < Minitest::Test
       Dir.mktmpdir("zr-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm_program(program, wasm)
-        # The program's directory at its own path, as ruby sees it:
-        # error_highlight reads the source line it points at from there.
+        # The program's directory at its own path, as ruby sees it.
+        # error_highlight reads the source line from there.
         here = File.dirname(rb)
         check(name, {}, Zr::Harness::Wasmtime.run(wasm, dirs: { here => here }), want, rb)
       end

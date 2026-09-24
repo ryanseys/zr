@@ -4,37 +4,34 @@ require "test_helper"
 require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/backend/wasm"
 
-# A libc call with no wasm form does not stop the build: the module
-# carries a function of that name which stops by name when it is called
-# (`Native::Build.stops`). That is right for `fork`, for a socket and
-# for `Math.acos` -- a wasm program that never asks never pays, and one
-# that asks is told what it asked for.
+# A libc call with no wasm form does not stop the build. The module
+# contains a function of that name that stops, with a message that
+# gives the name, when it is called (`Native::Build.stops`). That is
+# correct for `fork`, a socket, or `Math.acos`: only a program that
+# makes the call gets the stop.
 #
-# It is wrong for anything every program runs. The allocator and the
-# collector run before a program's first line and between each of its
-# statements, so a formless call there stops every wasm program there
-# is, whatever it does.
-#
-# This is what that costs when nobody checks. `zr_machine_bytes` read
-# `sysconf(_SC_PHYS_PAGES)` to bound the heap's growth, written in the
-# belief that wasi's sysconf would answer -1; wasi has no sysconf at
-# all, so all 54 of ProgramsTest's wasm rows exited 134 before their
-# first line. The whole tier found it. This finds it in a second.
+# It is not correct for code that every program runs. The allocator and
+# the collector run before the first line and between statements, so a
+# call with no wasm form there stops every wasm program. For example, a
+# `sysconf(_SC_PHYS_PAGES)` call in `zr_machine_bytes` made all 54 wasm
+# tests of ProgramsTest exit 134 before their first line, because wasi
+# has no sysconf. Only the full tier found that. This test finds it in
+# a second.
 class WasmLibcShimsTest < Minitest::Test
   TARGET = Zr::Target.fetch("wasm32-wasi")
 
-  # What runs whatever the program is: the heap as it starts, as it
-  # hands out a cell, and as it collects.
+  # The code that runs for every program: the heap when it starts, when it
+  # gives out a cell, and when it collects.
   ROOTS = %w[zr_heap_init zr_alloc zr_alloc_slow zr_collect zr_collect_kind zr_xmalloc zr_xfree].freeze
 
-  # The calls that are reached on paper and not in a running module,
-  # because a branch above them cannot be taken on wasi. A row here is
-  # a promise about that branch, so the test fails when one is added
-  # and fails again when one stops being needed.
+  # Calls that the call graph reaches but a running module does not,
+  # because a branch before them cannot be taken on wasi. Each entry is a
+  # claim about that branch, so the test fails when an entry is added and
+  # fails again when an entry is no longer necessary.
   KNOWN = {
-    # `zr_release_fiber` unmaps a fiber's stack, and a fiber on wasi has
-    # none: `zr_os_stack_map` (runtime/kernel/os/wasi/stack.rb) answers 0 with
-    # ENOSYS, so `RFiber.stack(f) != 0` is never true there.
+    # `zr_release_fiber` unmaps the stack of a fiber, and a fiber on wasi
+    # has no stack: `zr_os_stack_map` (runtime/kernel/os/wasi/stack.rb)
+    # returns 0 with ENOSYS, so `RFiber.stack(f) != 0` is never true there.
     "munmap" => "zr_release_other"
   }.freeze
 
@@ -47,9 +44,9 @@ class WasmLibcShimsTest < Minitest::Test
     assert_empty ROOTS - by_name.keys, "a root this test cannot find checks nothing"
   end
 
-  # `[callee, the function that calls it]` for every callee reachable
-  # from `roots` that the module would have to stub: not a wasm import,
-  # not in the module's floor, and defined nowhere in the kernel.
+  # `[callee, the function that calls it]` for each callee reachable from
+  # `roots` that the module must stub: not a wasm import, not in the
+  # module's floor, and not defined in the kernel.
   def formless(roots)
     found = []
     seen = {}
@@ -68,9 +65,9 @@ class WasmLibcShimsTest < Minitest::Test
     found.uniq.sort
   end
 
-  # A runtime of this test's own. `Zr.runtime` is the process's, and
-  # `Native::Build.lower` lets its IR go as soon as the runtime object
-  # is named, so a build anywhere earlier in the process would leave
+  # A runtime that only this test uses. `Zr.runtime` belongs to the
+  # process, and `Native::Build.lower` releases its IR as soon as it gets
+  # the runtime object. Thus an earlier build in the process would leave
   # this test no call graph to walk.
   def by_name
     @by_name ||= Zr::Runtime.new(TARGET).functions.to_h { |f| [f.name, f] }
