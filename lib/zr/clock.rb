@@ -3,10 +3,10 @@
 require_relative "flags"
 
 module Zr
-  # `ZR_TIMING=1` prints the seconds each phase of a build takes to
-  # stderr, one line a phase, as it ends, and the collector's count
-  # and its marking and sweeping milliseconds over the phase, which
-  # ruby and a zr binary both report (GC.stat).
+  # With `ZR_TIMING=1`, each build phase prints one line to stderr when it
+  # ends. The line gives the seconds, the collector's run count, and its
+  # marking and sweeping milliseconds for the phase. Both ruby and a zr
+  # binary report these (GC.stat).
   def self.clock(label)
     return yield unless Zr.flag?("ZR_TIMING")
 
@@ -25,8 +25,8 @@ module Zr
   # `[count, majors, marking ms, sweeping ms]` so far, zeros where the
   # collector does not say.
   def self.collector
-    # A key at a time: a zr binary answers each counter at once, where
-    # the whole table walks the heap for its slot counts.
+    # Read one key at a time. A zr binary returns each counter at once,
+    # but the full table walks the heap for its slot counts.
     %i[count major_gc_count marking_time sweeping_time].map { |key| GC.stat(key).to_i }
   rescue StandardError
     [0, 0, 0, 0]

@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Zr
-  # The backends: each turns IR into what a target runs. A native backend
-  # (`Backend::Aarch64`) answers an `Obj::Unit` an object writer or the JIT
-  # takes; the wasm backend (`Backend::Wasm`) answers a module's bytes.
+  # The backends. Each one turns IR into code that a target runs. A native
+  # backend (`Backend::Aarch64`) returns an `Obj::Unit` for an object writer
+  # or the JIT. The wasm backend (`Backend::Wasm`) returns a module's bytes.
   module Backend
-    # A form a backend has no code for. A build answers its message: a
-    # refusal by name, never a guess.
+    # A form that a backend has no code for. The build shows its message as
+    # a refusal that gives the form. It never guesses.
     class Refused < StandardError; end
   end
 end

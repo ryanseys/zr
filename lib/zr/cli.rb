@@ -239,10 +239,10 @@ module Zr
       end
     end
 
-    # A build this host cannot make for `target` is refused before the
+    # Refuses a build that this host cannot make for `target`, before the
     # compile starts. zr's own Mach-O linker builds an
-    # aarch64-apple-darwin binary on any host, though only that host can
-    # run it; a cross toolchain builds a binary that only its own host
+    # aarch64-apple-darwin binary on any host, but only that host can run
+    # it. A cross toolchain builds a binary that only its target host
     # runs.
     def refuse(input, verb, emit, target)
       why = target.refusal(emit)
@@ -256,7 +256,7 @@ module Zr
     end
 
     # A binary's functions are assembled as they are lowered, so the IR of
-    # a large program never stands all at once (`Native::Build.lower`).
+    # a large program is never all in memory at once (`Native::Build.lower`).
     def lower(input, verb, target, assemble: false)
       source = File.read(input)
       return Machine.compile(source, input) if verb == "machine"
@@ -269,19 +269,20 @@ module Zr
     rescue Backend::Refused, Libraries::Unresolved => e
       abort "zr: #{e.message}"
     rescue SyntaxError => e
-      # ruby reports a program that does not parse and exits 1, and so
-      # does the binary, with ruby's own report. A required file that does
-      # not parse raises as the require runs, which zr does not do yet.
+      # For a program that does not parse, ruby prints a report and exits
+      # 1. The binary does the same, with ruby's own report. In ruby, a
+      # required file that does not parse raises when the require runs.
+      # zr does not support this, so it refuses.
       report = begin
-        # ruby's report goes through syntax_suggest, which ruby's boot
-        # loads and a process started with --disable-gems (a harness
-        # child) does not. The copy is zr's own -- 3.0.0, as ruby 4.0.6
-        # loads it -- and never the host's: `api` by its path first,
-        # which spares `core_ext` its own require by name. Only CRuby
-        # asks, and by a computed path, so the compiler zr compiles
-        # carries none of it; there the report is the parser's.
-        # A ruby that booted with gems has loaded it already, and a
-        # second core_ext would wrap the message twice.
+        # ruby's report uses syntax_suggest. Ruby's boot loads it, but a
+        # process started with --disable-gems (a harness child) does not.
+        # Load zr's own copy (3.0.0, as ruby 4.0.6 loads), never the
+        # host's. Load `api` by its path first, so `core_ext` does not
+        # require it by name. Only CRuby runs this, with a computed path,
+        # so the compiled compiler does not link it in and uses the
+        # parser's report. If ruby booted with gems, syntax_suggest is
+        # already loaded, and a second core_ext would wrap the message
+        # twice.
         if !Zr.compiled? && !defined?(SyntaxSuggest.module_for_detailed_message)
           require_relative "libraries"
           syntax_suggest = File.join(Libraries.root, "syntax_suggest")
@@ -289,7 +290,7 @@ module Zr
           require File.join(syntax_suggest, "core_ext")
         end
         # ruby prints the parse's warnings before it reports the error,
-        # so they go into the report too.
+        # so the report includes them.
         warned = +""
         sink = Object.new
         sink.define_singleton_method(:write) { |*parts| warned << parts.join }
@@ -313,8 +314,8 @@ module Zr
 
     def object(program, out, target)
       why = if program.is_a?(Zr::Program)
-              # The runtime's object lands in the cache beside it, so the
-              # object road is the whole of what zr wrote.
+              # The runtime's object goes into the cache, so the object
+              # file at `out` is the only file that zr writes.
               Native::Build.runtime_object(program.runtime)
               Native::Build.object(program.functions, program.data, out, export: true, target: target)
             else
@@ -333,7 +334,7 @@ module Zr
               Native::Build.wasm(functions, data, out, raw: raw)
             end
       abort "zr: #{why}" if why
-      # The module sees the working directory, as a program ruby runs does.
+      # The module can see the working directory, as a ruby program can.
       exec("wasmtime", "run", "--dir", ".", out, *rest) if verb == "run"
       exit 0
     end

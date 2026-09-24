@@ -4,28 +4,28 @@ require "rbconfig"
 require_relative "paths"
 
 module Zr
-  # The pure-Ruby libraries a program's `require` reads: ruby 4.0.6's
-  # default and bundled gems, each at the version zr.gemspec pins, read
-  # from where rubygems installed it. zr compiles them into the program;
-  # it never loads them itself.
+  # The pure-Ruby libraries that a program's `require` reads: ruby 4.0.6's
+  # default and bundled gems, each at the version that zr.gemspec pins,
+  # read from where rubygems installed it. zr compiles them into the
+  # program. It never loads them itself.
   #
-  # A build reads one directory, the tree: a link to each file of each
-  # pinned gem, and to each file of vendor/lib, which holds the few
-  # files of ruby's library that no gem ships. The tree is named after
-  # what it holds, not after where the gems are, so two machines with the
-  # same gems build the same bytes. It sits beside the checkout (or in
+  # A build reads one directory, the tree. It contains a link to each file
+  # of each pinned gem, and to each file of vendor/lib (the few files of
+  # ruby's library that no gem ships). The tree's name comes from its
+  # contents, not from the gem location, so two machines with the same
+  # gems build the same bytes. The tree is next to the checkout (or in
   # the user's cache, for an installed gem), and never under `ZR_CACHE`:
-  # the stage ladder builds under two caches and needs the same paths.
+  # the stage builds use two caches and need the same paths.
   #
-  # Only rubygems finds a gem, and neither a compiled compiler nor a
-  # `--disable-gems` ruby has it. So a ruby with rubygems resolves the
-  # pins in a child (lib/zr/libraries/resolve.rb), and writes the tree
-  # and a manifest; a build after it reads the manifest and stats a few
-  # directories, and starts no child.
+  # Only rubygems can find a gem, and a compiled compiler and a
+  # `--disable-gems` ruby do not have it. So a ruby with rubygems resolves
+  # the pins in a child process (lib/zr/libraries/resolve.rb) and writes
+  # the tree and a manifest. Later builds read the manifest, stat a few
+  # directories, and start no child.
   module Libraries
-    # Each gem zr carries, and its version: ruby 4.0.6's own, or, for
-    # rubygems and bundler, the one `gem update --system` gave it.
-    # rubygems-update holds both: rubygems in lib/, bundler in
+    # Each gem that zr supports, and its version: ruby 4.0.6's own, or,
+    # for rubygems and bundler, the version from `gem update --system`.
+    # rubygems-update contains both: rubygems in lib/, bundler in
     # bundler/lib/.
     PINS = {
       # Bundled gems.
@@ -48,34 +48,34 @@ module Zr
       "rubygems-update" => "4.0.20"
     }.freeze
 
-    # A gem's directories, where they are not its require_paths:
-    # rubygems-update names a directory that hides its lib from `require`.
+    # A gem's directories, when they are not its require_paths.
+    # rubygems-update gives a directory that hides its lib from `require`.
     DIRS = { "rubygems-update" => %w[lib bundler/lib] }.freeze
 
     # Files a gem ships that ruby never loads from it: minitest's Hoe
     # plugin.
     EXCLUDE = { "minitest" => %w[hoe/minitest.rb] }.freeze
 
-    # A gem that tells its own frames from a program's by the directory
-    # they are in, which must hold that gem alone: its own lib, apart.
+    # A gem that identifies its own frames by their directory. That
+    # directory must contain only this gem, so the gem gets its own lib.
     APART = %w[power_assert].freeze
 
-    # The files of ruby's library that no gem ships, which zr carries.
+    # The files of ruby's library that no gem ships. zr includes them.
     RESIDUAL = File.join(Paths::VENDOR, "lib")
 
-    # What a build cannot go on without: a pinned gem that is not
-    # installed, or one whose files are not that version's.
+    # A build cannot continue: a pinned gem is not installed, or its files
+    # are not from the pinned version.
     class Unresolved < StandardError; end
 
     module_function
 
-    # Where the trees and their manifests live.
+    # The directory of the trees and their manifests.
     def dir = Paths.checkout? ? File.join(Paths::ROOT, "tmp/lib") : File.join(Paths.user_cache, "lib")
 
     # The directory a program requires ruby's library from.
     def root = roots.first
 
-    # The directories of the gems kept apart, in APART's order.
+    # The directories of the APART gems, in APART's order.
     def apart = roots.last
 
     def roots
@@ -87,10 +87,10 @@ module Zr
                  end
     end
 
-    # A program that carries the compiler asks the directories it was
-    # built against, as its build named them: it may run where no gem
-    # is. Only a build that evals writes them (Zr.load_tables); any
-    # other compiled compiler finds the tree as ruby does.
+    # A program that includes the compiler uses the directories from its
+    # build, because it can run on a machine with no gems. Only a build
+    # with eval support writes them (Zr.load_tables). Other compiled
+    # compilers find the tree as ruby does.
     def carried
       return nil unless Zr.compiled? && defined?(::Zr::Eval::Runtime)
 
@@ -98,7 +98,7 @@ module Zr
       names.size > APART.size ? names : nil
     end
 
-    # The tree the manifest names, resolved again where it is stale.
+    # The tree that the manifest gives. Resolves it again if it is stale.
     def tree
       manifest = read
       return manifest[:tree] if fresh?(manifest)
@@ -110,8 +110,9 @@ module Zr
       manifest[:tree]
     end
 
-    # The environment rubygems reads its directories from. A bundle's
-    # own settings are not in it: the child runs without bundler.
+    # The environment variables that give rubygems its directories. The
+    # bundle's settings are not included, because the child runs without
+    # bundler.
     GEM_ENV = %w[GEM_HOME GEM_PATH].freeze
 
     def manifest_path = File.join(dir, "manifest-#{GEM_ENV.map { |name| ENV[name].to_s }.join("\0").sum.to_s(36)}.marshal")
@@ -122,9 +123,9 @@ module Zr
       nil
     end
 
-    # A manifest holds while rubygems would read the same directories,
-    # none of them has changed (an install or an uninstall touches the
-    # directory of specifications), and the tree is there.
+    # A manifest is fresh if rubygems reads the same directories, none of
+    # them changed (an install or uninstall changes the specifications
+    # directory), and the tree exists.
     def fresh?(manifest)
       manifest.is_a?(Hash) && manifest[:env] == GEM_ENV.map { |name| ENV[name] } &&
         File.directory?(manifest[:tree].to_s) &&
@@ -138,11 +139,12 @@ module Zr
       nil
     end
 
-    # The variables a bundle sets that would make the child's rubygems
-    # see the bundle and not the gems.
+    # The variables that a bundle sets. They would make the child's
+    # rubygems see the bundle and not the gems.
     UNBUNDLED = %w[RUBYOPT RUBYLIB BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_SETUP BUNDLER_VERSION].to_h { |name| [name, nil] }.freeze
 
-    # The resolve, in a ruby with rubygems. Its refusal is this build's.
+    # Resolves the pins in a ruby with rubygems. If it fails, this build
+    # fails with its message.
     def resolve
       ruby = Zr.compiled? ? ENV.fetch("ZR_HOST_RUBY", "ruby") : RbConfig.ruby
       script = File.join(__dir__, "libraries/resolve.rb")

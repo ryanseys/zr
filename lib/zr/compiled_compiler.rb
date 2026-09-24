@@ -4,21 +4,20 @@ require "rbconfig"
 require_relative "paths"
 
 module Zr
-  # The compiler zr compiled, run in place of the one ruby runs: the
-  # same code, the same answers (`rake stage2` holds it to that), and a
-  # warm build takes less time under it.
+  # The compiler that zr compiled, run in place of the one that ruby runs.
+  # It is the same code with the same output (`rake stage2` checks this),
+  # and a warm build is faster with it.
   #
-  # `exe/zr` asks here first. The compiled compiler answers a build only
-  # while every file it was built from is as it was then: the stamp of
-  # each file under lib/, runtime/, vendor/, the library tree and of exe/zr,
-  # and the same list of files. Anything else is a miss, and ruby runs
-  # the command. An installed gem builds the compiled compiler at its
-  # first build and says so; a checkout, whose files change all day,
-  # builds one only under `ZR_COMPILED=1` or `rake build:self`.
-  # `ZR_COMPILED=0` never hands the command over.
+  # `exe/zr` calls this module first. The compiled compiler runs a build
+  # only if its source files are unchanged: the same list of files, and
+  # the same file stamp for each file under lib/, runtime/, vendor/, the
+  # library tree, and exe/zr. Otherwise ruby runs the command. An
+  # installed gem builds the compiled compiler at its first build and
+  # tells the user. A checkout, whose files change frequently, builds one
+  # only with `ZR_COMPILED=1` or `rake build:self`. With `ZR_COMPILED=0`,
+  # ruby always runs the command.
   module CompiledCompiler
-    # The commands a compiled compiler takes over. The others answer at
-    # once under ruby.
+    # The commands that a compiled compiler runs. Ruby runs all others.
     VERBS = %w[run build machine].freeze
 
     module_function
@@ -27,29 +26,28 @@ module Zr
     def binary = File.join(dir, "zr")
     def manifest = File.join(dir, "manifest.marshal")
 
-    # The command goes to the compiled compiler when it is current, or
-    # once one is built for a first build that may build it. Under the
-    # compiled compiler itself, and for any other command, nothing
-    # happens here.
+    # Sends the command to the compiled compiler when it is current. If
+    # this build is permitted to build one, it builds it first. Does
+    # nothing inside the compiled compiler or for other commands.
     def hand_over(argv, env = ENV)
       return if Zr.compiled? || !VERBS.include?(argv.first)
       return if env["ZR_COMPILED"] == "0"
 
       build if !current? && (env["ZR_COMPILED"] == "1" || !Paths.checkout?)
-      # The compiled compiler has no rubygems, so a pin it must resolve
-      # again is resolved by this ruby.
+      # The compiled compiler has no rubygems, so this ruby resolves a
+      # library pin again for it.
       exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current?
     end
 
-    # Every file a compiled compiler is built from, and its stamp.
-    # The library tree counts too: a pin that moves names another tree.
+    # Every source file of a compiled compiler. The library tree is
+    # included, because a changed pin refers to a different tree.
     def sources
       [File.join(Paths::ROOT, "exe/zr"), *Dir[File.join(Paths::ROOT, "{lib,runtime,vendor}/**/*")], *library_files].select { |f| File.file?(f) }.sort
     end
 
-    # The files of the library tree, found by ruby's rubygems where the
-    # manifest is stale. A tree that does not resolve names nothing, and
-    # ruby then runs the build and says why.
+    # The files of the library tree, found by ruby's rubygems when the
+    # manifest is stale. If the tree does not resolve, this returns a
+    # placeholder path. Ruby then runs the build and reports the cause.
     def library_files
       require_relative "libraries"
       Dir[File.join(Libraries.tree, "**/*")]
@@ -72,11 +70,11 @@ module Zr
       false
     end
 
-    # The compiled compiler, built by ruby from this tree, and the stamps
-    # of what it was built from. Nothing is kept if a file moved while it
-    # built or if the binary does not answer as ruby does; the command
-    # then runs under ruby. A second build waiting on the first one runs
-    # under ruby too.
+    # Builds the compiled compiler with ruby from this tree, and records
+    # the file stamps of its sources. It keeps nothing if a file changed
+    # during the build, or if the binary's output differs from ruby's.
+    # Then ruby runs the command. A second build that waits for the lock
+    # also runs under ruby.
     def build
       Paths.mkdir_p(dir)
       File.open(File.join(dir, "lock"), File::RDWR | File::CREAT, 0o644) do |lock|

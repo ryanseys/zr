@@ -6,7 +6,7 @@ module Zr
   # Whether this process is a program that zr compiled (the compiled
   # compiler, or a program with eval support) and not CRuby. A zr binary
   # gives the same RUBY_ENGINE and RubyVM as ruby 4.0.6, but its RbConfig
-  # names zr as the interpreter (runtime/ext/rbconfig.rb).
+  # gives zr as the interpreter (runtime/ext/rbconfig.rb).
   def self.compiled? = RbConfig::CONFIG["ruby_install_name"] == "zr"
 
   # Where zr reads its sources and writes what it builds. ROOT is the
@@ -17,24 +17,23 @@ module Zr
   module Paths
     ROOT = File.expand_path("../..", __dir__)
 
-    # The runtime zr compiles into every program, in kernel Ruby and
-    # ordinary Ruby.
+    # The runtime that zr compiles into every program, in the machine
+    # dialect and in ordinary Ruby.
     RUNTIME = File.join(ROOT, "runtime")
 
-    # The Ruby halves of extension gems, and ruby's own pure-Ruby
+    # The Ruby parts of extension gems, and ruby's own pure-Ruby
     # standard library.
     VENDOR = File.join(ROOT, "vendor")
 
     # A git checkout, or a worktree of one, where `.git` is a file.
     def self.checkout? = File.exist?(File.join(ROOT, ".git"))
 
-    # The root a build writes paths under (`zr build --path-root DIR`),
-    # or nil, which writes each path as it is on this machine. A path
-    # under zr's own root or under the directory the build runs in is
-    # written as the root plus its path below that directory, the longer
-    # of the two first; so two checkouts built with one root write the
-    # same bytes. A path given relative, as a main file often is, stays
-    # as it was given, as ruby answers it.
+    # The root for the paths that a build writes (`zr build --path-root
+    # DIR`), or nil to write each path as it is on this machine. A path
+    # under zr's root or under the build's working directory becomes the
+    # root plus its path below that directory. The longer prefix is tried
+    # first. So two checkouts built with one root write the same bytes.
+    # A relative path (often the main file) stays as given, as in ruby.
     def self.root = @root
 
     def self.root=(root)
@@ -42,7 +41,7 @@ module Zr
       @prefixes = root && [ROOT, Dir.pwd].uniq.sort_by { |prefix| -prefix.size }
     end
 
-    # `path` as a build writes it into what it makes.
+    # `path` as a build writes it into its output.
     def self.shown(path)
       return path unless @root && path.start_with?("/")
 
@@ -58,9 +57,9 @@ module Zr
       path
     end
 
-    # The library tree (lib/zr/libraries.rb) is written as the layout
-    # it replaced, so a build under a root names the same paths on any
-    # machine, wherever its gems are.
+    # The library tree (lib/zr/libraries.rb) is written as the vendor/
+    # layout, so a build with a root gives the same paths on any machine,
+    # wherever its gems are.
     def self.libraries
       return [] unless defined?(Libraries)
 
@@ -77,25 +76,22 @@ module Zr
       File.join(base, "zr")
     end
 
-    # Where the runtime's built forms live. A checkout keeps them in its
-    # own tmp/; an installed gem writes nothing under itself.
+    # The cache directory for the runtime's build output. A checkout
+    # uses its own tmp/. An installed gem writes nothing under itself.
     #
-    # Found when a build asks, and never as this file loads. A program
-    # that evals carries the eval road, the road carries this file, and
-    # that program will never build anything. Reading the home directory
-    # there cost a program its whole run on a target that has none: on
-    # wasi `getpwuid` has no wasm form, so the module stopped before its
-    # first line.
+    # Computed when a build calls it, not when this file loads. A program
+    # with eval support links in this file but never builds. On wasi,
+    # `getpwuid` has no wasm form, so reading the home directory at load
+    # would stop the module before its first line.
     def self.cache = @cache ||= ENV["ZR_CACHE"] || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
 
-    # The two things the compiler asks of fileutils and tmpdir, without
-    # them: a compiled compiler loads a library as it runs its first
-    # lines, and fileutils defines its NoWrite, DryRun and Verbose
-    # methods with a `module_eval` of a string each -- some hundred
-    # compiles through the eval road, half a second before a build
-    # starts.
+    # The two functions that the compiler needs from fileutils and tmpdir,
+    # without those libraries. A compiled compiler loads a library when it
+    # runs its first lines. fileutils defines its NoWrite, DryRun and
+    # Verbose methods with a `module_eval` of a string each: about a
+    # hundred eval compiles, half a second before a build starts.
 
-    # `dir` and every directory above it that is not there yet.
+    # Makes `dir` and each missing directory above it.
     def self.mkdir_p(dir)
       return if File.directory?(dir)
 
@@ -124,9 +120,9 @@ module Zr
       nil
     end
 
-    # A fresh directory for the block, named as Dir.mktmpdir names one
-    # (`<prefix><date>-<pid>-<random>`, which the test harness's sweep
-    # reads the maker's pid from), and removed with what it holds after.
+    # A new directory for the block, named as Dir.mktmpdir does
+    # (`<prefix><date>-<pid>-<random>`; the test harness's sweep reads
+    # the pid from the name). The block's end removes it and its contents.
     def self.tmpdir(prefix, root = nil)
       root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
       dir = nil
@@ -144,8 +140,8 @@ module Zr
       remove(dir) if dir
     end
 
-    # `path` and, for a directory, everything under it; a link is
-    # removed and not followed.
+    # Removes `path` and, for a directory, all of its contents. It removes
+    # a link and does not follow it.
     def self.remove(path)
       if File.directory?(path) && !File.symlink?(path)
         Dir.children(path).each { |child| remove(File.join(path, child)) }

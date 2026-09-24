@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 module Zr
-  # A target zr emits for: its instruction set, its OS, its object
-  # format and the facts a build reads off them. The gem runs on any
-  # host; a target says what it builds, and `refusal` says whether this
-  # host can build it.
+  # A target that zr emits code for: its instruction set, its OS, its
+  # object format, and the facts that a build reads from them. The gem
+  # runs on any host. A target tells what it builds, and `refusal` tells
+  # whether this host can build it.
   class Target
     attr_reader :triple, :arch, :os, :libc, :object_format, :word, :page, :symbol_prefix, :ruby_platform, :link, :outputs
 
-    # `outputs` are the outputs zr can build for the target today: `:native`
+    # `outputs` are the outputs zr can build for the target: `:native`
     # (a binary), `:obj` (an object) and `:wasm` (a module).
     def initialize(triple:, arch:, os:, object_format:, page:, symbol_prefix:, ruby_platform:, link:, outputs:, libc: nil, word: 8)
       @triple = triple
@@ -26,8 +26,8 @@ module Zr
 
     def to_s = triple
 
-    # The runtime layer each OS's target is lowered with: runtime/kernel/os/,
-    # runtime/core/os/ and runtime/ext/os/ each hold one directory per layer.
+    # The runtime layer that zr lowers with for each OS. runtime/kernel/os/,
+    # runtime/core/os/ and runtime/ext/os/ each contain one directory per layer.
     OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze
     # The machine layer, under runtime/kernel/arch/.
     ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze
@@ -51,7 +51,7 @@ module Zr
                                page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
                                link: nil, outputs: %i[wasm]))
 
-    # The target named `triple`, or nil.
+    # The target with this `triple`, or nil.
     def self.fetch(triple) = REGISTRY[triple]
 
     def self.all = REGISTRY.values
@@ -72,43 +72,42 @@ module Zr
     # The target this host runs natively, or nil.
     def self.host = fetch(host_triple)
 
-    # The target a build takes when none is named: the host's own, else
+    # The target of a build that gives no target: the host's own, else
     # aarch64-apple-darwin.
     def self.default = host || AARCH64_DARWIN
 
     def native? = Target.host_triple == triple
 
     # Whether a program for this target can write machine code into
-    # itself while it runs, which is what the compiler a program that
-    # evals carries does. A wasm module's code is fixed when the engine
-    # instantiates it, and WASI hands a guest no way to make a second
-    # module, so a program there walks the tree instead
-    # (lib/zr/eval/walk.rb).
+    # itself while it runs. Eval support does this. A wasm module's code
+    # is fixed when the engine instantiates it, and WASI gives a guest no
+    # way to make a second module. So there, eval uses the tree-walking
+    # interpreter (lib/zr/eval/walk.rb).
     def jits? = arch != :wasm32
 
-    # The output `emit` names: `:native` for nil, else the symbol.
+    # The output for `emit`: `:native` for nil, else the symbol.
     def self.output(emit) = emit ? emit.to_sym : :native
 
     # Whether this host can link a binary for this target. zr's own
-    # Mach-O linker needs no tool, on any host, unless `ZR_LINKER=cc`
-    # asks for the system linker; every other link runs the target's C
-    # compiler driver, the host's own or a cross toolchain's.
+    # Mach-O linker needs no tool on any host, unless `ZR_LINKER=cc`
+    # selects the system linker. All other links run the target's C
+    # compiler driver: the host's own or a cross toolchain's.
     def linkable?
       return true if link == :darwin && ENV["ZR_LINKER"] != "cc"
 
       !tool("cc").nil?
     end
 
-    # The command this host runs as the target's `name` ("cc"), or
-    # nil: on the target's own host the plain tool, elsewhere a cross
-    # toolchain's, named by the triple as musl-cross and crosstool name
-    # theirs (`aarch64-linux-musl-gcc`).
+    # The command that this host runs for the target's tool `name`
+    # ("cc"), or nil. On the target's own host, it is the plain tool.
+    # On other hosts, it is a cross toolchain's tool, prefixed with the
+    # triple as musl-cross and crosstool do (`aarch64-linux-musl-gcc`).
     def tool(name)
       names = native? ? [name] : [name, *CROSS_NAMES[name]].map { |base| "#{triple}-#{base}" }
       names.find { |command| Target.tool?(command) }
     end
 
-    # What a cross toolchain may call a tool instead of its plain name.
+    # Other names that a cross toolchain can use for a tool.
     CROSS_NAMES = { "cc" => %w[gcc] }.freeze
 
     def self.tool?(name)

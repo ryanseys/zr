@@ -6,38 +6,34 @@ require_relative "paths"
 module Zr
   # A file's assembled machine code, kept between builds.
   #
-  # A unit's code no longer carries anything the compile order decided:
-  # its names come from the file it was written in, and its symbol ids
-  # and literal slots are words the link fills (`Zr.number_symbols`). So
-  # the same file compiled into any program writes the same bytes, and a
-  # build can read those bytes back instead of making them again -- which
-  # is where four fifths of a large build's time goes.
+  # A unit's code does not depend on the compile order. Its names come
+  # from its source file, and its symbol ids and literal slots are words
+  # that the link fills (`Zr.number_symbols`). So the same file gives the
+  # same bytes in any program, and a build can read them back instead of
+  # making them again. This saves most of a large build's time (about
+  # four fifths).
   #
-  # **The cache fails closed.** Every input of a unit's bytes is in the
-  # key, and a program whose numbers the key cannot hold is not cached at
-  # all: one that measures coverage, where a def site's row comes from a
-  # counter the whole program shares, and any file that activates a
-  # refinement, where a `using` carries the row it took. Both are rare,
-  # and both would be quietly wrong.
+  # **The cache fails closed.** The key contains every input of a unit's
+  # bytes. zr does not cache a program with numbers that the key cannot
+  # contain: a program that measures coverage (a def site's entry comes
+  # from a counter that the whole program shares), and a file that
+  # activates a refinement (a `using` contains the entry it took). Both
+  # are rare, and both would give wrong code without an error.
   #
-  # One input is the other units' names. A `require` or an `autoload`
-  # spells the entry of the unit it runs (`Zr::Lower#unit_entry`), and
-  # that entry is the unit's file where the file is absolute and its
-  # place in the program where it is not: a program compiled in another
-  # directory, or with a file added before, names its units otherwise,
-  # and a unit kept from the first would call an entry that nothing
-  # defines -- or another file's. So the key holds every entry of the
-  # program, and a program whose entries moved lowers its units again.
-  # It could hold only the entries a unit spells, and let the rest of
-  # a large program keep its units when one file is added; that is a
-  # compile-speed item, not a correctness one.
+  # The names of the other units are also an input. A `require` or an
+  # `autoload` refers to the entry of the unit it runs
+  # (`Zr::Lower#unit_entry`). That entry is the file path when the path
+  # is absolute, else the unit's position in the program. So the key
+  # contains every entry of the program, and a changed entry list lowers
+  # all units again. A possible compile-speed improvement: key only on
+  # the entries that a unit uses.
   class UnitCache
-    # The shape of what is kept. Raise it and every entry written by an
-    # older zr is a miss, which is the cheapest way to retire one.
+    # The format of the cache entries. Increase it to make every entry
+    # from an older zr a miss.
     VERSION = 2
 
-    # The cache for `program`, or nil where this program is one no key
-    # can describe. `entries` are the program's unit entries, in order.
+    # The cache for `program`, or nil if no key can describe this
+    # program. `entries` are the program's unit entries, in order.
     def self.for(program, dir:, runtime:, table:, entries:)
       return nil if program.coverable&.any?
 
@@ -47,9 +43,9 @@ module Zr
     def initialize(dir:, runtime:, table:, traced:, entries:)
       @dir = dir
       # `runtime` is the digest of everything that lowers and emits the
-      # runtime for this target, and `table` names the symbol table a
-      # unit's ids are fixed against -- the runtime's, or the road's
-      # where the program carries one, which holds more names.
+      # runtime for this target. `table` identifies the symbol table that
+      # fixes a unit's ids: the runtime's, or the eval support table when
+      # the program links in eval support (it contains more names).
       @stamp = "#{VERSION}\0#{runtime}\0#{table}\0#{traced}\0#{Digest::SHA256.hexdigest(entries.join("\0"))}"
     end
 
@@ -63,8 +59,8 @@ module Zr
       nil
     end
 
-    # What this build made for `unit`, for the next one to read; nothing
-    # while a source has moved under the build (`Zr.settled!`).
+    # Stores the code that this build made for `unit`, for the next build.
+    # Stores nothing if a source changed during the build (`Zr.settled!`).
     def keep(unit, prefix, functions, data)
       key = key(unit, prefix) or return nil
 
@@ -78,8 +74,8 @@ module Zr
 
     def path(key) = File.join(@dir, "unit-#{key}.marshal")
 
-    # Every input of the unit's bytes, or nil where one of them is a
-    # number this key cannot hold.
+    # A digest of every input of the unit's bytes, or nil if one input is
+    # a number that this key cannot contain.
     def key(unit, prefix)
       return nil if unit.source.nil? || unit.activates
 

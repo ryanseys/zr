@@ -1,11 +1,11 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# zr: a Ruby compiler, written in Ruby. `zr help` names the commands.
+# zr: a Ruby compiler, written in Ruby. `zr help` lists the commands.
 #
-# require_relative, not require: the collector tuning starts this file
-# again, and it must load this same copy of zr. The compiled compiler
-# takes a build over first where one is current (lib/zr/compiled_compiler.rb),
+# Use require_relative, not require: the collector tuning starts this file
+# again, and it must load this same copy of zr. If a current compiled
+# compiler exists, it runs the build first (lib/zr/compiled_compiler.rb),
 # before ruby loads the rest of zr.
 require_relative "../lib/zr/compiled_compiler"
 Zr::CompiledCompiler.hand_over(ARGV)

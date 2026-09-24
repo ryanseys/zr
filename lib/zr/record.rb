@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 module Zr
-  # A class of named fields, in place of a Struct: each subclass writes
-  # its fields out (`FIELDS`, the accessors, `initialize` and `to_a`), so
-  # making one and reading one are plain method calls and ivar reads.
-  # A Struct's are the core's own generic code, which a compiled
-  # compiler runs as Ruby. What a Struct also answers is here, from
-  # `FIELDS` and `to_a`: equal by value, its fields in order, and the
-  # walk the builder's passes take over a node's children.
+  # A class of named fields, used in place of a Struct. Each subclass
+  # writes out its fields (`FIELDS`, the accessors, `initialize` and
+  # `to_a`), so creating and reading one are plain method calls and ivar
+  # reads. A Struct uses the core library's generic code, which a compiled
+  # compiler runs as Ruby. This class gives the other Struct behavior from
+  # `FIELDS` and `to_a`: equality by value, fields in order, and the walk
+  # over a node's children that the builder's passes use.
   class Record
     def self.members = self::FIELDS
 
