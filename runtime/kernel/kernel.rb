@@ -1,7 +1,7 @@
 # Kernel: puts.
 
-# One line for `v`: its bytes when it is a String, else its `to_s`, and
-# a newline unless the bytes end in one.
+# Writes one line for `v`: its bytes if it is a String, else its `to_s`.
+# It adds a newline if the bytes do not end in one.
 sig [Value] => Value
 machine def zr_puts_value(v)
   if zr_type(v) == T_ARRAY
@@ -41,7 +41,8 @@ machine def zr_puts(recv, argc, argv, cref, blk)
   Machine.value(QNIL)
 end
 
-# `print`: each argument's `to_s`, nothing between or after.
+# `print`: writes the `to_s` of each argument, with nothing between or
+# after them.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_print(recv, argc, argv, cref, blk)
   i = 0
@@ -62,8 +63,8 @@ G_NIL_TO_S = 55
 G_TRUE_TO_S = 56
 G_FALSE_TO_S = 57
 
-# The one frozen US-ASCII String that `nil.to_s`, `true.to_s` or
-# `false.to_s` answers every time, made the first time it is asked for.
+# The single frozen US-ASCII String that `nil.to_s`, `true.to_s` or
+# `false.to_s` always returns. The first call makes it.
 sig [Word, Ptr, Word] => Value
 machine def zr_fixed_name(g, bytes, len)
   s = zr_global(g)
@@ -101,9 +102,9 @@ machine def zr_obj_not(recv, argc, argv, cref, blk)
   zr_bool(recv == QNIL || recv == QFALSE)
 end
 
-# The String `s` for `$stderr`, as CRuby's rb_write_error2 writes it:
-# on fd 2 while `$stderr` is STDERR, else through its `write`. A
-# `write` that raises leaves the bytes on fd 2 instead.
+# Writes the String `s` to `$stderr`, as CRuby's rb_write_error2 does.
+# While `$stderr` is STDERR, it writes to fd 2. Else it calls `write`.
+# If that `write` raises, it writes the bytes to fd 2.
 sig [Value] => Void
 machine def zr_write_stderr(s)
   out = zr_gvar_get(Machine.id(:$stderr))
@@ -120,7 +121,7 @@ machine def zr_write_stderr(s)
   end
 end
 
-# A line on stderr: `warn`'s output.
+# Writes a line on stderr: the output of `warn`.
 sig [Value] => Value
 machine def zr_warn_line(s)
   zr_write_stderr(s)
@@ -128,8 +129,8 @@ machine def zr_warn_line(s)
   Machine.value(QNIL)
 end
 
-# `rb_warn`: `file:line: warning: message` on stderr, naming the
-# nearest frame with a file, unless `$VERBOSE` is nil.
+# `rb_warn`: writes `file:line: warning: message` on stderr, with the
+# nearest frame that has a file. It writes nothing if `$VERBOSE` is nil.
 sig [Ptr, Word] => Void
 machine def zr_warn_here(bytes, n)
   if zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
@@ -151,9 +152,9 @@ machine def zr_warn_here(bytes, n)
   zr_write_stderr(zr_buf_take(b))
 end
 
-# The core's `rb_warn`.
-# `file:line: ` for the program frame a warning came from, or empty
-# where the runtime itself is the only frame.
+# The core library's `rb_warn`.
+# Returns `file:line: ` for the program frame that caused a warning, or
+# an empty String if only runtime frames are on the stack.
 sig [] => Value
 machine def zr_warn_position
   rec = zr_frame_with_file(Task.top(zr_task()))

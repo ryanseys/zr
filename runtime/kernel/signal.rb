@@ -1,23 +1,24 @@
-# Signals. The system runs a handler between any two instructions of
-# the program, where no Ruby may run, so the handler only counts what
-# came. The program runs the Ruby handlers at its next safe point: a
-# loop's back edge, a blocking call the signal cut short, or a kill the
-# process sent to itself. That is CRuby's own split between sighandler
-# and rb_signal_exec.
+# POSIX signals. The system runs a handler between any two instructions
+# of the program, where Ruby code cannot run. Thus the handler only
+# counts the signals. The program runs the Ruby handlers at its next
+# safe point: a loop's back edge, a blocking call that the signal
+# interrupted, or a kill that the process sent to itself. CRuby divides
+# the work in the same way, between sighandler and rb_signal_exec.
 
-# How a signal is handled, as Signal.trap names it: the system's
-# default, ignored, counted for a Ruby handler, or caught and dropped
-# (ruby's handler for SIGPIPE and SIGSYS, so a write to a closed pipe
-# fails with EPIPE instead of ending the process).
+# How a POSIX signal is handled, as Signal.trap gives it: the system
+# default, ignored, counted for a Ruby handler, or caught and discarded.
+# ruby discards SIGPIPE and SIGSYS, so a write to a closed pipe fails
+# with EPIPE and does not end the process.
 SIGNAL_DEFAULT = 0
 SIGNAL_IGNORE = 1
 SIGNAL_RUBY = 2
 SIGNAL_NOTHING = 3
 SIGNAL_OTHER = 4
 
-# The system's handler for a signal Ruby handles: one more of `signo`
-# came. The count only grows, and only here, so the program reads it
-# without a lock. The next safe point is where the program asks.
+# The system handler for a POSIX signal that Ruby handles. It adds one to
+# the count of `signo`. Only this handler changes the count, and it
+# only increases, so the program reads it without a lock. The program
+# reads it at the next safe point.
 sig [I32] => Void
 machine def zr_trap_caught(signo)
   Machine.gates_enter
@@ -29,16 +30,17 @@ machine def zr_trap_caught(signo)
   zr_chld_note(signo)
 end
 
-# SIGCHLD under its default handling while a thread waits for a child:
-# the signal only tells the waiters, as the default does nothing else.
+# SIGCHLD with default handling while a thread waits for a child. The
+# handler only wakes the waiters, because the default does nothing else.
 sig [I32] => Void
 machine def zr_chld_caught(signo)
   Machine.gates_enter
   zr_chld_note(signo)
 end
 
-# A child changed state: the count grows and the waiters' pipe takes a
-# byte, so a thread parked on it wakes. A full pipe already wakes them.
+# A child changed state. The handler increases the count and writes a
+# byte to the waiters' pipe, so a thread blocked on it wakes. If the
+# pipe is full, the waiters wake already.
 sig [I32] => Void
 machine def zr_chld_note(signo)
   cell = Machine.static(:chld_pipe, 24)
@@ -52,10 +54,10 @@ machine def zr_chld_note(signo)
   write(Machine.i32(Machine.load64(cell, 8)), byte, 1)
 end
 
-# The read end of the pipe SIGCHLD (`signo`) writes to, made the first
-# time a thread waits for a child among others: both ends close across
-# an exec and never block, and a SIGCHLD the program does not trap is
-# caught for the waiters alone.
+# The read end of the pipe that SIGCHLD (`signo`) writes to. zr makes
+# it the first time a thread waits for a child while other threads run.
+# Both ends close on exec and never block. If the program does not
+# trap SIGCHLD, zr catches it only for the waiters.
 sig [Value] => Value
 machine def zr_chld_fd(signo)
   cell = Machine.static(:chld_pipe, 24)
@@ -86,13 +88,13 @@ machine def zr_chld_fd(signo)
   read_end
 end
 
-# How many SIGCHLDs came since the waiters' pipe was made.
+# The number of SIGCHLDs since zr made the waiters' pipe.
 sig [] => Value
 machine def zr_chld_count
   zr_fix(Machine.load64(Machine.static(:chld_count, 8), 0))
 end
 
-# The bytes the waiters' pipe holds, taken, so a parked thread waits
+# Reads all bytes from the waiters' pipe, so that a blocked thread waits
 # for the next child.
 sig [] => Value
 machine def zr_chld_drain
@@ -101,7 +103,7 @@ machine def zr_chld_drain
     return Machine.value(QNIL)
   end
   buf = Machine.slot(64)
-  # read(2) answers -1 as the widest word once the pipe is empty.
+  # read(2) returns -1 (as a full-width word) when the pipe is empty.
   n = read(Machine.i32(Machine.load64(cell, 0) - 1), buf, 64)
   while n > 0 && n <= 64
     n = read(Machine.i32(Machine.load64(cell, 0) - 1), buf, 64)
@@ -113,10 +115,10 @@ sig [I32] => Void
 machine def zr_trap_dropped(signo)
 end
 
-# sigaction(2) for `signo`, handled as `how` says. Answers how it was
-# handled before, or the negated errno. The mask stays empty and no
-# call restarts, as ruby_signal asks: a blocking call a signal cuts
-# short comes back, so its handler runs without waiting on the call.
+# Calls sigaction(2) to handle `signo` as `how` gives. Returns the
+# previous handling, or the negated errno. The mask stays empty and no
+# call restarts, as in ruby_signal. Thus a POSIX signal interrupts a
+# blocking call, and its handler runs without a wait for the call.
 sig [Value, Value] => Value
 machine def zr_trap_handle(signo, how)
   h = zr_fix2long(how)
@@ -126,7 +128,7 @@ machine def zr_trap_handle(signo, how)
   elsif h == SIGNAL_NOTHING
     fn = Machine.addr(:zr_trap_dropped)
   elsif h == SIGNAL_DEFAULT && Machine.load64(Machine.static(:chld_pipe, 24), 16) == zr_fix2long(signo) && zr_fix2long(signo) != 0
-    # Waiters still listen on SIGCHLD's pipe.
+    # Waiters still read SIGCHLD's pipe.
     fn = Machine.addr(:zr_chld_caught)
   end
   old = Machine.slot(8)
@@ -153,10 +155,10 @@ machine def zr_trap_kind(fn)
   SIGNAL_OTHER
 end
 
-# The next signal that came and is not yet handled, the lowest number
-# first; nil when none is left. The pending mark is cleared before the
-# scan and set again with an answer, so a signal that comes during the
-# scan is found by this call or by the next.
+# The next POSIX signal that is not handled yet, lowest number first, or
+# nil if none remain. This clears the pending mark before the scan and
+# sets it again when it finds a signal. Thus this call or the next one
+# finds a signal that comes during the scan.
 sig [] => Value
 machine def zr_trap_next
   pending = Machine.static(:signal_pending, 8)
@@ -179,8 +181,8 @@ machine def zr_trap_next
   Machine.value(QNIL)
 end
 
-# A safe point: the Ruby handlers of whatever came run now. QUNDEF when
-# one of them raised.
+# A safe point: runs the Ruby handlers of all received POSIX signals.
+# Returns QUNDEF if a handler raised.
 sig [] => Value
 machine def zr_trap_check
   if Machine.load64(Machine.static(:signal_pending, 8), 0) == 0
@@ -189,9 +191,9 @@ machine def zr_trap_check
   zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:deliver), 0, 0)
 end
 
-# A blocking call failed. When a signal cut it short the handlers run
-# and the answer is nil, so the caller makes the call again; otherwise
-# the answer is the caller's own: the negated errno, or QUNDEF when a
+# A blocking call failed. If a POSIX signal interrupted it, the handlers
+# run and this returns nil, so the caller makes the call again. Else it
+# returns the caller's result: the negated errno, or QUNDEF if a
 # handler raised.
 sig [] => Value
 machine def zr_io_retry

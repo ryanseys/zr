@@ -1,6 +1,6 @@
-# Linux's half of loading code into this process: plain executable
-# mappings, the instruction cache flushed after each write, and names
-# looked up in the binary's own symbol table.
+# The Linux part of code loading into this process: plain executable
+# mappings, an instruction cache flush after each write, and symbol
+# lookup in the binary's own symbol table.
 Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "__clear_cache", [Ptr, Ptr] => Void
 
@@ -8,19 +8,21 @@ PROT_READ_WRITE = 3
 PROT_READ_WRITE_EXEC = 7
 # MAP_PRIVATE | MAP_ANONYMOUS.
 MAP_ANON_PRIVATE = 34
-# dlsym's handle for every image this process has loaded.
+# dlsym's handle for all images that this process has loaded.
 RTLD_DEFAULT = 0
 
-# A static binary sits low, where no mapping lands unasked, and the JIT
-# reaches the program's data with adrp, which spans 4 GiB. So a mapping
-# with no hint of its own goes 1 GiB above the program, past room for its
-# heap, and each takes the address after the one before. MAP_FIXED_NOREPLACE
-# takes the address only when nothing holds it; else the kernel picks.
+# A static binary is at a low address, where the kernel puts a mapping
+# only on request. The JIT reaches the program's data with adrp, which has
+# a range of 4 GiB. Thus a mapping with no hint goes 1 GiB above the
+# program, past the space for its heap, and each next mapping follows
+# the one before. MAP_FIXED_NOREPLACE uses the address only if it is
+# free; else the kernel selects an address.
 MAP_FIXED_NOREPLACE = 1048576
 JIT_GAP = 1073741824
 PAGE_MASK = 0 - 4096
 
-# No reservation: the cursor below keeps the halves together.
+# No reservation is necessary: the mapping cursor keeps the mappings
+# next to each other.
 sig [Value] => Value
 machine def zr_os_jit_reserve(size)
   Machine.value(QNIL)
@@ -31,7 +33,7 @@ machine def zr_os_jit_release(at, size)
   Machine.value(QNIL)
 end
 
-# A mapping of `size` bytes, near `hint` when it can be.
+# Maps `size` bytes, near `hint` if possible.
 sig [Value, Value, Value] => Value
 machine def zr_os_jit_map(size, exec, hint)
   prot = PROT_READ_WRITE
@@ -58,12 +60,13 @@ machine def zr_os_jit_map(size, exec, hint)
   zr_fix(Machine.word(at))
 end
 
-# The program's own symbol table. musl's dlsym finds nothing in a
-# static binary, but the binary keeps its ELF .symtab (a program that
-# evals is linked whole), and a non-PIE link puts every symbol at its own
-# value. So /proc/self/exe is mapped once, and its section headers name
-# the table: the cell holds the table's first row, the row count and the
-# string table, or the row count -1 where the binary cannot be read.
+# The program's own symbol table. musl's dlsym finds nothing in a static
+# binary. But the binary keeps its ELF .symtab (the linker links all of a
+# program that evals), and a non-PIE link puts each symbol at its own
+# value. Thus zr maps /proc/self/exe one time and finds the table from
+# its section headers. The slot contains the first symbol entry, the
+# entry count and the string table. The count is -1 if zr cannot read
+# the binary.
 ELF_SHOFF = 40
 ELF_SHENTSIZE = 58
 ELF_SHNUM = 60
@@ -107,8 +110,8 @@ machine def zr_linux_symtab
   cell
 end
 
-# The address a name already in this process answers to, or nil: a
-# defined global or weak symbol of that name.
+# The address of a name that is already in this process, or nil. The
+# name must be a defined global or weak symbol.
 sig [Value] => Value
 machine def zr_os_symbol(name)
   cell = zr_linux_symtab()
@@ -123,8 +126,9 @@ machine def zr_os_symbol(name)
   i = 0
   while i < rows
     row = table + (i * SYM_LEN)
-    # st_info's binding in its high nibble, then st_other, then the
-    # section index, which is 0 for a name defined elsewhere.
+    # st_info has the binding in its high nibble. Then come st_other and
+    # the section index, which is 0 for a name defined in a different
+    # object.
     info = Machine.word(Machine.load32(row, 4))
     bind = (info & 255) >> 4
     shown = strings + Machine.word(Machine.load32(row, 0))
@@ -136,8 +140,8 @@ machine def zr_os_symbol(name)
   Machine.value(QNIL)
 end
 
-# The write into the code mapping, and the instruction cache told what
-# moved.
+# Writes into the code mapping, then flushes the instruction cache for
+# the changed bytes.
 sig [Value, Value] => Value
 machine def zr_os_jit_write(at, bytes)
   to = Machine.ptr(zr_fix2long(at))
@@ -147,8 +151,8 @@ machine def zr_os_jit_write(at, bytes)
   Machine.value(QNIL)
 end
 
-# libffi's shared image, which dlopen cannot open in a static binary: the
-# ffi gem's first call answers dlopen's refusal.
+# libffi's shared library. dlopen cannot open it in a static binary, so
+# the ffi gem's first call returns dlopen's error.
 sig [] => Ptr
 machine def zr_os_libffi_path
   Machine.bytes("libffi.so.8\0")

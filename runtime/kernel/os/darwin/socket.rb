@@ -1,9 +1,9 @@
-# darwin's half of the socket calls: the BSD sockaddr with its length
+# The darwin part of the socket calls: the BSD sockaddr with its length
 # byte, the layout of struct addrinfo, h_errno, and getpeereid.
 Machine.import "getpeereid", [I32, Ptr, Ptr] => I32
 
-# A connected datagram socket on this platform can refuse a send with
-# EPROTOTYPE for a moment while it tears down, and ruby tries again.
+# On this platform, a send on a connected datagram socket can fail with
+# EPROTOTYPE for a short time while the socket closes. ruby tries again.
 EPROTOTYPE = 41
 EAI_SYSTEM = 11
 
@@ -13,8 +13,8 @@ EAI_SYSTEM = 11
 MSGHDR_LEN = 48
 MSGHDR_FLAGS = 44
 
-# A sockaddr's length as rsock_sockaddr_len reads it: its own length
-# byte, else the size of its family's structure.
+# The length of a sockaddr, as rsock_sockaddr_len reads it: its length
+# byte, or else the structure size for its family.
 sig [Ptr] => Word
 machine def zr_os_sockaddr_len(addr)
   n = Machine.word(Machine.load8(addr, 0))
@@ -31,9 +31,9 @@ machine def zr_os_sockaddr_len(addr)
   family == 1 ? 106 : 2
 end
 
-# One resolver answer as [family, socktype, protocol, sockaddr,
-# canonical name or nil]: darwin's addrinfo keeps the address's length
-# at 16, the canonical name at 24 and the address at 32.
+# One resolver result as [family, socktype, protocol, sockaddr,
+# canonical name or nil]. darwin's addrinfo keeps the address length at
+# 16, the canonical name at 24 and the address at 32.
 sig [Ptr] => Value
 machine def zr_os_addrinfo_row(node)
   row = zr_ary_new(5)
@@ -50,7 +50,7 @@ machine def zr_os_addrinfo_next(node)
   Machine.ptr(Machine.load64(node, 40))
 end
 
-# The resolver's last failure, which gethostbyaddr leaves in h_errno.
+# The last resolver error, which gethostbyaddr sets in h_errno.
 sig [] => Word
 machine def zr_os_h_errno
   Machine.word(Machine.load32(Machine.extern(:h_errno), 0))

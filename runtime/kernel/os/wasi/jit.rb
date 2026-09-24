@@ -1,5 +1,5 @@
-# WASI's half of loading code: a module can map no code and look up no
-# symbol, so eval's JIT has nothing to write into.
+# The WASI part of code loading. A module cannot map code or look up a
+# symbol, so the eval compiler (JIT) has no memory to write into.
 RTLD_DEFAULT = 0
 
 sig [Value] => Value
@@ -27,7 +27,7 @@ machine def zr_os_jit_write(at, bytes)
   zr_notimplement(Machine.bytes("mmap"), 4)
 end
 
-# No library is loaded into a module.
+# A module cannot load a library.
 sig [] => Ptr
 machine def zr_os_libffi_path
   Machine.bytes("\0")

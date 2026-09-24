@@ -1,6 +1,6 @@
-# A task's machine state on wasm32, which has none to save: a module
-# runs on the one stack the engine keeps, and no call can switch it.
-# A fiber never gets this far, since no stack is mapped for one.
+# A task's machine state on wasm32. There is no state to save: a module
+# runs on the single stack of the engine, and no call can switch it.
+# A fiber never comes here, because no stack is mapped for it.
 CONTEXT_BYTES = 8
 
 sig [Ptr, Word, Word] => Void

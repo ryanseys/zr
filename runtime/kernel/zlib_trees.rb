@@ -1,6 +1,6 @@
-# trees.c: the Huffman trees a block is written with, and the bit
-# output they go through. A tree entry is the C's ct_data as two 32-bit
-# cells: fc (freq or code) then dl (dad or len), 8 bytes an entry.
+# trees.c: the Huffman trees that encode a block, and the bit output
+# that they use. A tree entry is the C ct_data as two 32-bit fields:
+# fc (freq or code), then dl (dad or len), 8 bytes for each entry.
 # Derived from zlib; the license is in runtime/kernel/zlib.rb.
 TR_MAX_BITS = 15
 TR_MAX_BL_BITS = 7
@@ -22,7 +22,7 @@ TR_SMALLEST = 1
 MIN_MATCH = 3
 MAX_MATCH = 258
 
-# Which tree build_tree is asked for.
+# The tree that build_tree builds.
 TR_LTREE = 0
 TR_DTREE = 1
 TR_BLTREE = 2
@@ -67,7 +67,7 @@ machine def zr_tr_set_dad(tree, n, v)
   Machine.store32(tree + (n * 8), 4, Machine.i32(v))
 end
 
-# d_code: the distance code of a distance less one.
+# d_code: the distance code of a distance minus one.
 sig [Word] => Word
 machine def zr_tr_d_code(dist)
   if dist < 256
@@ -76,7 +76,7 @@ machine def zr_tr_d_code(dist)
   zr_zlib_u32(zr_tr_dist_code(), 256 + (dist >> 7))
 end
 
-# put_byte: one byte onto the pending output.
+# put_byte: adds one byte to the pending output.
 sig [Ptr, Word] => Void
 machine def zr_tr_put_byte(s, c)
   pending = DeflateState.pending(s)
@@ -84,14 +84,14 @@ machine def zr_tr_put_byte(s, c)
   DeflateState.set_pending(s, pending + 1)
 end
 
-# put_short: a 16-bit word onto the pending output, low byte first.
+# put_short: adds a 16-bit word to the pending output, low byte first.
 sig [Ptr, Word] => Void
 machine def zr_tr_put_short(s, w)
   zr_tr_put_byte(s, w & 255)
   zr_tr_put_byte(s, (w >> 8) & 255)
 end
 
-# bi_reverse: the low `len` bits of `code`, the other way round.
+# bi_reverse: reverses the low `len` bits of `code`.
 sig [Word, Word] => Word
 machine def zr_tr_bi_reverse(code, len)
   res = 0
@@ -107,7 +107,7 @@ machine def zr_tr_bi_reverse(code, len)
   res >> 1
 end
 
-# bi_flush: the bit buffer written out, keeping at most 7 bits.
+# bi_flush: writes out the bit buffer, and keeps 7 bits or fewer.
 sig [Ptr] => Void
 machine def zr_tr_bi_flush(s)
   if DeflateState.bi_valid(s) == 16
@@ -121,7 +121,7 @@ machine def zr_tr_bi_flush(s)
   end
 end
 
-# bi_windup: the bit buffer written out to a byte boundary.
+# bi_windup: writes out the bit buffer to a byte boundary.
 sig [Ptr] => Void
 machine def zr_tr_bi_windup(s)
   if DeflateState.bi_valid(s) > 8
@@ -133,8 +133,8 @@ machine def zr_tr_bi_windup(s)
   DeflateState.set_bi_valid(s, 0)
 end
 
-# send_bits: `value` on `length` bits. The buffer is the C's 16-bit
-# ush, so it keeps its low 16 bits at every step.
+# send_bits: writes `value` in `length` bits. The buffer is the C 16-bit
+# ush, so it keeps only its low 16 bits at each step.
 sig [Ptr, Word, Word] => Void
 machine def zr_tr_send_bits(s, value, length)
   bi_valid = DeflateState.bi_valid(s)
@@ -150,14 +150,15 @@ machine def zr_tr_send_bits(s, value, length)
   end
 end
 
-# send_code: code `c` of `tree`.
+# send_code: writes code `c` of `tree`.
 sig [Ptr, Word, Ptr] => Void
 machine def zr_tr_send_code(s, c, tree)
   zr_tr_send_bits(s, zr_tr_code(tree, c), zr_tr_len(tree, c))
 end
 
-# gen_codes: the code of every entry of `tree` up to `max_code` from
-# the counts of each bit length, bit-reversed as deflate writes them.
+# gen_codes: makes the code of each entry of `tree` up to `max_code`
+# from the counts of each bit length. The codes are bit-reversed, as
+# deflate writes them.
 sig [Ptr, Word, Ptr] => Void
 machine def zr_tr_gen_codes(tree, max_code, bl_count)
   next_code = Machine.slot(64)
@@ -180,7 +181,7 @@ machine def zr_tr_gen_codes(tree, max_code, bl_count)
   end
 end
 
-# init_block: the trees' frequencies cleared for a new block.
+# init_block: clears the tree frequencies for a new block.
 sig [Ptr] => Void
 machine def zr_tr_init_block(s)
   n = 0
@@ -205,7 +206,7 @@ machine def zr_tr_init_block(s)
   DeflateState.set_matches(s, 0)
 end
 
-# _tr_init: the tree state of a new stream.
+# _tr_init: sets the tree state of a new stream.
 sig [Ptr] => Void
 machine def zr_tr_init(s)
   DeflateState.set_bi_buf(s, 0)
@@ -231,7 +232,7 @@ machine def zr_tr_set_heap(s, i, v)
   zr_zlib_set_u32(DeflateState.heap(s), i, v)
 end
 
-# pqdownheap: the heap property restored from node `k` down.
+# pqdownheap: restores the heap property from node `k` down.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_tr_pqdownheap(s, tree, k)
   depth = DeflateState.depth(s)
@@ -251,9 +252,9 @@ machine def zr_tr_pqdownheap(s, tree, k)
   zr_tr_set_heap(s, k, v)
 end
 
-# gen_bitlen: the optimal bit length of every code of `tree`, the
-# counts of each length, and the block's bit lengths under this tree
-# and under the static one, `stree`, when there is one.
+# gen_bitlen: calculates the optimal bit length of each code of `tree`,
+# the count of each length, and the block's bit lengths with this tree
+# and with the static tree `stree`, if there is one.
 sig [Ptr, Ptr, Word, Ptr, Ptr, Word, Word] => Void
 machine def zr_tr_gen_bitlen(s, tree, max_code, stree, extra, base, max_length)
   bl_count = DeflateState.bl_count(s)
@@ -321,9 +322,10 @@ machine def zr_tr_gen_bitlen(s, tree, max_code, stree, extra, base, max_length)
   end
 end
 
-# build_tree: the Huffman tree `which` (the literal, distance or bit
-# length tree) built from its frequencies: its lengths and codes, its
-# largest code kept on the state, and the block's bit lengths updated.
+# build_tree: builds the Huffman tree `which` (the literal, distance or
+# bit length tree) from its frequencies. It sets the lengths and codes,
+# keeps the largest code in the state, and updates the block's bit
+# lengths.
 sig [Ptr, Word] => Void
 machine def zr_tr_build_tree(s, which)
   tree = DeflateState.dyn_ltree(s)
@@ -423,8 +425,8 @@ machine def zr_tr_build_tree(s, which)
   zr_tr_gen_codes(tree, max_code, DeflateState.bl_count(s))
 end
 
-# scan_tree: the bit length tree's frequencies from the lengths of
-# `tree`, counting runs as the bit length codes will.
+# scan_tree: counts the bit length tree frequencies from the lengths of
+# `tree`. It counts runs in the same way as the bit length codes.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_tr_scan_tree(s, tree, max_code)
   bl_tree = DeflateState.bl_tree(s)
@@ -445,7 +447,7 @@ machine def zr_tr_scan_tree(s, tree, max_code)
     count += 1
     n += 1
     if count < max_count && curlen == nextlen
-      # the run goes on
+      # the run continues
     else
       if count < min_count
         zr_tr_set_freq(bl_tree, curlen, zr_tr_freq(bl_tree, curlen) + count)
@@ -475,7 +477,7 @@ machine def zr_tr_scan_tree(s, tree, max_code)
   end
 end
 
-# send_tree: the lengths of `tree` written with the bit length codes.
+# send_tree: writes the lengths of `tree` with the bit length codes.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_tr_send_tree(s, tree, max_code)
   bl_tree = DeflateState.bl_tree(s)
@@ -495,7 +497,7 @@ machine def zr_tr_send_tree(s, tree, max_code)
     count += 1
     n += 1
     if count < max_count && curlen == nextlen
-      # the run goes on
+      # the run continues
     else
       if count < min_count
         while count != 0
@@ -532,8 +534,8 @@ machine def zr_tr_send_tree(s, tree, max_code)
   end
 end
 
-# build_bl_tree: the bit length tree built, and the index in bl_order
-# of the last bit length code worth sending.
+# build_bl_tree: builds the bit length tree. Returns the index in
+# bl_order of the last bit length code that is necessary to send.
 sig [Ptr] => Word
 machine def zr_tr_build_bl_tree(s)
   zr_tr_scan_tree(s, DeflateState.dyn_ltree(s), DeflateState.l_max_code(s))
@@ -551,8 +553,8 @@ machine def zr_tr_build_bl_tree(s)
   max_blindex
 end
 
-# send_all_trees: a dynamic block's header: the counts, the bit length
-# code lengths, the literal tree and the distance tree.
+# send_all_trees: writes the header of a dynamic block: the counts, the
+# bit length code lengths, the literal tree and the distance tree.
 sig [Ptr, Word, Word, Word] => Void
 machine def zr_tr_send_all_trees(s, lcodes, dcodes, blcodes)
   order = zr_tr_bl_order()
@@ -568,7 +570,7 @@ machine def zr_tr_send_all_trees(s, lcodes, dcodes, blcodes)
   zr_tr_send_tree(s, DeflateState.dyn_dtree(s), dcodes - 1)
 end
 
-# _tr_stored_block: a stored block of `stored_len` bytes at `buf`.
+# _tr_stored_block: writes a stored block of `stored_len` bytes at `buf`.
 sig [Ptr, Ptr, Word, Word] => Void
 machine def zr_tr_stored_block(s, buf, stored_len, last)
   zr_tr_send_bits(s, (TR_STORED_BLOCK << 1) + last, 3)
@@ -587,7 +589,8 @@ machine def zr_tr_flush_bits(s)
   zr_tr_bi_flush(s)
 end
 
-# _tr_align: an empty static block, so inflate has enough lookahead.
+# _tr_align: writes an empty static block, so inflate has sufficient
+# lookahead.
 sig [Ptr] => Void
 machine def zr_tr_align(s)
   zr_tr_send_bits(s, TR_STATIC_TREES << 1, 3)
@@ -595,7 +598,7 @@ machine def zr_tr_align(s)
   zr_tr_bi_flush(s)
 end
 
-# compress_block: the block's symbols written with the given trees.
+# compress_block: writes the block's symbols with the given trees.
 sig [Ptr, Ptr, Ptr] => Void
 machine def zr_tr_compress_block(s, ltree, dtree)
   sym_buf = DeflateState.sym_buf(s)
@@ -641,8 +644,8 @@ machine def zr_tr_compress_block(s, ltree, dtree)
   zr_tr_send_code(s, TR_END_BLOCK, ltree)
 end
 
-# detect_data_type: Z_TEXT when the block holds no byte of the block
-# list and one of the allow list, Z_BINARY otherwise.
+# detect_data_type: Z_TEXT if the block contains no byte of the block
+# list and at least one byte of the allow list. Else Z_BINARY.
 sig [Ptr] => Word
 machine def zr_tr_detect_data_type(s)
   ltree = DeflateState.dyn_ltree(s)
@@ -668,8 +671,8 @@ machine def zr_tr_detect_data_type(s)
   Z_BINARY
 end
 
-# _tr_flush_block: the block written the cheapest way, with dynamic
-# trees, static trees or stored, and a new block begun.
+# _tr_flush_block: writes the block in the smallest form (dynamic trees,
+# static trees, or stored), and starts a new block.
 sig [Ptr, Ptr, Word, Word] => Void
 machine def zr_tr_flush_block(s, buf, stored_len, last)
   opt_lenb = 0
@@ -708,8 +711,8 @@ machine def zr_tr_flush_block(s, buf, stored_len, last)
   end
 end
 
-# _tr_tally: a literal (dist 0) or a match kept for the block; 1 when
-# the block is full and must be flushed.
+# _tr_tally: records a literal (dist 0) or a match for the block.
+# Returns 1 when the block is full and must be flushed.
 sig [Ptr, Word, Word] => Word
 machine def zr_tr_tally(s, dist, lc)
   sym_buf = DeflateState.sym_buf(s)

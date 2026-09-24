@@ -1,7 +1,6 @@
-# `catch` and `throw`: a throw is a signal that unwinds to the catch
-# whose tag is the same object, running every ensure on the way and
-# passing every rescue. The task keeps the tags of the catches in
-# flight, innermost last.
+# `catch` and `throw`. A throw is a pending unwind to the catch whose tag
+# is the same object. It runs each ensure on the way and skips each
+# rescue. The task keeps the tags of the active catches, innermost last.
 
 sig [] => Value
 machine def zr_catches
@@ -14,7 +13,7 @@ machine def zr_catches
   list
 end
 
-# Whether a catch for `tag` is in flight.
+# Whether a catch for `tag` is active.
 sig [Value] => Value
 machine def zr_catch_tag_p(tag)
   list = zr_catches()
@@ -28,14 +27,16 @@ machine def zr_catch_tag_p(tag)
   Machine.value(QFALSE)
 end
 
-# The throw signal; the caller has checked a catch waits for it.
+# Starts the pending unwind for a throw. The caller has already checked
+# that a catch for `tag` is active.
 sig [Value, Value] => Value
 machine def zr_throw(tag, value)
   Task.set_throw_tag(zr_task(), tag)
   zr_signal(PENDING_THROW, value, 0, 0)
 end
 
-# The block run with `tag` catchable; a throw to it is the answer.
+# Runs the block with a catch for `tag`. A throw to `tag` gives the
+# return value.
 sig [Value, Value] => Value
 machine def zr_catch(tag, blk)
   list = zr_catches()

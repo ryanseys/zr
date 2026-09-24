@@ -1,21 +1,21 @@
-# A guard against a method re-entering itself on the same object, as
-# `inspect` on an Array that holds itself would: CRuby's
-# rb_exec_recursive. A paired guard, rb_exec_recursive_paired, is for a
-# comparison: it is a recursion only when the same two objects meet
-# again. The task keeps the guards in flight as one flat Array of
-# GUARD_ROW words each: the object, the method, and the object paired
-# with it (undef for an unpaired guard).
+# A guard that stops a method from entering itself again on the same
+# object, as `inspect` does on an Array that contains itself. This is
+# CRuby's rb_exec_recursive. A paired guard (rb_exec_recursive_paired)
+# is for a comparison: it finds a recursion only when the same two
+# objects come together again. The task keeps the active guards in one
+# flat Array. Each guard record is GUARD_ROW words: the object, the
+# method, and the paired object (undef for an unpaired guard).
 GUARD_ROW = 3
 
-# Whether `mid` on `obj` is already in flight, paired or not; when it is
-# not, the guard is recorded until `zr_guard_leave`.
+# Whether `mid` on `obj` is already active, paired or not. If it is not,
+# this adds a guard record, which stays until `zr_guard_leave`.
 sig [Value, Word] => Bool
 machine def zr_guard_enter(obj, mid)
   zr_guard_enter_paired(obj, Machine.value(QUNDEF), mid)
 end
 
-# Whether `mid` on `obj` against `other` is already in flight; an
-# unpaired query (`other` undef) matches any guard on `obj`.
+# Whether `mid` on `obj` and `other` is already active. An unpaired
+# query (`other` undef) matches each guard on `obj`.
 sig [Value, Value, Word] => Bool
 machine def zr_guard_enter_paired(obj, other, mid)
   t = zr_task()
@@ -38,17 +38,17 @@ machine def zr_guard_enter_paired(obj, other, mid)
   false
 end
 
-# The last guard entered goes: guards nest.
+# Removes the last guard record. Guards nest.
 sig [Value, Word] => Void
 machine def zr_guard_leave(obj, mid)
   list = Task.guards(zr_task())
   RArray.set_len(list, RArray.len(list) - GUARD_ROW)
 end
 
-# The guards as core primitives: `Primitive.zr_recursive_enter(self,
-# :inspect)` answers true inside a recursion, and
-# `zr_recursive_enter_paired(self, other, :eql?)` inside one on the same
-# pair.
+# The guards as core primitives. `Primitive.zr_recursive_enter(self,
+# :inspect)` returns true inside a recursion.
+# `zr_recursive_enter_paired(self, other, :eql?)` returns true inside a
+# recursion on the same pair.
 sig [Value, Value] => Value
 machine def zr_recursive_enter(obj, name)
   zr_bool(zr_guard_enter(obj, zr_sym2id(name)))

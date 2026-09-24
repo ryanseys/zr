@@ -1,6 +1,6 @@
-# Linux's half of the socket calls: a sockaddr that starts with a 16-bit
-# family, the layouts of struct addrinfo and struct msghdr, h_errno, and
-# the peer's credentials.
+# The Linux part of the socket calls: a sockaddr that starts with a
+# 16-bit family, the layouts of struct addrinfo and struct msghdr,
+# h_errno, and the peer's credentials.
 Machine.import "__h_errno_location", [] => Ptr
 
 EPROTOTYPE = 91
@@ -12,9 +12,10 @@ EAI_SYSTEM = 0 - 11
 MSGHDR_LEN = 56
 MSGHDR_FLAGS = 48
 
-# A sockaddr's length as rsock_sockaddr_len reads it: the size of its
-# family's structure. AF_UNIX is 1, AF_INET 2, AF_INET6 10, and an
-# AF_PACKET (17) address is as long as its hardware address says.
+# The length of a sockaddr, as rsock_sockaddr_len reads it: the
+# structure size for its family. AF_UNIX is 1, AF_INET 2, AF_INET6 10.
+# The length of an AF_PACKET (17) address comes from its hardware
+# address length.
 sig [Ptr] => Word
 machine def zr_os_sockaddr_len(addr)
   family = Machine.word(Machine.load32(addr, 0)) & 65535
@@ -33,8 +34,8 @@ machine def zr_os_sockaddr_len(addr)
   2
 end
 
-# One resolver answer as [family, socktype, protocol, sockaddr,
-# canonical name or nil]: musl's addrinfo keeps the address's length at
+# One resolver result as [family, socktype, protocol, sockaddr,
+# canonical name or nil]. musl's addrinfo keeps the address length at
 # 16, the address at 24 and the canonical name at 32.
 sig [Ptr] => Value
 machine def zr_os_addrinfo_row(node)
@@ -52,14 +53,14 @@ machine def zr_os_addrinfo_next(node)
   Machine.ptr(Machine.load64(node, 40))
 end
 
-# The resolver's last failure, which gethostbyaddr leaves in h_errno.
+# The last resolver error, which gethostbyaddr sets in h_errno.
 sig [] => Word
 machine def zr_os_h_errno
   Machine.word(Machine.load32(__h_errno_location(), 0))
 end
 
-# SO_PEERCRED at SOL_SOCKET: a struct ucred of the peer's pid, uid and
-# gid, as ruby's getpeereid reads it on Linux.
+# SO_PEERCRED at SOL_SOCKET: a struct ucred with the peer's pid, uid and
+# gid. ruby's getpeereid reads it on Linux.
 SOL_SOCKET = 1
 SO_PEERCRED = 17
 

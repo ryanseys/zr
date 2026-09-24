@@ -1,11 +1,11 @@
-# `dup` and `clone`: a fresh cell with the same contents, its own
-# copies of what the cell owns outside the arena, then
+# `dup` and `clone`: a new cell with the same contents, its own copies
+# of the memory that the cell owns outside the arena, then
 # `initialize_copy`. A clone keeps the frozen bit and the singleton
-# class; a dup keeps neither.
+# class. A dup keeps neither.
 
-# The rows of one ivar table copied into another, fresh, table; the
-# object id and the mark a core class puts on a cell it has built
-# stay with the original.
+# Copies the ivar entries of one table into a new table. The object id,
+# and the mark that a core class puts on a cell it built, stay with the
+# original.
 sig [Ptr, Ptr, Value] => Void
 machine def zr_ivtab_copy(to, from, owner)
   IvTab.set_len(to, 0)
@@ -20,15 +20,15 @@ machine def zr_ivtab_copy(to, from, owner)
   end
 end
 
-# What the copy owns. A String, an Array or a Hash starts empty, as
-# CRuby's allocator leaves one: its own `initialize_copy` is what fills
-# it, so a subclass that answers that without `super` copies nothing, as
-# it does in ruby.
+# Makes the memory that the copy owns. A String, an Array or a Hash
+# starts empty, as with CRuby's allocator. Its `initialize_copy` fills
+# it. Thus a subclass whose `initialize_copy` does not call `super`
+# copies nothing, as in ruby.
 sig [Value, Value] => Value
 machine def zr_copy_payload(copy, orig)
   t = zr_type(orig)
   if t == T_OBJECT
-    # The cell's bytes came over, rows pointer and all.
+    # The copy has the cell's bytes, including the ivar entries pointer.
     zr_obj_ivtab_init(copy)
     zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig), copy)
     zr_write_barrier_all(copy)
@@ -57,9 +57,9 @@ machine def zr_copy_payload(copy, orig)
       zr_write_barrier_all(copy)
     end
   elsif t == T_FIBER
-    # CRuby copies a Fiber's fields and not its machine stack, so the copy
-    # is a fiber that was never made: no context, no stack, no task of
-    # its own, and it refuses to run.
+    # CRuby copies a Fiber's fields but not its machine stack. Thus the
+    # copy is a fiber that was never set up: it has no context, no stack
+    # and no task, and it refuses to run.
     RFiber.set_task(copy, 0)
     RFiber.set_ctx(copy, 0)
     RFiber.set_stack(copy, 0)
@@ -78,8 +78,8 @@ machine def zr_copy_payload(copy, orig)
     RRegexp.set_program(copy, Machine.value(QNIL))
     RRegexp.set_alt(copy, Machine.value(QNIL))
   elsif t != T_PROC && t != T_METHOD
-    # The cell already holds the original's words; clear them, or the
-    # collector frees what the original still owns when the copy dies.
+    # The cell already contains the original's words. Clear them, or the
+    # collector frees the original's memory when the copy dies.
     memset(Machine.ptr(copy) + RBasic.size, Machine.i32(0), zr_cell_bytes(copy) - RBasic.size)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
   end
@@ -90,8 +90,8 @@ machine def zr_copy_payload(copy, orig)
   copy
 end
 
-# The cell copied, the payload its own, the class the real one; the
-# frozen and singleton facts are the caller's to keep or drop.
+# Copies the cell, with its own payload and with the real class. The
+# caller decides to keep or drop the frozen bit and the singleton class.
 sig [Value] => Value
 machine def zr_copy_cell(orig)
   bytes = zr_cell_bytes(orig)
@@ -100,9 +100,9 @@ machine def zr_copy_cell(orig)
   zr_copy_payload(copy, orig)
 end
 
-# A copy starts as `allocate` would make one, so a class with no
-# allocator has no copies: a Thread, an Encoding. A Proc, a Method and a
-# Binding copy as their own kinds do.
+# A copy starts as `allocate` would make it, so a class with no
+# allocator cannot be copied: a Thread, an Encoding. A Proc, a Method
+# and a Binding use their own copy rules.
 sig [Value] => Value
 machine def zr_copy_allocatable(recv)
   klass = zr_real_class(recv)
@@ -117,9 +117,9 @@ machine def zr_copy_allocatable(recv)
   Machine.value(QNIL)
 end
 
-# `Array#initialize_copy`, which is what fills a `dup` or a `clone`: the
-# other's elements in place of the receiver's, as `replace` puts them.
-# Anything but an Array goes through `replace` itself, which converts.
+# `Array#initialize_copy`, which fills a `dup` or a `clone`. It puts the
+# other Array's elements in place of the receiver's, as `replace` does.
+# A non-Array goes through `replace` itself, which converts it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_initialize_copy(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -134,7 +134,7 @@ machine def zr_ary_initialize_copy(recv, argc, argv, cref, blk)
   recv
 end
 
-# `String#initialize_copy`: the other's bytes and encoding.
+# `String#initialize_copy`: copies the other String's bytes and encoding.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_initialize_copy(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -146,10 +146,10 @@ machine def zr_str_initialize_copy(recv, argc, argv, cref, blk)
   recv
 end
 
-# `Hash#initialize_copy`: the other's pairs, default and
-# compare_by_identity. The tables are copied as they stand -- a Hash is
-# its entries and its bins, and the codes in them were made for the
-# same identity rule -- where `replace` would store the pairs one by one.
+# `Hash#initialize_copy`: copies the other Hash's pairs, default and
+# compare_by_identity. It copies the tables as they are: a Hash is its
+# entries and its bins, and their hash codes use the same identity rule.
+# `replace` would store the pairs one at a time.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -159,9 +159,9 @@ machine def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
   zr_hash_copy_from(recv, other)
 end
 
-# `other`'s tables, default, default proc and compare_by_identity in
-# place of the receiver's, with no method of either called: what
-# rb_hash_replace and hash_copy do once the checks are made.
+# Puts the tables, default, default proc and compare_by_identity of
+# `other` in place of the receiver's, and calls no method on either.
+# This is what rb_hash_replace and hash_copy do after their checks.
 sig [Value, Value] => Value
 machine def zr_hash_copy_from(recv, other)
   zr_sized_xfree(RHash.entries(recv), RHash.cap(recv) * HEntry.size)
@@ -195,8 +195,8 @@ machine def zr_hash_copy_from(recv, other)
 end
 
 # rb_hash_dup: a copy of the receiver's class with its pairs, default,
-# compare_by_identity and instance variables, made without calling
-# `initialize_copy`, as merge and compact start from one.
+# compare_by_identity and instance variables. It does not call
+# `initialize_copy`. merge and compact start from such a copy.
 sig [Value] => Value
 machine def zr_hash_dup_m(h)
   copy = zr_copy_cell(h)
@@ -204,9 +204,9 @@ machine def zr_hash_dup_m(h)
   zr_hash_copy_from(copy, h)
 end
 
-# A class or module copied: an anonymous one with the same ancestors,
-# its own method and constant tables with the same rows, the same
-# class-level instance and class variables, and the original's
+# Copies a class or module. The copy is anonymous, with the same
+# ancestors, its own method and constant tables with the same entries,
+# the same class-level instance and class variables, and the original's
 # singleton methods.
 sig [Value] => Value
 machine def zr_class_copy(orig)
@@ -241,8 +241,8 @@ machine def zr_class_copy(orig)
   copy
 end
 
-# `clone` for a class that owns its own row and takes no `freeze:`, as
-# proc_clone and method_clone take none.
+# `clone` for a class that has its own `clone` method entry and takes no
+# `freeze:`, as proc_clone and method_clone take none.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_clone_m(recv, argc, argv, cref, blk)
   zr_obj_clone(recv, Machine.value(QNIL))
@@ -267,9 +267,9 @@ machine def zr_obj_dup(recv, argc, argv, cref, blk)
   copy
 end
 
-# rb_obj_clone2, under kernel.rb's `clone(freeze: nil)`: the singleton
-# class's methods come along, and the frozen bit unless `freeze: false`,
-# or with `freeze: true`.
+# rb_obj_clone2, called by kernel.rb's `clone(freeze: nil)`. The clone
+# gets the singleton class's methods. It gets the frozen bit unless
+# `freeze: false`, and always with `freeze: true`.
 sig [Value, Value] => Value
 machine def zr_obj_clone(recv, freeze)
   if freeze != QNIL && freeze != QTRUE && freeze != QFALSE
@@ -307,7 +307,7 @@ machine def zr_obj_clone(recv, freeze)
   if freeze == QTRUE || (freeze == QNIL && zr_frozen_p(recv))
     RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
   elsif freeze == QNIL && zr_str_chilled_p(recv)
-    # A clone keeps the chill, as rb_obj_clone_setup copies it.
+    # A clone keeps the chilled flag, as rb_obj_clone_setup copies it.
     RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(recv) & (FL_CHILLED | FL_CHILLED_SYMBOL)))
   end
   copy

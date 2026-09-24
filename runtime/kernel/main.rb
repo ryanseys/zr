@@ -1,5 +1,6 @@
-# Boot and the C entry point. The compiler supplies `zr_prelude`, the
-# core library's toplevels, and `zr_toplevel`, the program's.
+# Boot and the C entry point. The compiler supplies `zr_prelude` (the
+# toplevels of the core library) and `zr_toplevel` (the program's
+# toplevel).
 Machine.import "zr_toplevel", [] => Value
 Machine.import "zr_prelude", [] => Value
 Machine.import "zr_gem_prelude", [] => Value
@@ -19,7 +20,7 @@ machine def zr_boot_name(g, name)
   zr_const_set(zr_global(G_OBJECT), name, k)
 end
 
-# What Method and UnboundMethod share.
+# The methods that Method and UnboundMethod share.
 sig [Value] => Void
 machine def zr_boot_method_class(klass)
   zr_builtin(klass, Machine.id(:arity), Machine.addr(:zr_method_arity), 0)
@@ -35,13 +36,13 @@ machine def zr_boot_method_class(klass)
   zr_builtin(klass, Machine.id(:hash), Machine.addr(:zr_method_hash), 0)
 end
 
-# The machine stack ends here for Ruby frames: a margin above the
-# thread's guard page keeps room for the kernel's own frames and the
-# report. Zero, as under wasm, never trips.
+# The machine stack ends at this margin for Ruby frames. The margin above
+# the thread's guard page keeps space for the kernel's own frames and
+# the error report. A limit of zero, as under wasm, never fails.
 STACK_MARGIN = 262144
 
-# The main task's stack limit: the margin above the OS stack's low end,
-# or zero where the OS cannot say.
+# The stack limit of the main task: the margin above the low end of the
+# OS stack, or zero if the OS does not give the low end.
 sig [] => Ptr
 machine def zr_main_stack_limit
   low = zr_os_stack_low()
@@ -58,8 +59,8 @@ machine def zr_boot
   Machine.store64(zr_current_task_slot(), 0, Machine.word(Machine.static(:task, Task.size)))
   zr_task_init(zr_task(), zr_main_stack_limit())
   zr_hash_seed_init()
-  # The four that form a cycle come first, with no class; then each
-  # gets Class as its class. Names wait for String.
+  # The four classes that form a cycle come first, with no class. Then
+  # each one gets Class as its class. Names come after String exists.
   zr_boot_class(G_BASIC_OBJECT, Machine.id(:BasicObject), Machine.value(QNIL))
   zr_boot_class(G_OBJECT, Machine.id(:Object), zr_global(G_BASIC_OBJECT))
   zr_boot_class(G_MODULE, Machine.id(:Module), zr_global(G_OBJECT))
@@ -139,8 +140,8 @@ machine def zr_boot
   zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
   zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
   zr_alloc_table()
-  # Every boot class gets its metaclass, so a singleton method defined
-  # on an ancestor reaches it.
+  # Each boot class gets its metaclass, so that a singleton method on an
+  # ancestor is visible to it.
   i = G_BASIC_OBJECT
   while i < G_COUNT
     k = zr_global(i)
@@ -151,9 +152,10 @@ machine def zr_boot
   end
   zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
   zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
-  # A top-level def is private, as CRuby's toplevel scope makes it.
+  # A top-level def is private, as in CRuby's toplevel scope.
   RCref.set_vis(zr_global(G_TOP_CREF), VIS_PRIVATE)
-  # Kernel holds what CRuby's Kernel does; BasicObject has its few.
+  # Kernel gets the methods of CRuby's Kernel. BasicObject gets its small
+  # set of methods.
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:puts), Machine.addr(:zr_puts), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:raise), Machine.addr(:zr_kernel_raise), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:proc), Machine.addr(:zr_kernel_proc), 0)
@@ -171,7 +173,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_PROC), Machine.id(:hash), Machine.addr(:zr_proc_hash), 0)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:p), Machine.addr(:zr_p), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:print), Machine.addr(:zr_print), 0 - 1)
-  # `send` and `__send__` leave no backtrace row, as CRuby's do.
+  # `send` and `__send__` add no backtrace frame, as in CRuby.
   zr_define_method(zr_global(G_KERNEL), Machine.id(:send), Machine.addr(:zr_obj_send), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
   zr_builtin(zr_global(G_KERNEL), Machine.id(:eql?), Machine.addr(:zr_obj_eql_p), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:hash), Machine.addr(:zr_obj_hash), 0)
@@ -265,8 +267,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_of?), Machine.addr(:zr_obj_instance_of), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:nil?), Machine.addr(:zr_obj_nil_p), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:respond_to?), Machine.addr(:zr_obj_respond_to), 0 - 1)
-  # Exception carries a private method_missing, so CRuby gives it a
-  # respond_to? of its own that answers as Kernel's does.
+  # Exception has a private method_missing. Thus CRuby gives it its own
+  # respond_to?, which returns the same as Kernel's.
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:respond_to?), Machine.addr(:zr_obj_respond_to), 0 - 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:initialize), Machine.addr(:zr_obj_initialize), 0)
   zr_builtin_private(zr_global(G_BASIC_OBJECT), Machine.id(:method_missing), Machine.addr(:zr_obj_method_missing), 0 - 1)
@@ -276,7 +278,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!=), Machine.addr(:zr_obj_ne), 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!), Machine.addr(:zr_obj_not), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:allocate), Machine.addr(:zr_class_allocate_m), 0)
-  # `Class.allocate` is Class's own: a class not yet set up.
+  # `Class.allocate` is defined on Class itself. It makes a class that
+  # is not set up yet.
   zr_builtin(zr_singleton_class(zr_global(G_CLASS)), Machine.id(:allocate), Machine.addr(:zr_class_allocate_m), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:new), Machine.addr(:zr_class_new_instance), 0 - 1)
   zr_builtin(zr_singleton_class(zr_global(G_ARRAY)), Machine.id(:new), Machine.addr(:zr_class_s_new), 0 - 1)
@@ -339,15 +342,15 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:frozen?), Machine.addr(:zr_obj_frozen_p), 0)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:to_s), Machine.addr(:zr_sym_to_s), 0)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:<=>), Machine.addr(:zr_sym_cmp), 1)
-  # Symbol's own `==` is identity, as sym_equal is; Comparable's would
-  # ask `<=>`.
+  # Symbol's own `==` compares identity, as sym_equal does. Comparable's
+  # `==` would call `<=>`.
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:==), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:to_proc), Machine.addr(:zr_sym_to_proc_m), 0)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:inspect), Machine.addr(:zr_sym_inspect), 0)
   zr_builtin(zr_global(G_NIL), Machine.id(:to_s), Machine.addr(:zr_nil_to_s), 0)
   zr_builtin(zr_global(G_NIL), Machine.id(:inspect), Machine.addr(:zr_nil_inspect), 0)
-  # Rows CRuby writes on a class of its own over the function Kernel's
-  # row shares, so the class owns them.
+  # CRuby defines these method entries on each class, with the same
+  # function as the Kernel entry. Thus the class owns them.
   zr_builtin(zr_global(G_NIL), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
   zr_builtin(zr_global(G_TRUE), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
   zr_builtin(zr_global(G_FALSE), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
@@ -479,8 +482,8 @@ machine def zr_boot
   zr_builtin(main, Machine.id(:inspect), Machine.addr(:zr_main_to_s), 0)
 end
 
-# The program's entry. The OS layer runs `zr_main` on the stack Ruby
-# frames need, which is not always the one the process starts on.
+# The program's entry. The OS layer runs `zr_main` on the stack that
+# Ruby frames need, which is not always the stack the process starts on.
 sig [I32, Ptr] => I32
 machine def main(argc, argv)
   Machine.gates_enter
@@ -495,14 +498,14 @@ machine def zr_main(argc, argv)
   if r == QUNDEF
     zr_report(Task.pending(zr_task()))
   end
-  # What a box sees of the shared world is what stands here, before
-  # the program has written anything of its own; so are the operator
-  # bodies the inline fast paths stand in for.
+  # A box sees the shared state as it is here, before the program
+  # writes anything of its own. The same snapshot records the operator
+  # bodies that the inline fast paths replace.
   zr_box_snapshot()
   zr_runtime_written()
-  # The libraries ruby loads before a program: error_highlight,
+  # The libraries that ruby loads before a program: error_highlight,
   # did_you_mean and syntax_suggest's core extension. The fast paths
-  # stand in for the operators as they stand after them.
+  # replace the operators as they are after these libraries load.
   r = zr_gem_prelude()
   if r == QUNDEF
     zr_report(Task.pending(zr_task()))
@@ -511,9 +514,9 @@ machine def zr_main(argc, argv)
   r = zr_toplevel()
   exc = Machine.value(QUNDEF)
   if r == QUNDEF
-    # Every break lands at the call its block was given to, or is a
-    # LocalJumpError before it leaves. One that got this far is the
-    # runtime's defect, and it says so rather than exiting 1 in silence.
+    # Each break stops at the call that received its block, or becomes a
+    # LocalJumpError before it leaves. A break that gets here is a bug
+    # in the runtime. It reports the bug, and does not exit 1 silently.
     if Task.pending_kind(zr_task()) == PENDING_BREAK
       zr_bug(Machine.bytes("a break reached the end of the program with no call to leave\n"), 61)
     end

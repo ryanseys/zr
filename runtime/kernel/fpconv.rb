@@ -1,17 +1,18 @@
-# fpconv.c's fpconv_dtoa, as the json gem vendors it: Grisu2's digits
-# for a double, written the gem's way, with ".0" after a whole number.
-# JSON's generator writes every finite Float through it.
+# fpconv.c's fpconv_dtoa, as the json gem vendors it. It writes the
+# Grisu2 digits of a double in the gem's format, with ".0" after a whole
+# number. JSON's generator writes each finite Float with it.
 #
 # Derived from fpconv (Copyright (c) 2013 Andreas Samoljuk, MIT License),
 # as vendored by the json gem. See THIRD_PARTY_NOTICES.md.
 FPCONV_EXPMASK = 9218868437227405312
 FPCONV_FRACMASK = 4503599627370495
 FPCONV_HIDDENBIT = 4503599627370496
-# log10(2) as fpconv.c spells it, 0.30102999566398114, by its bits.
+# log10(2) as fpconv.c writes it, 0.30102999566398114, given by its bits.
 FPCONV_LOG10_2 = 4599094494223104510
 
-# The cached powers of ten: 87 rows of a 64-bit fraction and its binary
-# exponent, each a little-endian word, from 10^-348 by eights.
+# The cached powers of ten: 87 entries of a 64-bit fraction and its
+# binary exponent, each a little-endian word. They start at 10^-348 and
+# go up in steps of 10^8.
 sig [] => Ptr
 machine def zr_fpconv_powers
   Machine.bytes(
@@ -74,7 +75,7 @@ machine def zr_fpconv_mul(a, b)
   ah_bh + (ah_bl >> 32) + (al_bh >> 32) + (tmp >> 32)
 end
 
-# round_digit: the last digit moved down while that brings it nearer.
+# round_digit: decreases the last digit while that makes it nearer.
 sig [Ptr, Word, Ptr, Ptr, Ptr, Ptr] => Void
 machine def zr_fpconv_round(digits, n, delta, rem, kappa, frac)
   while rem < frac && delta - rem >= kappa && (rem + kappa < frac || frac - rem > rem + kappa - frac)
@@ -84,9 +85,9 @@ machine def zr_fpconv_round(digits, n, delta, rem, kappa, frac)
   end
 end
 
-# grisu2 and generate_digits for the finite, nonzero double of `bits`:
-# the digits into `digits`, their count answered, the decimal exponent
-# stored at `k`.
+# grisu2 and generate_digits for the finite, nonzero double of `bits`.
+# Writes the digits into `digits`, stores the decimal exponent at `k`,
+# and returns the digit count.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_fpconv_grisu2(bits, digits, k)
   frac = bits & FPCONV_FRACMASK
@@ -181,8 +182,8 @@ machine def zr_fpconv_grisu2(bits, digits, k)
   0
 end
 
-# emit_digits: plain up to fifteen places, a leading "0." down to six
-# below, and scientific past either.
+# emit_digits: plain notation up to fifteen places, a leading "0." down
+# to six places below, and scientific notation past these limits.
 sig [Ptr, Ptr, Word, Word, Bool] => Void
 machine def zr_fpconv_emit(b, digits, n, k, neg)
   e = k + n - 1
@@ -238,7 +239,7 @@ machine def zr_fpconv_emit(b, digits, n, k, neg)
   zr_buf_long(b, exp)
 end
 
-# fpconv_dtoa for the Float `v`.
+# Runs fpconv_dtoa for the Float `v`.
 sig [Value] => Value
 machine def zr_fpconv_dtoa(v)
   bits = Machine.ptr(Machine.bits(zr_float_value(v)))

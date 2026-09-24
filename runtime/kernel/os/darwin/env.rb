@@ -1,22 +1,22 @@
-# darwin's half of the process's surroundings: the platform's name,
-# where the environment is, where random bits come from, and the layouts
-# of struct passwd and struct utsname.
+# The darwin part of the process environment: the platform name, the
+# location of the environment, the source of random bits, and the
+# layouts of struct passwd and struct utsname.
 Machine.import "_NSGetEnviron", [] => Ptr
 Machine.import "arc4random", [] => I32
 
-# The program's NULL-ended arguments, which main was given.
+# The program's NULL-terminated arguments, which main received.
 sig [I32, Ptr] => Ptr
 machine def zr_os_argv(argc, argv)
   argv
 end
 
-# RUBY_PLATFORM, as ruby 4.0.6 built for this OS and machine names it.
+# RUBY_PLATFORM, as ruby 4.0.6 built for this OS and machine gives it.
 sig [] => Value
 machine def zr_os_ruby_platform
   zr_str_new(Machine.bytes("arm64-darwin23"), 14)
 end
 
-# The environment's NULL-ended table of `NAME=value` strings.
+# The environment's NULL-terminated table of `NAME=value` strings.
 sig [] => Ptr
 machine def zr_os_environ
   Machine.ptr(Machine.load64(_NSGetEnviron(), 0))
@@ -28,11 +28,11 @@ machine def zr_os_random
   Machine.word(arc4random()) & 4294967295
 end
 
-# The ten fields of darwin's passwd an Etc::Passwd carries, in the order
-# etc.c's setup_passwd gives them: name at 0, password at 8, uid at 16,
-# gid at 20, gecos at 40, dir at 48, shell at 56, then the password's
-# change time at 24, the login class at 32 and the account's expiry at
-# 64. The two times are time_t, which INT2NUM takes as an int.
+# The ten fields of darwin's passwd that an Etc::Passwd contains, in the
+# order of etc.c's setup_passwd: name at 0, password at 8, uid at 16,
+# gid at 20, gecos at 40, dir at 48, shell at 56, then the password
+# change time at 24, the login class at 32 and the account expiry at 64.
+# The two times are time_t, which INT2NUM converts as an int.
 sig [Ptr] => Value
 machine def zr_os_passwd_row(pw)
   if pw == 0
@@ -61,13 +61,13 @@ end
 # `_SC_NPROCESSORS_ONLN`.
 SC_NPROCESSORS_ONLN = 58
 
-# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`, which say what the machine has.
+# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`, which give the machine's memory.
 SC_PAGESIZE = 29
 SC_PHYS_PAGES = 200
 
-# What this machine has, for the bound the heap's growth keeps under
-# (`zr_machine_bytes`, runtime/kernel/heap.rb), or 0 where the host will not
-# say -- sysconf answers -1 for a name it does not know.
+# The machine's physical memory, for the limit on heap growth
+# (`zr_machine_bytes`, runtime/kernel/heap.rb). Returns 0 if the host does
+# not give it: sysconf returns -1 for a name that it does not know.
 sig [] => Word
 machine def zr_os_machine_bytes
   pages = sysconf(Machine.i32(SC_PHYS_PAGES))
@@ -75,20 +75,20 @@ machine def zr_os_machine_bytes
   pages == 0 - 1 || size == 0 - 1 ? 0 : pages * size
 end
 
-# The clock that never jumps, as clock_gettime(2) numbers it.
+# The monotonic clock, with its clock_gettime(2) number.
 CLOCK_MONOTONIC = 6
 
-# darwin's utsname: five fields of 256 bytes each, sysname, nodename,
+# darwin's utsname: five fields of 256 bytes each: sysname, nodename,
 # release, version and machine.
 UTSNAME_LEN = 1280
 UTSNAME_FIELD = 256
 
-# POSIX_SPAWN_CLOEXEC_DEFAULT: every descriptor the parent holds stays
-# behind, and only the file actions cross into the child. That is what
-# CRuby reaches by opening each descriptor close-on-exec.
+# POSIX_SPAWN_CLOEXEC_DEFAULT: the child gets none of the parent's
+# descriptors, only those from the file actions. CRuby gets the same
+# result when it opens each descriptor close-on-exec.
 SPAWN_CLOEXEC_DEFAULT = 16384
-# posix_spawn_file_actions_t and posix_spawnattr_t, each a pointer here,
-# with room to spare.
+# posix_spawn_file_actions_t and posix_spawnattr_t. Each one is a
+# pointer on darwin, and the slot has more space than necessary.
 SPAWN_ACTIONS_LEN = 16
 SPAWN_ATTR_LEN = 16
 
@@ -105,8 +105,8 @@ Machine.import "setruid", [I32] => I32
 Machine.import "setrgid", [I32] => I32
 Machine.import "issetugid", [] => I32
 
-# One of the calls that set a single id, named by its Symbol: 0, or the
-# errno as a negative.
+# Calls the function that sets a single id, given by its Symbol. Returns
+# 0, or the negative errno.
 sig [Value, Value] => Value
 machine def zr_os_setid(call, id)
   mid = zr_sym2id(call)

@@ -1,14 +1,16 @@
-# Continuations: `callcc` saves the machine stack from where it stands to
-# the top of the fiber's stack, with the machine context and the task,
-# and a call puts them all back at the same addresses, from a side stack
-# of its own, and resumes where the capture switched away. Nothing moves
-# in the heap, so the copy's references stand; the Values the saved
-# frames hold stay alive in an Array the Continuation keeps.
+# Continuations. `callcc` saves the machine stack from its current
+# position to the top of the fiber's stack, with the machine context and
+# the task. A call runs on a separate side stack. It puts all of them
+# back at the same addresses and resumes where the capture switched
+# away. No object moves in the heap, so the references in the copy stay
+# correct. An Array in the Continuation keeps the Values of the saved
+# frames alive.
 
-# `low` and `high` bound the saved stack, whose bytes `bytes` holds;
-# `ctx` is the context the capture switched away from, `task` a copy of
-# the task then, and `kroots` the kernel's root chain then. `resumed` is 1
-# once a call comes back through the capture.
+# `low` and `high` are the limits of the saved stack, and `bytes`
+# contains its bytes. `ctx` is the context that the capture switched
+# away from. `task` is a copy of the task at that time, and `kroots` is
+# the kernel's root list at that time. `resumed` is 1 after a call
+# comes back through the capture.
 Machine.struct :ContState, low: Word, high: Word, bytes: Ptr, ctx: Ptr, task: Ptr, kroots: Ptr, resumed: Word
 CONT_SIDE_BYTES = 1048576
 CONT_CAPTURE = 1
@@ -19,9 +21,9 @@ machine def zr_cont_side_ctx
   Machine.static(:cont_side_ctx, CONTEXT_BYTES)
 end
 
-# The side stack's work: `cont_op` names the state and `cont_mode` the
-# job, copying the stack out of place or back into it, and then the
-# switch back to the capture's context.
+# The work on the side stack. `cont_op` identifies the state, and
+# `cont_mode` identifies the job: copy the stack out, or copy it back.
+# Then it switches back to the capture's context.
 sig [] => Void
 machine def zr_cont_side
   while true
@@ -40,8 +42,8 @@ machine def zr_cont_side
   end
 end
 
-# The top of the current fiber's stack, or 0 where the host keeps it out
-# of reach.
+# The top of the current fiber's stack, or 0 if the host does not give
+# access to it.
 sig [] => Word
 machine def zr_cont_stack_high
   f = zr_fiber_current()
@@ -51,14 +53,14 @@ machine def zr_cont_stack_high
   zr_os_stack_high()
 end
 
-# `v` into `roots`, where the collector can read it for as long as the
-# continuation lives. A Proc or an Env on the machine stack is in no
-# arena, and its bytes come back with the saved stack; but the frame
-# that holds it may return before the continuation is called, and its
-# stack then holds other bytes, which a pointer in `roots` would make
-# the collector read as a cell. So such a cell stands for what it
-# refers to: the Values an Env's slots hold are the record's own, which
-# the frames push as they come.
+# Adds `v` to `roots`, where the collector reads it while the
+# continuation is alive. A Proc or an Env on the machine stack is not in
+# an arena, and the saved stack restores its bytes. But its frame can
+# return before the continuation is called. Then that stack memory
+# contains other bytes, and a pointer in `roots` would make the
+# collector read them as a cell. Thus zr adds only the objects that such
+# a cell refers to. The frame loop adds the Values in an Env's slots,
+# because they belong to the frame record.
 sig [Value, Value] => Void
 machine def zr_cont_root(roots, v)
   if zr_special_p(v) || (RBasic.flags(v) & FL_STACK) == 0
@@ -74,7 +76,7 @@ machine def zr_cont_root(roots, v)
   end
 end
 
-# Every Value the frames and the kernel's roots hold now, into `roots`.
+# Adds each Value in the frames and in the kernel's roots to `roots`.
 sig [Value] => Void
 machine def zr_cont_roots(roots)
   t = zr_task()
@@ -84,10 +86,10 @@ machine def zr_cont_roots(roots)
     zr_cont_root(roots, Frame.cref(rec))
     zr_ary_push(roots, zr_block_proc(Frame.blk(rec)))
     zr_cont_root(roots, Frame.svars(rec))
-    # a block's frame keeps the block its call was given there
+    # A block's frame keeps there the block that its call received.
     zr_ary_push(roots, zr_block_proc(Frame.defined(rec)))
-    # A record's Env image is the stack's, not a cell: its slots are
-    # the record's own, pushed here as they come.
+    # A frame record's Env image is on the stack, not in a cell. Its
+    # slots belong to the frame record, so this loop adds them here.
     i = 0
     while i < Frame.nvalues(rec)
       zr_cont_root(roots, Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
@@ -113,8 +115,8 @@ machine def zr_cont_roots(roots)
   zr_cont_root(roots, Task.refine(t))
 end
 
-# `callcc`'s capture into `cont`: false as it returns the first time,
-# true each time a call comes back through it.
+# Captures the `callcc` state into `cont`. Returns false the first time,
+# and true each time a call comes back through the capture.
 sig [Value] => Value
 machine def zr_cont_capture(cont)
   high = zr_cont_stack_high()
@@ -148,9 +150,9 @@ machine def zr_cont_capture(cont)
   zr_bool(ContState.resumed(s) != 0)
 end
 
-# A call of `cont`: the task, the kernel's roots and the stack as the
-# capture left them, and the capture's context resumed, which never
-# comes back here.
+# Calls `cont`. It restores the task, the kernel's roots and the stack
+# as the capture saved them. Then it resumes the capture's context, so
+# this function does not return.
 sig [Value] => Value
 machine def zr_cont_resume(cont)
   s = Machine.ptr(zr_fix2long(zr_hidden_get(cont, zr_sym(Machine.id(:__state__)))))

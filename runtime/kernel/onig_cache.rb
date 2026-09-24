@@ -1,10 +1,10 @@
-# The match cache (USE_MATCH_CACHE, regexec.c:234-880 and 2118-2310):
-# once a match has backtracked as often as the subject is long, the
-# program's cacheable opcodes are counted and numbered, and every
-# (cache point, position) pair that fails is memoized in a bit array,
-# so a later visit fails at once. This is what keeps CRuby's matching
-# linear on patterns like /(a+)+$/. Derived from Onigmo; the license
-# is in runtime/kernel/regexp.rb.
+# The match cache (USE_MATCH_CACHE, regexec.c:234-880 and 2118-2310).
+# When the backtrack count of a match gets to the subject length, the
+# matcher counts and numbers the program's cacheable opcodes. Then it
+# records each failed (cache point, position) pair in a bit array, so a
+# later visit fails immediately. This keeps CRuby's matching linear on
+# patterns like /(a+)+$/. Derived from Onigmo; the license is in
+# runtime/kernel/regexp.rb.
 Machine.import "memset", [Ptr, I32, Word] => Ptr
 
 ONIG_NUM_CACHE_OPCODES_UNINIT = 1
@@ -21,8 +21,8 @@ STK_ATOMIC_MATCH_CACHE_POINT = 3584
 Machine.struct :OnigCacheOp, addr: Ptr, cache_point: Word, outer_repeat_mem: Word,
   at_outer: Word, in_outer: Word, lookaround_nesting: Word, match_addr: Ptr
 
-# The position after the operands of an opcode that carries no cache
-# point and needs no other care, or 0 for every other opcode.
+# The position after the operands of an opcode that has no cache point
+# and needs no special handling, or 0 for all other opcodes.
 sig [Ptr, Word, Ptr, Ptr] => Ptr
 machine def zr_onig_cache_skip(m, op, p, pend)
   if op == OP_FINISH || op == OP_END || op == OP_ANYCHAR || op == OP_ANYCHAR_ML || op == OP_KEEP || op == OP_FAIL || op == OP_POP
@@ -50,9 +50,10 @@ machine def zr_onig_cache_skip(m, op, p, pend)
   Machine.ptr(0)
 end
 
-# count_num_cache_opcodes_inner: the cell `pp` walks the code, the cell
-# `np` counts; 0, or an error. A count of NUM_CACHE_OPCODES_IMPOSSIBLE
-# says the program cannot be cached.
+# count_num_cache_opcodes_inner: the slot `pp` steps through the code,
+# and the slot `np` contains the count. Returns 0, or an error. A count
+# of NUM_CACHE_OPCODES_IMPOSSIBLE shows that the program cannot be
+# cached.
 sig [Ptr, Word, Word, Ptr, Ptr] => Word
 machine def zr_onig_count_cache_opcodes(m, current_repeat_mem, lookaround_nesting, pp, np)
   p = Machine.ptr(Machine.load64(pp, 0))
@@ -131,7 +132,7 @@ machine def zr_onig_count_cache_opcodes(m, current_repeat_mem, lookaround_nestin
       break
     elsif op == OP_PUSH_POS || op == OP_PUSH_POS_NOT || op == OP_PUSH_LOOK_BEHIND_NOT
       if lookaround_nesting < 0
-        # A look-around nested in a atomic grouping is found.
+        # A look-around nested in an atomic grouping is found.
         Machine.store64(np, 0, ONIG_NUM_CACHE_OPCODES_IMPOSSIBLE)
         return 0
       end
@@ -178,7 +179,7 @@ machine def zr_onig_count_cache_opcodes(m, current_repeat_mem, lookaround_nestin
   0
 end
 
-# count_num_cache_opcodes: the program's count into `np`.
+# count_num_cache_opcodes: stores the program's count in `np`.
 sig [Ptr, Ptr] => Word
 machine def zr_onig_count_num_cache_opcodes(m, np)
   pp = Machine.slot(8)
@@ -192,8 +193,8 @@ machine def zr_onig_count_num_cache_opcodes(m, np)
   result
 end
 
-# INC_CACHE_OPCODES: one cache opcode row at the cell `cop` (0 for a
-# dry run), for the opcode at pbegin; the next cache point.
+# INC_CACHE_OPCODES: writes one cache opcode entry at the slot `cop` (0
+# for a dry run) for the opcode at pbegin. Returns the next cache point.
 sig [Ptr, Ptr, Word, Word, Word] => Word
 machine def zr_onig_cache_row(cop, pbegin, cache_point, current_repeat_mem, lookaround_nesting)
   return cache_point if cop == 0
@@ -210,8 +211,9 @@ machine def zr_onig_cache_row(cop, pbegin, cache_point, current_repeat_mem, look
   cache_point + (lookaround_nesting != 0 ? 2 : 1)
 end
 
-# The rows from `first` up to the cell `cop`'s row get `match_addr`
-# where they have none yet (a look-around's or atomic group's end).
+# Sets `match_addr` in the entries from `first` up to the entry at the
+# slot `cop`, if they have none yet (the end of a look-around or atomic
+# group).
 sig [Ptr, Ptr, Ptr] => Void
 machine def zr_onig_cache_rows_match_addr(first, cop, match_addr)
   row = first
@@ -224,9 +226,9 @@ machine def zr_onig_cache_rows_match_addr(first, cop, match_addr)
   end
 end
 
-# init_cache_opcodes_inner: the rows written from the cell `cop` (a
-# pointer to the next row, or a cell holding 0 for a dry run), the cell
-# `pp` walking the code and the cell `npoints` counting cache points.
+# init_cache_opcodes_inner: writes the entries from the slot `cop` (a
+# pointer to the next entry, or 0 for a dry run). The slot `pp` steps
+# through the code, and the slot `npoints` counts the cache points.
 sig [Ptr, Word, Word, Ptr, Ptr, Ptr] => Word
 machine def zr_onig_init_cache_opcodes(m, current_repeat_mem, lookaround_nesting, cop, pp, npoints)
   p = Machine.ptr(Machine.load64(pp, 0))
@@ -329,8 +331,8 @@ machine def zr_onig_init_cache_opcodes(m, current_repeat_mem, lookaround_nesting
   0
 end
 
-# init_cache_opcodes: the rows at `rows`, and the number of cache
-# points into the cell `npoints`.
+# init_cache_opcodes: writes the entries at `rows`, and stores the
+# number of cache points in the slot `npoints`.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_init_cache_rows(m, rows, npoints)
   pp = Machine.slot(8)
@@ -346,7 +348,7 @@ machine def zr_onig_init_cache_rows(m, rows, npoints)
   result
 end
 
-# bsearch_cache_opcodes: the row index nearest to the opcode at p.
+# bsearch_cache_opcodes: the entry index nearest to the opcode at p.
 sig [Ptr, Word, Ptr] => Word
 machine def zr_onig_bsearch_cache_opcodes(rows, n, p)
   l = 0
@@ -366,7 +368,7 @@ machine def zr_onig_bsearch_cache_opcodes(rows, n, p)
 end
 
 # find_cache_point: the cache point of the opcode at p in the current
-# repeat count, or -1 for none; its row into the cell `cop`.
+# repeat count, or -1 for none. Stores its entry in the slot `cop`.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_find_cache_point(m, p, cop)
   rows = OnigMatch.cache_opcodes(m)
@@ -417,7 +419,8 @@ machine def zr_onig_memoize_extended_cache_point(buf, index, mask)
   end
 end
 
-# MEMOIZE_MATCH_CACHE_POINT: what a popped entry memoizes.
+# MEMOIZE_MATCH_CACHE_POINT: records the cache point of a popped stack
+# entry.
 sig [Ptr, Ptr] => Void
 machine def zr_onig_memoize_cache_point(m, stk)
   type = OnigStk.type(stk)
@@ -430,8 +433,8 @@ machine def zr_onig_memoize_cache_point(m, stk)
   end
 end
 
-# MEMOIZE_LOOKAROUND_MATCH_CACHE_POINT: a cache point a look-around
-# leaves behind is voided and memoized in the extended form.
+# MEMOIZE_LOOKAROUND_MATCH_CACHE_POINT: voids a cache point that a
+# look-around leaves, and records it in the extended form.
 sig [Ptr, Ptr] => Void
 machine def zr_onig_memoize_lookaround_cache_point(m, stk)
   if OnigStk.type(stk) == STK_MATCH_CACHE_POINT
@@ -440,7 +443,7 @@ machine def zr_onig_memoize_lookaround_cache_point(m, stk)
   end
 end
 
-# STACK_STOP_BT_FAIL: pop down to the atomic group's mark, memoizing
+# STACK_STOP_BT_FAIL: pops down to the atomic group's mark, and records
 # the cache points above it in the extended form.
 sig [Ptr] => Void
 machine def zr_onig_stack_stop_bt_fail(m)
@@ -471,10 +474,10 @@ machine def zr_onig_push_cache_point(m, index, mask)
   OnigMatch.set_stk(m, stk + OnigStk.size)
 end
 
-# CHECK_MATCH_CACHE at the opcode `pbegin` with the match at
-# OnigMatch.s: 0 to go on (a cache point pushed when there is one), 1
-# to fail, 2 to go on at the look-around's match address, which is in
-# OnigMatch.p.
+# CHECK_MATCH_CACHE at the opcode `pbegin`, with the match at
+# OnigMatch.s. Returns 0 to continue (after it pushes a cache point, if
+# there is one), 1 to fail, or 2 to continue at the look-around's match
+# address, which is in OnigMatch.p.
 sig [Ptr, Ptr] => Word
 machine def zr_onig_check_match_cache(m, pbegin)
   return 0 if OnigMatch.match_cache_status(m) != ONIG_MATCH_CACHE_STATUS_ENABLED
@@ -506,10 +509,10 @@ machine def zr_onig_check_match_cache(m, pbegin)
   0
 end
 
-# The fail path's bookkeeping (OP_FAIL, regexec.c:4103-4160): one more
-# failure counted, the cache opcodes counted and numbered and the bit
-# array made once the failures reach the subject's length times the
-# count. 0, or an error.
+# The fail path accounting (OP_FAIL, regexec.c:4103-4160). It adds
+# one to the failure count. When the failures get to the subject length
+# times the count, it counts and numbers the cache opcodes and makes the
+# bit array. Returns 0, or an error.
 sig [Ptr] => Word
 machine def zr_onig_fail_match_cache(m)
   status = OnigMatch.match_cache_status(m)

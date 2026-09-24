@@ -1,14 +1,15 @@
-# WASI's half of the socket calls, which preview 1 does not have: the
-# numbers stay wasi-libc's, and the calls that would read a resolver's
-# answer or a peer find none.
+# The WASI part of the socket calls. WASI preview 1 has no sockets. The
+# constants are wasi-libc's values. The calls that read a resolver
+# result or a peer address find nothing.
 EPROTOTYPE = 67
 EAI_SYSTEM = 0 - 11
-# wasi-libc's struct msghdr, which no call here fills.
+# wasi-libc's struct msghdr. No call in this file fills it.
 MSGHDR_LEN = 28
 MSGHDR_FLAGS = 24
 
-# A sockaddr as wasi-libc lays it out, with no length byte: the size of
-# its family's structure, AF_INET 1, AF_INET6 2 and AF_UNIX 3.
+# A sockaddr in the wasi-libc layout, which has no length byte. These are
+# the structure size for each family, and the family numbers: AF_INET 1,
+# AF_INET6 2 and AF_UNIX 3.
 sig [Ptr] => Word
 machine def zr_os_sockaddr_len(addr)
   family = Machine.word(Machine.load8(addr, 0)) | (Machine.word(Machine.load8(addr, 1)) << 8)

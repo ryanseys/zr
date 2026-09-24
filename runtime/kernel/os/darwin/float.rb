@@ -1,8 +1,8 @@
-# darwin's libm answers cos and sin of a multiple of pi exactly.
+# darwin's libm returns exact cos and sin values for a multiple of pi.
 Machine.import "__cospi", [F64] => F64
 Machine.import "__sinpi", [F64] => F64
 
-# cos(pi * x) and sin(pi * x).
+# Returns cos(pi * x) and sin(pi * x).
 sig [F64] => F64
 machine def zr_os_cospi(x)
   __cospi(x)

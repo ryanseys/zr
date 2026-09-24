@@ -1,5 +1,5 @@
-# The operating system a gzip header names: zutil.h's OS_CODE, which is
-# 19 for a build on macOS, as ruby's zlib is here.
+# The operating system byte in a gzip header: zutil.h's OS_CODE. It is 19
+# for a build on macOS, the same as ruby's zlib on this system.
 sig [] => Word
 machine def zr_zlib_os_code
   19

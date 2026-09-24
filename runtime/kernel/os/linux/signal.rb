@@ -1,14 +1,14 @@
-# Linux's signals: how many there are, and the layout sigaction takes.
+# Linux signals: the number of signals, and the layout of sigaction.
 Machine.import "sigaction", [I32, Ptr, Ptr] => I32
 
 # musl numbers its signals 1 to 64, the real-time ones included.
 NSIG = 65
 
-# sigaction(2) for `signo` with the handler `fn` (0 the default, 1
-# ignore), an empty mask and no flags: 0 with the handler it had before
-# stored at `old`, or -1 with errno set. musl's struct sigaction is the
-# handler, a 128-byte mask, the flags as an int and the restorer: 152
-# bytes.
+# Calls sigaction(2) for `signo` with the handler `fn` (0 is the default,
+# 1 is ignore), an empty mask and no flags. Returns 0 and stores the
+# previous handler at `old`, or returns -1 and sets errno. musl's struct
+# sigaction is 152 bytes: the handler, a 128-byte mask, the flags as an
+# int, and the restorer.
 SIGACTION_LEN = 152
 
 sig [I32, Word, Ptr] => I32

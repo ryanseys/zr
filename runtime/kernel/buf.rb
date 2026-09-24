@@ -1,7 +1,7 @@
-# A growable byte buffer for building strings and messages. It starts
-# in the 64 bytes of its own tail, on the stack with the rest of it,
-# and moves to malloc'd memory only when it grows past them: a message
-# that raises and is never taken leaves nothing to free.
+# A growable byte buffer to build strings and messages. It starts in the
+# 64 bytes of its own tail, on the stack with the rest of the buffer. It
+# moves to malloc'd memory only when it grows past those bytes. Thus a
+# message that raises before a String takes it leaves nothing to free.
 Machine.struct :BufTail, w0: Word, w1: Word, w2: Word, w3: Word, w4: Word, w5: Word, w6: Word, w7: Word
 Machine.struct :Buf, ptr: Ptr, len: Word, capa: Word, tail: BufTail
 
@@ -12,13 +12,13 @@ machine def zr_buf_init(b)
   Buf.set_capa(b, BufTail.size)
 end
 
-# Whether the bytes still live in the buffer's own tail.
+# Whether the bytes are still in the buffer's own tail.
 sig [Ptr] => Bool
 machine def zr_buf_inline_p(b)
   Buf.ptr(b) == Buf.tail(b)
 end
 
-# The malloc'd bytes given back, when the buffer grew into any.
+# Frees the malloc'd bytes, if the buffer grew into any.
 sig [Ptr] => Void
 machine def zr_buf_free(b)
   if !zr_buf_inline_p(b)
@@ -72,8 +72,8 @@ machine def zr_buf_sym(b, id)
   zr_buf_push(b, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
 end
 
-# A String's bytes. Anything else is a bug in the kernel, and stops by
-# name rather than read a String's fields out of it.
+# Appends a String's bytes. Any other object is a bug in the kernel. It
+# stops with a message, and does not read String fields from the object.
 sig [Ptr, Value] => Void
 machine def zr_buf_str(b, s)
   if zr_special_p(s) || (RBasic.flags(s) & T_MASK) != T_STRING
@@ -82,21 +82,18 @@ machine def zr_buf_str(b, s)
   zr_buf_push(b, RString.ptr(s), RString.len(s))
 end
 
-# The buffer's bytes as a new String, which takes the buffer itself.
-#
-# It used to hand the bytes to `zr_str_new`, which mallocs again and
-# copies them, and then free the buffer -- two allocations and two
-# copies for every `String#+` and every `"#{}"`. The buffer is already
-# the right shape for an RString's payload, so the String takes it and
-# the buffer gives it up. `capa` leaves out the byte the NUL sits in,
-# which is what `zr_str_new` records and what `zr_str_concat` reads.
+# Returns the buffer's bytes as a new String that takes the buffer's
+# memory. The buffer has the correct shape for an RString payload, so
+# no second allocation or copy is necessary for each `String#+` and
+# `"#{}"`. `capa` does not include the byte for the NUL, which agrees
+# with `zr_str_new` and with what `zr_str_concat` reads.
 sig [Ptr] => Value
 machine def zr_buf_take(b)
   n = Buf.len(b)
   s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(n))
   if n <= zr_str_embed_capa(s)
-    # Bytes that fit the cell are copied in, from the tail or from a
-    # buffer that grew past it and is given back.
+    # Copies bytes that fit in the cell, from the tail or from a grown
+    # buffer. Then it frees the grown buffer.
     zr_str_buf_new(s, n)
     zr_memcpy(RString.ptr(s), Buf.ptr(b), n)
     zr_buf_free(b)
@@ -113,10 +110,10 @@ machine def zr_buf_take(b)
   s
 end
 
-# The buffer's bytes as a new String in `index` while they are plain
-# ASCII, as the core library starts one it writes out of a name or an
-# inspect. A byte past ASCII came from a piece in UTF-8, which the
-# String then takes, as rb_str_buf_append has it.
+# Returns the buffer's bytes as a new String in encoding `index` while
+# they are plain ASCII, as the core library does for a String it builds
+# from a name or an inspect. A non-ASCII byte came from a UTF-8 piece,
+# so the String then becomes UTF-8, as with rb_str_buf_append.
 sig [Ptr, Word] => Value
 machine def zr_buf_take_at(b, index)
   ascii = zr_bytes_ascii_only_p(Buf.ptr(b), Buf.len(b))

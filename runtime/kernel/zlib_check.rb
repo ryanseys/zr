@@ -1,15 +1,16 @@
-# zlib's checksums: adler32.c and crc32.c, as zlib 1.3.1 writes them.
-# A sum is a 32-bit value carried in a Word; the C's unsigned long is
-# 64 bits on every host zr builds for, so nothing here overflows where
-# the C did not. Derived from zlib; the license is in runtime/kernel/zlib.rb.
+# zlib's checksums: adler32.c and crc32.c, as in zlib 1.3.1. A sum is a
+# 32-bit value in a Word. The C unsigned long is 64 bits on each host
+# that zr builds for, so no calculation here overflows where the C does
+# not. Derived from zlib; the license is in runtime/kernel/zlib.rb.
 ADLER_BASE = 65521
 ADLER_NMAX = 5552
 CRC_POLY = 3988292384
 ZLIB_MASK32 = 4294967295
 
-# adler32_z: `adler` carried over `len` bytes at `buf`. A null buffer
-# answers the initial value, 1; one byte takes the short road first, as
-# the C keeps it fast for a caller adding a byte at a time.
+# adler32_z: updates `adler` with the `len` bytes at `buf`. A null buffer
+# returns the initial value, 1. A single byte uses a short path first,
+# as in the C, which keeps it fast for a caller that adds one byte at a
+# time.
 sig [Word, Ptr, Word] => Word
 machine def zr_adler32(adler, buf, len)
   sum2 = (adler >> 16) & 65535
@@ -66,9 +67,9 @@ machine def zr_adler32(adler, buf, len)
   adler | (sum2 << 16)
 end
 
-# adler32_combine_: the sum of two buffers from their sums and the
-# second's length. A negative length answers an invalid sum, as the C
-# leaves one for a clue.
+# adler32_combine_: the sum of two buffers, from their sums and the
+# length of the second buffer. A negative length returns an invalid sum,
+# as the C does, to show the error.
 sig [Word, Word, Word] => Word
 machine def zr_adler32_combine(adler1, adler2, len2)
   if len2 < 0
@@ -94,9 +95,9 @@ machine def zr_adler32_combine(adler1, adler2, len2)
   sum1 | (sum2 << 16)
 end
 
-# crc32_z: `crc` carried over `len` bytes at `buf`, a byte at a time
-# through the table. The C's braided and hardware roads write the same
-# bits. A null buffer answers the initial value, 0.
+# crc32_z: updates `crc` with the `len` bytes at `buf`, one byte at a
+# time through the table. The braided and hardware paths of the C give
+# the same bits. A null buffer returns the initial value, 0.
 sig [Word, Ptr, Word] => Word
 machine def zr_crc32(crc, buf, len)
   if buf == 0
@@ -135,8 +136,8 @@ machine def zr_crc_multmodp(a, b)
   p
 end
 
-# x2nmodp: x^(n * 2^k) modulo p(x). A negative `n` never reaches zero,
-# as the C's does not.
+# x2nmodp: x^(n * 2^k) modulo p(x). A negative `n` never gets to zero,
+# the same as in the C.
 sig [Word, Word] => Word
 machine def zr_crc_x2nmodp(n, k)
   table = zr_crc_x2n_table()
@@ -151,8 +152,8 @@ machine def zr_crc_x2nmodp(n, k)
   p
 end
 
-# crc32_combine64: the CRC of two buffers from their CRCs and the
-# second's length.
+# crc32_combine64: the CRC of two buffers, from their CRCs and the
+# length of the second buffer.
 sig [Word, Word, Word] => Word
 machine def zr_crc32_combine(crc1, crc2, len2)
   zr_crc_multmodp(zr_crc_x2nmodp(len2, 3), crc1 & ZLIB_MASK32) ^ (crc2 & ZLIB_MASK32)

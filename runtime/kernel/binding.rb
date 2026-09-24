@@ -1,22 +1,21 @@
-# What a scope shows of itself: the frame that asked, its locals by name,
-# the Env they live in, and the Binding that holds all of it.
+# What a scope shows of itself: the calling frame, its locals by name,
+# the Env that contains them, and the Binding that contains all of it.
 
-# The frame that asked for an eval. The compiler is reached from a
-# method of the runtime's own, whose frame is on top, so the frame
-# outside it is the one that wrote the call.
+# The frame that called eval. A runtime method calls the compiler, and
+# that method's frame is on top. Thus the next frame out is the frame
+# that contains the call.
 sig [] => Ptr
 machine def zr_caller_frame
   Frame.prev(Task.top(zr_task()))
 end
 
-# The frame an eval takes its scope from: the nearest one written in
-# ruby. A call that came through `Method#call`, `Enumerable#each` or
-# any other builtin stands on a frame with no locals, no cref and no
-# block to lend, so the walk goes past it -- which is why
-# `method(:eval).call("x")` reads the caller's `x`. CRuby walks to the
-# same place, with rb_vm_get_ruby_level_next_cfp in
-# eval_string_with_cref, and takes that frame's whole block: its
-# locals, its ep, and the cref under it.
+# The frame that gives an eval its scope: the nearest frame written in
+# Ruby. A call through `Method#call`, `Enumerable#each` or a different
+# builtin has a frame with no locals, no cref and no block. The walk
+# skips such a frame, so `method(:eval).call("x")` reads the caller's
+# `x`. CRuby finds the same frame with rb_vm_get_ruby_level_next_cfp in
+# eval_string_with_cref, and uses all of that frame's block: its locals,
+# its ep, and its cref.
 sig [] => Ptr
 machine def zr_eval_frame
   zr_frame_with_file(zr_caller_frame())
@@ -32,7 +31,7 @@ machine def zr_eval_block
   Frame.blk(zr_eval_frame())
 end
 
-# `(eval at file:line)`: the name ruby gives an eval that names no file.
+# `(eval at file:line)`: the name that ruby gives an eval with no file.
 sig [] => Value
 machine def zr_eval_source_name
   rec = zr_eval_frame()
@@ -48,16 +47,16 @@ machine def zr_eval_source_name
   zr_buf_take(b)
 end
 
-# A cref an eval on a string runs under: the module on top of the
-# scope the call stands in, so a constant the enclosing module holds is
-# still in reach and `Module.nesting` names them both.
+# The cref for an eval of a string: the module on top of the scope of
+# the call. Thus a constant of the enclosing module stays visible, and
+# `Module.nesting` shows both modules.
 sig [Value, Value] => Value
 machine def zr_eval_cref_under(mod, outer)
   zr_cref_push(mod, outer)
 end
 
-# The cref a `load` with a wrap module runs its file under: the module on
-# top of the toplevel's, where a def is private, as at the toplevel.
+# The cref for a `load` with a wrap module: the module on top of the
+# toplevel cref. A def there is private, as at the toplevel.
 sig [Value] => Value
 machine def zr_wrap_cref(mod)
   c = zr_cref_push(mod, zr_global(G_TOP_CREF))
@@ -80,9 +79,9 @@ machine def zr_local_names(table)
   a
 end
 
-# The Env a frame keeps its locals in, as a cell, or nil where it keeps
-# them in the record alone. A scope that names an eval or a binding
-# always has one, which is what `Scope.opens_locals?` is for.
+# The Env of a frame's locals, as a cell, or nil if the frame keeps them
+# only in its frame record. A scope that calls eval or binding always
+# has an Env; `Scope.opens_locals?` makes sure of this.
 sig [Ptr] => Value
 machine def zr_frame_env(rec)
   if FrameMeta.env(Frame.meta(rec)) == 0
@@ -96,10 +95,10 @@ machine def zr_eval_env
   zr_frame_env(zr_eval_frame())
 end
 
-# The parameters of the method the frame that asked for an eval runs
-# inside, as Method#parameters answers them: a method's own body, or a
-# block, an eval, or a block in an eval, written inside one. nil
-# outside a method.
+# The parameters of the method that contains the frame that called eval,
+# as Method#parameters returns them. The frame can be the method body,
+# or a block, an eval, or a block in an eval inside the method. Returns
+# nil outside a method.
 sig [] => Value
 machine def zr_eval_parameters
   zr_meta_parameters(Frame.meta(zr_eval_frame()))
@@ -136,8 +135,8 @@ machine def zr_meta_in_method(meta)
   false
 end
 
-# The names of every scope the asking frame can reach, innermost first:
-# its own, then one array per Env out along the chain.
+# The names of all scopes that the calling frame can reach, innermost
+# first: its own, then one Array for each Env along the parent list.
 sig [] => Value
 machine def zr_eval_scopes
   out = zr_ary_new(0)
@@ -149,10 +148,10 @@ machine def zr_eval_scopes
   out
 end
 
-# `Kernel#binding`: the scope the caller stands in, kept as a Proc of the
-# Binding class. Its env, self and cref are that scope's, so a read and a
-# write there are the scope's own. A Binding has no home and no call site,
-# so `serial` is the line the capture stands on and `site` marks the one
+# `Kernel#binding`: the caller's scope, kept as a Proc of the Binding
+# class. Its env, self and cref are those of the scope, so reads and
+# writes go to the scope. A Binding has no home and no call site. Thus
+# `serial` is the line of the capture, and `site` marks the single
 # TOPLEVEL_BINDING, which ruby reports as `<main>` line 0.
 sig [] => Value
 machine def zr_binding
@@ -164,8 +163,9 @@ machine def zr_binding
   b
 end
 
-# `Proc#binding`: the scope the block was written in, which the Proc
-# already carries. The line is the block's, since a Proc holds none.
+# `Proc#binding`: the scope where the block was written, which the Proc
+# already contains. The line is the block's line, because a Proc has no
+# line.
 sig [Value] => Value
 machine def zr_proc_binding(p)
   if RProc.meta(p) == 0
@@ -177,9 +177,9 @@ machine def zr_proc_binding(p)
   zr_proc_scope(p)
 end
 
-# The scope a Proc written in Ruby carries, an isolated one's too: what
-# Ractor.shareable_proc reads a block's outer locals from, as CRuby reads
-# its env.
+# The scope of a Proc written in Ruby, also for an isolated Proc.
+# Ractor.shareable_proc reads a block's outer locals from it, as CRuby
+# reads its env.
 sig [Value] => Value
 machine def zr_proc_scope(p)
   b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
@@ -208,9 +208,9 @@ machine def zr_binding_of(meta, env, self_, cref)
   b
 end
 
-# The lexical scope a Binding names, which `binding.eval` runs its
-# string under. The walking eval road reads it; the compiling one
-# hands the Binding to `zr_binding_run` and never sees it.
+# The lexical scope of a Binding, where `binding.eval` runs its string.
+# The tree-walking interpreter reads it. The eval compiler gives the
+# Binding to `zr_binding_run` and does not read it.
 sig [Value] => Value
 machine def zr_binding_cref(b)
   RProc.cref(b)
@@ -263,9 +263,9 @@ machine def zr_binding_set(b, depth, index, v)
   v
 end
 
-# A loaded eval toplevel run in a Binding: its self, its cref and the
-# locals it holds. The Binding keeps the Env the string ran in, so a name
-# the string wrote is one of the Binding's own from here on.
+# Runs a loaded eval toplevel in a Binding, with its self, its cref and
+# its locals. The Binding keeps the Env where the string ran, so a name
+# that the string wrote becomes a local of the Binding.
 sig [Value, Value] => Value
 machine def zr_binding_run(code, b)
   e = zr_code_env(code, RProc.env(b))
@@ -273,8 +273,8 @@ machine def zr_binding_run(code, b)
   zr_eval_at(code, RProc.self(b), RProc.cref(b), e, RProc.blk(b))
 end
 
-# One more name the Binding holds, in a scope of its own inside the
-# scope it named. The table is the Binding's, so it is never freed.
+# Adds a name to the Binding, in a new scope inside the Binding's scope.
+# The Binding keeps the table, so zr never frees it.
 sig [Value, Value] => Value
 machine def zr_binding_add(b, name)
   table = zr_xmalloc(16)
@@ -284,7 +284,7 @@ machine def zr_binding_add(b, name)
   Machine.value(QNIL)
 end
 
-# `TOPLEVEL_BINDING`: main's own scope, named as the program starts.
+# `TOPLEVEL_BINDING`: main's scope, set when the program starts.
 sig [Value, Value, Value, Ptr] => Value
 machine def zr_toplevel_binding(env, self_, cref, meta)
   b = zr_binding_of(meta, env, self_, cref)

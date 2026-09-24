@@ -1,6 +1,6 @@
 # inftrees.c: the decoding tables of a canonical Huffman code. A table
 # entry is one 32-bit word, `op | bits << 8 | val << 16`, which is the
-# C's code struct packed; an array of them is what inflate reads.
+# C code struct, packed. Inflate reads an array of these words.
 # Derived from zlib; the license is in runtime/kernel/zlib.rb.
 INF_CODES = 0
 INF_LENS = 1
@@ -30,11 +30,12 @@ machine def zr_inf_code_val(c)
   (c >> 16) & 65535
 end
 
-# inflate_table: the tables for the code whose lengths are the `codes`
-# words at `lens`, written from the table pointer the cell `table`
-# holds, which moves past what was used; the cell `bits` holds the root
-# table's index bits going in and coming out. `work` is room for
-# `codes` words. Answers 0, -1 for a bad code, 1 when ENOUGH is not.
+# inflate_table: builds the tables for the code whose lengths are the
+# `codes` words at `lens`. It writes at the table pointer in the slot
+# `table`, and moves that pointer past the entries it uses. The slot
+# `bits` contains the index bits of the root table, on entry and on
+# return. `work` has space for `codes` words. Returns 0, -1 for a bad
+# code, or 1 when ENOUGH is not sufficient.
 sig [Word, Ptr, Word, Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_table(type, lens, codes, table, bits, work)
   count = Machine.slot(64)

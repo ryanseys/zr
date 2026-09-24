@@ -1,6 +1,6 @@
-# The system logger, for syslog_ext (runtime/ext/syslog_ext.rb). openlog keeps
-# the ident it is given rather than a copy, so the connection keeps one
-# of its own until closelog.
+# The system logger, for syslog_ext (runtime/ext/syslog_ext.rb). openlog
+# keeps a pointer to its ident, not a copy. Thus the connection keeps
+# its own copy of the ident until closelog.
 Machine.import "openlog", [Ptr, I32, I32] => Void
 Machine.import "syslog", [I32, Ptr] => Void
 Machine.import "closelog", [] => Void
@@ -30,8 +30,8 @@ machine def zr_syslog_close
   Machine.value(QNIL)
 end
 
-# One message at `priority`, its `%` already doubled: syslog takes the
-# text as its format.
+# Logs one message at `priority`. The caller doubles each `%` first,
+# because syslog uses the text as its format.
 sig [Value, Value] => Value
 machine def zr_syslog_write(priority, format)
   syslog(Machine.i32(zr_fix2long(priority)), RString.ptr(format))

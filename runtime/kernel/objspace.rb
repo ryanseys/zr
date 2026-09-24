@@ -1,12 +1,13 @@
-# ObjectSpace's view of the heap: the objects a walk yields, the census
-# by type, the object an id names, and what one object refers to. A walk
-# copies what it finds into an Array before any Ruby runs, as gc.c's
-# os_obj_of does, so a block that allocates never meets a cell it made.
+# ObjectSpace's view of the heap: the objects that a walk yields, the
+# count by type, the object for an id, and the objects that one object
+# refers to. A walk copies the objects it finds into an Array before any
+# Ruby code runs, as gc.c's os_obj_of does. Thus a block that allocates
+# never sees a cell that it made.
 
-# Whether cell `v` is an object a program can hold, as internal_object_p
-# decides: not one of the runtime's own records, not a hidden object, and
-# not the singleton class of a class while that singleton class has no
-# singleton class of its own.
+# Whether cell `v` is an object that a program can get, as
+# internal_object_p decides. It is not a runtime record, not a hidden
+# object, and not the singleton class of a class while that singleton
+# class has no singleton class of its own.
 sig [Value] => Bool
 machine def zr_objspace_visible_p(v)
   t = RBasic.flags(v) & T_MASK
@@ -26,7 +27,7 @@ machine def zr_objspace_visible_p(v)
   true
 end
 
-# Every live object a program can hold, of `mod` when it is not nil.
+# All live objects that a program can get, only of `mod` if it is not nil.
 sig [Value] => Value
 machine def zr_objspace_objects(mod)
   out = zr_ary_new(1024)
@@ -50,7 +51,7 @@ machine def zr_objspace_objects(mod)
   out
 end
 
-# The heap by type: the cells in all, the free ones, then the live cells
+# The heap by type: the total cells, the free cells, then the live cells
 # of each of the 32 type tags.
 sig [] => Value
 machine def zr_objspace_census
@@ -83,8 +84,8 @@ machine def zr_objspace_census
   out
 end
 
-# The live object whose object_id is `id`, or nil: only an object that
-# was asked for its id has one.
+# The live object whose object_id is `id`, or nil. An object has an id
+# only after a call to its object_id.
 sig [Value] => Value
 machine def zr_objspace_id2ref(id)
   a = 0
@@ -108,10 +109,11 @@ machine def zr_objspace_id2ref(id)
   Machine.value(QNIL)
 end
 
-# What `v` refers to, as the collector reads it: its class, then its
-# children in the order they are marked, each once. Marking them queues
-# them on the mark stack, where they are read back and unmarked; no cell
-# is marked outside a collection, so every child is new to the stack.
+# The objects that `v` refers to, as the collector reads them: its class,
+# then its children in mark order, each one time. The mark puts them on
+# the mark stack, where this code reads them and clears their marks. No
+# cell is marked outside a collection, so each child is new to the
+# stack.
 sig [Value] => Value
 machine def zr_objspace_reachable(v)
   out = zr_ary_new(8)
@@ -140,12 +142,13 @@ machine def zr_objspace_reachable(v)
   out
 end
 
-# What the collector's roots reach first, by the kind of root, as
-# ObjectSpace.reachable_objects_from_root groups them: the runtime's own
-# (its classes and the main object), the global variables, what the
-# running fibers and the kernel's frames hold, and the finalizers. Every
-# cell the answer needs is made before the first mark, since a
-# collection must not start while the marks are this walk's.
+# The objects that the collector's roots reach first, by the kind of
+# root, as ObjectSpace.reachable_objects_from_root groups them: the
+# runtime's roots (its classes and the main object), the global
+# variables, the objects in the running fibers and the kernel's frames,
+# and the finalizers. This makes each cell of the result before the
+# first mark, because a collection must not start while this walk owns
+# the marks.
 sig [] => Value
 machine def zr_objspace_roots
   out = zr_hash_new()
@@ -179,9 +182,9 @@ machine def zr_objspace_roots
   out
 end
 
-# The cells marked since `from`, unmarked again and the ones a program
-# may see put in `into`; the answer `out` and its rows are not among
-# them.
+# Clears the marks of the cells marked since `from`, and adds the cells
+# that a program can see to `into`. The result `out` and its keys and
+# values are not added.
 sig [Ptr, Word, Value, Value] => Void
 machine def zr_objspace_take(s, from, into, out)
   i = from
@@ -196,7 +199,7 @@ machine def zr_objspace_take(s, from, into, out)
   MarkStack.set_len(s, from)
 end
 
-# Whether `v` is one of the answer's own keys or rows.
+# Whether `v` is one of the keys or values of the result `out`.
 sig [Value, Value] => Bool
 machine def zr_objspace_row_p(out, v)
   i = 0
@@ -210,9 +213,10 @@ machine def zr_objspace_row_p(out, v)
   false
 end
 
-# The superclass pointer of `klass` as the collector follows it: the
-# hidden class a module included there makes is answered as its address,
-# which ObjectSpace wraps, since no program may hold one.
+# The superclass pointer of `klass`, as the collector follows it. If it
+# is the hidden class that an included module makes, this returns its
+# address, which ObjectSpace wraps, because no program can get the
+# hidden class.
 sig [Value] => Value
 machine def zr_objspace_super(klass)
   s = RClass.superclass(klass)
@@ -225,8 +229,8 @@ machine def zr_objspace_super(klass)
   s
 end
 
-# The bytes `v` holds: its cell, and the buffer a String, an Array or a
-# Hash keeps outside it. An immediate holds none.
+# The bytes that `v` uses: its cell, and the buffer that a String, an
+# Array or a Hash keeps outside the cell. An immediate uses none.
 sig [Value] => Value
 machine def zr_objspace_memsize(v)
   if zr_special_p(v)
@@ -244,14 +248,14 @@ machine def zr_objspace_memsize(v)
   zr_fix(n)
 end
 
-# ObjectSpace.trace_object_allocations: where each cell allocated while
-# tracing is on was made. The rows live outside the heap, keyed by the
-# cell's address, so recording one allocates no cell; a cell's row goes
-# when the cell is freed.
+# ObjectSpace.trace_object_allocations: the source location of each cell
+# allocated while tracing is on. The records are outside the heap, with
+# the cell's address as the key, so a record allocates no cell. The
+# record of a cell goes away when the cell is freed.
 Machine.struct :AllocTrace, rows: Ptr, capa: Word, used: Word, on: Word
-# `meta` is the C method the cell was made in, or 0 when Ruby made it.
+# `meta` is the C method that made the cell, or 0 if Ruby code made it.
 Machine.struct :AllocRow, cell: Word, file: Ptr, file_len: Word, line: Word, meta: Ptr, generation: Word
-# A row whose cell was freed, which a probe passes over.
+# Marks a record whose cell was freed. A probe skips it.
 ALLOC_GONE = 1
 
 sig [] => Ptr
@@ -259,8 +263,9 @@ machine def zr_alloc_trace
   Machine.static(:alloc_trace, AllocTrace.size)
 end
 
-# The row for `cell`, or the free row a new one goes in. Half the table
-# at most holds rows, freed ones counted, so a probe meets an empty row.
+# The record for `cell`, or the free record for a new one. At most half
+# of the table contains records, freed ones included, so a probe always
+# finds an empty record.
 sig [Ptr, Word] => Ptr
 machine def zr_alloc_trace_probe(t, cell)
   mask = AllocTrace.capa(t) - 1
@@ -280,8 +285,8 @@ machine def zr_alloc_trace_probe(t, cell)
   row
 end
 
-# Room for one more row: the table doubles, leaving its freed rows out,
-# once half of it is taken.
+# Makes space for one more record. When half of the table is used, the
+# table doubles, and it does not copy the freed records.
 sig [Ptr] => Void
 machine def zr_alloc_trace_room(t)
   if (AllocTrace.used(t) + 1) * 2 <= AllocTrace.capa(t)
@@ -308,8 +313,8 @@ machine def zr_alloc_trace_room(t)
   end
 end
 
-# `cell` was just made: the file and line of the Ruby frame on top, and
-# the C method it was made in when the top frame is one.
+# Records a new `cell`: the file and line of the top Ruby frame, and the
+# C method that made it, if the top frame is a C method.
 sig [Ptr] => Void
 machine def zr_alloc_trace_record(cell)
   top = Task.top(zr_task())
@@ -332,7 +337,7 @@ machine def zr_alloc_trace_record(cell)
   AllocRow.set_generation(row, Heap.collections(zr_heap()))
 end
 
-# A freed cell loses its row.
+# Removes the record of a freed cell.
 sig [Ptr] => Void
 machine def zr_alloc_trace_forget(cell)
   t = zr_alloc_trace()
@@ -371,8 +376,8 @@ machine def zr_alloc_trace_clear
   Machine.value(QNIL)
 end
 
-# `[file, line, class path, method id, generation]` for a traced object,
-# or nil.
+# Returns `[file, line, class path, method id, generation]` for a traced
+# object, or nil.
 sig [Value] => Value
 machine def zr_alloc_trace_info(v)
   row = zr_alloc_trace_row(v)

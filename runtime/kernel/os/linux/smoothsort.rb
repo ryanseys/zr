@@ -1,10 +1,11 @@
 # musl's qsort_r: Lynn Ochs's smoothsort (MIT, 2011), as musl 1.2.6
-# builds it for aarch64. Where musl is the C library, ruby's `Array#sort`
-# is this routine, so a tie's order is its order: every comparison and
-# every move is musl's, in musl's order, over the rows of a Sort (see
-# runtime/kernel/sort.rb) by index rather than by address.
+# builds it for aarch64. When musl is the C library, ruby's `Array#sort`
+# uses this routine, so it sets the order of equal elements. Each
+# comparison and each move is the same as musl's, in the same order.
+# It works on the elements of a Sort (see runtime/kernel/sort.rb) by
+# index, not by address.
 #
-# The two-word bit vector `p` lives in a 16-byte slot. musl reads its
+# The two-word bit vector `p` is in a 16-byte slot. musl reads its
 # trailing zeros with rbit and clz, so a zero word has 64 of them.
 
 sig [Word] => Word
@@ -57,9 +58,9 @@ machine def zr_smooth_shr(p, n)
   end
 end
 
-# The rows at the `n` indices in `ar` rotated one place: each takes the
-# next one's bytes, and the last takes the first's. A Sort's rows are at
-# most 16 bytes.
+# Rotates the elements at the `n` indices in `ar` by one position. Each
+# element gets the bytes of the next one, and the last gets the bytes of
+# the first. A Sort's elements are 16 bytes or less.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_smooth_cycle(st, ar, n)
   if n < 2
@@ -76,7 +77,7 @@ machine def zr_smooth_cycle(st, ar, n)
   zr_memcpy(Sort.base(st) + (Machine.load64(ar + ((n - 1) * 8), 0) * stride), tmp, stride)
 end
 
-# A Leonardo number from `lp`, the table of them in rows.
+# Reads a Leonardo number from `lp`, the table of Leonardo numbers.
 sig [Ptr, Word] => Word
 machine def zr_smooth_lp(lp, i)
   Machine.load64(lp + (i * 8), 0)
@@ -139,7 +140,7 @@ machine def zr_smooth_trinkle(st, head, pp, pshift, trusty, lp)
   end
 end
 
-# The `n` rows of `st` sorted.
+# Sorts the `n` elements of `st`.
 sig [Ptr, Word] => Void
 machine def zr_smoothsort(st, n)
   if n == 0

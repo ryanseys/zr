@@ -1,8 +1,8 @@
-# zlib, as the kernel's own port of it (runtime/kernel/zlib_*.rb). A stream
-# is a malloc'd ZStream the extension holds by its address, a Fixnum;
-# each call here sets the fields one zlib call reads, makes it, and
-# answers what it returned. The extension (runtime/ext/zlib.rb) keeps the
-# buffers, as zlib.c keeps them, and says how much room the output has.
+# zlib, through the kernel's own port (runtime/kernel/zlib_*.rb). A stream
+# is a malloc'd ZStream. The extension keeps its address as a Fixnum.
+# Each call here sets the fields that one zlib call reads, makes that
+# call, and returns its result. The extension (runtime/ext/zlib.rb)
+# keeps the buffers, as zlib.c does, and gives the output space.
 #
 # The port is derived from zlib 1.3.1, (C) 1995-2024 Jean-loup Gailly
 # and Mark Adler, under the zlib license:
@@ -24,9 +24,9 @@
 #   3. This notice may not be removed or altered from any source distribution.
 #
 # The Ruby here is an altered version: the same algorithms, written in
-# the kernel dialect. See THIRD_PARTY_NOTICES.md.
+# the machine dialect. See THIRD_PARTY_NOTICES.md.
 
-# What zr_zlib_call runs.
+# The operations that zr_zlib_call runs.
 ZLIB_DEFLATE = 0
 ZLIB_INFLATE = 1
 ZLIB_DEFLATE_END = 2
@@ -52,7 +52,7 @@ machine def zr_zlib_new
   zr_fix(Machine.word(z))
 end
 
-# The stream's state ended, whatever it held, and its block freed.
+# Ends the stream's state, whatever it contains, and frees its block.
 sig [Value, Value] => Value
 machine def zr_zlib_release(addr, kind)
   z = zr_zlib_stream(addr)
@@ -75,8 +75,8 @@ machine def zr_zlib_init(addr, kind, level, wbits, memlevel, strategy)
   zr_fix(zr_inflate_init2(z, zr_fix2long(wbits)))
 end
 
-# The input the next calls read: `str`'s bytes from `offset`, or none.
-# The String must stay as it is until they are done.
+# Sets the input for the next calls: the bytes of `str` from `offset`,
+# or none. The String must not change until those calls are done.
 sig [Value, Value, Value] => Value
 machine def zr_zlib_input(addr, str, offset)
   z = zr_zlib_stream(addr)
@@ -91,8 +91,8 @@ machine def zr_zlib_input(addr, str, offset)
   Machine.value(QNIL)
 end
 
-# The output a call writes: `room` bytes past the end of `buf`, which
-# grows to hold them. A nil `buf` takes no output.
+# Sets the output of a call: `room` bytes past the end of `buf`, which
+# grows to contain them. A nil `buf` gets no output.
 sig [Ptr, Value, Word] => Void
 machine def zr_zlib_output(z, buf, room)
   if buf == QNIL
@@ -106,7 +106,7 @@ machine def zr_zlib_output(z, buf, room)
   ZStream.set_avail_out(z, room)
 end
 
-# What the call wrote, counted into `buf`'s length.
+# Adds the bytes that the call wrote to the length of `buf`.
 sig [Ptr, Value] => Void
 machine def zr_zlib_output_taken(z, buf)
   if buf == QNIL
@@ -118,8 +118,8 @@ machine def zr_zlib_output_taken(z, buf)
   zr_str_modified(buf)
 end
 
-# One call of `op`, writing into `room` bytes past the end of `buf`.
-# `flush` is the flush mode of deflate and inflate.
+# Makes one call of `op`, which writes into `room` bytes past the end of
+# `buf`. `flush` is the flush mode of deflate and inflate.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_zlib_call(addr, op, flush, buf, room)
   z = zr_zlib_stream(addr)
@@ -148,7 +148,8 @@ machine def zr_zlib_call(addr, op, flush, buf, room)
   zr_fix(err)
 end
 
-# deflateParams, which may flush what the old parameters compressed.
+# deflateParams, which can flush the data that the old parameters
+# compressed.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_zlib_params(addr, level, strategy, buf, room)
   z = zr_zlib_stream(addr)
@@ -187,7 +188,7 @@ machine def zr_zlib_fields(addr)
   out
 end
 
-# total_in moved on by `n`, as a gzip footer read counts its bytes.
+# Adds `n` to total_in, as a gzip footer read counts its bytes.
 sig [Value, Value] => Value
 machine def zr_zlib_count_in(addr, n)
   z = zr_zlib_stream(addr)
@@ -195,8 +196,8 @@ machine def zr_zlib_count_in(addr, n)
   Machine.value(QNIL)
 end
 
-# crc32 (kind 0) or adler32 (kind 1) of `str` onto `sum`; a nil `str`
-# answers the initial value.
+# Adds crc32 (kind 0) or adler32 (kind 1) of `str` to `sum`. A nil `str`
+# returns the initial value.
 sig [Value, Value, Value] => Value
 machine def zr_zlib_checksum(kind, sum, str)
   s = zr_fix2long(sum)

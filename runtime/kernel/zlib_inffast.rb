@@ -1,12 +1,13 @@
-# inffast.c: the decoding loop inflate runs while at least 6 bytes of
-# input and 258 bytes of output room remain, so no step checks for
-# either. The bit buffer is a Ptr, the C's unsigned long.
+# inffast.c: the decoding loop that inflate runs while at least 6 bytes
+# of input and 258 bytes of output space remain. Thus no step checks for
+# either limit. The bit buffer is a Ptr, which is the C unsigned long.
 # Derived from zlib; the license is in runtime/kernel/zlib.rb.
 
-# inflate_fast: literals and matches from the stream's input to its
-# output, from the LEN state, until an end of block, an error, or the
-# input or output runs low. `start` is the output room inflate began
-# with, which places the start of this call's output.
+# inflate_fast: decodes literals and matches from the stream's input to
+# its output, from the LEN state. It stops at an end of block, at an
+# error, or when the input or output space becomes low. `start` is the
+# output space at the start of inflate. It gives the position where the
+# output of this call starts.
 sig [Ptr, Word] => Void
 machine def zr_inflate_fast(strm, start)
   st = ZStream.state(strm)

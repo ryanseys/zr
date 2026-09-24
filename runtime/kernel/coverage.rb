@@ -1,14 +1,17 @@
-# Coverage's line counts. A program that names Coverage is compiled with
-# its :line events, and while coverage is set up every one comes here.
-# A file takes part when its first event comes from its toplevel, which
-# runs as the file loads: a file loaded before Coverage.setup has no
-# toplevel left to run. Its counts grow as lines run while coverage runs.
+# Coverage line counts. The compiler adds :line events to a program that
+# refers to Coverage. While coverage is set up, each event comes here. A
+# file is measured when its first event comes from its toplevel, which
+# runs when the file loads. A file loaded before Coverage.setup has no
+# toplevel left to run. Its counts increase as lines run while coverage
+# runs.
 
-# `rows` holds one CovRow per file seen; `last` is the row the last
-# event counted in, which the next event is most likely to share.
+# `rows` contains one CovRow record for each file seen. `last` is the
+# record of the last event, which is most probably the record of the
+# next event.
 Machine.struct :Coverage, rows: Ptr, len: Word, capa: Word, setup: Word, running: Word, last: Ptr, branches: Ptr, branch_size: Word
-# `file` is the FrameMeta's file bytes, one address per file a lowering
-# made. `counts` holds `size` words, a count for each line from 1.
+# `file` is the FrameMeta's file bytes, one address for each file that a
+# lowering made. `counts` contains `size` words, a count for each line
+# from 1.
 Machine.struct :CovRow, file: Ptr, file_len: Word, counts: Ptr, size: Word, measured: Word
 
 sig [] => Ptr
@@ -21,8 +24,8 @@ machine def zr_coverage_setup_p
   Coverage.setup(zr_coverage()) != 0
 end
 
-# Coverage.setup, resume and suspend: `state` is 0 idle, 1 set up and
-# suspended, 2 running. Going idle forgets every file.
+# Coverage.setup, resume and suspend. `state` is 0 idle, 1 set up and
+# suspended, 2 running. A change to idle discards all files.
 sig [Value] => Value
 machine def zr_coverage_state_set(state)
   c = zr_coverage()
@@ -63,8 +66,9 @@ machine def zr_coverage_forget(c)
   end
 end
 
-# The row of the file whose bytes are at `file`, made now when the file
-# is new: measured when the event came from its toplevel.
+# The record of the file whose bytes are at `file`. If the file is new,
+# this makes the record. The file is measured if the event came from its
+# toplevel.
 sig [Ptr, Ptr, Word, Bool] => Ptr
 machine def zr_coverage_row(c, file, file_len, toplevel)
   last = Coverage.last(c)
@@ -101,8 +105,8 @@ machine def zr_coverage_row(c, file, file_len, toplevel)
   row
 end
 
-# A :line event in frame `rec`: one more run of its line, in a file
-# coverage measures, while coverage runs.
+# A :line event in frame `rec`. Adds one run to its line, if coverage
+# measures the file and coverage runs.
 sig [Ptr] => Void
 machine def zr_coverage_line(rec)
   c = zr_coverage()
@@ -133,14 +137,14 @@ machine def zr_coverage_line(rec)
   Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
 end
 
-# One run of branch `id`, while coverage runs. The branches of every
-# file share one array, and the branch table a program carries says
-# which of them are whose, so the count is a store and no lookup: this
-# stands on every side of every branch a measured file holds.
+# Adds one run to branch `id` while coverage runs. The branches of all
+# files share one array. The program's branch table gives the file of
+# each branch, so the count is a store with no lookup. This call is on
+# each side of each branch in a measured file.
 #
-# Whether the file took part is decided once, where its lines are
-# counted (`measured`), and the Ruby half leaves out the branches of a
-# file whose lines it left out.
+# The line count decides one time if a file is measured (`measured`).
+# The Ruby part does not report the branches of a file whose lines it
+# does not report.
 sig [Word] => Void
 machine def zr_coverage_branch(id)
   c = zr_coverage()
@@ -162,8 +166,8 @@ machine def zr_coverage_branch(id)
   Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
 end
 
-# Every branch counter, by id, up to the last one that ran; `clear`
-# zeroes them after.
+# All branch counters, by id, up to the last one that ran. If `clear` is
+# set, this sets them to zero after it reads them.
 sig [Value] => Value
 machine def zr_coverage_branch_counts(clear)
   c = zr_coverage()
@@ -179,8 +183,9 @@ machine def zr_coverage_branch_counts(clear)
   out
 end
 
-# Every measured file as `[path, counts]`, a count for each line from 1
-# up to the last line that ran; `clear` zeroes the counts after.
+# Each measured file as `[path, counts]`, with a count for each line from
+# 1 to the last line that ran. If `clear` is set, this sets the counts to
+# zero after it reads them.
 sig [Value] => Value
 machine def zr_coverage_counts(clear)
   c = zr_coverage()
@@ -208,12 +213,12 @@ machine def zr_coverage_counts(clear)
   out
 end
 
-# The methods Coverage names, which are the definitions that ran while
-# it was set up: one row of four for each, `[def-site id, owner, name,
-# count]`, flat, in a global so the collector keeps the owners. The rows
-# outlive a `forget`, since a method entry names its row by place and a
-# file that has already been measured is never measured again; what a
-# `forget` and a `clear` drop is the counts.
+# The methods that Coverage reports: the definitions that ran while it
+# was set up. Each one has a record of four words, `[def-site id, owner,
+# name, count]`, in one flat global Array, so the collector keeps the
+# owners. The records stay after a `forget`, because a method entry
+# refers to its record by position, and zr never measures a file two
+# times. A `forget` and a `clear` discard only the counts.
 G_COVERAGE_METHODS = 53
 
 sig [] => Value
@@ -226,9 +231,9 @@ machine def zr_coverage_method_rows
   rows
 end
 
-# A definition of `mid` on `klass` from the scope `meta` names: its row,
-# which the entry then names by place. A scope no measured file wrote
-# carries no def-site id and claims nothing.
+# Records a definition of `mid` on `klass` from the scope `meta`. The
+# method entry keeps the position of the record. A scope that is not
+# from a measured file has no def-site id and gets no record.
 sig [Value, Word, Ptr] => Void
 machine def zr_coverage_method_claim(klass, mid, meta)
   c = zr_coverage()
@@ -247,10 +252,10 @@ machine def zr_coverage_method_claim(klass, mid, meta)
   zr_ary_push(rows, zr_fix(0))
 end
 
-# One more run of the method `e` names, while coverage runs: what CRuby
-# counts on the :call event, for a def and for a `define_method` block
-# alike. An alias holds the row its original claimed, as CRuby resolves
-# an alias to the entry it was made from.
+# Adds one run to the method of entry `e` while coverage runs. CRuby
+# counts the same on the :call event, for a def and for a
+# `define_method` block. An alias keeps the record of its original, as
+# CRuby resolves an alias to the entry it was made from.
 sig [Ptr] => Void
 machine def zr_coverage_method(e)
   c = zr_coverage()
@@ -262,8 +267,9 @@ machine def zr_coverage_method(e)
   zr_ary_store(rows, i, zr_fix(zr_fix2long(zr_ary_at(rows, i)) + 1))
 end
 
-# Every method row, as the Ruby half reads them; `clear` zeroes the
-# counts after, and leaves the rows where the entries point at them.
+# All method records, as the Ruby part reads them. If `clear` is set,
+# this sets the counts to zero after it reads them. The records stay at
+# their positions, because the method entries point to them.
 sig [Value] => Value
 machine def zr_coverage_method_counts(clear)
   rows = zr_coverage_method_rows()

@@ -1,10 +1,11 @@
-# darwin's half of the descriptor calls: where errno lives, the calls
-# that take a variadic argument, and the layouts of struct dirent and
+# The darwin part of the descriptor calls: the location of errno, the
+# calls with a variadic argument, and the layouts of struct dirent and
 # struct stat.
 Machine.import "__error", [] => Ptr
-# open(2) takes a creation's mode variadically, and this platform
-# passes a variadic argument on the stack; `__open` is the fixed-arity
-# call open's own wrapper makes once it has read that argument.
+# open(2) takes the mode for a new file as a variadic argument, and this
+# platform passes a variadic argument on the stack. `__open` is the
+# fixed-arity call that open's wrapper makes after it reads that
+# argument.
 Machine.import "__open", [Ptr, I32, I32] => I32
 Machine.import "dlsym", [Ptr, Ptr] => Ptr
 
@@ -21,10 +22,10 @@ end
 EINTR = 4
 EBADF = 9
 
-# `fcntl` takes the argument of F_SETFL and F_SETFD variadically, and
-# this platform passes a variadic argument on the stack, which this
-# runtime makes no call for; `__fcntl` is the fixed-arity call that
-# fcntl's own wrapper makes once it has read that argument.
+# `fcntl` takes the argument of F_SETFL and F_SETFD as a variadic
+# argument. This platform passes a variadic argument on the stack, and
+# this runtime cannot make such a call. `__fcntl` is the fixed-arity
+# call that fcntl's wrapper makes after it reads that argument.
 Machine.import "__fcntl", [I32, I32, Word] => I32
 
 sig [I32, I32, Word] => I32
@@ -32,10 +33,10 @@ machine def zr_os_fcntl(fd, command, argument)
   __fcntl(fd, command, argument)
 end
 
-# `ioctl` names its third argument variadically, so a fixed-arity call
-# never reaches it: an ioctl that reads its argument answers EFAULT.
-# `__ioctl` is the fixed-arity call that ioctl's own wrapper makes once
-# it has read that argument.
+# `ioctl` declares its third argument as variadic, so a fixed-arity call
+# never supplies it: an ioctl that reads its argument returns EFAULT.
+# `__ioctl` is the fixed-arity call that ioctl's wrapper makes after it
+# reads that argument.
 Machine.import "__ioctl", [I32, Word, Ptr] => I32
 
 sig [I32, Word, Ptr] => I32
@@ -43,39 +44,40 @@ machine def zr_os_ioctl(fd, request, argument)
   __ioctl(fd, request, argument)
 end
 
-# open(2), with the mode a creation takes, less the umask.
+# open(2), with the mode for a new file, less the umask.
 sig [Ptr, I32, I32] => I32
 machine def zr_os_open(path, flags, mode)
   __open(path, flags, mode)
 end
 
-# realpath(3): a fresh buffer the caller frees, or 0.
+# realpath(3): returns a new buffer that the caller frees, or 0.
 sig [Ptr] => Ptr
 machine def zr_os_realpath(path)
   realpath(path, 0)
 end
 
 O_NONBLOCK = 4
-# Every flag but O_NONBLOCK, which takes the flag away again.
+# All flags except O_NONBLOCK. A mask with it clears the flag.
 O_NONBLOCK_OFF = 4294967291
-# Every descriptor ruby opens closes itself across an exec, which
-# rb_sysopen asks for with O_CLOEXEC on the call itself.
+# Each descriptor that ruby opens is close-on-exec. rb_sysopen sets
+# O_CLOEXEC in the open call itself.
 O_CLOEXEC = 16777216
-# O_RDWR | O_NOCTTY | O_CLOEXEC: the pair is not this task's terminal.
+# O_RDWR | O_NOCTTY | O_CLOEXEC: the pty pair does not become this
+# process's controlling terminal.
 PTY_OPEN_FLAGS = 16_908_290
 
 TIOCGWINSZ = 1074295912
-# TIOCSCTTY: the descriptor becomes the session's controlling terminal.
+# TIOCSCTTY: makes the descriptor the session's controlling terminal.
 TIOCSCTTY = 536900705
 TIOCSWINSZ = 2148037735
-# struct termios: four flag words, twenty control characters, and then
-# the two speeds. The bytes cross into ruby as they stand, because the
-# flags a mode changes are ruby's to name.
+# struct termios: four flag words, twenty control characters, and the
+# two speeds. ruby gets the bytes without change, because ruby selects
+# the flags that a mode changes.
 TERMIOS_LEN = 72
 
-# A directory entry's name: darwin's struct dirent has an 8-byte inode,
-# an 8-byte seek offset, the record and name lengths as two shorts, and
-# the type byte before it.
+# The name in a directory entry. Before the name, darwin's struct dirent
+# has an 8-byte inode, an 8-byte seek offset, the record and name
+# lengths as two shorts, and the type byte.
 sig [Ptr] => Ptr
 machine def zr_os_dirent_name(entry)
   entry + 21
@@ -84,9 +86,9 @@ end
 # darwin's 64-bit-inode struct stat.
 STAT_LEN = 160
 
-# stat(2) as fixnums in an Array: dev, ino, mode, nlink, uid, gid, rdev,
-# size, blksize, blocks, then atime, mtime and ctime as seconds and
-# nanoseconds.
+# Returns stat(2) as fixnums in an Array: dev, ino, mode, nlink, uid,
+# gid, rdev, size, blksize, blocks, then atime, mtime and ctime as
+# seconds and nanoseconds.
 sig [Ptr] => Value
 machine def zr_os_stat_rows(buf)
   out = zr_ary_new(16)
@@ -121,10 +123,10 @@ machine def zr_os_stat_mode(buf)
   Machine.word(Machine.load32(buf, 4)) & 65535
 end
 
-# Darwin's select(2) with no FD_SETSIZE limit, the one CRuby calls (it
+# Darwin's select(2) with no FD_SETSIZE limit, which CRuby calls (it
 # builds with _DARWIN_UNLIMITED_SELECT). Plain `select` refuses more
-# than 1024 descriptors, and poll(2) here reports a pipe with data as
-# priority-readable, so neither gives CRuby's answer.
+# than 1024 descriptors, and poll(2) on darwin reports a pipe with data
+# as priority-readable. Thus neither one gives CRuby's result.
 Machine.sig :select_call, [I32, Ptr, Ptr, Ptr, Ptr] => I32
 
 sig [] => Ptr
@@ -136,11 +138,11 @@ machine def zr_select_fn
   Machine.ptr(Machine.load64(cell, 0))
 end
 
-# select(2) on every descriptor of `fds` at once, each for the events
-# its row of `events` names, which is how the thread scheduler waits for
-# the threads parked on a descriptor: an Array of the events that came
-# ready for each row, or the negated errno. A negative time waits for
-# good.
+# Calls select(2) on all descriptors of `fds` at the same time, each for
+# the events in its entry of `events`. The thread scheduler uses this to
+# wait for the threads that are blocked on a descriptor. Returns an
+# Array of the ready events for each entry, or the negated errno. A
+# negative time waits with no limit.
 sig [Value, Value, Value] => Value
 machine def zr_os_wait_fds(fds, events, milliseconds)
   count = RArray.len(fds)
@@ -211,11 +213,10 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
   out
 end
 
-# select(2) on one descriptor, which is what ruby itself waits with on
-# this platform: the events that came ready, 0 when the time ran out, or
-# the negated errno. A negative time waits for good. Each of the three
-# sets holds as many bits as the descriptor needs, so any descriptor
-# number fits.
+# Calls select(2) on one descriptor. ruby uses select to wait on this
+# platform. Returns the ready events, 0 if the time ends, or the negated
+# errno. A negative time waits with no limit. Each of the three sets has
+# as many bits as the descriptor needs, so all descriptor numbers fit.
 sig [Value, Value, Value] => Value
 machine def zr_os_wait_fd(fd, events, milliseconds)
   n = zr_fix2long(fd)

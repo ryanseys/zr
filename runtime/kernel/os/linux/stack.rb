@@ -1,16 +1,18 @@
-# Linux's machine stacks. The main thread's grows only as far as
-# RLIMIT_STACK lets it, 8 MiB unless the shell says otherwise, and a
-# binary cannot ask for more. Ruby frames are machine frames here, so
-# the program runs on a stack of its own, mapped as a fiber's is.
+# Linux machine stacks. The main thread's stack grows only to the
+# RLIMIT_STACK limit (8 MiB unless the shell sets a different value), and
+# a binary cannot request more. Ruby frames are machine frames here, so
+# the program runs on its own stack, which zr maps as it maps a fiber
+# stack.
 Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "mprotect", [Ptr, Word, I32] => I32
 
-# `Native::Link::STACK`, which darwin's link gives the main thread.
+# `Native::Link::STACK`, the size that the darwin linker gives the main
+# thread.
 MAIN_STACK_BYTES = 67108864
 
-# The program's stack, once mapped: its lowest address, then the
-# contexts the switch onto it and back off it save, and the entry's
-# arguments and answer.
+# The program's stack, after it is mapped: its lowest address, the
+# contexts that the switch onto it and back saves, and the arguments and
+# return value of the entry.
 sig [] => Ptr
 machine def zr_linux_main_cell
   Machine.static(:linux_main, 24)
@@ -26,8 +28,8 @@ machine def zr_linux_program_context
   Machine.static(:linux_program_context, CONTEXT_BYTES)
 end
 
-# zr_main on the program's stack, and the switch back to the process's
-# with its answer.
+# Runs zr_main on the program's stack, then switches back to the
+# process's stack with its return value.
 sig [] => Void
 machine def zr_linux_main_start
   cell = zr_linux_main_cell()
@@ -36,8 +38,8 @@ machine def zr_linux_main_start
   zr_switch(zr_linux_program_context(), zr_linux_process_context())
 end
 
-# The program on a stack of MAIN_STACK_BYTES; on the process's own, with
-# no stack check, when no such stack can be mapped.
+# Runs the program on a stack of MAIN_STACK_BYTES. If zr cannot map that
+# stack, it runs on the process's own stack, with no stack check.
 sig [I32, Ptr] => I32
 machine def zr_os_main(argc, argv)
   stack = zr_os_stack_map(MAIN_STACK_BYTES)
@@ -53,15 +55,15 @@ machine def zr_os_main(argc, argv)
   Machine.i32(Machine.load64(cell, 8))
 end
 
-# The lowest address of the program's stack, or 0 where it runs on the
-# process's own.
+# The lowest address of the program's stack, or 0 if it runs on the
+# process's own stack.
 sig [] => Word
 machine def zr_os_stack_low
   Machine.load64(zr_linux_main_cell(), 0)
 end
 
-# The address just past the top of the program's stack, or 0 where it
-# runs on the process's own.
+# The address immediately after the top of the program's stack, or 0 if
+# it runs on the process's own stack.
 sig [] => Word
 machine def zr_os_stack_high
   low = Machine.load64(zr_linux_main_cell(), 0)
@@ -71,11 +73,12 @@ end
 # PROT_READ | PROT_WRITE, and MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK.
 STACK_PROT = 3
 STACK_MAP_FLAGS = 131106
-# The lowest page of each stack, which faults on touch.
+# The guard page at the bottom of each stack, which faults on access.
 STACK_GUARD_BYTES = 4096
 
-# A stack of `bytes`, its lowest page a guard, or 0 with errno set. The
-# pages arrive only as the stack grows into them.
+# Maps a stack of `bytes` with a guard as its lowest page. Returns 0 and
+# sets errno on failure. The system supplies the pages only when the
+# stack grows into them.
 sig [Word] => Ptr
 machine def zr_os_stack_map(bytes)
   stack = mmap(0, bytes, Machine.i32(STACK_PROT), Machine.i32(STACK_MAP_FLAGS), -1, 0)
@@ -86,10 +89,10 @@ machine def zr_os_stack_map(bytes)
   stack
 end
 
-# The timer thread of the preemption (send.rb): once a second Ruby
-# thread started, it sets the poll word every 100 ms, so that a thread
-# computing with no call into the kernel hands the turn on at its next
-# back edge or method entry, as CRuby's timer thread has it do.
+# The timer thread for preemption (send.rb). After a second Ruby thread
+# starts, it sets the poll word every 100 ms. Thus a thread that
+# computes with no call into the kernel yields to the scheduler at its
+# next back edge or method entry, as with CRuby's timer thread.
 Machine.import "pthread_create", [Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "pthread_detach", [Ptr] => I32
 

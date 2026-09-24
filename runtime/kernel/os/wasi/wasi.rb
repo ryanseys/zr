@@ -1,7 +1,8 @@
-# WASI preview 1: the calls a wasm32-wasi module makes of its host, and
-# what the rest of this layer shares over them: errno, iovecs, and the
-# preopened directories a path resolves under. An address crosses as
-# its low 32 bits, which is the whole of a wasm32 address.
+# WASI preview 1: the calls that a wasm32-wasi module makes to its host,
+# and the helpers that the rest of this layer uses with them: errno,
+# iovecs, and the preopened directories that contain the paths. An
+# address goes to the host as its low 32 bits, which are all of a
+# wasm32 address.
 Machine.import "args_sizes_get", [I32, I32] => I32, from: "wasi_snapshot_preview1"
 Machine.import "args_get", [I32, I32] => I32, from: "wasi_snapshot_preview1"
 Machine.import "environ_sizes_get", [I32, I32] => I32, from: "wasi_snapshot_preview1"
@@ -35,20 +36,20 @@ Machine.import "poll_oneoff", [I32, I32, I32, I32] => I32, from: "wasi_snapshot_
 Machine.import "proc_exit", [I32] => Void, from: "wasi_snapshot_preview1"
 Machine.import "random_get", [I32, I32] => I32, from: "wasi_snapshot_preview1"
 
-# WASI's errno numbers, which wasi-libc gives its E names.
+# WASI's errno numbers, with wasi-libc's E names.
 WASI_EBADF = 8
 WASI_EINVAL = 28
 WASI_ENOENT = 44
 WASI_ENOSYS = 52
 WASI_ENOTTY = 59
 
-# The low 32 bits of an address, as a call to the host takes it.
+# The low 32 bits of an address, which is the form a host call takes.
 sig [Ptr] => I32
 machine def zr_wasi_addr(p)
   Machine.i32(Machine.word(p))
 end
 
-# A WASI call's errno as libc answers it: 0, or -1 with errno set.
+# Converts a WASI call's errno to the libc result: 0, or -1 with errno set.
 sig [I32] => I32
 machine def zr_wasi_status(errno)
   if errno == Machine.i32(0)
@@ -58,21 +59,22 @@ machine def zr_wasi_status(errno)
   Machine.i32(0 - 1)
 end
 
-# -1 with errno set to `n`, for a call that fails before the host sees it.
+# Returns -1 and sets errno to `n`, for a call that fails before it gets
+# to the host.
 sig [Word] => I32
 machine def zr_wasi_fail(n)
   zr_os_set_errno(n)
   Machine.i32(0 - 1)
 end
 
-# The same failure where the answer is a count.
+# The same failure, for a call that returns a count.
 sig [Word] => Word
 machine def zr_wasi_fail_count(n)
   zr_os_set_errno(n)
   0 - 1
 end
 
-# One iovec of `len` bytes at `buf`, in a slot of the caller's: the
+# Writes one iovec of `len` bytes at `buf` into the caller's slot. The
 # host reads two 32-bit words.
 sig [Ptr, Ptr, Word] => I32
 machine def zr_wasi_iovec(iov, buf, len)
@@ -81,10 +83,10 @@ machine def zr_wasi_iovec(iov, buf, len)
   zr_wasi_addr(iov)
 end
 
-# The preopened directories, found once: a row of (descriptor, name
-# address, name length) words per directory, a zero descriptor ending
-# the rows. A name is kept as the host gave it, less any leading `/`
-# and `./`, so that `.` and `/` both stand for every path.
+# The preopened directories, found one time. Each directory has an
+# entry of three words (descriptor, name address, name length). A zero
+# descriptor ends the entries. A name is kept as the host gives it,
+# without a leading `/` or `./`, so `.` and `/` both match all paths.
 PREOPENS = 32
 
 sig [] => Ptr
@@ -118,7 +120,7 @@ machine def zr_wasi_preopens
   rows
 end
 
-# How many bytes of leading `/` and `./` a path starts with.
+# The number of bytes of leading `/` and `./` in a path.
 sig [Ptr] => Word
 machine def zr_wasi_path_start(path)
   at = 0
@@ -136,10 +138,11 @@ machine def zr_wasi_path_start(path)
   at
 end
 
-# The preopened directory `path` resolves under, the longest name that
-# is a whole-component prefix of it winning; its descriptor, with the
-# rest of the path at `rest` (`.` for the directory itself), or -1 with
-# errno ENOENT when no directory holds it.
+# Finds the preopened directory that contains `path`. The longest name
+# that is a prefix of whole components is the match. Returns its
+# descriptor and stores the rest of the path at `rest` (`.` for the
+# directory itself). Returns -1 with errno ENOENT if no directory
+# contains the path.
 sig [Ptr, Ptr] => I32
 machine def zr_wasi_dir(path, rest)
   p = path + zr_wasi_path_start(path)
@@ -171,9 +174,9 @@ machine def zr_wasi_dir(path, rest)
   Machine.i32(best)
 end
 
-# A call on a path: its directory's descriptor and the path under it in
-# `where` (a 16-byte slot: the rest's address, then its length), or -1
-# with errno set.
+# Prepares a call on a path. Returns the descriptor of its directory and
+# stores the rest of the path in `where` (a 16-byte slot: the address,
+# then the length). Returns -1 with errno set on failure.
 sig [Ptr, Ptr] => I32
 machine def zr_wasi_resolve(path, where)
   fd = zr_wasi_dir(path, where)

@@ -1,7 +1,7 @@
-# Symbols: the id sits in the tagged word, the name in a table. The
-# compiler lays every static name out in `zr_symbol_names`, a table of
-# (bytes, length) rows, `zr_symbol_count` of them; names interned at run
-# time follow in a table of the same shape outside the arena.
+# Symbols. The tagged word contains the id, and a table contains the
+# name. The compiler puts each static name in `zr_symbol_names`, a table
+# of `zr_symbol_count` entries of (bytes, length). Names interned at run
+# time go in a table of the same shape outside the arena.
 Machine.struct :Symtab, rows: Ptr, len: Word, capa: Word, bins: Ptr, nbins: Word
 
 sig [] => Ptr
@@ -29,9 +29,9 @@ machine def zr_symbol_name_ptr(id)
   Machine.load64(zr_symbol_row(id), 0)
 end
 
-# A row's second word is the name's length, with the encoding's tag in
-# its top byte: the tag a String's flags hold, so 0 is UTF-8, as every
-# static name is. A name in ASCII alone is always 0.
+# The second word of an entry is the name length, with the encoding tag
+# in its top byte. The tag is the same as in a String's flags, so 0 is
+# UTF-8, which all static names use. An ASCII-only name always has 0.
 sig [Word] => Word
 machine def zr_symbol_name_len(id)
   Machine.load64(zr_symbol_row(id), 8) & ((1 << SYM_TAG_SHIFT) - 1)
@@ -42,15 +42,15 @@ machine def zr_symbol_tag(id)
   Machine.load64(zr_symbol_row(id), 8) >> SYM_TAG_SHIFT
 end
 
-# The encoding index a symbol's name is in.
+# The encoding index of a symbol's name.
 sig [Word] => Word
 machine def zr_symbol_encoding_index(id)
   tag = zr_symbol_tag(id)
   tag < 2 ? 1 - tag : tag
 end
 
-# Whether the `alen` bytes at `a` are the `blen` at `b`: eight at a
-# time, then the rest one at a time.
+# Whether the `alen` bytes at `a` are equal to the `blen` bytes at `b`.
+# It compares eight bytes at a time, then the rest one at a time.
 sig [Ptr, Word, Ptr, Word] => Bool
 machine def zr_bytes_eq(a, alen, b, blen)
   if alen != blen
@@ -72,26 +72,27 @@ machine def zr_bytes_eq(a, alen, b, blen)
   true
 end
 
-# The id of the symbol named by `n` bytes in UTF-8, interning it when new.
+# The id of the symbol whose name is `n` bytes in UTF-8. It interns the
+# name if it is new.
 sig [Ptr, Word] => Word
 machine def zr_intern(p, n)
   zr_intern_tagged(p, n, 0)
 end
 
-# A symbol is found through a hash index of every name, static and
-# interned alike, built when a lookup first needs it. Without it an
-# intern walked every symbol the program had ever made, comparing bytes
-# with each -- and a compiler turns names into symbols all day.
+# A lookup finds a symbol through a hash index of all names, static and
+# interned. The first lookup that needs the index builds it. Without the
+# index, each intern compares bytes with all symbols. A compiler interns
+# names very frequently, so that is too slow.
 #
-# A bin holds an id plus one, zero when empty; a name and its encoding
-# tag together are the key, because `rb_str_intern` keys a symbol by
-# both.
+# A bin contains the id plus one, or zero when empty. The key is the
+# name together with its encoding tag, because `rb_str_intern` uses
+# both as the key of a symbol.
 sig [Ptr, Word, Word] => Word
 machine def zr_symbol_hash(p, n, tag)
   zr_hash_mix(zr_bytes_hash(p, n) ^ tag)
 end
 
-# The index forgotten; the next lookup that needs it builds it again.
+# Discards the index. The next lookup that needs it builds it again.
 sig [] => Void
 machine def zr_symbol_index_drop
   t = zr_symtab()
@@ -112,7 +113,8 @@ machine def zr_symbol_index_put(id)
   Machine.store64(Symtab.bins(t) + (h * 8), 0, id + 1)
 end
 
-# Every symbol into a fresh index with at least four bins a symbol.
+# Adds all symbols to a new index with at least four bins for each
+# symbol.
 sig [] => Void
 machine def zr_symbol_index_build
   zr_symbol_index_drop()
@@ -132,8 +134,9 @@ machine def zr_symbol_index_build
   end
 end
 
-# A newly interned symbol into the index while the bins stay under half
-# full, else the index goes and the next lookup builds a bigger one.
+# Adds a newly interned symbol to the index while less than half the
+# bins are full. Else it discards the index, and the next lookup builds
+# a larger one.
 sig [Word] => Void
 machine def zr_symbol_index_add(id)
   t = zr_symtab()
@@ -147,8 +150,8 @@ machine def zr_symbol_index_add(id)
   zr_symbol_index_put(id)
 end
 
-# The id of the symbol named by `n` bytes in the encoding `tag` names, or
-# -1 when the table does not hold it.
+# The id of the symbol whose name is `n` bytes in the encoding `tag`, or
+# -1 if the table does not contain it.
 sig [Ptr, Word, Word] => Word
 machine def zr_symbol_index_find(p, n, tag)
   t = zr_symtab()
@@ -169,8 +172,9 @@ machine def zr_symbol_index_find(p, n, tag)
   0 - 1
 end
 
-# The id of the symbol named by `n` bytes in the encoding `tag` names,
-# interning it when new: rb_str_intern keys a symbol by both.
+# The id of the symbol whose name is `n` bytes in the encoding `tag`. It
+# interns the name if it is new. rb_str_intern uses both the bytes and
+# the encoding as the key.
 sig [Ptr, Word, Word] => Word
 machine def zr_intern_tagged(p, n, tag)
   found = zr_symbol_index_find(p, n, tag)
@@ -208,14 +212,15 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_to_s(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-  # A name written in ASCII alone is US-ASCII, as ruby tags it.
+  # An ASCII-only name is US-ASCII, as in ruby.
   zr_str_set_index(s, zr_str_ascii_only(s) ? ENC_USASCII : zr_symbol_encoding_index(id))
   RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED_SYMBOL)
   s
 end
 
-# `Symbol#<=>`: the names bytewise, nil against anything else. The same
-# bytes in two encodings order by encoding index, as rb_str_cmp has it.
+# `Symbol#<=>`: compares the names byte by byte, and returns nil for a
+# non-Symbol. The same bytes in two encodings sort by encoding index, as
+# in rb_str_cmp.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_cmp(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -236,7 +241,7 @@ machine def zr_sym_to_proc_m(recv, argc, argv, cref, blk)
   zr_sym_to_proc_here(recv)
 end
 
-# Every symbol interned so far, static names first.
+# All symbols interned until now, static names first.
 sig [] => Value
 machine def zr_all_symbols
   total = zr_static_symbol_count() + Symtab.len(zr_symtab())
@@ -249,15 +254,15 @@ machine def zr_all_symbols
   out
 end
 
-# The id a name has, interned if it is new: what an eval needs to make
-# the ids it compiles in agree with the ones this program runs on.
+# The id of a name, interned if it is new. An eval uses it so that the
+# ids in its compiled code agree with the ids of this program.
 sig [Value] => Value
 machine def zr_intern_id(name)
   zr_fix(zr_intern(RString.ptr(name), RString.len(name)))
 end
 
-# How many regexp literal sites the program was built with, so an eval's
-# own sites start past them.
+# The number of regexp literal sites in the program, so that the sites
+# of an eval start after them.
 sig [] => Value
 machine def zr_static_sites
   zr_fix(Machine.load64(Machine.extern(:zr_site_count), 0))

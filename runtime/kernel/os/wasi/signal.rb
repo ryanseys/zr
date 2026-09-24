@@ -1,5 +1,5 @@
-# WASI's signals: wasi-libc numbers 64 of them, and a module takes
-# none, so every one keeps the default handler it started with.
+# WASI signals. wasi-libc defines 64 of them, but a module receives none,
+# so each signal keeps its default handler.
 NSIG = 65
 
 sig [I32, Word, Ptr] => I32

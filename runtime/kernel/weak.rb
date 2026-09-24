@@ -1,9 +1,10 @@
 # Weak tables: Hashes whose entries the collector does not keep alive.
-# `FL_WEAK` holds keys and values weakly (ObjectSpace::WeakMap);
-# `FL_WEAKKEY` keys only (ObjectSpace::WeakKeyMap, and the finalizer
-# table). A static list names the tables without marking them; after
-# marking, each table still alive loses the entries whose weak side
-# died, and a dead key of the finalizer table queues its procs.
+# `FL_WEAK` makes keys and values weak (ObjectSpace::WeakMap).
+# `FL_WEAKKEY` makes only keys weak (ObjectSpace::WeakKeyMap, and the
+# finalizer table). A static list refers to the tables but does not
+# mark them. After marking, each live table removes the entries whose
+# weak key or value is dead. A dead key of the finalizer table queues
+# its procs.
 FL_WEAK = 1 << 19
 FL_WEAKKEY = 1 << 20
 WEAK_BOTH = 1
@@ -39,8 +40,8 @@ machine def zr_weak_list_push(l, v)
   WeakList.set_len(l, n + 1)
 end
 
-# A fresh weak table: `kind` WEAK_BOTH or WEAK_KEY; `identity` compares
-# keys by identity, else by `eql?`.
+# Makes a new weak table. `kind` is WEAK_BOTH or WEAK_KEY. If `identity`
+# is set, the table compares keys by identity, else by `eql?`.
 sig [Word, Bool] => Value
 machine def zr_weak_table_new(kind, identity)
   h = zr_hash_new()
@@ -63,8 +64,8 @@ machine def zr_dead_p(v)
   !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && !zr_marked_p(v)
 end
 
-# After marking: the live tables keep their place in the list, minus
-# the entries whose weak side is unmarked.
+# Runs after marking. The live tables stay in the list, and they lose
+# the entries whose weak key or value is not marked.
 sig [] => Void
 machine def zr_weak_prune
   l = zr_weak_list()
@@ -105,7 +106,7 @@ machine def zr_weak_prune_table(h, finalizer)
   end
 end
 
-# The queued rows are roots until they run.
+# The queued finalizer entries are roots until they run.
 sig [] => Void
 machine def zr_mark_finalizer_queue
   q = zr_finalizer_queue()
@@ -116,7 +117,7 @@ machine def zr_mark_finalizer_queue
   end
 end
 
-# The finalizer table: object => [object_id, proc, ...], keys weak.
+# The finalizer table: object => [object_id, proc, ...], with weak keys.
 sig [] => Value
 machine def zr_finalizers
   t = zr_global(G_FINALIZERS)
@@ -132,10 +133,10 @@ machine def zr_finalizers_m
   zr_finalizers()
 end
 
-# The queued finalizers, each proc called with its object's id; an
-# error in one is printed and passed over. Runs after a collection the
-# program asked for and at the next poll after any other, never inside
-# an allocation.
+# Runs the queued finalizers. It calls each proc with its object's id.
+# If a proc raises, it prints the error and continues. It runs after a
+# collection that the program requests, and at the next poll after
+# other collections. It never runs inside an allocation.
 sig [] => Value
 machine def zr_finalizers_run
   q = zr_finalizer_queue()
@@ -166,8 +167,8 @@ machine def zr_finalizer_row_run(row)
   Machine.value(QNIL)
 end
 
-# At the program's end every finalizer still registered runs, in
-# registration order.
+# At the end of the program, each finalizer that is still registered
+# runs, in registration order.
 sig [] => Void
 machine def zr_finalizers_at_exit
   t = zr_global(G_FINALIZERS)

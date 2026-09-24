@@ -1,16 +1,16 @@
-# WASI's half of the process's surroundings: the arguments and the
-# environment the host hands over, the clocks, random bits, and the
-# libc calls a module answers for itself because WASI has no process,
-# user or time zone behind them.
+# The WASI part of the process environment: the arguments and the
+# environment from the host, the clocks, random bits, and the libc
+# calls that a module implements itself because WASI has no process,
+# user or time zone.
 
-# RUBY_PLATFORM, as ruby 4.0.6 built for WASI names it.
+# RUBY_PLATFORM, as ruby 4.0.6 built for WASI gives it.
 sig [] => Value
 machine def zr_os_ruby_platform
   zr_str_new(Machine.bytes("wasm32-wasi"), 11)
 end
 
-# A host vector of `count` 32-bit addresses at `raw`, as a NULL-ended
-# table of words with room for `extra` more.
+# Converts a host vector of `count` 32-bit addresses at `raw` to a
+# NULL-terminated table of words, with space for `extra` more.
 sig [Ptr, Word, Word] => Ptr
 machine def zr_wasi_table(raw, count, extra)
   table = zr_xmalloc((count + extra + 1) * 8)
@@ -24,7 +24,7 @@ machine def zr_wasi_table(raw, count, extra)
   table
 end
 
-# The arguments come from the host, since `_start` gives main none.
+# The arguments come from the host, because `_start` gives main none.
 sig [I32, Ptr] => Ptr
 machine def zr_os_argv(argc, argv)
   sizes = Machine.slot(8)
@@ -38,9 +38,9 @@ machine def zr_os_argv(argc, argv)
   zr_wasi_table(raw, count, 0)
 end
 
-# The environment: the host's, read once into a table of our own that
-# setenv and unsetenv change in place. The word after the table's
-# address is how many more rows it has room for.
+# The environment. zr reads the host environment one time into its own
+# table, which setenv and unsetenv change in place. The word after the
+# table address is the number of free entries in the table.
 sig [] => Ptr
 machine def zr_os_environ
   cell = Machine.static(:wasi_environ, 16)
@@ -65,7 +65,7 @@ machine def zr_os_environ
   table
 end
 
-# The row of `name` in the environment, or the row that ends it.
+# The entry of `name` in the environment, or the entry that ends it.
 sig [Ptr] => Ptr
 machine def zr_wasi_env_row(name)
   len = zr_cstr_len(name)
@@ -145,7 +145,7 @@ machine def zr_os_random
   Machine.word(Machine.load32(bits, 0))
 end
 
-# No user database: getpwnam and its kind find no one.
+# There is no user database: getpwnam and similar calls find no user.
 sig [Ptr] => Value
 machine def zr_os_passwd_row(pw)
   Machine.value(QNIL)
@@ -159,28 +159,28 @@ end
 # musl's sysconf name for the processor count.
 SC_NPROCESSORS_ONLN = 84
 
-# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`. wasi has neither, and the names
-# are kept only so that `Etc.sysconf` has something to be asked with.
+# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`. wasi has neither. The names are
+# here only so that `Etc.sysconf` has a name to use.
 SC_PAGESIZE = 30
 SC_PHYS_PAGES = 85
 
-# wasi has no sysconf at all, so a module that calls one stops by name
-# before its first line -- and `zr_machine_bytes` asks this of every
-# program. What bounds a module is its own address space and not the
-# host's memory, and four gigabytes is all a wasm32 module can address,
-# which is what 0 leaves the heap to use.
+# wasi has no sysconf, so a module that calls it stops, with a message
+# that gives the name, before its first line. `zr_machine_bytes` calls
+# this in each program. The limit of a module is its own address space,
+# not the host's memory. A wasm32 module can address only 4 GiB, and a
+# return of 0 lets the heap use all of it.
 sig [] => Word
 machine def zr_os_machine_bytes
   0
 end
 
-# musl's utsname: six fields of 65 bytes, sysname, nodename, release,
+# musl's utsname: six fields of 65 bytes: sysname, nodename, release,
 # version, machine and domainname.
 UTSNAME_LEN = 390
 UTSNAME_FIELD = 65
 
-# A module starts no process and changes no id. zr_posix_spawn, which it
-# never calls, sizes its structures by these.
+# A module starts no process and changes no id. zr_posix_spawn, which a
+# module never calls, uses these sizes for its structures.
 SPAWN_ACTIONS_LEN = 16
 SPAWN_ATTR_LEN = 16
 
@@ -199,9 +199,9 @@ machine def zr_os_issetugid
   Machine.value(QFALSE)
 end
 
-# wasi-libc's answers for a process it does not have: getpid is 42, the
-# one value greater than 1 it names, the parent is 0, and every id is
-# root's.
+# wasi-libc's values for a process that does not exist: getpid is 42
+# (the only value greater than 1 that it uses), the parent is 0, and
+# each id is root's.
 sig [] => I32
 machine def getpid
   Machine.i32(42)
@@ -250,7 +250,7 @@ machine def zr_wasi_timespec(ts, ns)
 end
 
 # WASI's clock ids: 0 real time, 1 monotonic, 2 the process's CPU time,
-# 3 the thread's. Process's CLOCK_IDS names them for ruby.
+# 3 the thread's CPU time. Process's CLOCK_IDS gives their ruby names.
 CLOCK_MONOTONIC = 1
 
 sig [I32, Ptr] => I32
@@ -273,8 +273,8 @@ machine def clock_getres(id, ts)
   Machine.i32(0)
 end
 
-# A sleep is a wait on the monotonic clock alone: one 48-byte
-# subscription, one 32-byte event.
+# A sleep is a wait on the monotonic clock only: one 48-byte
+# subscription and one 32-byte event.
 sig [Ptr, Ptr] => I32
 machine def nanosleep(req, rem)
   sub = Machine.slot(48)
@@ -291,11 +291,11 @@ sig [] => Void
 machine def tzset
 end
 
-# struct tm for `*t` seconds since the epoch in UTC: seconds, minutes,
-# hours, day of the month, month, year since 1900, day of the week, day
-# of the year and daylight time as ints, then the offset east of UTC at
-# 40 and the zone's name at 48. The date is Howard Hinnant's
-# civil_from_days.
+# Fills struct tm for `*t` seconds since the epoch in UTC: seconds,
+# minutes, hours, day of the month, month, year since 1900, day of the
+# week, day of the year and daylight time as ints, then the offset east
+# of UTC at 40 and the zone name at 48. The date calculation is Howard
+# Hinnant's civil_from_days.
 sig [Ptr, Ptr] => Ptr
 machine def localtime_r(t, tm)
   secs = Machine.load64(t, 0)

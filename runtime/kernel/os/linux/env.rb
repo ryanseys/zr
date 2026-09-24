@@ -1,21 +1,21 @@
-# Linux's half of the process's surroundings, as musl answers them: the
-# platform's name, where the environment is, where random bits come
-# from, and the layouts of struct passwd and struct utsname.
+# The Linux part of the process environment, as musl supplies it: the
+# platform name, the location of the environment, the source of random
+# bits, and the layouts of struct passwd and struct utsname.
 Machine.import "getrandom", [Ptr, Word, I32] => Word
 
-# The program's NULL-ended arguments, which main was given.
+# The program's NULL-terminated arguments, which main received.
 sig [I32, Ptr] => Ptr
 machine def zr_os_argv(argc, argv)
   argv
 end
 
-# RUBY_PLATFORM, as ruby 4.0.6 built against musl names it.
+# RUBY_PLATFORM, as ruby 4.0.6 built against musl gives it.
 sig [] => Value
 machine def zr_os_ruby_platform
   zr_str_new(Machine.bytes("aarch64-linux-musl"), 18)
 end
 
-# The environment's NULL-ended table of `NAME=value` strings.
+# The environment's NULL-terminated table of `NAME=value` strings.
 sig [] => Ptr
 machine def zr_os_environ
   Machine.ptr(Machine.load64(Machine.extern(:environ), 0))
@@ -30,9 +30,9 @@ machine def zr_os_random
   Machine.word(Machine.load32(bits, 0))
 end
 
-# The seven fields of Linux's passwd an Etc::Passwd carries, in the
-# order etc.c's setup_passwd gives them: name at 0, password at 8, uid
-# at 16, gid at 20, gecos at 24, dir at 32 and shell at 40.
+# The seven fields of Linux's passwd that an Etc::Passwd contains, in the
+# order of etc.c's setup_passwd: name at 0, password at 8, uid at 16,
+# gid at 20, gecos at 24, dir at 32 and shell at 40.
 sig [Ptr] => Value
 machine def zr_os_passwd_row(pw)
   if pw == 0
@@ -58,13 +58,13 @@ end
 # `_SC_NPROCESSORS_ONLN`.
 SC_NPROCESSORS_ONLN = 84
 
-# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`, which say what the machine has.
+# `_SC_PAGESIZE` and `_SC_PHYS_PAGES`, which give the machine's memory.
 SC_PAGESIZE = 30
 SC_PHYS_PAGES = 85
 
-# What this machine has, for the bound the heap's growth keeps under
-# (`zr_machine_bytes`, runtime/kernel/heap.rb), or 0 where the host will not
-# say -- sysconf answers -1 for a name it does not know.
+# The machine's physical memory, for the limit on heap growth
+# (`zr_machine_bytes`, runtime/kernel/heap.rb). Returns 0 if the host does
+# not give it: sysconf returns -1 for a name that it does not know.
 sig [] => Word
 machine def zr_os_machine_bytes
   pages = sysconf(Machine.i32(SC_PHYS_PAGES))
@@ -72,17 +72,18 @@ machine def zr_os_machine_bytes
   pages == 0 - 1 || size == 0 - 1 ? 0 : pages * size
 end
 
-# The clock that never jumps, as clock_gettime(2) numbers it.
+# The monotonic clock, with its clock_gettime(2) number.
 CLOCK_MONOTONIC = 1
 
-# Linux's utsname: six fields of 65 bytes each, sysname, nodename,
+# Linux's utsname: six fields of 65 bytes each: sysname, nodename,
 # release, version, machine and domainname.
 UTSNAME_LEN = 390
 UTSNAME_FIELD = 65
 
 # musl's posix_spawn_file_actions_t and posix_spawnattr_t are structures
-# the caller holds. A spawned child keeps only what is not close-on-exec,
-# and ruby opens every descriptor close-on-exec, so no flag asks more.
+# in the caller's memory. A spawned child keeps only the descriptors that
+# are not close-on-exec. ruby opens each descriptor close-on-exec, so no
+# more flags are necessary.
 SPAWN_ACTIONS_LEN = 80
 SPAWN_ATTR_LEN = 336
 
@@ -97,9 +98,9 @@ Machine.import "seteuid", [I32] => I32
 Machine.import "setegid", [I32] => I32
 Machine.import "issetugid", [] => I32
 
-# One of the calls that set a single id, named by its Symbol: 0, or the
-# errno as a negative. Linux has no setruid or setrgid, which ruby
-# refuses by name.
+# Calls the function that sets a single id, given by its Symbol. Returns
+# 0, or the negative errno. Linux has no setruid or setrgid. ruby
+# refuses them, with a message that gives the name.
 sig [Value, Value] => Value
 machine def zr_os_setid(call, id)
   mid = zr_sym2id(call)

@@ -1,6 +1,7 @@
-# darwin's half of loading code into this process: MAP_JIT mappings,
-# the write-protect flip each write to one needs, and a name's address
-# from this image's own symbol table, then dlsym over every loaded image.
+# The darwin part of code loading into this process: MAP_JIT mappings,
+# the write-protect toggle that each write to them needs, and symbol
+# lookup in this image's own symbol table, then with dlsym in all
+# loaded images.
 Machine.import "dlsym", [Ptr, Ptr] => Ptr
 Machine.import "_dyld_get_image_header", [I32] => Ptr
 Machine.import "_dyld_get_image_vmaddr_slide", [I32] => Word
@@ -12,18 +13,19 @@ Machine.import "sys_icache_invalidate", [Ptr, Word] => Void
 
 PROT_READ_WRITE = 3
 PROT_READ_WRITE_EXEC = 7
-# MAP_PRIVATE | MAP_ANON, MAP_JIT for a mapping that holds code, and
-# MAP_FIXED for one placed inside a reservation.
+# MAP_PRIVATE | MAP_ANON, MAP_JIT for a mapping that contains code, and
+# MAP_FIXED for a mapping inside a reservation.
 MAP_ANON_PRIVATE = 4098
 MAP_FIXED = 16
 MAP_JIT = 2048
 PROT_NONE = 0
-# dlsym's handle for every image this process has loaded.
+# dlsym's handle for all images that this process has loaded.
 RTLD_DEFAULT = 0 - 2
 
-# A region of `size` bytes that nothing may touch, for the JIT to place
-# its code and its data in at addresses it chose: the two must stay
-# within adrp's 4 GiB of each other, and a hint alone did not hold them.
+# Reserves a region of `size` bytes with no access, where the JIT puts
+# its code and data at addresses that it selects. The code and the data
+# must be within the 4 GiB range of adrp, and a hint alone does not keep
+# them that near.
 sig [Value] => Value
 machine def zr_os_jit_reserve(size)
   at = mmap(Machine.ptr(0), zr_fix2long(size), Machine.i32(PROT_NONE), Machine.i32(MAP_ANON_PRIVATE), Machine.i32(0 - 1), 0)
@@ -33,18 +35,19 @@ machine def zr_os_jit_reserve(size)
   zr_fix(Machine.word(at))
 end
 
-# `size` bytes of a reservation given back, for a MAP_JIT mapping to
-# take by hint: the kernel will not map one MAP_FIXED.
+# Releases `size` bytes of a reservation, so that a MAP_JIT mapping can
+# use them through a hint. The kernel does not accept MAP_FIXED for a
+# MAP_JIT mapping.
 sig [Value, Value] => Value
 machine def zr_os_jit_release(at, size)
   munmap(Machine.ptr(zr_fix2long(at)), zr_fix2long(size))
   Machine.value(QNIL)
 end
 
-# A mapping of `size` bytes: data at `at` exactly where it is not zero
-# (the caller reserved it), code by `at` as a hint, else where the
-# kernel puts it. Code needs MAP_JIT, which costs a write-protect flip
-# on every write.
+# Maps `size` bytes. Data goes exactly at `at` if it is not zero (the
+# caller reserved it). Code uses `at` as a hint. Else the kernel selects
+# the address. Code needs MAP_JIT, which adds a write-protect toggle to
+# each write.
 sig [Value, Value, Value] => Value
 machine def zr_os_jit_map(size, exec, at)
   prot = PROT_READ_WRITE
@@ -63,14 +66,15 @@ machine def zr_os_jit_map(size, exec, at)
   zr_fix(Machine.word(got))
 end
 
-# The address a name already in this process answers to, or nil: from
-# this image's own symbol table, else from dlsym (a name of libSystem's,
-# or an image `ld` linked, whose table is not sorted).
+# The address of a name that is already in this process, or nil. It
+# looks first in this image's own symbol table, then with dlsym (for a
+# libSystem name, or an image that `ld` linked, whose table is not
+# sorted).
 sig [Value] => Value
 machine def zr_os_symbol(name)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  # The table's names carry the C underscore; dlsym's do not.
+  # The names in the table have the C underscore. dlsym names do not.
   zr_buf_byte(b, 95)
   zr_buf_str(b, name)
   zr_buf_byte(b, 0)
@@ -85,22 +89,22 @@ machine def zr_os_symbol(name)
   zr_fix(at)
 end
 
-# The Mach-O of this image as dyld left it: the load commands after the
-# 32-byte header, each its kind and size; LC_SEGMENT_64 with its name at
-# 8, vmaddr at 24 and fileoff at 40; LC_SYMTAB with symoff, nsyms and
-# stroff at 8, 12 and 16; an nlist_64 of 16 bytes, its name's offset
-# first and its address at 8, unslid.
+# The Mach-O layout of this image as dyld loads it. The load commands
+# follow the 32-byte header, and each starts with its kind and size.
+# LC_SEGMENT_64 has its name at 8, vmaddr at 24 and fileoff at 40.
+# LC_SYMTAB has symoff, nsyms and stroff at 8, 12 and 16. An nlist_64 is
+# 16 bytes: the name offset first, and the unslid address at 8.
 LC_SEGMENT_64 = 25
 LC_SYMTAB = 2
 # "__LINKEDIT" as the two little-endian words of a 16-byte segment name.
 LINKEDIT_LOW = 0x44454B4E494C5F5F
 LINKEDIT_HIGH = 0x5449
 
-# The address `cname` (with its underscore) has in this image's symbol
-# table, or 0. The table is sorted by name (`Obj::MachO::Executable`),
-# so this is a binary search over a third of a million names; a table
-# another linker wrote is in no order, and the search misses, which is
-# what dlsym is left for.
+# The address of `cname` (with its underscore) in this image's symbol
+# table, or 0. `Obj::MachO::Executable` sorts the table by name, so
+# this is a binary search over about 330,000 names. A table from a
+# different linker is not sorted, so the search fails, and dlsym does
+# the lookup.
 sig [Ptr] => Word
 machine def zr_symtab_find(cname)
   header = _dyld_get_image_header(Machine.i32(0))
@@ -129,7 +133,8 @@ machine def zr_symtab_find(cname)
   if nsyms == 0 || link_vm == 0
     return 0
   end
-  # A file offset in __LINKEDIT is that far past where the segment starts.
+  # A file offset in __LINKEDIT is the same distance past the start of
+  # the segment in memory.
   linkedit = Machine.ptr(link_vm + slide - link_off)
   nlist = linkedit + symoff
   strings = linkedit + stroff
@@ -150,8 +155,9 @@ machine def zr_symtab_find(cname)
   0
 end
 
-# The write into the code mapping: unprotected, copied, protected
-# again, and the instruction cache told what moved.
+# Writes into the code mapping. It removes the write protection, copies
+# the bytes, sets the protection again, and flushes the instruction
+# cache for the changed bytes.
 sig [Value, Value] => Value
 machine def zr_os_jit_write(at, bytes)
   to = Machine.ptr(zr_fix2long(at))
@@ -163,8 +169,8 @@ machine def zr_os_jit_write(at, bytes)
   Machine.value(QNIL)
 end
 
-# The image libffi lives in, which the ffi gem's calls open the first
-# time a program asks for one.
+# The library that contains libffi. The ffi gem's calls open it the
+# first time a program uses one of them.
 sig [] => Ptr
 machine def zr_os_libffi_path
   Machine.bytes("/usr/lib/libffi.dylib\0")

@@ -1,11 +1,12 @@
-# darwin's libc, where ruby shows it: qsort_r, whose order decides a
-# sort's ties. Libc's BSD qsort is the one runtime/kernel/sort.rb follows.
+# The parts of darwin's libc that ruby behavior shows. qsort_r sets the
+# order of equal elements in a sort. runtime/kernel/sort.rb copies
+# Libc's BSD qsort.
 sig [Ptr, Word] => Void
 machine def zr_os_sort(st, n)
   zr_sort_range(st, 0, n)
 end
 
-# The bytes a malloc'd block holds, which the heap counts as payload.
+# The usable size of a malloc'd block. The heap counts it as payload.
 Machine.import "malloc_size", [Ptr] => Word
 
 sig [Ptr] => Word
@@ -13,14 +14,14 @@ machine def zr_os_malloc_size(p)
   malloc_size(p)
 end
 
-# SHA-256 of the whole blocks at `p`, `n` bytes of them, from and into
-# the chaining words `h` (a 64-bit slot a word, as runtime/kernel/digest.rb
-# keeps them), by CommonCrypto, which runs the CPU's own SHA-256
-# instructions: some twenty times the portable compression's speed. A
-# CC_SHA256_CTX is (count[2], hash[8], wbuf[16]) in 32-bit words; one
-# whose count is 0 and whose hash is `h`, given whole blocks, compresses
-# them in order and holds nothing back, which is all zr_sha256_block
-# does a block.
+# SHA-256 of the `n` bytes of whole blocks at `p`. It reads and updates
+# the chaining words `h` (one 64-bit slot for each word, as
+# runtime/kernel/digest.rb keeps them). CommonCrypto uses the CPU's
+# SHA-256 instructions, which are about twenty times faster than the
+# portable compression. A CC_SHA256_CTX is (count[2], hash[8], wbuf[16])
+# in 32-bit words. With count 0 and hash `h`, it compresses whole blocks
+# in order and keeps no bytes back. That is the same as zr_sha256_block
+# for each block.
 Machine.import "CC_SHA256_Update", [Ptr, Ptr, I32] => I32
 
 sig [Ptr, Ptr, Word] => Bool

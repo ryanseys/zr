@@ -1,7 +1,7 @@
-# `Data`'s constructors: every class `Data.define` makes gets `new`
-# and `[]` as its own singleton builtins, so a backtrace names them
-# `Point.new` as CRuby's does. Positional values become keywords by
-# member order, then `initialize` takes the keywords.
+# The constructors of `Data`. Each class that `Data.define` makes gets
+# `new` and `[]` as singleton builtins of its own. Thus a backtrace shows
+# `Point.new`, as in CRuby. Positional values become keywords in member
+# order, and then `initialize` receives the keywords.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_data_new(recv, argc, argv, cref, blk)
   kwargs = Machine.value(QNIL)
@@ -30,8 +30,8 @@ machine def zr_data_new(recv, argc, argv, cref, blk)
   end
   o = zr_class_allocate(recv)
   return o if o == QUNDEF
-  # Every member reads nil until `initialize` sets it, as it does when a
-  # subclass's initialize never calls super.
+  # Each member is nil until `initialize` sets it. This is what a read
+  # returns when a subclass's initialize does not call super.
   values = zr_ary_new(RArray.len(members))
   i = 0
   while i < RArray.len(members)
@@ -47,7 +47,7 @@ machine def zr_data_new(recv, argc, argv, cref, blk)
   o
 end
 
-# The two constructors onto the class's singleton.
+# Defines the two constructors on the singleton class of `klass`.
 sig [Value] => Value
 machine def zr_data_constructors(klass)
   zr_builtin(zr_singleton_class(klass), Machine.id(:new), Machine.addr(:zr_data_new), 0 - 1)
