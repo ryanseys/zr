@@ -693,11 +693,10 @@ describe "String programs" do
     OUT
   end
 
-  it "issue203 string new" do
+  it "String.new gives an empty mutable buffer, or a copy of its seed" do
     result = zr(<<~'RUBY')
-      # Issue #203: `String.new` resolved to 0 because the constructor
-      # dispatch had no String arm. Code that combined the result with
-      # `<<` (the Rails view-emit accumulator pattern) failed to compile.
+      # `String.new` gives a String that `<<` can append to, as in the
+      # accumulator that a Rails view uses.
 
       # Bare String.new — empty mutable buffer.
       io = String.new

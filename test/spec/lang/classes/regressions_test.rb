@@ -2306,14 +2306,10 @@ describe "Classes: regressions" do
     _(result).must_answer "tokyo\n"
   end
 
-  it "issue176 empty hash default" do
+  it "an empty Hash default argument reads the Hash the caller gives" do
     result = zr(<<~'RUBY')
-      # Issue #176: empty-Hash default parameter `def m(h = {})` used to
-      # silently corrupt the caller-supplied Hash because unify_call_types
-      # widened the param type to "poly" and the poly dispatch tree had no
-      # arm for SymIntHash/StrIntHash. Hash variants now escalate the
-      # str_int_hash empty default to the call-site type, mirroring the
-      # int_array → typed-array escalation.
+      # A parameter with an empty Hash default, `def m(h = {})`, reads the
+      # Hash that the caller gives, with Symbol keys or String keys.
 
       class T_issue176_empty_hash_default_A
         def initialize(attrs = {})
@@ -2351,12 +2347,11 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue204 user find fetch" do
+  it "a user-defined find and fetch return their own values" do
     result = zr(<<~'RUBY')
-      # Issue #204: user-defined `find` / `fetch` were overridden by the
-      # method-name dispatch's "int" fallback even when the receiver
-      # wasn't a built-in collection. The body's actual return type
-      # (string here) lost; the call site mistyped the result as int.
+      # A user-defined `find` or `fetch` returns the value of its own body
+      # (a String here), not the value of the built-in method with that
+      # name.
 
       # Class method form (canonical ActiveRecord finder shape).
       class T_issue204_user_find_fetch_Bag
@@ -2376,7 +2371,7 @@ describe "Classes: regressions" do
       puts c.find(:a)          # alpha
       puts c.fetch(:b)         # beta
 
-      # Built-in collection dispatch still works (regression check).
+      # The built-in Array#find still works.
       puts ["x", "y", "z"].find { |v| v == "y" }   # y
     RUBY
 
@@ -2389,20 +2384,12 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue207 factory pattern" do
+  it "a factory class method sets a field on the object that bare new makes" do
     result = zr(<<~'RUBY')
-      # Issue #207: factory class method (`def self.from_raw`) using
-      # implicit `new`, calling a setter on the new instance whose value
-      # came from a poly-hash-returning fetch. Several composing gaps:
-      #
-      #   1. Bare `new` inside a `def self.<m>` body must resolve to
-      #      <CurrentClass>.new (returning obj_<CurrentClass>).
-      #   2. The class method's parameter type must widen from the
-      #      class-constant call site (`T_issue207_factory_pattern_T.from_raw(p)` → params: obj_P).
-      #   3. The setter's poly arg must widen the receiving ivar's slot
-      #      type (sp_RbVal field, not mrb_int).
-      #   4. The fetch's nil-default param must widen from the call-site
-      #      string default ("" → string?).
+      # A factory class method (`def self.from_raw`) makes an instance
+      # with a bare `new`, then calls a setter on it with the value of a
+      # user-defined `fetch`. The `fetch` has a nil default, and the call
+      # gives "" in its place.
 
       class T_issue207_factory_pattern_P
         def initialize(h)
@@ -2431,24 +2418,13 @@ describe "Classes: regressions" do
     _(result).must_answer "hello\n"
   end
 
-  it "issue207 full repro" do
+  it "a Parameters wrapper symbolizes nested keys for a factory" do
     result = zr(<<~'RUBY')
-      # Issue #207: full Sam Ruby repro — Rails-style ActiveRecord
-      # T_issue207_full_repro_Parameters wrapper with symbolize_keys recursion plus a typed
-      # Params factory using fetch.
-      #
-      # This combines several fixes that had to land together:
-      #
-      # - Implicit `new` inside `def self.<m>` resolves to the enclosing
-      #   class's constructor (#207 partial fix).
-      # - cls method body return inference picks up locals (#207 partial
-      #   fix).
-      # - attr_writer call inside cls method body widens the ivar slot.
-      # - Class-constant call sites (T.from_raw(p)) widen the cls method's
-      #   parameter types.
-      # - Static is_a? / kind_of? on a known-concrete-type receiver
-      #   eliminates the unreachable arm so the dead recursion call
-      #   doesn't land in C and trip the type checker.
+      # A Rails-style Parameters wrapper changes each key to a Symbol, and
+      # calls itself for a nested Hash. A factory class method makes an
+      # instance with a bare `new` and sets a field from the `fetch` of
+      # the wrapper. The factory returns a local, and the recursive call
+      # is in an `is_a?(Hash)` arm that this input never takes.
 
       class T_issue207_full_repro_Parameters
         def initialize(hash = {})
@@ -2490,13 +2466,10 @@ describe "Classes: regressions" do
     _(result).must_answer "hello\n"
   end
 
-  it "issue208 inherited class method" do
+  it "a class method of the parent class answers through each subclass" do
     result = zr(<<~'RUBY')
-      # Issue #208: a class method (`def self.<name>`) defined on the
-      # parent class must dispatch when called via the subclass. Spinel
-      # previously emitted "cannot resolve call to '<method>' on
-      # class_<Subclass>" and substituted 0 because cls_cmethod lookup
-      # only walked the immediate class.
+      # A class method (`def self.<name>`) that the parent class defines
+      # answers when a subclass calls it, at one level or at two.
 
       class T_issue208_inherited_class_method_Base
         def self.all
@@ -2526,15 +2499,10 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue219 aref chain" do
+  it "a call on the result of a user-defined [] sees the real value" do
     result = zr(<<~'RUBY')
-      # Issue #219: chained calls on a user-defined `[]` operator's
-      # result silently lost their coercion (`.to_i` / `.length`) because
-      # infer_type's `mname == "[]"` branch handled built-in collection
-      # receivers but fell through to "int" for obj receivers.
-      # `bag[:id].to_i` then routed through compile_int_method_expr's
-      # `to_i` (which is identity) and the underlying `const char *`
-      # leaked through.
+      # A call on the result of a user-defined `[]` (`.to_i`, `.length`)
+      # sees the real value that `[]` returns, here a String.
 
       class T_issue219_aref_chain_Bag
         def initialize(h); @h = h; end
@@ -2543,21 +2511,20 @@ describe "Classes: regressions" do
 
       bag = T_issue219_aref_chain_Bag.new({id: "42"})
 
-      # .to_i: infers as int via String#to_i
+      # .to_i calls String#to_i.
       puts bag[:id].to_i              # 42
       puts bag[:id].to_i + 1          # 43
 
-      # .length: routes through String#length
+      # .length calls String#length.
       puts bag[:id].length            # 2
 
-      # Chained into a method expecting mrb_int
+      # The Integer goes into a method that adds to it.
       class T_issue219_aref_chain_M
         def self.find(id); id + 1; end
       end
       puts T_issue219_aref_chain_M.find(bag[:id].to_i)      # 43
 
-      # Integer-valued bag — .to_s works the other direction (already
-      # worked before the fix; pinning regression).
+      # A bag of Integer values: .to_s gives a String.
       class T_issue219_aref_chain_IntBag
         def initialize(h); @h = h; end
         def [](k); @h[k]; end
@@ -2575,16 +2542,11 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "issue235 chain tail widening" do
+  it "a chained ivar assignment of a call result sets every ivar" do
     result = zr(<<~'RUBY')
-      # Issue #235 follow-up to #234: chained `@a = @b = expr` only widened
-      # the chain *head*. The tail (and intermediate participants in
-      # longer chains) relied on scan_ivars's dual-definite-literal gate,
-      # which fires for literal RHS but not for CallNode/expression RHS.
-      # A `@a = @b = make_int` with `@a`/`@b` previously string-typed left
-      # `@b`'s slot at `const char *` while compile_chained_ivar_writes
-      # emitted `iv_b = _t1;` with `_t1 : mrb_int`. Same T_issue235_chain_tail_widening_C error shape
-      # #234 was fixing for the head, just on the tail.
+      # A chained assignment `@a = @b = expr` with a call on the right sets
+      # every ivar in the chain to the result, also when the ivars held
+      # Strings before and the result is an Integer.
 
       class T_issue235_chain_tail_widening_C
         def initialize
@@ -2596,13 +2558,12 @@ describe "Classes: regressions" do
           42
         end
 
-        # CallNode RHS — bypasses scan_ivars's literal-gate widening so
-        # the chain-drill path is the only thing that can widen `@b`.
+        # A method call on the right, not a literal.
         def reset_call
           @a = @b = make_int
         end
 
-        # 3-chain with CallNode RHS — every intermediate must widen.
+        # A chain of three, with a call on the right.
         def reset_three(c)
           @a = @b = @c = c.length
         end
@@ -2621,9 +2582,7 @@ describe "Classes: regressions" do
       c2.reset_three("ab")
       c2.show                 # 2 / 2
 
-      # 3-chain that adds an `@c` slot to the picture too. After
-      # reset_three sets @c, calling show wouldn't read it (no accessor),
-      # but the struct emit needs to type-check.
+      # reset_three also sets @c, which no code reads.
       puts "ok"
     RUBY
 

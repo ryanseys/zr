@@ -788,19 +788,14 @@ describe "Syntax programs" do
     OUT
   end
 
-  it "issue236 chain empty literal" do
+  it "a chained ivar assignment of an empty literal shares one object" do
     result = zr(<<~'RUBY')
-      # Issue #236 follow-up to #234: chained `@a = @b = {}` (or `[]`)
-      # with slots promoted to a typed container (e.g. `str_str_hash`)
-      # emitted a default `sp_StrIntHash *` temp and assigned it to both
-      # slots, mismatching the promoted slot's pointer type. The fix
-      # detects empty-literal RHS in compile_chained_ivar_writes and,
-      # when every chain participant agrees on the same promoted type,
-      # emits the slot-typed constructor for the temp so the assignment
-      # type-checks and Ruby's "one shared object" semantic is preserved
-      # (both slots receive the same pointer).
+      # A chained assignment `@a = @b = {}` (or `[]`) puts one new object
+      # in every ivar of the chain, so a write through one ivar shows
+      # through the others. The ivars held String-keyed Hashes (or String
+      # Arrays) before.
 
-      # Hash: both slots promoted to str_str_hash via @h["k"] = "v" writes.
+      # Hash: both ivars held a Hash with String keys and values.
       class HashOwner
         def initialize
           @a = {}
@@ -813,10 +808,8 @@ describe "Syntax programs" do
           @a = @b = {}
         end
 
-        # Sharing test: write to @a, observe through @b. Pre-fix this
-        # wouldn't compile; if the chain helper accidentally regressed to
-        # per-slot constructors, sharing would be lost and @b would still
-        # report length 0 after the @a write.
+        # Write through @a, and read through @b. If the ivars do not share
+        # one object, @b has length 0.
         def post_reset_share_check
           @a["after"] = "ok"
           puts @b.length            # 1 if shared, 0 if separate objects
@@ -828,7 +821,7 @@ describe "Syntax programs" do
       ho.reset
       ho.post_reset_share_check
 
-      # Array: both slots promoted to str_array via push("x"/"y").
+      # Array: both ivars held an Array of Strings.
       class ArrayOwner
         def initialize
           @a = []
@@ -852,7 +845,7 @@ describe "Syntax programs" do
       ao.reset
       ao.post_reset_share_check
 
-      # Three-chain to confirm the consensus check covers length-3 chains.
+      # A chain of three ivars.
       class ThreeChain
         def initialize
           @a = {}; @a["s"] = "v"

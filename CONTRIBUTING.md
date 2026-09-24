@@ -37,6 +37,9 @@ form by name. See [The contract](docs/explanation/the-contract.md).
   lists the terms.
 - A comment says why, not what the code already says.
 - Test names say what they check: `test_<subject>_<condition>_<result>`.
+- A spec sentence (`it "..."`) says what the program does, in the
+  present tense: `a frozen String raises FrozenError on <<`. It names no
+  issue number.
 - `bundle exec rake lint` runs RuboCop's Lint cops.
 
 ## Report a security problem
