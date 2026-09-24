@@ -1,40 +1,43 @@
-# Blocks. A block literal is a function taking its Proc, the arguments
-# and a block of its own; the Proc carries what the body needs from
-# where it was written: the captured locals (an Env), self, the cref,
-# the method's own block, and two homes with their serials: the frame
-# a `break` returns to (with the call site's number) and the method a
-# `return` leaves. A `break` or `return` is a signal beside `raise`:
-# the task's pending kind says which.
+# Blocks. A block literal is a function that takes its Proc, the
+# arguments and a block of its own. The Proc contains what the body needs
+# from the place where it was written: the captured locals (an Env),
+# self, the cref, the block of the method, and two homes with their
+# serials. One home is the frame that a `break` returns to (with the
+# number of the call site). The other is the method that a `return`
+# leaves. A `break` or `return` is a pending unwind, as `raise` is: the
+# pending kind of the task tells which.
 #
-# A block literal is no Proc cell until something keeps it. The send
-# that carries it writes a Proc's image into a slot of its own record
-# (`make_block` in the lowering), flagged FL_STACK and marked already,
-# so the collector reads nothing through it: what it names, its frame
-# roots. A kernel def that keeps a block past the call -- as a `&b`
-# parameter, in a Binding, a Fiber, a Hash's default, an at_exit hook,
-# a define_method's body -- takes it through `zr_block_proc` first, so
-# no cell ever points into a stack. A frame gives its serial when it
-# makes a block, so a descriptor's frame is told from a later frame at
-# the same address as a Proc's is.
+# A block literal is not a Proc cell until some code keeps it. The send
+# that passes it writes a Proc image into a slot of its own frame record
+# (`make_block` in the lowering). The image has FL_STACK set and is
+# already marked, so the collector reads nothing through it: the frame
+# roots what it refers to. A kernel function that keeps a block after the
+# call (as a `&b` parameter, in a Binding, a Fiber, a Hash default, an
+# at_exit hook, a define_method body) calls `zr_block_proc` on it first,
+# so no cell points into a stack. A frame gives its serial when it makes
+# a block. Thus a descriptor's frame is different from a later frame at
+# the same address, as for a Proc.
 #
-# A method's or a block's Env starts in its record the same way: an
-# REnv image flagged FL_STACK whose `slots` are the record's own local
-# slots, which the frame roots. The first keeper of the frame's scope
+# The Env of a method or a block starts in its frame record the same way:
+# an REnv image with FL_STACK set, whose `slots` are the local slots of
+# the record, which the frame roots. The first keeper of the frame's scope
 # (`zr_env_escape`: a Proc made from one of its blocks, a Binding, an
-# eval) copies the Env to a cell, its parents first, points the image's
-# `slots` at the copy's and keeps the cell in `cell` and in the frame's
-# env slot, so the frame and every block of it read and write the
-# cell's slots from then on, and a second keeper gets the same cell.
+# eval) copies the Env to a cell, parents first. It points the `slots` of
+# the image at the slots of the copy, and keeps the cell in `cell` and in
+# the env slot of the frame. After that, the frame and all its blocks
+# read and write the slots of the cell, and a second keeper gets the same
+# cell.
 Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr, cell: Value, home: Ptr
 Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word, passed: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
 T_PROC = 27
-# A block literal's descriptor in the record of the send that carries it.
+# The descriptor of a block literal in the frame record of the send that
+# passes it.
 FL_STACK = 1 << 9
-# A Proc `Ractor.shareable_proc` made: frozen, calling nothing it did not
-# copy, and with no Binding to reach its scope through. A copy of it is
-# an ordinary Proc again, so the bit is not carried over.
+# A Proc from `Ractor.shareable_proc`: frozen, calls only what it copied,
+# and has no Binding that reaches its scope. A copy of it is an ordinary
+# Proc, so the copy does not get the bit.
 FL_ISOLATED = 1 << 13
 G_PROC = 28
 G_LOCAL_JUMP_ERROR = 29
@@ -61,9 +64,9 @@ machine def zr_env_new(parent, n, names)
   e
 end
 
-# The Env `env` as a cell: itself when it is one; a record's image
-# becomes a cell once, its parents first, and its frame reads and
-# writes the cell's slots from then on.
+# Returns the Env `env` as a cell. A cell returns itself. A frame
+# record's image becomes a cell once, parents first, and after that its
+# frame reads and writes the slots of the cell.
 sig [Value] => Value
 machine def zr_env_escape(env)
   if env == QNIL || (RBasic.flags(env) & FL_STACK) == 0
@@ -76,8 +79,9 @@ machine def zr_env_escape(env)
   n = REnv.nslots(env)
   e = zr_env_new(parent, n, REnv.names(env))
   zr_memcpy(REnv.slots(e), REnv.slots(env), n * 8)
-  # A `&b` parameter bound as the block it was given is a Proc on its
-  # caller's stack (Params#raw_block?); the cell outlives that frame.
+  # A `&b` parameter bound to the block it was given is a Proc on the
+  # stack of its caller (Params#raw_block?). The cell lives longer than
+  # that frame.
   i = 0
   while i < n
     v = Machine.value(Machine.load64(REnv.slots(e) + (i * 8), 0))
@@ -93,7 +97,7 @@ machine def zr_env_escape(env)
   e
 end
 
-# The env `depth` parents up from `env`.
+# Returns the Env that is `depth` parents up from `env`.
 sig [Value, Word] => Value
 machine def zr_env_up(env, depth)
   while depth > 0
@@ -108,19 +112,19 @@ machine def zr_env_get(env, i)
   Machine.value(Machine.load64(REnv.slots(env) + (i * 8), 0))
 end
 
-# The write barrier for a store into an Env's slots.
+# The write barrier for a store into the slots of an Env.
 #
-# A record's image is flagged FL_STACK and sits in no arena, so the
-# barrier steps over it. That is right while the slots are the frame's
-# own, which every collection reads as a root. Once a keeper has moved
-# the scope to a cell (`zr_env_escape`) the slots are the cell's, and a
-# minor collection reaches them through the cell alone -- and stops at
-# it once it is old. So from then on the barrier is the cell's, and a
-# store handed the image writes down nothing.
+# A frame record's image has FL_STACK set and is in no arena, so the
+# barrier skips it. That is correct while the slots are the frame's own,
+# because each collection reads them as a root. After a keeper moves the
+# scope to a cell (`zr_env_escape`), the slots are the cell's. A minor
+# collection reaches them only through the cell, and stops at the cell
+# when it is old. So from then on the barrier applies to the cell, and a
+# store through the image records nothing.
 #
 # This is what `vm_env_write_slowpath` (vm_insnhelper.c:514 at 4.0.6)
 # does: it remembers `VM_ENV_ENVVAL(ep)`, which is the cell, never the
-# frame. A heap Env holds QNIL in `cell` and answers for itself.
+# frame. A heap Env has QNIL in `cell` and is its own cell.
 sig [Value, Value] => Void
 machine def zr_env_barrier(env, v)
   cell = REnv.cell(env)
@@ -158,24 +162,24 @@ machine def zr_mark_proc(p)
   zr_mark(blk)
 end
 
-# The self a block answers to.
+# Returns the self of a block.
 sig [Value] => Value
 machine def zr_proc_self_m(p)
   RProc.self(p)
 end
 
-# The same block with another self, which is what a Ractor runs: the
-# block's body answers to the ractor, and no frame stands between the
-# call and the body where a report would show one.
+# Returns the same block with a different self, which is what a Ractor
+# runs. The body of the block runs with the ractor as self, and no frame
+# is between the call and the body where a report would show one.
 sig [Value, Value] => Value
 machine def zr_proc_rebind_m(p, self_)
   RProc.set_self(p, self_)
   p
 end
 
-# The locals a block reaches outside itself, as Symbols. A Ractor
-# refuses a block that reaches one, and names them. A block that reaches
-# none carries no table at all.
+# Returns the outer locals that a block uses, as Symbols. A Ractor
+# refuses a block that uses one, and gives their names. A block that
+# uses none has no table.
 sig [Value] => Value
 machine def zr_proc_captures_m(p)
   out = zr_ary_new(4)
@@ -192,9 +196,9 @@ machine def zr_proc_captures_m(p)
   out
 end
 
-# The same locals as `[name, written, rebound]` rows: whether the block
-# writes the local, and whether the scope that owns it binds it more
-# than once. `Ractor.shareable_proc` refuses a block for either.
+# Returns the same locals as `[name, written, rebound]` records: whether
+# the block writes the local, and whether the scope that owns it binds it
+# more than once. `Ractor.shareable_proc` refuses a block for either.
 sig [Value] => Value
 machine def zr_proc_capture_rows_m(p)
   out = zr_ary_new(4)
@@ -217,9 +221,9 @@ machine def zr_proc_capture_rows_m(p)
   out
 end
 
-# A copy of `p` any ractor may call, answering to `self_`. A literal
-# block becomes a lambda when `lambda` asks; a Proc that was passed in
-# keeps what it is, as ruby's `shareable_lambda(&pr)` does.
+# Returns a copy of `p` that any ractor can call, with `self_` as self.
+# A literal block becomes a lambda when `lambda` is true. A Proc that
+# was passed in keeps its kind, as ruby's `shareable_lambda(&pr)` does.
 sig [Value, Value, Value] => Value
 machine def zr_proc_isolated_m(p, self_, lambda)
   copy = zr_copy_cell(p)
@@ -234,7 +238,7 @@ machine def zr_proc_isolated_m(p, self_, lambda)
   copy
 end
 
-# A native Proc has no meta, and no locals to reach.
+# A native Proc has no meta, and no outer locals.
 sig [Value] => Ptr
 machine def zr_proc_captures_table(p)
   meta = RProc.meta(p)
@@ -244,9 +248,10 @@ machine def zr_proc_captures_table(p)
   FrameMeta.captures(meta)
 end
 
-# A block as an object: a Proc is one already; a literal's descriptor
-# becomes a Proc of its own cell, its own block first, so a Proc keeps
-# no descriptor. The same descriptor kept twice makes two Procs.
+# Returns a block as an object. A Proc is one already. A literal's
+# descriptor becomes a Proc in its own cell, its own block first, so a
+# Proc keeps no descriptor. When code keeps the same descriptor two
+# times, it makes two Procs.
 sig [Value] => Value
 machine def zr_block_proc(b)
   if b == QNIL || (RBasic.flags(b) & FL_STACK) == 0
@@ -254,7 +259,7 @@ machine def zr_block_proc(b)
   end
   blk = zr_block_proc(RProc.blk(b))
   env = zr_env_escape(RProc.env(b))
-  # The each adapter's block is its self (zr_enum_each), kept with it.
+  # The block of the each adapter is its self (zr_enum_each), kept with it.
   self_ = RProc.self(b)
   if RProc.fn(b) == Machine.addr(:zr_enum_each_block)
     self_ = zr_block_proc(self_)
@@ -267,13 +272,12 @@ machine def zr_block_proc(b)
   p
 end
 
-# `&:name`: a Proc sending `name` to its first argument, as a call with
-# a receiver, so a private method is not reached (rb_sym_proc_call's
-# public call). The block function reads the Symbol from the Proc's
-# self. A Proc made where
-# refinements are active keeps their list in its cref, and its send
-# looks the name up under them wherever the Proc is called, as ruby's
-# refined Symbol#to_proc does.
+# `&:name`: a Proc that sends `name` to its first argument, as a call
+# with a receiver, so it cannot call a private method (the public call of
+# rb_sym_proc_call). The block function reads the Symbol from the self of
+# the Proc. A Proc made where refinements are active keeps their list in
+# its cref. Its send looks up the name under them wherever the Proc is
+# called, as ruby's refined Symbol#to_proc does.
 sig [Value, Word, Ptr, Value] => Value
 machine def zr_symbol_block(p, argc, argv, blk)
   if argc == 0
@@ -289,8 +293,8 @@ machine def zr_symbol_block(p, argc, argv, blk)
   zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, 2, blk)
 end
 
-# The Proc of `sym`, under the refinements the task has active: the
-# shared one where none are.
+# Returns the Proc of `sym` under the refinements that are active in the
+# task, or the shared Proc when none are active.
 sig [Value] => Value
 machine def zr_sym_to_proc_here(sym)
   row = Task.refine(zr_task())
@@ -304,8 +308,8 @@ end
 
 sig [Value] => Value
 machine def zr_sym_to_proc(sym)
-  # One lambda per Symbol for the life of the program, as ruby's
-  # rb_sym_to_proc answers, kept in a table the collector roots.
+  # One lambda for each Symbol for the life of the program, as ruby's
+  # rb_sym_to_proc returns. A table that the collector roots keeps them.
   table = zr_global(G_SYM_PROCS)
   if zr_special_p(table)
     table = zr_hash_new()
@@ -322,12 +326,12 @@ end
 
 G_SYM_PROCS = 61
 
-# `each` over `recv` with `blk` given one value per element: the value
-# yielded, or an Array of them when there are several (nil for none),
-# as rb_enum_values_pack packs them, so a core method reads each
-# element without a splat Array of its own. `args` go to `each`, or
-# nil. The adapter is a stack image of a Proc whose self is `blk`; an
-# `each` that keeps its block gets a cell (zr_block_proc).
+# Calls `each` on `recv` and gives `blk` one value for each element: the
+# yielded value, or an Array of them when there are several (nil for
+# none), packed as rb_enum_values_pack packs them. Thus a core method
+# reads each element without a splat Array of its own. `args` go to
+# `each`, or nil. The adapter is a stack image of a Proc whose self is
+# `blk`. An `each` that keeps its block gets a cell (zr_block_proc).
 sig [Value, Value, Value] => Value
 machine def zr_enum_each(recv, args, blk)
   d = Machine.slot(RProc.size)
@@ -365,26 +369,25 @@ machine def zr_enum_each_block(p, argc, argv, blk)
   zr_yield1(RProc.self(p), zr_ary_of(argc, argv))
 end
 
-# `each` over `recv` with every value yielded straight through to
-# `blk`, and what `blk` answers kept in an Array: rb_block_call with
-# `collect_i`, which yields by rb_yield_values2 and so packs nothing.
-# A block of one parameter then sees the first value where `each`
-# yielded several, which is what `map` answers and what a packing
-# adapter cannot give.
+# Calls `each` on `recv`, yields each value directly to `blk`, and keeps
+# the results of `blk` in an Array. This is rb_block_call with
+# `collect_i`, which yields with rb_yield_values2 and so packs nothing.
+# Thus a block of one parameter sees the first value when `each` yielded
+# several, as `map` requires. A packing adapter cannot give that.
 #
-# Written here rather than in `Enumerable#map` because a Ruby block
-# that takes `|*x|` to pass them on allocates that Array once an
-# element: 2,000,000 elements cost 242 ms that way and 65 ms this.
-# The adapter's self is the pair [Array, block], so both are held
-# where the collector already looks.
+# This is here and not in `Enumerable#map` because a Ruby block that
+# takes `|*x|` to pass the values on allocates that Array for each
+# element: 2,000,000 elements take 242 ms that way and 65 ms here.
+# The self of the adapter is the pair [Array, block], so the collector
+# already finds both.
 sig [Value, Value, Value] => Value
 machine def zr_enum_collect(recv, args, blk)
   kept = zr_ary_new(2)
   zr_ary_push(kept, zr_ary_new(4))
   zr_ary_push(kept, blk)
   p = zr_native_proc(Machine.addr(:zr_enum_collect_block), kept)
-  # rb_lambda_call hands `each` the block's own arity, so a Hash yields
-  # its key and value apart to a block that takes two or more.
+  # rb_lambda_call gives `each` the arity of the block, so a Hash yields
+  # its key and value as two values to a block that takes two or more.
   zr_block_asks_pair(p, blk)
   if args == QNIL
     r = zr_send_blk(recv, Machine.id(:each), 0, 0, p)
@@ -395,8 +398,8 @@ machine def zr_enum_collect(recv, args, blk)
   zr_ary_at(kept, 0)
 end
 
-# Marks the adapter `p` as a block that takes a pair when `blk` takes
-# two or more values, which is what a Hash's `each` asks of its block.
+# Marks the adapter `p` as a block that takes a pair when `blk` takes two
+# or more values, as the `each` of a Hash requires of its block.
 sig [Value, Value] => Void
 machine def zr_block_asks_pair(p, blk)
   if zr_block_min_params(blk) > 1
@@ -405,8 +408,8 @@ machine def zr_block_asks_pair(p, blk)
   end
 end
 
-# How many values `blk` requires, or 0 for a block of no parameters of
-# its own (a Symbol's or a Method's).
+# Returns how many values `blk` requires, or 0 for a block with no
+# parameters of its own (from a Symbol or a Method).
 sig [Value] => Word
 machine def zr_block_min_params(blk)
   if RProc.meta(blk) == 0
@@ -415,13 +418,12 @@ machine def zr_block_min_params(blk)
   zr_params_min(FrameMeta.params(RProc.meta(blk)))
 end
 
-# `each` over `recv` with `blk` asked about every element, as
-# enum.c's find_i asks through enum_yield: the element goes to `ask`
-# with the block's answer. Values `each` yielded several at a time
-# reach a lambda of two or more parameters spread and anything else as
-# one Array (rb_yield_force_blockarg), and a Hash yields them several
-# at a time, as rb_block_call2 with RB_BLOCK_NO_USE_PACKED_ARGS makes
-# it do.
+# Calls `each` on `recv` and calls the block for each element, as the
+# find_i of enum.c does through enum_yield: the element and the result of
+# the block go to `ask`. When `each` yields several values at a time, a
+# lambda of two or more parameters gets them spread, and any other block
+# gets one Array (rb_yield_force_blockarg). A Hash yields several values
+# at a time, as rb_block_call2 with RB_BLOCK_NO_USE_PACKED_ARGS makes it do.
 sig [Value, Value, Value, Value] => Value
 machine def zr_enum_each_asked(recv, args, blk, ask)
   kept = zr_ary_new(2)
@@ -468,26 +470,25 @@ machine def zr_enum_collect_block(p, argc, argv, blk)
 end
 
 # The lazy stages that keep no state of their own. Each reads one
-# element, asks its block about it, and sends nothing or one thing on.
+# element, calls its block on it, and sends zero or one value on.
 LAZY_MAP = 0
 LAZY_SELECT = 1
 LAZY_REJECT = 2
 LAZY_FILTER_MAP = 3
 
-# One stage of a lazy chain: `each` over `recv` with every value
-# straight through to `blk` -- so a block of one parameter sees the
-# first where `each` yielded several, as ruby's lazy gives it -- and
-# what the stage keeps sent on to `out`, the block the stage below
-# wrote.
+# One stage of a lazy enumerator. It calls `each` on `recv` and yields
+# each value directly to `blk`, so a block of one parameter sees the
+# first value when `each` yielded several, as ruby's lazy does. The
+# values that the stage keeps go to `out`, the block of the next stage.
 #
-# Written here rather than in Ruby because a `|*values|` block
-# allocates that Array once an element and once a stage. `map` then
-# `select` over 2,000,000 elements, three times, cost 1.237 s that way
-# against ruby's 0.670 s and YJIT's 0.631 s; here it is 0.542 s.
+# This is here and not in Ruby because a `|*values|` block allocates that
+# Array for each element and each stage. `map` then `select` over
+# 2,000,000 elements, three times, took 1.237 s that way, against ruby's
+# 0.670 s and YJIT's 0.631 s. Here it takes 0.542 s.
 #
-# `out` takes the values the element was yielded with, not the packed
-# one, so a chain answers what it answered before: the stage below
-# packs them again if it must.
+# `out` gets the values as the element was yielded, not packed, so the
+# result of the enumerator does not change: the next stage packs them
+# again if it must.
 sig [Value, Word, Value, Value] => Value
 machine def zr_lazy_stage(recv, kind, blk, out)
   kept = zr_ary_new(3)
@@ -500,10 +501,10 @@ machine def zr_lazy_stage(recv, kind, blk, out)
   Machine.value(QNIL)
 end
 
-# The adapter is deliberately absent from `zr_same_block`: a lazy block
-# is kept and called after the call that took it has returned, so a
-# `break` in one is the LocalJumpError ruby raises, and unwrapping the
-# adapter would make it a break out of the walk instead.
+# This adapter is not in `zr_same_block` on purpose. A lazy block is kept
+# and called after the call that took it returns, so a `break` in it is
+# the LocalJumpError that ruby raises. If `zr_same_block` unwrapped the
+# adapter, the `break` would leave the walk instead.
 sig [Value, Word, Ptr, Value] => Value
 machine def zr_lazy_stage_block(p, argc, argv, blk)
   kept = RProc.self(p)
@@ -555,8 +556,8 @@ machine def zr_lazy_filter_map(recv, blk, out)
   zr_lazy_stage(recv, LAZY_FILTER_MAP, blk, out)
 end
 
-# A lambda whose body is the kernel function `fn`, with `self_` as
-# what it works on: a Symbol's or a Method's Proc.
+# Returns a lambda whose body is the kernel function `fn`, with `self_`
+# as the object it works on: the Proc of a Symbol or a Method.
 sig [Ptr, Value] => Value
 machine def zr_native_proc(fn, self_)
   p = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
@@ -577,8 +578,8 @@ machine def zr_native_proc(fn, self_)
   p
 end
 
-# `-> { }`: the literal's Proc, a lambda, with no call site for a
-# `break` to reach.
+# `-> { }`: the Proc of the literal, a lambda, with no call site that a
+# `break` can reach.
 sig [Value] => Value
 machine def zr_proc_lambda(p)
   p = zr_block_proc(p)
@@ -587,17 +588,18 @@ machine def zr_proc_lambda(p)
   p
 end
 
-# `Proc#call`: the block with the arguments, and a block of its own.
+# `Proc#call`: calls the block with the arguments and a block of its own.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_call(recv, argc, argv, cref, blk)
   Machine.call(:block, RProc.fn(recv), recv, argc, argv, blk)
 end
 
-# `b.call(args)` on a `&b` parameter bound as the block it was given, a
-# Proc that may still be on its caller's stack (Params#raw_block?): the
-# block runs as Proc#call would run it while that is the program's own
-# and the receiver is a plain Proc; else the Proc is made and asked, as
-# any receiver is. Nil takes the send, which raises as it would.
+# `b.call(args)` on a `&b` parameter bound to the block it was given. That
+# Proc can still be on the stack of its caller (Params#raw_block?). While
+# `call` is the program's own and the receiver is a plain Proc, the block
+# runs as Proc#call would run it. Otherwise the code makes the Proc and
+# sends `call` to it, as to any receiver. Nil gets the send, which raises
+# as usual.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_block_call(recv, mid, argc, argv, mode)
   if recv != QNIL && (Machine.gates & GATE_PROC_CALL) == 0 && RBasic.klass(recv) == zr_global(G_PROC)
@@ -606,10 +608,11 @@ machine def zr_opt_block_call(recv, mid, argc, argv, mode)
   zr_dispatch(0, zr_block_proc(recv), mid, argc, argv, mode, Machine.value(QNIL))
 end
 
-# Where a block came from, as rb_block_to_s writes it after the address:
-# `(&:sym)` for a Symbol's Proc, ` file:line` for a block a program
-# wrote, and nothing for a core-made or Method Proc. False when the
-# Symbol's inspect raised; the exception is then pending.
+# Writes the origin of a block, as rb_block_to_s writes it after the
+# address: `(&:sym)` for the Proc of a Symbol, ` file:line` for a block
+# that a program wrote, and nothing for a core-made or Method Proc.
+# Returns false when the inspect of the Symbol raised; the exception is
+# then pending.
 sig [Ptr, Value] => Bool
 machine def zr_buf_block_where(b, blk)
   meta = RProc.meta(blk)
@@ -630,7 +633,7 @@ machine def zr_buf_block_where(b, blk)
   true
 end
 
-# `#<Proc:0x... file:line (lambda)>`.
+# Returns `#<Proc:0x... file:line (lambda)>`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
@@ -652,8 +655,8 @@ machine def zr_proc_lambda_p(recv, argc, argv, cref, blk)
   zr_bool(RProc.lambda(recv) != 0)
 end
 
-# `proc { }` and `Proc.new { }`: the block's Proc, with no call site
-# for a `break` to reach any more.
+# `proc { }` and `Proc.new { }`: the Proc of the block, with no call site
+# that a `break` can reach after this.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_proc(recv, argc, argv, cref, blk)
   if blk == QNIL
@@ -665,8 +668,8 @@ machine def zr_kernel_proc(recv, argc, argv, cref, blk)
 end
 
 # `Proc.new { }`: as `proc`, and the arguments go to `initialize`, as
-# rb_proc_s_new passes them. A subclass's is a copy of the block made
-# an instance of it, as proc_new makes one.
+# rb_proc_s_new passes them. For a subclass, it returns a copy of the
+# block as an instance of the subclass, as proc_new does.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_s_new(recv, argc, argv, cref, blk)
   p = zr_kernel_proc(recv, 0, argv, cref, blk)
@@ -681,10 +684,10 @@ machine def zr_proc_s_new(recv, argc, argv, cref, blk)
   p
 end
 
-# `lambda { }`: the block's Proc, strict about its arguments and with
-# `return` leaving the lambda itself. A Proc passed with `&` has to be a
-# lambda already -- a `->`, a Method's, a Symbol's -- and comes back as
-# it is; any other one is refused.
+# `lambda { }`: the Proc of the block, strict about its arguments, and
+# `return` leaves the lambda itself. A Proc passed with `&` must already
+# be a lambda (a `->`, a Method's, a Symbol's), and comes back unchanged.
+# It refuses all other Procs.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_lambda(recv, argc, argv, cref, blk)
   if blk == QNIL
@@ -701,9 +704,9 @@ machine def zr_kernel_lambda(recv, argc, argv, cref, blk)
   p
 end
 
-# `&value` at a call: nil passes no block, a Proc itself (marked as
-# passed: no longer a literal block, which `lambda` refuses), a Symbol
-# its Proc; anything else must answer `to_proc`.
+# `&value` at a call: nil passes no block. A Proc passes itself, marked as
+# passed (it is not a literal block, which `lambda` refuses). A Symbol
+# passes its Proc. Any other value must respond to `to_proc`.
 sig [Value] => Value
 machine def zr_block_pass(v)
   if v == QNIL || zr_symbol_p(v)
@@ -740,10 +743,10 @@ machine def zr_block_pass(v)
   zr_raise_buf(zr_global(G_TYPE_ERROR), b)
 end
 
-# Call the block with `argc` arguments. Every yield is a back edge of
-# the loop that makes it, so the turn is offered here, once, for every
-# iterator of the kernel: a thread walking a large table hands the
-# turn on as a compiled loop does, and a kill reaches it.
+# Calls the block with `argc` arguments. Each yield is a back edge of the
+# loop that makes it, so this one place yields to the scheduler for every
+# kernel iterator. Thus a thread that walks a large table yields to the
+# scheduler as a compiled loop does, and a kill reaches it.
 sig [Value, Word, Ptr] => Value
 machine def zr_yield(blk, argc, argv)
   if blk == QNIL
@@ -769,16 +772,16 @@ machine def zr_yield2(blk, a, b)
   zr_yield(blk, 2, slot)
 end
 
-# The arguments a block binds: a lone Array, or a value whose `to_ary`
-# answers one, spreads over the parameters when the block's shape asks
-# for it (`spread`); missing ones are nil, extra ones dropped. The
-# Array spread is kept in the block's record slot at `keep`, so a
-# fresh `to_ary` answer stays rooted while the parameters bind; a
-# block with optional parameters takes a copy (`spread` is 2), as
-# CRuby copies the arguments before a default runs, so a default that
-# changes the Array changes nothing the block was called with. Answers
-# the argument count (a fixnum) to read from `argv_out`, or QUNDEF
-# when `to_ary` raised.
+# Returns the arguments that a block binds. A single Array, or a value
+# whose `to_ary` returns one, spreads over the parameters when the shape
+# of the block requires it (`spread`). Missing arguments are nil, and
+# extra ones are dropped. The code keeps the spread Array in the slot at
+# `keep` of the block's frame record, so a new result of `to_ary` stays
+# rooted while the parameters bind. A block with optional parameters
+# gets a copy (`spread` is 2), as CRuby copies the arguments before a
+# default runs. Thus a default that changes the Array changes nothing the
+# block was called with. Returns the argument count (a fixnum) to read
+# from `argv_out`, or QUNDEF when `to_ary` raised.
 sig [Word, Ptr, Word, Ptr, Ptr] => Value
 machine def zr_block_args(argc, argv, spread, argv_out, keep)
   if spread != 0 && argc == 1
@@ -812,8 +815,8 @@ machine def zr_block_args(argc, argv, spread, argv_out, keep)
   zr_fix(argc)
 end
 
-# The Array `a` as a block's arguments: rooted at `keep`, copied first
-# when the block's defaults could change it.
+# Returns the Array `a` as the arguments of a block: rooted at `keep`,
+# and copied first when the defaults of the block could change it.
 sig [Value, Word, Ptr, Ptr] => Value
 machine def zr_block_spread(a, spread, argv_out, keep)
   Machine.store64(keep, 0, Machine.word(a))
@@ -825,9 +828,9 @@ machine def zr_block_spread(a, spread, argv_out, keep)
   zr_fix(RArray.len(a))
 end
 
-# The arguments again after Ruby ran between two bindings: a
-# destructured parameter's `to_ary` may have grown the spread Array
-# or emptied it, so its buffer and length are read afresh.
+# Reads the arguments again after Ruby code ran between two bindings.
+# The `to_ary` of a destructured parameter can grow or empty the spread
+# Array, so the code reads its buffer and length again.
 sig [Value, Ptr] => Ptr
 machine def zr_block_argv(kept, argv)
   if kept == QNIL
@@ -844,9 +847,10 @@ machine def zr_block_argc(kept, argc)
   RArray.len(kept)
 end
 
-# The serial that tells the frame at `rec` from any other at that
-# address: given the first time something asks, since most frames are
-# never a home. A frame that never asked has 0, which no home carries.
+# Returns the serial that makes the frame at `rec` different from all
+# other frames at that address. A frame gets its serial the first time
+# code asks for it, because most frames are never a home. A frame with
+# no serial has 0, which no home has.
 sig [Ptr] => Word
 machine def zr_frame_serial(rec)
   if rec == 0
@@ -862,8 +866,8 @@ machine def zr_frame_serial(rec)
   s
 end
 
-# The name the method frame `rec` was called by, or 0 for a frame that
-# is no method's or whose name is its meta's.
+# Returns the name that called the method frame `rec`, or 0 for a frame
+# that is not a method or whose name is the name in its meta.
 sig [Ptr] => Word
 machine def zr_frame_mid(rec)
   e = Frame.entry(rec)
@@ -893,8 +897,8 @@ machine def zr_signal(kind, value, home, site)
   Machine.value(QUNDEF)
 end
 
-# A LocalJumpError with its reason (`:break`, `:return`, `:noreason`)
-# and the value the jump carried.
+# Returns a LocalJumpError with its reason (`:break`, `:return`,
+# `:noreason`) and the value of the jump.
 sig [Ptr, Word, Word, Value] => Value
 machine def zr_local_jump_error(bytes, len, reason, v)
   exc = zr_exc_new(zr_global(G_LOCAL_JUMP_ERROR), zr_str_new(bytes, len))
@@ -912,24 +916,24 @@ machine def zr_break(p, v)
   zr_signal(PENDING_BREAK, v, RProc.home(p), RProc.site(p))
 end
 
-# Whether the call `p` was given to is still running. A break leaves that
-# call, so once it has returned there is nothing to break out of, though
-# the method the block was written in may still be running: the block
-# was kept, and called later.
+# Whether the call that got `p` is still running. A break leaves that
+# call, so after it returns there is nothing to break out of, although
+# the method that contains the block can still run: the block was kept
+# and called later.
 #
-# The frame `home` is running a call now is the one whose `prev` is
-# `home` -- a frame makes one call at a time -- and that call is the one
-# the block was given to when its block is this block: this Proc, or one
-# made from the same literal in the same run of `home`, as `instance_exec`
-# makes to run the block under another self.
+# The call that the frame `home` runs now is the frame whose `prev` is
+# `home`, because a frame makes one call at a time. That call got the
+# block when its block is this block: this Proc, or one made from the
+# same literal in the same run of `home`, as `instance_exec` makes to run
+# the block under a different self.
 sig [Value] => Bool
 machine def zr_block_call_live(p)
   home = RProc.home(p)
   rec = Task.top(zr_task())
   while rec != 0 && rec != home
     if Frame.prev(rec) == home
-      # A `define_method` method was given its block by the call, not by
-      # where its body was written: its frame keeps that one in `defined`.
+      # A `define_method` method gets its block from the call, not from where
+      # its body was written. Its frame keeps that block in `defined`.
       if zr_bmethod_entry(rec) != 0 && zr_same_block(Frame.defined(rec), p)
         return true
       end
@@ -940,10 +944,10 @@ machine def zr_block_call_live(p)
   false
 end
 
-# The kernel's each adapters (zr_enum_each, zr_enum_collect) stand for
-# the block they hand values to, so that block's `break` leaves the
-# `each` the adapter was given to. One keeps its block as its self, and
-# the other keeps it second in a pair.
+# The each adapters of the kernel (zr_enum_each, zr_enum_collect) are in
+# place of the block that they give values to, so a `break` in that block
+# leaves the `each` that got the adapter. One adapter keeps its block as
+# its self, and the other keeps it second in a pair.
 sig [Value, Value] => Bool
 machine def zr_same_block(given, p)
   if given == p
@@ -961,19 +965,19 @@ machine def zr_same_block(given, p)
   RProc.fn(given) == RProc.fn(p) && RProc.home(given) == RProc.home(p) && RProc.serial(given) == RProc.serial(p) && RProc.site(given) == RProc.site(p)
 end
 
-# `return v` in the block `p`: leaves the method the block was written in.
+# `return v` in the block `p`: leaves the method that contains the block.
 sig [Value, Value] => Value
 machine def zr_return(p, v)
-  # A shareable Proc is cut off from the method it was written in, so
-  # there is no method for its `return` to leave.
+  # A shareable Proc has no link to the method that contains it, so there
+  # is no method for its `return` to leave.
   unless (RBasic.flags(p) & FL_ISOLATED) == 0 && zr_frame_live(RProc.ret_home(p), RProc.ret_serial(p))
     return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
   end
   zr_signal(PENDING_RETURN, v, RProc.ret_home(p), 0)
 end
 
-# At a call site with a block: the pending break's value when it is
-# this site's, else undef (the signal stays pending).
+# At a call site with a block: returns the value of the pending break
+# when it is for this site, else undef (the pending unwind stays).
 sig [Ptr, Word] => Value
 machine def zr_catch_break(rec, site)
   t = zr_task()
@@ -986,16 +990,16 @@ machine def zr_catch_break(rec, site)
   Machine.value(QUNDEF)
 end
 
-# `return` written in an eval carries no home: the signal belongs to
-# the nearest method that armed the catch, which is the method the
-# eval sits in.
+# A `return` in an eval has no home. The pending unwind belongs to the
+# nearest method that set up the catch, which is the method that contains
+# the eval.
 sig [Value] => Value
 machine def zr_return_here(v)
   zr_signal(PENDING_RETURN, v, 0, 0)
 end
 
-# In the landing block of a method that holds an eval: the pending
-# return's value when it carries no home of its own, else undef.
+# In the landing block of a method that contains an eval: returns the
+# value of the pending return when it has no home of its own, else undef.
 sig [] => Value
 machine def zr_catch_return_here
   t = zr_task()
@@ -1008,8 +1012,8 @@ machine def zr_catch_return_here
   Machine.value(QUNDEF)
 end
 
-# In a method's landing block: the pending return's value when it is
-# this method's, else undef.
+# In the landing block of a method: returns the value of the pending
+# return when it is for this method, else undef.
 sig [Ptr] => Value
 machine def zr_catch_return(rec)
   t = zr_task()
@@ -1047,16 +1051,16 @@ machine def zr_int_times(recv, argc, argv, cref, blk)
   recv
 end
 
-# The bound of `upto` (dir 1) or `downto` (dir -1) into `out`: a
-# fixnum as it is, a Float as its floor or ceiling; anything else
-# coerces or fails as an Integer operand does.
+# Writes the bound of `upto` (dir 1) or `downto` (dir -1) to `out`. A
+# fixnum stays as it is, and a Float becomes its floor or ceiling. Any
+# other value coerces or fails, as an Integer operand does.
 sig [Value, Ptr, Ptr, Word] => Value
 machine def zr_int_bound(recv, argv, out, dir)
   other = Machine.value(Machine.load64(argv, 0))
   if zr_float_p(other)
     d = zr_float_value(other)
     if zr_nan_p(d)
-      # Nothing compares with NaN: an empty walk.
+      # Nothing compares with NaN, so the loop is empty.
       Machine.store64(out, 0, zr_fix2long(recv) - dir)
       return Machine.value(QNIL)
     end
@@ -1070,8 +1074,8 @@ machine def zr_int_bound(recv, argv, out, dir)
     return Machine.value(QNIL)
   end
   if zr_big_p(other)
-    # A Bignum bound lies past every fixnum: the walk runs to the end of
-    # the fixnum range, or not at all.
+    # A Bignum bound is past every fixnum: the loop runs to the end of the
+    # fixnum range, or not at all.
     beyond = zr_send(other, Machine.id(:negative?), 0, 0)
     return beyond if beyond == QUNDEF
     toward = beyond == QTRUE ? 0 - 1 : 1
@@ -1088,8 +1092,9 @@ machine def zr_int_bound(recv, argv, out, dir)
   zr_int_operand(recv, argv, out, 0, 3)
 end
 
-# The size of `upto` or `downto`: the steps to the bound, exactly for a
-# Bignum, 0 on the wrong side; nil for a bound that is no number.
+# Returns the size of `upto` or `downto`: the number of steps to the
+# bound, exact for a Bignum, and 0 on the wrong side. Returns nil for a
+# bound that is not a number.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_int_step_size(recv, argc, argv, dir)
   if argc != 1
@@ -1159,12 +1164,13 @@ machine def zr_int_downto(recv, argc, argv, cref, blk)
   recv
 end
 
-# A builtin iterator called with no block: `to_enum(:name, *args)`,
-# with the count of what it would yield, or nil when that is unknown.
+# A builtin iterator called with no block: returns
+# `to_enum(:name, *args)`, with the count of values that it would yield,
+# or nil when that count is unknown.
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_enum_for(recv, mid, argc, argv, size)
-  # A builtin called by an alias -- `filter` for `select`, `each_pair`
-  # for `each` -- answers an enumerator that names the alias, as ruby's
+  # A builtin called through an alias (`filter` for `select`, `each_pair`
+  # for `each`) returns an enumerator with the name of the alias, as ruby's
   # records the called name.
   top = Task.top(zr_task())
   if Frame.entry(top) != 0 && Frame.meta(top) != 0 && FrameMeta.kind(Frame.meta(top)) == KIND_BUILTIN
@@ -1181,7 +1187,8 @@ machine def zr_enum_for(recv, mid, argc, argv, size)
   zr_send(recv, Machine.id(:enum_with_size), RArray.len(args), RArray.ptr(args))
 end
 
-# The Array's length is re-read every step: the block may change it.
+# The loop reads the length of the Array again at each step, because the
+# block can change it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_each(recv, argc, argv, cref, blk)
   if blk == QNIL
@@ -1196,13 +1203,14 @@ machine def zr_ary_each(recv, argc, argv, cref, blk)
   recv
 end
 
-# The two frames of an iterator a site runs in place (the lowering's
-# Function::Iterators): the builtin's, as zr_builtin_fn makes it, and
-# the block's, as the block's own prologue would, both in `recs` on
-# the caller's stack and linked under the caller's frame, which is the
-# top. The site stores the caller's frame back when the loop ends,
-# and its landing does the same on a signal. The gate the site tested
-# says `mid` is the builtin the receiver's class finds.
+# Sets up the two frames of an iterator that a site runs inline (the
+# lowering's Function::Iterators). The first is the builtin's frame, as
+# zr_builtin_fn makes it. The second is the block's frame, as the block's
+# own prologue would make it. Both are in `recs` on the caller's stack,
+# linked under the caller's frame, which is the top. The site stores the
+# caller's frame back when the loop ends, and its landing block does the
+# same on a pending unwind. The gate that the site checked tells that
+# `mid` is the builtin that the receiver's class finds.
 sig [Ptr, Value, Word, Ptr] => Void
 machine def zr_iter_enter(recs, recv, mid, meta)
   t = zr_task()
@@ -1234,8 +1242,8 @@ machine def zr_iter_enter(recs, recv, mid, meta)
   Task.set_top(t, b)
 end
 
-# Whether `v` is an Array whose `each` is Array's own, so a method of
-# Enumerable may walk it by index and answer as `each` would.
+# Whether `v` is an Array whose `each` is Array's own. Then an Enumerable
+# method can walk it by index and give the same result as `each`.
 sig [Value] => Value
 machine def zr_ary_plain_each_p(v)
   if zr_special_p(v) || zr_type(v) != T_ARRAY
@@ -1277,7 +1285,7 @@ machine def zr_ary_each_index(recv, argc, argv, cref, blk)
   recv
 end
 
-# `map`: the answers into a new Array, which the frame keeps rooted
+# `map`: puts the results into a new Array, which the frame keeps rooted
 # through the receiver's slot.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_map(recv, argc, argv, cref, blk)
@@ -1295,8 +1303,8 @@ machine def zr_ary_map(recv, argc, argv, cref, blk)
   out
 end
 
-# `collect`: map's body, and an Enumerator that names `collect`, as
-# CRuby's does for the name it was called by.
+# `collect`: the body of map, and an Enumerator with the name `collect`,
+# as CRuby gives the name that it was called by.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_collect(recv, argc, argv, cref, blk)
   if blk == QNIL
@@ -1305,7 +1313,7 @@ machine def zr_ary_collect(recv, argc, argv, cref, blk)
   zr_ary_map(recv, argc, argv, cref, blk)
 end
 
-# `select`/`reject`: `keep` says which answers keep the element.
+# `select`/`reject`: `keep` tells which block results keep the element.
 sig [Value, Value, Bool] => Value
 machine def zr_ary_filter(recv, blk, keep)
   out = zr_ary_new(4)
@@ -1338,8 +1346,8 @@ machine def zr_ary_reject(recv, argc, argv, cref, blk)
   zr_ary_filter(recv, blk, false)
 end
 
-# What a block passed on to `each` sees as the element: the one value
-# yielded, or the several as an Array.
+# Returns the element that a block passed on to `each` sees: the one
+# yielded value, or the several values as an Array.
 sig [Value] => Value
 machine def zr_enum_value(values)
   if RArray.len(values) == 1
@@ -1351,9 +1359,9 @@ machine def zr_enum_value(values)
   values
 end
 
-# A proc made by a core method, as `curry` and `>>` make: its
-# parameters read `[[:rest]]` and its arity -1, whatever the block
-# behind it takes, as CRuby's C-made procs do.
+# A proc that a core method makes, as `curry` and `>>` do. Its
+# parameters are `[[:rest]]` and its arity is -1, whatever the block
+# behind it takes, as for the procs that CRuby makes in C.
 sig [] => Ptr
 machine def zr_anonymous_meta
   meta = Machine.static(:anonymous_meta, FrameMeta.size)
@@ -1376,8 +1384,8 @@ machine def zr_proc_anonymous(p)
   p
 end
 
-# Two Procs are the same when they wrap one block over one scope, as
-# `dup` and `clone` make them.
+# Two Procs are equal when they wrap one block over one scope, as `dup`
+# and `clone` make them.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))

@@ -1,20 +1,22 @@
-# Constants and the lexical class chain. A cref cell names a class and
-# the cref outside it; the toplevel's is Object alone. A constant read
-# looks through the lexical chain (Object last, and only as an
-# ancestor), then the innermost class's ancestors.
-# `vis` is the visibility a def under the cref gets (VIS_*), and
-# `modfn` whether `module_function` is on.
-# A cref pushed by `class_eval`, `instance_eval` or `Class.new` (`eval`
-# set) is where a `def` lands, but constants and class variables look
-# through it to the lexical scope. The cref of a method `define_method`
-# made names its entry, which `super` in the body resolves from.
-# `lazy` is the object an `instance_exec` runs under, until something
-# needs its singleton class: ruby makes that class only then, and an
-# object that has one reads differently in an error message.
+# Constants and the lexical scope list. A cref cell refers to a class and
+# to the cref outside it. The toplevel cref refers to Object alone. A
+# constant read looks through the lexical scope list first (Object last,
+# and only as an ancestor), then the ancestors of the innermost class.
+# `vis` is the visibility (VIS_*) that a def under the cref gets, and
+# `modfn` is whether `module_function` is on.
+# `class_eval`, `instance_eval` and `Class.new` push a cref with `eval`
+# set. A `def` defines its method there, but constants and class
+# variables skip that cref and use the lexical scope. The cref of a
+# method from `define_method` refers to its method entry, and `super` in
+# the body resolves from that entry.
+# `lazy` is the object that an `instance_exec` runs under, until some
+# code needs its singleton class. ruby makes that class only then, and an
+# object with a singleton class shows differently in an error message.
 Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr, lazy: Value
 T_CREF = 25
-# `RCref.eval` of a block run under an object with no singleton class,
-# as `1.instance_eval` runs one: a `def` there has no class to go on.
+# The `RCref.eval` value for a block that runs under an object with no
+# singleton class, as in `1.instance_eval`. A `def` there has no class to
+# define the method on.
 EVAL_NO_DEF = 2
 VIS_PUBLIC = 0
 VIS_PRIVATE = 1
@@ -34,8 +36,8 @@ machine def zr_cref_push(klass, outer)
   c
 end
 
-# The class a cref names, made first when it is an object's singleton
-# class nothing has needed yet.
+# Returns the class of a cref. If the cref is for the singleton class of
+# an object and no code needed that class yet, it makes the class first.
 sig [Value] => Value
 machine def zr_cref_klass(cref)
   obj = RCref.lazy(cref)
@@ -53,20 +55,19 @@ machine def zr_cref_push_eval(klass, outer)
   c
 end
 
-# The innermost cref that names a lexical scope.
-# Whether two Values are the same object, asked of neither of them. A
-# cref has no class, so `equal?` on one dispatches on nothing; the
-# walking eval road holds crefs and must be able to tell them apart.
+# Whether two Values are the same object, without a method call on
+# either. A cref has no class, so `equal?` on a cref cannot dispatch. The
+# tree-walking interpreter keeps crefs and must tell them apart.
 sig [Value, Value] => Value
 machine def zr_same_p(a, b)
   zr_bool(a == b)
 end
 
-# `private`, `public`, `protected` and `module_function` written bare
-# in a class body set that body's own visibility, which lives in its
-# cref. Compiled code writes it where the body runs; the walking eval
-# road has the cref in hand and no frame of the body's to write it in,
-# so it writes it here. 0 public, 1 private, 2 protected.
+# A bare `private`, `public`, `protected` or `module_function` in a class
+# body sets the visibility of that body, which is in its cref. Compiled
+# code writes it where the body runs. The tree-walking interpreter has the
+# cref but no frame of the body to write it in, so it writes it here.
+# 0 is public, 1 is private, 2 is protected.
 sig [Value, Value] => Value
 machine def zr_cref_set_vis(cref, vis)
   RCref.set_vis(cref, zr_fix2long(vis))
@@ -92,13 +93,13 @@ machine def zr_cref_lexical_class(cref)
   zr_cref_klass(zr_cref_lexical(cref))
 end
 
-# A table this long or longer is found through a hash index of its ids,
-# built when a lookup first needs it: Object's holds hundreds of rows,
-# and every bare constant a program reads ends there. A shorter table
-# is scanned.
+# A constant table of this length or more has a hash index of its ids.
+# The first lookup that needs the index builds it. Object's table has
+# hundreds of entries, and every bare constant read ends there. A lookup
+# scans a shorter table.
 CONST_INDEX_MIN = 16
 
-# The index forgotten; the next lookup that needs it builds it again.
+# Deletes the index. The next lookup that needs it builds it again.
 sig [Ptr] => Void
 machine def zr_const_index_drop(ext)
   if ClassExt.cidx(ext) != 0
@@ -107,9 +108,10 @@ machine def zr_const_index_drop(ext)
   end
 end
 
-# Row `row` into the index. A bin holds a row number plus one, zero
-# when empty; rows go in in order, so of two rows with one id the
-# earlier is found first, as a scan finds it.
+# Adds entry number `row` to the index. A bin contains the entry number
+# plus one, or zero when empty. Entries go in in order, so when two
+# entries have the same id, the lookup finds the earlier one first, as a
+# scan does.
 sig [Ptr, Word] => Void
 machine def zr_const_index_put(ext, row)
   mask = ClassExt.cbins(ext) - 1
@@ -120,7 +122,7 @@ machine def zr_const_index_put(ext, row)
   Machine.store64(ClassExt.cidx(ext) + (h * 8), 0, row + 1)
 end
 
-# Every row into a fresh index with at least four bins a row.
+# Builds a new index of all entries, with at least four bins for each entry.
 sig [Ptr] => Void
 machine def zr_const_index_build(ext)
   zr_const_index_drop(ext)
@@ -139,8 +141,9 @@ machine def zr_const_index_build(ext)
   end
 end
 
-# A new last row: into the index while the bins stay under half full,
-# else the index goes and the next lookup builds a bigger one.
+# Adds a new last entry to the index while the bins stay less than half
+# full. Otherwise it deletes the index, and the next lookup builds a
+# larger one.
 sig [Ptr, Word] => Void
 machine def zr_const_index_add(ext, row)
   if ClassExt.cidx(ext) == 0
@@ -153,7 +156,7 @@ machine def zr_const_index_add(ext, row)
   zr_const_index_put(ext, row)
 end
 
-# The row number of `id` in the table, or -1.
+# Returns the entry number of `id` in the table, or -1.
 sig [Ptr, Word] => Word
 machine def zr_const_index_find(ext, id)
   if ClassExt.cidx(ext) == 0
@@ -172,8 +175,8 @@ machine def zr_const_index_find(ext, id)
   0 - 1
 end
 
-# The constant row for `id` on `klass` alone, or 0. A row the runtime
-# conceals is not there for the program to read.
+# Returns the constant entry for `id` on `klass` alone, or 0. The program
+# cannot read an entry that the runtime hides.
 sig [Value, Word] => Ptr
 machine def zr_const_row(klass, id)
   e = zr_const_row_kept(klass, id)
@@ -183,12 +186,13 @@ machine def zr_const_row(klass, id)
   e
 end
 
-# Object's constants that a file only the runtime loads sets, as the eval
-# road's Zr and Prism: they stay out of the program's sight, as ruby has
-# neither, until the program requires the file itself. Code of a unit
-# that loads hidden reads them, the runtime's own code does, and so does
-# anything that runs while a hidden file loads. A reflective read, as
-# const_get, reads as the frame that called the core library.
+# Constants of Object that a file set, when only the runtime loads that
+# file, for example Zr and Prism from eval support. They stay hidden from
+# the program, because ruby has neither, until the program requires the
+# file itself. Three kinds of code can read them: code of a unit that
+# loads hidden, the runtime's own code, and any code that runs while a
+# hidden file loads. A reflective read, such as const_get, reads as the
+# frame that called the core library.
 sig [] => Bool
 machine def zr_const_sees_concealed
   if zr_loading_hidden()
@@ -203,7 +207,8 @@ machine def zr_const_sees_concealed
   rec == 0 || FrameMeta.hidden(Frame.meta(rec)) != 0
 end
 
-# Whether a reflective read, as Module#constants, sees a concealed row.
+# Whether a reflective read, such as Module#constants, sees a hidden
+# constant entry.
 sig [] => Bool
 machine def zr_const_sees_reflectively
   depth = Machine.static(:const_reflective, 8)
@@ -213,8 +218,8 @@ machine def zr_const_sees_reflectively
   sees
 end
 
-# Object's constant `id`, which a hidden file defined or reopened out of
-# sight, now in sight: the program required the file itself.
+# Makes Object's constant `id` visible. A hidden file defined or reopened
+# it, and now the program required that file itself.
 sig [Word] => Void
 machine def zr_const_reveal(id)
   e = zr_const_row_kept(zr_global(G_OBJECT), id)
@@ -224,10 +229,10 @@ machine def zr_const_reveal(id)
   end
 end
 
-# The row a `class` or `module` body opens: a concealed one comes into
-# sight, so a program that reopens the runtime's own module adds to the
-# module the runtime goes on using; a hidden file that reopens it is
-# remembered as one that defined it.
+# Returns the constant entry that a `class` or `module` body opens. A
+# hidden entry becomes visible, so a program that reopens a module of the
+# runtime adds to the same module that the runtime uses. When a hidden
+# file reopens it, the runtime records that file as one that defined it.
 sig [Value, Word] => Ptr
 machine def zr_const_row_opened(scope, id)
   e = zr_const_row_kept(scope, id)
@@ -242,7 +247,7 @@ machine def zr_const_row_opened(scope, id)
   e
 end
 
-# The row for `id` on `klass` alone, concealed or not, or 0.
+# Returns the constant entry for `id` on `klass` alone, hidden or not, or 0.
 sig [Value, Word] => Ptr
 machine def zr_const_row_kept(klass, id)
   ext = RClass.ext(klass)
@@ -265,8 +270,8 @@ machine def zr_const_row_kept(klass, id)
   0
 end
 
-# A constant stored under `klass`, then the `const_added` hook; an
-# anonymous class or module takes the constant's name. Answers `v`,
+# Stores a constant under `klass`, then calls the `const_added` hook. An
+# anonymous class or module gets the name of the constant. Returns `v`,
 # or undef when the store or the hook raises.
 sig [Value, Word, Value] => Value
 machine def zr_const_set(klass, id, v)
@@ -278,9 +283,9 @@ machine def zr_const_set(klass, id, v)
   v
 end
 
-# The `const_added` hook for `id` on `klass`, when the program wrote one
-# and a frame of the program set the constant: what the hook answers,
-# or undef when it raises; nil when there is none.
+# Calls the `const_added` hook for `id` on `klass` when the program
+# defined one and a frame of the program set the constant. Returns the
+# value of the hook, or undef when it raises, or nil when there is no hook.
 sig [Value, Word] => Value
 machine def zr_const_announce(klass, id)
   if zr_frame_with_file(Task.top(zr_task())) != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
@@ -289,11 +294,12 @@ machine def zr_const_announce(klass, id)
   Machine.value(QNIL)
 end
 
-# The row of `klass` that holds `v` under `id`, made or reused, with its
-# source position; 0 when the store raises.
+# Returns the constant entry of `klass` that contains `v` under `id`. It
+# makes a new entry or uses the old one, and records the source position.
+# Returns 0 when the store raises.
 sig [Value, Word, Value] => Ptr
 machine def zr_const_write(klass, id, v)
-  # `1::WHAT = 2` reaches here with a scope that holds no constants.
+  # `1::WHAT = 2` comes here with a scope that has no constants.
   if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -311,8 +317,8 @@ machine def zr_const_write(klass, id, v)
   end
   e = zr_const_row_kept(klass, id)
   if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
-    # The program's own constant of the name the runtime conceals takes
-    # the row, as a new one.
+    # When the program sets a constant with a name that the runtime hides,
+    # the program's constant takes the entry as a new one.
     CEntry.set_concealed(e, 0)
     CEntry.set_value(e, Machine.value(QUNDEF))
   end
@@ -347,8 +353,8 @@ machine def zr_const_write(klass, id, v)
   elsif CEntry.value(e) != QUNDEF
     zr_warn_reassigned_constant(klass, id, e)
   elsif v != QUNDEF
-    # A value set over a name still waiting for its file stands, and the
-    # file is no longer waited for.
+    # A value set on a name that still waits for its autoload file stays,
+    # and the autoload stops waiting for the file.
     i = zr_autoload_row(klass, id)
     if i >= 0
       zr_ary_splice(zr_global(G_AUTOLOADS), zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
@@ -357,8 +363,9 @@ machine def zr_const_write(klass, id, v)
   CEntry.set_value(e, v)
   zr_write_barrier(klass, v)
   zr_consts_changed()
-  # An anonymous class takes its name here, for good under a scope that
-  # has one for good (and then so does all it holds), else for now.
+  # An anonymous class gets its name here. The name is permanent under a
+  # scope with a permanent name (and then the classes it contains get
+  # permanent names too). Otherwise the name is temporary.
   if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass.name(v) == QNIL || (RBasic.flags(v) & FL_TEMP_NAME) != 0)
     RClass.set_name(v, zr_class_name_under(klass, id))
     if zr_class_named_for_good(klass)
@@ -381,8 +388,9 @@ machine def zr_const_write(klass, id, v)
   e
 end
 
-# `already initialized constant M::X`, and where the first definition
-# was when a file is known; nothing while the runtime itself boots.
+# Warns `already initialized constant M::X`, and gives the location of
+# the first definition when the file is known. It warns nothing while the
+# runtime boots.
 sig [Value, Word, Ptr] => Void
 machine def zr_warn_reassigned_constant(klass, id, e)
   if Task.top(zr_task()) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
@@ -410,9 +418,9 @@ machine def zr_warn_reassigned_constant(klass, id, e)
   zr_buf_free(b)
 end
 
-# `\nfile:line: previous definition of Name was here` after a message
-# about a constant; one the runtime set has no file and no line, and
-# CRuby prints them empty.
+# Appends `\nfile:line: previous definition of Name was here` to a
+# message about a constant. A constant that the runtime set has no file
+# and no line, and CRuby prints them empty.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_buf_previous_definition(b, e, id)
   zr_buf_byte(b, 10)
@@ -426,8 +434,8 @@ machine def zr_buf_previous_definition(b, e, id)
   zr_buf_push(b, Machine.bytes(" was here"), 9)
 end
 
-# The row for `id` on `klass` or an ancestor, or 0; `skip_object` leaves
-# Object's own constants out, as `A::X` does.
+# Returns the constant entry for `id` on `klass` or an ancestor, or 0.
+# `skip_object` leaves out Object's own constants, as `A::X` does.
 sig [Value, Word, Bool] => Ptr
 machine def zr_const_row_in(klass, id, skip_object)
   while klass != QNIL
@@ -442,12 +450,12 @@ machine def zr_const_row_in(klass, id, skip_object)
   0
 end
 
-# The same walk a read makes, which passes over a name an autoload
-# declared and no file will define and goes on to the next ancestor.
-# rb_const_search_from does it with its `am` guard: it runs the autoload
-# once, finds the row undefined still, and breaks to the next link of
-# the chain. `rb_const_defined_0` does not -- it stops at that row and
-# answers false -- so a read and `const_defined?` part company here.
+# The same lookup as a constant read. It skips a name that an autoload
+# declared but that no file will define, and continues to the next
+# ancestor. rb_const_search_from does this with its `am` guard: it runs
+# the autoload once, finds the entry still undefined, and continues to
+# the next ancestor. `rb_const_defined_0` does not: it stops at that
+# entry and returns false. Thus a read and `const_defined?` differ here.
 sig [Value, Word, Bool] => Ptr
 machine def zr_const_row_read_in(klass, id, skip_object)
   while klass != QNIL
@@ -466,8 +474,8 @@ sig [Value, Word] => Value
 machine def zr_uninitialized_constant(scope, id)
   home = scope == QNIL ? zr_global(G_OBJECT) : scope
   entry = zr_find_method(zr_class_of(home), Machine.id(:const_missing))
-  # Only a const_missing the program wrote gets a frame of its own; the
-  # one Module carries raises right here, as ruby's does.
+  # Only a const_missing that the program defined gets its own frame. The
+  # const_missing of Module raises here, as ruby's does.
   if entry != 0 && entry != zr_find_method_at(zr_global(G_MODULE), Machine.id(:const_missing))
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_sym(id)))
@@ -487,7 +495,7 @@ machine def zr_uninitialized_constant(scope, id)
   zr_raise(e)
 end
 
-# A bare constant under `cref`, or `uninitialized constant`.
+# Reads a bare constant under `cref`, or raises `uninitialized constant`.
 sig [Value, Word] => Value
 machine def zr_const_get(cref, id)
   cref = zr_cref_lexical(cref)
@@ -507,10 +515,10 @@ machine def zr_const_get(cref, id)
   Machine.value(QNIL)
 end
 
-# The row a bare constant under `cref` names, or 0: the lexical scopes
-# (an eval's cref is not one), then the innermost scope's ancestors,
-# then the box's own toplevel and its own Object, then Object when that
-# scope is a module.
+# Returns the constant entry for a bare constant under `cref`, or 0. The
+# search order is: the lexical scopes (the cref of an eval is not one),
+# then the ancestors of the innermost scope, then the box's own toplevel
+# and its own Object, then Object when that scope is a module.
 sig [Value, Word] => Ptr
 machine def zr_const_row_under(cref, id)
   cref = zr_cref_lexical(cref)
@@ -541,8 +549,8 @@ machine def zr_const_row_under(cref, id)
   e
 end
 
-# A bare constant under `cref` for `||=`: the value, or undef with
-# nothing raised.
+# Reads a bare constant under `cref` for `||=`. Returns the value, or
+# undef without a raise.
 sig [Value, Word] => Value
 machine def zr_const_lookup(cref, id)
   e = zr_const_row_under(cref, id)
@@ -564,10 +572,11 @@ machine def zr_const_lookup_at(scope, id)
   zr_const_value(e)
 end
 
-# Whether row `e` is a name an autoload declared and no file has
-# defined. An autoload still waiting for its file holds QUNDEF too, and
-# that one counts as defined, so the row table decides: a row that names
-# this entry and is still waiting means a file is still to come.
+# Whether entry `e` is a name that an autoload declared and that no file
+# defined. An autoload that still waits for its file also contains
+# QUNDEF, and that one counts as defined. Thus the autoload table
+# decides: if an autoload record refers to this entry and still waits,
+# a file is still to come.
 sig [Ptr] => Bool
 machine def zr_const_declared_only(e)
   if CEntry.value(e) != QUNDEF
@@ -587,10 +596,10 @@ machine def zr_const_declared_only(e)
   true
 end
 
-# `defined?` of a constant: true when a row exists, an autoload's
-# included, with nothing loaded. A name an autoload declared and no file
-# will define is not one: it stands in `constants` and hides a name
-# further out, and `defined?` answers nil for it, as ruby's does.
+# `defined?` of a constant: true when an entry exists (an autoload entry
+# too), without a load. A name that an autoload declared and that no file
+# will define is not defined. It is in `constants` and hides a name
+# farther out, and `defined?` returns nil for it, as ruby's does.
 sig [Value, Word] => Value
 machine def zr_const_defined(cref, id)
   zr_bool(zr_const_row_under(cref, id) != 0)
@@ -605,7 +614,7 @@ machine def zr_const_defined_at(scope, id)
   zr_bool(e != 0 && CEntry.private(e) == 0 && !zr_const_declared_only(e))
 end
 
-# `private constant Foo::BAR referenced`.
+# Raises `private constant Foo::BAR referenced`.
 sig [Value, Word] => Value
 machine def zr_private_constant(scope, id)
   b = Machine.slot(Buf.size)
@@ -623,8 +632,8 @@ machine def zr_private_constant(scope, id)
   zr_raise(exc)
 end
 
-# The one warning a deprecated constant answers with, sent to
-# `Warning` so a program can catch or silence it.
+# Sends the warning for a deprecated constant to `Warning`, so that a
+# program can catch it or make it silent.
 sig [Ptr, Word] => Value
 machine def zr_const_deprecated(e, id)
   if CEntry.deprecated(e) == 0
@@ -646,7 +655,7 @@ machine def zr_const_deprecated(e, id)
 end
 
 # `private_constant(*names)`, `public_constant(*names)` and
-# `deprecate_constant(*names)`: a flag on the module's own rows.
+# `deprecate_constant(*names)` set a flag on the module's own entries.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_mod_constant_visibility(recv, argc, argv, private)
   i = 0
@@ -701,7 +710,7 @@ machine def zr_mod_deprecate_constant(recv, argc, argv, cref, blk)
   zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
 end
 
-# `scope::Name`.
+# Reads `scope::Name`.
 sig [Value, Word] => Value
 machine def zr_const_get_at(scope, id)
   if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
@@ -717,7 +726,7 @@ machine def zr_const_get_at(scope, id)
   while true
     e = zr_const_row_read_in(scope, id, scope != zr_global(G_OBJECT))
     if e == 0 && zr_class_of(scope) == zr_global(G_BOX)
-      # `box::Name`: the box's own, else what the runtime itself holds.
+      # `box::Name`: the box's own constant, else the runtime's constant.
       e = zr_const_row_read_in(zr_global(G_OBJECT), id, false)
     end
     if e == 0
@@ -736,9 +745,9 @@ machine def zr_const_get_at(scope, id)
   Machine.value(QNIL)
 end
 
-# The name a class gets under `scope`: `Outer::Name` unless the scope
-# is a toplevel (Object, or a box), and `#<Module:0x...>::Name` under
-# an anonymous one.
+# Returns the name that a class gets under `scope`: `Outer::Name`, but
+# only `Name` when the scope is a toplevel (Object, or a box), and
+# `#<Module:0x...>::Name` under an anonymous scope.
 sig [Value, Word] => Value
 machine def zr_class_name_under(scope, id)
   b = Machine.slot(Buf.size)
@@ -758,24 +767,24 @@ machine def zr_class_name_under(scope, id)
   zr_class_name_str(zr_str_set_index(zr_buf_take(b), index))
 end
 
-# A class's name as rb_class_path keeps it: frozen, so the name that
-# `Module#name` answers is the class's own.
+# Returns the name of a class as rb_class_path keeps it. The name is
+# frozen, so `Module#name` returns the class's own String.
 sig [Value] => Value
 machine def zr_class_name_str(s)
   RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
   s
 end
 
-# Whether a name made under `scope` is for good: a toplevel's is, and
-# so is one under a scope whose own name is.
+# Whether a name made under `scope` is permanent. It is permanent under a
+# toplevel, and under a scope that has a permanent name.
 sig [Value] => Bool
 machine def zr_class_named_for_good(scope)
   zr_toplevel_scope_p(scope) || (RClass.name(scope) != QNIL && (RBasic.flags(scope) & FL_TEMP_NAME) == 0)
 end
 
-# `mod` has just been named for good: each class or module it holds
-# whose name is still temporary takes its path under `mod`, and so on
-# down, as CRuby's set_namespace_path does.
+# `mod` just got a permanent name. Each class or module that it contains
+# and that has a temporary name gets its path under `mod`, recursively,
+# as CRuby's set_namespace_path does.
 sig [Value] => Void
 machine def zr_name_nested(mod)
   ext = RClass.ext(mod)
@@ -791,9 +800,9 @@ machine def zr_name_nested(mod)
   end
 end
 
-# `class Name < sup` under `scope`: the class the constant names when it
-# exists (and its superclass agrees), else a new one. `sup` is undef
-# when the program wrote no superclass.
+# `class Name < sup` under `scope`. Returns the class of the constant when
+# it exists (and its superclass agrees), else a new class. `sup` is undef
+# when the program gave no superclass.
 sig [Value, Word, Value] => Value
 machine def zr_class_define(scope, id, sup)
   e = zr_const_row_opened(scope, id)
@@ -805,8 +814,8 @@ machine def zr_class_define(scope, id, sup)
   end
   k = Machine.value(QUNDEF)
   if e != 0
-    # An autoload whose file leaves the name undefined, or is the very
-    # file loading now, leaves the name to this definition.
+    # If the autoload file leaves the name undefined, or is the file that
+    # loads now, this definition defines the name.
     gone = Machine.slot(16)
     k = zr_const_searched(e, gone)
     return k if k == QUNDEF
@@ -857,8 +866,8 @@ machine def zr_module_define(scope, id)
   end
   m = Machine.value(QUNDEF)
   if e != 0
-    # An autoload whose file leaves the name undefined, or is the very
-    # file loading now, leaves the name to this definition.
+    # If the autoload file leaves the name undefined, or is the file that
+    # loads now, this definition defines the name.
     gone = Machine.slot(16)
     m = zr_const_searched(e, gone)
     return m if m == QUNDEF
@@ -881,16 +890,16 @@ machine def zr_module_define(scope, id)
   zr_const_set(scope, id, m)
 end
 
-# rb_define_module_under, for a module an extension names as no
-# constant may be spelled (IO::generic_readable).
+# rb_define_module_under, for a module name that an extension gives but
+# that is not a valid constant name (IO::generic_readable).
 sig [Value, Value] => Value
 machine def zr_module_define_m(scope, name)
   zr_module_define(scope, zr_sym2id(name))
 end
 
-# A constant's name given as a Symbol or String, as its id in `out`;
-# `wrong constant name x` otherwise: an upper-case letter, then letters,
-# digits, underscores or bytes past ASCII.
+# Writes the id of a constant name, given as a Symbol or String, to
+# `out`. Otherwise raises `wrong constant name x`. A valid name is an
+# upper-case letter, then letters, digits, underscores or non-ASCII bytes.
 sig [Value, Value, Ptr] => Value
 machine def zr_const_name_id(recv, name, out)
   r = zr_name_id(name, out)
@@ -930,8 +939,9 @@ machine def zr_const_name_p(p, n)
   true
 end
 
-# The row one segment of a `const_get` path names: the first segment
-# as `const_get` finds it, a later one without Object's constants.
+# Returns the constant entry for one segment of a `const_get` path. The
+# first segment uses the `const_get` lookup. A later segment leaves out
+# Object's constants.
 sig [Value, Word, Value, Value] => Ptr
 machine def zr_const_row_segment(recv, id, inherit, later)
   depth = Machine.static(:const_reflective, 8)
@@ -960,8 +970,8 @@ machine def zr_mod_const_get_m(recv, name, inherit, later)
   zr_const_value(e)
 end
 
-# `[file, line]` of the row, `[]` for one the runtime made, nil for
-# none.
+# Returns `[file, line]` of the entry, `[]` for an entry that the runtime
+# made, or nil when there is no entry.
 sig [Value, Value, Value, Value] => Value
 machine def zr_mod_const_source_location_m(recv, name, inherit, later)
   slot = Machine.slot(8)
@@ -985,14 +995,14 @@ machine def zr_mod_const_defined_m(recv, name, inherit, later)
   r = zr_const_name_id(recv, name, slot)
   return r if r == QUNDEF
   id = Machine.load64(slot, 0)
-  # `rb_const_defined_0` stops at a row an autoload declared and no file
-  # will define: it answers false there rather than reading on, so the
-  # name hides one of its own further out.
+  # `rb_const_defined_0` stops at an entry that an autoload declared and
+  # that no file will define. It returns false there and does not continue,
+  # so the name hides a name of its own farther out.
   e = zr_const_row_segment_defined(recv, id, inherit, later)
   zr_bool(e != 0 && !zr_const_declared_only(e))
 end
 
-# The walk `const_defined?` makes, which stops at the first row it
+# The `const_defined?` lookup, which stops at the first entry that it
 # finds, declared or not.
 sig [Value, Word, Value, Value] => Ptr
 machine def zr_const_row_segment_defined(recv, id, inherit, later)
@@ -1009,8 +1019,8 @@ machine def zr_const_row_segment_defined(recv, id, inherit, later)
   e
 end
 
-# `rb_const_defined_0`s own two steps: the module chain, then Object
-# where the receiver is a module.
+# The two steps of `rb_const_defined_0`: the ancestor list, then Object
+# when the receiver is a module.
 sig [Value, Word] => Ptr
 machine def zr_const_row_defined_for(mod, id)
   e = zr_const_row_in(mod, id, false)
@@ -1020,8 +1030,7 @@ machine def zr_const_row_defined_for(mod, id)
   e
 end
 
-# `remove_const(name)`: the module's own row goes, and its value
-# answers.
+# `remove_const(name)`: removes the module's own entry and returns its value.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_remove_const(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
@@ -1046,8 +1055,8 @@ machine def zr_mod_remove_const(recv, argc, argv, cref, blk)
   end
   v = CEntry.value(e)
   zr_const_remove(recv, id)
-  # A name still waiting for its file forgets the file too, and answers
-  # nil, as CRuby's rb_const_remove does.
+  # A name that still waits for its file also forgets the file, and
+  # returns nil, as CRuby's rb_const_remove does.
   if v == QUNDEF
     i = zr_autoload_row(recv, id)
     if i >= 0
@@ -1058,8 +1067,9 @@ machine def zr_mod_remove_const(recv, argc, argv, cref, blk)
   v
 end
 
-# The row `const_get` and `const_defined?` find: the module's own, its
-# ancestors' when `inherit`, and Object's for a module either way.
+# Returns the constant entry that `const_get` and `const_defined?` find:
+# the module's own, its ancestors' when `inherit` is true, and Object's
+# for a module in all cases.
 sig [Value, Word, Bool] => Ptr
 machine def zr_const_row_for(mod, id, inherit)
   if inherit
@@ -1088,7 +1098,7 @@ machine def zr_mod_const_set(recv, argc, argv, cref, blk)
   zr_const_set(recv, Machine.load64(slot, 0), v)
 end
 
-# The public constant names `klass` itself holds, each once into `out`.
+# Adds each public constant name of `klass` itself to `out`, once.
 sig [Value, Value] => Void
 machine def zr_const_names_at(klass, out)
   ext = RClass.ext(klass)
@@ -1103,9 +1113,9 @@ machine def zr_const_names_at(klass, out)
   end
 end
 
-# `mod`'s own names, then its ancestors' up to Object, where the walk
-# stops unless it began there, as rb_mod_const_of does: a class sees
-# neither Object's names nor BasicObject's past it.
+# Adds the names of `mod`, then of its ancestors up to Object. The
+# search stops at Object unless it started there, as rb_mod_const_of
+# does: a class does not see the names of Object or BasicObject.
 sig [Value, Value, Bool] => Void
 machine def zr_const_names_of(mod, out, inherit)
   k = mod
@@ -1115,9 +1125,10 @@ machine def zr_const_names_of(mod, out, inherit)
   end
 end
 
-# `Module.constants`: bare, the names each lexical scope holds and then
-# the innermost scope's ancestors', as rb_mod_s_constants lists them;
-# else what `Module#constants` answers.
+# `Module.constants`. With no arguments, it lists the names of each
+# lexical scope, then those of the ancestors of the innermost scope, as
+# rb_mod_s_constants does. Otherwise it returns the same as
+# `Module#constants`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_s_constants(recv, argc, argv, cref, blk)
   if argc != 0 || recv != zr_global(G_MODULE)
@@ -1136,7 +1147,7 @@ machine def zr_mod_s_constants(recv, argc, argv, cref, blk)
   out
 end
 
-# `constants`: the receiver's names, with its ancestors' unless
+# `constants`: the names of the receiver, and of its ancestors unless
 # `inherit` is false.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_constants(recv, argc, argv, cref, blk)
@@ -1146,7 +1157,7 @@ machine def zr_mod_constants(recv, argc, argv, cref, blk)
   out
 end
 
-# The row for `id` taken out of `klass`'s own table.
+# Removes the entry for `id` from the own table of `klass`.
 sig [Value, Word] => Void
 machine def zr_const_remove(klass, id)
   ext = RClass.ext(klass)
@@ -1157,7 +1168,7 @@ machine def zr_const_remove(klass, id)
     if CEntry.id(e) == id
       zr_memmove(e, e + CEntry.size, (n - i - 1) * CEntry.size)
       ClassExt.set_clen(ext, n - 1)
-      # The rows after it moved up one.
+      # The entries after it moved up by one.
       zr_const_index_drop(ext)
       zr_consts_changed()
       return
@@ -1168,24 +1179,24 @@ end
 
 G_AUTOLOADS = 38
 
-# Autoload: a constant row whose value is undef until its file runs.
-# The rows of G_AUTOLOADS hold, AUTOLOAD_ROW words each, the module, the
-# name, the feature as the program wrote it, the unit's function as a
-# fixnum, the kind the file is required with (zr_require's: 0, or 3 for
-# the eval road's own), and the path the feature resolved to, which is
-# what a require of the same file records. A feature the program
-# computed has no unit: its kind is AUTOLOAD_REQUIRE, and the first read
-# of the constant calls `require` on main with it, as ruby's autoload
-# does. `Kernel#autoload` and `Kernel.autoload` register on the caller's
-# class, as CRuby's rb_f_autoload does.
+# Autoload: a constant entry whose value is undef until its file runs.
+# Each record of G_AUTOLOADS has AUTOLOAD_ROW words: the module, the
+# name, the feature as the program wrote it, the function of the unit as
+# a fixnum, the require kind (zr_require's: 0, or 3 for eval support's
+# own files), and the resolved path of the feature. A require of the same
+# file records that path. A feature that the program computed has no
+# unit. Its kind is AUTOLOAD_REQUIRE, and the first read of the constant
+# calls `require` on main with it, as ruby's autoload does.
+# `Kernel#autoload` and `Kernel.autoload` register on the class of the
+# caller, as CRuby's rb_f_autoload does.
 AUTOLOAD_ROW = 6
 AUTOLOAD_REQUIRE = 4
-# A feature a require of would read no file, because the program holds
-# it already or a require read it before. The row is kept, as ruby keeps
-# its own, and stops counting: `autoload?` answers nil and
-# `const_defined?` answers false. The name is declared all the same, so
-# the constant stands undefined here and shadows one of the same name
-# further out. A row is given this kind where it is registered, or where
+# The kind of a record whose feature a require would not read, because
+# the program contains it or a require already read it. The record stays, as ruby keeps its
+# own, but it stops counting: `autoload?` returns nil and
+# `const_defined?` returns false. The name is still declared, so the
+# constant is undefined here and hides a constant of the same name
+# farther out. A record gets this kind where it is registered, or where
 # `zr_autoload_provided` finds the require that provided its feature.
 AUTOLOAD_DECLARED = 5
 
@@ -1194,10 +1205,10 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
     mod = zr_cref_klass(zr_cref_lexical(cref))
   end
-  # A name that already holds a value stands, as `autoload_synchronized`
-  # (variable.c:2913) answers false for one. A name that holds no value
-  # -- undefined, or waiting for a file, or waiting for one something
-  # else has since provided -- is declared again, and announces again.
+  # A name that already has a value stays, as `autoload_synchronized`
+  # (variable.c:2913) returns false for it. A name with no value (undefined,
+  # waiting for a file, or waiting for a file that another require
+  # provided) is declared again, and calls the hook again.
   row = zr_const_row(mod, id)
   if row != 0 && CEntry.value(row) != QUNDEF
     return Machine.value(QNIL)
@@ -1211,40 +1222,40 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if pending >= 0
     zr_ary_splice(rows, zr_fix(pending), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
   end
-  # A file only the runtime loads declared it, so the read that runs it
-  # keeps the file out of the program's sight, as the require would.
+  # Only a file that the runtime loads declared it, so the read that runs
+  # it keeps the file hidden from the program, as the require would.
   if kind == 0 && zr_hidden_now()
     kind = 3
   end
-  # A require read this file already, so a require of it now would read
-  # none: ruby keeps no row for that, and declares the name alone. The
-  # compiler settles the same question for a feature the runtime holds,
-  # which stands in no table a program can read.
+  # A require already read this file, so a require of it now would read
+  # no file. ruby keeps no record for that, and only declares the name.
+  # The compiler does the same check for a feature that the runtime
+  # contains, which is in no table that a program can read.
   if kind != AUTOLOAD_DECLARED && zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString.ptr(path), RString.len(path))
     kind = AUTOLOAD_DECLARED
   end
-  # The name is declared and the row stands before the hook runs: a
-  # const_added hook that raises raises out of the autoload, which stays
-  # registered, as ruby's does.
+  # The name is declared and the entry exists before the hook runs. Thus
+  # a const_added hook that raises raises out of the autoload, and the
+  # autoload stays registered, as ruby's does.
   if zr_const_write(mod, id, Machine.value(QUNDEF)) == 0
     return Machine.value(QUNDEF)
   end
-  # The row goes in whether or not a file is still to come. ruby keeps
-  # one for a feature already provided too -- it simply does not count
-  # it -- and the row is what a second `autoload` of the same name
-  # replaces, and what the read of the name asks for its feature.
+  # The record goes in whether or not a file is still to come. ruby also
+  # keeps a record for a feature that is already provided, but does not
+  # count it. A second `autoload` of the same name replaces this record,
+  # and a read of the name gets its feature from it.
   zr_autoload_push(rows, mod, id, feature, fn, kind, path)
   r = zr_const_announce(mod, id)
   return r if r == QUNDEF
   Machine.value(QNIL)
 end
 
-# `autoload(name, feature)` with a feature the program computed, already
-# a String; `name` is a Symbol or a String. `loaded` is true where a
-# require of the feature would read no file, which declares the name and
-# leaves its row not waiting. `file` is where a require of the feature
-# would read, or nil where nothing of that name stands: a later require
-# of that file stops the row waiting however it spells the feature.
+# `autoload(name, feature)` with a feature that the program computed,
+# already a String. `name` is a Symbol or a String. `loaded` is true when
+# a require of the feature would read no file; then the name is declared
+# and the record does not wait. `file` is the path that a require of the
+# feature would read, or nil when no such file exists. A later require of
+# that file stops the wait, whatever spelling of the feature it uses.
 sig [Value, Value, Value, Value, Value, Value] => Value
 machine def zr_autoload_computed(mod, name, feature, cref, loaded, file)
   slot = Machine.slot(8)
@@ -1277,8 +1288,8 @@ machine def zr_autoload_push(rows, mod, id, feature, fn, kind, path)
   zr_ary_push(rows, path)
 end
 
-# The first read of a constant whose feature the program computed:
-# `require` on main, which a program may have redefined, as ruby calls it.
+# The first read of a constant whose feature the program computed. It
+# calls `require` on main, which a program can redefine, as ruby does.
 sig [Value] => Value
 machine def zr_autoload_require(feature)
   slot = Machine.slot(8)
@@ -1286,22 +1297,21 @@ machine def zr_autoload_require(feature)
   zr_send(zr_global(G_MAIN), Machine.id(:require), 1, slot)
 end
 
-# Whether the row at `i` is still waiting for its file. A row whose
-# feature something has provided is not: `check_autoload_required`
-# (variable.c:3035) answers 0 for one, so `autoload?` answers nil and
-# `const_defined?` answers false, and ruby leaves the row standing all
-# the same. It is marked AUTOLOAD_DECLARED here, either where it was
-# registered or where the require that provided its feature came
-# through `zr_autoload_provided`.
+# Whether the autoload record at `i` still waits for its file. A record
+# whose feature another require provided does not wait:
+# `check_autoload_required` (variable.c:3035) returns 0 for it, so
+# `autoload?` returns nil and `const_defined?` returns false, and ruby
+# keeps the record. Here that record has the kind AUTOLOAD_DECLARED, set
+# where it was registered or by `zr_autoload_provided`.
 sig [Value, Word] => Bool
 machine def zr_autoload_waiting(rows, i)
   zr_fix2long(zr_ary_at(rows, i + 4)) != AUTOLOAD_DECLARED
 end
 
-# The autoload row index for `mod` and `id` where a file is still to
-# come, or -1. This is the question every caller but three asks; the
-# three that want the row whatever it is -- a second `autoload`, a value
-# written over the name, and `remove_const` -- ask `zr_autoload_row`.
+# Returns the index of the autoload record for `mod` and `id` when a file
+# is still to come, or -1. Most callers use this. The three callers that
+# need the record in all cases (a second `autoload`, a value written on
+# the name, and `remove_const`) use `zr_autoload_row`.
 sig [Value, Word] => Word
 machine def zr_autoload_pending(mod, id)
   i = zr_autoload_row(mod, id)
@@ -1311,18 +1321,16 @@ machine def zr_autoload_pending(mod, id)
   i
 end
 
-# A require has read the file at `path`, which the program asked for by
-# the name `feature`. Every autoload row for either string stops
-# waiting.
+# A require read the file at `path`, which the program requested by the
+# name `feature`. Every autoload record for either string stops waiting.
 #
-# ruby asks `rb_feature_provided` of the row's feature each time it is
-# asked whether the row is pending. This is that question asked once,
-# where the answer is settled, which the kernel can do and the asking
-# cannot: resolving a feature to a file is `Kernel.feature_path`'s work
-# and reaches $LOAD_PATH. Both strings are compared because a row keeps
-# the feature as it was written beside the file it resolved to when it
-# was registered, and a $LOAD_PATH that grew between the two leaves
-# only the feature to match on.
+# ruby calls `rb_feature_provided` on the feature of the record each time
+# it checks whether the record is pending. Here the check runs once, when
+# the answer is known. The kernel cannot do the check later, because the
+# resolution of a feature to a file is the work of `Kernel.feature_path`
+# and uses $LOAD_PATH. It compares both strings because a record keeps the
+# feature as written and the file that it resolved to at registration.
+# If $LOAD_PATH grew between the two, only the feature can match.
 sig [Value, Value] => Value
 machine def zr_autoload_provided(feature, path)
   rows = zr_global(G_AUTOLOADS)
@@ -1339,8 +1347,8 @@ machine def zr_autoload_provided(feature, path)
   Machine.value(QNIL)
 end
 
-# Whether the row's `kept` string is `asked`. A row registered before
-# its feature could be resolved keeps no path, and nothing is that.
+# Whether the `kept` string of the record is `asked`. A record registered
+# before its feature could be resolved has no path, and nothing matches it.
 sig [Value, Value] => Bool
 machine def zr_autoload_names(kept, asked)
   if zr_special_p(kept) || zr_special_p(asked) || zr_type(kept) != T_STRING || zr_type(asked) != T_STRING
@@ -1349,7 +1357,8 @@ machine def zr_autoload_names(kept, asked)
   zr_bytes_eq(RString.ptr(kept), RString.len(kept), RString.ptr(asked), RString.len(asked))
 end
 
-# The autoload row index for `mod` and `id`, waiting or not, or -1.
+# Returns the index of the autoload record for `mod` and `id`, waiting or
+# not, or -1.
 sig [Value, Word] => Word
 machine def zr_autoload_row(mod, id)
   rows = zr_global(G_AUTOLOADS)
@@ -1366,7 +1375,7 @@ machine def zr_autoload_row(mod, id)
   0 - 1
 end
 
-# `autoload?(name)`: the feature still to load, or nil.
+# `autoload?(name)`: returns the feature still to load, or nil.
 sig [Value, Word] => Value
 machine def zr_autoload_feature(mod, id)
   i = zr_autoload_pending(mod, id)
@@ -1376,10 +1385,10 @@ machine def zr_autoload_feature(mod, id)
   zr_ary_at(zr_global(G_AUTOLOADS), i + 2)
 end
 
-# The value of a constant row: an autoload's file runs first, and the
-# constant it defined answers; a file that defines nothing leaves the
-# name uninitialized.
-# A shared class a box reads is the box's shadow of it.
+# Returns the value of a constant entry. An autoload's file runs first,
+# and then the constant that it defined is the value. A file that defines
+# nothing leaves the name uninitialized.
+# A box that reads a shared class gets its shadow of that class.
 sig [Ptr] => Value
 machine def zr_const_value(e)
   zr_box_seen(zr_const_raw_value(e))
@@ -1396,9 +1405,9 @@ machine def zr_const_raw_value(e)
   v
 end
 
-# The same for a search that goes on past a row an autoload took away,
-# as CRuby's rb_const_search does: when the row is gone, `gone` holds its
-# module, and the answer is nil.
+# The same, for a search that continues past an entry that an autoload
+# removed, as CRuby's rb_const_search does. When the entry is removed,
+# `gone` contains its module, and the value is nil.
 sig [Ptr, Ptr] => Value
 machine def zr_const_searched(e, gone)
   Machine.store64(gone, 0, 0)
@@ -1409,10 +1418,11 @@ machine def zr_const_searched(e, gone)
   zr_box_seen(v)
 end
 
-# The value of row `e`, running an autoload's file first. A file that
-# leaves the name undefined takes the row away, and so does one already
-# loading, whose own `class` or `module` may be what defines the name:
-# `gone` then holds the module and the name, and the answer is nil.
+# Returns the value of entry `e`, and runs an autoload's file first. A
+# file that leaves the name undefined removes the entry. So does a file
+# that is already loading, because its own `class` or `module` can be what
+# defines the name. Then `gone` contains the module and the name, and the
+# value is nil.
 sig [Ptr, Ptr] => Value
 machine def zr_const_loaded(e, gone)
   v = CEntry.value(e)
@@ -1424,11 +1434,10 @@ machine def zr_const_loaded(e, gone)
   while i < RArray.len(rows)
     mod = zr_ary_at(rows, i)
     id = zr_sym2id(zr_ary_at(rows, i + 1))
-    # A row no longer waiting reads no file: something provided its
-    # feature, so a require of it now would answer false and define
-    # nothing. It is passed over, and the name is left standing and
-    # undefined, which is what ruby leaves it -- `rb_autoload_load`
-    # declines and the read raises where it stands.
+    # An autoload record that does not wait reads no file: a require provided
+    # its feature, so a require of it now would return false and define
+    # nothing. The loop skips it, and the name stays undefined, as in ruby:
+    # `rb_autoload_load` declines, and the read raises at that name.
     if zr_autoload_waiting(rows, i) && zr_const_row(mod, id) == e
       feature = zr_ary_at(rows, i + 2)
       fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
@@ -1436,8 +1445,8 @@ machine def zr_const_loaded(e, gone)
       path = zr_ary_at(rows, i + 5)
       zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
       r = kind == AUTOLOAD_REQUIRE ? zr_autoload_require(feature) : zr_require(path, fn, kind)
-      # A file that did not load leaves the row in place, so the next
-      # read of the name asks the same question again.
+      # If the file did not load, the entry stays, so the next read of the name
+      # does the same check again.
       if r == QUNDEF
         zr_autoload_push(rows, mod, id, feature, fn, kind, path)
         return r
@@ -1464,11 +1473,11 @@ machine def zr_mod_autoload_p(recv, argc, argv, cref, blk)
   zr_autoload_feature(recv, Machine.load64(slot, 0))
 end
 
-# The walking eval road (lib/zr/eval/walk.rb) reads and writes
-# constants through the kernel's own lookup, so a string it evaluates
-# finds what compiled code finds. It has no inline cache to hand over
-# and no symbol id to spell, so these take the name as a Symbol and
-# stand in for the cached forms the compiler emits.
+# The tree-walking interpreter (lib/zr/eval/walk.rb) reads and writes
+# constants through the kernel's own lookup, so a string that it evaluates
+# finds what compiled code finds. It has no inline cache and no symbol id,
+# so these functions take the name as a Symbol. They are in place of the
+# cached forms that the compiler emits.
 sig [Value, Value] => Value
 machine def zr_const_get_m(cref, name)
   zr_const_get(cref, zr_sym2id(name))
