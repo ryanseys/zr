@@ -62,17 +62,17 @@ Ada writes Analytical Engine
 2 people, 7 letters of names
 ```
 
-The output is the same as ruby's. That is the whole promise of zr: a
-program answers what ruby answers.
+The output is the same as ruby's. That is the promise of zr: a
+program gives the same output as ruby.
 
-Notice that `zr run` did more than ruby did. It compiled `greet.rb` to
-machine code, linked a binary, ran it, and then removed it. The very
-first build takes some time, because zr compiles its runtime once and
-keeps it in a cache. Every build after that takes less than a second.
+`zr run` did more than ruby did. It compiled `greet.rb` to machine
+code, linked a binary, ran it, and then deleted it. The first build
+takes some minutes, because zr compiles its runtime one time and keeps
+it in a cache. Every build after that takes less than a second.
 
 ## Build a binary
 
-Now keep the binary. Use `zr build` with `-o` to name it:
+Now keep the binary. Use `zr build` with `-o` to give its name:
 
 ```console
 $ zr build greet.rb -o greet
@@ -95,8 +95,8 @@ greet: Mach-O 64-bit executable arm64
 ```
 
 You can copy `greet` to another Apple Silicon Mac and run it there. It
-needs no ruby and no gems. It holds your program, the Ruby core library
-and the runtime, all compiled from Ruby.
+needs no ruby and no gems. It contains your program, the Ruby core
+library and the runtime, all compiled from Ruby.
 
 ## Give the program arguments
 
@@ -106,7 +106,7 @@ A compiled program reads `ARGV` as a script does. Write `hello.rb`:
 puts "Hello, #{ARGV.first || "world"}!"
 ```
 
-With `zr run`, the words after the file name go to the program:
+With `zr run`, every word after the file name goes to the program:
 
 ```console
 $ zr run hello.rb Ruby
@@ -121,8 +121,8 @@ Now build `greet.rb` for WebAssembly. Add `--emit wasm`:
 $ zr build greet.rb -o greet.wasm --emit wasm
 ```
 
-The first wasm build takes longer, because zr prepares the runtime for
-wasm once. The next one is fast again.
+The first wasm build takes longer, because zr builds the runtime for
+wasm one time. The next one is fast again.
 
 Run the module with wasmtime:
 
@@ -147,5 +147,5 @@ Next steps:
   read [How to build for another target](../how-to/build-for-another-target.md).
 - To help make zr answer more programs, follow
   [Add your first spec](add-your-first-spec.md).
-- To learn why zr holds itself to ruby's answers, read
-  [The contract: ruby's answer or a refusal](../explanation/the-contract.md).
+- To learn why zr checks itself against ruby's output, read
+  [The contract: ruby's output or a refusal](../explanation/the-contract.md).

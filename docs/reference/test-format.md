@@ -1,77 +1,75 @@
 # Whole programs
 
-Two suites hold whole programs rather than examples: `test/e2e/`, built
-through a real link and run as binaries, and `benchmark/`, timed.
+Two directories contain whole programs, not spec examples:
+`test/e2e/`, which the e2e tier builds through a real link and runs as
+binaries, and `benchmark/`, which `rake bench` times.
 
-A program is a `.rb` file and nothing else — no header, no trailer,
-nothing to parse. `ruby test/e2e/core/process/signal_trap.rb` runs it,
-and that is the point: the program you debug is the program the tier
-builds.
+A program is a `.rb` file and nothing else: no header and no trailer.
+`ruby test/e2e/core/process/signal_trap.rb` runs it. Thus the program
+that you debug is the program that the tier builds.
 
-What ruby answered sits beside it, in files that hold those bytes and
-no others:
+The program's recording is beside it, in files that contain only
+ruby's bytes:
 
 ```
 test/e2e/core/process/
   exit_status.rb        the program
   exit_status.out       what it wrote to stdout
-  exit_status.err       what it wrote to stderr, when it wrote any
-  exit_status.status    the exit status, when it was not 0
-  exit_status.signal    the signal that ended it, if one did
+  exit_status.err       what it wrote to stderr, if it wrote something
+  exit_status.status    the exit status, if it was not 0
+  exit_status.signal    the number of the signal that stopped it, if one did
 ```
 
-Nothing is escaped and nothing has a marker, so a program may write any
-bytes at all — binary output, invalid UTF-8, a last line with no
-newline — and a wrong answer is a `diff` of two files.
+Nothing is escaped and nothing has a marker. Thus a program can write
+any bytes (binary output, invalid UTF-8, a last line with no newline),
+and a wrong output is a `diff` of two files.
 
-Most of what zr is held to is not written this way. A language
-question is a spec example, which inlines its program and is compiled
-in process; see [Add a spec](../how-to/add-a-spec.md). A program earns
-a place here when the question is about the product rather than the
-language: that `zr build` writes a binary, and that the binary starts,
-reads its ARGV, opens a socket, takes a signal and flushes its output
+Most tests are not whole programs. A question about the language is a
+spec example, which has its program inline and is compiled in the test
+process; see [How to add a spec](../how-to/add-a-spec.md). A whole
+program is for a question about the product, not the language: that
+`zr build` writes a binary, and that the binary starts, reads its
+ARGV, opens a socket, receives a POSIX signal and flushes its output
 at exit.
 
 ## Recording
 
-`rake 'record[<path>]'` runs the program under the ruby the
-`.ruby-version` pins and writes the files above. ruby 4.0.6 is the only
-source of right answers, so nothing else writes them and none of them
-is written by hand. A program that is already recorded is left alone;
-`rake 'record[--again <path>]'` is how you say you mean to
-replace an answer, and a change of answer should be a change of
-program.
+`rake 'record[<path>]'` runs the program under ruby 4.0.6 and writes
+the files above. ruby 4.0.6 is the only source of expected outputs, so
+nothing else writes them, and nobody writes them by hand. The task does
+not change a program that has a recording.
+`rake 'record[--again <path>]'` writes the recording again. A change of
+output is usually a change of program.
 
 ## What a program needs
 
-Nearly every program is built and run with no arguments, no environment
-of its own and no conditions. The few that need something are named in
-`Zr::E2E::HOW`, in `test/support/e2e.rb`:
+Most programs are built and run with no arguments, no environment of
+their own and no conditions. `Zr::E2E::HOW`, in `test/support/e2e.rb`,
+lists the programs that need something:
 
 ```ruby
 HOW = {
   "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZR_TEST_AOT_SMOKE" => "on" } },
   "stdlib/bundler/require_bundler" => { build_mb: 3072 },
-  "stdlib/openssl/openssl_digest" => { needs: ["libssl"] }
+  ...
 }.freeze
 ```
 
-| Key | Means |
+| Key | Value |
 |---|---|
-| `argv:` | what the binary is started with |
-| `env:` | what it is started under |
-| `stdin:` | a file beside the program, fed to it |
-| `needs:` | what this machine must have, or the program skips |
+| `argv:` | the arguments of the binary |
+| `env:` | the environment of the binary |
+| `stdin:` | a file beside the program, which goes to its stdin |
+| `needs:` | what the machine must have; if it does not, the program skips |
 | `only:` | the platforms that run it |
-| `build_mb:` | a memory bound for the build, above the usual one |
-| `skip:` | why it does not run at all, in words |
+| `build_mb:` | a memory limit for the build, above the default one |
+| `run_mb:` | a memory limit for the run, above the default one |
+| `skip:` | why it does not run, in words |
 
-`rake record` reads the same table, so a program is asked of ruby the
-way it is asked of zr.
+`rake record` reads the same table, so ruby runs a program in the same
+way as zr does.
 
 ## Another target
 
-A target on its way in is held to what it did rather than to the whole
-tier: `test/baselines/<triple>.txt` names the programs it is allowed to
-fail and why, one path and reason a line, separated by a tab. A named
-program that now passes fails the run, so the file cannot go stale.
+A target can be allowed to fail some programs. See
+[How to test on another target](../how-to/test-on-another-target.md).

@@ -1,22 +1,24 @@
 # Add your first spec
 
 In this tutorial, we work in a checkout of zr. We add one example that
-holds zr to ruby: we write a small Ruby program, ask ruby what it
-says, and assert that what zr compiles says the same. This is the loop
-behind almost every change to zr.
+checks zr against ruby: we write a small Ruby program, get ruby's
+output, and assert that the program that zr compiles gives the same
+output. Almost every change to zr starts with this loop.
 
-You need an Apple Silicon Mac with ruby 4.0.6, the Xcode Command Line
-Tools, and git.
+You need an Apple Silicon Mac with ruby 4.0.6 and git.
 
 ## Get the code
 
-Clone the repository and install the development gems:
+Clone the repository and set it up:
 
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
-$ bundle install
+$ bin/setup
 ```
+
+`bin/setup` installs the gems and builds the runtime. The first build
+takes a few minutes.
 
 Check that the command works:
 
@@ -27,8 +29,8 @@ zr 0.1.0
 
 ## Ask ruby first
 
-ruby 4.0.6 is the only source of right answers, so we start there. Our
-program groups a few words by their length:
+ruby 4.0.6 is the only source of expected outputs, so we start there.
+Our program puts a few words into groups by their length:
 
 ```console
 $ ruby -e 'words = %w[ruby compiles to native code]
@@ -38,14 +40,14 @@ Ruby Compiles To Native Code
 {4 => 2, 8 => 1, 2 => 1, 6 => 1}
 ```
 
-Those two lines are the answer. We never write one from memory.
+These two lines are the expected output. We never write one from
+memory.
 
 ## Write the example
 
-Specs live in `test/spec/<suite>/<area>/<subject>_test.rb`. This
+Specs are in `test/spec/<suite>/<area>/<subject>_test.rb`. This
 program is about enumeration, so it goes in
-`test/spec/lang/blocks/enumeration_test.rb` — or in whichever file the
-area already keeps that subject in.
+`test/spec/lang/blocks/enumeration_test.rb`.
 
 Add this example inside the file's `describe` block:
 
@@ -64,17 +66,17 @@ it "groups words by their length" do
 end
 ```
 
-`zr` compiles the program with zr, runs the binary, and hands back
-what it said. `must_answer` holds the **whole** answer: stderr must be
-empty and the exit status zero unless the example says otherwise. A
-program that also wrote a backtrace has not matched.
+`zr` compiles the program with zr, runs the binary, and returns what
+it wrote. `must_answer` checks the **whole** output: stderr must be
+empty and the exit status must be zero, unless the example gives other
+values. A program that also wrote a backtrace does not match.
 
 ## Run it
 
 Run the one example, by name:
 
 ```console
-$ ruby -Ilib -Itest test/spec/lang/blocks/enumeration_test.rb -n "/groups words/"
+$ bin/test test/spec/lang/blocks/enumeration_test.rb -n "/groups words/"
 Run options: -n "/groups words/" --seed 12345
 
 # Running:
@@ -86,21 +88,21 @@ Finished in 0.381226s, 2.6231 runs/s, 10.4924 assertions/s.
 1 runs, 4 assertions, 0 failures, 0 errors, 0 skips
 ```
 
-Four assertions for one example: stdout, stderr, the signal and the
-exit status. All four held.
+One example makes four assertions: stdout, stderr, the signal and the
+exit status. All four passed.
 
 Now run the file, and then its area:
 
 ```console
-$ bundle exec minitest test/spec/lang/blocks/enumeration_test.rb
-$ bundle exec minitest test/spec/lang/misc
+$ bin/test test/spec/lang/blocks/enumeration_test.rb
+$ bin/test test/spec/lang/blocks
 ```
 
-## Hold your literal to ruby
+## Check your literal against ruby
 
-You typed those two lines by hand, so let ruby check them. `rake
-oracle` runs each example's program under ruby and holds the example to
-what ruby said — it compiles nothing, so it is fast:
+You typed the two lines by hand, so let ruby check them. `rake oracle`
+runs the program of each example under ruby and compares the output
+with the example's literal. It compiles nothing, so it is fast:
 
 ```console
 $ rake 'oracle[test/spec/lang/blocks/enumeration_test.rb]'
@@ -108,15 +110,16 @@ test/spec/lang/blocks/enumeration_test.rb    12 asked,  0 skipped, 0 apart
 12 example(s) asked, 0 skipped, 0 apart from ruby
 ```
 
-`0 apart` is the point of the whole exercise: the literal in the file
-is ruby's word, not yours.
+`0 apart` is the important result: the literal in the file is ruby's
+output, not yours.
 
-## When zr does not answer it yet
+## When zr cannot pass it yet
 
-An example whose program uses a form zr does not compile **skips**,
-naming the form. That is the roadmap, not a failure — only a wrong
-answer, a crash or a timeout fails. If you find one, leave the example
-where it belongs and say what it waits on:
+If zr does not support a form that the program uses, the example
+**skips**, and the message gives the form. That is not a failure: only
+a wrong output, a crash or a timeout fails. If zr gives a wrong output
+and the fix is large, keep the example in its place and tell what it
+needs:
 
 ```ruby
 it "converts through the carrier's own UTF-8" do
@@ -125,19 +128,20 @@ it "converts through the carrier's own UTF-8" do
 end
 ```
 
-The day zr answers it, the line comes off, and nothing had to move.
+When zr can pass it, delete the `skip` line.
 
 ## What you did
 
-You asked ruby, wrote an example that compiles the same program with
-zr, watched all four parts of the answer hold, and had ruby check your
-literal afterwards.
+You got the output from ruby, wrote an example that compiles the same
+program with zr, saw all four parts of the output pass, and let ruby
+check your literal.
 
 Next steps:
 
-- [How to add a spec](../how-to/add-a-spec.md), for arguments, stdin,
+- [How to add a spec](../how-to/add-a-spec.md) and
+  [The spec DSL](../reference/spec-dsl.md), for arguments, stdin, the
   environment and a program's own files
-- [How to debug a program that diverges](../how-to/debug-a-program-that-diverges.md)
-- [How to run the checks](../how-to/run-the-checks.md)
-- [Whole programs](../reference/test-format.md), for the whole
-  programs in `test/e2e/` and `benchmark/`
+- [How to debug a wrong answer](../how-to/debug-a-wrong-answer.md)
+- [How to run the tests](../how-to/run-the-tests.md)
+- [Whole programs](../reference/test-format.md), for the programs in
+  `test/e2e/` and `benchmark/`

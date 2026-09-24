@@ -1,12 +1,13 @@
 # Targets
 
-A target is what zr emits. The gem itself runs on any host that has
+A target is what zr builds for. The gem itself runs on any host with
 ruby 4.0.6. `Zr::Target` (`lib/zr/target.rb`) defines each target.
+`zr targets` shows what this host can build.
 
 | Target | Outputs | Object format | Runtime layers |
 |---|---|---|---|
-| `aarch64-apple-darwin` (default on a Mac) | binary, object | Mach-O | `os/darwin`, `arch/aarch64` |
-| `aarch64-linux-musl` | binary, object | ELF | `os/linux`, `arch/aarch64` |
+| `aarch64-apple-darwin` (the default on a Mac) | binary, object file | Mach-O | `os/darwin`, `arch/aarch64` |
+| `aarch64-linux-musl` | binary, object file | ELF | `os/linux`, `arch/aarch64` |
 | `wasm32-wasi` | WASI module | wasm | `os/wasi`, `arch/wasm32` |
 
 ## What each host can build
@@ -14,12 +15,13 @@ ruby 4.0.6. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 | Output | Host requirement |
 |---|---|
 | `aarch64-apple-darwin` binary | any host: zr links it |
-| `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`, or any host with `aarch64-linux-musl-gcc` on the `PATH` |
+| `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`, or a host with `aarch64-linux-musl-gcc` on the `PATH` |
 | WASI module | any host |
-| Mach-O or ELF object | any host |
+| Mach-O or ELF object file | any host |
 
-`zr run` runs a binary only on the target's own host. On a host that
-cannot link a binary, `zr build` without `--emit` exits with status 3.
+`zr run` runs a binary only on a host of the same target. On a host
+that cannot link a binary, `zr build` without `--emit` exits with
+status 3.
 
 ## Differences between targets
 
@@ -27,50 +29,52 @@ cannot link a binary, `zr build` without `--emit` exits with status 3.
 |---|---|---|---|
 | Linker | zr's own (`Obj::MachO::Executable`) | `cc -static` | none: one module |
 | `Fiber`, `Thread`, `Ractor` | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
-| `eval` of a string | yes | yes | yes, by walking the tree |
+| `eval` of a string | yes, with the eval compiler | yes, with the eval compiler | yes, with the tree-walking interpreter |
 | FFI (`ffi`, `fiddle`) | yes | no | no |
 | Preemption | a timer thread | a timer thread | a count at each safe point |
-| Answer held to | what ruby recorded | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
+| Expected output | ruby's recording | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
 
-### What wasm does not answer, and why it stays that way
+The e2e programs that a target is allowed to fail are in its baseline.
+See [How to test on another target](../how-to/test-on-another-target.md).
 
-`test/baselines/wasm32-wasi.txt` names the end-to-end programs this
-target is allowed to fail. Two groups of them are not work that is
-waiting to be done.
+### What wasm cannot do
 
-**Fibers, threads and ractors.** Each needs a second machine stack to
-switch onto, and a WASI module is given one, which the engine keeps
-(`docs/explanation/threads-fibers-and-ractors.md`). Nothing the runtime
-can call makes another. The answer is the **stack-switching proposal**,
-which would give a module its own suspendable continuations; wasmtime
-does not ship it, so `Fiber.new` raises `FiberError` here and the rows
-for `fiber_resume` and `threads_join` stay until an engine does.
+Two groups in the `wasm32-wasi` baseline are not work to do later:
 
-**Processes and signals.** WASI has no `fork`, no `exec` and no `kill`,
-and no proposal is pending for any of them, so `spawn` and `Signal.trap`
-stay on the baseline as well.
+- **Fibers, threads and ractors.** Each needs a second machine stack,
+  and a WASI module has only one, which the engine keeps (see
+  [Threads, fibers and ractors](../explanation/threads-fibers-and-ractors.md)).
+  No call that the runtime can make creates another. The solution is
+  the **stack-switching proposal**, which gives a module its own
+  continuations. wasmtime does not include it, so `Fiber.new` raises
+  `FiberError`, and `fiber_resume` and `threads_join` stay in the
+  baseline until an engine includes it.
+- **Processes and POSIX signals.** WASI has no `fork`, no `exec` and no
+  `kill`, and no proposal adds them. `spawn` and `Signal.trap` stay in
+  the baseline.
 
-The other rows are work: a memory bound a 32-bit module runs into, a
-socket table nobody has written, and `dlopen`, which wasm has no form
-for.
+The other lines are work to do: a memory limit of a 32-bit module, a
+socket table that nobody has written, and `dlopen`, which wasm does not
+have.
 
-A darwin or linux program that evals writes the machine code it
-compiles into itself. A module's code is fixed when the engine
-instantiates it, and WASI hands a guest no way to make a second one, so
-a wasm program carries the same front end and walks the tree it builds.
-It refuses a few forms by name where it stands, which
-`docs/explanation/eval-in-a-compiled-program.md` lists.
+A darwin or linux program that evals writes the machine code that it
+compiles into itself. The engine fixes a module's code when it
+instantiates the module, and WASI gives a guest no way to make a second
+module. Thus a wasm program uses the same front end and the
+tree-walking interpreter. See
+[Eval in a compiled program](../explanation/eval-in-a-compiled-program.md)
+for the forms that the interpreter refuses.
 
 ## Runtime layers
 
 The portable runtime calls a fixed set of OS functions, which
 `runtime/kernel/os.rb` lists. Each OS layer implements all of them:
 
-| Directory | Holds |
+| Directory | Contains |
 |---|---|
-| `runtime/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, signals, JIT mapping |
-| `runtime/kernel/arch/<arch>/` | the machine context a task switch saves |
-| `runtime/core/os/<os>/` | the numbers the OS gives errno, IO, File and Process constants |
-| `runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the eval description |
+| `runtime/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, POSIX signals, JIT mapping |
+| `runtime/kernel/arch/<arch>/` | the machine context that a task switch saves |
+| `runtime/core/os/<os>/` | the numbers that the OS gives the errno, IO, File and Process constants |
+| `runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the description |
 
 The table files come from the ruby of that OS (`rake tables`).
