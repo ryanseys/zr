@@ -230,7 +230,7 @@ module Zr
         rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
         return "unknown" if rev.empty?
 
-        changed = `git -C #{@root} status --porcelain -- lib rt benchmark 2>/dev/null`.lines.reject { |l| l.include?(RESULTS) }
+        changed = `git -C #{@root} status --porcelain -- lib runtime benchmark 2>/dev/null`.lines.reject { |l| l.include?(RESULTS) }
         changed.empty? ? rev : "#{rev}-dirty"
       end
 
