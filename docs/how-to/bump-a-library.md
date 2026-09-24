@@ -1,54 +1,57 @@
-# How to change the version of a library zr carries
+# How to change the version of a pinned library
 
-This guide shows you how to move one of ruby's pure-Ruby libraries,
-such as `csv` or `uri`, to another version. zr reads these libraries
-from installed gems and compiles them into programs. `zr.gemspec`
-pins each one to one version, and `lib/zr/library_digests.rb` records
-the files of that version.
+This guide shows you how to change one of ruby's pure-Ruby libraries,
+such as `csv` or `uri`, to a different version. zr reads these
+libraries from installed gems and compiles them into programs.
+`PINS` in `lib/zr/libraries.rb` pins each gem to one version, and
+`zr.gemspec` reads its dependencies from `PINS`.
+`lib/zr/library_digests.rb` records the digests of the files of each
+version.
 
 A gem with a C extension is different: see
 [How to port a C extension](port-a-c-extension.md).
 
 ## 1. Change the pin
 
-Change the version in `PINS` in `lib/zr/libraries.rb`. The gemspec
-reads its dependencies from there.
+Change the version in `PINS` in `lib/zr/libraries.rb`.
 
-To carry a new library, add its gem to `PINS`. If the gem does not
-keep its files in its `require_paths`, name its directories in
-`DIRS`.
+To add a new library, add its gem to `PINS`. If the gem does not keep
+its files in its `require_paths`, give its directories in `DIRS`.
 
 ## 2. Lock and install
 
-```
-bundle lock
-bundle install
+```console
+$ bundle lock
+$ bundle install
 ```
 
 Commit `Gemfile.lock` with the change.
 
 ## 3. Write the digests again
 
-```
-bundle exec rake gen:libraries
+```console
+$ rake gen:libraries
 ```
 
 The task finds each pinned gem as a build does, and writes the SHA-256
-of its files. A build refuses a gem whose files do not have this
-digest, so a build that runs before this step stops by name.
+digest of its files. A build refuses a gem whose files do not have
+this digest. Thus a build before this step stops, with a message that
+gives the gem.
 
-## 4. Run the checks the change reaches
+## 4. Run the tests that the change reaches
 
+```console
+$ rake affected
 ```
-bundle exec rake affected
-```
 
-A change to the pins reaches every spec. When ruby answers a program
-another way with the new version, record that program again, as
-[How to add a spec](add-a-spec.md) shows.
+A change to the pins reaches every spec. If ruby gives a different
+output for a program with the new version, get the new output from
+ruby, as [How to add a spec](add-a-spec.md) shows.
 
 ## A new ruby
 
-A new ruby moves every pin at once. Pin each default and bundled gem
-to the version the new ruby ships (`gem list` names them), and copy
-the files named in `vendor/lib/VERSIONS` from the new ruby, unedited.
+A new ruby changes every pin. Pin each default and bundled gem to the
+version that the new ruby includes (`gem list` shows them). Copy the
+files that `vendor/lib/VERSIONS` lists from the new ruby, without
+edits. See also
+[The pinned ruby is part of the toolchain](../explanation/the-contract.md#the-pinned-ruby-is-part-of-the-toolchain).
