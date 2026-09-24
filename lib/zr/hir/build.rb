@@ -1315,14 +1315,14 @@ module Zr
         Seq.new([UsingDefaults.new(nested.map { |u| [u.id, u.from] }, line), out], line)
       end
 
-      # The `:line` event ruby's compiler puts before a statement that
-      # starts a line of its scope, or nil: pm_compile_node's rule, which
-      # reads prism's newline flag. A `begin` with no statements before
-      # its rescue stands on the rescue's line.
+      # The `:line` event that ruby's compiler puts before a statement that
+      # starts a line of its scope, or nil. This is pm_compile_node's rule,
+      # which reads prism's newline flag. A `begin` with no statements
+      # before its rescue is on the rescue's line.
       def line_event(node)
         return nil unless @loader&.tracing? && node.newline? && !Build.runtime_file?(@file)
-        # A `begin` or parentheses start with the statement inside, whose
-        # event is the one ruby merges theirs into.
+        # A `begin` or parentheses start with the statement inside. Ruby
+        # merges their event into that statement's event.
         return nil if node.is_a?(Prism::BeginNode) && node.statements
         return nil if node.is_a?(Prism::ParenthesesNode) && node.body
 
@@ -1335,29 +1335,29 @@ module Zr
         Trace.new(:line, line)
       end
 
-      # A `Cover` for each side of a branch Coverage measures, or nils
-      # where it measures nothing. `sides` are `[kind, span]` in the
-      # order ruby lists them, which is the source's order except that
-      # an `unless` puts its else first; the root is numbered ahead of
-      # them, as CRuby numbers a branch and then its sides.
-      # The id of the row a `def` or a block claims where it makes a
-      # method, or nil where nothing is measured.
+      # The id of the def-site entry that a `def` or a block uses when it
+      # makes a method, or nil if coverage is not measured.
       def method_cover(node)
         return nil unless @loader&.covers? && !Build.runtime_file?(@file)
 
         @loader.def_site!(@file, method_span(node))
       end
 
-      # Where ruby locates a method made from this scope. A lambda's row
-      # starts past its `->`, which is where CRuby's iseq for one begins:
-      # `define_method(:a, ->(x) { x })` is located at `(x) { x }`. Every
-      # other scope stands where it was written.
+      # The location that ruby gives a method made from this scope. A
+      # lambda's span starts after its `->`, where CRuby's iseq for it
+      # starts: `define_method(:a, ->(x) { x })` is located at `(x) { x }`.
+      # All other scopes use their own location.
       def method_span(node)
         return span(node.location) unless node.is_a?(Prism::LambdaNode)
 
         [node.operator_loc.end_line, node.operator_loc.end_column, node.location.end_line, node.location.end_column]
       end
 
+      # A `Cover` for each branch of a construct that Coverage measures, or
+      # nils if it measures nothing. `sides` are `[kind, span]` in ruby's
+      # order, which is the source order, except that an `unless` puts its
+      # else first. The root gets its number before its branches, as in
+      # CRuby.
       def branch_covers(kind, span, sides)
         return [nil] * sides.size unless @loader&.covers? && !Build.runtime_file?(@file)
 
@@ -1368,41 +1368,40 @@ module Zr
         end
       end
 
-      # The four numbers Coverage names a branch by: where it starts and
-      # where it ends, the columns 0-based as ruby counts them.
+      # The four numbers that Coverage uses for a branch: its start and
+      # end, with 0-based columns as in ruby.
       def span(location) = [location.start_line, location.start_column, location.end_line, location.end_column]
 
-      # The sides of an `if`, a ternary or an `elsif`. A then with no
-      # statements stands in the empty width just past the predicate,
-      # and an else nobody wrote stands over the whole `if`, which is
-      # what CRuby records for each.
+      # The branches of an `if`, a ternary or an `elsif`. A then with no
+      # statements is at the empty width after the predicate. A missing
+      # else covers the whole `if`. CRuby records the same.
       def if_sides(node)
         [[:then, node.statements ? span(node.statements.location) : after(node.predicate.location)],
          [:else, node.subsequent ? span(else_location(node.subsequent)) : span(node.location)]]
       end
 
-      # An `unless` writes its then first and ruby numbers its else
-      # first, so the two are read back the other way round.
+      # An `unless` has its then first in the source, but ruby numbers its
+      # else first, so the two are in reverse order.
       def unless_sides(node)
         [[:else, node.else_clause ? span(else_location(node.else_clause)) : span(node.location)],
          [:then, node.statements ? span(node.statements.location) : after(node.predicate.location)]]
       end
 
-      # Each `when` or `in` clause, then the else -- which a `case`
-      # always has, standing over the whole `case` where the source
-      # wrote none, so a subject that matched nothing is still counted.
+      # Each `when` or `in` clause, then the else. A `case` always has an
+      # else: if the source has none, it covers the whole `case`, so a
+      # subject that matched nothing is also counted.
       def case_sides(node, kind)
         sides = node.conditions.map { |c| [kind, span(c.statements&.location || c.location)] }
         sides << [:else, span(node.else_clause ? else_location(node.else_clause) : node.location)]
       end
 
-      # A loop has one side, its body, or the whole loop where it has
-      # none.
+      # A loop has one branch: its body, or the whole loop if it has no
+      # body.
       def loop_sides(node) = [[:body, span(node.statements&.location || node.location)]]
 
-      # An `else` stands where its statements do and over the whole
-      # clause where it holds none; an `elsif` is a branch of its own and
-      # stands over itself.
+      # An `else` has the location of its statements, or of the whole
+      # clause if it has none. An `elsif` is its own branch, with its own
+      # location.
       def else_location(node)
         return node.location unless node.is_a?(Prism::ElseNode)
 
@@ -1412,17 +1411,16 @@ module Zr
       # The empty width just past `location`.
       def after(location) = [location.end_line, location.end_column, location.end_line, location.end_column]
 
-      # `body` with its branch counted first, or `body` alone. A nil
-      # body counts and answers nil, as the side ruby writes nothing for
-      # answers nil.
+      # `body` with its branch counted first, or only `body`. A nil body
+      # counts and returns nil, as an empty branch does in ruby.
       def covered(cover, body, line)
         return body if cover.nil?
 
         Seq.new([cover, body || Literal.new(nil, line)], line)
       end
 
-      # The `using` rows a statement holds below its top, which a
-      # condition may skip.
+      # The `using` entries in a statement, below its top level, which a
+      # condition can skip.
       def usings_in(node, seen, out = [])
         return out if node.nil? || seen.key?(node.object_id)
 
@@ -1439,8 +1437,8 @@ module Zr
       end
 
       # `using mod` where ruby permits it: at toplevel or in a class or
-      # module body, never inside a method, and never as a send whose
-      # answer somebody reads.
+      # module body, never in a method, and never as a send whose value
+      # is used.
       def using_activation(node)
         return nil if @in_def
         return nil unless node.is_a?(Prism::CallNode) && node.name == :using && node.block.nil?
@@ -1472,20 +1470,20 @@ module Zr
 
       # A prism node's HIR, noted with the node's id.
       #
-      # `taken` is false where the program never takes this expression's
+      # `taken` is false if the program never uses this expression's
       # value: a statement before the last of its scope, a `while` body,
-      # or a branch a literal condition never chooses. ruby's compiler
-      # writes nothing for such an expression, and so reads nothing in
-      # it -- which is why `puts 1; /[z-a]/; puts 2` runs where the same
-      # literal as a scope's value is a SyntaxError. A regexp is the one
-      # literal zr reads as it builds, so it is the one that asks.
+      # or a branch that a literal condition never selects. Ruby's
+      # compiler writes no code for such an expression and does not read
+      # it. So `puts 1; /[z-a]/; puts 2` runs, but the same literal as a
+      # scope's value is a SyntaxError. A regexp is the only literal that
+      # zr reads when it builds, so only it uses this flag.
       def expr(node, taken: true)
         noted(built(node, taken), node)
       end
 
-      # `hir` came from prism's `node`: the frame of what it runs reports
-      # that node's id, as node_id_for_backtrace_location reads it. A HIR
-      # node an inner prism node built already keeps the inner one's id.
+      # `hir` came from prism's `node`. Its frame reports that node's id,
+      # as node_id_for_backtrace_location reads it. A HIR node that an
+      # inner prism node already built keeps the inner node's id.
       def noted(hir, node)
         @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Record)
         hir
@@ -1497,7 +1495,7 @@ module Zr
         when Prism::StatementsNode then seq(node, taken: taken)
         when Prism::ParenthesesNode then node.body ? expr(node.body, taken: taken) : Literal.new(nil, line)
         when Prism::IntegerNode, Prism::FloatNode then Literal.new(node.value, line)
-        # `3r` and `2i` are the core's own, even where self has no Kernel.
+        # `3r` and `2i` use the core's Kernel, even if self has no Kernel.
         when Prism::RationalNode then Send.new(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
         when Prism::ImaginaryNode then Send.new(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line, false)
         when Prism::StringNode then literal_string(node, unescaped(node), line)
@@ -1542,9 +1540,9 @@ module Zr
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
         when Prism::IfNode
           chosen = chooses?(node.predicate)
-          # The predicate is numbered first, as ruby's compiler writes it
-          # first; a predicate ruby decides is the whole branch dropped,
-          # and Coverage records nothing for it.
+          # The predicate gets its number first, because ruby's compiler
+          # writes it first. If ruby decides the predicate at compile time,
+          # it drops the whole branch, and Coverage records nothing.
           predicate = expr(node.predicate)
           then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
           If.new(predicate,
@@ -1556,15 +1554,15 @@ module Zr
         when Prism::MatchWriteNode then match_write(node)
         when Prism::UnlessNode
           chosen = chooses?(node.predicate)
-          # ruby lists an `unless`'s else ahead of its then, and numbers
-          # them that way, though the branch still tests the same way.
+          # Ruby lists an `unless`'s else before its then, and numbers them
+          # in that order. The branch test is the same.
           predicate = expr(node.predicate)
           else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
           If.new(predicate,
                  covered(else_cover, node.else_clause && dead(chosen == false) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
                  covered(then_cover, node.statements && dead(chosen == true) { seq(node.statements, taken: taken && chosen != true) }, line), line)
         when Prism::ElseNode then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
-        # A loop answers nil, so nothing takes the value of its body.
+        # A loop returns nil, so its body's value is not used.
         when Prism::WhileNode
           body, = branch_covers(:while, span(node.location), loop_sides(node))
           While.new(expr(node.predicate), covered(body, node.statements && seq(node.statements, taken: false), line), line,
@@ -1574,8 +1572,8 @@ module Zr
           While.new(falsy(expr(node.predicate), line), covered(body, node.statements && seq(node.statements, taken: false), line), line,
                     node.begin_modifier?)
         when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
-        # The left decides, so its value is always taken; the right is
-        # the pair's answer and stands where the pair does.
+        # The left side decides, so its value is always used. The right
+        # side is the result, so it has the pair's `taken`.
         when Prism::AndNode then And.new(expr(node.left), expr(node.right, taken: taken), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right, taken: taken), line)
         when Prism::ClassNode
@@ -1650,8 +1648,8 @@ module Zr
           end
           low = node.left ? expr(node.left) : Literal.new(nil, line)
           high = node.right ? expr(node.right) : Literal.new(nil, line)
-          # Two String literals are one frozen Range of frozen ends for
-          # the site where CRuby's peephole folds them into one.
+          # Two String literals make one frozen Range with frozen ends for
+          # the site, where CRuby's peephole optimizer folds them.
           if node.left.is_a?(Prism::StringNode) && node.right.is_a?(Prism::StringNode) && !after_label?(node)
             static = true
             low = frozen_literal(node.left, low, line)
@@ -1663,9 +1661,9 @@ module Zr
         when Prism::GlobalVariableWriteNode then gvar_write(node.name, expr(node.value), line)
         when Prism::GlobalVariableOperatorWriteNode
           gvar_write(node.name, Send.new(gvar_read(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
-        # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`: the
-        # write happens only when it is needed, which a frozen receiver, a
-        # global's setter and a constant's redefinition warning can see.
+        # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`. The
+        # write occurs only if necessary. A frozen receiver, a global's
+        # setter and a constant's redefinition warning can see this.
         when Prism::GlobalVariableOrWriteNode then Or.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
         when Prism::GlobalVariableAndWriteNode then And.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
         when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
@@ -1700,13 +1698,12 @@ module Zr
           if node.old_name.is_a?(Prism::GlobalVariableReadNode) && !FRAME_GVARS.include?(node.old_name.name)
             GvarAlias.new(node.new_name.name, node.old_name.name, line)
           else
-            # `$&` is a register of the frame that last matched and not a
-            # global, so an alias of one is not a row the runtime can
-            # carry: the new name is resolved as this file is lowered.
-            # ruby leaves an alias it does not reach undone -- `if false;
-            # alias $x $&; end` leaves `$x` nil -- so an alias written
-            # where it may not run sets a flag of its own when it does,
-            # and each use of the name asks the flag.
+            # `$&` is a register of the frame that last matched, not a
+            # global, so the runtime cannot keep an alias entry for it. The
+            # lowering resolves the new name. Ruby does not make an alias
+            # that does not run (`if false; alias $x $&; end` leaves `$x`
+            # nil). So a conditional alias sets its own flag when it runs,
+            # and each use of the name reads the flag.
             flag = certain_alias?(node) ? nil : :"$%alias#{node.new_name.name}"
             @loader&.back_ref!(node.new_name.name, node.old_name, flag)
             flag ? Seq.new([GvarWrite.new(flag, Literal.new(true, line), line, nil), Literal.new(nil, line)], line) : Literal.new(nil, line)
@@ -1737,11 +1734,11 @@ module Zr
           AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line, node.call_operator == "&.")
         when Prism::ForNode then for_loop(node)
         when Prism::PostExecutionNode
-          # `END { }` shares the enclosing scope, so its body reads one
-          # block deeper as an at_exit block.
+          # `END { }` shares the enclosing scope, so its body is one block
+          # deeper, as an at_exit block.
           body = deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0)
           block = Block.new(Params.new([], [], nil, [], [], nil, nil), [], body, line)
-          # It registers once for its site, however often the site runs.
+          # It registers once for its site, however many times the site runs.
           Once.new(Send.new(Core.new(:Kernel, line), :at_exit, [], line, false, false, block, nil, false), line)
         when Prism::PreExecutionNode
           refuse(node, "BEGIN { } outside the toplevel is not lowered yet") unless @block_depth.zero?
@@ -1757,20 +1754,19 @@ module Zr
         when Prism::RescueModifierNode
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
-        # ruby's compiler writes nothing for a branch it knows is never
-        # taken, so a `retry` there is no error wherever it stands.
+        # Ruby's compiler writes no code for a branch that it knows is
+        # never taken, so a `retry` there is never an error.
         when Prism::RetryNode then @dead.positive? ? Literal.new(nil, line) : Retry.new(line)
         when Prism::RedoNode then Redo.new(line)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
       end
 
-      # `begin ... end` with its clauses; a bare `begin ... end` is its body.
-      # A region's body and its `else` answer for the region and stand
-      # where it stands. An `ensure` runs for its effect alone and
-      # answers nothing, so nothing ever takes its value. A `rescue`
-      # body is not the same: ruby reads a regexp there even where the
-      # region's own value is dropped.
+      # `begin ... end` with its clauses. A bare `begin ... end` is its
+      # body. A region's body and its `else` give the region's value, and
+      # have its `taken`. An `ensure` runs only for its effect, so its
+      # value is never used. A `rescue` body is different: ruby reads a
+      # regexp there even if the region's value is not used.
       def protected_region(node, taken = true)
         line = node.location.start_line
         body = node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
@@ -1793,8 +1789,8 @@ module Zr
         Rescue.new(classes, node.reference && target(node.reference), node.statements ? seq(node.statements) : Literal.new(nil, line), line)
       end
 
-      # What `return`, `break` and `next` carry: nothing is nil, one
-      # value is itself, several are an Array.
+      # The value of `return`, `break` and `next`: none is nil, one value
+      # is itself, and several are an Array.
       def jump_value(arguments, line)
         args = arguments&.arguments || []
         return Literal.new(nil, line) if args.empty?
@@ -1816,9 +1812,9 @@ module Zr
         end
       end
 
-      # The scope of a constant read and written by `A::B op= v`. A path
-      # of constants reads the same twice; anything computed is held in a
-      # hidden local, so the program sees it evaluated once.
+      # The scope of a constant that `A::B op= v` reads and writes. A path
+      # of constants gives the same value twice. A computed scope goes into
+      # a hidden local, so it is evaluated once.
       def constant_scope(node, line)
         scope, name = constant_path(node)
         return [scope, name, nil] if scope.nil? || scope == :top || constant_only?(scope)
@@ -1856,8 +1852,8 @@ module Zr
         end
       end
 
-      # The body with the `Primitive.attr!` rows of `marks` first, where a
-      # def's own marks stand.
+      # The body with the `Primitive.attr!` calls of `marks` first, where
+      # a def's own attributes are.
       def marked(body, marks, line)
         return Begin.new(*body.to_a).tap { |b| b.body = marked(body.body, marks, line) } if body.is_a?(Begin)
 
@@ -1865,13 +1861,12 @@ module Zr
         Seq.new([*rows, *(body.is_a?(Seq) ? body.stmts : [body])], line)
       end
 
-      # Whether an eval stands anywhere in this body, blocks included
-      # but nested defs left to themselves. A `return` an eval writes
-      # belongs to the method the eval sits in, so that method arms the
-      # catch for a signal that carries no home. Every spelling of eval
-      # counts, since ruby gives them all that return: `instance_eval`,
-      # `class_eval` and `module_eval` of a string, and a `send` or a
-      # `method` that reaches one of them by name.
+      # Whether an eval is anywhere in this body, blocks included, nested
+      # defs not included. A `return` in an eval belongs to the enclosing
+      # method, so that method arms the catch for an unwind with no home.
+      # Every form of eval counts, because ruby gives them all that
+      # return: `instance_eval`, `class_eval` and `module_eval` of a
+      # string, and a `send` or `method` that calls one of them by name.
       def evals?(node)
         return false if node.nil? || node.is_a?(Prism::DefNode)
         return true if node.is_a?(Prism::CallNode) && eval_call?(node)
@@ -1879,19 +1874,18 @@ module Zr
         node.child_nodes.any? { |child| evals?(child) }
       end
 
-      # `Build.eval_call?` asked of a prism call, whose arguments are
-      # still nodes: a leading Symbol literal is the name a send calls or
-      # a fetch hands on.
+      # `Build.eval_call?` for a prism call, whose arguments are still
+      # nodes. A leading Symbol literal is the method name that a send
+      # calls or a fetch returns.
       def eval_call?(node)
         args = node.arguments&.arguments || []
         named = args.first.unescaped.to_sym if args.first.is_a?(Prism::SymbolNode)
         Build.eval_call?(node.name, named: named, argc: args.size)
       end
 
-      # The definee a body runs under: one step down the lexical path,
-      # and whether it is the singleton side.
-      # A `using` written in a body reaches the rest of that body and
-      # nothing outside it.
+      # Runs a body with its definee: one step down the lexical path, and
+      # whether it is the singleton side. A `using` in a body applies to
+      # the rest of that body and to nothing outside it.
       def in_definee(name, singleton)
         @path.push(name) if name
         was = @singleton
@@ -1907,8 +1901,8 @@ module Zr
         @body_marks = marks
       end
 
-      # A bare `super`: the method's parameters passed on as they stand,
-      # a `Super` with the locals of the def this block sits in.
+      # A bare `super`: passes the method's parameters with their current
+      # values, as a `Super` with the locals of the enclosing def.
       def zsuper(node, line)
         p = @def_params or return ZSuper.new(node.block && block(node.block), line)
 
