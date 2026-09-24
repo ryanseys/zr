@@ -52,7 +52,7 @@ module Prism
         end
       end
 
-      # `parser` answers the C's node_hash and comparisons.
+      # `parser` supplies the C's node_hash and comparisons.
       def initialize(parser)
         hash = parser.method(:static_literal_hash)
         @integers = Table.new(hash, parser.method(:compare_integer_nodes))
@@ -222,7 +222,7 @@ module Prism
         end
       end
 
-      # Whether an integer node holds a negated zero (`-0`).
+      # Whether an integer node contains a negated zero (`-0`).
       def negative_zero?(node) = @negative_zeros.include?(node.node_id)
 
       # pm_hash_key_static_literals_add: a warning when a literal key repeats,

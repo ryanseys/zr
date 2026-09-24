@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Complex: a real and an imaginary part, each an Integer, Float or
-# Rational, held in hidden ivars as CRuby's hidden fields are.
+# Rational, kept in hidden ivars as in CRuby's hidden fields.
 class Complex < Numeric
   class << self
     undef_method :new, :allocate
@@ -141,7 +141,7 @@ class Complex < Numeric
   alias rect rectangular
 
   # Exact along an axis, as CRuby keeps it: a Float on the other axis
-  # only makes the answer a Float.
+  # changes only the type of the result to Float.
   def abs
     if real == 0
       a = imaginary.abs

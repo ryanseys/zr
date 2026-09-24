@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-# The Pathname class, which ruby 4.0 carries as a builtin: it stands
+# The Pathname class, which ruby 4.0 includes as a builtin: it works
 # without a require, and `require "pathname"` adds the Find and rmtree
-# half ruby keeps on the load path.
+# part that ruby keeps on the load path.
 #
 # This is ruby 4.0.6's pathname_builtin.rb, with `<=>` and `sub`, which
-# its pathname.c writes in C, in Ruby here. A Pathname is a string and
-# nothing more: it never touches the file system to answer a question
-# about the name itself, and every question about the file goes to
-# File, Dir or FileTest.
+# its pathname.c writes in C, in Ruby here. A Pathname is only a string:
+# it never touches the file system for an operation on the name itself,
+# and every operation on the file goes to File, Dir or FileTest.
+#
 class Pathname
   Primitive.attr! :ivars
 

@@ -2,7 +2,7 @@
 
 # ObjectSpace: the weak maps, the finalizers, and the walk over the heap.
 module ObjectSpace
-  # Keys and values held weakly, compared by identity.
+  # Keys and values kept weakly, compared by identity.
   class WeakMap
     include Enumerable
 
@@ -70,7 +70,7 @@ module ObjectSpace
     end
   end
 
-  # Keys held weakly and compared by `eql?`; values held.
+  # Keys kept weakly and compared by `eql?`; values kept strongly.
   class WeakKeyMap
     # A value the collector never reclaims cannot be a weak key: the
     # immediates, and the numbers and symbols that live as long as the

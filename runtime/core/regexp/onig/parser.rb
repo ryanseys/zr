@@ -976,7 +976,7 @@ class Regexp
         end
       end
 
-      # is_onechar_cclass: the one code point the class holds, or nil.
+      # is_onechar_cclass: the one code point in the class, or nil.
       def onechar_cclass(cc)
         return nil if cc.cclass_not?
 
@@ -1218,7 +1218,7 @@ class Regexp
         end
       end
 
-      # parse_exp: one term with its quantifiers; tok holds the token after it.
+      # parse_exp: one term with its quantifiers; tok contains the token after it.
       def parse_exp(tok, term)
         return Node.empty if tok.type == term
 

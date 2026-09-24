@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # option.c: one socket option's family, level, name and bytes, which
-# read back as the number, the flag or the structure the option holds.
+# read back as the number, the flag or the structure of the option.
 class Socket < BasicSocket
   class Option
     def initialize(family, level, optname, data)
@@ -88,8 +88,8 @@ class Socket < BasicSocket
 
       private
 
-      # rsock_sockopt_new: an option of these numbers, as a socket answers
-      # one.
+      # rsock_sockopt_new: an option with these numbers, as a socket
+      # returns one.
       def build(family, level, optname, data)
         Primitive.attr! :hidden
         Primitive.zr_class_build(Option).__send__(:assign, family, level, optname, data)

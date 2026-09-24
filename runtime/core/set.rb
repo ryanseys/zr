@@ -201,9 +201,9 @@ class Set
 
   def disjoint?(other) = !intersect?(other)
 
-  # set_i_divide: the sets a two-argument relation joins, each pair
-  # joined only when it holds both ways; the classes a one-argument
-  # block names otherwise.
+  # set_i_divide: the sets that a two-argument relation joins, with each
+  # pair joined only when the relation is true both ways. Otherwise, the
+  # classes that a one-argument block returns.
   def divide(&block)
     return enum_for(:divide) { size } unless block
     return Set.allocate.send(:merge_from, classified(&block).values) unless block.arity == 2
@@ -785,7 +785,7 @@ class Set
   end
 
   # set_i_to_h: what Marshal writes a Set as, a Hash from each member to
-  # true that answers false for anything else.
+  # true that returns false for any other key.
   def marshal_hash
     Primitive.attr! :hidden
     hash = compare_by_identity? ? {}.compare_by_identity : {}

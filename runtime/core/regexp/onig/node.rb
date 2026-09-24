@@ -598,7 +598,7 @@ class Regexp
       end
     end
 
-    # ScanEnv: what the parser carries through a pattern.
+    # ScanEnv: the state that the parser keeps through a pattern.
     class ScanEnv
       attr_accessor :option, :case_fold_flag, :enc, :capture_history, :bt_mem_start,
                     :bt_mem_end, :backrefed_mem, :pattern, :reg, :unset_addr_list,
@@ -679,9 +679,9 @@ class Regexp
     class Warnings
       WARN_BUFSIZE = 256
 
-      # onig_vsnprintf_with_pattern: ": /pattern/" after the text, the
-      # pattern's bytes written as it writes them, only when the whole
-      # fits the 256-byte buffer. The answer is BINARY.
+      # onig_vsnprintf_with_pattern: ": /pattern/" after the text, with the
+      # pattern's bytes written as the C writes them, only when all of it
+      # fits the 256-byte buffer. The result is BINARY.
       def self.with_pattern(text, pat, enc)
         n = text.bytesize
         need = pat.bytesize * 4 + 4

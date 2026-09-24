@@ -203,10 +203,10 @@ module OpenSSL
         Lib.EVP_PKEY_CTX_free(ctx)
       end
 
-      # The bytes a function fills in two calls, the first for the length
-      # and the second for the bytes: `yield` gets the buffer (nil first)
-      # and the length buffer, and answers whether the call succeeded.
-      # `too_large` is the message for a length past what a String holds.
+      # The bytes that a function fills in two calls, the first for the
+      # length and the second for the bytes. `yield` gets the buffer (nil
+      # first) and the length buffer, and returns whether the call worked.
+      # `too_large` is the message for a length past the maximum String size.
       def sized_output(error_class, message, too_large = nil)
         length = Lib.buffer(8)
         raise error(error_class, message) unless yield(nil, length)

@@ -41,8 +41,8 @@ module OpenSSL
   module Ossl
     class << self
       # ossl_obj2bio: a read-only memory BIO over `object`'s bytes (a File
-      # is read first), and the String those bytes live in, which the
-      # caller holds while the BIO is in use.
+      # is read first), and the String that contains those bytes, which the
+      # caller keeps while the BIO is in use.
       def obj2bio(object)
         object = object.read if object.is_a?(File)
         object = string_value(object)
@@ -52,7 +52,7 @@ module OpenSSL
         [bio, object]
       end
 
-      # ossl_membio2str: the bytes a memory BIO holds, freeing the BIO.
+      # ossl_membio2str: the bytes in a memory BIO, freeing the BIO.
       def membio2str(bio)
         out = Lib.buffer(8)
         if Lib.BIO_get_mem_ptr(bio, out) <= 0

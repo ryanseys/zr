@@ -45,8 +45,8 @@ module JSON
         raise ArgumentError, "unknown keywords: #{unknown.map(&:inspect).join(', ')}"
       end
 
-      # A decimal class answers a number's text through try_convert, new,
-      # or the method its own name spells.
+      # A decimal class converts a number's text through try_convert, new,
+      # or the method that its own name spells.
       def self.decimal(fields, val)
         Primitive.attr! :hidden
         if val.respond_to?(:try_convert)
@@ -200,9 +200,9 @@ module JSON
         @values.pop
       end
 
-      # The document under construction as it stands: each open container
-      # closed on what it holds, an object's key without its value holding
-      # nil.
+      # The document under construction at this point: each open container
+      # closed on its contents, and an object's key without its value set
+      # to nil.
       def partial
         return nil if @values.empty?
 

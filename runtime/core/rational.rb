@@ -317,7 +317,7 @@ class Integer
 end
 
 class Float
-  # The exact binary fraction this double holds.
+  # The exact binary fraction that this double contains.
   def to_r
     raise FloatDomainError, to_s unless finite?
     return Rational.send(:build, 0, 1) if zero?
@@ -372,7 +372,7 @@ class NilClass
 end
 
 class Rational
-  # What Marshal carries: the two parts, in lowest terms already.
+  # What Marshal writes: the two parts, already in lowest terms.
   def marshal_dump = [numerator, denominator]
 
   def marshal_load(pair)

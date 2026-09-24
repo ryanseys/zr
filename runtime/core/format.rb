@@ -233,7 +233,7 @@ module Kernel
     end
 
     # `#` writes the base's own prefix. Octal's prefix is a leading
-    # zero the digits carry themselves, so it is not one of these.
+    # zero that the digits contain themselves, so it is not one of these.
     def base_prefix(base, flags, n)
       Primitive.attr! :hidden
       return +"" unless flags.include?("#") && n != 0

@@ -22,7 +22,7 @@ module Psych
       def flush
         buffer = @buffer
         # The C code rewinds the buffer before it writes, so a failed
-        # write loses what the buffer held.
+        # write loses the buffer's contents.
         @buffer = new_string
 
         return if buffer.empty?
@@ -32,7 +32,7 @@ module Psych
           return
         end
 
-        # Recode the buffer into the raw buffer. The buffer holds valid
+        # Recode the buffer into the raw buffer. The buffer contains valid
         # UTF-8, so the decoding checks nothing.
         low = @encoding == UTF16LE_ENCODING ? 0 : 1
         high = @encoding == UTF16LE_ENCODING ? 1 : 0

@@ -17,7 +17,7 @@ class Proc
   def to_proc = self
 
   # Only a proc with a rest and no keywords or post parameters can
-  # carry keywords in its rest; any other shape is warned about.
+  # take keywords in its rest; any other shape causes a warning.
   def ruby2_keywords
     kinds = parameters.map(&:first)
     rest_at = kinds.index(:rest)
@@ -94,8 +94,8 @@ class Proc
 end
 
 class Method
-  # The box the method was defined in, while boxes are on: its own box for
-  # a method a program wrote, the master box for one ruby itself carries.
+  # The box where the method was defined, while boxes are on: its own box
+  # for a method a program wrote, the master box for one that ruby includes.
   def box
     return nil unless Ruby::Box.enabled?
 

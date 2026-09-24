@@ -2,7 +2,7 @@
 
 # The encodings whose longest characters follow a rule rather than a
 # table: GB18030's four-byte characters, which count through Unicode in
-# order, CESU-8's six-byte pairs of surrogates, and IBM037, which holds
+# order, CESU-8's six-byte pairs of surrogates, and IBM037, which contains
 # the bytes of ISO-8859-1 in EBCDIC order.
 class Encoding
   RULED = ["GB18030", "CESU-8"].freeze
@@ -50,8 +50,8 @@ class Encoding
   # The four-byte count of U+10000, where the supplementary planes start.
   GB18030_PLANES = 189_000
 
-  # The ISO-8859-1 byte each IBM037 byte stands for, by position, in hex: the core
-  # library reads this file before Array#pack is there.
+  # The ISO-8859-1 byte that each IBM037 byte represents, by position, in hex: the core
+  # library reads this file before Array#pack is defined.
   EBCDIC_HEX = ("000102039c09867f978d8e0b0c0d0e0f101112139d8508871819928f1c1d1e1f"             "80818283840a171b88898a8b8c050607909116939495960498999a9b14159e1a"             "20a0e2e4e0e1e3e5e7f1a22e3c282b7c26e9eaebe8edeeefecdf21242a293bac"             "2d2fc2c4c0c1c3c5c7d1a62c255f3e3ff8c9cacbc8cdcecfcc603a2340273d22"             "d8616263646566676869abbbf0fdfeb1b06a6b6c6d6e6f707172aabae6b8c6a4"             "b57e737475767778797aa1bfd0dddeae5ea3a5b7a9a7b6bcbdbe5b5dafa8b4d7"             "7b414243444546474849adf4f6f2f3f57d4a4b4c4d4e4f505152b9fbfcf9faff"             "5cf7535455565758595ab2d4d6d2d3d530313233343536373839b3dbdcd9da9f").freeze
   EBCDIC = []
   private_constant :RULED, :GB18030_RUNS, :GB18030_PLANES, :EBCDIC_HEX, :EBCDIC

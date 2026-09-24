@@ -407,7 +407,7 @@ class Integer
 end
 
 class Numeric
-  # A number never copies: `clone` and `dup` answer the receiver. The
+  # A number never copies: `clone` and `dup` return the receiver. The
   # default `<=>` knows only that a number equals itself; a subclass
   # that orders its values writes its own.
   def clone(freeze: true)
@@ -503,8 +503,8 @@ class Numeric
     raise ArgumentError, "invalid rounding mode: #{half}"
   end
 
-  # CRuby's NUM2INT: an operand as an Integer a C int holds, refused by
-  # name past that range.
+  # CRuby's NUM2INT: an operand as an Integer that fits in a C int, with
+  # a RangeError past that range.
   def self.int_operand(n)
     Primitive.attr! :hidden
     n = Primitive.zr_index_operand_m(n)

@@ -10,7 +10,7 @@ require "json/common"
 module JSON
   module Ext
     module Generator
-      # rb_convert_type: `val`, or what its `method` answers, as a `klass`.
+      # rb_convert_type: `val`, or the value of its `method`, as a `klass`.
       def self.convert_type(val, klass, method)
         Primitive.attr! :hidden
         return val if val.is_a?(klass)
@@ -404,7 +404,7 @@ module JSON
           end
 
           # json_call_to_json: the object's own to_json, given a State that
-          # stands for this walk at its depth.
+          # represents this walk at its depth.
           def call_to_json(obj)
             unless @vstate
               @vstate = State.allocate

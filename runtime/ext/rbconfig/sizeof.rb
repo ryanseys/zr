@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# `rbconfig/sizeof`, which ruby builds as a C extension out of its own
+# `rbconfig/sizeof`, which ruby builds as a C extension from its own
 # <limits.h>, <float.h> and <stdint.h>. zr compiles no C, so the facts
-# come from the target the program was built for instead: every target
-# here is one C ABI, and `RUBY_PLATFORM` names which. A gem reads these
-# to size a buffer or to bound an integer, and both answers follow from
-# the width of a pointer.
+# come from the program's target instead: every target here is one C
+# ABI, and `RUBY_PLATFORM` identifies which. A gem reads these to size a
+# buffer or to bound an integer, and both results follow from the width
+# of a pointer.
 module RbConfig
   # The widths that do not move: C fixes them, or every ABI zr emits
   # for agrees on them.
@@ -44,7 +44,7 @@ module RbConfig
 
   SIZEOF = ORDER.to_h { |name| [name, sizeof.fetch(name)] }.freeze
 
-  # A signed type of `bytes` holds -2**(n-1) .. 2**(n-1)-1, and an
+  # A signed type of `bytes` has the range -2**(n-1) .. 2**(n-1)-1, and an
   # unsigned one 0 .. 2**n-1. Every integer limit follows, so the table
   # is derived rather than written down.
   signed = ->(bytes) { [(1 << ((bytes * 8) - 1)) - 1, -(1 << ((bytes * 8) - 1))] }

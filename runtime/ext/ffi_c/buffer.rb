@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Buffer.c: memory for a call's argument, eight bytes or fewer of it held
+# Buffer.c: memory for a call's argument. Eight bytes or fewer are kept
 # inside the buffer itself.
 module FFI
   class Buffer < AbstractMemory
@@ -76,7 +76,7 @@ module FFI
 
     def slice(offset, length) = ffi_slice(FFI.long_value(offset), FFI.long_value(length))
 
-    # slice: a Buffer over part of this, which holds this alive.
+    # slice: a Buffer over part of this, which keeps this alive.
     def ffi_slice(offset, length)
       Primitive.attr! :hidden
       ffi_check_bounds(offset, length)

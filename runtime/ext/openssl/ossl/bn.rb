@@ -103,7 +103,7 @@ module OpenSSL
       end
 
       # GetBNPtr: `object` as a BN, whose BIGNUM the caller reads while it
-      # holds the object.
+      # keeps a reference to the object.
       def to_bn(object)
         try_bn(object) || raise(error(TypeError, "Cannot convert into OpenSSL::BN"))
       end
@@ -432,7 +432,7 @@ module OpenSSL
       Ossl.bn_result(self.class) { |r| yield(r, a, b) > 0 }
     end
 
-    # BIGNUM_2cr: an operation that answers a new BIGNUM itself.
+    # BIGNUM_2cr: an operation that returns a new BIGNUM itself.
     def returning(other)
       other = Ossl.to_bn(other)
       a = Ossl.bn_of(self)

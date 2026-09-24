@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# Pointer.c and MemoryPointer.c: memory at an address, and memory ffi_c
-# allocates, which it frees once nothing holds the pointer unless told
-# to keep it.
+# Pointer.c and MemoryPointer.c: memory at an address, and memory that
+# ffi_c allocates. ffi_c frees it when nothing refers to the pointer,
+# unless told to keep it.
 module FFI
   class Pointer < AbstractMemory
     Primitive.zr_define_alloc(self)
@@ -142,7 +142,7 @@ module FFI
       @allocated = false
     end
 
-    # slice: a Pointer over part of this, which holds this alive.
+    # slice: a Pointer over part of this, which keeps this alive.
     def ffi_slice(offset, length)
       Primitive.attr! :hidden
       ffi_check_bounds(offset, length == UNBOUNDED ? 1 : length)

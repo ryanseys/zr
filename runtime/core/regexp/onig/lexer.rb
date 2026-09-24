@@ -1,10 +1,10 @@
 # Onigmo's tokenizer: fetch_token and fetch_token_in_cc with the
-# scanners they lean on (regparse.c:1837-4195). A port under the
+# scanners they use (regparse.c:1837-4195). A port under the
 # BSD-2-Clause license reproduced in regexp.rb.
 #
-# Every scanner takes the position it starts at and answers the one it
-# stops at, as the C's `UChar** src` does; a scanner that the C leaves
-# `*src` alone for on some outcome answers the position it was given.
+# Every scanner takes its start position and returns its stop position,
+# as the C's `UChar** src` does. When the C leaves `*src` unchanged on
+# some outcome, the scanner returns the position it was given.
 class Regexp
   module Onig
     # OnigToken: what fetch_token found. `c` and `code` are one field,

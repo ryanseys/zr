@@ -96,10 +96,10 @@ class Date
   end
 
   # One directive, from the `%` at `from`: flags, a width, a locale
-  # modifier and colons, each at most where date_strftime.c takes it,
-  # then the conversion. Answers where the format goes on. What names no
-  # directive, a directive cut short by the end among them, is copied as
-  # it is written.
+  # modifier and colons, each only where date_strftime.c accepts it,
+  # then the conversion. Returns the position where the format continues.
+  # Text that is not a directive, including a directive cut short by the
+  # end, is copied as it is written.
   def directive(format, from, out)
     width = -1
     padding = nil
@@ -224,8 +224,8 @@ class Date
     out << ((padding || pad) == "0" ? format("%0*d", width, value) : format("%*d", width, value))
   end
 
-  # STRFTIME: a directive that stands for a format of others, upcased
-  # by `^` and right-aligned in `width` unless `-` leaves it bare.
+  # STRFTIME: a directive that represents a format of other directives,
+  # upcased by `^` and right-aligned in `width` unless `-` leaves it bare.
   def put_compound(out, format, width, padding, left, upper)
     text = rendered(format)
     text.upcase! if upper

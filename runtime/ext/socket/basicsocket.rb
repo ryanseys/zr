@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# basicsocket.c, and the receives, sends, accepts and connects init.c
-# makes for every socket class. A socket's descriptor answers EAGAIN
-# rather than waiting, so each call that would wait waits here first,
-# which lets another green thread run meanwhile.
+# basicsocket.c, and the receives, sends, accepts and connects that
+# init.c makes for every socket class. A socket's descriptor returns
+# EAGAIN rather than waiting, so each call that would wait waits here
+# first, which lets another green thread run in the meantime.
 class BasicSocket < IO
   undef_method :initialize
 
@@ -183,8 +183,8 @@ class BasicSocket < IO
     str
   end
 
-  # What a receive answers: the data, in the buffer given if any, and
-  # for `recvfrom` the sender as the socket's class names one.
+  # What a receive returns: the data, in the given buffer if any, and
+  # for `recvfrom` the sender, as the socket's class represents one.
   def received(from, data, sockaddr, buffer)
     Primitive.attr! :hidden
     if buffer

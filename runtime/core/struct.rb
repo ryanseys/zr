@@ -75,7 +75,7 @@ class Struct
   # Hash#empty? cannot reach inside the constructor, as it cannot in
   # CRuby's C.
   # An allocated struct has no store yet; the first read makes one, so a
-  # member answers nil before any initialize runs.
+  # member returns nil before any initialize runs.
   def values_store
     Primitive.attr! :hidden
     store = Primitive.zr_hidden_get(self, :__values__)
@@ -132,7 +132,7 @@ class Struct
   # A member may be named `class`, so the class comes from the kernel.
   def members = member_names.dup
 
-  # The names as the class holds them, which rb_struct_members reads: a
+  # The names as the class stores them, which rb_struct_members reads: a
   # subclass's own `members`, instance or class, is not called.
   def member_names
     Primitive.attr! :hidden

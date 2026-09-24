@@ -5,7 +5,7 @@ module Prism
   module Ruby
     # prism.c's "Specific token lexers": numbers, global, instance and class
     # variables, identifiers and keywords, character literals and embedded
-    # documentation. Each advances @current_end and answers a token type.
+    # documentation. Each advances @current_end and returns a token type.
     class Parser
       # The punctuation a global variable's name may be (the `PUNCT` hash).
       GLOBAL_NAME_PUNCTUATION = "~*$?!@/\\;,.=:<>\"&`'+0".bytes.freeze
@@ -343,7 +343,7 @@ module Prism
       # -- identifiers and keywords ----------------------------------------------
 
       # lex_keyword, for a text known to be the keyword: the state it moves
-      # to, and the type or the modifier type it answers.
+      # to, and the type or the modifier type that it returns.
       def lex_keyword(state, type, modifier_type)
         last_state = @lex_state
         if lex_state?(STATE_FNAME)

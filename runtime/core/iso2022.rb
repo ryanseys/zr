@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
 # The ISO-2022-JP family: stateful encodings, whose two-byte characters
-# stand between escapes. Ruby converts one through a multibyte encoding
-# that holds the same characters without a state: ISO-2022-JP through
+# are between escapes. Ruby converts one through a multibyte encoding
+# that has the same characters without a state: ISO-2022-JP through
 # stateless-ISO-2022-JP and EUC-JP, CP50220 and CP50221 through CP51932,
 # and ISO-2022-JP-KDDI through stateless-ISO-2022-JP-KDDI.
 class Encoding
   # Each stateful encoding: the multibyte encoding it converts through,
-  # the stateless one between the two, what becomes of a halfwidth
-  # katakana, which ISO-2022-JP cannot hold, CP50221 holds as a set of
-  # its own, and CP50220 writes as the fullwidth one, and whether the
-  # multibyte encoding writes a lead byte before each two-byte character
-  # that names its set, as stateless-ISO-2022-JP-KDDI does.
+  # the stateless one between the two, and what happens to a halfwidth
+  # katakana (ISO-2022-JP cannot contain one, CP50221 has a set of its
+  # own for it, and CP50220 writes the fullwidth one). Also whether the
+  # multibyte encoding writes a lead byte that identifies the set before
+  # each two-byte character, as stateless-ISO-2022-JP-KDDI does.
   STATEFUL = {
     "ISO-2022-JP" => ["EUC-JP", "stateless-ISO-2022-JP", nil, false],
     "CP50220" => ["CP51932", nil, :fullwidth, false],
