@@ -2213,7 +2213,7 @@ module Zr
         return stop if stop
 
         # No file found: the call searches at run time, in the $LOAD_PATH
-        # that the program has then. The build never asks the host's
+        # that the program has then. The build never uses the host's
         # rubygems for a gem with the feature. A binary contains only what
         # zr vendors and what the program's own roots contain, so the same
         # source builds the same bytes on any machine.

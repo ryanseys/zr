@@ -152,7 +152,7 @@ module Zr
     end
 
     # The function name of the def `node`. It is made once, whether the
-    # def or a site that inlines it asks first.
+    # def or a site that inlines it needs it first.
     def def_name(node)
       @def_names[node] ||= "#{@prefix}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
     end

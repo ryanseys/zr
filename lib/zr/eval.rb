@@ -5,9 +5,9 @@ require "zr/eval/forms"
 require_relative "ir/passes"
 
 module Zr
-  # A string of ruby, compiled while the program that asked for it runs.
-  # prism parses it, the lowering the program itself was built with turns
-  # it into machine code, and the loader writes that into this process.
+  # A string of ruby, compiled at run time in the program that evals it.
+  # prism parses it, the same lowering as the program's turns it into
+  # machine code, and the loader writes that code into this process.
   #
   # The program includes the kernel description, and the symbol table
   # starts from the program's own table. So an eval uses the same kernel

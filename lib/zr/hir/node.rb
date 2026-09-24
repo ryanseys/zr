@@ -8,7 +8,7 @@ module Zr
   # per kind; `line` is where the node starts; `locals` lists every local
   # of a scope, parameters first.
   module Hir
-    # The slot of a block's implicit `it`. No program can spell it, so
+    # The slot of a block's implicit `it`. No program can write this name, so
     # `parameters` and `local_variables` leave it out, as CRuby does.
     IT = :"%it"
 
