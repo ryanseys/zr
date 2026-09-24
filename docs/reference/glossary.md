@@ -93,5 +93,5 @@ pending.
 
 **Unit.** A minitest file in `test/unit/`, run by `rake test:unit`.
 
-**zr.** The runtime's name: its symbols are `zr_*`, and its environment
-variables `ZR_*`.
+**zr.** The project, the gem and the command. The runtime's symbols
+are `zr_*`, and the environment variables are `ZR_*`.

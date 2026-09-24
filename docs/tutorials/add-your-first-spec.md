@@ -44,7 +44,7 @@ Those two lines are the answer. We never write one from memory.
 
 Specs live in `test/spec/<suite>/<area>/<subject>_test.rb`. This
 program is about enumeration, so it goes in
-`test/spec/lang/misc/enumeration_test.rb` — or in whichever file the
+`test/spec/lang/blocks/enumeration_test.rb` — or in whichever file the
 area already keeps that subject in.
 
 Add this example inside the file's `describe` block:
@@ -74,7 +74,7 @@ program that also wrote a backtrace has not matched.
 Run the one example, by name:
 
 ```console
-$ ruby -Ilib -Itest test/spec/lang/misc/enumeration_test.rb -n "/groups words/"
+$ ruby -Ilib -Itest test/spec/lang/blocks/enumeration_test.rb -n "/groups words/"
 Run options: -n "/groups words/" --seed 12345
 
 # Running:
@@ -92,7 +92,7 @@ exit status. All four held.
 Now run the file, and then its area:
 
 ```console
-$ bundle exec minitest test/spec/lang/misc/enumeration_test.rb
+$ bundle exec minitest test/spec/lang/blocks/enumeration_test.rb
 $ bundle exec minitest test/spec/lang/misc
 ```
 
@@ -103,8 +103,8 @@ oracle` runs each example's program under ruby and holds the example to
 what ruby said — it compiles nothing, so it is fast:
 
 ```console
-$ rake 'oracle[test/spec/lang/misc/enumeration_test.rb]'
-test/spec/lang/misc/enumeration_test.rb    12 asked,  0 skipped, 0 apart
+$ rake 'oracle[test/spec/lang/blocks/enumeration_test.rb]'
+test/spec/lang/blocks/enumeration_test.rb    12 asked,  0 skipped, 0 apart
 12 example(s) asked, 0 skipped, 0 apart from ruby
 ```
 

@@ -17,8 +17,7 @@ The first release as a RubyGem.
   not installed, or whose files are not the version's.
 
 - `gem install zr` installs the `zr` command: `run`, `build`, `machine`,
-  `targets` and `version`. The older `zr zr run|build|machine` names
-  still work.
+  `targets` and `version`.
 - The gem installs on any host. zr links an `aarch64-apple-darwin`
   binary itself, so it needs no `cc`; every host builds those binaries,
   WASI modules and objects. A native build this host cannot link exits

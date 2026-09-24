@@ -26,7 +26,7 @@ $ gem install zr
 
 You need:
 
-- ruby 4.0.6, or a later 4.0 release;
+- ruby 4.0.6 exactly (zr checks its output against this version);
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
 - OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
   requires `openssl`. The binary opens the library when that `require`
@@ -59,8 +59,8 @@ New to zr? Start with the tutorial
 | `aarch64-linux-musl` | static binary | aarch64 Linux, or any host with a musl cross toolchain |
 | `wasm32-wasi` | WASI module | any host |
 
-Some features depend on the target. `eval` of a string needs macOS,
-and fibers, threads and ractors are not available in a WASI module. See
+Some features depend on the target. For example, fibers, threads and
+ractors are not available in a WASI module. See
 [Targets](docs/reference/targets.md).
 
 ## How it works

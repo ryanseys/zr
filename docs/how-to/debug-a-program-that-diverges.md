@@ -47,7 +47,7 @@ question.
   see:
 
   ```console
-  $ bundle exec minitest test/spec/core/string GC=stress
+  $ rake test test/spec/core/string GC=stress
   $ ZR_GC_STRESS=1 ./binary
   ```
 

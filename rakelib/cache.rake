@@ -59,10 +59,10 @@ module Caches
   def live_for(target)
     runtime = Zr::Zr.runtime(target)
     object = File.join(Zr::Zr.cache, "rt-#{runtime.digest}.o")
-    meta = File.join(Zr::Zr.cache, "road-#{runtime.digest}.json")
-    road = road_object(meta)
-    images = [prelink([object]), road && prelink([object, road])].compact
-    [object, meta, road, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
+    metas = Dir[File.join(Zr::Zr.cache, "road-#{runtime.digest}-{jit,walk}.json")]
+    roads = metas.filter_map { |meta| road_object(meta) }
+    images = [prelink([object]), *roads.map { |road| prelink([object, road]) }]
+    [object, *metas, *roads, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
       Dir[File.join(Zr::Zr.cache, "*-#{runtime.digest}.*")]
   end
 

@@ -121,7 +121,7 @@ module Zr
     # The name the recordings use for the machine these examples run on.
     def platform = runner.platform
 
-    # Whether this machine has what a `#@ needs:` name asked for.
+    # Whether this machine has what a `needs:` name asks for.
     def need?(name) = Harness::Needs.met?(name, platform)
 
     # Compile `source` with zr and run what it built. `path` is the
@@ -263,17 +263,13 @@ module Zr
       Result.new(text(answer.stdout), text(answer.stderr), answer.code, answer.signal)
     end
 
-    # `_(result).must_answer "AB\n"` -- the whole answer, not a part of
-    # it. stderr must be empty and the status zero unless the example
-    # says otherwise, which is what the recordings mean: a trailer with
-    # no `#@ stderr` says stderr **is** empty, and one with no
-    # `#@ exit` says the status **is** zero. An example that asserted
-    # stdout alone would pass a program that also wrote a backtrace.
+    # `_(result).must_answer "AB\n"` checks the whole output. stderr must
+    # be empty and the status must be zero, unless the example gives
+    # other values. A check of stdout alone would pass a program that
+    # also wrote a backtrace.
     module Expectation
-      # `linux:` and `wasi:` give that platform's stdout in place of
-      # this one, which is what a `#@ linux stdout` section in a
-      # recording says. A platform a call does not name answers what
-      # macOS answers, as a recording without its section does.
+      # `linux:` and `wasi:` give the stdout for that platform. A
+      # platform that the call does not name expects the macOS stdout.
       def must_answer(stdout, stderr: "", status: 0, signal: nil, linux: nil, wasi: nil)
         result = target
         stdout = { "linux" => linux, "wasi" => wasi }.fetch(Spec.platform, nil) || stdout

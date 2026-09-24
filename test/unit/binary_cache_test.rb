@@ -7,7 +7,7 @@ require "support/binaries"
 # The spec tier's kept binaries: a binary kept sparse comes back byte
 # for byte, holds only what is the program's own, and a kept file that
 # cannot come back whole is a miss rather than a wrong binary.
-class BinariesTest < Minitest::Test
+class BinaryCacheTest < Minitest::Test
   Binaries = Zr::Spec::Binaries
   SOURCE = "S = Struct.new(:a, :b)\nputs S.new(1, 2).inspect\n"
 

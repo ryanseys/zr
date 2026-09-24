@@ -7,6 +7,10 @@
 namespace :gem do
   require "bundler/gem_tasks"
 end
+
+# rubygems/release-gem runs `rake release`.
+desc "Build the gem, tag it and push it to rubygems.org"
+task release: "gem:release"
 require "minitest/test_task"
 
 ROOT = __dir__

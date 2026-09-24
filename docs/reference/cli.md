@@ -83,11 +83,9 @@ build for it now.
 | `rake test:unit:isolated` | which files fail when run on their own |
 | `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
 
-A tier builds the runtime itself, in its own process before it forks
-its first worker, so the eight of them share one warm compiler. After
-an edit under `lib` or `rt` that build is a cold one and takes minutes;
-`rake build` asks for it on its own, which is the thing to do before a
-run rather than in the middle of one.
+A tier does not build the runtime. Run `rake build` first. After an
+edit under `lib` or `rt`, that build takes some minutes. A tier that
+finds no current build stops and tells you to run `rake build`.
 
 Each tier is a `Minitest::TestTask`, so `N=` names the examples to run,
 `X=` the ones to leave out, `A=` passes anything else to minitest, and
@@ -97,15 +95,14 @@ for; a target on its way in is held to `test/baselines/<triple>.txt`
 rather than to the whole tier.
 
 A spec example that zr refuses, or whose build produced no binary,
-skips and is counted; only a wrong answer, a crash or a timeout fails.
-That is the same division the buckets used to draw.
+skips and is counted. Only a wrong answer, a crash or a timeout fails.
 
 ### The oracle, the bank and the bootstrap
 
 | Task | Runs |
 |---|---|
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6, compiling nothing |
-| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
+| `rake 'record[test/e2e/lang/programs/hello.rb]'` | runs ruby and writes its answer beside the program |
 | `rake 'bench[--runs 5 fib]'` | builds each program in `benchmark/` that matches, checks its answer, and prints the median of `--runs` runs (default 5) beside `ruby` and `ruby --yjit`, with the binary's CPU time; a run of the whole bank writes its report to `benchmark/results/<stamp>-<revision>.txt` |
 | `rake stage1` | compiles the compiler (`exe/zr`) twice, in two processes with separate caches, and compares the compiler's and the runtime's object bytes |
 | `rake repro` | builds one program from two copies of the tree at two paths, under another home, clock zone, locale and job count, with one `--path-root`, and compares the binaries and the objects (`REPRO_WASM=1` adds the wasm module) |
@@ -117,6 +114,5 @@ That is the same division the buckets used to draw.
 |---|---|
 | `MKCONSTANTS=<path> rake tables` | the OS table tools, then fails on a difference |
 | `rake gen:*` | writes a generated file from its oracle; see [Tools](tools.md) |
-| `rake diff:*` | holds a Ruby port to ruby's own implementation |
 | `rake 'codesize[--all]'` | counts the instructions the backend writes for the runtime |
 | `rake gem:build`, `rake gem:release` | Bundler's gem tasks |
