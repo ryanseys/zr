@@ -2,10 +2,9 @@
 
 require "bundler/setup"
 
-# bundler's own `build`, `install` and `release`, under `gem:`. They
-# name each other by the bare names inside this block, so the namespace
-# holds for the whole family, and `rake build` is left to mean what
-# anyone working here builds: the runtime.
+# Bundler's `build`, `install` and `release` tasks go under `gem:`.
+# They refer to each other by bare names, so all of them go in this one
+# namespace. Thus `rake build` stays free to build the runtime.
 namespace :gem do
   require "bundler/gem_tasks"
 end
@@ -16,22 +15,22 @@ task release: "gem:release"
 
 ROOT = __dir__
 
-# The task bodies live in `rakelib/*.rake`, which rake loads after this
-# file, so what is here is what they share: the checkout's root, the
-# load path the compiler and the test support want, and the collector
-# tuning a compile wants.
+# Rake loads the task bodies from `rakelib/*.rake` after this file.
+# This file contains only what they share: the root, the load path for
+# the compiler and the test support, and the collector tuning.
 $LOAD_PATH.unshift(File.join(ROOT, "lib"), File.join(ROOT, "test"))
 
-# The collector limits and YJIT of a compile (`Zr::CLI.tune!`). A rake
-# task cannot start itself again, so the limits go to its child processes.
+# Sets the collector limits and YJIT for a compile (`Zr::CLI.tune!`).
+# A rake task cannot restart itself, so the limits apply only to its
+# child processes.
 def zr_tune!
   require "zr/cli"
   Zr::CLI.tune!
 end
 
-# A generated file, written whole: the task prints into a string and the
-# file is replaced only once all of it is there, so a generator that
-# stops half way leaves the old file standing.
+# Writes a generated file in one step. The task prints into a string,
+# and the file changes only when the string is complete. If a generator
+# stops before it completes, the old file stays.
 def zr_write(path)
   require "stringio"
   io = StringIO.new
@@ -44,8 +43,8 @@ end
 # `GC=stress` collects at every allocation. bin/test reads the same two.
 ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
-# Every task runs the compiler under ruby, unless `ZR_COMPILED=1` asks for
-# the compiled compiler (lib/zr/compiled_compiler.rb).
+# Every task runs the compiler under ruby. `ZR_COMPILED=1` selects the
+# compiled compiler (lib/zr/compiled_compiler.rb).
 ENV["ZR_COMPILED"] ||= "0"
 
 desc "Build the zr runtime for this host (bin/test also builds it when it is missing)"
@@ -95,9 +94,10 @@ TIERS.each do |name, (dir, what)|
   end
 end
 
-# `rake test test/unit/prism_test.rb`, a bare `prism_test.rb`, or a
-# directory. Rake reads each word as a task name, so a word that names a
-# test becomes an empty task here, and `test` gives the words to bin/test.
+# Accepts `rake test test/unit/prism_test.rb`, a bare `prism_test.rb`,
+# or a directory. Rake reads each word as a task name. Thus each word
+# that refers to a test becomes an empty task here, and `test` gives the
+# words to bin/test.
 ZR_TEST_ARGV = ARGV.drop(1).select do |word|
   next false if word.include?("=") || word.start_with?("-")
 

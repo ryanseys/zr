@@ -1,24 +1,24 @@
 # frozen_string_literal: true
 
-# Asks ruby what an end-to-end program answers, and writes it beside
+# Runs an end-to-end program with ruby, and writes the output next to
 # the program.
 #
 #   rake 'record[e2e/core/io/stdout_flush_at_exit.rb]'
 #   rake 'record[--again e2e/core/io/stdout_flush_at_exit.rb]'
 #
-# The answer is three files at most, each holding the bytes it holds and
-# nothing else: `<name>.out` always, `<name>.err` when the program wrote
-# to stderr, and `<name>.status` when it did not exit 0. There is no
-# format to read and nothing to escape, so a wrong answer is a `diff`.
+# The recording has at most four files, and each contains only the raw
+# bytes: `<name>.out` always, `<name>.err` when the program wrote to
+# stderr, `<name>.status` when it did not exit 0, and `<name>.signal`
+# when a signal stopped it. There is no format and no escaping, so
+# `diff` shows an incorrect output.
 #
-# ruby 4.0.6 is the only source of right answers, so this is the only
-# thing that writes those files. A program already recorded is left
-# alone: a change of answer is a change of program, and `--again` is how
-# you say you meant it.
+# Ruby 4.0.6 is the only reference for correct output, so only this task
+# writes these files. It does not replace an existing recording: a new
+# output needs a changed program. Use `--again` to replace it.
 #
-# A path is taken relative to `test/`, or as it stands when it already
-# points into it; a benchmark is named as `benchmark/<name>.rb`, and is
-# run from the repository's root, where `rake bench` runs it.
+# A path is relative to `test/`, or used as given when it already starts
+# with `test/`. A benchmark path is `benchmark/<name>.rb`; it runs from
+# the repository root, as `rake bench` runs it.
 
 require "open3"
 require "rbconfig"
@@ -51,8 +51,8 @@ module Record
 
     how = Zr::E2E::HOW.fetch(base.delete_prefix("e2e/"), {})
     stdin = how[:stdin] && File.binread(File.expand_path(how[:stdin], File.dirname(path)))
-    # RUBYOPT is cleared: what the shell happens to carry must not reach
-    # the answer a program is held to.
+    # Clear RUBYOPT, so that the shell's settings do not change the
+    # recorded output.
     env = how.fetch(:env, {}).merge("RUBYOPT" => nil)
     out, err, status = Open3.capture3(env, RbConfig.ruby, path, *Array(how[:argv]), stdin_data: stdin || "")
 

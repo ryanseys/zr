@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
-# The size of what the backend writes, in instructions: the whole
-# runtime through `Backend::Aarch64::Codegen`, with no linking and
-# nothing run.
+# Counts the instructions that the backend writes for the whole runtime
+# through `Backend::Aarch64::Codegen`. It does not link or run anything.
 #
 #   rake codesize             the total, and the twenty largest
-#   rake 'codesize[--all]'    every function, one a line
-#   rake 'codesize[was.tsv]'  the same against an earlier run
+#   rake 'codesize[--all]'    every function, one on each line
+#   rake 'codesize[was.tsv]'  the same, compared with an earlier run
 #
-# A codegen change is worth what this number moves. The per-function
-# table is there because a total hides a function that grew while others
-# shrank. Every run writes `tmp/codesize.tsv`, which is what a later one
-# is given to compare against.
+# Use this number to measure a codegen change. The table for each
+# function is necessary because a total can hide a function that grew
+# while others shrank. Each run writes `tmp/codesize.tsv`; give that file
+# to a later run to compare.
 
 require "zr/runtime"
 require "zr/backend/aarch64/codegen"

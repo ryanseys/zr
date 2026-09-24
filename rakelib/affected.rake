@@ -1,25 +1,25 @@
 # frozen_string_literal: true
 
-# `rake affected` runs the specs a change can reach, and nothing else:
-# what to run after an edit, before the whole tier. It reads the diff
-# against `main` (or `BASE=`), names a spec for each changed file, and
-# runs those through `rake test`. It is for the desk; CI runs everything.
+# `rake affected` runs only the specs that a change can affect. Use it
+# after an edit, before you run the full tier. It reads the diff against
+# `main` (or `BASE=`), finds the specs for each changed file, and runs
+# them through `rake test`. It is for local work; CI runs all tests.
 #
-# The map is honest about what it knows. A spec file names itself, and
-# an edit under `runtime/core` names the spec directory of that class, plus
-# every spec whose program names the class -- an edit to String reaches
-# a spec of Hash that keys on Strings, and the class's own name is the
-# one thing every such program spells. A vendored library or an
-# extension names its stdlib directory, and every spec that requires
-# it by name. An edit to the compiler (its pinned gems too), the kernel
-# or the checks' own support reaches everything, and that is what it
-# runs.
+# How a changed file maps to specs:
+# - A spec file maps to itself.
+# - A file under `runtime/core` maps to the spec directory of its class,
+#   and to each spec whose program contains the class name. (A change to
+#   String can affect a Hash spec that uses String keys.)
+# - A vendored library or an extension maps to its stdlib directory, and
+#   to each spec that requires it by name.
+# - A change to the compiler (and its pinned gems), the kernel or the
+#   test support maps to all specs.
 
 module Affected
   ROOT = File.expand_path("..", __dir__)
   SPEC = File.join(ROOT, "test/spec")
-  # Core files whose semantics reach the language specs as much as
-  # their own: every program makes objects, calls methods and raises.
+  # Core files that also affect the language specs: every program makes
+  # objects, calls methods and raises exceptions.
   LANGUAGE = %w[object kernel module class proc binding exception comparable].freeze
 
   module_function
@@ -31,7 +31,7 @@ module Affected
     (tracked + untracked).uniq
   end
 
-  # The spec paths `file` reaches, or :all where it reaches everything.
+  # Returns the spec paths that `file` affects, or :all.
   def reached(file)
     case file
     when %r{\Atest/spec/.*_test\.rb\z} then [file]
@@ -56,7 +56,7 @@ module Affected
     (own + specs_matching(/require ["']#{Regexp.escape(name)}["']/)).uniq
   end
 
-  # Every spec file whose programs spell `constant`.
+  # Every spec file whose programs contain the word `constant`.
   def specs_naming(constant) = specs_matching(/\b#{Regexp.escape(constant)}\b/)
 
   def specs_matching(pattern)

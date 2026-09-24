@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-# The multibyte encodings, read off ruby: which bytes make a character,
-# and which code point each character stands for. One walk answers both
-# questions.
+# Reads the multibyte encodings from ruby: which bytes make a character,
+# and which code point each character represents. One walk over the
+# bytes finds both.
 #
 #   rake gen:cjk
 #   rake gen:enc_mb
 #
-# `runtime/core/cjk.rb` carries the code points. Where a character ends is
-# `gen:enc_mb`'s question, answered from Onigmo's own tables. Bytes
-# below 128 stand for themselves in every one of them.
+# `runtime/core/cjk.rb` contains the code points. `gen:enc_mb` finds
+# where a character ends, from Onigmo's tables. In all these encodings,
+# a byte below 128 represents itself.
 
 require_relative "../lib/zr/record"
 
@@ -18,14 +18,15 @@ module Gen
     module_function
 
     ROOT = File.expand_path("..", __dir__)
-    # How many bytes a character may hold, and how many rows this tool reads
-    # before it calls an encoding partial. GB18030's four-byte characters
-    # run to 150,000 rows, which no program needs written out: the runtime
-    # walks them and refuses to convert them, by name.
+    # The maximum bytes in a character, and the maximum rows this tool
+    # reads before it marks an encoding as partial. GB18030's four-byte
+    # characters need 150,000 rows, and no program needs them written out.
+    # The runtime walks them and refuses to convert them, with a message
+    # that gives the encoding.
     DEPTH = 4
     BUDGET = 3000
-    # The bytes a walk tries when it asks whether a character can go on. An
-    # encoding ruby holds no converter for is read this way.
+    # The bytes that a walk tries to find if a character can continue.
+    # The walk also uses them for an encoding that has no ruby converter.
     SAMPLE = [0x30, 0x39, 0x40, 0x41, 0x7E, 0x80, 0x81, 0xA1, 0xB0, 0xC1, 0xFE].freeze
 
     CONVERTS = {}
@@ -41,43 +42,44 @@ module Gen
       end
     end
 
-    # The carriers' own encodings, which ruby converts through the carrier's
-    # UTF-8: an emoji reads as the carrier's private-use code point, and
-    # only the step from that UTF-8 to Unicode's makes it Unicode's emoji.
+    # The mobile carriers' encodings. Ruby converts them through the
+    # carrier's UTF-8. There, an emoji is the carrier's private-use code
+    # point. Only the step from that UTF-8 to Unicode gives the Unicode emoji.
     HUBS = { "SJIS-DoCoMo" => "UTF8-DoCoMo", "SJIS-KDDI" => "UTF8-KDDI", "SJIS-SoftBank" => "UTF8-SoftBank",
              "stateless-ISO-2022-JP-KDDI" => "UTF8-KDDI" }.freeze
 
-    # What a converter is asked to write into while the bytes are read. UTF-8
-    # reaches itself through no converter, so it is read into UTF-16BE; a
-    # carrier's encoding is read into the carrier's UTF-8, whose bytes are
-    # UTF-8's; and everything else is read into UTF-8.
+    # The encoding that the converter writes into. UTF-8 has no converter to
+    # itself, so it converts into UTF-16BE. A carrier's encoding converts
+    # into the carrier's UTF-8, which has the same bytes as UTF-8. All
+    # other encodings convert into UTF-8.
     def pivot(encoding) = encoding == Encoding::UTF_8 ? "UTF-16BE" : HUBS.fetch(encoding.name, "UTF-8")
 
-    # What `bytes` are in `encoding`, as ruby's own character count reads
-    # them: one whole character, the start of one that needs more bytes, or
-    # neither. Where a character ends is a question about the encoding, and
-    # a String answers it whether or not ruby holds a converter.
+    # Returns what `bytes` are in `encoding`, by ruby's character count:
+    # one whole character (:whole), the start of a longer one (:more), or
+    # neither (:none). A String gives this for every encoding, also for an
+    # encoding that has no ruby converter.
     def probe(encoding, bytes)
       return :whole if whole?(encoding, bytes)
 
       completes?(encoding, bytes) ? :more : :none
     end
 
-    # Whether these bytes are one whole character of the encoding, which is
-    # the one question every walk of it is built on.
+    # Whether these bytes are one whole character of the encoding. Every
+    # walk of the encoding uses this test.
     def whole?(encoding, bytes)
       text = bytes.pack("C*").dup.force_encoding(encoding)
       text.length == 1 && text.valid_encoding?
     end
 
-    # What a conversion out of `encoding` makes of `bytes`: the code point
-    # they stand for, the text where one code point is not enough, :undef
-    # where the encoding holds the character and gives it none, :more where
-    # the converter waits for another byte, and :none where it refuses them.
-    # A converter can be narrower than the encoding it reads: ruby counts
-    # 8F A1 A1 as one CP51932 character and its own converter refuses the 8F
-    # alone. So the two questions are asked apart, and a conversion follows
-    # this answer while a walk follows the one above.
+    # Returns what a conversion from `encoding` makes of `bytes`:
+    # - the code point that they represent
+    # - the text, when one code point is not sufficient
+    # - :undef when the encoding has the character but no code point for it
+    # - :more when the converter waits for another byte
+    # - :none when the converter refuses the bytes
+    # A converter can accept less than its encoding. Ruby counts 8F A1 A1 as
+    # one CP51932 character, but its converter refuses 8F alone. Thus a
+    # conversion uses this method, and a walk uses `probe`.
     def convert(encoding, bytes)
       return :none unless converts?(encoding)
 
@@ -93,16 +95,17 @@ module Gen
     end
 
 
-    # What ruby's own character count says about these bytes, which is what
-    # the runtime has to answer too.
+    # Ruby's character count for these bytes. The runtime must return the
+    # same result.
     def by_length(encoding, bytes)
       text = bytes.pack("C*").dup.force_encoding(encoding)
       [text.length, text.valid_encoding?, text.each_char.map(&:bytesize)]
     end
 
-    # The shapes that tell a UTF-8 walk from any other: a two-byte
-    # character, a three-byte one, a four-byte one, a byte that starts none,
-    # an overlong pair, a surrogate, and a lead with the wrong byte after it.
+    # Byte sequences that identify a UTF-8 walk: a lead byte alone, a
+    # two-byte, three-byte and four-byte character, a byte that starts no
+    # character, an overlong pair, a surrogate, and a lead byte followed by
+    # an incorrect byte.
     SHAPES = [[0xC3], [0xC3, 0xA9], [0xE3, 0x81, 0x82], [0xF0, 0x9F, 0x98, 0x80],
               [0x80], [0xC0, 0x80], [0xED, 0xA0, 0x80], [0xC3, 0x41]].freeze
 
@@ -110,9 +113,9 @@ module Gen
       SHAPES.all? { |bytes| by_length(encoding, bytes) == by_length(Encoding::UTF_8, bytes) }
     end
 
-    # Whether some longer bytes that start with these make a character.
-    # Every byte is tried for the first two places, and a handful of endings
-    # for the places past them, which is as deep as ruby's characters go.
+    # Whether a longer sequence that starts with these bytes makes a
+    # character. It tries every byte for the first two positions, and the
+    # SAMPLE bytes after them, up to DEPTH (ruby's longest character).
     def completes?(encoding, bytes)
       return false if bytes.size >= DEPTH
 
@@ -123,11 +126,12 @@ module Gen
       end
     end
 
-    # What one walk of an encoding finds: which bytes may sit at each place
-    # inside a character, and how long the character a lead byte starts is.
-    # `partial` says the walk stopped short of the whole encoding, which
-    # GB18030's four-byte characters make it do, and `irregular` that it
-    # found a shape these rules cannot hold.
+    # The result of one walk of an encoding: which bytes can be at each
+    # position in a character, and the length of the character that each
+    # lead byte starts. `partial` is true when the walk stopped before the
+    # end of the encoding (GB18030's four-byte characters cause this).
+    # `irregular` is true when the walk found a form these rules cannot
+    # represent.
     class Walk < Zr::Record
       FIELDS = %i[trails lengths partial irregular].freeze
       attr_accessor :trails, :lengths, :partial, :irregular
@@ -142,9 +146,9 @@ module Gen
       def to_a = [@trails, @lengths, @partial, @irregular]
     end
 
-    # What a conversion out of an encoding needs: the code point of every
-    # character its converter reads, the few characters one code point is
-    # not enough for, and the rows both are written from.
+    # The data that a conversion from an encoding needs: the code point of
+    # each character that its converter reads, the few characters that need
+    # more than one code point, and the rows that contain both.
     class Rows < Zr::Record
       FIELDS = %i[rows mapped multi partial].freeze
       attr_accessor :rows, :mapped, :multi, :partial
@@ -159,10 +163,10 @@ module Gen
       def to_a = [@rows, @mapped, @multi, @partial]
     end
 
-    # Every prefix a character starts with, in turn. `kind` names the method
-    # that answers what a sequence of bytes is, and the block is given each
-    # prefix with what each byte after it makes. Answers whether the walk
-    # stopped short of the whole encoding.
+    # Yields each prefix that a character can start with, one at a time.
+    # `kind` is the method (`probe` or `convert`) that classifies a byte
+    # sequence. The block gets each prefix and the result for each next
+    # byte. Returns true if the walk stopped before the end of the encoding.
     def walk(encoding, kind)
       budget = BUDGET
       partial = false
@@ -171,11 +175,10 @@ module Gen
         prefix = queue.shift
         found = (0..255).to_h { |byte| [byte, send(kind, encoding, prefix + [byte])] }
         yield prefix, found
-        # A byte that ends a character here can start a longer one as well,
-        # and then the walk goes on under it too. Only a walk of the encoding
-        # itself asks: a converter reading one byte at a time never calls a
-        # character whole while a longer one can still start with its bytes,
-        # so `:more` alone carries that walk on.
+        # A byte that ends a character here can also start a longer one.
+        # Then the walk continues after it too. Only a `probe` walk needs
+        # this test: a converter never calls a character whole while a
+        # longer one can start with its bytes, so `:more` is sufficient.
         deeper = found.select do |byte, what|
           what == :more || (what == :whole && byte >= 0x80 && completes?(encoding, prefix + [byte]))
         end.keys
@@ -231,13 +234,13 @@ module Gen
       Rows.new(rows, mapped, multi, partial)
     end
 
-    # One row of the table: what a conversion makes of the characters that
-    # start with the row's own bytes. A slot holds 0 where the converter
-    # refuses them, 1 where it holds the character and gives it no code
-    # point, 2 where a longer character starts there, 3 where one code point
-    # is not enough and MB_MULTI holds the text, and otherwise 4 plus how far
-    # the code point lies from the one before it in the row, folded onto the
-    # positive numbers.
+    # Packs one row of the table: what a conversion makes of the characters
+    # that start with the row's prefix. Each slot contains:
+    # 0 when the converter refuses the bytes,
+    # 1 when the character has no code point,
+    # 2 when a longer character starts there,
+    # 3 when the character needs more than one code point (see MB_MULTI),
+    # else 4 plus the zigzag-encoded difference from the previous code point.
     def pack_row(prefix, found)
       live = found.reject { |byte, what| what == :none || (prefix.empty? && byte < 0x80) }
       return nil if live.empty?
@@ -273,9 +276,9 @@ module Gen
 
     def zigzag(value) = value >= 0 ? value * 2 : (-value * 2) - 1
 
-    # A row holds the same bytes for one encoding as for another more often
-    # than not: EUC-JP and eucJP-ms part in a handful of rows, Big5 and
-    # CP950 in fewer. So each row is written once.
+    # Many rows are the same in different encodings: EUC-JP and eucJP-ms
+    # differ in only a few rows, and Big5 and CP950 in fewer. Thus the pool
+    # writes each row only once.
     class Pool
       def initialize
         @ids = {}
@@ -289,18 +292,17 @@ module Gen
       def rows = @rows
     end
 
-    # The bytes ruby itself writes for each code point, against the lowest
-    # sequence the rows hold for it. Where the two part, the rows alone
-    # cannot answer `encode`, so the pair is written out. Every scalar is
-    # asked, because a conversion is not a table read backwards: ruby writes
-    # U+2015 as EUC-JP A1 BD, and reads A1 BD back as U+2014.
+    # Compares the bytes that ruby writes for each code point with the lowest
+    # sequence that the rows contain for it. When they differ, the rows
+    # cannot give the result of `encode`, so the pair is written out. This
+    # tests every scalar, because encoding is not the inverse of decoding:
+    # ruby writes U+2015 as EUC-JP A1 BD, but reads A1 BD as U+2014.
     def overrides(encoding, mapped, kept, partial)
       return {} if kept.empty?
 
       lowest = {}
-      # The shortest sequence first, and the lowest bytes of that length:
-      # ruby writes a character as its own plane spells it, never as a longer
-      # plane that happens to start with a lower byte.
+      # Sort by length first, then by bytes. Ruby writes a character in its
+      # own plane, never in a longer plane that starts with a lower byte.
       mapped.sort_by { |sequence, _| [sequence.bytesize, sequence] }.each do |sequence, point|
         next unless kept.include?(sequence.byteslice(0, sequence.bytesize - 1))
 
@@ -312,8 +314,8 @@ module Gen
 
         written = (point.chr(Encoding::UTF_8).force_encoding(HUBS.fetch(encoding.name, "UTF-8")).encode(encoding).b rescue nil)
         next if written.nil? || written == lowest[point]
-        # A partial encoding's longer characters are refused by name, so the
-        # rows say nothing about them here either.
+        # The runtime refuses the longer characters of a partial encoding,
+        # so the table does not include them here either.
         next if partial && written.bytesize > 2
 
         out[point] = written
@@ -321,10 +323,11 @@ module Gen
       out
     end
 
-    # How ruby words a failure for an encoding, read off a deliberate one,
-    # in the shape runtime/core/transcode.rb writes: whether a conversion into it
-    # reads as one step, the name it answers to there, and whether a
-    # conversion out of it reads as one step.
+    # Reads how ruby writes a conversion error for an encoding, from an
+    # error that this method causes. The result has the form that
+    # runtime/core/transcode.rb uses: whether a conversion into the encoding
+    # shows as one step, the encoding name in the message, and whether a
+    # conversion from the encoding shows as one step.
     UNMAPPED = "\u{1F600}"
 
     def shape_of(encoding)
@@ -336,8 +339,8 @@ module Gen
       [short, step, from_short(encoding)]
     end
 
-    # The same question for the other direction, asked with a character the
-    # encoding holds and gives no code point.
+    # The same test for the other direction. It uses a character that the
+    # encoding has but that has no code point.
     def from_short(encoding)
       sequence = (0x80..0xFF).lazy.flat_map { |a| [[a]] + (0x00..0xFF).map { |b| [a, b] } }
                              .find { |bytes| convert(encoding, bytes) == :undef }
@@ -355,18 +358,18 @@ module Gen
         (0x80..0xFF).any? { |a| (0x30..0xFF).any? { |b| whole?(encoding, [a, b]) } }
       end
 
-      # An encoding that walks exactly as UTF-8 does needs no rules of its
-      # own: the runtime walks UTF-8 already, and only the form parts.
+      # An encoding that walks the same as UTF-8 needs no rules of its own.
+      # The runtime already walks UTF-8; only the written form is different.
       utf8_like = candidates.select { |encoding| utf8_shape?(encoding) }
       own = (candidates - utf8_like).to_h do |encoding|
         warn "  walking #{encoding.name} ..."
         [encoding, walk_of(encoding)]
       end
 
-      # A partial encoding's longer characters follow one rule, whatever the
-      # lead: every row that was read must agree on the bytes at each place,
-      # and on which second bytes make a character longer. The rule then holds
-      # for the leads the walk never reached.
+      # The longer characters of a partial encoding follow one rule for all
+      # lead bytes. All rows that the walk read must agree on the bytes at
+      # each position, and on which second bytes make a longer character.
+      # The rule then applies to the lead bytes that the walk did not reach.
       own.each_value do |table|
         next unless table.partial
 
@@ -391,8 +394,8 @@ module Gen
       irregular = own.select { |_, table| table.irregular }
       own = own.reject { |encoding, _| irregular.key?(encoding) }
 
-      # CESU-8 writes a character past the BMP as its two surrogates, three
-      # bytes each: six bytes, deeper than a walk reads, so its rule adds them.
+      # CESU-8 writes a character above the BMP as two surrogates of three
+      # bytes each. A walk does not read six bytes, so this adds them.
       if (cesu = own[Encoding::CESU_8])
         (0xA0..0xAF).each { |second| cesu.lengths[0xED][second] = 6 }
         cesu.trails[[0xED, 1]] = (0x80..0xAF).to_a
@@ -424,10 +427,10 @@ module Gen
         # converters are narrower than its own character counts.
         class Encoding
       HEAD
-      # Rows are written for the characters a conversion can reach. An
-      # encoding ruby holds no converter for needs none, and a partial one
-      # needs only the characters whose rows were all read: the runtime walks
-      # the longer ones and refuses to convert them, by name.
+      # Write rows only for characters that a conversion can reach. An
+      # encoding without a ruby converter needs no rows. A partial encoding
+      # needs only the characters whose rows the walk read completely. The
+      # runtime walks the longer characters and refuses to convert them.
       kept_by_name = {}
       rows_by_name = own.keys.to_h do |encoding|
         table = tables.fetch(encoding)

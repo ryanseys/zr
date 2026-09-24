@@ -1,21 +1,20 @@
 # frozen_string_literal: true
 
-# `rake tables`: this OS's errno, fcntl, etc and socket tables, read off
-# the ruby running the task and written into the OS layer that ruby
-# names. Every value is this platform's own -- O_NOCTTY is 0x20000 on
-# darwin and 0x100 on Linux -- which is why they are read rather than
-# written down, as CRuby reads them from its headers.
+# `rake tables` reads this OS's errno, fcntl, etc and socket tables from
+# the ruby that runs the task. It writes them into the OS layer for
+# that ruby's platform. The values are different on each platform
+# (O_NOCTTY is 0x20000 on darwin and 0x100 on Linux). Thus the task
+# reads them, as CRuby reads them from its headers.
 #
 # Each OS's own ruby writes its own layer (a darwin ruby here, an Alpine
-# ruby for linux, ruby.wasm under wasmtime for wasi), so no table is
-# ever read off the wrong OS. The task ends in `git diff --exit-code`:
-# a table that has moved under you is a failure, not a quiet rewrite.
+# ruby for linux, ruby.wasm under wasmtime for wasi). Thus no table
+# comes from the wrong OS. The task ends with `git diff --exit-code`,
+# so a changed table is a failure, not a silent rewrite.
 #
 #   MKCONSTANTS=<ruby>/ext/socket/mkconstants.rb rake tables
 #
-# socket's table follows ruby's own list of names, which lives in ruby's
-# source rather than in any install, so that path is the one thing the
-# task cannot read off the machine.
+# The socket table uses ruby's list of names. That list is in ruby's
+# source, not in an install, so you must give its path.
 
 module Tables
   ROOT = File.expand_path("..", __dir__)
@@ -23,7 +22,7 @@ module Tables
 
   module_function
 
-  # `text` written at `runtime/<part>/os/<os>/<name>`, and a line saying so.
+  # Writes `text` to `runtime/<part>/os/<os>/<name>`, and prints a line.
   def write(part, name, text)
     target = File.join(ROOT, "runtime", part, "os", OS, name)
     Dir.mkdir(File.dirname(target)) unless File.directory?(File.dirname(target))
@@ -31,7 +30,7 @@ module Tables
     puts "#{target.delete_prefix("#{ROOT}/")}: #{text.lines.size} lines"
   end
 
-  # The rows of a Hash literal, wrapped to the line width the core uses.
+  # The entries of a Hash literal, wrapped to the core's line width.
   def rows(items, indent)
     lines = [+""]
     items.each do |item|
@@ -43,10 +42,9 @@ module Tables
     lines.map { |line| (" " * indent) + line }.join("\n")
   end
 
-  # Every Errno name is a row: one per class, with the errno it stands
-  # for, and the other names of a class as aliases (ruby gives the
-  # errnos this platform lacks one class, NOERROR). Signal.list is
-  # copied in ruby's own order.
+  # One entry for each Errno class, with its errno value. Other names of
+  # a class become aliases (ruby gives all errnos that this platform does
+  # not have one class, NOERROR). Signal.list is copied in ruby's order.
   def errno
     errno = Errno.constants.group_by { |name| Errno.const_get(name) }.map do |klass, names|
       primary = klass.name.delete_prefix("Errno::").to_sym
@@ -81,7 +79,7 @@ module Tables
     RUBY
   end
 
-  # A group names only the commands the platform has.
+  # The output includes only the names that the platform has.
   FCNTL_GROUPS = {
     "The fcntl(2) commands, of which POSIX numbers the first five." =>
       %w[F_DUPFD F_GETFD F_SETFD F_GETFL F_SETFL F_GETLK F_SETLK F_SETLKW],
@@ -121,9 +119,9 @@ module Tables
     write("ext", "fcntl.rb", out)
   end
 
-  # The sysconf, confstr and pathconf names Etc answers, with the
-  # members of Etc::Passwd and Etc::Group, which follow the fields this
-  # OS's struct passwd and struct group have. An OS with no group
+  # The sysconf, confstr and pathconf names that Etc defines, and the
+  # members of Etc::Passwd and Etc::Group. The members are the fields of
+  # this OS's struct passwd and struct group. An OS with no group
   # database has no Etc::Group.
   def etc
     require "etc"
@@ -143,9 +141,9 @@ module Tables
     write("ext", "etc_names.rb", out)
   end
 
-  # The constants socket defines, in the order ext/socket/mkconstants.rb
-  # lists them: that order decides which name a number several names
-  # share is shown by.
+  # The constants that socket defines, in the order that
+  # ext/socket/mkconstants.rb lists them. When several names have the
+  # same number, this order sets which name is shown.
   def socket(mkconstants)
     require "socket"
     listed = File.read(mkconstants).split(/^__END__\n/).last.each_line.filter_map do |line|

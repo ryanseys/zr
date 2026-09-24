@@ -1,21 +1,20 @@
 # frozen_string_literal: true
 
-# Is every literal a spec asserts still ruby's word?
+# Checks that each literal a spec asserts is still what ruby outputs.
 #
 #   rake oracle                                     # every spec
 #   rake 'oracle[test/spec/core/string]'            # an area
 #   rake 'oracle[test/spec/core/string/frozen_test.rb -n frozen]'
 #
-# The contract is that ruby 4.0.6 is the only source of right answers.
-# The specs were written by lifting the answers ruby had already
-# recorded, so every literal in them traces to ruby -- and this is what
-# holds that true as the files are edited by hand afterwards.
+# Ruby 4.0.6 is the only reference for correct output. Every literal in
+# the specs comes from ruby's output. This task makes sure that stays
+# true after people edit the spec files by hand.
 #
-# It compiles nothing. Each example's program is written to a temporary
-# directory with its own fixtures beside it, run under the ruby the
-# `.ruby-version` pins, scrubbed the way the spec road scrubs an answer,
-# and held to what the example asserts. An example that skips is not
-# asked: a skipped example makes no claim about ruby.
+# It compiles nothing. For each example, it writes the program and its
+# fixtures to a temporary directory and runs it with the ruby that
+# `.ruby-version` pins. It normalizes the output as the spec tier does,
+# and compares it with what the example asserts. It does not run an
+# example that skips, because that example makes no claim about ruby.
 
 require "fileutils"
 require "optparse"
@@ -27,9 +26,9 @@ require_relative "../test/support/harness/answer"
 require_relative "../test/support/harness/child"
 require_relative "../lib/zr/native/parallel"
 
-# What a guard asks of the machine. The real ones live in
-# `test/support/spec.rb`, which loads the whole compiler; a tool that
-# compiles nothing answers them itself.
+# The machine facts that a guard reads. The real methods are in
+# `test/support/spec.rb`, which loads the whole compiler. This task
+# compiles nothing, so it gives its own values.
 module Zr
   module Spec
     def self.platform = "macos"
@@ -40,8 +39,8 @@ end
 module Oracle
   ROOT = File.expand_path("..", __dir__)
 
-  # Long enough for the slowest program a spec holds, and short enough
-  # that one that loops does not hold the run.
+  # Seconds. Long enough for the slowest program in a spec, and short
+  # enough that a program that loops forever does not stop the run.
   LIMIT = 120
 
   module_function
@@ -52,14 +51,14 @@ module Oracle
     File.directory?(full) ? Dir[File.join(full, "**/*_test.rb")].sort : [full]
   end
 
-  # What ruby says when it runs `example`'s program, scrubbed the way
-  # the spec road scrubs what zr's binary says.
+  # Runs `example`'s program with ruby and returns the output. It
+  # normalizes the output as the spec tier normalizes a zr binary's output.
   def ask(example)
     kwargs = example.kwargs
     Dir.mktmpdir("zr-oracle-") do |work|
-      # `/var` is a link to `/private/var` on macOS, and a program that
-      # prints a path of its own prints the resolved one; the scrub has
-      # to be looking at the same bytes.
+      # On macOS, `/var` is a link to `/private/var`. A program that prints
+      # its own path prints the resolved path, so the normalization must
+      # use the resolved path too.
       run = File.join(File.realpath(work), "run")
       rb = File.join(run, kwargs.fetch(:path, "spec.rb"))
       FileUtils.mkdir_p(File.dirname(rb))
@@ -73,8 +72,8 @@ module Oracle
       end
 
       argv = [RbConfig.ruby, *kwargs.fetch(:ruby, []), kwargs.fetch(:path, "spec.rb"), *kwargs.fetch(:argv, [])]
-      # `BARE_RUBY` because the recordings were made by a bare ruby, not
-      # by one under `bundle exec`. An example's own `env:` still wins.
+      # Use `BARE_RUBY`, because a bare ruby made the recordings, not a
+      # ruby under `bundle exec`. The example's own `env:` has priority.
       env = Zr::Harness::Child::BARE_RUBY.merge(kwargs.fetch(:env, {}))
       out, = Zr::Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: env,
                                            seconds: LIMIT, megabytes: Zr::Harness::Child::RUN_MB)
@@ -84,7 +83,8 @@ module Oracle
     end
   end
 
-  # Where the example's claim and ruby's answer part, in words.
+  # Describes each difference between the example's assertion and ruby's
+  # output.
   def differences(example, answer)
     want = example.want
     out = []
@@ -109,17 +109,18 @@ module Oracle
     out.valid_encoding? ? out : bytes
   end
 
-  # `check` of each of `files`, yielded in order with its file. The
-  # files are dealt to forked workers, one a core: each example is a
-  # ruby of its own, so nothing is shared, and the whole tier asked in
-  # one process was seven thousand rubies one after another.
+  # Runs `check` on each of `files` and yields each file with its result,
+  # in order. Forked workers (one for each core, at most 12) share the
+  # files. Each example starts its own ruby, so the workers share nothing.
+  # The full tier starts about 7,000 rubies, too slow in one process.
   def each_checked(files, filter)
     workers = [Etc.nprocessors, 12].min
     answers = Zr::Native::Parallel.map(files, jobs: workers, weight: ->(_) { 1 }) { |file| check(file, filter) }
     files.zip(answers).each { |file, answer| yield file, answer }
   end
 
-  # One file: every example ruby is asked about, and what parted.
+  # Checks one file. Returns the count of examples run, the count
+  # skipped, and the differences.
   def check(path, filter)
     rel = path.delete_prefix("#{ROOT}/")
     asked = 0
@@ -127,15 +128,16 @@ module Oracle
     apart = []
     Zr::Reader.read(path).each do |example|
       next if filter && !example.name.match?(filter)
-      # An example the reader could not load is a broken spec, not a
-      # skipped one. Counting it as skipped would let a bad edit shrink
-      # the asked set while the run still reported nothing apart.
+      # An example that the reader could not load is a broken spec, not a
+      # skipped one. If it counted as skipped, a bad edit could remove
+      # examples from the run, and the run would still report no
+      # differences.
       if (e = example.want[:error])
         next apart << "#{rel}: #{example.name}: the example raised #{e.class}: #{e.message}"
       end
 
-      # An example that skips makes no claim about ruby, and one that
-      # never called `zr` has nothing to ask about.
+      # An example that skips makes no claim about ruby. An example that
+      # does not call `zr` has no program to run.
       next skipped += 1 if example.want.key?(:skip) || example.source.nil?
 
       answer = ask(example)
@@ -148,10 +150,8 @@ module Oracle
   end
 end
 
-# Every literal a spec asserts was lifted from a trailer ruby wrote, and
-# this is what says it still is. It compiles nothing: each program is
-# run under the ruby the `.ruby-version` pins and held to what its
-# example claims.
+# Runs each spec program with the ruby that `.ruby-version` pins, and
+# checks the output against what its example asserts. It compiles nothing.
 desc "Every spec literal re-checked against ruby 4.0.6: rake 'oracle[test/spec/core/string]'"
 task :oracle, [:path] do |_, args|
   argv = args[:path].to_s.split

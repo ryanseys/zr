@@ -1,43 +1,44 @@
 # frozen_string_literal: true
 
-# The programs that show which of its own methods a core class calls on
-# the way to answering another: the calls a subclass sees.
+# Prints programs that show which of its own methods a core class calls
+# from inside its other methods. A subclass sees these calls.
 #
 #   rake gen:dispatch            # every program below
 #   rake 'gen:dispatch[Hash]'    # one of them
 #
-# Each program is already an example in the spec file named beside it,
-# so the task prints rather than writes: read what it prints against the
-# heredoc that example carries, and where the two part, ruby says which
-# is right. `rake oracle` holds the example's answer to ruby as it holds
-# every other.
+# Each program is already an example in the spec file given in CLASSES.
+# Thus the task prints and does not write. Compare the output with the
+# heredoc in that example. When they differ, ruby's output is correct.
+# `rake oracle` checks the example against ruby, as for every example.
 #
-# CRuby's C calls a method by dispatch only where it means to -- Hash#each
-# for Enumerable, initialize_copy for dup -- and reaches the rest of its
-# own class through C functions no subclass can replace. zr's core is
-# written in Ruby, so a call to `self[k]` in Hash#store is a dispatch, and
-# a subclass whose `[]=` calls `store` recurses forever. Each program wraps
-# every method the class defines in a subclass that logs a call made from
-# inside another, then calls each method once. The recording is exactly the
-# set of calls CRuby makes; zr answers with the same set or it diverges.
+# CRuby's C code calls a method by dispatch only in some places (Hash#each
+# for Enumerable, initialize_copy for dup). For all other calls in its own
+# class, it uses C functions that no subclass can replace. zr's core is
+# written in Ruby, so `self[k]` in Hash#store is a dispatch. Then a
+# subclass whose `[]=` calls `store` recurses forever. Each program wraps
+# each method of the class in a subclass that logs calls from inside
+# another method. Then it calls each method once. The recording is the
+# set of calls that CRuby makes; zr must make the same set.
 #
-# The call made for each method is found here, by trying argument lists on
-# the real class until one answers without raising, so the programs need
-# no table of arguments written by hand.
+# This task finds the call for each method: it tries argument lists on
+# the real class until one does not raise. Thus no hand-written table of
+# arguments is necessary.
 
 require "timeout"
 require "zr/flags"
 
 module Dispatch
-  # Argument lists to try, in order. A block is tried with each before none.
+  # Argument lists to try, in order. Each is tried with a block first,
+  # then without.
   TRIES = [[], [1], [0, 1], ["l"], [:a], [[1, 2]], [{ a: 1 }], %w[l L], [1, 2, 3], [/l/], [1..2], [2, [3]],
            [:a, 1]].freeze
 
-  # Methods whose first answering call would never end or leave the process.
+  # Methods whose first successful call would never end, or would stop
+  # the process.
   SKIP = %i[cycle freeze display].freeze
 
-  # The class, how a fresh receiver is made, and the spec file holding
-  # the example this program is.
+  # For each class: the source that makes a new receiver, and the spec
+  # file that contains the program as an example.
   CLASSES = {
     "Hash" => ["Probe.new.tap { |h| h[:a] = 1; h[:b] = 2 }", "test/spec/core/hash/hash_test.rb"],
     "Array" => ["Probe.new([3, 1, 2])", "test/spec/core/array/array_test.rb"],
@@ -64,21 +65,23 @@ module Dispatch
     end
   end
 
-  # The subclass, as source: Struct's is one of its own members.
+  # The subclass, as source. For Struct, it is a subclass of a Struct
+  # with members.
   def probe_class(name)
     name == "Struct" ? "class Probe < Struct.new(:a, :b)" : "class Probe < #{name}"
   end
 
-  # A receiver of a fresh subclass. The eval runs against `Object`, so
-  # the subclass is the top-level `Probe` the generated program names.
+  # Makes a receiver of a new subclass. The eval runs in `Object`, so the
+  # subclass is the top-level `Probe` that the generated program uses.
   def fresh(name, make)
     Object.class_eval("#{probe_class(name)}; end; #{make}", __FILE__, __LINE__)
   ensure
     Object.send(:remove_const, :Probe) if Object.const_defined?(:Probe, false)
   end
 
-  # The methods a subclass can replace and CRuby's C might call: the
-  # class's own, public and private, and Enumerable's where it is mixed in.
+  # The methods that a subclass can replace and CRuby's C code can call:
+  # the class's own public and private methods, and the methods of
+  # Enumerable and Comparable when the class includes them.
   def wrapped(name)
     base = Object.const_get(name)
     names = base.public_instance_methods(false) + base.private_instance_methods(false)
@@ -87,7 +90,8 @@ module Dispatch
     (names.uniq - %i[initialize method_missing respond_to_missing?]).sort
   end
 
-  # The call to make for `m`: its source, or nil when nothing answers.
+  # Returns the source of a call to `m`, or nil when no argument list
+  # works.
   def call_for(name, make, m)
     return nil if SKIP.include?(m)
 

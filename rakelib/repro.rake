@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-# The same program, built from two copies of the tree at two paths
-# under another home, clock zone, locale and job count, with one path
-# root (`zr build --path-root`), must come out as the same bytes: a
-# build is a function of its sources and its flags, never of where it
-# ran.
+# Builds the same program from two copies of the tree at two paths.
+# Each copy has a different home, time zone, locale and job count, but
+# the same path root (`zr build --path-root`). The outputs must have the
+# same bytes: a build depends only on its sources and flags, not on
+# where it ran.
 #
 #   rake repro              # the native binary and the object
 #   rake repro[wasm]        # and the wasm module
 #
-# Each copy builds its own runtime under the root, so this takes two
-# runtime builds (four with wasm).
+# Each copy builds its own runtime, so this task does two runtime builds
+# (four with wasm).
 
 require "fileutils"
 require "open3"
@@ -23,8 +23,8 @@ module Repro
   ROOT = Zr::Paths::ROOT
   PATH_ROOT = "/zr"
 
-  # A main file that requires a file of its own and names both, and a
-  # backtrace through the two.
+  # A main file that requires a second file, prints the paths of both,
+  # and prints a backtrace through both.
   MAIN = <<~'RUBY'
     require_relative "lib/shape"
     puts __FILE__, Shape.file, Shape.dir
@@ -69,8 +69,8 @@ module Repro
     FileUtils.rm_rf(work)
   end
 
-  # The tree as it stands, tracked and untracked files alike, less what
-  # git ignores: the edits under test go in, the caches do not.
+  # Copies the current tree: tracked and untracked files, but not files
+  # that git ignores. Thus uncommitted edits go in, and caches do not.
   def copy_tree(copy)
     files, status = Open3.capture2("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", chdir: ROOT)
     abort("rake repro: git ls-files failed") unless status.success?
@@ -87,8 +87,8 @@ module Repro
     File.write(File.join(copy, "repro/lib/shape.rb"), SHAPE)
   end
 
-  # The copy's outputs, built in the copy under an environment of its
-  # own; the binary also runs, and what it prints must name the root.
+  # Builds the outputs in the copy, with an environment for that copy.
+  # It also runs the binary, which must print paths under the path root.
   def build(copy, index, wasm)
     home = File.join(copy, "..", "home").then { |dir| FileUtils.mkdir_p(dir) && File.expand_path(dir) }
     tmp = File.join(home, "tmp").tap { |dir| FileUtils.mkdir_p(dir) }
@@ -108,7 +108,7 @@ module Repro
     end.tap { |bytes| check_answer(copy, env) if bytes.key?("binary") }
   end
 
-  # What the binary prints names every file below the root.
+  # Checks that the binary prints each path under the path root.
   def check_answer(copy, env)
     text, status = Open3.capture2e(env, File.join(copy, "repro/main"), chdir: copy)
     want = ["repro/main.rb", "#{PATH_ROOT}/repro/lib/shape.rb", "#{PATH_ROOT}/repro/lib",

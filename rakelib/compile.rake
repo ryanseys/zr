@@ -1,34 +1,32 @@
 # frozen_string_literal: true
 
-# How long does zr take to compile, and where does the time go?
+# Measures how long zr takes to compile, and the time of each phase.
 #
-#   rake compile                     every rung, three runs each
+#   rake compile                     every program, three runs each
 #   rake 'compile[--runs 5]'         five runs each
-#   rake 'compile[hello bundler]'    the rungs whose name holds a word
+#   rake 'compile[hello bundler]'    the programs whose name contains a word
 #   rake 'compile[--write]'          write the table to tmp/bench/compile.txt
-#   rake 'compile[--zr]'            the compiler zr compiled, beside ruby
+#   rake 'compile[--zr]'             also time the compiled compiler
 #
-# `rake bench` times what a binary does; this times what it costs to
-# make one. The rungs are a ladder of require graphs, from a program
-# with no require at all to the whole of bundler, and each row is one
-# phase of `Zr.clock` -- so a change that moves the total says which
-# phase it moved.
+# `rake bench` times what a binary does; this task times how long it
+# takes to make one. The programs in `benchmark/compile` have require
+# graphs of increasing size, from no require to all of bundler. Each
+# row is one phase of `Zr.clock`, so you can see which phase a change
+# affects.
 #
-# The runtime is warm, as it is for everyone who is not building zr
-# itself for the first time: the first run of each rung is a warmup and
-# is thrown away, and the row kept is the run whose total is the median.
-# What this measures is therefore the program's own compile, which is
-# what Phase 1 is about.
+# The runtime is already built. The first run of each program is a
+# warmup and is discarded. The task keeps the run with the median total.
+# Thus it measures only the compile of the program itself.
 #
-# `--zr` first builds the compiler with ruby, from the tree as it is,
-# and times each rung under both, the compiled one's column named with
-# a `*`, and a last row of what it took against ruby. It keeps a cache
-# of its own, seeded with links to the runtime ruby built: a runtime is
-# keyed on the digest of the sources that made it, and a compiler built
-# from those same sources makes the same bytes (`rake stage1`), so the
-# compiled compiler starts warm too. A compiled compiler from another
-# tree would claim this tree's digest for its own work, which is why the
-# task builds its own and never takes one it is given.
+# `--zr` first uses ruby to build the compiler from the current tree.
+# Then it times each program with both compilers. The compiled
+# compiler's column has a `*`, and a last row gives its time divided by
+# ruby's. The compiled compiler gets its own cache, with links to the
+# runtime that ruby built. This is correct because a runtime's key is
+# the digest of its sources, and a compiler built from the same sources
+# makes the same bytes (`rake stage1`). A compiled compiler from a
+# different tree would write its output under this tree's digest. Thus
+# the task always builds its own compiled compiler.
 
 require "benchmark"
 require "fileutils"
@@ -40,8 +38,8 @@ require_relative "../lib/zr/paths"
 module CompileBench
   ROOT = Zr::Paths::ROOT
   DIR = File.join(ROOT, "benchmark/compile")
-  # Where `--write` keeps the table: under `tmp`, beside `rake bench`'s
-  # own report, and not committed.
+  # Where `--write` puts the table: under `tmp`, next to the report of
+  # `rake bench`. It is not committed.
   RESULTS = File.join(ROOT, "tmp/bench/compile.txt")
   RUNS = 3
   # The compiled compiler and its cache, under `tmp`.
@@ -79,11 +77,11 @@ module CompileBench
     write!(rows, runs) if write
   end
 
-  # One build, its phases as `{label => seconds}` with the whole build
-  # under "" -- measured here rather than summed, since the phases do
-  # not cover the process's own start.
+  # Runs one build and returns its phases as `{label => seconds}`. The
+  # entry "the whole build" is measured here, not added from the phases,
+  # because the phases do not include the process start.
   def build(rb, out, compiled: false)
-    # The GC limits set here stop `zr` from starting itself again.
+    # With the GC limits set here, `zr` does not restart itself.
     env = { "ZR_TIMING" => "1", **Zr::CLI::GC_ENV }
     command = [RbConfig.ruby, File.join(ROOT, "exe/zr")]
     if compiled
@@ -105,8 +103,8 @@ module CompileBench
     phases.merge("the whole build" => took)
   end
 
-  # `runs` builds after a warmup, and the one whose whole build is the
-  # median of them.
+  # Runs one warmup build and then `runs` builds. Returns the build with
+  # the median total time.
   def median(rb, runs, compiled: false)
     Dir.mktmpdir("zr-compile-") do |work|
       out = File.join(work, "out")
@@ -117,9 +115,9 @@ module CompileBench
     end
   end
 
-  # The compiler, compiled by ruby from this tree, with a cache that
-  # links every runtime-wide entry of ruby's own: `rung` builds first
-  # with ruby, so the runtime of this tree is there to link.
+  # Uses ruby to compile the compiler from this tree. Its cache gets a
+  # link to each entry of ruby's cache, except the unit entries. `rung`
+  # builds first with ruby, so that this tree's runtime is available.
   def compiled!(rung)
     Dir.mktmpdir("zr-compile-") { |work| build(rung, File.join(work, "out")) }
     print "the compiled compiler ... "
@@ -138,9 +136,9 @@ module CompileBench
     end
   end
 
-  # One column a rung, one row a phase, in the order a build runs them.
-  # A rung built both ways ends with the compiled build's whole against
-  # ruby's.
+  # Prints one column for each program and one row for each phase, in
+  # build order. With `--zr`, a last row gives the compiled compiler's
+  # total time divided by ruby's.
   def table(rows, io = $stdout)
     labels = rows.values.flat_map(&:keys).uniq - ["the whole build"]
     width = (labels.map(&:length) + [15]).max
@@ -158,7 +156,7 @@ module CompileBench
     io.puts format("%-#{width}s  %s", "compiled / ruby", cells.join(" "))
   end
 
-  # The same table, under a line that says when and at what revision.
+  # Writes the same table, under a line that gives the time and revision.
   def write!(rows, runs)
     at = `git -C #{ROOT} rev-parse --short HEAD`.strip
     FileUtils.mkdir_p(File.dirname(RESULTS))

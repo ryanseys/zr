@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# The stage ladder. `exe/zr` -- the compiler a user runs, and nothing
-# written for the ladder alone -- is the program zr compiles; these two
-# tasks are what hold it to itself.
+# The self-compile stages. zr compiles `exe/zr`, the same compiler that
+# a user runs (no special version for these tasks). These two tasks
+# check that the compiler gives the same output as itself.
 #
 #   rake stage1   # ruby compiles the compiler twice, to the same bytes
 #   rake stage2   # the compiler compiled by itself is a fixed point
@@ -30,24 +30,23 @@ module Stages
     result
   end
 
-  # zr under ruby compiles the compiler twice, in two processes with a
-  # cache of its own each, and the bytes must agree: the self-compile
-  # stays deterministic and refusal-free with no binary in the loop.
-  # Both objects are compared, the compiler's and the runtime's. The
-  # stage-2 fixed point needs a stage-1 binary that runs.
+  # zr under ruby compiles the compiler twice, in two processes, each with
+  # its own cache. The bytes must be the same. This checks that the
+  # self-compile is deterministic and has no refusals, without a compiled
+  # binary. It compares the compiler object and the runtime object. The
+  # stage 2 test needs a stage 1 binary that runs.
   def one
     zr_tune!
-    # The work directory outlives a failure, so the two objects and
-    # their caches are there to diff; a run that holds removes it, as
-    # the two objects are then the same bytes twice.
+    # After a failure, the work directory stays, so you can compare the
+    # two objects and their caches. After a pass, the task removes it.
     work = Dir.mktmpdir("zr-stage1-")
     puts "work (kept if this fails): #{work}"
 
-    # The two self-compiles share nothing -- a cache and an output each,
-    # and the tree read only -- so they run at once, with half the
-    # assembly workers each, where the machine has the memory for two:
-    # each is a gigabyte or two under ruby, and its workers as much
-    # again. Serial, they were 2 x 66 s.
+    # The two self-compiles share nothing (each has its own cache and
+    # output, and the tree is read-only). Thus they run at the same time,
+    # with half the assembly workers each, if the machine has sufficient
+    # memory. Each uses 1-2 GB under ruby, and its workers use the same
+    # again. One after the other, they take 2 x 66 s.
     at_once = Zr::Native::Parallel.machine_bytes >= 12 * (1 << 30)
     jobs = at_once ? [Zr::Native::Build.jobs / 2, 1].max.to_s : nil
     started = %w[a b].map do |n|
@@ -81,23 +80,22 @@ module Stages
     puts "nothing is kept: #{work} is gone"
   end
 
-  # Stage 1 is the compiler compiled by zr under ruby; stage 2 is the
-  # same source compiled by stage 1, called as a user calls `zr`. The
-  # two binaries must agree byte for byte, which is what says the
-  # compiler is a fixed point. Both are written under the same base
-  # name, since macOS's ad-hoc signature carries the output's base name.
+  # Stage 1 is the compiler compiled by zr under ruby. Stage 2 is the same
+  # source compiled by stage 1, called as a user calls `zr`. The two
+  # binaries must be the same, byte for byte: this shows that the
+  # compiler is a fixed point. Both have the same base name, because the
+  # macOS ad-hoc signature includes the output's base name.
   #
-  # Stage 1 builds with the workers it affords (`Parallel.afforded`,
-  # from what it resides in: a worker of the compiled compiler holds
-  # the compiler's whole heap, 7.6 GB here, and six of them once drove
-  # this sixteen-gigabyte machine into swap), unless `ZR_JOBS` says.
+  # Stage 1 uses the number of workers that memory permits
+  # (`Parallel.afforded`), unless `ZR_JOBS` sets it. A worker of the
+  # compiled compiler contains the compiler's full heap (7.6 GB on a
+  # 16 GB machine), so six workers cause swapping.
   #
-  # zr's own linker links both, stage 2's inside the compiled compiler,
-  # so the comparison holds the linker to the same fixed point. Its UUID
-  # is the image's hash, and the signature hashes the image, so both
-  # follow from the rest. They are blanked all the same: under
-  # `ZR_LINKER=cc`, `ld` writes a fresh UUID each link and the signature
-  # over its page, and no input decides those.
+  # zr's own linker links both binaries (stage 2's inside the compiled
+  # compiler), so this also checks that the linker is a fixed point. The
+  # UUID is the image's hash, and the signature hashes the image, so both
+  # follow from the other bytes. The comparison still ignores them: with
+  # `ZR_LINKER=cc`, `ld` writes a new UUID and signature for each link.
   def two
     zr_tune!
     stages = (1..2).map do |n|

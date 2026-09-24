@@ -1,42 +1,43 @@
 # frozen_string_literal: true
 
-# The generated files that come straight off ruby: what `require`
-# answers, what encodings ruby knows, how a byte reads in each
-# single-byte one, the emoji the carriers exchange, where CRuby's own
-# Ruby methods stand, and the Unicode case mappings.
+# Generated files that come directly from ruby: the names that `require`
+# accepts, the encodings that ruby knows, the byte table of each
+# single-byte encoding, the emoji that the mobile carriers exchange, the
+# lines of CRuby's own Ruby methods, and the Unicode case mappings.
 #
 #   rake gen:features gen:encodings gen:transcode
 #   rake gen:emoji gen:builtin_lines gen:unicode
 #
-# Each writes a file from an oracle: ruby, or a CRuby source read at the
-# revision named below. The output carries a header saying so, and is
-# never edited by hand.
+# Each task writes a file from a reference: ruby, or a CRuby source file
+# at REVISION. The output has a header that says so. Do not edit it by
+# hand.
 #
-# The bigger tables have a file of their own: `rakelib/cjk.rake`,
-# `nkf.rake`, `onig.rake`, `zlib.rake` and `prism.rake`.
+# The larger tables have their own files: `rakelib/cjk.rake`,
+# `rakelib/enc_mb.rake` and `rakelib/snapshots.rake`.
 
 module Gen
-  # The CRuby revision the sources are read at. ruby 4.0.6.
+  # The CRuby revision of the source files (ruby 4.0.6).
   REVISION = "03b6d3f8898a28604fe6cb00eae3226b821168f4"
   CHECKOUT = File.expand_path("~/dev/github.com/ruby/ruby")
 
-  # A task that reads its table off the ruby running it stops on any ruby
-  # but the one `.ruby-version` pins: another's table is not zr's.
+  # Stops a task that reads its table from the running ruby, unless that
+  # ruby is the version that `.ruby-version` pins. A table from a
+  # different ruby is not correct for zr.
   def self.pinned!(task)
     require_relative "../lib/zr/version"
     abort("rake #{task}: ruby #{Zr::RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == Zr::RUBY
   end
 
-  # One file of CRuby's own source, at that revision.
+  # Returns one CRuby source file at REVISION.
   def self.cruby(path)
     source = IO.popen(["git", "-C", CHECKOUT, "show", "#{REVISION}:#{path}"], &:read)
     abort("rake gen: #{CHECKOUT} has no #{path} at #{REVISION[0, 12]}") unless $?.success?
     source
   end
 
-  # Every name `require` answers in the ruby the .ruby-version pins. zr
-  # refuses a require of one it has no file for, and lets every other
-  # name raise LoadError as ruby does.
+  # Every name that `require` accepts in the ruby that `.ruby-version`
+  # pins. zr refuses a require of such a name when it has no file for it.
+  # For all other names, zr raises LoadError, as ruby does.
   module Features
     module_function
 
@@ -75,19 +76,18 @@ module Gen
     end
   end
 
-  # The encoding registry, read off ruby and written as a table the
-  # runtime builds its Encoding objects from.
+  # Reads the encoding registry from ruby, and writes it as a table. The
+  # runtime makes its Encoding objects from this table.
   module Encodings
     module_function
 
     def write(io)
-      # `inspect` before anything touches an encoding says whether its
-      # table is already in ruby, which is the state a fresh program
-      # starts from.
+      # Before any code uses an encoding, `inspect` shows if its table is
+      # already loaded. A new program starts in this state.
       loaded = Encoding.list.to_h { |encoding| [encoding.name, !encoding.inspect.include?("(autoload)")] }
 
-      # Whether one byte is always one character: no pair of bytes
-      # anywhere in the encoding forms a single character.
+      # Whether one byte is always one character: no pair of bytes in the
+      # encoding makes a single character.
       pairs = (0..255).flat_map { |a| (0..255).map { |b| [a, b].pack("CC") } }
       bytewise = Encoding.list.to_h do |encoding|
         [encoding.name, pairs.none? { |text| (text.force_encoding(encoding).length == 1 rescue false) }]
@@ -99,8 +99,8 @@ module Gen
           "#{loaded[encoding.name]}, #{bytewise[encoding.name]}],"
       end
 
-      # The constants, in the order ruby defines them, each naming the
-      # encoding it stands for.
+      # The constants, in the order that ruby defines them, each with the
+      # name of its encoding.
       constants = Encoding.constants.filter_map do |const|
         value = Encoding.const_get(const)
         next unless value.is_a?(Encoding)
@@ -134,19 +134,19 @@ module Gen
     end
   end
 
-  # The byte tables of the single-byte encodings, read off ruby. Bytes
-  # below 128 stand for themselves in every one of them, so a row holds
-  # bytes 128 to 255 alone: four hex digits for the code point the byte
-  # reads as, `----` where the encoding leaves the byte out.
+  # Reads the byte tables of the single-byte encodings from ruby. In all
+  # of them, a byte below 128 represents itself. Thus a row contains only
+  # bytes 128 to 255: four hex digits for the code point of each byte, or
+  # `----` when the encoding does not define the byte.
   module Transcode
     UNMAPPED = "\u{1F600}"
 
     module_function
 
-    # How ruby words a conversion error for each encoding: the name its
-    # converter answers to, and whether a one-step conversion reads as
-    # `X from A to B` rather than as a chain. Both are read off a
-    # deliberate failure. A converter that does not exist at all says so.
+    # Reads how ruby writes a conversion error for each encoding: the name
+    # of its converter, and whether a one-step conversion shows as
+    # `X from A to B` or as a chain. This method causes an error to read
+    # both. Returns nil when the encoding has no converter.
     def shape(encoding)
       message = (UNMAPPED.encode(encoding) rescue $!.message)
       return nil if message.start_with?("code converter not found")
@@ -156,10 +156,9 @@ module Gen
       [short, step, from_shape(encoding)]
     end
 
-    # The same question for the other direction, asked with a byte the
-    # encoding leaves out. An encoding with no such byte never raises
-    # here, so its answer does not matter and follows the other
-    # direction.
+    # The same test for the other direction. It uses a byte that the
+    # encoding does not define. An encoding that defines all bytes never
+    # raises here, so the result does not matter (it returns true).
     def from_shape(encoding)
       byte = (128..255).find { |b| ([b].pack("C").force_encoding(encoding).encode("UTF-8") rescue nil).nil? }
       return true if byte.nil?
@@ -185,9 +184,9 @@ module Gen
         "  #{encoding.name.inspect} => #{points.join.inspect},"
       end
 
-      # Whether the encoding cases its non-ASCII characters at all. The
-      # ones that do follow Unicode over their own code points; the rest
-      # touch nothing but the ASCII half.
+      # Whether the encoding changes the case of its non-ASCII characters.
+      # Those that do use the Unicode rules for their code points. The
+      # others change the case of ASCII characters only.
       cased = single.select do |encoding|
         next false if encoding == Encoding::BINARY || encoding == Encoding::US_ASCII
 
@@ -236,11 +235,10 @@ module Gen
     end
   end
 
-  # The emoji the carriers' UTF-8 encodings exchange, read off ruby's
-  # own enc/trans/emoji-exchange-tbl.rb. A row of a pair holds, in hex,
-  # the code point a character has in the source, then `>` and the code
-  # points it becomes; a code point alone is one the target has no emoji
-  # for.
+  # The emoji that the mobile carriers' UTF-8 encodings exchange, from
+  # ruby's enc/trans/emoji-exchange-tbl.rb. Each entry for a pair of
+  # encodings is, in hex, the source code point, then `>` and the target
+  # code points. A code point alone has no emoji in the target.
   module Emoji
     module_function
 
@@ -298,22 +296,20 @@ module Gen
     end
   end
 
-  # The lines of the methods CRuby writes in Ruby, read off its builtin
-  # sources, for the :call and :return events TracePoint gives them.
-  # Each method is keyed `Owner#name`, or `Owner.name` for a singleton
-  # method, and holds its `<internal:file>` path, the line its def
-  # starts on, and the line its body ends on, which is where ruby
-  # reports the return.
+  # The lines of CRuby's methods that are written in Ruby, from its
+  # builtin sources. TracePoint uses them for :call and :return events.
+  # The key is `Owner#name`, or `Owner.name` for a singleton method. The
+  # value is the `<internal:file>` path, the first line of the def, and
+  # the last line of its body (where ruby reports the return).
   module BuiltinLines
     SOURCES = %w[ast dir gc numeric io marshal pack trace_point warning array hash kernel pathname_builtin ractor
                  symbol timev thread_sync nilclass prelude].freeze
 
     module_function
 
-    # The defs of one file, with the class and module names around each.
-    # Built on the first call, so that loading this file does not load
-    # the prism port: `rake -T` would pay a quarter of a second for a
-    # task nobody is running.
+    # A visitor that finds the defs of one file, with the class and module
+    # names around each. It is made on the first call, so that loading
+    # this file does not load the prism port (0.25 s for each `rake -T`).
     def defs_class
       require_relative "../lib/zr/prism"
       @defs_class ||= Class.new(Prism::Visitor) do
@@ -329,8 +325,8 @@ module Gen
 
         def visit_class_node(node) = within(node.constant_path.slice) { super }
 
-        # A def inside `with_jit` stands only while a JIT runs; without one
-        # the method stays C's.
+        # A def inside `with_jit` applies only when a JIT runs. Without a
+        # JIT, the method stays in C.
         def visit_call_node(node)
           super unless node.name == :with_jit && node.receiver.nil?
         end
@@ -355,8 +351,8 @@ module Gen
 
         private
 
-        # The def's own line, but for a method split on
-        # `Primitive.mandatory_only?`, whose sequence starts at that test.
+        # The line of the def. For a method split on
+        # `Primitive.mandatory_only?`, the line of that test.
         def call_line(node)
           first = node.body.is_a?(Prism::StatementsNode) ? node.body.body.first : nil
           split = first.is_a?(Prism::IfNode) && first.predicate.slice == "Primitive.mandatory_only?"
@@ -395,8 +391,8 @@ module Gen
     end
   end
 
-  # The Unicode case mappings, read off ruby and written as tables the
-  # runtime maps characters through.
+  # Reads the Unicode case mappings from ruby, and writes them as tables
+  # that the runtime uses to map characters.
   module Unicode
     KINDS = {
       "UP" => ->(c) { c.upcase },
@@ -408,8 +404,8 @@ module Gen
 
     module_function
 
-    # The single-character mappings as runs of one delta, so a table
-    # that holds 1,500 characters fits in a few hundred rows.
+    # Writes the single-character mappings as runs with the same delta.
+    # Thus a table of 1,500 characters needs only a few hundred rows.
     def runs(table)
       table.keys.sort.each_with_object([]) do |cp, out|
         delta = table[cp] - cp
@@ -450,10 +446,10 @@ module Gen
       [single, multi]
     end
 
-    # The codepoints ruby's own inspect escapes rather than shows: onigmo
-    # calls a codepoint with no category of its own unprintable, and ruby
-    # writes that one as \uXXXX. A codepoint under 128 is a byte the
-    # escape table already covers, so the table starts at 128.
+    # The codepoints that ruby's inspect escapes. Onigmo calls a codepoint
+    # without its own category unprintable, and ruby writes it as \uXXXX.
+    # The escape table already covers codepoints below 128, so this table
+    # starts at 128.
     def unprintable
       (128..0x10FFFF).each_with_object([]) do |cp, out|
         next if (0xD800..0xDFFF).cover?(cp)
@@ -532,7 +528,7 @@ namespace :gen do
     end
   end
 
-  # Found by rubygems without the bundle, as a build finds them.
+  # Finds the gems with rubygems and without the bundle, as a build does.
   desc "Write lib/zr/library_digests.rb"
   task(:libraries) do
     Gen.pinned!("gen:libraries")

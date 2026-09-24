@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-# Four generated files that a check holds rather than a task: each is
-# written again on every `rake test:unit` and compared with what is
-# committed, so a stale one is a failing test rather than something you
-# have to remember to run.
+# Four generated files that the unit tests check. Each `rake test:unit`
+# generates them again and compares them with the committed files. Thus
+# an out-of-date file causes a test failure.
 #
 #   rake gen:description             runtime/ext/os/<os>/zr_description.rb
 #   rake 'gen:description[wasm32-wasi]'
@@ -11,20 +10,19 @@
 #   rake gen:prism_generate          runtime/ext/prism/ruby/*.rb
 #   rake gen:prism_encoding_tables   runtime/ext/prism/ruby/encoding_tables.rb
 #
-# The generators live in `test/support/generators/`, beside the tests that
-# run them, and the tasks here run the same scripts the same way:
-# `test/unit/description_test.rb`, `libsystem_test.rb` and
-# `prism_test.rb` are the ones that fail when a file has gone stale, and
-# `ZR_BLESS=1 rake test:unit N=/Description/` is the other way to write
-# the first two again.
+# The generators are in `test/support/generators/`. These tasks run the
+# same scripts in the same way as the tests. `test/unit/description_test.rb`,
+# `libsystem_test.rb` and `prism_test.rb` fail when a file is out of date.
+# `ZR_BLESS=1 rake test:unit N=/Description/` also writes the first two
+# files again.
 
 module Snapshots
   ORACLE = File.expand_path("../test/support/generators", __dir__)
 
   module_function
 
-  # One oracle, run under the checkout's own ruby with the compiler on
-  # the load path, as the tests run it.
+  # Runs one generator with this checkout's ruby and the compiler on the
+  # load path, as the tests run it.
   def run(name, *argv)
     argv = [Gem.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ORACLE, "#{name}.rb"), *argv]
     out = IO.popen(argv, &:read)

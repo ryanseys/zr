@@ -1,43 +1,34 @@
 # frozen_string_literal: true
 
-# The net a spec rewrite works over.
+# Tools that make large edits to spec files safe.
 #
-#   rake 'spec:verify[HEAD]'                   # what moved since a revision
-#   rake 'spec:verify[HEAD --renames]'         # ... allowing descriptions to change
-#   rake 'spec:verify[HEAD~3 test/spec/core]'  # ... over one area
-#   rake spec:fingerprint                      # a digest per example, to diff yourself
+#   rake 'spec:verify[HEAD]'                   # what changed since a revision
+#   rake 'spec:verify[HEAD --renames]'         # ... and permit changed descriptions
+#   rake 'spec:verify[HEAD~3 test/spec/core]'  # ... in one area
+#   rake spec:fingerprint                      # a digest for each example, to diff yourself
 #   rake spec:check                            # the formatting conventions
-#   rake spec:tidy                             # fix what check reports that is safe to fix
+#   rake spec:tidy                             # fix the safe faults that check reports
 #
-# `test/spec` was converted from a flat corpus of standalone programs, and
-# the conversion left machine-generated shapes behind: slugged
-# descriptions, hand-restated `path:`, whole programs escaped onto one
-# line, and examples that bundle several tests. Cleaning those up means
-# editing thousands of examples, and the only safe way to do that is to
-# be able to prove an edit changed nothing but what it meant to.
+# `Zr::Reader` reads a spec file without compiling or running anything.
+# It returns the parts of each example: its sentence, its program, its
+# keywords, and its expected output. If two files give the same parts,
+# they have the same meaning. The full suite fingerprints in seconds.
 #
-# `Zr::Reader` reads a spec file without compiling or running anything,
-# and hands back what each example *is*: its sentence, its program, the
-# keywords it was written with, and the answer it claims. Two readings
-# that agree are two files that mean the same. It compiles nothing, so
-# the whole suite fingerprints in seconds.
-#
-# What this cannot see: the reader is blind to anything outside an
-# example -- file comments, `require` lines, blank-line structure -- and
-# it evaluates a guard (`Zr::Spec.platform`) once, down one branch. So
-# it proves meaning is preserved, not that the file is unchanged. Pair it
-# with `rake oracle`, which asks ruby the same question the spec asks.
+# Limits: the reader does not see anything outside an example (file
+# comments, `require` lines, blank lines). It evaluates a guard
+# (`Zr::Spec.platform`) once, on one branch only. Thus it shows that the
+# meaning is the same, not that the file is the same. Use it with
+# `rake oracle`, which checks each example against ruby.
 
 module SpecNet
   ROOT = File.expand_path("..", __dir__)
 
-  # What a guard asks of the machine. The real ones live in
-  # `test/support/spec.rb`, which loads the whole compiler; a tool that
-  # compiles nothing answers them itself, the way `rake oracle` does.
+  # The machine facts that a guard reads. The real methods are in
+  # `test/support/spec.rb`, which loads the whole compiler. These tasks
+  # compile nothing, so they give their own values, as `rake oracle` does.
   def self.stub!
-    # Here rather than at the top of the file: a require in `rakelib/`
-    # runs for `rake -T` and for every test run, which is what cbf8afe5
-    # was about.
+    # The requires are here, not at the top of the file, because rake
+    # loads each file in `rakelib/` for `rake -T` and for each test run.
     require "digest"
     require_relative "../test/support/reader"
     return if defined?(Zr::Spec.platform)
@@ -56,18 +47,17 @@ module SpecNet
 
   def rel(path) = path.delete_prefix("#{ROOT}/")
 
-  # Every example a path holds, as `[file, name, digest, example]`.
+  # Every example in a path, as `[file, name, digest, example, parts]`.
   #
-  # `source` and the `files:` bytes are compared as bytes: a fixture
-  # moved from an inline literal to a file on disk comes back tagged
-  # ASCII-8BIT rather than UTF-8, and both roads write it with
-  # `File.binwrite`, so the tag is not something any run can see.
+  # `source` and the `files:` contents are compared as bytes. A fixture
+  # in a file on disk has the ASCII-8BIT tag, but an inline literal has
+  # UTF-8. Both zr and ruby write it with `File.binwrite`, so no run can
+  # see the tag.
   #
-  # `as:` is where the file BELONGS, which is not where its bytes are
-  # when an older revision has been written to a temporary file. The
-  # default `path:` comes from the spec file's own location, so reading
-  # the old side out of `/tmp` would report a moved path for every
-  # example in the suite and never report clean.
+  # `as:` is the correct location of the file. It is different from the
+  # read location when an older revision is in a temporary file. The
+  # default `path:` comes from the spec file's location. Without `as:`,
+  # every example of the old revision would show a changed path.
   def examples(path, renames: false, as: path)
     Zr::Reader.read(path).map do |e|
       parts = { "describe" => e.about, "program" => e.source&.b,
@@ -80,14 +70,14 @@ module SpecNet
     end
   end
 
-  # Which parts of an example differ, by name, so a report says what
-  # moved rather than that something did.
+  # The names of the parts of an example that differ, so that a report
+  # tells which part changed.
   def moved(was, now)
     was.keys.select { |k| was[k] != now[k] }
   end
 
-  # A hash or array with every string in it reduced to its bytes, so a
-  # comparison is about content and not about an encoding tag.
+  # Changes each string in a hash or array to its bytes, so that a
+  # comparison ignores the encoding tag.
   def bytes(value)
     case value
     when String then value.b
@@ -135,9 +125,9 @@ namespace :spec do
         new = SpecNet.examples(file, renames: renames)
         checked += new.size
 
-        # Compare by position, not as a set: a set is invariant under
-        # permutation, and position is the only stable key while the
-        # sentences themselves are what is changing.
+        # Compare by position, not as a set. A set does not see a change
+        # of order, and the position is the only stable key when the
+        # sentences change.
         if old.size != new.size
           apart << "#{rel}: #{old.size} example(s) became #{new.size}"
           next
@@ -157,71 +147,64 @@ namespace :spec do
   end
 end
 
-# The shapes a spec file is written in. None of this changes what an
-# example means, which is why it is a check and not a rewrite: the
-# repository has no linter, and a house style this particular is better
-# held by a task that knows about `zr` and `must_answer` than by a
-# general one that does not.
+# The format rules for a spec file. None of them change the meaning of
+# an example. A task that knows about `zr` and `must_answer` checks them
+# better than a general linter.
 module SpecStyle
-  # Wide enough for a table row, narrow enough to read beside another
-  # file. The corpus conversion left single lines of 13 KB and more.
+  # Wide enough for a table row, and narrow enough to read next to
+  # another file.
   COLUMNS = 120
 
-  # The tags whose body is what ruby said. What is inside one of these is
-  # not this file's to tidy: a trailing space in an answer is a byte ruby
-  # wrote, and removing it would be writing the answer ourselves.
+  # The tags whose body is ruby's output. The tasks here must not change
+  # it: a trailing space in the output is a byte that ruby wrote.
   ANSWERS = %w[OUT ERR LINUX WASI].freeze
 
-  # A program is `RUBY`, what it printed is `OUT`, what it wrote to
-  # stderr is `ERR`, and a platform's answer is its own name.
+  # A program is `RUBY`, its stdout is `OUT`, its stderr is `ERR`, and
+  # the output on a given platform uses the platform name.
   #
-  # `PROGRAM` is the other spelling of a program, and it is not a stray:
-  # a `<<~` terminator may be indented, so a program that contains its
-  # own `eval <<~RUBY ... RUBY` would end the outer heredoc early. Eight
-  # examples need it -- see `core/object/formatting_test.rb`, where the
-  # program defines a method through `eval`.
+  # `PROGRAM` is also a program tag. A `<<~` terminator can be indented,
+  # so a program that contains `eval <<~RUBY ... RUBY` would end an outer
+  # `RUBY` heredoc too early. Eight examples need it (for example,
+  # `core/object/formatting_test.rb`, which defines a method with `eval`).
   TAGS = %w[RUBY PROGRAM OUT ERR LINUX WASI].freeze
 
-  # Sentences a generator writes into more than one file on purpose, as
-  # they are spelled in the source. `rake gen:dispatch`
-  # (`rakelib/dispatch.rake`) writes this one into six files, one per
-  # class it probes; each file's `describe` names the class, so the six
-  # read alike and pin six different things. Spelling the class into the
-  # sentence would only repeat what the `describe` already said.
+  # Sentences that a generator writes into more than one file on purpose,
+  # as they are written in the source. `rake gen:dispatch`
+  # (`rakelib/dispatch.rake`) writes this one into six files, one for
+  # each class it tests. Each file's `describe` gives the class, so the
+  # sentence does not need it.
   GENERATED = ["subclass sees only the calls ruby makes"].map(&:inspect).freeze
 
-  # Where the DSL opens a heredoc: the program, what it printed, what
-  # it wrote to stderr, and what a named platform answers instead. Only
-  # these -- a program under test may open one of its own (`eval(<<~SRC)`,
-  # a Gemfile, a PEM), and an expected answer may quote the text of one,
-  # as the Ripper examples do. Neither is this file's shape to hold.
+  # Where the DSL opens a heredoc: the program, its stdout, its stderr,
+  # and the output for a given platform. Only these. A program under
+  # test can open its own heredoc (`eval(<<~SRC)`, a Gemfile, a PEM), and
+  # an expected output can contain heredoc text (as the Ripper examples
+  # do). These rules do not apply to those.
   OPENS = /(?:\bzr\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<[-~]'?([A-Z_]+)/
 
   module_function
 
-  # Each line of a spec file with what encloses it: the tag of the
-  # heredoc the DSL opened around it, or nil for the file's own code.
-  # One implementation, because every rule below needs to know the
-  # difference and two copies of it would drift.
+  # Yields each line of a spec file with the tag of the DSL heredoc that
+  # contains it, or nil for the file's own code. All the rules below use
+  # this one method, so that they cannot disagree.
   def each_line(path)
     open = []
     File.readlines(path).each_with_index do |line, i|
       yield line, i + 1, open.first
       if open.any?
-        # A `<<~` terminator may be indented, so the tag is what closes it.
+        # A `<<~` terminator can be indented, so match the tag only.
         open.shift if line.match?(/\A\s*#{open.first}\s*\z/)
       else
-        # One line may open two: `must_answer <<~'OUT', stderr: <<~'ERR'`
-        # is stdout and stderr side by side, and ruby reads their bodies
-        # in the order the openers appear.
+        # One line can open two heredocs: `must_answer <<~'OUT', stderr:
+        # <<~'ERR'`. Ruby reads their bodies in the order of the openers.
         open = line.scan(OPENS).flatten
       end
     end
   end
 
-  # The sentences one file's own examples are named by, as
-  # `{name => [line, ...]}`. An `it` written *inside* a program under
-  # test -- an rspec suite has them -- is not one of this file's.
+  # The sentences of one file's examples, as `{name => [line, ...]}`.
+  # This ignores an `it` inside a program under test (for example, in an
+  # rspec suite).
   def sentences(path)
     found = Hash.new { |h, k| h[k] = [] }
     each_line(path) do |line, n, inside|
@@ -231,10 +214,9 @@ module SpecStyle
     found
   end
 
-  # A sentence two FILES both use. The rule below holds one file to
-  # naming its own examples apart; this holds the suite to naming them
-  # apart from each other, so a sentence in a failure report or in a
-  # `-n` filter names one example and not two.
+  # Finds a sentence that two FILES use. The rule in `faults` checks for
+  # duplicates in one file; this checks across files. Thus a sentence in
+  # a failure report or a `-n` filter identifies only one example.
   def crossed(paths)
     seen = {}
     paths.flat_map do |path|
@@ -253,26 +235,23 @@ module SpecStyle
     each_line(path) do |line, n, inside|
       out << [n, "trailing whitespace"] if line.rstrip != line.chomp && !ANSWERS.include?(inside)
 
-      # Inside a heredoc the DSL opened, the lines are the program under
-      # test or the answer to it -- a row of a table is as long as the
-      # row is, and reflowing it would change what the example asks.
-      # Only the file's own code is held to a width.
+      # Inside a DSL heredoc, the lines are the program under test or its
+      # output. A change to their width would change the example. Only the
+      # file's own code has a width limit.
       next if inside
 
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
       line.scan(/(?:\bzr\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
         out << [n, "heredoc <<#{squiggly}#{tag}: use <<~"] if squiggly != "~"
         out << [n, "heredoc #{tag}: not one of #{TAGS.join(", ")}"] unless TAGS.include?(tag)
-        # A Ruby program in an interpolating heredoc has live `#{}` in
-        # it, which is a footgun and not a feature.
+        # In an interpolating heredoc, each `#{}` in the program runs in
+        # the test, not in the program. That is almost never intended.
         out << [n, "heredoc <<~#{tag}: quote the tag, or #\{\} in the program runs"] if quote.empty?
       end
     end
-    # Two examples in one file with the same sentence. Minitest takes
-    # them both -- it numbers the methods it defines -- so nothing
-    # fails, and a failure report then names a sentence that matches two
-    # examples. A campaign that rewrites thousands of descriptions walks
-    # into this, which is why it is checked rather than trusted.
+    # Two examples in one file with the same sentence. Minitest accepts
+    # both (it numbers the methods it defines), so nothing fails. But a
+    # failure report then gives a sentence that matches two examples.
     sentences(path).reject { |_, lines| lines.one? }
                    .each { |name, lines| lines.drop(1).each { |n| out << [n, "#{name} is also line #{lines.first}"] } }
     out
@@ -286,8 +265,8 @@ namespace :spec do
     argv = ["test/spec"] if argv.empty?
     files = argv.flat_map { |p| SpecNet.files(p) }
     faults = files.flat_map { |f| SpecStyle.faults(f).map { |n, why| "#{SpecNet.rel(f)}:#{n}: #{why}" } }
-    # Across the files this run was given, and only those: a run scoped
-    # to one directory cannot see a sentence outside it.
+    # Only across the files given to this run. A run on one directory
+    # cannot see a sentence outside it.
     faults += SpecStyle.crossed(files).map { |f, n, why| "#{SpecNet.rel(f)}:#{n}: #{why}" }
     faults.each { |line| warn line }
     puts format("%d file(s) checked, %d fault(s)", files.size, faults.size)
@@ -304,15 +283,15 @@ namespace :spec do
     lines = 0
     argv.flat_map { |p| SpecNet.files(p) }.each do |file|
       was = File.read(file)
-      # Only whitespace-only lines. A line with content and trailing
-      # space may be inside a string the program prints, where the space
-      # is the answer; a line that is nothing but space is a blank line
-      # wherever it sits, and `<<~` already ignores it when it works out
-      # how far to dedent.
+      # Change only lines that contain only whitespace. A line with text
+      # and a trailing space can be in a string that the program prints,
+      # where the space is part of the output. A whitespace-only line is
+      # a blank line in all places, and `<<~` ignores it when it removes
+      # indentation.
       now = was.gsub(/^[ \t]+$/, "")
-      # A comment line with nothing after the `#` but space. In a
-      # program that space is invisible; the oracle is what says so,
-      # since in an answer it could be the answer.
+      # A comment line with only spaces after the `#`. In a program, the
+      # space has no effect. In an expected output it could matter, so
+      # run `rake oracle` after this task.
       now = now.gsub(/^([ \t]*#)[ \t]+$/, '\\1')
       next if now == was
 
@@ -325,20 +304,19 @@ namespace :spec do
   end
 end
 
-# Splitting an example that holds several.
+# Finds bundled examples that can be split into smaller examples.
 #
-# 95 examples carry `# === <name> ===` banners marking 457 tests that
-# were separate programs before the corpus conversion bundled them. One
-# `must_answer` covers all of them, so a failure anywhere is one diff of
-# several hundred lines and the example's name -- `bundle class 07` --
-# says nothing about any of it.
+# Some examples contain `# === <name> ===` banners. Each banner starts a
+# section that is a separate test. One `must_answer` covers all the
+# sections, so a failure gives one large diff, and the example name does
+# not identify the section.
 #
-# A section is only safe to lift out if it does not depend on the ones
-# before it, and that is not a thing to decide by reading. Each `t_<name>`
-# is called immediately after it is defined, so a section's output is a
-# contiguous slice of the bundle's: run the sections separately, and if
-# their answers joined are the bundle's answer, they did not interact.
-# If they did, the join differs and the bundle is left alone.
+# A section is safe to split out only if it does not depend on the
+# sections before it. Each `t_<name>` is called immediately after its
+# definition, so the output of a section is a contiguous part of the
+# bundle's output. The task runs each section separately. If the joined
+# outputs equal the bundle's output, the sections are independent. If
+# not, the task leaves the bundle as it is.
 module SpecSplit
   BANNER = /^# === (.+) ===$/
   MANIFEST = /\A# Bundled tests:\n(?:#(?:   .*)?\n)*/
@@ -355,8 +333,8 @@ module SpecSplit
     [head.sub(MANIFEST, "").strip, rest.each_slice(2).map { |name, body| [name.strip, body.to_s] }]
   end
 
-  # What ruby says for one candidate program, through the oracle's own
-  # machinery so the scrub and the environment are the same.
+  # Runs one candidate program with ruby through `Oracle.ask`, so that the
+  # normalization and the environment are the same as `rake oracle`.
   def ask(example, source)
     probe = example.dup
     probe.source = source
@@ -396,24 +374,23 @@ namespace :spec do
   end
 end
 
-# What ruby answers for a program that is not in a spec file yet.
+# Runs a program that is not yet in a spec file with ruby, and prints
+# its output as an assertion.
 #
-# The hand splits Phase 3 left -- the examples with no banner to cut on
-# -- need a new literal for every fragment, and the repo's rule is that
-# a literal is never written by hand. This asks ruby through the
-# oracle's own machinery, so the path, the scrub and the environment are
-# the ones the example will run under, and prints the answer already
-# shaped as the assertion to paste.
+# The rule is that nobody writes an expected output by hand. This task
+# runs the program through `Oracle.ask`, with the same path,
+# normalization and environment as the example will have. It prints the
+# output in the form of the assertion to paste.
 #
 #   rake 'spec:ask[test/spec/core/thread/thread_test.rb frag.rb]'
 #   rake 'spec:ask[test/spec/stdlib/etc/etc_test.rb frag.rb -n "reads a group"]'
 #
-# `-n` borrows an existing example's keywords, for a fragment that needs
-# the `files:` or `argv:` its bundle had.
+# `-n` uses the keywords of an existing example, for a program that needs
+# that example's `files:` or `argv:`.
 module SpecAsk
   module_function
 
-  # The assertion for an answer, in the shape the suite writes it.
+  # The assertion for an output, in the form that the suite uses.
   def assertion(answer)
     tail = []
     tail << "stderr: #{dump(answer.stderr)}" unless answer.stderr.empty?
@@ -427,8 +404,8 @@ module SpecAsk
       "#{body.lines.map { |l| "  #{l}" }.join}OUT"
   end
 
-  # A literal with the escapes the suite uses, not `inspect`'s -- which
-  # would turn a UTF-8 answer into `\u` escapes.
+  # A literal with the escapes that the suite uses. `inspect` is not
+  # correct here, because it changes UTF-8 output into `\u` escapes.
   def dump(bytes)
     out = bytes.dup.force_encoding(Encoding::UTF_8)
     out = bytes unless out.valid_encoding?

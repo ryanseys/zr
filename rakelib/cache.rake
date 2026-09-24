@@ -1,59 +1,58 @@
 # frozen_string_literal: true
 
-# The runtime caches, swept.
+# Tasks that clean the runtime cache.
 #
-# `tmp/cache` gains a runtime object, a prelinked image, an eval road and a
-# symbol table for every digest this checkout has ever built, and a
-# digest moves whenever anything under `lib` or `runtime` does. Nothing
-# removed the old ones, so a week of work left 9.5 GB of caches for
-# compilers that no longer exist.
+# `tmp/cache` gets a runtime object, a prelinked image, an eval support
+# object and a symbol table for each digest that this checkout builds.
+# The digest changes when any file under `lib` or `runtime` changes, so
+# old entries collect (9.5 GB after one week of work).
 #
-# It also gains one `unit-<key>.marshal` per file any program was built
-# from (lib/zr/unit_cache.rb): small each, thousands after a tier run,
-# and every one of them named after the compiler that made it, so a
-# prune takes them with everything else that compiler left.
+# It also gets one `unit-<key>.marshal` for each file that a program
+# is built from (lib/zr/unit_cache.rb). Each is small, but a tier run
+# makes thousands. Each name contains the digest of the compiler that
+# made it, so a prune removes them with that compiler's other files.
 #
 #   rake cache:size                what is there, by kind
-#   rake cache:prune               all but what this checkout names
-#   rake 'cache:prune[3]'          ... keeping anything touched in 3 days
-#   rake cache:clear               all of it, this checkout's included
+#   rake cache:prune               all except the files this checkout uses
+#   rake 'cache:prune[3]'          ... and keep files touched in 3 days
+#   rake cache:clear               all files, also this checkout's files
 #
-# What this checkout names is kept whatever its age, so a prune never
-# costs the next build the runtime, the road or either image. `clear`
-# takes those too, which is what a disk with no room left wants, and
-# what to reach for when the next build is a cold one anyway. Everything
-# else is content-addressed and comes back on demand, which is what the
-# day's grace is for: a wasm prelude and a gem prelude are named after
-# more than the runtime's digest -- the program's own pending symbols,
-# the files the prelude loaded -- so those two kinds are kept by age
-# alone, and a hard prune costs the next wasm build its prelude.
+# A prune keeps the files this checkout uses, whatever their age. Thus
+# the next build does not rebuild the runtime, eval support or the
+# images. `clear` removes those too; use it when the disk is full.
+# All other files are content-addressed and are made again on demand.
+# A wasm prelude and a gem prelude have names that come from more than
+# the runtime digest (the program's pending symbols, the files the
+# prelude loaded). Thus a prune keeps them by age only, and a prune
+# with 0 days makes the next wasm build rebuild its prelude.
 require_relative "../lib/zr/runtime"
 require_relative "../lib/zr/native/build"
 
 module Caches
   module_function
 
-  # The cache's files, the binaries the spec tier keeps under it, and
-  # the parsed trees (lib/zr/parse_cache.rb): one a file ever parsed,
-  # seventy thousand after a season, and named by their source alone,
-  # so only age says which are done with.
+  # The cache files, the binaries that the spec tier keeps in the cache,
+  # and the parsed trees (lib/zr/parse_cache.rb). There is one parsed
+  # tree for each file ever parsed (about 70,000 after some months).
+  # Their names come from the source only, so only age shows which are
+  # not used.
   def files = Dir[File.join(Zr.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
 
-  # wasmtime's own cache of compiled modules, which `rake bench` and a
-  # `zr run` under Cranelift fill (the tiers run Winch with the cache
-  # off): not this cache's to sweep, but worth naming, since it grew to
-  # 67 GB on one machine. `wasmtime config new` writes the file that
-  # bounds it.
+  # wasmtime's cache of compiled modules. `rake bench` and `zr run`
+  # under Cranelift fill it (the tiers run Winch with the cache off).
+  # These tasks do not clean it, but `cache:size` reports it, because it
+  # can become large (67 GB on one machine). `wasmtime config new` writes
+  # the file that sets its limit.
   def wasmtime_cache = File.expand_path("~/Library/Caches/BytecodeAlliance.wasmtime")
 
-  # The names this checkout's compiler asks for, over every target it
-  # builds: the runtime object, the eval road and its meta, and the
-  # prelinked image of each -- the road's own key comes out of its meta,
-  # which is the one file that says it.
+  # The files that this checkout's compiler uses, for each target: the
+  # runtime object, the eval support object and its meta file, and the
+  # prelinked image of each. Only the meta file gives the key of the
+  # eval support object.
   def live
     Zr::Target.all.flat_map { |target| live_for(target) }.compact.uniq
   rescue StandardError
-    [] # a checkout the compiler will not load from is not one to sweep by
+    [] # if the compiler does not load, keep no file as live
   end
 
   def live_for(target)
@@ -66,7 +65,7 @@ module Caches
       Dir[File.join(Zr.cache, "*-#{runtime.digest}.*")]
   end
 
-  # The road's object, which only its meta names.
+  # The eval support object. Only its meta file gives its path.
   def eval_object(meta)
     key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
     key && Zr::EvalSupport.object_path(key)

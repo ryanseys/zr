@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
-# How the runtime walks a String in a multibyte encoding, written as
-# runtime/kernel/enc_mb.rb from the Onigmo encoders Regexp reads with
-# (runtime/core/regexp/onig/encoding_multibyte.rb). A String and a Regexp
-# over it then agree on every character: both read the lead-byte
-# lengths and state tables of CRuby's enc/*.c, through the same
-# descriptor the matcher takes.
+# Writes runtime/kernel/enc_mb.rb, which the runtime uses to walk a
+# String in a multibyte encoding. It comes from the Onigmo encoders that
+# Regexp uses (runtime/core/regexp/onig/encoding_multibyte.rb). Thus a
+# String and a Regexp agree on every character: both read the lead-byte
+# lengths and state tables of CRuby's enc/*.c, through the descriptor
+# that the matcher uses.
 #
 #   rake gen:enc_mb
 #
-# The descriptors are held to ruby first: every one- and two-byte
-# sequence, and a sample of longer ones, must be valid where
-# String#valid_encoding? says so.
+# First, the task checks the descriptors against ruby: every one-byte
+# and two-byte sequence, and a sample of longer ones, must be valid only
+# where String#valid_encoding? returns true.
 
 module Gen
   module EncMb
@@ -19,13 +19,13 @@ module Gen
 
     module_function
 
-    # Onigmo's encoders, which only exist once the port is loaded.
+    # Onigmo's encoders. They exist only after the port is loaded.
     def encoders = Regexp::Onig::Enc
 
     def index_of(encoding) = Encoding.list.index(encoding)
 
-    # Whether the bytes are one whole character, as precise_mbc_enc_len of
-    # the encoder the descriptor is written from answers.
+    # Whether the bytes are one whole character, by the precise_mbc_enc_len
+    # of the encoder that the descriptor comes from.
     def found?(enc, bytes)
       n = enc.precise_len(bytes, 0, bytes.bytesize)
       n == bytes.bytesize
@@ -60,8 +60,9 @@ module Gen
 
       Zr.require_onig
 
-      # The encodings a String walks with an encoder of their own: ASCII meets
-      # them, a character spans bytes, and they are not UTF-8 under a name.
+      # The encodings that need their own encoder to walk a String: they
+      # are ASCII-compatible, a character can have more than one byte, and
+      # they are not UTF-8 with a different name.
       readers = Encoding.list.reject(&:dummy?).select(&:ascii_compatible?)
       utf8_like = readers.select { |encoding| encoding != Encoding::UTF_8 && Regexp::Onig::EncTables::BASES[encoding.name] == "UTF-8" }
       mb = (readers - utf8_like).select { |encoding| encoders.for(encoding).max_len > 1 && encoding != Encoding::UTF_8 }

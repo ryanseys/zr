@@ -1,19 +1,18 @@
 # frozen_string_literal: true
 
-# How long does what zr built take?
+# Measures how long the programs that zr builds take to run.
 #
 #   rake bench                       # every benchmark
-#   rake 'bench[fib string]'         # the ones whose name holds a word
+#   rake 'bench[fib string]'         # the ones whose name contains a word
 #   rake 'bench[--runs 5 fib]'       # five runs each
 #   rake 'bench[--target wasm32-wasi]'
 #
-# A benchmark is a whole program under `benchmark/` with ruby's answer
-# in `<name>.out` beside it, like any other program: the time is kept
-# only when the answer matched, so a miscompile never reads as a win.
-# A run of the whole bank writes its report, in the benchmark gem's
-# own layout, to `benchmark/results/<stamp>-<revision>.txt`, to be committed
-# beside the code it measured; a run of some rows writes
-# `tmp/bench/latest.txt`.
+# A benchmark is a whole program under `benchmark/`, with ruby's output
+# in `<name>.out` next to it. A time counts only when the output matches,
+# so a miscompile never shows as a speedup. A run of all benchmarks
+# writes a report in the benchmark gem's layout to
+# `benchmark/results/<stamp>-<revision>.txt`; commit it with the code it
+# measured. A run of some benchmarks writes `tmp/bench/latest.txt`.
 
 require "optparse"
 require_relative "../lib/zr/cli"
@@ -38,8 +37,8 @@ module Benchmarks
     end.parse!(argv)
     abort("rake bench: --runs takes a count of one or more") if runs < 1
 
-    # The bank runs what it builds, so a target this host cannot run is
-    # refused here rather than as a failed row per program.
+    # The benchmarks run what they build. Thus refuse a target that this
+    # host cannot run here, not as one failure for each program.
     if (why = Zr::Harness::Runner.new(ROOT, target).refusal)
       abort("rake bench: #{why}")
     end
@@ -55,12 +54,12 @@ end
 desc "How long does what zr built take? rake 'bench[--runs 5 fib]'"
 task(:bench, [:filters]) { |_, args| Benchmarks.run(args[:filters].to_s.split) }
 
-# `rake bench:check` reads the newest report under `benchmark/results/`
-# against the one before it, or the two reports named, before then
-# after (a path, or a revision's hash): a program of 100 ms or more
-# whose wall clock moved by a tenth either way fails the check, and one
-# below that is only named, since a short row is noise to that order.
-# The rows compared are zr's own.
+# `rake bench:check` compares the newest report under `benchmark/results/`
+# with the one before it. Or it compares two given reports, before then
+# after (a path, or a revision hash). Only zr's times are compared.
+# A program of 100 ms or more whose wall-clock time changes by 10% or
+# more fails. A shorter program is only reported, because its noise is
+# about that large.
 module Benchmarks
   MOVED = 0.10
   SHORT = 0.1
@@ -95,7 +94,7 @@ module Benchmarks
     exit(failed.empty? ? 0 : 1)
   end
 
-  # A report by its path, or by the revision that names it under
+  # Finds a report by its path, or by the revision in its file name under
   # `benchmark/results/`.
   def report(name)
     return name if File.file?(name)
