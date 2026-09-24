@@ -16,8 +16,8 @@ class Thread
   @io_waiters = []
   Primitive.zr_undef_alloc(self)
 
-  # The scheduler's state is Thread's own: a subclass that asks for it
-  # asks Thread.
+  # The scheduler's state is Thread's own: a subclass that reads it
+  # reads Thread's.
   class << self
     def report_on_exception = equal?(Thread) ? @report_on_exception : Thread.report_on_exception
 
@@ -157,7 +157,7 @@ class Thread
       nil
     end
 
-    # The ids stand above the process's own, and no two threads share
+    # The ids are above the process's own, and no two threads share
     # one.
     def next_native_id
       Primitive.attr! :hidden
@@ -263,10 +263,10 @@ class Thread
       thread
     end
 
-    # One wait on every descriptor a thread parks on, for as long as the
-    # first sleeper allows: each thread whose descriptor came ready
-    # wakes. A wait a signal cut short wakes nobody, and the loop that
-    # asked looks at the run queue again.
+    # One wait on every descriptor that a thread parks on, for as long as
+    # the first sleeper allows: each thread whose descriptor became ready
+    # wakes. A wait that a signal cut short wakes no thread, and the
+    # calling loop looks at the run queue again.
     def poll_waiters
       Primitive.attr! :hidden
       deadline = @sleepers.map(&:first).min
@@ -544,7 +544,7 @@ class Thread
   end
 
   # Whether an exception waits rather than arrives: the innermost mask
-  # that names its class decides.
+  # that includes its class decides.
   def masked?(exception)
     Primitive.attr! :hidden
     return false if @masks.nil?
@@ -586,9 +586,9 @@ class Thread
     TracePoint.send(:thread_event, :thread_begin, self)
     begin
       Primitive.zr_catch(@kill_tag, proc do
-        # A kill or an exception another thread sent arrives only while
-        # the catch and the rescue stand: one that came before waits for
-        # them here, and after them there is no body left to stop.
+        # A kill or an exception that another thread sent arrives only
+        # while the catch and the rescue are active. One that came before
+        # waits for them here, and after them no body is left to stop.
         @armed = true
         begin
           throw @kill_tag if @killed
@@ -1027,7 +1027,7 @@ class Fiber
   end
 
   # `kill`: the fiber leaves where it yielded, running every ensure on
-  # the way. A fiber that never ran ends where it stands.
+  # the way. A fiber that never ran ends where it is.
   def kill
     return self unless alive?
     return self if Primitive.zr_fiber_unborn_p(self) && Primitive.zr_fiber_terminate(self)
@@ -1057,8 +1057,8 @@ class Fiber
     deliver(exception)
   end
 
-  # The rows where the fiber stands: none before it starts or after it
-  # ends.
+  # The frame records where the fiber is: none before it starts or after
+  # it ends.
   def backtrace(start = 0, length = nil)
     return caller(start, length) if equal?(Fiber.current)
     return [] if !alive? || Primitive.zr_fiber_unborn_p(self)
@@ -1074,8 +1074,8 @@ class Fiber
 
   alias to_s inspect
 
-  # A fiber Fiber.new made blocks when it was asked to; a thread's own
-  # fiber always blocks.
+  # A fiber that Fiber.new made blocks when it was told to; a thread's
+  # own fiber always blocks.
   def blocking? = Primitive.zr_hidden_get(self, :__blocking__) != false
 
   def storage

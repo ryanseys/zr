@@ -130,8 +130,8 @@ class Ractor
       raise Error, "only allowed from the creator Ractor of this port"
     end
 
-    # Whether a message waits, and the one that does: `Ractor.select`
-    # asks its own ports this way, so it never parks on a full one.
+    # Whether a message waits, and the message: `Ractor.select` checks
+    # its own ports this way, so it never parks on a full one.
     def waiting?
       Primitive.attr! :hidden
       !queue.empty?
@@ -170,8 +170,8 @@ class Ractor
     ractor
   end
 
-  # The experimental notice, once for the process however many ractors
-  # follow, naming the line that asked for the first one.
+  # The experimental notice, once per process for any number of ractors,
+  # with the line that requested the first one.
   def self.notice
     Primitive.attr! :hidden
     return nil unless NOTICE.empty?
@@ -208,14 +208,14 @@ class Ractor
     shareable(block, options, lambda: true)
   end
 
-  # Ruby's rules for a shareable block, in ruby's order. Its self has to
-  # be shareable. It may not write a local outside itself. And every
-  # local it reads there must be bound once in its own scope -- so the
-  # value the block copies is the only one the local will ever hold --
-  # and hold a shareable value now.
+  # Ruby's rules for a shareable block, in ruby's order. Its self must
+  # be shareable. It cannot write a local outside itself. Every local
+  # that it reads there must be bound once in its own scope, so the
+  # value that the block copies is the only value of the local. That
+  # value must be shareable.
   #
-  # Written locals are named in the order ruby names them, by symbol;
-  # read ones are checked the other way round, as ruby checks them.
+  # Written locals are reported in ruby's order, by symbol; read locals
+  # are checked in the reverse order, as ruby checks them.
   def self.shareable(block, options, lambda:)
     Primitive.attr! :hidden
     unknown = options.keys - [:self]
@@ -358,15 +358,15 @@ class Ractor
     value
   end
 
-  # The refusal an instance variable of a shareable object gets outside
-  # the main ractor. The runtime asks for it, because the words live here.
+  # The refusal for an instance variable of a shareable object outside
+  # the main ractor. The runtime calls this because the words are here.
   def self.isolation!
     Primitive.attr! :hidden
     raise IsolationError, "can not access instance variables of shareable objects from non-main Ractors"
   end
 
-  # What a program outside the main ractor may not reach, in CRuby's
-  # words. The runtime asks for each, because the words live here.
+  # What a program outside the main ractor cannot reach, in CRuby's
+  # words. The runtime calls this for each because the words are here.
   def self.const_read(owner, name, value)
     Primitive.attr! :hidden
     return value if shareable?(value)
@@ -455,12 +455,12 @@ class Ractor
     true
   end
 
-  # A value crossing the boundary: a shareable one by reference, anything
-  # else as a copy of its whole graph. An object that appears twice in the
-  # graph is copied once, so a cycle comes out a cycle, as CRuby's own
-  # copy does. `deeply` copies a shareable value as well, which
-  # `make_shareable(copy: true)` asks for, and `given` collects the nodes
-  # a move then takes away from the sender.
+  # A value crossing the boundary: a shareable one by reference, any
+  # other as a copy of its whole graph. An object that appears twice in
+  # the graph is copied once, so a cycle comes out a cycle, as CRuby's
+  # own copy does. `deeply` also copies a shareable value, as
+  # `make_shareable(copy: true)` requires. `given` collects the nodes
+  # that a move then takes away from the sender.
   def self.cross(value, seen = {}.compare_by_identity, deeply = false, given = nil)
     Primitive.attr! :hidden
     return value if immutable?(value) || (!deeply && shareable?(value))
@@ -667,8 +667,8 @@ class Ractor
         ended
       end
     end
-    # The task is the ractor's, not a thread the program asked for, so it
-    # names no line of its own where a report shows it.
+    # The task is the ractor's, not a thread that the program requested,
+    # so a report shows no line of its own for it.
     Primitive.zr_hidden_set(task, :site, nil)
     Primitive.zr_hidden_set(self, :__thread__, task)
     self

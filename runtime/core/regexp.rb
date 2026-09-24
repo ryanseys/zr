@@ -54,9 +54,8 @@ class Regexp
   private_class_method :option_bits
 
   # A literal's Regexp, for the kernel's literal table. A flag letter
-  # that names an encoding pins the pattern to it. What the pattern
-  # warns of, the compiler printed as the file started, as ruby's parser
-  # does.
+  # that gives an encoding pins the pattern to it. The compiler printed
+  # the pattern's warnings when the file started, as ruby's parser does.
   def self.literal(source, bits, pinned)
     compile_source(pinned_source(source, pinned), bits, warns: false)
   end
@@ -106,9 +105,9 @@ class Regexp
   end
   private_class_method :pinned_source
 
-  # `source` compiled with the option `bits`, seated in the husk `re`; a
-  # RegexpError names the reason, then the pattern as written with its
-  # flags. A pattern that `warns` prints what the engine warned of.
+  # `source` compiled with the option `bits`, set in the husk `re`. A
+  # RegexpError gives the reason, then the pattern as written with its
+  # flags. A pattern that `warns` prints the engine's warnings.
   def self.seat(re, source, bits, warns: true)
     source = source.dup.freeze unless source.frozen?
     encoding, bits, compiled, warnings = Pattern.compile(source, bits)
@@ -122,7 +121,7 @@ class Regexp
   private_class_method :seat
 
   # A Regexp of this class over `source`: the husk and its pattern in
-  # one step, which the literal table and the copies ask for.
+  # one step, which the literal table and the copies use.
   def self.compile_source(source, bits, warns: true) = seat(allocate, source, bits, warns: warns)
   private_class_method :compile_source
 
@@ -164,14 +163,14 @@ class Regexp
   end
   private :initialize_copy
 
-  # rb_reg_prepare_re: the program a match of `text` runs, or nil for the
-  # one the pattern has. The engine reads the pattern in one encoding at
-  # a time, at first the pattern's own; a subject that asks for another
-  # compiles the pattern again under it, and that compile takes the
-  # engine's place until a subject asks for another (ruby overwrites
-  # the pattern's regex_t). The Regexp keeps each compile by encoding,
-  # with its warnings, or with the refusal it gave, which each match
-  # that asks for it raises again.
+  # rb_reg_prepare_re: the program that a match of `text` runs, or nil for
+  # the pattern's own. The engine reads the pattern in one encoding at a
+  # time, first the pattern's own. A subject that needs another encoding
+  # compiles the pattern again under it, and that compile replaces the
+  # engine until a subject needs another (ruby overwrites the pattern's
+  # regex_t). The Regexp keeps each compile by encoding, with its
+  # warnings, or with its refusal, which each match that uses it raises
+  # again.
   def program_for(text)
     Primitive.attr! :hidden
     index = Primitive.zr_str_encoding_index_m(text)
@@ -231,7 +230,7 @@ class Regexp
 
   def self.compile(*args, **options) = new(*args, **options)
 
-  # String#b as it stands at boot, which the C never asks a String for.
+  # String#b as it is at boot, which the C never calls on a String.
   STRING_B = String.instance_method(:b)
   private_constant :STRING_B
 
@@ -523,8 +522,8 @@ class Regexp
   end
   private_class_method :backref?
 
-  # `\k<n>`, `\k'n'`, `\g<n>`, `\g'n'`, and a digit run that names a
-  # group the pattern has. A run past the last group, or one that starts
+  # `\k<n>`, `\k'n'`, `\g<n>`, `\g'n'`, and a digit run that refers to a
+  # group of the pattern. A run past the last group, or one that starts
   # with a zero, is an octal escape.
   def self.backref_escape?(source, i, captures)
     c = source[i]
@@ -536,7 +535,7 @@ class Regexp
   end
   private_class_method :backref_escape?
 
-  # The seconds any match may take, unless its pattern names its own.
+  # The seconds that any match can take, unless its pattern sets its own.
   def self.timeout = seconds(Primitive.zr_regexp_limit(nil))
 
   def self.timeout=(seconds)
@@ -654,9 +653,9 @@ class MatchData
   def regexp = Primitive.zr_hidden_get(self, :regexp)
 
   # The text as it was, a frozen String of this match's own, as CRuby
-  # gives each MatchData; made the first time it is asked for from the
-  # copy every match of the text shares (`text`). A frozen text is its
-  # own.
+  # gives each MatchData. It is made on first use from the copy that
+  # every match of the text shares (`text`). A frozen text is used as it
+  # is.
   def string
     Primitive.zr_hidden_get(self, :shown) || Primitive.zr_state_set(self, :shown, Primitive.zr_str_new_frozen_m(text))
   end

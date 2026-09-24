@@ -44,8 +44,8 @@ class IO
     # rb_io_synchronized: the write end of a pipe buffers nothing, so a
     # reader of the other end sees each write immediately.
     writer.sync = true
-    # rb_pipe marks both ends non-blocking, and a program that asks sees
-    # the flag ruby set.
+    # rb_pipe marks both ends non-blocking, and a program that checks sees
+    # the flag that ruby set.
     reader.send(:set_nonblock, true)
     writer.send(:set_nonblock, true)
     return [reader, writer] unless block_given?
@@ -139,8 +139,8 @@ class IO
 
   # The mode and the options an open takes, as rb_io_extract_modeenc
   # reads them: the access mode, whether the stream is binary, and the
-  # encodings named. A mode string names the encodings after a colon,
-  # and an option that names one as well is an error.
+  # given encodings. A mode string gives the encodings after a colon,
+  # and an option that also gives one is an error.
   def self.open_options(mode, options)
     Primitive.attr! :hidden
     mode = options[:mode] if mode.nil?
@@ -238,9 +238,9 @@ class IO
     end
   end
 
-  # The raw descriptor for a path, which is what a program that means to
-  # wrap it in its own IO asks for: rb_sysopen, with the permissions a
-  # creation takes, less the umask.
+  # The raw descriptor for a path, which a program that wants to wrap it
+  # in its own IO requests: rb_sysopen, with the permissions that a
+  # creation takes, minus the umask.
   def self.sysopen(path, mode = +"r", perm = nil)
     path = File.send(:path_of, path)
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, File.send(:open_mode, mode))
@@ -251,9 +251,9 @@ class IO
     fd
   end
 
-  # A length any allocator serves, below which a read need not ask. The
-  # bounds are written out, because Integer#** reaches Rational, which
-  # the core does not have yet while this file loads.
+  # A length that any allocator can supply, below which a read need not
+  # check. The bounds are written out, because Integer#** reaches
+  # Rational, which the core does not have yet while this file loads.
   ROOM_FREELY = 2_147_483_648
   ROOM_AT_MOST = 9_223_372_036_854_775_807
   private_constant :ROOM_FREELY, :ROOM_AT_MOST
@@ -481,7 +481,7 @@ class IO
   end
 
   # An end of a copy as the IO it reads or writes, opening a path with
-  # `flags`; nil for an object that is no stream and names no file.
+  # `flags`; nil for an object that is not a stream and not a file name.
   def self.copy_end(target, flags, opened)
     Primitive.attr! :hidden
     return nil if target.equal?(ARGF) || !(target.is_a?(IO) || target.is_a?(String) || target.respond_to?(:to_path))
@@ -562,8 +562,8 @@ class IO
     rows = Primitive.zr_fstat_m(fd)
     raise SystemCallError.new(nil, -rows) if rows.is_a?(Integer)
 
-    # A stream that names no mode takes the one the descriptor was opened
-    # with, as rb_io_initialize asks fcntl(2) for it.
+    # A stream that gives no mode takes the one that the descriptor was
+    # opened with, as rb_io_initialize gets it from fcntl(2).
     if mode.nil? && options[:mode].nil? && !options[:twin]
       flags = Primitive.zr_io_flags(fd)
       unless flags.negative?
@@ -583,7 +583,7 @@ class IO
     end
     @fd = fd
     @mode = text
-    # What the mode allows, decided once: every read and write asks.
+    # What the mode allows, decided once: every read and write checks it.
     @readable = !text.start_with?("w", "a") || text.include?("+")
     @writable = !text.start_with?("r") || text.include?("+")
     # A duplex popen writes to a second descriptor, the twin of this
@@ -599,10 +599,10 @@ class IO
     @pid = options[:pid]
     @closed = false
     @sync = false
-    # O_NONBLOCK as this stream set it. Asking the descriptor here would
-    # cost an fcntl for every stream a program opens, including the three
-    # the runtime opens before a program starts, and `nonblock?` asks the
-    # descriptor itself whenever a program wants the truth.
+    # O_NONBLOCK as this stream set it. A query to the descriptor here
+    # would cost an fcntl for every stream that a program opens, including
+    # the three that the runtime opens before a program starts.
+    # `nonblock?` queries the descriptor itself when a program needs the true value.
     @nonblock = false
     # FMODE_TTY: a terminal writes at once, as a synchronous stream does.
     @tty = Primitive.zr_io_tty_p(fd)
@@ -799,8 +799,8 @@ class IO
                        end
                Primitive.zr_io_fcntl(@fd, command, value)
              end
-    # rb_sys_fail_path names the stream, and the call that set up the
-    # argument, after the message; a stream with no path names neither.
+    # rb_sys_fail_path gives the stream, and the call that set up the
+    # argument, after the message; a stream with no path gives neither.
     raise SystemCallError.new(path, -result, +"finish_narg") if result < 0
 
     result
@@ -903,8 +903,8 @@ class IO
     pos
   end
 
-  # The encoding named for this stream, else what the stream stands
-  # for: binary where it is binary, the default where it can be read,
+  # The encoding given for this stream, else the default for its kind:
+  # binary where it is binary, the default where it can be read,
   # and none at all for a handle that only writes.
   def external_encoding
     return @external unless @external.nil?
@@ -984,7 +984,7 @@ class IO
   def print(*objects) = IO.print_to(self, objects)
 
   # One String, the usual call, is its own line: CRuby takes a String
-  # as it is and never asks it for `to_s`.
+  # as it is and never calls `to_s` on it.
   # One String is the common call: its bytes, then a newline unless it
   # ends in one, with no line walk between.
   def puts(*objects)
@@ -1034,8 +1034,8 @@ class IO
   # What `print` writes `objects` as: their `to_s` joined by `$,`, then
   # `$\`, and `$_` where there are no objects.
   #
-  # One `write` an object, and the object as it is: `write` asks for its
-  # `to_s`, so one that raises stops the rest after what came before.
+  # One `write` per object, with the object as it is: `write` calls its
+  # `to_s`, so an object whose `to_s` raises stops the rest after what came before.
   def self.print_to(out, objects)
     Primitive.attr! :hidden
     objects = [$_] if objects.empty?
@@ -1059,7 +1059,7 @@ class IO
     raise ArgumentError, "negative length #{length} given" if length && length < 0
 
     IO.send(:room_for!, length)
-    # A scheduler's io_read is asked for the bytes io.c asks for.
+    # A scheduler's io_read gets the same byte count that io.c requests.
     scheduled = IO.send(:scheduler_taking, :io_read)
     if length.nil?
       if scheduled
@@ -1193,7 +1193,7 @@ class IO
     @timeout = seconds
   end
 
-  # A byte order mark at the head of the stream names the encoding.
+  # A byte order mark at the head of the stream gives the encoding.
   def set_encoding_by_bom
     return nil unless pos.zero?
 
@@ -1357,7 +1357,7 @@ class IO
     @closed = true
   end
 
-  # rb_io_check_closed: an allocated stream has no descriptor to ask.
+  # rb_io_check_closed: an allocated stream has no descriptor to check.
   def check_open
     Primitive.attr! :hidden
     raise IOError, +"uninitialized stream" if @fd.nil?
@@ -1425,8 +1425,8 @@ class IO
       Primitive.zr_str_cat_bytes(@wbuf, text)
       return text.bytesize
     end
-    # A scheduler's io_write takes what waits, then the text, as
-    # io_binwrite's writev hands it only the first of the two.
+    # A scheduler's io_write takes the waiting bytes, then the text,
+    # because io_binwrite's writev gives it only the first of the two.
     if IO.send(:scheduler_taking, :io_write)
       write_pending
       return write_now(text)
@@ -1636,8 +1636,8 @@ class IO
 
     IO.send(:room_for!, length)
 
-    # io_getpartial: with nothing buffered, one read of the length asked
-    # for, which a scheduler's io_read takes.
+    # io_getpartial: with nothing buffered, one read of the requested
+    # length, which a scheduler's io_read takes.
     if @buffer.empty? && IO.send(:scheduler_taking, :io_read)
       loop do
         chunk = read_memory(length)
@@ -1694,10 +1694,10 @@ class IO
 
       wait_again(READABLE)
     else
-      # The bytes join the buffer as they stand: the buffer's own
+      # The bytes join the buffer as they are: the buffer's own
       # encoding decides what was read, not the chunk's.
-      # A stream that names no encoding reads in the default one as it
-      # stands when the bytes arrive.
+      # A stream that gives no encoding reads in the default one, as it
+      # is when the bytes arrive.
       @buffer.force_encoding(Encoding.default_external) if @buffer.empty? && @external.nil? && !@binmode
       chunk.force_encoding(@buffer.encoding)
       @buffer << chunk
@@ -1718,7 +1718,7 @@ class IO
   def check_access
     Primitive.attr! :hidden
     # A duplex handle writes to its twin, so this descriptor only has
-    # to allow what a read asks for.
+    # to allow reads.
     return if @twin
 
     flags = Primitive.zr_io_flags(@fd)
@@ -1731,8 +1731,8 @@ class IO
     raise Errno::EINVAL unless access == ACCESS.fetch(want)
   end
 
-  # An internal encoding converts what was read on the way in, which is
-  # what naming both ends of a stream asks for.
+  # An internal encoding converts the bytes as they are read. A stream
+  # with both ends given requests this.
   def transcoded(text)
     Primitive.attr! :hidden
     return text if text.nil? || @internal.nil?

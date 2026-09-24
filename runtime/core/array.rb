@@ -35,17 +35,16 @@ class Array
     ifnone&.call
   end
 
-  # rb_ary_any_p and its kin: how many elements meet the criterion, a
-  # pattern's `===`, the block, or truthiness, counted no further than
-  # `enough` asks.
+  # rb_ary_any_p and the related methods: how many elements meet the
+  # criterion (a pattern's `===`, the block, or truthiness), counted no
+  # further than `enough` requires.
   #
-  # One optional parameter and not a `*pattern`, and the block reached
-  # through a block of this frame's own rather than named, so asking an
-  # Array a question allocates nothing where it allocated two cells: the
-  # rest Array, and the Proc that naming a block parameter costs here
-  # even where the method only hands the block on. rb_ary_any_p pays
-  # neither, and the compiler asks these four 4.9 million times in one
-  # cold runtime build.
+  # One optional parameter, not a `*pattern`, and the block reached
+  # through a block of this frame's own, not a named block parameter.
+  # So a call allocates nothing. A rest Array and a named block's Proc
+  # would cost two cells per call, and rb_ary_any_p pays neither. The
+  # compiler calls these four 4.9 million times in one cold runtime
+  # build.
   def any?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 1) { |x| yield x }.positive?
   def all?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 1, negate: true) { |x| yield x }.zero?
   def none?(pattern = (bare = true)) = meeting(pattern, bare, block_given?, 1) { |x| yield x }.zero?
@@ -457,7 +456,7 @@ class Array
     out
   end
 
-  # The same object counts as found before == is asked, so NaN finds
+  # The same object counts as found before == is called, so NaN finds
   # itself.
   def include?(v)
     i = 0
@@ -524,7 +523,7 @@ class Array
   def append(*vals) = Primitive.zr_ary_splice(self, Primitive.zr_ary_len_m(self), 0, vals)
 
   # A frozen receiver refuses before the index is read, and an index
-  # below `-size - 1` names no place to insert at.
+  # below `-size - 1` gives no position to insert at.
   def insert(index, *vals)
     Primitive.zr_frozen_error(self) if frozen?
     index = Primitive.zr_index_operand_m(index)
@@ -624,7 +623,7 @@ class Array
     replaced(array)
   end
 
-  # rb_ary_replace with an Array in hand.
+  # rb_ary_replace with an Array that is already available.
   def replaced(array)
     Primitive.attr! :hidden
     Primitive.zr_ary_splice(self, 0, Primitive.zr_ary_len_m(self), array)
@@ -925,8 +924,8 @@ class Array
     Array.new(self).concat(ary_operand(other)).uniq
   end
 
-  # An operand as CRuby's to_ary() takes one: an Array, or what to_ary
-  # gives, else a TypeError that names it.
+  # An operand as CRuby's to_ary() takes one: an Array, or the value of
+  # to_ary, else a TypeError that describes it.
   def ary_operand(other)
     Primitive.attr! :hidden
     converted = Array.try_convert(other)

@@ -70,8 +70,8 @@ class Socket < BasicSocket
       raise SystemCallError.new(message, errno).extend(wait)
     end
 
-    # constant_arg: a Symbol or a String names a constant in `table`, and
-    # anything else is its number.
+    # constant_arg: a Symbol or a String is the name of a constant in
+    # `table`, and any other value is its number.
     def constant_arg(arg, table, message)
       Primitive.attr! :hidden
       arg = arg.to_s if arg.is_a?(Symbol)
@@ -195,14 +195,14 @@ class Socket < BasicSocket
       init_sock(Primitive.zr_class_build(klass), fd)
     end
 
-    # rsock_socket: a descriptor of the kind asked for, or the errno.
+    # rsock_socket: a descriptor of the requested kind, or the errno.
     def socket_fd(domain, type, protocol)
       Primitive.attr! :hidden
       Primitive.zr_sock_socket(domain, type, protocol)
     end
 
-    # raddrinfo_host_str: the host a resolver is asked for, and the flags
-    # that says it is numeric already.
+    # raddrinfo_host_str: the host to give the resolver, and the flags
+    # that say it is already numeric.
     def host_str(host)
       Primitive.attr! :hidden
       return [nil, 0] if host.nil?
@@ -220,7 +220,7 @@ class Socket < BasicSocket
       [name, 0]
     end
 
-    # raddrinfo_port_str: the service a resolver is asked for.
+    # raddrinfo_port_str: the service to give the resolver.
     def port_str(port)
       Primitive.attr! :hidden
       return [nil, 0] if port.nil?
@@ -311,8 +311,8 @@ class Socket < BasicSocket
       resolution_error("getaddrinfo", rows)
     end
 
-    # ruby_getaddrinfo__darwin: a service of port 0 is asked for as no
-    # service, and a row that says no kind or protocol takes the hint's.
+    # ruby_getaddrinfo__darwin: a service of port 0 is given as no
+    # service, and an entry with no kind or protocol takes the hint's.
     def darwin_getaddrinfo(node, service, family, socktype, protocol, flags)
       Primitive.attr! :hidden
       if node && service && number?(service) && service.to_i.zero?
@@ -438,8 +438,8 @@ class Socket < BasicSocket
       Addrinfo.send(:build, sockaddr, sockaddr_family(sockaddr), type.unpack1("i"), 0)
     end
 
-    # rsock_revlookup_flag: what a reverse_lookup argument asks, or nil
-    # for none.
+    # rsock_revlookup_flag: the value that a reverse_lookup argument
+    # selects, or nil for none.
     def norevlookup_flag(revlookup)
       Primitive.attr! :hidden
       case revlookup

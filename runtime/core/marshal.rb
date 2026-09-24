@@ -231,7 +231,7 @@ module Marshal
       write(default, limit) unless default.nil?
     end
 
-    # `C` names the subclass a String, Array, Hash or Regexp belongs to.
+    # `C` gives the subclass of a String, Array, Hash or Regexp.
     def uclass(obj, base)
       @out << "C" << symbol_bytes(class_path(obj.class).to_sym) if obj.class != base
       @out
@@ -294,7 +294,7 @@ module Marshal
     end
 
     # An encoding writes only its name, and the name takes a link slot of
-    # its own, so a second string in the same encoding names it once.
+    # its own, so a second string in the same encoding writes it once.
     def encoding_name(name)
       index = @encodings[name]
       return @out << "@" << long(index) if index
@@ -436,9 +436,9 @@ module Marshal
     USRDEF = 0x75    # "u"
     USRMARSHAL = 0x55 # "U"
 
-    # The bytes, or a stream to take them from. A stream hands over only
-    # the bytes one value asks for, so the value after it starts where
-    # this one stopped.
+    # The bytes, or a stream to take them from. A stream gives only the
+    # bytes that one value needs, so the next value starts where this one
+    # stopped.
     def initialize(source, handler, freeze)
       @io = source.respond_to?(:read) ? source : nil
       @bytes = @io ? +"".b : Primitive.zr_str_operand(source)
@@ -447,8 +447,8 @@ module Marshal
       @freeze = freeze
       @objects = []
       @symbols = []
-      # The class or module each name resolved to: a tree of a thousand
-      # nodes names its few classes a thousand times.
+      # The class or module that each name resolved to: a tree of a
+      # thousand nodes refers to its few classes a thousand times.
       @constants = {}
     end
 
@@ -509,7 +509,7 @@ module Marshal
       end
     end
 
-    # `I` names the ivars that follow the object they belong to, so the
+    # `I` marks the ivars that follow the object they belong to, so the
     # object must be built before they can be read.
     def with_ivars
       need(1)
@@ -537,8 +537,8 @@ module Marshal
       built
     end
 
-    # `_load`, then the loader ruby registers beside it: an Encoding's
-    # `_load` hands back its name, which the load turns into the encoding.
+    # `_load`, then the loader that ruby registers next to it: an
+    # Encoding's `_load` returns its name, which the load turns into the encoding.
     def loaded(klass, payload)
       built = klass.send(:_load, payload)
       klass == Encoding ? Encoding.find(built) : built
@@ -633,8 +633,8 @@ module Marshal
     end
 
     # A plain object takes each ivar as it is read, which is the order
-    # ruby sets them in; a Range or a Set is built from its parts once
-    # they are all in hand.
+    # in which ruby sets them. A Range or a Set is built from its parts
+    # after all of them are read.
     def object
       klass = constant(symbol_or_link, Class)
       here = @objects.size
@@ -778,7 +778,7 @@ module Marshal
       value
     end
 
-    # `count` more bytes in hand, where a stream can still give them.
+    # `count` more bytes available, when a stream can still give them.
     def need(count)
       return if @io.nil? || @pos + count <= @bytes.bytesize
 

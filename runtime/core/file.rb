@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# File and Dir: the path functions, which are pure, and what a program
-# asks the file system.
+# File and Dir: the path functions, which are pure, and the file
+# system calls of a program.
 class File < IO
   include Constants
 
@@ -189,7 +189,7 @@ class File < IO
       # open(2) on a FIFO waits for the other end, which would stop
       # every green thread. A task that shares the process opens the
       # descriptor without waiting and keeps it that way: every read
-      # and write already asks the descriptor whether it is ready.
+      # and write already checks whether the descriptor is ready.
       super(fifo_fd(path, text), mode, **options, path: path)
       @nonblock = true
       return
@@ -566,8 +566,8 @@ class File < IO
     0
   end
 
-  # Ruby names both paths, except where the entry is already there:
-  # then the message names the second path alone, under the helper that
+  # Ruby gives both paths, except when the entry already exists: then
+  # the message gives only the second path, under the helper that
   # decides.
   def self.fail2(code, site, from, to)
     raise SystemCallError.new(to, code, +"syserr_fail2_in") if code == Errno::EEXIST::Errno
@@ -970,9 +970,9 @@ class Dir
   def self.unlink(path) = rmdir(path)
   def self.delete(path) = rmdir(path)
 
-  # Every name in the directory, `.` and `..` among them. `encoding:`
-  # names what the names are read as; the runtime reads the file system
-  # in the one encoding, so the names are tagged with it.
+  # Every name in the directory, including `.` and `..`. `encoding:`
+  # gives the encoding of the names. The runtime reads the file system
+  # in one encoding, so the names are tagged with it.
   def self.entries(path, encoding: nil)
     path = File.send(:path_of, path)
     names = File.send(:without_gvl) { Primitive.zr_io_dir_names(path) }
@@ -1000,8 +1000,8 @@ class Dir
     nil
   end
 
-  # A path that names a file is no empty directory; one that names
-  # nothing raises.
+  # A path to a file is not an empty directory; a path to nothing
+  # raises.
   def self.empty?(path)
     path = File.path(path)
     # nogvl_dir_empty_p: one call that may block.
@@ -1134,9 +1134,9 @@ class Dir
       out << "#{path}/" if File.directory?(path)
     end
 
-    # The names in `dir`. A hidden name shows only where dots are in
-    # play: under FNM_DOTMATCH, or where the segment itself names one.
-    # `.` stands among them, and the pattern decides whether it matches.
+    # The names in `dir`. A hidden name shows only where dots are
+    # allowed: under FNM_DOTMATCH, or where the segment itself starts with one.
+    # `.` is one of them, and the pattern decides whether it matches.
     def each_entry(dir, last = false, dots: false)
       names = begin
         Dir.children(here(dir))
@@ -1211,8 +1211,8 @@ class Dir
 end
 
 module Kernel
-  # `test(command, file, other = nil)`: one letter naming the question
-  # to ask about a file, as the shell's own test does.
+  # `test(command, file, other = nil)`: one letter that selects the
+  # check on a file, as the shell's own test does.
   def test(command, file, other = nil)
     command = command.is_a?(String) ? command : command.chr
     case command

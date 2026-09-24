@@ -104,8 +104,8 @@ class String
   def ord = Primitive.zr_str_ord(self)
 
   # The arguments are walked without Array's own methods: the runtime
-  # itself asks these two, so a program that redefines Array#each must
-  # not take them with it.
+  # itself calls these two, so a program that redefines Array#each must
+  # not change them.
   def start_with?(*prefixes)
     i = 0
     while i < Primitive.zr_ary_len_m(prefixes)
@@ -526,11 +526,11 @@ class String
     rs = Primitive.zr_str_operand(separator)
     enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     Encoding.incompatible(self, rs) unless rs.equal?(String.default_rs) || (enc = Encoding.compatible?(self, rs))
-    # A plain String is searched where it stands: the search and the
-    # encoder's steps read bytes, whatever the encoding, so no copy of
-    # the whole text is made for a walk over its lines. A subclass is
-    # read through a copy, as the steps read bytes by String's methods,
-    # which a subclass may redefine and ruby's C never calls.
+    # A plain String is searched in place: the search and the encoder's
+    # steps read bytes, whatever the encoding, so no copy of the whole
+    # text is made for a walk over its lines. A subclass is read through
+    # a copy, because the steps read bytes by String's methods, which a
+    # subclass can redefine and ruby's C never calls.
     bytes = Primitive.zr_real_class(self).equal?(String) ? self : OWN[:b].bind_call(self)
     return paragraphs(bytes, enc, chomp) if Primitive.zr_str_bytesize(rs) == 0
 
@@ -642,7 +642,7 @@ class String
   # trailing empty pieces; zero drops them.
   def split(pattern = nil, limit = 0)
     # The common splits, by a String's bytes or on blanks with no
-    # limit, ask the pattern nothing on the way to the kernel.
+    # limit, call nothing on the pattern on the way to the kernel.
     if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_valid_p(self) && Primitive.zr_str_unit_m(self) == 0 && (!pattern.is_a?(String) || Primitive.zr_str_unit_m(pattern) == 0)
       out = if Primitive.zr_str_plain_sep_p(pattern) then split_by_string(pattern, 0)
             elsif Primitive.zr_str_blank_sep_p(pattern) || (pattern.nil? && $;.nil?) then Primitive.zr_str_split_words(self, 0)
@@ -1407,7 +1407,7 @@ class String
   private_class_method :unprintable?
 
   # A UTF-8 String inspected as ruby writes one: a character that has a
-  # category of its own as it stands, one that has none as \u, and bytes
+  # category of its own as it is, one that has none as \u, and bytes
   # that make no character as \x.
   def utf8_inspect
     Primitive.attr! :hidden
@@ -1454,8 +1454,8 @@ class String
     self << [point].pack("U").encode(Encoding.at(Primitive.zr_str_encoding_index_m(self)))
   end
 
-  # The text `dump` wrote, read back; a trailing `.force_encoding(...)`
-  # names the encoding.
+  # The text that `dump` wrote, read back; a trailing
+  # `.force_encoding(...)` gives the encoding.
   def undump
     raise RuntimeError, +"non-ASCII character detected" unless Primitive.zr_str_ascii_only_m(self)
 
@@ -1857,8 +1857,8 @@ class String
     i >= 0 ? i : nil
   end
 
-  # Ruby's own normalize.rb does the work. A program that names one of
-  # these methods arms its load, which runs on the first call.
+  # Ruby's own normalize.rb does the work. A program that calls one of
+  # these methods by name arms its load, which runs on the first call.
   NORMALIZER = []
   private_constant :NORMALIZER
 
@@ -1953,7 +1953,7 @@ class String
   # The characters as an Array, walked as each_char walks them, for the
   # methods that read them all: an Enumerator over the receiver would
   # call its each_char again.
-  # The characters up to the first whose lead asks for more bytes than
+  # The characters up to the first whose lead needs more bytes than
   # are left: the engine's `\X` does not match there, and ruby's clusters
   # end. (A lone lead surrogate in the middle of a UTF-16 string stays
   # one character here; ruby's engine splits its bytes.)
@@ -2511,7 +2511,7 @@ class String
   end
 
   # The one option each case method takes, checked as ruby checks it.
-  # `:lithuanian` names no mapping of its own.
+  # `:lithuanian` has no mapping of its own.
   def case_mode(options, kind)
     Primitive.attr! :hidden
     raise ArgumentError, +"too many options" if options.size > 2
@@ -2723,9 +2723,9 @@ class String
     fill * (n / fclen) << fill.byteslice(0, n % fclen > 0 ? tail : 0)
   end
 
-  # The rows as they stand at boot, which String's own methods call as
-  # the C calls its functions: a subclass's or a program's redefinition
-  # of one is not what another reaches.
+  # The method entries as they are at boot, which String's own methods
+  # call as the C calls its functions: a subclass's or a program's
+  # redefinition of one does not change what another reaches.
   OWN = %i[[] each_char each_byte end_with? start_with? index rindex lstrip strip rstrip succ reverse capitalize
            downcase upcase swapcase delete squeeze chomp chop sub scrub tr tr_s count lines each_line scan include?
            unicode_normalize encode force_encoding b grapheme_clusters].to_h { |name| [name, instance_method(name)] }.freeze
@@ -2735,9 +2735,9 @@ class String
 end
 
 class Symbol
-  # The String rows as they stand at boot. Ruby reaches its own C
-  # functions from here, so a prepend or a redefinition of a String
-  # method is not one of Symbol's.
+  # The String method entries as they are at boot. Ruby reaches its own
+  # C functions from here, so a prepend or a redefinition of a String
+  # method does not change Symbol's.
   STRING = %i[[] length upcase downcase capitalize swapcase succ start_with? end_with? empty? casecmp casecmp?]
              .to_h { |name| [name, String.instance_method(name)] }.freeze
   private_constant :STRING
@@ -2825,7 +2825,7 @@ class Encoding
       self
     end
 
-    # A step whose transcoder names its ends apart from the encodings.
+    # A step whose transcoder gives its ends separately from the encodings.
     def named(source, destination)
       Primitive.attr! :hidden
       @names = [source, destination]
@@ -2880,8 +2880,8 @@ class Encoding
 
   attr_reader :names
 
-  # Every name is a frozen US-ASCII String, the same one each time it is
-  # asked for.
+  # Every name is a frozen US-ASCII String, the same object on each
+  # call.
   def initialize(index, names, dummy, ascii, loaded, bytewise)
     Primitive.attr! :hidden
     @names = names.map { |name| Primitive.zr_str_usascii(name.dup).freeze }.freeze
@@ -2914,7 +2914,7 @@ class Encoding
   # Marshal writes an encoding by name, as ruby does.
   def _dump(_limit = nil) = name.dup.force_encoding(Encoding::US_ASCII)
 
-  # CRuby's `_load` hands back the name; Marshal's own loader for
+  # CRuby's `_load` returns the name; Marshal's own loader for
   # Encoding turns it into the encoding.
   def self._load(name) = name
 
@@ -2936,7 +2936,7 @@ class Encoding
     @dummy
   end
 
-  # Asking for an encoding by name is what reads its table.
+  # A lookup of an encoding by name reads its table.
   def load
     Primitive.attr! :hidden
     @loaded = true
@@ -3007,8 +3007,8 @@ class Encoding
     mb?(encoding) && !MB.fetch(encoding.name).empty?
   end
 
-  # The stop a String whose bytes make no character raises. The runtime
-  # asks for it, because the names live here.
+  # The error that a String whose bytes make no character raises. The
+  # runtime calls this, because the names are here.
   def self.invalid_bytes(text)
     Primitive.attr! :hidden
     raise ArgumentError, "invalid byte sequence in #{text.encoding.name}"
@@ -3177,14 +3177,14 @@ class Encoding
   end.freeze
   private_constant :UTF8_LEADS
 
-  # The message a join of two encodings raises, which the runtime asks
-  # for because the names live here.
+  # The message that a join of two encodings raises. The runtime calls
+  # this because the names are here.
   def self.incompatible(a, b)
     Primitive.attr! :hidden
     raise CompatibilityError, "incompatible character encodings: #{shown(a.encoding)} and #{shown(b.encoding)}"
   end
 
-  # BINARY reads as both its names where an error names it.
+  # BINARY shows as both its names when an error gives it.
   def self.shown(encoding)
     Primitive.attr! :hidden
     encoding.equal?(ASCII_8BIT) ? +"BINARY (ASCII-8BIT)" : encoding.name
@@ -3232,8 +3232,8 @@ class Encoding
     Primitive.attr! :hidden
     [a, b].each do |encoding|
       next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name) || mb_converts?(encoding) || utf8_like?(encoding)
-      # Plain ASCII crosses an ASCII-compatible encoding with no table,
-      # unless an option asks for a decorator, which needs a converter.
+      # Plain ASCII goes into an ASCII-compatible encoding with no table,
+      # unless an option requests a decorator, which needs a converter.
       if ascii && !shaped?(encoding) && encoding.ascii_compatible? && !encoding.dummy?
         next if decorators.empty?
 
@@ -3254,7 +3254,7 @@ class Encoding
   private_class_method :not_found
   private_class_method :converter
 
-  # The decorators the options of an encode ask for, by ruby's names.
+  # The decorators that the options of an encode request, by ruby's names.
   def self.decorators(options)
     Primitive.attr! :hidden
     names = case options[:xml]
@@ -3649,10 +3649,10 @@ class Encoding
   private_constant :HUB_NAMES
 
   # A carrier's Shift_JIS or JIS reads into the carrier's own UTF-8 and
-  # writes out of it, as ruby's converters go: the carrier's emoji are
+  # writes out of it, as ruby's converters do: the carrier's emoji are
   # private-use code points there, and the exchange with Unicode or with
-  # another carrier is a step of its own. The path names each hub step
-  # as its transcoder does.
+  # another carrier is a separate step. The path shows each hub step
+  # with its transcoder's name.
   def self.hub_convert(text, from, target, options)
     Primitive.attr! :hidden
     read = MB_HUBS[from.name] && find(MB_HUBS[from.name])
@@ -3723,10 +3723,10 @@ class Encoding
   end
   private_class_method :hub_convert, :hub_read, :hub_write
 
-  # Ruby's words for bytes a decoder cannot read: `incomplete` when the
-  # input ends inside them, else `followed by` the bytes it reads again.
-  # The failure names the ends of the step that read them: the decoding
-  # into UTF-8, or from UTF-8 the one step to the target.
+  # Ruby's words for bytes that a decoder cannot read: `incomplete` when
+  # the input ends inside them, else `followed by` the bytes it reads
+  # again. The failure gives the ends of the step that read them: the
+  # decoding into UTF-8, or from UTF-8 the one step to the target.
   def self.invalid(error, again, ended, name, destination = UTF_8)
     Primitive.attr! :hidden
     shown = error.pack("C*").dump
@@ -3785,8 +3785,8 @@ class Encoding
   end
   private_class_method :fallback
 
-  # `X from A to B` for a single step ruby words that way, else the
-  # chain form, which names every encoding on the path.
+  # `X from A to B` for a single step that ruby words that way, else the
+  # chain form, which gives every encoding on the path.
   def self.message(shown, from, to, path)
     Primitive.attr! :hidden
     other = to.equal?(UTF_8) ? from : to
