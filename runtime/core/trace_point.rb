@@ -16,7 +16,7 @@ class TracePoint
   NAMES = EVENTS.first(15).to_h(&:reverse).freeze
   ALL = 0x7fff
   C_EVENTS = 0x60
-  # The events a set_trace_func hook takes, by the names it takes them.
+  # The events that a set_trace_func hook takes, by their names there.
   HOOK_NAMES = {
     line: "line", class: "class", end: "end", call: "call", return: "return",
     c_call: "c-call", c_return: "c-return", raise: "raise"
@@ -122,7 +122,7 @@ class TracePoint
       Primitive.zr_hidden_get(Fiber.current, :__trace_row__)
     end
 
-    # The kernel's mask: every event an enabled TracePoint asks for.
+    # The kernel's mask: every event that an enabled TracePoint wants.
     def rearm
       Primitive.attr! :hidden
       mask = enabled.inject(0) { |all, point| all | Primitive.zr_hidden_get(point, :__events__) }
@@ -141,7 +141,7 @@ class TracePoint
     end
 
     # A thread's own events, which thread_start_func_2 fires around the
-    # thread's body: the row names no file, no line and no method, and
+    # thread's body: the record gives no file, no line and no method, and
     # `self` is the thread, as th->self is.
     def thread_event(name, thread)
       Primitive.attr! :hidden
@@ -151,9 +151,9 @@ class TracePoint
       fire([bit, nil, nil, 0, nil, nil, nil, thread, nil, 0, 0])
     end
 
-    # CRuby's own Ruby methods, marked the first time a TracePoint asks
-    # for :call or :return, so each send to one fires them: the place
-    # each one's events report, by its class and name.
+    # CRuby's own Ruby methods, marked the first time a TracePoint wants
+    # :call or :return, so each send to one fires them: the position
+    # that each one's events report, by its class and name.
     def builtin_places
       Primitive.attr! :hidden
       Primitive.zr_hidden_get(self, :__builtin_places__) || Primitive.zr_hidden_set(self, :__builtin_places__, marked_builtins)
@@ -278,7 +278,7 @@ class TracePoint
     when :call, :c_call, :return, :c_return
       return "#<TracePoint:#{event} '#{method_id}' #{path}:#{lineno}>"
     when :thread_begin, :thread_end
-      # These stand nowhere, so tracepoint_inspect names the thread.
+      # These have no position, so tracepoint_inspect shows the thread.
       return "#<TracePoint:#{event} #{row[7].inspect}>"
     end
     "#<TracePoint:#{event} #{path}:#{lineno}>"
@@ -344,7 +344,7 @@ class TracePoint
 
   private
 
-  # The row of the event being handled, whichever TracePoint asks.
+  # The record of the event being handled, for any TracePoint.
   def row
     Primitive.attr! :hidden
     TracePoint.send(:current_row) or raise RuntimeError, +"access from outside"

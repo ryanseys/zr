@@ -257,9 +257,9 @@ module Enumerable
     respond_to?(:size, true) ? size : nil
   end
 
-  # What a cycle counts: nothing, where the receiver counts nothing or
-  # has no count to give; endlessly, where no round was asked for; and
-  # otherwise the rounds asked for, none of them being none at all.
+  # What a cycle counts: nothing when the receiver counts nothing or
+  # has no count to give; infinity when no round count was given;
+  # otherwise the given rounds (a round count of zero or less is none).
   def cycle_size(rounds, endless)
     Primitive.attr! :hidden
     total = enumerable_size
@@ -294,7 +294,7 @@ module Enumerable
     raise ArgumentError, +"invalid slice size" if n <= 0
     return to_enum(:each_slice, n) { (total = enumerable_size) && (total + n - 1) / n } unless block_given?
 
-    # limit_by_enum_size asks the size to reserve a slice's room.
+    # limit_by_enum_size reads the size to reserve a slice's room.
     enumerable_size
 
     slice = []
@@ -673,9 +673,9 @@ module Enumerable
   def each_with_index(*args)
     return to_enum(:each_with_index, *args) { enumerable_size } unless block_given?
     # An Array that walks as Array does is walked by index, through a
-    # block of this frame's own that yields on: naming a `&block`
-    # parameter costs a Proc a call here even where the method only
-    # hands the block on, and the compiler asks this 8.8 million times
+    # block of this frame's own that yields on. A named `&block`
+    # parameter costs a Proc per call here, even when the method only
+    # passes the block on, and the compiler calls this 8.8 million times
     # in one cold runtime build.
     return Primitive.zr_ary_each_with_index_m(self) { |x, i| yield(x, i) } if args.empty? && Primitive.zr_ary_plain_each_p(self)
 

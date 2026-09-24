@@ -12,10 +12,10 @@ class Encoding
   class Converter
     CONVERTER_FLAGS.each { |name, value| const_set(name, value) }
 
-    # The decorators in the order a description names them, and in the
-    # order a conversion path lists them; a path spells two of them
-    # differently. `lf_newline` writes the line ends this platform uses
-    # already, so it changes nothing.
+    # The decorators in the order that a description gives them, and in
+    # the order that a conversion path lists them; a path spells two of
+    # them differently. `lf_newline` writes the line ends that this
+    # platform already uses, so it changes nothing.
     SHOWN = %i[xml_text xml_attr_content xml_attr_quote universal_newline crlf_newline cr_newline lf_newline].freeze
     WALKED = %i[xml_text xml_attr_content xml_attr_quote crlf_newline cr_newline universal_newline lf_newline].freeze
     NAMES = {
@@ -144,8 +144,8 @@ class Encoding
       @replacement = text
     end
 
-    # Every whole character of `text`, converted. What the text ends
-    # inside waits for the next piece, as `:partial_input` asks.
+    # Every whole character of `text`, converted. A character that the
+    # text ends inside waits for the next piece, as `:partial_input` requests.
     def convert(text)
       raise ArgumentError, +"converter already finished" if @finished
 
@@ -445,8 +445,8 @@ class Encoding
            piece)
     end
 
-    # The code points one character becomes: the line ends the decorators
-    # ask for, and the markup an XML decorator writes.
+    # The code points that one character becomes: the line ends that the
+    # decorators request, and the markup that an XML decorator writes.
     def points(point)
       Primitive.attr! :hidden
       out = []
@@ -524,9 +524,9 @@ class Encoding
       out << bytes
     end
 
-    # A code point the destination has no place for: a character
-    # reference where an XML decorator asked for one, the replacement
-    # where the caller did, else ruby's own refusal.
+    # A code point that the destination cannot encode: a character
+    # reference when an XML decorator requests one, the replacement when
+    # the caller does, else ruby's own refusal.
     def missing(point)
       Primitive.attr! :hidden
       shown = "U+#{format('%04X', point)}"

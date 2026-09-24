@@ -3910,7 +3910,7 @@ module NKF
 
     # --- The conversion -----------------------------------------------
 
-    # module_connection: the filter chains the options ask for.
+    # module_connection: the filter chains that the options select.
     def module_connection
       set_input_encoding(@input_encoding) if @input_encoding
       @output_encoding ||= ENCODINGS[UTF_8]

@@ -66,9 +66,9 @@ class Exception
     out
   end
 
-  # The rows the raise saw, as Location objects: nil before a raise, and
-  # unchanged when set_backtrace replaces the strings. Locations given
-  # to set_backtrace stand for both.
+  # The backtrace entries that the raise saw, as Location objects: nil
+  # before a raise, and unchanged when set_backtrace replaces the
+  # strings. Locations given to set_backtrace are used for both.
   def backtrace_locations
     return @locations.dup if @locations
 
@@ -93,8 +93,8 @@ class Exception
   RESET = "\e[m"
   private_constant :BOLD, :UNDERLINE, :RESET
 
-  # An exception with no backtrace hangs its head off the position that
-  # asked for the report, under this method's name, as CRuby's C frame
+  # An exception with no backtrace uses as its head the position that
+  # requested the report, under this method's name, as CRuby's C frame
   # does.
   def asked_from(row)
     Primitive.attr! :hidden
@@ -365,8 +365,8 @@ end
 class SignalException
   def signo = Primitive.zr_hidden_get(self, :signo)
 
-  # A number names its first signal in Signal.list; a name keeps its own
-  # spelling, an alias among them.
+  # A number gives its first signal in Signal.list; a name keeps its own
+  # spelling, including an alias.
   def initialize(sig = nil, message = nil)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
 
@@ -458,7 +458,7 @@ module Kernel
 end
 
 # ruby.c defines these before the gem prelude runs, which loads each
-# library only where its module stands.
+# library only where its module is defined.
 module ErrorHighlight; end
 module DidYouMean; end
 module SyntaxSuggest; end

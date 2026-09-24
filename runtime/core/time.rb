@@ -14,7 +14,7 @@ class Time
   MONTH_NAMES = %w[January February March April May June July August September October November December].freeze
   DAY_NAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
   SPACE = " \t\n\v\f\r"
-  # The strftime directives that stand for a format of others.
+  # The strftime directives that represent a format of other directives.
   COMPOUNDS = { "c" => "%a %b %e %H:%M:%S %Y", "x" => "%m/%d/%y", "X" => "%H:%M:%S", "D" => "%m/%d/%y",
                 "r" => "%I:%M:%S %p", "R" => "%H:%M", "T" => "%H:%M:%S", "v" => "%e-%^b-%4Y", "F" => "%Y-%m-%d" }.freeze
   INT_MAX = 0x7fff_ffff
@@ -231,7 +231,7 @@ class Time
     end
 
     # Two digits and no third, as CRuby's two_digits reads them; the
-    # refusal names the part, then the text from its separator on.
+    # refusal gives the part, then the text from its separator on.
     def two_digits(str, pos, name)
       unless digit?(str[pos]) && digit?(str[pos + 1]) && !digit?(str[pos + 2])
         after = " after '#{str[pos - 1]}'" if str[pos - 1] == +"-" || str[pos - 1] == +":"
@@ -579,7 +579,7 @@ class Time
   alias asctime ctime
 
   # ISO 8601: `Z` for UTC, the offset otherwise, and `digits` places of
-  # the fraction when asked for.
+  # the fraction when requested.
   def iso8601(digits = 0)
     text = strftime("%Y-%m-%dT%H:%M:%S")
     text = "#{text}.#{format("%09d", nsec)[0, digits]}" if digits > 0
@@ -835,7 +835,7 @@ class Time
     at + 1
   end
 
-  # What names no directive, from its `%` through `to`, as it is
+  # Text that is not a directive, from its `%` through `to`, as it is
   # written.
   def verbatim(format, from, to, out)
     Primitive.attr! :hidden

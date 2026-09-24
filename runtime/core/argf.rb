@@ -72,8 +72,8 @@ stream = Class.new do
 
   def set_encoding(*args) = file.set_encoding(*args)
 
-  # The walk moves to the next file when the one in hand runs out, so
-  # every read is written the same way: ask, and advance on nil.
+  # The walk moves to the next file when the current one runs out, so
+  # every read is written the same way: read, and advance on nil.
   def gets(*args, **options)
     each_stream do |io|
       line = io.gets(*args, **options)
@@ -181,10 +181,10 @@ stream = Class.new do
 
   private
 
-  # The stream in hand, opening the next named file when the one in
-  # hand ran out. A program with no arguments reads standard input;
+  # The current stream, opening the next named file when the current
+  # one ran out. A program with no arguments reads standard input;
   # one with arguments never falls back to it. A file that ran out
-  # stays here closed, so a later `eof?` speaks about it as ruby's
+  # stays here closed, so a later `eof?` reports on it as ruby's
   # does.
   def current
     Primitive.attr! :hidden
@@ -196,8 +196,8 @@ stream = Class.new do
     @stream = @path == +"-" ? $stdin : File.open(@path, "r")
   end
 
-  # Runs the block on each stream in turn, moving on when the block
-  # took nothing from the one in hand.
+  # Runs the block on each stream in sequence, moving on when the block
+  # took nothing from the current one.
   def each_stream
     Primitive.attr! :hidden
     while (io = current)

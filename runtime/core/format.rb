@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# `Kernel#format` over Integer, String, Symbol and the `%c` and `%p`
-# directives; a Float directive stops by name until Float lands.
+# `Kernel#format` over Integer, Float, String, Symbol and the `%c` and
+# `%p` directives.
 module Kernel
   def format(spec, *args)
     Formatter.new(Primitive.zr_str_operand(spec), args).render
@@ -123,8 +123,8 @@ module Kernel
       [n, i]
     end
 
-    # An argument taken in order. A template names its arguments one
-    # way or the other, never both.
+    # An argument taken in order. A template refers to its arguments
+    # in one of the two ways, never both.
     def take_next
       Primitive.attr! :hidden
       raise ArgumentError, "unnumbered(#{@next + 1}) mixed with numbered" if @numbered
@@ -144,7 +144,7 @@ module Kernel
       @args[n - 1]
     end
 
-    # The message names the key inside the brackets the program wrote.
+    # The message gives the key inside the brackets that the program wrote.
     def named(name, open, close)
       Primitive.attr! :hidden
       raise ArgumentError, "named#{open}#{name}#{close} after unnumbered(#{@next})" if @next.positive?

@@ -130,7 +130,7 @@ module Process
       options.each { |key, value| add(key, value) }
     end
 
-    # Whether an option asks for what only a forked child can do before
+    # Whether an option needs what only a forked child can do before
     # its exec.
     def forked? = @pgroup >= 0 || @umask >= 0 || !@limits.empty?
 
@@ -287,7 +287,7 @@ module Process
 
   def groups = Process.send(:checked, Primitive.zr_proc_groups)
 
-  # The group ids in a list stand for groups by id or by name.
+  # The group ids in a list identify groups by id or by name.
   def groups=(list)
     raise TypeError, "wrong argument type #{conversion_name(list)} (expected Array)" unless list.is_a?(Array)
 
@@ -639,9 +639,9 @@ module Process
     pid
   end
 
-  # The file a command word runs: the word itself when it names a path,
-  # else the first executable file of that name on PATH, as execvp
-  # searches.
+  # The file that a command word runs: the word itself when it is a
+  # path, else the first executable file of that name on PATH, as
+  # execvp searches.
   def self.executable(word)
     Primitive.attr! :hidden
     return word if word.include?("/")
@@ -682,9 +682,9 @@ module Process
     # An `=` inside the first word makes it an assignment, which only a
     # shell can do, as rb_exec_fillarg reads it.
     first = command.split(" ").first || +""
-    # rb_exec_fillarg hands the shell its own name as argv[0], which is
-    # the name a shell puts in front of its own complaints, and the
-    # spawn finds it on PATH.
+    # rb_exec_fillarg gives the shell its own name as argv[0], which is
+    # the name that a shell puts in front of its own error messages, and
+    # the spawn finds it on PATH.
     return [+"sh", +"-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
 
     words = command.split(" ")

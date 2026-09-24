@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# Decimal numbers with as many digits as the caller asks for.
+# Decimal numbers with as many digits as the caller requests.
 #
 # A value is `sign * digits * 10 ** (exponent - digit count)`, so the
-# printed form `0.<digits>e<exponent>` reads straight off the fields.
-# `digits` is an Integer with no trailing zero, which makes equality
-# and the printed form one and the same question.
+# printed form `0.<digits>e<exponent>` reads directly from the fields.
+# `digits` is an Integer with no trailing zero, so equality and the
+# printed form are the same comparison.
 class BigDecimal < Numeric
   include Comparable
 
@@ -37,7 +37,7 @@ class BigDecimal < Numeric
   BASE = 1_000_000_000
 
   # A class with no allocator of its own, which every reader of the
-  # object protocol asks about.
+  # object protocol checks.
   ALLOCATE = Class.instance_method(:allocate)
   private_constant :ALLOCATE
 
@@ -247,8 +247,8 @@ class BigDecimal < Numeric
 
   def quo(other, digits = 0) = divide(other, digits.to_int)
 
-  # With no digits asked for this is the Integer quotient, as ruby's
-  # own `div` is; with digits it is the division rounded there.
+  # With no digits given, this is the Integer quotient, as ruby's own
+  # `div` is; with digits it is the division rounded there.
   def div(other, digits = nil)
     return divide(other, digits.to_int) if digits
 
@@ -399,8 +399,8 @@ class BigDecimal < Numeric
     [@sign, @digits.to_s, 10, @exp]
   end
 
-  # The receiver kept to `digits` significant digits, which division
-  # and the `add` family both ask for.
+  # The receiver limited to `digits` significant digits, which division
+  # and the `add` family both need.
   def round_significant(digits)
     return self unless finite?
     return self if digits <= 0 || n_significant_digits <= digits
@@ -439,8 +439,8 @@ class BigDecimal < Numeric
     freeze
   end
 
-  # The other side as a BigDecimal, or nil when ruby would rather ask
-  # the other side to coerce.
+  # The other side as a BigDecimal, or nil when ruby calls coerce on
+  # the other side instead.
   def cast(other)
     case other
     when BigDecimal then other
@@ -502,9 +502,9 @@ class BigDecimal < Numeric
     -them.sign_bit
   end
 
-  # `a / b` to `digits` significant digits. With none asked for, ruby
-  # gives the wider operand's own width plus a Float's worth, and
-  # never fewer than two of those.
+  # `a / b` to `digits` significant digits. With none given, ruby uses
+  # the wider operand's own width plus a Float's worth, and never fewer
+  # than two of those.
   def divide(other, digits)
     them = cast(other)
     return coerced(other, :/) unless them

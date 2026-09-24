@@ -219,9 +219,10 @@ class StringScanner
 
   def named_captures = groups ? groups.named_captures : {}
 
-  # `#<StringScanner 5/11 "test " @ "strin...">`: the place, the five
-  # bytes each side of the pointer, and what waits. A scanner that has
-  # taken nothing names no text, and one at the end says so alone.
+  # `#<StringScanner 5/11 "test " @ "strin...">`: the position, the five
+  # bytes on each side of the pointer, and the rest of the text. A
+  # scanner that has taken nothing shows no text, and one at the end
+  # says only that.
   def inspect
     return "#<#{self.class} (uninitialized)>" if Primitive.zr_hidden_get(self, :__string__).nil?
     return "#<#{self.class} fin>" if eos?
@@ -362,8 +363,8 @@ class StringScanner
     nil
   end
 
-  # inspect1 and inspect2: the five bytes each side of the pointer, with
-  # the dots that say more stands there, dumped as bytes.
+  # inspect1 and inspect2: the five bytes on each side of the pointer,
+  # with the dots that show that there is more, dumped as bytes.
   def before
     Primitive.attr! :hidden
     text = pos > 5 ? "...".b + string.byteslice(pos - 5, 5).b : string.byteslice(0, pos).b

@@ -65,12 +65,12 @@ module Kernel
     Kernel.load_file(Kernel.feature_path(path), path, 1)
   end
 
-  # A load runs the file each time, and names it exactly: a path that
+  # A load runs the file each time, and finds it exactly: a path that
   # says where it starts, else a file under a $LOAD_PATH directory, else
   # one under the working directory.
   #
   # A `wrap` runs the file under a module: the one given, or a new one
-  # for any other true value. Its constants and methods land there, and
+  # for any other true value. Its constants and methods go there, and
   # its self is a clone of main that the module extends.
   def load(name, wrap = false)
     feature = File.path(name)
@@ -86,10 +86,10 @@ module Kernel
     true
   end
 
-  # The file a require of `feature` runs, or nil, as the compiler
-  # resolves a literal name: a name with no `.rb` names a file that ends
-  # in it, and a native extension's name also names the Ruby that stands
-  # in for it among this runtime's native halves.
+  # The file that a require of `feature` runs, or nil, as the compiler
+  # resolves a literal name. A name with no `.rb` refers to a file that
+  # ends in it. A native extension's name also refers to the Ruby file
+  # that replaces it in this runtime's native parts.
   def self.feature_path(feature)
     Primitive.attr! :hidden
     return search(feature) if feature.end_with?(".rb")
@@ -494,7 +494,7 @@ module Kernel
   class << self
     private
 
-    # rb_to_id: a Symbol, or a String that names one.
+    # rb_to_id: a Symbol, or a String that is its name.
     def global_name(name)
       Primitive.attr! :hidden
       return name if name.is_a?(Symbol)

@@ -12,7 +12,7 @@ class Date
           [1912, 7, 30, "T", 1911], [1873, 1, 1, "M", 1867]].freeze
   private_constant :ERAS
 
-  # The directives that stand for a format of others.
+  # The directives that represent a format of other directives.
   COMPOUNDS = { "c" => "%a %b %e %H:%M:%S %Y", "D" => "%m/%d/%y", "x" => "%m/%d/%y", "F" => "%Y-%m-%d",
                 "T" => "%H:%M:%S", "X" => "%H:%M:%S", "R" => "%H:%M", "r" => "%I:%M:%S %p", "v" => "%e-%^b-%Y",
                 "+" => "%a %b %e %H:%M:%S %Z %Y" }.freeze
@@ -21,7 +21,7 @@ class Date
 
   # date_strftime_internal: the format's directives rendered in its
   # encoding. A NUL byte ends what the C renderer reads, so each run
-  # between NUL bytes renders apart.
+  # between NUL bytes renders separately.
   def strftime(format = "%F")
     format = String(format) unless format.is_a?(String)
     raise TypeError, "no implicit conversion of #{format.class} into String" unless format.is_a?(String)
@@ -186,7 +186,7 @@ class Date
     at + 1
   end
 
-  # What names no directive, from its `%` through `to`, as it is
+  # Text that is not a directive, from its `%` through `to`, as it is
   # written.
   def verbatim(format, from, to, out)
     out << format.byteslice(from, to - from + 1)
@@ -236,7 +236,7 @@ class Date
   # `%z`: the offset as hours and minutes, `:` between them and then the
   # seconds for each colon, or as few parts as lose nothing for three.
   # The width counts past the sign and the minutes; `-` lets an hour
-  # under ten stand as one digit, and `_` pads before the sign.
+  # under ten show as one digit, and `_` pads before the sign.
   def put_offset(out, colons, width, padding, left)
     off = offset_seconds
     aoff = off.abs
@@ -271,7 +271,7 @@ class DateTime < Date
 
   def to_s = strftime("%Y-%m-%dT%H:%M:%S%:z")
 
-  # ISO 8601, with `digits` of a second when the caller asks for them.
+  # ISO 8601, with `digits` of a second when the caller requests them.
   def iso8601(digits = 0)
     return strftime("%Y-%m-%dT%H:%M:%S%:z") if digits.zero?
 
