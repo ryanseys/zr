@@ -312,7 +312,7 @@ module Prism
         end
       end
 
-      # The names pm_numbered_parameter_names holds.
+      # The names in pm_numbered_parameter_names.
       NUMBERED_PARAMETER_NAMES = (1..9).map { |number| "_#{number}".b.freeze }.freeze
 
       # parse_variable: the previous identifier as a local variable read, a

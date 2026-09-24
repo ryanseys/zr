@@ -94,7 +94,7 @@ module FFI
   end
 
   class << self
-    # rbffi_Type_Lookup: the Type a name stands for, or nil.
+    # rbffi_Type_Lookup: the Type that a name represents, or nil.
     def type_lookup(name)
       Primitive.attr! :hidden
       case name

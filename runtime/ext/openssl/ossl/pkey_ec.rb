@@ -186,7 +186,7 @@ module OpenSSL
       def ec_point_on_group(group_object) = ec_point_initialize(Native.allocate(PKey::EC::Point), [group_object])
 
       # ossl_ec_group_initialize with one argument: a copy of a Group, the
-      # parameters PEM or DER holds, or a named curve.
+      # parameters in PEM or DER, or a named curve.
       def ec_group_from(arg)
         if arg.is_a?(PKey::EC::Group)
           group = Lib.EC_GROUP_dup(EC_GROUP.fetch(arg))

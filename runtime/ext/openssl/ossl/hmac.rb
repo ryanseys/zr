@@ -41,7 +41,7 @@ module OpenSSL
       begin
         raise Ossl.error(HMACError, "EVP_DigestSignInit") if Lib.EVP_DigestSignInit(ctx, nil, md, nil, pkey) != 1
       ensure
-        # The context holds its own reference.
+        # The context keeps its own reference.
         Lib.EVP_PKEY_free(pkey)
       end
       Native.hidden_set(self, :md_holder, holder)

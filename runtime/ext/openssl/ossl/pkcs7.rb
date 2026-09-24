@@ -154,7 +154,7 @@ module OpenSSL
         end
       end
 
-      # The issuer and serial a signer or recipient carries.
+      # The issuer and serial of a signer or recipient.
       def issuer_and_serial(info, offset) = Lib.read(Lib.read_pointer(info + offset), 16).unpack("JJ")
 
       # ossl_pkcs7_add_certificate.

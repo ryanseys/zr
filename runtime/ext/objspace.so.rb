@@ -5,9 +5,8 @@
 # Sizes are this runtime's: a cell is 128 bytes, and what a String, an
 # Array or a Hash keeps outside its cell counts with it.
 module ObjectSpace
-  # What reachable_objects_from answers for a cell no program can hold.
-  # A cell a program may not hold, seen from outside: its address and
-  # its type.
+  # What reachable_objects_from returns for a cell that no program can
+  # reach: the cell seen from outside, as its address and its type.
   class InternalObjectWrapper
     Primitive.zr_undef_alloc(self)
 

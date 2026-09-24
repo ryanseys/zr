@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # darwin's socket structures, as BSD lays them out: a sockaddr starts
-# with its own length byte and then its family byte, a sockaddr_un holds
+# with its own length byte and then its family byte, a sockaddr_un has
 # 104 bytes of path, and a cmsghdr is three 32-bit words, each control
 # message padded to 4 bytes. The IPv6 stack is KAME's.
 class Socket < BasicSocket

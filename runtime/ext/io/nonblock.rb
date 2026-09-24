@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# `require "io/nonblock"`: O_NONBLOCK on the descriptor. ruby grows these
-# rows at the require, so a program that never asks for the feature does
-# not answer them.
+# `require "io/nonblock"`: O_NONBLOCK on the descriptor. ruby adds these
+# methods at the require, so a program that never requires the feature
+# does not have them.
 class IO
   def nonblock? = nonblock_flag?
 

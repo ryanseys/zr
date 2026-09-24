@@ -32,7 +32,7 @@ module OpenSSL
         outs.map { |out| Lib.pointer_at(out) }
       end
 
-      # OSSL_PKEY_BN_DEF_GETTER0's answer: a BN copying `bn`, or nil.
+      # OSSL_PKEY_BN_DEF_GETTER0's result: a BN copying `bn`, or nil.
       def bn_or_nil(bn) = bn.zero? ? nil : bn_new(bn)
 
       # The EVP_PKEY of `object` when its type is `type`, as the Get

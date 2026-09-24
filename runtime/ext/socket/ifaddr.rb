@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# ifaddr.c: one interface address getifaddrs(3) answered, its name,
-# flags and addresses read when the list was.
+# ifaddr.c: one interface address that getifaddrs(3) returned, with its
+# name, flags and addresses read at the same time as the list.
 class Socket < BasicSocket
   class Ifaddr
     Primitive.zr_undef_alloc(self)

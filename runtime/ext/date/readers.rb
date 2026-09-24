@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # The fixed shapes: ISO 8601, RFC 3339, XML Schema, RFC 2822, HTTP dates
-# and JIS X 0301. Each answers the elements it finds, or nothing at all.
+# and JIS X 0301. Each returns the elements it finds, or nothing at all.
 
 class Date
   ISO_EXT_DATETIME_RE = /\A\s*(?:([-+]?\d{2,}|-)-(\d{2})?(?:-(\d{2}))?|([-+]?\d{2,})?-(\d{3})|(\d{4}|\d{2})?-w(\d{2})-(\d)|-w-(\d))(?:t(\d{2}):(\d{2})(?::(\d{2})(?:[,.](\d+))?)?(z|[-+]\d{2}(?::?\d{2})?)?)?\s*\z/i

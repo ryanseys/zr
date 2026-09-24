@@ -222,8 +222,8 @@ module Prism
         true
       end
 
-      # expect1, expect2: a missing token stands in, empty at the end of the
-      # previous one, with an error there.
+      # expect1, expect2: a missing token is put in its place, empty at the
+      # end of the previous one, with an error there.
       def expect(*types, id)
         return if accept(*types)
 

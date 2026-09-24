@@ -29,7 +29,7 @@ module OpenSSL
       # signed 64-bit range: x0 as a signed Integer.
       def call(address, words) = Primitive.zr_c_call(address, words)
 
-      # #call, answering [x0, errno].
+      # #call, returning [x0, errno].
       def call_errno(address, words) = Primitive.zr_c_call_errno(address, words)
 
       # #call for a function that also takes `float`, a double, as its

@@ -242,10 +242,10 @@ module Prism
         true
       end
 
-      # The newline after a comment or on its own. It answers :again to lex
+      # The newline after a comment or on its own. It returns :again to lex
       # the next token instead (an ignored newline), :done when the token is
-      # set and reported, or nil for a NEWLINE token whose report waits on
-      # whether a comment came before.
+      # set and reported, or nil for a NEWLINE token whose report depends
+      # on whether a comment came before.
       def lex_newline(lexed_comment, semantic_token_seen)
         @semantic_token_seen = semantic_token_seen
         eol_length = match_eol_at(@current_end - 1)

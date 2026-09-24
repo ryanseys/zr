@@ -100,9 +100,9 @@ module Psych
     # yaml_tag_directive_t
     TagDirective = Struct.new(:handle, :prefix)
 
-    # yaml_token_t. The data union is flat: `value` holds the text of an
-    # alias, an anchor or a scalar; `handle` and `suffix` hold a tag;
-    # `handle` and `prefix` hold a %TAG directive.
+    # yaml_token_t. The data union is flat: `value` contains the text of an
+    # alias, an anchor or a scalar; `handle` and `suffix` contain a tag;
+    # `handle` and `prefix` contain a %TAG directive.
     Token = Struct.new(:type, :start_mark, :end_mark, :encoding, :value, :style,
                        :handle, :suffix, :prefix, :major, :minor)
 

@@ -87,8 +87,8 @@ class Date
   }.freeze
   private_constant :ZONES
 
-  # The seconds a zone name or a numeric offset stands for, or nil. A
-  # daylight name adds an hour to the standard one it shrinks to.
+  # The seconds that a zone name or a numeric offset represents, or nil.
+  # A daylight name adds an hour to its standard zone.
   private_class_method def self.zone_to_diff(text)
     text = text.to_s
     dst = false

@@ -11,7 +11,7 @@ class Continuation
     undef_method :new
   end
 
-  # The callcc that made this one answers `args`: nil for none, the one,
+  # The callcc that made this one returns `args`: nil for none, the one,
   # or all of them in an Array.
   def call(*args)
     raise RuntimeError, "continuation called across threads" unless Primitive.zr_hidden_get(self, :__thread__).equal?(Thread.current)

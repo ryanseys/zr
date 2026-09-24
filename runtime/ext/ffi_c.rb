@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# ffi_c: the ffi gem's C half, in ruby over the kernel's calls
+# ffi_c: the ffi gem's C part, in ruby over the kernel's calls
 # (runtime/kernel/ffi.rb), which reach libffi. lib/ffi.rb, as the gem ships
 # it, requires this first and then reopens what it defines. The files
-# follow the order Init_ffi_c defines things in, and each stands for the
-# C files it names.
+# follow the order in which Init_ffi_c defines things, and each represents
+# the C files in its name.
 module FFI
 end
 

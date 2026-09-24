@@ -2,8 +2,8 @@
 
 # ipsocket.c, tcpsocket.c, tcpserver.c and udpsocket.c: the sockets of
 # the Internet families. A TCP client resolves its host and tries each
-# address in the order the resolver answers, as init_inetsock_internal
-# tries them.
+# address in the order that the resolver returns, as
+# init_inetsock_internal tries them.
 class IPSocket < BasicSocket
   undef_method :getpeereid
 

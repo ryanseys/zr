@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# stringio.c, in ruby: an IO over a String. The buffer is the very String
-# the program gave, so a write shows through it, and a change to it shows
-# here. What the extension keeps in `struct StringIO` -- the string, the
-# encoding, the position, the line number and the mode -- a Strio holds,
-# and a copy of a stream shares its Strio, as a copy in C shares the
-# struct. Whether this object may still read or write is its own.
+# stringio.c, in ruby: an IO over a String. The buffer is the same String
+# that the program gave, so a write shows through it, and a change to it
+# shows here. A Strio contains what the extension keeps in `struct
+# StringIO`: the string, the encoding, the position, the line number and
+# the mode. A copy of a stream shares its Strio, as a copy in C shares the
+# struct. Whether this object can still read or write is its own state.
 class StringIO
   include Enumerable
 

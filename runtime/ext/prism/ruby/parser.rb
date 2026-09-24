@@ -78,7 +78,7 @@ module Prism
       attr_reader :source, :errors, :warnings, :comments, :magic_comments, :data_loc, :newlines,
                   :constant_pool, :encoding, :start_line, :options, :shared_strings, :negative_zeros
 
-      # The Source each node holds.
+      # The Source that each node refers to.
       attr_accessor :node_source
 
       # pm_lex_callback_t: called with each token's type, start and end, and

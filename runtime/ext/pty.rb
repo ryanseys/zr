@@ -4,8 +4,8 @@
 # the Unix98 calls (posix_openpt, grantpt, unlockpt) and then opens the
 # slave device by the name they give.
 module PTY
-  # A child that ended or stopped, which PTY.check reports by name. The
-  # status it carries is the one the wait answered.
+  # A child that ended or stopped, which PTY.check reports. The status
+  # it contains is the one that the wait returned.
   class ChildExited < RuntimeError
     attr_reader :status
   end

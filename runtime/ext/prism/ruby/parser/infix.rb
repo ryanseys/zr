@@ -340,8 +340,8 @@ module Prism
         with_source(bytes) { slice_valid_local?(0, bytes.bytesize) }
       end
 
-      # The block's answer with `bytes` as the source the character
-      # questions read.
+      # The block's return value, with `bytes` as the source that the
+      # character functions read.
       def with_source(bytes)
         saved_source = @source
         saved_end = @end

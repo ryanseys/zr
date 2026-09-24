@@ -14,7 +14,7 @@ module Zr
         def write_data(at, bytes) = Primitive.zr_jit_write_data(at, bytes)
         def write_code(at, bytes) = Primitive.zr_os_jit_write(at, bytes)
 
-        # A loaded function, called for the word it answers.
+        # A loaded function, called for the word that it returns.
         def call(at) = Primitive.zr_jit_call(at)
       end
     end

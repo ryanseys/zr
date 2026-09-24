@@ -301,7 +301,7 @@ class Socket < BasicSocket
     end
 
     # sockaddr_obj: an interface's address as an Addrinfo. Under KAME a
-    # link-local IPv6 address carries its scope in its second word, and
+    # link-local IPv6 address contains its scope in its second word, and
     # this moves it to the scope field.
     def sockaddr_obj(sockaddr)
       Primitive.attr! :hidden

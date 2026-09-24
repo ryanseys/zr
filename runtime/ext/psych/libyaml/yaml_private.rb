@@ -5,7 +5,7 @@
 # C macros look at `string.pointer[offset]`.
 #
 # libyaml's strings end with a NUL byte, so a test past the last byte
-# sees 0. `getbyte` answers nil there, and the tests read nil as 0.
+# sees 0. `getbyte` returns nil there, and the tests read nil as 0.
 module Psych
   module LibYAML
     module Chars

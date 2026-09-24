@@ -4,9 +4,9 @@
 require_relative "ruby"
 
 # Init_prism (extension.c) and Init_prism_pack (api_pack.c): the Prism
-# constant and singleton methods prism's C extension defines, answered by
-# the Ruby port. A gem's own Ruby half then finds Prism as it would after
-# the C extension loads.
+# constant and the singleton methods that prism's C extension defines,
+# implemented by the Ruby port. A gem's own Ruby part then finds Prism as
+# it would after the C extension loads.
 module Prism
   VERSION = Ruby::Dump::VERSION.join(".").b.freeze
 

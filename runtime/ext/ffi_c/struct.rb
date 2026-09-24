@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# StructLayout.c and Struct.c: where each field of a C struct lies and
-# what type it holds, a struct over memory, and the array a struct holds
-# inline.
+# StructLayout.c and Struct.c: the position of each field of a C struct
+# and its type, a struct over memory, and the array that a struct
+# contains inline.
 module FFI
   class StructLayout < Type
     class Field

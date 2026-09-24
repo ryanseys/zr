@@ -121,7 +121,7 @@ module Prism
       end
 
       # parser_lex_magic_comment: reads the comment as `key: value` pairs,
-      # acts on the keys it knows, and records every pair. It answers false
+      # acts on the keys it knows, and records every pair. It returns false
       # when the comment is not a magic comment as a whole.
       def magic_comment(semantic_token_seen)
         result = true

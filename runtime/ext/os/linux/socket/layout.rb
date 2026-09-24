@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Linux's socket structures, as musl lays them out: a sockaddr starts
-# with its family as 16 bits and records no length, a sockaddr_un holds
+# with its family as 16 bits and records no length, a sockaddr_un has
 # 108 bytes of path, and a cmsghdr is a word-wide length and two ints,
 # each control message padded to 8 bytes.
 class Socket < BasicSocket

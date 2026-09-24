@@ -277,8 +277,8 @@ class Addrinfo
       build(sockaddr, af, kind, proto, canonical&.freeze, inspectname(node, service, sockaddr))
     end
 
-    # make_inspectname: the host and the service as they were asked for,
-    # each left out when it reads as the answer does.
+    # make_inspectname: the host and the service as they were given,
+    # each left out when it reads the same as the result.
     def inspectname(node, service, sockaddr)
       Primitive.attr! :hidden
       answer = Primitive.zr_sock_getnameinfo(sockaddr, Socket::NI_NUMERICHOST | Socket::NI_NUMERICSERV, 3)
