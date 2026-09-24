@@ -36,6 +36,9 @@ module Ze0
     def self.shown(path)
       return path unless @root && path.start_with?("/")
 
+      libraries.each do |prefix, as|
+        return "#{@root}/#{as}#{path[prefix.size..]}" if path == prefix || path.start_with?("#{prefix}/")
+      end
       @prefixes.each do |prefix|
         next unless path == prefix || path.start_with?("#{prefix}/")
 
@@ -43,6 +46,15 @@ module Ze0
         return shown.empty? ? "/" : shown
       end
       path
+    end
+
+    # The library tree (lib/ze0/libraries.rb) is written as the layout
+    # it replaced, so a build under a root names the same paths on any
+    # machine, wherever its gems are.
+    def self.libraries
+      return [] unless defined?(Libraries)
+
+      @libraries ||= [[Libraries.root, "vendor/lib"], *Libraries::APART.zip(Libraries.apart).map { |name, dir| [dir, "vendor/gems/#{name}/lib"] }]
     end
 
     # The user's cache directory for ze0: `XDG_CACHE_HOME` when it is

@@ -126,6 +126,6 @@ Backtraces name the walk's own files rather than the string's line.
   The program's own memory is a fraction of it. `wasmtime compile`
   ahead of time moves the cost out of the run.
 - A binary that carries the compiler names the absolute paths of the
-  gem's `rt/ext`, `vendor/lib` and `vendor/ext/*/lib`. A computed
-  `require` in such a binary works only while that version of the gem
-  stays installed.
+  gem's `rt/ext` and `vendor/ext/*/lib`, and of the library tree it was
+  built against. A computed `require` in such a binary works only while
+  that version of the gem, and its pinned gems, stay installed.

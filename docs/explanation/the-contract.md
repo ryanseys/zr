@@ -55,12 +55,16 @@ object for object, over a committed sample.
 ## The pinned ruby is part of the toolchain
 
 ruby 4.0.6 is more than the oracle. It runs the compiler, its
-pure-Ruby standard library is the copy in `vendor/lib` that a program's
-`require` reads, and the generated tables (`rake gen:*`, `rake tables`)
-were read off it. So `ze0 build` and `ze0 run` refuse to compile on any
-other ruby, with status 3, and each generator task stops on one. A
-newer ruby is a new toolchain: `.ruby-version`, the vendored library,
-the tables and the recorded answers move to it together.
+pure-Ruby standard library -- its default and bundled gems, at the
+versions `ze0.gemspec` pins -- is what a program's `require` reads, and
+the generated tables (`rake gen:*`, `rake tables`) were read off it. So
+`ze0 build` and `ze0 run` refuse to compile on any other ruby, with
+status 3, and each generator task stops on one. A build also refuses a
+pinned gem whose files are not the ones ze0 was checked against
+(`lib/ze0/library_digests.rb`): a distributor's patched copy of a
+default gem is not ruby's. A newer ruby is a new toolchain:
+`.ruby-version`, the pins and their digests, `vendor/lib`, the tables
+and the recorded answers move to it together.
 
 ## How the specs keep the promise
 

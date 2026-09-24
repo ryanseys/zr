@@ -1,77 +1,15 @@
-# The pure-ruby stdlib, copied from ruby 4.0.6 and never edited. A file
-# that does not run names a runtime feature we owe, not a file to change.
-bundled_gems ruby-4.0.6
-bundler 4.0.20 (the site_ruby the pinned ruby carries)
-coverage ruby-4.0.6 (ext/coverage/lib)
-delegate 0.6.1
-did_you_mean 2.0.3
-english 0.8.1
-erb 6.0.1.1
-expect ruby-4.0.6 (ext/pty/lib)
-error_highlight 2.0.0
-fileutils 1.8.0
-find 0.2.0
-forwardable 1.4.0
-ipaddr 1.2.8
-irb 1.18.0
-net-http 0.9.1
-objspace ruby-4.0.6 (ext/objspace/lib)
-net-protocol 0.2.2
-open-uri 0.5.0
-open3 0.2.1
-optparse 0.8.1
-pp 0.6.3
-prettyprint 0.2.0
-resolv 0.7.0
-ripper ruby-4.0.6 (ext/ripper/lib)
-rubygems 4.0.20 (the site_ruby the pinned ruby carries)
-securerandom 0.4.1
-shellwords 0.2.2
-singleton 0.3.0
-syntax_suggest 0.7.2
-tempfile 0.3.1
-time 0.4.2
-timeout 0.6.0
-tmpdir 0.3.1
-tsort 0.2.0
-un 0.3.0
-unicode_normalize ruby-4.0.6
-uri 1.1.1
-weakref 0.1.4
-
-# The bundled gems ruby 4.0.6 loads without a Gemfile, copied from the
-# version `require` picks in its gem home, and never edited either. A
-# bundled gem is ruby's to ship, so a program ruby runs with one expects
-# it. `hoe/minitest.rb`, minitest's Hoe plugin, is left out. racc's C
-# core is not carried; its parser falls back to the Ruby core, as it
-# does wherever `racc/cparse` does not load.
-abbrev 0.1.2
-base64 0.3.0
-benchmark 0.5.0
-csv 3.3.6
-drb 2.2.3
-fiddle 1.1.8
-getoptlong 0.2.1
-logger 1.7.0
-matrix 0.4.3
-minitest 6.0.6
-mutex_m 0.3.0
-net-ftp 0.3.9
-net-imap 0.6.6
-net-pop 0.1.2
-net-smtp 0.5.1
-nkf 0.3.0
-observer 0.1.2
-ostruct 0.6.3
-power_assert 3.0.1 (in vendor/gems/power_assert/lib: it tells its own frames by their directory)
-prime 0.1.4
-pstore 0.2.1
-racc 1.8.1
-rake 13.4.2
-readline 0.0.4
-reline 0.7.0
-resolv-replace 0.2.0
-rexml 3.4.4
-rinda 0.2.0
-rss 0.3.3
-test-unit 3.7.8
+# The files of ruby 4.0.6's library that no gem ships, copied from ruby
+# 4.0.6 and never edited. A file that does not run names a runtime
+# feature we owe, not a file to change. Every other library a program
+# requires is a gem ze0.gemspec pins (lib/ze0/libraries.rb).
+bundled_gems.rb ruby-4.0.6 (lib)
+cgi.rb, cgi/ ruby-4.0.6 (lib)
+coverage.rb ruby-4.0.6 (ext/coverage/lib)
+expect.rb ruby-4.0.6 (ext/pty/lib)
+forwardable/impl.rb ruby-4.0.6 (lib)
+objspace.rb, objspace/ ruby-4.0.6 (ext/objspace/lib)
+pathname.rb ruby-4.0.6 (lib)
+random/formatter.rb ruby-4.0.6 (lib)
+ripper.rb, ripper/ ruby-4.0.6 (ext/ripper/lib)
+set/ ruby-4.0.6 (lib)
+unicode_normalize/ ruby-4.0.6 (lib)

@@ -28,8 +28,8 @@ class RoadAheadTest < Minitest::Test
     def activations = 0
   end
 
-  VENDOR = Ze0::Hir::Build::VENDOR
-  HELD = (Dir[File.join(VENDOR, "rubygems/**/*.rb")] + Ze0::Hir::Build::RUBYGEMS +
+  VENDOR = Ze0::Hir::Build.pure
+  HELD = (Dir[File.join(VENDOR, "rubygems/**/*.rb")] + Ze0::Hir::Build.rubygems_files +
           Dir[File.join(ROOT, "lib/ze0/**/*.rb")] + Dir[File.join(ROOT, "rt/ext/**/*.rb")]).sort.freeze
 
   # The files the loader parses, by path, through the one road a parse

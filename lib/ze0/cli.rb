@@ -220,7 +220,7 @@ module Ze0
     rescue Machine::Refused, Hir::Refused, Zr::Lower::Refused => e
       warn "ze0: #{e.message}"
       exit REFUSED
-    rescue Backend::Refused => e
+    rescue Backend::Refused, Libraries::Unresolved => e
       abort "ze0: #{e.message}"
     rescue SyntaxError => e
       # ruby reports a program that does not parse and exits 1, and so
@@ -237,7 +237,8 @@ module Ze0
         # A ruby that booted with gems has loaded it already, and a
         # second core_ext would wrap the message twice.
         if cruby? && !defined?(SyntaxSuggest.module_for_detailed_message)
-          syntax_suggest = File.join(Paths::VENDOR, "lib/syntax_suggest")
+          require_relative "libraries"
+          syntax_suggest = File.join(Libraries.root, "syntax_suggest")
           require File.join(syntax_suggest, "api")
           require File.join(syntax_suggest, "core_ext")
         end

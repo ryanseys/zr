@@ -2,6 +2,7 @@
 
 require_relative "../prism"
 require_relative "../paths"
+require_relative "../libraries"
 require_relative "../target"
 require_relative "node"
 require_relative "syntax_report"
@@ -20,8 +21,9 @@ module Ze0
     # Prism to HIR. A form the HIR does not hold yet is refused by name at
     # its line: the contract is CRuby-identical or refused, never a guess.
     class Build
-      # Ruby's own pure-ruby stdlib, unedited.
-      VENDOR = File.join(Paths::VENDOR, "lib")
+      # Ruby's own pure-ruby stdlib, unedited: the pinned gems' files and
+      # vendor/lib's, found when a build asks (lib/ze0/libraries.rb).
+      def self.pure = Libraries.root
 
       # The extensions whose native half is ours. A file here is part of
       # the runtime, so it may name a kernel def through `Primitive`.
@@ -51,13 +53,13 @@ module Ze0
       GEMS = %w[prism json psych bigdecimal digest syslog socket ffi openssl].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
       # A bundled gem that tells its own files from a program's by the
       # directory they are in, which must hold that gem alone.
-      BUNDLED = %w[power_assert].map { |name| File.join(Paths::VENDOR, "gems/#{name}/lib") }.freeze
+      def self.bundled = Libraries.apart
 
       # The library roots a program for `target` requires from: ruby's own,
       # then the OS layer's native halves and tables, then the portable
       # ones, then the gems' ruby halves, then the bundled gems kept apart.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [VENDOR, File.join(EXT, "os", target.os_layer), EXT, *GEMS, *BUNDLED].freeze
+        (@stdlib ||= {})[target.triple] ||= [pure, File.join(EXT, "os", target.os_layer), EXT, *GEMS, *bundled].freeze
       end
 
       # The compiler itself, which a program that evals carries, and the
@@ -189,13 +191,13 @@ module Ze0
       # first line. A program here loads them as it boots when a file of
       # it names Gem or Bundler, calls `gem` or requires rubygems; the
       # compiler it carries then holds them already.
-      RUBYGEMS = %w[rubygems bundled_gems].map { |name| File.join(VENDOR, "#{name}.rb") }.freeze
-      AHEAD = [File.join(VENDOR, "rubygems"), *RUBYGEMS].freeze
+      def self.rubygems_files = %w[rubygems bundled_gems].map { |name| File.join(pure, "#{name}.rb") }
+      def self.ahead = [File.join(pure, "rubygems"), *rubygems_files]
       # The files rubygems' autoloads name that its boot reads.
-      BOOTED = %w[dependency path_support requirement util version].map { |name| File.join(VENDOR, "rubygems/#{name}.rb") }.freeze
+      def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(pure, "rubygems/#{name}.rb") }
 
       def self.rubygems(loader)
-        RUBYGEMS.map { |path| Require.new(:require, File.basename(path, ".rb"), path, loader.add(path), 0) }
+        rubygems_files.map { |path| Require.new(:require, File.basename(path, ".rb"), path, loader.add(path), 0) }
       end
 
       # The file that arms String#unicode_normalize's load of ruby's own
@@ -231,12 +233,12 @@ module Ze0
       # standing beside them cannot answer. So the program carries it:
       # added and not required, since irb loads it and a load leaves
       # $LOADED_FEATURES alone.
-      IRB_MESSAGES = File.join(VENDOR, "irb/lc/error.rb")
+      def self.irb_messages = File.join(pure, "irb/lc/error.rb")
 
       # The file that arms Binding#irb's load of irb, as CRuby's prelude
       # requires it on the first call.
       def self.irb_session(loader)
-        loader.add(IRB_MESSAGES)
+        loader.add(irb_messages)
         Require.new(:eval_road, "ze0/irb_session", IRB_SESSION, loader.add(IRB_SESSION), 0)
       end
 
@@ -308,7 +310,7 @@ module Ze0
         # finds the file then and compiles it, and so does an autoload of
         # a file outside `booted`, the files the boot reads.
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED, ahead_road: nil)
+                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, ahead_road: nil)
           @deferred = deferred
           @data = {}
           @ahead_road = external ? nil : ahead_road

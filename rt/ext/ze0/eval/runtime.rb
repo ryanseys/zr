@@ -19,6 +19,11 @@ module Ze0
       # The SHA-256 of each file the compiler this program carries was
       # built from, by path (lib/ze0/zr.rb, `load_tables`).
       def self.sources = Primitive.zr_load_names(8).lines(chomp: true).to_h { |row| row.split("\t", 2) }
+
+      # The library directories the program was built against, as its
+      # build named them (Hir::Build.stdlib), or none where it does not
+      # eval.
+      def self.library_roots = Primitive.zr_load_names(0).split("\n")
     end
   end
 end

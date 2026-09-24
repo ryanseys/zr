@@ -22,6 +22,7 @@ Steps for a goal you already have.
 - [How to debug a program that diverges](how-to/debug-a-program-that-diverges.md)
 - [How to add a method to the core library](how-to/add-a-core-method.md)
 - [How to port a C extension](how-to/port-a-c-extension.md)
+- [How to change the version of a library ze0 carries](how-to/bump-a-library.md)
 - [How to hold another target](how-to/hold-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
 

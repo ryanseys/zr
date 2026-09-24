@@ -18,25 +18,18 @@ version, its license, and where its license text is.
 | ffi | 1.17.4 | BSD-3-Clause | `vendor/ext/ffi` | `vendor/ext/ffi/LICENSE` |
 | openssl | 4.0.2 | Ruby or BSD-2-Clause | `vendor/ext/openssl` | `vendor/ext/openssl/COPYING`, `BSDL` |
 
-## Ruby's pure-Ruby standard library and bundled gems
+## Ruby's pure-Ruby standard library
 
-`vendor/lib` holds ruby 4.0.6's pure-Ruby standard library and bundled
-gems, unedited. `vendor/lib/VERSIONS` names each version. The license
-texts are in `vendor/lib/LICENSES/`.
+`vendor/lib` holds the files of ruby 4.0.6's pure-Ruby library that no
+gem ships (CRuby's own `lib/` and `ext/*/lib`), unedited, under Ruby or
+BSD-2-Clause. `vendor/lib/VERSIONS` names them; the license texts are
+`vendor/lib/LICENSES/COPYING` and `BSDL`.
 
-| Components | License | License text |
-|---|---|---|
-| The standard library and every bundled gem not named below | Ruby or BSD-2-Clause | `COPYING`, `BSDL` |
-| rake | MIT | `rake-MIT-LICENSE` |
-| minitest | MIT | `minitest-LICENSE` |
-| rexml, rss | BSD-2-Clause | `rexml-LICENSE.txt`, `rss-LICENSE.txt` |
-| test-unit | Ruby, BSD-2-Clause, or PSFL (parts) | `test-unit-COPYING`, `test-unit-PSFL` |
-| reline (parts from rb-readline) | Ruby, and BSD-3-Clause for the rb-readline parts | `reline-license_of_rb-readline` |
-| rubygems | Ruby or MIT | `COPYING`, `rubygems-MIT.txt` |
-| bundler | MIT | `bundler-LICENSE.md` |
-| did_you_mean | MIT | `did_you_mean-LICENSE.txt` |
-| error_highlight | MIT | `error_highlight-LICENSE.txt` |
-| syntax_suggest | MIT | `syntax_suggest-LICENSE` |
+The rest of ruby's library is not in this gem. It is the default and
+bundled gems `ze0.gemspec` depends on (`Ze0::Libraries::PINS` in
+`lib/ze0/libraries.rb`), which rubygems installs with their own license
+files. A program ze0 builds carries the files it requires from them,
+under each gem's own license.
 
 `vendor/prelude/gem_prelude.rb` is ruby 4.0.6's own `gem_prelude.rb`,
 unedited, under Ruby or BSD-2-Clause.

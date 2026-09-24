@@ -11,8 +11,9 @@
 # a spec of Hash that keys on Strings, and the class's own name is the
 # one thing every such program spells. A vendored library or an
 # extension names its stdlib directory, and every spec that requires
-# it by name. An edit to the compiler, the kernel or the checks' own
-# support reaches everything, and that is what it runs.
+# it by name. An edit to the compiler (its pinned gems too), the kernel
+# or the checks' own support reaches everything, and that is what it
+# runs.
 
 module Affected
   ROOT = File.expand_path("..", __dir__)
@@ -38,6 +39,7 @@ module Affected
     when %r{\Alib/ze0/}, %r{\Art/kernel/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile", %r{\Arakelib/} then :all
     when %r{\Art/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
     when %r{\Art/ext/([^/.]+)}, %r{\Avendor/lib/([^/.]+)} then library($1)
+    when "Gemfile.lock", "ze0.gemspec" then :all
     else []
     end
   end

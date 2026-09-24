@@ -3,13 +3,16 @@
 ## The gem
 
 The gem ships `exe/`, `lib/`, `rt/` and `vendor/ext`, `vendor/lib`,
-with the license files. Its only require path is `lib/`.
+`vendor/prelude`, with the license files. Its only require path is
+`lib/`. The pure-Ruby library a program requires is not in the gem: it
+is the gems `ze0.gemspec` depends on (`lib/ze0/libraries.rb`).
 
 | Path | Holds |
 |---|---|
 | `exe/ze0` | the gem's command; `lib/ze0/cli.rb` holds its commands |
 | `lib/ze0.rb` | the entry: version, paths and targets |
 | `lib/ze0/paths.rb` | where ze0 reads its sources and writes its cache |
+| `lib/ze0/libraries.rb` | the pinned gems a program requires from, and the tree that links them |
 | `lib/ze0/target.rb` | the targets, and what this host can build |
 | `lib/ze0/prism.rb` | loads prism on the host; `Ze0.parse` |
 | `lib/ze0/parse_cache.rb` | the host's cache of parse results |
@@ -32,12 +35,18 @@ with the license files. Its only require path is `lib/`.
 | `rt/ext/prism/` | the prism port: `prism.rb` and `ruby/` |
 | `rt/ext/os/<os>/` | extension tables and the eval description |
 | `vendor/ext/<gem>/lib/` | the Ruby halves of extension gems, unedited |
-| `vendor/lib/` | ruby 4.0.6's pure-Ruby standard library and bundled gems, unedited |
-| `vendor/gems/`, `vendor/prelude/` | a bundled gem kept apart; ruby's `gem_prelude.rb` |
+| `vendor/lib/` | the files of ruby 4.0.6's library that no gem ships, unedited |
+| `vendor/prelude/` | ruby's `gem_prelude.rb` |
 
 `rt/` and `vendor/` sit beside `lib/`, not in it. ze0 compiles them
 into programs, and the host ruby never loads them. A file such as
-`vendor/lib/set.rb` must never shadow ruby's own.
+`vendor/lib/pathname.rb` must never shadow ruby's own.
+
+A build requires ruby's library from one directory, the library tree:
+a link to each file of each pinned gem and of `vendor/lib`. It is
+`tmp/lib/<key>/` in a checkout, and `ze0/lib/<key>/` in the user's
+cache for an installed gem. `lib/ze0/libraries/resolve.rb` writes it,
+in a ruby with rubygems, when the gems it read from change.
 
 ## The repository only
 

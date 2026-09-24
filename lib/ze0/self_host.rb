@@ -10,12 +10,12 @@ module Ze0
   #
   # `exe/ze0` asks here first. The compiled compiler answers a build only
   # while every file it was built from is as it was then: the stamp of
-  # each file under lib/, rt/, vendor/ and of exe/ze0, and the same list
-  # of files. Anything else is a miss, and ruby runs the command. An
-  # installed gem builds the compiled compiler at its first build and
-  # says so; a checkout, whose files change all day, builds one only
-  # under `ZE0_SELF=1` or `rake build:self`. `ZE0_SELF=0` never hands
-  # the command over.
+  # each file under lib/, rt/, vendor/, the library tree and of exe/ze0,
+  # and the same list of files. Anything else is a miss, and ruby runs
+  # the command. An installed gem builds the compiled compiler at its
+  # first build and says so; a checkout, whose files change all day,
+  # builds one only under `ZE0_SELF=1` or `rake build:self`.
+  # `ZE0_SELF=0` never hands the command over.
   module SelfHost
     # The commands a compiled compiler takes over. The others answer at
     # once under ruby.
@@ -36,12 +36,25 @@ module Ze0
       return if env["ZE0_SELF"] == "0"
 
       build if !current? && (env["ZE0_SELF"] == "1" || !Paths.checkout?)
-      exec(binary, *argv) if current?
+      # The compiled compiler has no rubygems, so a pin it must resolve
+      # again is resolved by this ruby.
+      exec({ "ZE0_RUBY" => RbConfig.ruby }, binary, *argv) if current?
     end
 
     # Every file a compiled compiler is built from, and its stamp.
+    # The library tree counts too: a pin that moves names another tree.
     def sources
-      [File.join(Paths::ROOT, "exe/ze0"), *Dir[File.join(Paths::ROOT, "{lib,rt,vendor}/**/*")]].select { |f| File.file?(f) }.sort
+      [File.join(Paths::ROOT, "exe/ze0"), *Dir[File.join(Paths::ROOT, "{lib,rt,vendor}/**/*")], *library_files].select { |f| File.file?(f) }.sort
+    end
+
+    # The files of the library tree, found by ruby's rubygems where the
+    # manifest is stale. A tree that does not resolve names nothing, and
+    # ruby then runs the build and says why.
+    def library_files
+      require_relative "libraries"
+      Dir[File.join(Libraries.tree, "**/*")]
+    rescue Libraries::Unresolved
+      [File.join(Libraries.dir, "unresolved")]
     end
 
     def stamps(files = sources)

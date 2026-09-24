@@ -532,4 +532,13 @@ namespace :gen do
       ze0_write(path) { |io| mod.write(io) }
     end
   end
+
+  # Found by rubygems without the bundle, as a build finds them.
+  desc "Write lib/ze0/library_digests.rb"
+  task(:libraries) do
+    Gen.pinned!("gen:libraries")
+    env = %w[RUBYOPT RUBYLIB BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_SETUP BUNDLER_VERSION].to_h { |n| [n, nil] }
+    system(env, RbConfig.ruby, File.expand_path("../lib/ze0/libraries/resolve.rb", __dir__), "--digests") or
+      abort("rake gen:libraries: a pinned gem did not resolve")
+  end
 end

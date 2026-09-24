@@ -4,6 +4,13 @@
 
 The first release as a RubyGem.
 
+- The pure-Ruby library a program requires comes from gems, not from
+  copies in the gem. `ze0.gemspec` depends on ruby 4.0.6's default and
+  bundled gems at the versions it ships, and on `rubygems-update` for
+  rubygems and bundler, each pinned exactly; `vendor/lib` keeps only the
+  19 files no gem ships. A build refuses by name a pinned gem that is
+  not installed, or whose files are not the version's.
+
 - `gem install ze0` installs the `ze0` command: `run`, `build`, `machine`,
   `targets` and `version`. The older `ze0 zr run|build|machine` names
   still work.

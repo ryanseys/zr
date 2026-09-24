@@ -5,6 +5,10 @@ programs ze0 compiles. ze0 never compiles C, so the C half of the
 extension becomes Ruby. To learn why, read
 [Why ze0 has no C](../explanation/why-ze0-has-no-c.md).
 
+A gem with no C needs no port: pin it, as
+[How to change the version of a library ze0 carries](bump-a-library.md)
+shows.
+
 ## 1. Vendor the gem's Ruby half
 
 Copy the gem's `lib/` directory, unedited, to `vendor/ext/<gem>/lib/`.
