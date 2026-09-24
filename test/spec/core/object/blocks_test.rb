@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: blocks and yields" do
   it "block auto splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-lambda block yielded EXACTLY ONE Array argument spreads it across its
       # positional parameters -- the rule that makes `Hash#each { |k, v| }` and
       # `[[1, 2]].each { |a, b| }` read naturally. Whether a given block splats at
@@ -120,7 +120,7 @@ describe "Object: blocks and yields" do
   end
 
   it "block auto splat follows the ambiguous param0 rule" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lone Array argument spreads across a block's positional params -- but a
       # block with exactly ONE plain param receives it whole (`ambiguous_param0`,
       # the `each { |pair| }` idiom), and so does a lone optional. Oracle-derived.
@@ -147,7 +147,7 @@ describe "Object: blocks and yields" do
   end
 
   it "block auto splat triggers on more than one optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # More than one OPTIONAL param auto-splats even with no required param at
       # all, while a single optional plus a rest does not. This pair is what rules
       # out the tempting "count the positional slots" formulation of the rule.
@@ -168,7 +168,7 @@ describe "Object: blocks and yields" do
   end
 
   it "escaping block can mutate an ivar via self capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exercises the self:Rc<Self> migration + self-capture path: the block
       # is written inside `Box#run` (so `self`/`@sum` are in scope there) and
       # passed to a call on an EXPLICIT other receiver (`c`, a Collector
@@ -207,7 +207,7 @@ describe "Object: blocks and yields" do
   end
 
   it "for iterates any object answering each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's `for` performs NO type dispatch: `for x in obj` compiles to
       # `obj.each { |x| ... }` (compile_iter, compile.c:8548). So a user class
       # iterates, a pair-yielding each destructures, the loop variable outlives
@@ -252,7 +252,7 @@ describe "Object: blocks and yields" do
   end
 
   it "forwarded block ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Holder
         def store(&b); @proc = b; end
         def run; @proc.call; end
@@ -288,7 +288,7 @@ describe "Object: blocks and yields" do
   end
 
   it "lambda never auto splats" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda is strict: it never auto-splats, whatever its param shape.
 
       p(->(a) { a }.call([1, 2]))
@@ -299,7 +299,7 @@ describe "Object: blocks and yields" do
   end
 
   it "lambda return and break terminate only the lambda itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real Ruby: unlike an ordinary Proc/block, `return`/`break` inside a
       # lambda act like a method boundary -- they terminate just the lambda
       # call, never the enclosing method.
@@ -338,7 +338,7 @@ describe "Object: blocks and yields" do
   end
 
   it "method owner composition equality and curry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak(sound) = "#{sound}!"
       end
@@ -380,7 +380,7 @@ describe "Object: blocks and yields" do
   end
 
   it "a value-typed object used as a condition is truthy, and its side effects still run" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression test for issue #20: a value-typed object used directly
       # as a condition must be treated as truthy. C cannot use a struct as
       # a scalar in `if (...)`, so the codegen wraps value-type objects
@@ -424,7 +424,7 @@ describe "Object: blocks and yields" do
   end
 
   it "singleton method block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A runtime-installed singleton method threads its call-site block, so
       # yield / block_given? / &blk all work inside it (Batch G).
 
@@ -474,7 +474,7 @@ describe "Object: blocks and yields" do
   end
 
   it "singleton method inner block yields to the methods own block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inside a singleton method, an ORDINARY block's `yield` targets the
       # method's own (call-site) block -- the lexical-clone path composing over
       # the method-body lambda's call-site `__blk`.
@@ -492,7 +492,7 @@ describe "Object: blocks and yields" do
   end
 
   it "singleton method object binds a named block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `&blk` param on a per-object singleton binds to the method's call-site
       # block (nil when none is passed), not the unconditional nil it used to.
 
@@ -508,7 +508,7 @@ describe "Object: blocks and yields" do
   end
 
   it "singleton method yields params and multiple values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       obj = Object.new
       def obj.combine(a, b)
         yield a, b, a + b
@@ -520,7 +520,7 @@ describe "Object: blocks and yields" do
   end
 
   it "tap then tail value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # tap / then / yield_self at method-tail position carry their value out as
       # the return: tap returns the (mutated) receiver, then returns the block's
       # value. Struct member writes inside the tap block mutate the same instance.
@@ -562,7 +562,7 @@ describe "Object: blocks and yields" do
   end
 
   it "then without block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#then` / `yield_self` without a block is an Enumerator over one
       # element -- the receiver -- and it knows its own SIZE.
       #
@@ -647,7 +647,7 @@ describe "Object: blocks and yields" do
   end
 
   it "top level def self defines a singleton method on main" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def self.name` is a SINGLETON method on `main` --
       # callable via implicit self at the top level, but (CRuby's asymmetry with
       # a plain top-level `def`, a private Object instance method) NOT from
@@ -671,7 +671,7 @@ describe "Object: blocks and yields" do
   end
 
   it "trailing comma param is an anonymous rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A trailing comma (`|a, |`) means "this block takes more than one param",
       # which turns auto-splat on and then discards everything past the named
       # ones -- exactly an anonymous rest, which is how it lowers.
@@ -685,7 +685,7 @@ describe "Object: blocks and yields" do
   end
 
   it "yield tail tap value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value of a spliced block is its tail, and a tail CALL whose statement
       # form drops that value has to be emitted as an expression: tap answers its
       # receiver, not its block's body, and a receiver-returning iterator on a
@@ -721,7 +721,7 @@ describe "Object: blocks and yields" do
   end
 
   it "the type questions and case arms answer by the class alone until a class defines one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `is_a?`, `kind_of?` and `instance_of?` are Kernel's for every
       # object, so a site answers them from the classes alone with no
       # cell (GATE_IS_A, GATE_INSTANCE_OF); a definition of the name --
@@ -844,7 +844,7 @@ describe "Object: blocks and yields" do
     OUT
   end
   it "a ranked class answers is_a?, a case arm, nil? and identity equality at the site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A ranked class -- one in Object's family with its rank table built,
       # which every class gets at birth -- answers `is_a?`, a `case` arm and
       # `nil?` at the site from its header and its table, with no call

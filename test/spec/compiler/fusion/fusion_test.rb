@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion programs" do
   it "array flatten typed elements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#flatten on a typed-array-of-typed-array concatenates the inner
       # arrays into one flat typed array. Previously only int elements were
       # specialized; str and float now mirror it (the pr_geohash gem's
@@ -38,7 +38,7 @@ describe "Fusion programs" do
   end
 
   it "a splice of negative length raises IndexError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # negative length raises IndexError
@@ -57,7 +57,7 @@ describe "Fusion programs" do
   end
 
   it "the start and length scalar form raises IndexError for a negative length too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # negative length via the start,len scalar form too
@@ -76,7 +76,7 @@ describe "Fusion programs" do
   end
 
   it "a splice into a frozen array raises FrozenError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # splicing into a frozen array raises FrozenError
@@ -95,7 +95,7 @@ describe "Fusion programs" do
   end
 
   it "a splice starting before the front raises IndexError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # a start before the front raises IndexError
@@ -114,7 +114,7 @@ describe "Fusion programs" do
   end
 
   it "a splice through a poly receiver raises the same exceptions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # poly receiver (an element that is a typed array at runtime): same exceptions.
@@ -134,7 +134,7 @@ describe "Fusion programs" do
   end
 
   it "a poly receiver raises for a start before the front as well" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # start before the front
@@ -153,7 +153,7 @@ describe "Fusion programs" do
   end
 
   it "a range whose begin is before the front raises RangeError, not IndexError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # a range whose begin is before the front raises RangeError (not IndexError)
@@ -172,7 +172,7 @@ describe "Fusion programs" do
   end
 
   it "an endless range whose begin is before the front raises RangeError too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # an endless range whose begin is before the front raises RangeError too
@@ -191,7 +191,7 @@ describe "Fusion programs" do
   end
 
   it "promoting a frozen typed array to poly still raises FrozenError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # promoting a frozen typed array still raises FrozenError
@@ -210,7 +210,7 @@ describe "Fusion programs" do
   end
 
   it "frozen is reported before a negative length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # check ORDER matches CRuby: frozen wins over negative length...
@@ -229,7 +229,7 @@ describe "Fusion programs" do
   end
 
   it "frozen is reported before a start that is too small" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # ...over a too-small index...
@@ -248,7 +248,7 @@ describe "Fusion programs" do
   end
 
   it "frozen is reported before a range that is out of its receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # ...and over an out-of-range range (typed receiver)
@@ -267,7 +267,7 @@ describe "Fusion programs" do
   end
 
   it "the poly runtime path reports the same checks in the same order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # the same order through the poly runtime path
@@ -293,7 +293,7 @@ describe "Fusion programs" do
   end
 
   it "a negative length is reported before a start that is too small" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # negative length is reported before a too-small index (CRuby checks length first)
@@ -319,7 +319,7 @@ describe "Fusion programs" do
   end
 
   it "a typed receiver raises RangeError for a range beginning before the front" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # a range beginning before -len raises RangeError on a typed receiver too
@@ -338,7 +338,7 @@ describe "Fusion programs" do
   end
 
   it "a typed receiver splices a beginless and an endless range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # typed receivers handle beginless / endless range splices
@@ -357,7 +357,7 @@ describe "Fusion programs" do
   end
 
   it "array splice kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[start, len] = replacement across element kinds: the equal-length
       # overwrite (the fast path) and the growing / shrinking / clamped forms.
       a = [1, 2, 3, 4, 5]
@@ -393,7 +393,7 @@ describe "Fusion programs" do
   end
 
   it "array splice to ary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A splice RHS that defines to_ary is coerced through it (CRuby rb_ary_to_ary):
       # the coercion's elements are spliced, while the expression value stays the
       # object as written. An object without to_ary inserts as a single element.
@@ -457,7 +457,7 @@ describe "Fusion programs" do
   end
 
   it "array transpose typed elements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#transpose on a nested array swaps rows and columns. Previously
       # only int elements were specialized; str and float now mirror it
       # (pr_geohash's GeoHash.decode ends with latlng.transpose over floats).
@@ -491,7 +491,7 @@ describe "Fusion programs" do
   end
 
   it "autoload nested in a module eagerly splices the feature file" do
-    result = ze0(<<~'RUBY', files: beside("autoload_nested/lib/greeter.rb", "autoload_nested/main.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_nested/lib/greeter.rb", "autoload_nested/main.rb"))
       # #101: `autoload :Const, "feature"` is treated as a compile-time
       # require -- the loader's eager pre-pass splices the feature file (at any
       # structural nesting) so the constant is defined; the `autoload` call
@@ -507,7 +507,7 @@ describe "Fusion programs" do
   end
 
   it "case in class check pattern binds and statically narrows to int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Integer => n` both binds `n` AND statically narrows its type for the
       # rest of the arm's body -- `n + 1` should take the native `Int`
       # arithmetic fast path, not a runtime Poly fallback.
@@ -522,7 +522,7 @@ describe "Fusion programs" do
   end
 
   it "case in nested array pattern narrows each element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [[1, "a"], [2, "b"]]
       in [[Integer => n1, String => s1], [Integer => n2, String => s2]]
         puts "#{n1}#{s1} #{n2}#{s2}"
@@ -533,7 +533,7 @@ describe "Fusion programs" do
   end
 
   it "cls method specialization boxer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         def self.from_row(row)
           instance = new
@@ -587,7 +587,7 @@ describe "Fusion programs" do
   end
 
   it "cmethod transitive specialization" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class method called on a subclass must specialize through a non-overriding
       # intermediate, so an implicit-self chain reaching an override resolves to the
       # subclass version, not the abstract base (#1451).
@@ -637,7 +637,7 @@ describe "Fusion programs" do
   end
 
   it "const recv yield inline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yield-based method called with a block on a constant receiver. The constant
       # holds an instance (not a class name), so the inline path must fall through to
       # instance-method lookup rather than treating it as a class method -- otherwise
@@ -672,7 +672,7 @@ describe "Fusion programs" do
   end
 
   it "container fast path argument may reassign its receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The container fast paths (`a << x`, `a[i] = v`, `h[k] = v`, `a.length`,
       # `a.pop`, `h[k]`) BORROW a plain hoisted receiver instead of cloning it --
       # but the borrow is live while the arguments evaluate, and an argument that
@@ -710,7 +710,7 @@ describe "Fusion programs" do
   end
 
   it "data define inline receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = Data.define(:x, :y).new(1, 2)
       p a
       p a.x
@@ -740,7 +740,7 @@ describe "Fusion programs" do
   end
 
   it "empty hash int key narrowing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty {} local written with Integer keys must settle on an int-keyed
       # hash variant even when the first value is an empty container literal
       # (it used to stay Str-keyed and store the int key as a pointer).
@@ -772,7 +772,7 @@ describe "Fusion programs" do
   end
 
   it "eval of a literal string runs inline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts eval("1 + 2")
     RUBY
 
@@ -780,7 +780,7 @@ describe "Fusion programs" do
   end
 
   it "exception objects expose their typed introspection accessors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # KeyError#key, NameError#name/#receiver, NoMethodError#name/#args/#receiver,
       # UncaughtThrowError#tag/#value, and Exception#detailed_message -- populated
       # both at the raise site (a failed fetch / missing method / const miss /
@@ -829,7 +829,7 @@ describe "Fusion programs" do
   end
 
   it "exception typed accessors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Typed exception accessors: NameError#name/#receiver, NoMethodError#args,
       # KeyError#key/#receiver (raised and keyword-constructed), UncaughtThrowError
       # #tag/#value, SystemExit#status/#success?, and Exception#detailed_message.
@@ -860,7 +860,7 @@ describe "Fusion programs" do
   end
 
   it "freeze and frozen predicate work on a poly typed receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method parameter is always statically Poly -- the universal
       # `RubyValue::freeze_value`/`is_frozen` path, not the type-gated ones.
 
@@ -878,7 +878,7 @@ describe "Fusion programs" do
   end
 
   it "fused accumulator survives break and raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value-consuming fused kinds keep a heap accumulator (map/select's
       # result array, sum's generic lane, inject's running value) in a slot the
       # epilogue releases. A `break` abandons the half-built accumulator; a
@@ -936,7 +936,7 @@ describe "Fusion programs" do
   end
 
   it "fused find answers the original element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2, 3, 4]
 
       # The element that surfaces is the one the array held, not whatever the body
@@ -988,7 +988,7 @@ describe "Fusion programs" do
   end
 
   it "fused predicate stops at the first answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2, 3, 4]
 
       p arr.all? { |x| x > 0 }
@@ -1069,7 +1069,7 @@ describe "Fusion programs" do
   end
 
   it "implicit alloc site holder specialization" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :label)
 
@@ -1099,7 +1099,7 @@ describe "Fusion programs" do
   end
 
   it "implicit alloc site ivar helper return specialization" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :row_a_id, :label)
 
@@ -1156,7 +1156,7 @@ describe "Fusion programs" do
   end
 
   it "implicit alloc site store specialization" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :label)
 
@@ -1196,7 +1196,7 @@ describe "Fusion programs" do
   end
 
   it "implicit conversions are duck typed through to ary to hash and to proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Pair
         def initialize(a, b)
           @a = a
@@ -1240,7 +1240,7 @@ describe "Fusion programs" do
   end
 
   it "inherited factory poly param narrow attr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An inherited factory (`Base.create`) forwards `new(attrs)` with a Hash,
       # which unifies the subclass ctor parameter to poly (sp_RbVal) across its
       # call sites. The inherited attr_accessor field `id` stays narrow (mrb_int,
@@ -1272,7 +1272,7 @@ describe "Fusion programs" do
   end
 
   it "inline struct superclass loses its native rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class T < Struct.new(:b)` -- an INLINE anonymous struct as the superclass.
       # The class is minted at RUNTIME, and a runtime class's dispatch walk probed
       # each ancestor's overlay, registry and value rows but never its NATIVE table,
@@ -1350,7 +1350,7 @@ describe "Fusion programs" do
   end
 
   it "inlined param cell binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parameter of an inlined yielding method that an inner block CAPTURES is
       # cell-promoted, so it is declared as `(*_cell_x)`. The three inline emitters
       # bound it as the plain `lv_x` regardless, which nothing declares -- the read
@@ -1430,7 +1430,7 @@ describe "Fusion programs" do
   end
 
   it "integer bit predicates and string bytesplice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 0b1010.allbits?(0b0010)
       p 0b1010.allbits?(0b0110)
       p 0b1010.anybits?(0b0110)
@@ -1450,7 +1450,7 @@ describe "Fusion programs" do
   end
 
   it "interp local narrowed key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Db
         def self.prepare(sql)
         end
@@ -1536,7 +1536,7 @@ describe "Fusion programs" do
   end
 
   it "isa narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if v.is_a?(K)` narrows a poly v to K's concrete type inside the then-branch,
       # so a method only SOME union members define dispatches correctly instead of
       # aborting "undefined method 'M' for poly".
@@ -1647,7 +1647,7 @@ describe "Fusion programs" do
   end
 
   it "three methods that each build a line and push it keep their own buffers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Res
         attr_accessor :cookies
         def initialize
@@ -1689,7 +1689,7 @@ describe "Fusion programs" do
   end
 
   it "an unresolved constant in extend raises NameError from the class body, at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include`/`extend`/`prepend` are ordinary method calls, so an unresolved
       # target is a RUNTIME NameError raised from the class body -- on the directive's
       # own line, with the enclosing bodies below it -- not a compile-time rejection.
@@ -1722,7 +1722,7 @@ describe "Fusion programs" do
   end
 
   it "ivar int table narrowing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An @ivar holding a table of int arrays gets the typed nested representation
       # (an sp_PtrArray of sp_IntArray*), but only when EVERY reference to it is an
       # op the narrowing models, from the owning class itself. An ivar's references
@@ -1837,7 +1837,7 @@ describe "Fusion programs" do
   end
 
   it "ivar orwrite raiseall typed slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@x ||= recv.map { ... }` where recv is typed poly/unknown produces a
       # raise-all (sp_RbVal) RHS, but @x's slot was typed concretely (an array)
       # from another assignment. The pointer-backed ivar or-write must keep the
@@ -1865,7 +1865,7 @@ describe "Fusion programs" do
   end
 
   it "keywords refused message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `**nil` in a signature declares that the method takes NO keywords. Passing
       # some is `ArgumentError: no keywords accepted`; zeo reports an arity error
       # instead, having folded the keywords into a trailing positional Hash.
@@ -1910,7 +1910,7 @@ describe "Fusion programs" do
   end
 
   it "narrow and predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Step 3 narrow extension. `if v.is_a?(C) && other_cond` should
       # narrow `v` to C inside the then-arm just like the bare
       # `if v.is_a?(C)` form. parse_is_a_predicate previously only
@@ -1940,7 +1940,7 @@ describe "Fusion programs" do
   end
 
   it "narrowed element local pin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The FIRST line pins the tie order of `Array#sort!`: this comparator orders by
       # a pair of ranks, so ties are common, and the answer is whatever the C library
       # leaves behind. It was a divergence until zeo sorted through the same
@@ -2000,7 +2000,7 @@ describe "Fusion programs" do
   end
 
   it "nested array element narrows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # an element read off a nested array narrows past the first level
       rows = [[2026, 5, 1]]
       m = rows[0][1]
@@ -2029,7 +2029,7 @@ describe "Fusion programs" do
   end
 
   it "nil typed equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two operands whose STATIC type is nil (calls the analyzer proves return
       # nil) compare like literal nils: nil == nil is true, != is false, and both
       # expressions still evaluate for their effects (the counter increments).
@@ -2057,7 +2057,7 @@ describe "Fusion programs" do
   end
 
   it "numbered params work through the times inline path" do
-    result = ze0("3.times { puts _1 * 10 }\n")
+    result = zr("3.times { puts _1 * 10 }\n")
 
     _(result).must_answer <<~'OUT'
       0
@@ -2067,7 +2067,7 @@ describe "Fusion programs" do
   end
 
   it "param narrow from body call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Stage 1 of body-side type narrowing (B' direction): if a method's
       # parameter is referenced in the body via `param.<m>` where `<m>` is
       # defined on exactly one user class (and isn't a common operator /
@@ -2108,7 +2108,7 @@ describe "Fusion programs" do
   end
 
   it "pattern rest from typed array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pattern's `*rest` bound from a poly scrutinee that holds a typed array.
       def m(v)
         case v
@@ -2166,7 +2166,7 @@ describe "Fusion programs" do
   end
 
   it "raise before a fused loop reaches the landing" do
-    result = ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
 
       # The landing block is shared: `Fx::new` creates ONE of it and every
       # `Fx::fallible` branches there, so a raise anywhere in a method reaches the
@@ -2207,7 +2207,7 @@ describe "Fusion programs" do
   end
 
   it "raise unless isa narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #493. `raise ... unless x.is_a?(C)` (and the equivalent
       # `if !x.is_a?(C); raise ...; end` shape) is a definite-throw
       # type assertion: when control reaches the statement after the
@@ -2290,7 +2290,7 @@ describe "Fusion programs" do
   end
 
   it "random is seeded reproducible and typed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Random.new(42).rand(1000) == Random.new(42).rand(1000))
       p(Random.new(1).rand(1000) != Random.new(2).rand(1000))
       p Random.new(5).rand(10).class
@@ -2316,7 +2316,7 @@ describe "Fusion programs" do
   end
 
   it "range predicate typed argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       b = "x"
       p((1..5).cover?(b))
       def g; "x"; end
@@ -2362,7 +2362,7 @@ describe "Fusion programs" do
   end
 
   it "redefinition reaches a typed direct call site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Other
         def unrelated = 0
       end
@@ -2420,7 +2420,7 @@ describe "Fusion programs" do
   end
 
   it "require under a statically false engine guard is pruned not spliced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require X if RUBY_ENGINE == "jruby"` names another engine's code; a
       # whole-program AOT compiler eager-splices every literal require it sees,
       # but this one's guard folds statically false on CRuby-targeting zeo, so
@@ -2435,7 +2435,7 @@ describe "Fusion programs" do
   end
 
   it "respond to on a poly typed rescue binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `e` (a rescue clause's exception binding) is never narrowed to a
       # concrete class -- exercises
       # `respond_to?`'s runtime `class_id()` fallback path, not the
@@ -2453,7 +2453,7 @@ describe "Fusion programs" do
   end
 
   it "runtime private on typed receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Visibility is a RUNTIME property in ruby: `private :name` re-marks a method
       # that already exists, and every later call sees the new mark.
       #
@@ -2561,7 +2561,7 @@ describe "Fusion programs" do
   end
 
   it "safe nav specialized miss" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A miss on a specialized Hash or Array answers the ELEMENT type's own C nil --
       # a NULL string, SP_INT_NIL -- not a poly nil, so a `&.` fused onto the lookup
       # used to take the result type's zero and answer `false` where CRuby answers
@@ -2792,7 +2792,7 @@ describe "Fusion programs" do
   end
 
   it "shared string into typed array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A shared-mutable string (#3227) pushed into a typed Array[String].
       #
       # A string that is both aliased and mutated in place reads as its sp_String*
@@ -2865,7 +2865,7 @@ describe "Fusion programs" do
   end
 
   it "singleton row beats a specialized builtin path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       b = [4, 5, 6]
 
@@ -2920,7 +2920,7 @@ describe "Fusion programs" do
   end
 
   it "spliced files locals stay isolated through control flow" do
-    result = ze0(<<~'RUBY', files: beside("spliced_locals/inner.rb"))
+    result = zr(<<~'RUBY', files: beside("spliced_locals/inner.rb"))
       # Real Ruby gives every `require`d file its own top-level local scope. zeo
       # splices every file into one `Program`, so it renames each file's top-level
       # locals to keep them apart. That renaming walk had a hand-written arm for
@@ -2971,7 +2971,7 @@ describe "Fusion programs" do
   end
 
   it "string splice family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#bytesplice and String#slice!(Regexp): byte-range replacement
       # returning self, and regexp slicing returning the removed match while
       # mutating the receiver and setting the match registers.
@@ -3057,7 +3057,7 @@ describe "Fusion programs" do
   end
 
   it "string split inline arg gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline split arguments must stay valid across compiled split calls with
       # GC-managed pressure nearby. The pressure loop grows retained int arrays so
       # runtime allocation and collection paths are exercised before each split.
@@ -3147,7 +3147,7 @@ describe "Fusion programs" do
   end
 
   it "typed array include cross type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #911: Array#include? on a typed array with a wrong-type
       # argument returns false instead of failing to C-compile.
       puts [1, 2, 3].include?("hello")
@@ -3165,7 +3165,7 @@ describe "Fusion programs" do
   end
 
   it "chomp, delete, squeeze and count take a separator that answers to_str" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3293,7 +3293,7 @@ describe "Fusion programs" do
   end
 
   it "slice! and the index rows take an index that answers to_int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3388,7 +3388,7 @@ describe "Fusion programs" do
   end
 
   it "dig and fetch take a key that answers to_str" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3500,7 +3500,7 @@ describe "Fusion programs" do
   end
 
   it "count takes a bignum argument and finds none of it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3553,7 +3553,7 @@ describe "Fusion programs" do
   end
 
   it "zip and product take an argument that answers to_ary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3651,7 +3651,7 @@ describe "Fusion programs" do
   end
 
   it "the receiver converts before the argument does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3726,7 +3726,7 @@ describe "Fusion programs" do
   end
 
   it "File.utime takes nil for a time, and refuses a value it cannot convert" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3824,7 +3824,7 @@ describe "Fusion programs" do
   end
 
   it "fetch, dig and values_at each ask their key once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3904,7 +3904,7 @@ describe "Fusion programs" do
   end
 
   it "sleep refuses a value it cannot convert into a time interval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -3989,7 +3989,7 @@ describe "Fusion programs" do
   end
 
   it "Regexp.escape takes a Symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -4071,7 +4071,7 @@ describe "Fusion programs" do
   end
 
   it "a to_str that answers nil reaches the row's own refusal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sep
         def to_str
           "-"
@@ -4160,7 +4160,7 @@ describe "Fusion programs" do
   end
 
   it "uncaptured inlined times param keeps the plain fast path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression guard for H1: when NOTHING captures the `.times` param it
       # stays a plain per-iteration `let` (no cell), and `break`/`next` inside
       # the inlined block keep working via literal labels.
@@ -4176,7 +4176,7 @@ describe "Fusion programs" do
   end
 
   it "unresolved into typed hash slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unresolved rhs (a NameError raise token, emitted as a diverging
       # sp_RbVal expression) stored into a typed-value hash in VALUE position
       # (the method tail) must coerce to the slot type so the emitted C

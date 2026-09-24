@@ -49,7 +49,7 @@ messages exactly.
 
 When Ruby cannot do the work, call a kernel def: `Primitive.zr_name(args)`.
 A kernel def that core code calls this way takes only `Value`s and
-answers a `Value`. ze0 refuses any other shape by name.
+answers a `Value`. zr refuses any other shape by name.
 
 Find an existing def first:
 
@@ -78,13 +78,13 @@ Then write the eval descriptions again, since they list every kernel
 def:
 
 ```console
-$ ZE0_BLESS=1 rake test:unit N=/Description/
+$ ZR_BLESS=1 rake test:unit N=/Description/
 ```
 
 ## 5. Add a new file, if the class has none
 
 A new file in `rt/core/` must also go into `Zr::CORE_NAMES` in
-`lib/ze0/zr.rb`. The list is in the order the files run, so put a
+`lib/zr/zr.rb`. The list is in the order the files run, so put a
 module before the classes that include it.
 
 ## 6. Run the case again

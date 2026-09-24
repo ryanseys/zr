@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: defining and naming methods" do
   it "alias before override binds inherited" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `alias` written BEFORE the class overrides its source binds the body
       # that existed at the alias's position -- the INHERITED one. rspec-core's
       # QueryOptimized does `alias find_items_for items_for` then redefines
@@ -25,7 +25,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "alias captures the overriding bodys own behavior in a subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias` binds to whichever body is ALREADY in effect at the alias
       # statement's own position -- here, `Dog`'s own override (found in
       # `Dog`'s `own_methods`), not `Animal`'s.
@@ -50,7 +50,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "anonymous class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Anonymous runtime classes (#97): Class.new with define_method and def bodies,
       # constant naming, is_a?/instance_of?, and a runtime superclass chain.
 
@@ -103,7 +103,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "class side alias of an inherited new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Q1; end
       Q1.singleton_class.class_eval { alias_method :made, :new }
       p Q1.made.class.to_s
@@ -163,7 +163,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "const alias in class position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant that ALIASES a class or module (`ALIAS = Base`) reads as a value
       # everywhere -- but the interesting positions are the ones that usually hold a
       # literal class NAME: `rescue`, `is_a?`, and `raise`. Ruby evaluates the
@@ -248,7 +248,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "nested class undef stays in that class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef_method` under a guard zeo cannot decide is a RUNTIME fact, so the
       # name goes on the class's `runtime_undefs` and codegen stops emitting a
       # direct call for it. The walk that collects those names had no stops, so a
@@ -283,7 +283,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "runtime alias of a builtin reaches a class receiver" do
-    result = ze0(<<~'RUBY', files: beside("runtime_alias/lib/kernel_patch.rb"))
+    result = zr(<<~'RUBY', files: beside("runtime_alias/lib/kernel_patch.rb"))
       # A run-time `alias_method` on Kernel whose source is a BUILTIN row landed
       # where an ordinary receiver could reach it and nowhere a Class or Module
       # receiver looks -- while `respond_to?` answered true for both, so the
@@ -325,7 +325,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "superclass named through a qualified alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Map < Collection::MapImplementation` -- concurrent-ruby's shape, where
       # the superclass is named through a QUALIFIED constant that holds a class.
       #
@@ -381,7 +381,7 @@ describe "Classes: defining and naming methods" do
   end
 
   it "undef removes a name including an inherited one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef` works on a name this class only INHERITS, which is why it
       # can't be "delete the local def" -- there is none. It stays live on
       # the ancestor that defined it, and `respond_to?` must agree.

@@ -11,7 +11,7 @@ require "rbconfig"
 # names: it has handed out fifty-six object ids before the first line
 # runs, and it refuses a gem ruby bundles but this Gemfile does not.
 class UnbundledTest < Minitest::Test
-  Unbundled = Ze0::Harness::Unbundled
+  Unbundled = Zr::Harness::Unbundled
 
   def test_the_environment_it_hands_out_does_not_carry_bundler
     refute_includes Unbundled.env.fetch("RUBYOPT", ""), "bundler"
@@ -37,7 +37,7 @@ class UnbundledTest < Minitest::Test
   private
 
   def ruby(source)
-    Dir.mktmpdir("ze0-unbundled-") do |work|
+    Dir.mktmpdir("zr-unbundled-") do |work|
       rb = File.join(work, "child.rb")
       File.write(rb, source)
       out, why = Checks.bounded({}, [RbConfig.ruby, rb], err: File.join(work, "err"))

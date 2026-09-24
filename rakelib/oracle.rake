@@ -25,12 +25,12 @@ require "tmpdir"
 require_relative "../test/support/reader"
 require_relative "../test/support/harness/answer"
 require_relative "../test/support/harness/child"
-require_relative "../lib/ze0/native/parallel"
+require_relative "../lib/zr/native/parallel"
 
 # What a guard asks of the machine. The real ones live in
 # `test/support/spec.rb`, which loads the whole compiler; a tool that
 # compiles nothing answers them itself.
-module Ze0
+module Zr
   module Spec
     def self.platform = "macos"
     def self.need?(_name) = true
@@ -53,10 +53,10 @@ module Oracle
   end
 
   # What ruby says when it runs `example`'s program, scrubbed the way
-  # the spec road scrubs what ze0's binary says.
+  # the spec road scrubs what zr's binary says.
   def ask(example)
     kwargs = example.kwargs
-    Dir.mktmpdir("ze0-oracle-") do |work|
+    Dir.mktmpdir("zr-oracle-") do |work|
       # `/var` is a link to `/private/var` on macOS, and a program that
       # prints a path of its own prints the resolved one; the scrub has
       # to be looking at the same bytes.
@@ -75,12 +75,12 @@ module Oracle
       argv = [RbConfig.ruby, *kwargs.fetch(:ruby, []), kwargs.fetch(:path, "spec.rb"), *kwargs.fetch(:argv, [])]
       # `BARE_RUBY` because the recordings were made by a bare ruby, not
       # by one under `bundle exec`. An example's own `env:` still wins.
-      env = Ze0::Harness::Child::BARE_RUBY.merge(kwargs.fetch(:env, {}))
-      out, = Ze0::Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: env,
-                                           seconds: LIMIT, megabytes: Ze0::Harness::Child::RUN_MB)
+      env = Zr::Harness::Child::BARE_RUBY.merge(kwargs.fetch(:env, {}))
+      out, = Zr::Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: env,
+                                           seconds: LIMIT, megabytes: Zr::Harness::Child::RUN_MB)
       return nil unless out.code.is_a?(Integer)
 
-      Ze0::Harness::Normalize.answer(out, rb, run)
+      Zr::Harness::Normalize.answer(out, rb, run)
     end
   end
 
@@ -115,7 +115,7 @@ module Oracle
   # one process was seven thousand rubies one after another.
   def each_checked(files, filter)
     workers = [Etc.nprocessors, 12].min
-    answers = Ze0::Native::Parallel.map(files, jobs: workers, weight: ->(_) { 1 }) { |file| check(file, filter) }
+    answers = Zr::Native::Parallel.map(files, jobs: workers, weight: ->(_) { 1 }) { |file| check(file, filter) }
     files.zip(answers).each { |file, answer| yield file, answer }
   end
 
@@ -125,7 +125,7 @@ module Oracle
     asked = 0
     skipped = 0
     apart = []
-    Ze0::Reader.read(path).each do |example|
+    Zr::Reader.read(path).each do |example|
       next if filter && !example.name.match?(filter)
       # An example the reader could not load is a broken spec, not a
       # skipped one. Counting it as skipped would let a bad edit shrink
@@ -135,7 +135,7 @@ module Oracle
       end
 
       # An example that skips makes no claim about ruby, and one that
-      # never called `ze0` has nothing to ask about.
+      # never called `zr` has nothing to ask about.
       next skipped += 1 if example.want.key?(:skip) || example.source.nil?
 
       answer = ask(example)

@@ -27,10 +27,10 @@ module Prism
   autoload :Relocation, "prism/relocation"
   autoload :Serialize, "prism/serialize"
   autoload :StringQuery, "prism/string_query"
-  # ze0: `prism/translation.rb` is vendored whole, so the names it
+  # zr: `prism/translation.rb` is vendored whole, so the names it
   # autoloads answer as ruby's do. Only `Ripper`'s file is here; the
   # `parser` and `ruby_parser` adapters subclass third-party gems that
-  # ze0 does not ship, and naming one raises the LoadError a ruby
+  # zr does not ship, and naming one raises the LoadError a ruby
   # without those gems raises. `Prism::LexCompat` reaches
   # `Translation::Ripper`, so a missing autoload here made
   # `Prism.lex_compat` a NameError.

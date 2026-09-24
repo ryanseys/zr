@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: formatting and inspection" do
   it "argument assignment is visible to the calls own block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An assignment written INSIDE an argument list parses -- and executes --
       # before the call's own block body, so the name is the enclosing scope's
       # local and the block shares it. The deep shape is activerecord's
@@ -41,7 +41,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block autosplat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # 2-param block auto-splat of array elements over `each` (W4 / B19).
       # When a block with >=2 params iterates an array whose elements are arrays,
       # Ruby splats each element into the params. A non-array element binds the
@@ -109,7 +109,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block forward mixed call forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fwd(&b)
         [1, 2].map(&b)
       end
@@ -235,7 +235,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block local cell own frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local the BLOCK declares, named by a block or lambda nested in it, is
       # reached through a cell. The cell was treated as a capture from the enclosing
       # frame: its declaration went to the caller, the block-local reset then
@@ -327,7 +327,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block nil fill" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unfilled int-typed block/proc param holds the SP_INT_NIL sentinel.
       # Collected into an array and inspected it must render as nil, not the
       # raw INT64_MIN sentinel.
@@ -355,7 +355,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block param sibling collision" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling blocks reusing a parameter name must not collapse onto one
       # typed slot. Block params intern into the enclosing (flat) scope, so two
       # blocks both named |x| of different element types unified to poly and
@@ -439,7 +439,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block splat param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A trailing rest block parameter (`|*a|`) collects the values yielded past the
       # required parameters into an array (previously it was left nil/unbound).
       def m3
@@ -502,7 +502,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "block with more params than yielded values nil fills leniently" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `puts` on `nil` prints an empty line -- real Ruby's own behavior, and
       # avoids `Object#inspect` (a separate, unrelated, unimplemented method).
 
@@ -518,7 +518,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "by key block shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `min_by` / `max_by` / `minmax_by` / `sort_by` over the block shapes their
       # arms once refused: a block with NO parameter, a key that IS nil, a key
       # whose type differs per element, and a key CRuby cannot order.
@@ -599,7 +599,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "class reflection block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `ancestors` (and its Module neighbours) had an arm only for a receiver typed
       # TY_CLASS -- a constant. Iterating an Array of classes gives the block a BOXED
       # class, which reached no arm at all: the call reported the method as undefined,
@@ -660,7 +660,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "closure captures pointer locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A closure that escapes (stored in an ivar -> real proc) may now capture
       # pointer-typed locals -- string, array, heap object -- not just ints. Each is
       # laundered through the int cell and the cell's GC scan marks the referent, so
@@ -735,7 +735,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "forwarding params forward positionals keywords and block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `...` is real now (G3): it desugars to internal `*__fwd_rest,
       # **__fwd_kw, &__fwd_blk` params referenced by the call-site `...`.
 
@@ -753,7 +753,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "a block passed to a constructor is called once per element it builds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Pool
         def initialize(size)
           @free = []
@@ -805,7 +805,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "yield fills the block's missing parameters with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def show2
         yield
       end
@@ -839,7 +839,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "iter block autosplat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A flat multi-param block over an array of arrays auto-splats each element
       # across the params (CRuby block semantics) in every element-loop emitter,
       # not just each/map. Regression: filter_map/count/any?/all?/one?/find/
@@ -918,7 +918,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "lifted block nested capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block passed as a real &blk to a class/module method is lifted to a proc.
       # When that lifted block captures an enclosing local -- directly, or through a
       # further nested block -- and is invoked across a fiber/thread boundary, the
@@ -1001,7 +1001,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "multi arg lambda" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #400. `->(a, b) { a + b }` and longer-arity lambdas
       # previously emitted broken code: scan_lambda_free_vars saw only
       # reqs[0] as a formal param, so the 2nd+ params were treated as
@@ -1046,7 +1046,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "nested block capture in a dsl" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zeo refuses to compile this program:
       #
       #     a nested escaping block capturing its enclosing BLOCK's own local `n`
@@ -1092,7 +1092,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "nested yield with block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #664: `outer { |x| yield x*2 }` appearing inside an already-
       # inlined caller (`inner` itself yields) previously emitted `lv_x` and
       # `_block` references in a scope where neither existed — `inner` got
@@ -1132,7 +1132,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "new with block no block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.new { ... }` where `initialize` declares no block parameter. Ruby runs
       # the block through `Proc.new`/`block_given?` and otherwise ignores it; zeo's
       # static `.new` path passes it as a second argument to an `initialize` whose
@@ -1153,7 +1153,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "nullable int sentinel boxing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An int slot that can hold the nil sentinel has to box as nil, not as the
       # raw INTPTR_MIN, or a value that prints as nil compares unequal to nil. The
       # slot reaches that state four ways: an outright nil write, a destructuring
@@ -1204,7 +1204,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "proc anon dot call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `proc { ... }.call` — the receiver is the inline `proc { ... }` call,
       # not a local variable holding the proc. compile_dot_call_expr only
       # matched LocalVariableReadNode receivers and emitted sp_proc_call
@@ -1267,7 +1267,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "proc introspection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #861: Proc#arity, #lambda?, and #parameters dispatch.
 
       p = Proc.new { |a, b| }
@@ -1292,7 +1292,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "safe nav with block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block on a safe-navigation call (`recv&.m { ... }`): nil short-circuits
       # before the block is entered, else the block rides the ordinary dispatch.
       a = [1, 2, 3]
@@ -1312,7 +1312,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "setter yields assigned value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value of a setter call, `obj.x = v`: the argument as written, in value
       # position, at a method's tail, and through a receiver whose class is only
       # known at run time, for hand-written writers and attr_writer alike.
@@ -1385,7 +1385,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "user operator on block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user object reaching an operator through a block parameter is a BOXED
       # receiver, and only `+`, `-` and `*` found their way to the class's own
       # method: every other operator coerced the object to an integer, the
@@ -1499,7 +1499,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "yield into local divergent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yield-inlined method assigning its yield to a LOCAL, called with blocks of
       # divergent value types: the local must be a boxed carrier so each site boxes
       # its own value (it settled the local from the first site otherwise).
@@ -1543,7 +1543,7 @@ describe "Blocks: formatting and inspection" do
   end
 
   it "yield value per site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         def initialize(v); @v = v; end
         def show; "A=#{@v}"; end

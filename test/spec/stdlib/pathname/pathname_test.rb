@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Pathname programs" do
   it "superclass, subclasses and inherited are Class's, so a Module has none of them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
       # the arity census proved zeo had drawn in the wrong place.
@@ -44,7 +44,7 @@ describe "Pathname programs" do
   end
 
   it "__id__ is BasicObject's name for the identity integer, where object_id is Kernel's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
       # the arity census proved zeo had drawn in the wrong place.
@@ -76,7 +76,7 @@ describe "Pathname programs" do
   end
 
   it "the open-descriptor surface is File's, not IO's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
       # the arity census proved zeo had drawn in the wrong place.
@@ -152,7 +152,7 @@ describe "Pathname programs" do
   end
 
   it "max is SizedQueue's, and an unbounded Queue has none" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
       # the arity census proved zeo had drawn in the wrong place.
@@ -193,7 +193,7 @@ describe "Pathname programs" do
   end
 
   it "the names zeo used to answer that CRuby has nowhere are gone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
       # the arity census proved zeo had drawn in the wrong place.
@@ -243,7 +243,7 @@ describe "Pathname programs" do
   end
 
   it "the real spellings of those names still answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which CLASS owns a builtin method is part of its behaviour, not a detail of
       # reflection: it decides which receivers answer it. This locks the boundaries
       # the arity census proved zeo had drawn in the wrong place.
@@ -278,7 +278,7 @@ describe "Pathname programs" do
   end
 
   it "File's readers take an object that answers to_path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -427,7 +427,7 @@ describe "Pathname programs" do
   end
 
   it "Dir's rows take an object that answers to_path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -530,7 +530,7 @@ describe "Pathname programs" do
   end
 
   it "a Pathname is accepted wherever a to_path object is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -621,7 +621,7 @@ describe "Pathname programs" do
   end
 
   it "a converting object reaches a typed slot through a method parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -718,7 +718,7 @@ describe "Pathname programs" do
   end
 
   it "copy_stream, reopen, rename, symlink and delete each convert their paths" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -823,7 +823,7 @@ describe "Pathname programs" do
   end
 
   it "the mode and permission arguments convert through to_int and to_str" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -987,7 +987,7 @@ describe "Pathname programs" do
   end
 
   it "to_path is called once for one slot, not once per use of the value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -1085,7 +1085,7 @@ describe "Pathname programs" do
   end
 
   it "a zone object converts through to_str at Time's slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -1180,7 +1180,7 @@ describe "Pathname programs" do
   end
 
   it "a write slot converts its payload through to_s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -1321,7 +1321,7 @@ describe "Pathname programs" do
   end
 
   it "a converter that allocates heavily still answers the same path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -1453,7 +1453,7 @@ describe "Pathname programs" do
   end
 
   it "a converter that prints shows where in the argument order it runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -1640,7 +1640,7 @@ describe "Pathname programs" do
   end
 
   it "the tree the setup built is removed again" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "pathname"
       require "stringio"
 
@@ -1726,7 +1726,7 @@ describe "Pathname programs" do
   end
 
   it "native pathname path operations match the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname`: path manipulation (`+`/`join` resolve `..` lexically like
       # CRuby's `plus`), predicates, and reflection. The last line pins that it
       # does NOT include Comparable, however much its `#<=>` suggests it.
@@ -1764,7 +1764,7 @@ describe "Pathname programs" do
   end
 
   it "needs no require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby 4.0 loads `pathname.so` before the first line, so the class and
       # `Kernel#Pathname` are there with no require at all.
 
@@ -1776,7 +1776,7 @@ describe "Pathname programs" do
   end
 
   it "the private path-algebra helpers answer the shapes pathname_builtin declares" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pathname's private path-algebra helpers -- the exact surface
       # pathname_builtin.rb declares, oracle-pinned shapes.
       pn = Pathname.new("x")
@@ -1857,7 +1857,7 @@ describe "Pathname programs" do
   end
 
   it "Pathname is there with no require, and its ancestry and surface are fixed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -1895,7 +1895,7 @@ describe "Pathname programs" do
   end
 
   it "a Pathname is built from a String, from another Pathname and from a frozen argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -1933,7 +1933,7 @@ describe "Pathname programs" do
   end
 
   it "to_s answers a fresh unfrozen String, and Pathname does not include Comparable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -1988,7 +1988,7 @@ describe "Pathname programs" do
   end
 
   it "#+ resolves . and .. against the left operand without touching the disk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2047,7 +2047,7 @@ describe "Pathname programs" do
   end
 
   it "cleanpath removes what it can, and its conservative form keeps a .. it cannot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2086,7 +2086,7 @@ describe "Pathname programs" do
   end
 
   it "relative_path_from answers the route from one path to another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2121,7 +2121,7 @@ describe "Pathname programs" do
   end
 
   it "each_filename walks the components, .. included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2158,7 +2158,7 @@ describe "Pathname programs" do
   end
 
   it "basename, dirname and extname split a path into its parts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2209,7 +2209,7 @@ describe "Pathname programs" do
   end
 
   it "absolute?, relative? and root? read the path's shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2238,7 +2238,7 @@ describe "Pathname programs" do
   end
 
   it "the delegations read and write a tree this program builds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2391,7 +2391,7 @@ describe "Pathname programs" do
   end
 
   it "getwd and pwd answer a Pathname that agrees with Dir" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
       # pure string work and never touches disk, and the delegations, which must
@@ -2419,7 +2419,7 @@ describe "Pathname programs" do
   end
 
   it "poly string methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String methods on a poly receiver: a String that reached a slot the compiler
       # could only type as poly (a container read, a parameter two call sites
       # disagree about).

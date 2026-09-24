@@ -2,12 +2,12 @@
 
 require "set"
 require "test_helper"
-require_relative "../../lib/ze0/machine/lower"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/machine/lower"
+require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 
 # The wasm backend keeps values whose lives do not overlap in one local
-# (lib/ze0/backend/wasm/locals.rb). Held here two ways: an independent
+# (lib/zr/backend/wasm/locals.rb). Held here two ways: an independent
 # liveness says no write lands in a local a live value holds, and a
 # program shaped like the one that once broke runs under wasmtime.
 #
@@ -55,13 +55,13 @@ class WasmLocalsTest < Minitest::Test
   IN_RANGES = 2 | 8 | 16
 
   def test_a_dead_block_parameter_does_not_take_a_live_ones_local
-    functions, = Ze0::Machine.compile(SEARCH, "search.rb")
+    functions, = Zr::Machine.compile(SEARCH, "search.rb")
     prepared(functions).each { |f| assert_empty clashes(f), f.name }
   end
 
   def test_the_hand_written_programs_share_locals_without_a_clash
-    Ze0::Native::Fixtures::NAMES.each do |name|
-      functions, = Ze0::Native::Fixtures.build(name)
+    Zr::Native::Fixtures::NAMES.each do |name|
+      functions, = Zr::Native::Fixtures.build(name)
       prepared(functions).each { |f| assert_empty clashes(f), "#{name}: #{f.name}" }
     end
   end
@@ -69,11 +69,11 @@ class WasmLocalsTest < Minitest::Test
   def test_the_binary_search_answers_under_wasmtime
     skip "wasmtime is not installed" unless Checks.wasmtime?
 
-    functions, data = Ze0::Machine.compile(SEARCH, "search.rb")
-    Dir.mktmpdir("ze0-wasm-locals-") do |dir|
+    functions, data = Zr::Machine.compile(SEARCH, "search.rb")
+    Dir.mktmpdir("zr-wasm-locals-") do |dir|
       wasm = File.join(dir, "search.wasm")
-      assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
-      out, why = Checks.bounded({}, Ze0::Harness::Wasmtime.run(wasm), err: %i[child out])
+      assert_nil Zr::Native::Build.wasm(functions, data, wasm)
+      out, why = Checks.bounded({}, Zr::Harness::Wasmtime.run(wasm), err: %i[child out])
       refute why, "wasmtime was killed at #{why}: #{out}"
       assert_equal IN_RANGES, $?.exitstatus, out
     end
@@ -83,19 +83,19 @@ class WasmLocalsTest < Minitest::Test
 
   def prepared(functions)
     functions = functions.map { |f| Marshal.load(Marshal.dump(f)) }
-    Ze0::IR::Passes.inline(functions).each { |f| Ze0::IR::Passes.prepare(f) }
+    Zr::IR::Passes.inline(functions).each { |f| Zr::IR::Passes.prepare(f) }
   end
 
   def reads(i)
-    out = i.args.select { |a| Ze0::IR.value?(a) }
-    i.targets&.each { |(_, args)| out.concat(args.select { |a| Ze0::IR.value?(a) }) }
+    out = i.args.select { |a| Zr::IR.value?(a) }
+    i.targets&.each { |(_, args)| out.concat(args.select { |a| Zr::IR.value?(a) }) }
     out
   end
 
   # Every write into a local another value live across it holds, found by
   # a liveness of its own: Sets to a fixed point, as plain as it can be.
   def clashes(f)
-    body = Ze0::Backend::Wasm::Codegen::Body.new(Ze0::Backend::Wasm::Codegen.new([], []), f)
+    body = Zr::Backend::Wasm::Codegen::Body.new(Zr::Backend::Wasm::Codegen.new([], []), f)
     body.send(:assign)
     # A value with no local (a constant, written where it is read) holds
     # none, and so shares none.

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "YAML programs" do
   it "binary string survives a yaml round trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A BINARY string is not valid UTF-8, so YAML carries it as a `!!binary`
       # base64 scalar and loads it back byte-for-byte. zeo's round trip answers a
       # string that no longer equals the one it dumped.
@@ -27,7 +27,7 @@ describe "YAML programs" do
   end
 
   it "nested collection as a mapping value ends its turn" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A collection that is the value of a mapping key takes that key's turn, so the
       # next node is a key again; a collection as a key shares its `?` line.
 
@@ -94,7 +94,7 @@ describe "YAML programs" do
   end
 
   it "a parsed document carries a Document node over its root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -155,7 +155,7 @@ describe "YAML programs" do
   end
 
   it "a scalar node remembers the quoting or block style it was written in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -182,7 +182,7 @@ describe "YAML programs" do
   end
 
   it "an anchor comes back as its name, and an alias names it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -212,7 +212,7 @@ describe "YAML programs" do
   end
 
   it "a tag survives on the scalar and mapping nodes that carry it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -243,7 +243,7 @@ describe "YAML programs" do
   end
 
   it "an explicit document reports implicit? as false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -269,7 +269,7 @@ describe "YAML programs" do
   end
 
   it "the version and tag directives reach the Document node" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -296,7 +296,7 @@ describe "YAML programs" do
   end
 
   it "a Stream node holds every document parsed from the source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -330,7 +330,7 @@ describe "YAML programs" do
   end
 
   it "an empty source parses to a stream with no document" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -354,7 +354,7 @@ describe "YAML programs" do
   end
 
   it "each walks the node tree depth first, self first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -378,7 +378,7 @@ describe "YAML programs" do
   end
 
   it "to_ruby on a parsed tree builds the object the source describes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -408,7 +408,7 @@ describe "YAML programs" do
   end
 
   it "to_ruby builds from a tree assembled by hand too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -440,7 +440,7 @@ describe "YAML programs" do
   end
 
   it "an alias in a hand-built tree resolves to its anchor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Psych.parse` and the `Psych::Nodes::*` tree it answers.
       #
       # The tree is the DOCUMENT rather than the data: a gem walks it to read a tag,
@@ -474,7 +474,7 @@ describe "YAML programs" do
   end
 
   it "psych syntax error carries marks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "yaml"
       begin
         YAML.safe_load("ok: 1\nbad: [")
@@ -515,7 +515,7 @@ describe "YAML programs" do
   end
 
   it "psych version constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "yaml"
 
       p Psych::VERSION.class
@@ -526,7 +526,7 @@ describe "YAML programs" do
   end
 
   it "Psych applies the core and ruby tags, and gates the ones that build a class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Psych applies core and ruby tags: `!!str` forces string, `!!int`/
       # `!!float` coerce a quoted scalar, `!!binary` base64-decodes, `!!set`
       # is gated (Psych::Set needs permitting), `!!omap` loads as a Hash,
@@ -567,7 +567,7 @@ describe "YAML programs" do
   end
 
   it "a << merge key splices the referenced mapping in, as an alias, a list or an inline mapping" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `<<` merge key splices the referenced mapping(s) into the host
       # mapping -- single alias, alias list, and inline mapping forms. zeo
       # keeps a literal "<<" key (with the earlier alias bug feeding it nil).
@@ -586,7 +586,7 @@ describe "YAML programs" do
   end
 
   it "dump writes a Symbol as a plain scalar and load reads that spelling back, so quoting carries the distinction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `YAML.dump` emits a Symbol as the plain scalar `:name`, and `YAML.load` reads
       # that spelling back as a Symbol -- so a Hash with symbol keys survives the
       # round trip. The QUOTING is what carries the distinction: a quoted `":x"` is

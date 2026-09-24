@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: comparison and equality" do
   it "case eq scalar poly arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `===` on a scalar-comparable receiver (bool/int/float/string/symbol) is case
       # equality == value equality. When the argument unifies to a poly type across
       # call sites while the receiver stays a single scalar type, Spinel previously
@@ -56,7 +56,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "clamp nil open bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # clamp(lo, hi) accepts nil for an open (unbounded) side on Integer and Float
       # receivers: a nil lo skips the lower comparison, a nil hi the upper.
       p 5.clamp(1, nil)
@@ -82,7 +82,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "class spaceship" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal; end
       class Dog < Animal; end
       class Cat < Animal; end
@@ -102,7 +102,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable between short circuits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "Hello".between?("l", 0)
       p "Hello".between?("l", nil)
       p 1.between?(2, :a)
@@ -116,7 +116,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable between user type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable#between? on a user type (`self >= min && self <= max`) must
       # dispatch through the class's <=>, not a raw struct comparison which
       # gcc rejects ("invalid operands to binary >="). Direct </>/<=/>= on
@@ -160,7 +160,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable clamp exclusive range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable#clamp over an exclusive range of user objects raises.
       class Ver
         include Comparable
@@ -181,7 +181,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable clamp object range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable#clamp with a one-sided (beginless/endless) or two-sided literal
       # Range whose bounds are instances of the receiver's class. An sp_Range cannot
       # carry the endpoints' class (its bounds are mrb_int), so these unfold to
@@ -227,7 +227,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable drives the includers spaceship" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Temp
         include Comparable
         attr_reader :deg
@@ -266,7 +266,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable nil spaceship" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A <=> returning nil makes the ordering comparisons raise ArgumentError,
       # while Comparable#== instead answers false rather than raising.
       class Bad
@@ -294,7 +294,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparable rational operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `<=>` whose operand parameter settled on a boxed BUILTIN -- a Rational
       # operand types it that way -- had no arm in the dispatch table at all, so the
       # table came out empty and every comparison through Comparable reported the
@@ -360,7 +360,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparison operators return real booleans" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 5 < 3
       puts 5 > 3
       puts 5 == 5
@@ -386,7 +386,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "comparison protocol validates spaceship clamp and sort" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Temp
         include Comparable
         attr_reader :deg
@@ -439,7 +439,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "complex rational interop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mixed Complex/Rational arithmetic computes in floats: the Rational operand
       # coerces via #to_f (docs/limitations.md "Rational precision and Complex
       # components"). The component CLASS deliberately differs from CRuby (float
@@ -477,7 +477,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "container holding nan equals itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An element inside a container compares by CRuby's `rb_equal`: the SAME
       # object is equal to itself, and `==` is never asked. The `==` OPERATOR
       # takes no such step, so the two answers differ exactly where identity and
@@ -578,7 +578,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "enumerable min max dispatch a user spaceship" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Temp
         include Comparable
         attr_reader :deg
@@ -601,7 +601,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "float bignum compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # Comparing a Float against a BIGNUM answers the wrong way for the values
@@ -672,7 +672,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "float nan identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Two NaN floats do not compare identical under equal?/eql? the way ruby's
       # boxed NaN does.
@@ -698,7 +698,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "float spaceship" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#<=> 3-way compare returns -1 / 0 / 1, mirroring Integer#<=>.
       p(3.0 <=> 5.0)
       p(5.0 <=> 3.0)
@@ -729,7 +729,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "integer and a float compare exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Integer <=> Float` is decided EXACTLY (`rb_integer_float_cmp`), and an
       # incomparable pair answers FALSE rather than raising.
       #
@@ -783,7 +783,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "integer equality across types inline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Eq
         def ==(other) = other == 1
       end
@@ -814,7 +814,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "nil hashdefault complex followups" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Variable-receiver NilClass conversions captured into locals, variable
       # Hash.new(default) folds, and the Complex query-method family.
       n = nil; v = (n.to_a); p v
@@ -856,7 +856,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "nil spaceship variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # nil <=> nil is 0 (Integer), including when the nil is held in a variable
       # (a nil-only local widens to a boxed poly value, so this exercises the
       # poly <=> path, not the literal-nil fold).
@@ -869,7 +869,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "range eq across numeric" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#== compares its endpoints with ==, and 1 == 1.0, so an Integer Range
       # equals the Float Range with the same endpoints (#3841).
       p((1..5) == (1.0..5.0))
@@ -893,7 +893,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "rational eq poly operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational#== / #eql? against an operand whose type is not known here -- a
       # Rational read out of an Array is the usual way that happens. A poly operand
       # is not a non-numeric operand, but the arm treated it as one and answered a
@@ -942,7 +942,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "rational step" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numeric#step on a Rational receiver walks the exact sequence, yielding
       # Rational/Integer values through the poly numeric tower (sp_poly_add keeps a
       # Rational operand rational). Block form iterates and returns self; the
@@ -983,7 +983,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "rational takes its order and division from numeric" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational defines neither the comparisons nor div, modulo, remainder,
       # divmod, eql?, zero? and integer?: Comparable and Numeric answer them
       # over Rational's own <=>, / and floor, as CRuby's nurat leaves them.
@@ -1025,7 +1025,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "spaceship incomparable nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # <=> between incomparable operands returns nil (it raised NoMethodError);
       # comparable pairs are unchanged, and a poly operand decides at runtime.
       p(1 <=> "a")
@@ -1056,7 +1056,7 @@ describe "Numeric: comparison and equality" do
   end
 
   it "when splat rational complex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `when *array` is membership; `when <Rational>` / `when <Complex>` are
       # value equality. All three previously failed (splat never matched;
       # Rational/Complex produced a C compile error from `int == struct`).

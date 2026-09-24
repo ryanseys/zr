@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: dispatch" do
   it "block forward poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwarding a callable value into poly-element collections. Now that poly
       # values round-trip through proc parameters, &proc / &lambda / &:sym / &method
       # forward into poly arrays, and a Method object forwards into Hash#each (the
@@ -57,7 +57,7 @@ describe "Blocks: dispatch" do
   end
 
   it "block forward poly receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A &block-forwarding method reached through an Array element (a typed array
       # element = concrete class; a heterogeneous array element = poly value): the
       # block must land, not drop to a C compile error or a silent zero iterations.
@@ -91,7 +91,7 @@ describe "Blocks: dispatch" do
   end
 
   it "block forwarded into poly capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block whose target hands it on to a poly receiver.
       #
       # `TreeNode#each` is yield-inlined -- its `&blk` calls are spliced at the call
@@ -160,7 +160,7 @@ describe "Blocks: dispatch" do
   end
 
   it "count block poly pred" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # count { |x| <poly value> } used the block value directly as a C condition;
       # a poly (sp_RbVal) predicate is a struct, invalid in `if (...)` (#1508).
       # Routing it through emit_cond makes any predicate a valid truthiness test.
@@ -179,7 +179,7 @@ describe "Blocks: dispatch" do
   end
 
   it "curry in poly slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       l001 = ->(x001) { x001 }
       r001 = (l001.curry rescue $!.class)
       p r001.class
@@ -221,7 +221,7 @@ describe "Blocks: dispatch" do
   end
 
   it "forwarded proc to poly iterator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `xs.each(&proc)` on a receiver whose type is only known at run time drove an
       # empty loop body: the appends simply vanished.
       def poly(n)
@@ -307,7 +307,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly blockless each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       [[1, 2]].each { |a001| p a001.each.to_a }
       p [[1, 2], [3]].map { |a| a.each.to_a }
       [[1, 2]].each { |a| e = a.each; p e.next; p e.next }
@@ -327,7 +327,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly count block arg hoist" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `cell.neighbors.count { |n| Kind.walkable?(n.kind) }` on a poly receiver.
       #
       # The count arm wrote "if (sp_poly_truthy(" into the statement stream and then
@@ -376,7 +376,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly dispatch block arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver dispatching to a method that takes `&blk`.
       #
       # The dispatch built its arm from the parameter list alone, and a `&blk`
@@ -458,7 +458,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly dispatch block capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block passed to a poly receiver, capturing an enclosing local.
       #
       # The dispatch materializes the block as a real proc once, ahead of the switch,
@@ -554,7 +554,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly filter bang stmt block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-place poly-array filters (select!/filter!/keep_if/reject!/delete_if)
       # emit their loop into g_pre and used to emit the block's terminal
       # condition directly into g_pre after writing `if (!`. A terminal that
@@ -618,7 +618,7 @@ describe "Blocks: dispatch" do
   end
 
   it "poly proc face" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Proc face on a value read out of a container: lambda?, parameters, curry
       # and to_proc had no arm for a boxed Proc, so each raised NoMethodError.
       fs = [->(x) { x }]
@@ -664,7 +664,7 @@ describe "Blocks: dispatch" do
   end
 
   it "proc call kw and lead splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Variable-stored proc/lambda calls: keyword params bind boxed and type poly
       # (#2728), and a splat may sit anywhere among the arguments (#2729).
       f = ->(a, k:) { [a, k] }
@@ -694,7 +694,7 @@ describe "Blocks: dispatch" do
   end
 
   it "proc poly call boxed result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Calling a proc through a poly slot preserves the boxed result class: an
       # escaping lambda whose body is a container literal over a captured variable
       # returns the container, not a truncated scalar.
@@ -744,7 +744,7 @@ describe "Blocks: dispatch" do
   end
 
   it "proc poly param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Polymorphic (sp_RbVal) values flowing through proc parameters. A 16-byte
       # sp_RbVal does not fit the 8-byte mrb_int arg slot, so a poly arg rides the
       # _sp_proc_poly_args side-channel the call site publishes before the call.
@@ -784,7 +784,7 @@ describe "Blocks: dispatch" do
   end
 
   it "proc poly value return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc/lambda whose parameter is polymorphic (called with values of
       # differing type) and whose body returns that parameter must hand back the
       # value unchanged, not collapse it to 0. The value rides the proc-call poly
@@ -848,7 +848,7 @@ describe "Blocks: dispatch" do
   end
 
   it "proc returns class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc whose value is a Class: the boxed result was cast to the sp_Class
       # struct through its void pointer, which is not valid C, so the program did not
       # compile. The runtime already had the reader.
@@ -870,7 +870,7 @@ describe "Blocks: dispatch" do
   end
 
   it "returned lambda param boxed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `lambda { }` / `proc { }` escapes from a method exactly as `->() { }` does --
       # the caller has the same type-erased proc either way. Only the arrow spelling
       # was marked as escaping, so the method-call spellings' parameters defaulted to

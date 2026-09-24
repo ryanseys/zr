@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Etc programs" do
   it "the user and group databases, sysconf, uname and the processor count all answer their contract" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Etc: the system user/group databases, sysconf/confstr, uname, and processor
       # count -- CRuby's native `ext/etc` over libc. Host-specific values (the real
       # uid, hostname, cpu count) can't be printed verbatim, so this prints the
@@ -74,7 +74,7 @@ describe "Etc programs" do
   end
 
   it "group lookup types and roundtrip" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       gr = Etc.getgrgid           # current effective gid
       puts gr.class
@@ -100,7 +100,7 @@ describe "Etc programs" do
   end
 
   it "missing user or group raises argument error" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       begin
         Etc.getpwnam("no_such_user_zqxjkw")
@@ -118,7 +118,7 @@ describe "Etc programs" do
   end
 
   it "module paths and processor count" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       puts Etc.sysconfdir.class
       puts Etc.systmpdir.class
@@ -137,7 +137,7 @@ describe "Etc programs" do
   end
 
   it "passwd database cursor and block iteration" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       # The block form iterates the whole database; every row is an Etc::Passwd
       # and root (uid 0) is always present.
@@ -164,7 +164,7 @@ describe "Etc programs" do
   end
 
   it "passwd lookup types members and roundtrip" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       pw = Etc.getpwuid            # current effective uid
       puts pw.class
@@ -205,9 +205,9 @@ describe "Etc programs" do
   end
 
   it "passwd row carries darwins ten fields" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
 
       # darwin's struct passwd has ten fields Etc::Passwd carries, in the order
       # etc.c's setup_passwd gives them: the three past the shell are the
@@ -228,7 +228,7 @@ describe "Etc programs" do
   end
 
   it "probe messages" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       # Differential probe: MESSAGE FIDELITY.
       #
       # Raises on purpose across the surfaces whose text is assembled at the raise
@@ -465,7 +465,7 @@ describe "Etc programs" do
   end
 
   it "struct backed builtin class is a struct" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       # `Etc::Passwd`, `Etc::Group` and `Process::Tms` are real `Struct` subclasses,
       # as `rb_struct_define` makes them in CRuby -- so the whole struct protocol is
       # INHERITED and each class supplies only its members and accessors.
@@ -550,7 +550,7 @@ describe "Etc programs" do
   end
 
   it "sysconf confstr and constants" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       puts Etc::SC_CLK_TCK.is_a?(Integer)
       puts Etc::SC_OPEN_MAX.is_a?(Integer)
@@ -578,7 +578,7 @@ describe "Etc programs" do
   end
 
   it "uname returns the five fields" do
-    result = ze0(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
+    result = zr(<<~'RUBY', files: {"etc.rb" => fixture("stdlib/etc/etc.rb")})
       require "etc"
       u = Etc.uname
       puts u.class

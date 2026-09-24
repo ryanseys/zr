@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: dispatch" do
   it "clone of a nested array is a shallow copy, independent of the original at the top level" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#clone aliases Array#dup for poly (nested) arrays: a shallow top-level
       # copy independent of the original. Covers a bare poly array and the clone of a
       # poly-array instance variable inside initialize_copy (the regressing shape).
@@ -39,7 +39,7 @@ describe "Array: dispatch" do
   end
 
   it "fill on a nested array boxes the value into the poly storage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr.fill(val)` on a poly_array used to lower as
       # `sp_PolyArray_set(arr, i, val)` with the raw scalar `val`. The
       # storage is sp_RbVal — passing an unboxed int / str / float
@@ -63,7 +63,7 @@ describe "Array: dispatch" do
   end
 
   it "an empty container as an element makes the outer literal a poly array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty container literal as an array element is a non-scalar value: the
       # outer literal must become a poly array, not collapse to an int array that
       # stores the nested pointer as an integer.
@@ -82,7 +82,7 @@ describe "Array: dispatch" do
   end
 
   it "Array.new coerces a size that arrives as a poly expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # spinel-dev#24: Array.new(size, fill) where `size` is a poly expression.
       #
       # When a factor of the size widens to poly (here Mat#initialize's `ncols`, bound
@@ -120,7 +120,7 @@ describe "Array: dispatch" do
   end
 
   it "transpose swaps rows and columns of an untyped nested array, keeping each element's type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#transpose on an untyped nested array (poly_array of rows) swaps
       # rows and columns, preserving each element's runtime type. The
       # statically-typed nested arrays are specialized inline; this exercises
@@ -167,7 +167,7 @@ describe "Array: dispatch" do
   end
 
   it "empty array dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Iterators dispatched on an empty array literal receiver. Previously the empty
       # `[]` had an unresolved type, so the method aborted at runtime ("undefined
       # method 'each' for unknown") and the exception unwound past following code.
@@ -229,7 +229,7 @@ describe "Array: dispatch" do
   end
 
   it "implicit alloc site holder poly array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :label)
 
@@ -263,7 +263,7 @@ describe "Array: dispatch" do
   end
 
   it "method dispatch poly array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Master PR #312 added heap-allocated `Method` objects but left a
       # hole in heterogeneous poly_array element dispatch:
       #
@@ -305,7 +305,7 @@ describe "Array: dispatch" do
   end
 
   it "nilable poly array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose value is `poly_array | nil` stays a (nullable) poly array rather
       # than widening to a bare poly, so array methods still dispatch on the result.
       def gen(x)
@@ -330,7 +330,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array assoc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#assoc / #rassoc on poly_array. Each element is itself a
       # sub-array; assoc(key) returns the sub-array whose first element
       # matches key, rassoc(val) matches against the second element.
@@ -350,7 +350,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array compact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #725. `Array#compact` on a poly_array (heterogeneous elements
       # with possible nils) used to fall through to an unresolved-call
       # warning and then segfault when the caller read the result as a
@@ -376,7 +376,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array compact bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#compact! on poly_array mutates in place — shift non-nil
       # elements to the front, truncate. Returns the receiver (CRuby
       # returns nil when nothing was removed; the subset always returns
@@ -404,7 +404,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array dup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #427. `Array#dup` on a polymorphic-element array
       # (`poly_array`) emitted the standard `cannot resolve call to
       # 'dup' on poly_array` warning AND segfaulted at runtime
@@ -469,7 +469,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array flatten" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #739. Array#flatten on poly_array (deep nested) and on the
       # typed-array-of-int_array shape (uniform `[[a,b],[c,d]]` form).
       # Both used to fall through to the unresolved-call warning and
@@ -498,7 +498,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array index to h" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sector
         attr_reader :name
 
@@ -572,7 +572,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array intersect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#intersect? through a poly receiver.
       #
       # The typed-receiver forms all resolved, so only a union receiver was missing
@@ -661,7 +661,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array push with user push" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly value that holds a builtin array must still append on push/<</append
       # even when a user class defines push/<<: the poly-dispatch switch needs a
       # builtin-array arm (sp_poly_shl), or the append is silently dropped into an
@@ -694,7 +694,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array range aref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range indexing on a poly (mixed-element) array: arr[a..b] / arr[a...b]
       # returns a subarray, like the typed-array receivers already did. Doom's WAD
       # reader slices its directory (a poly array of entries) between two markers:
@@ -729,7 +729,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array readers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # a stays a poly array (heterogeneous elements) through the method param.
       def probe(a)
         [a.reverse, a.uniq, a.first(2), a.last(2), a.first(0), a.last(10)]
@@ -759,7 +759,7 @@ describe "Array: dispatch" do
   end
 
   it "poly array tally" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every argument is a genuinely heterogeneous (poly) array, so the parameter
       # stays a poly array and Array#tally dispatches through sp_PolyArray_tally.
       def tally_of(arr)
@@ -789,7 +789,7 @@ describe "Array: dispatch" do
   end
 
   it "poly receiver sample" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sample on a poly receiver -- a value whose array-ness is only known at
       # runtime, e.g. an object field or hash value that holds an array. It previously
       # fell through the poly dispatch and returned nil; it must pick an element.
@@ -821,7 +821,7 @@ describe "Array: dispatch" do
   end
 
   it "poly recv dig splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `dig(*keys)` on a receiver reached with more than one container class: the
       # key list only exists at run time, and the arms for it are per container kind,
       # so with none matching the call was coerced to a hash and raised NoMethodError
@@ -874,7 +874,7 @@ describe "Array: dispatch" do
   end
 
   it "predicates on boxed array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # all?/any?/none?/one? on a BOXED array (one bound from a destructured
       # multi-value return, then mapped): the blockless forms had no arm and raised
       # NoMethodError naming Array, and the block form with an unused parameter did
@@ -911,7 +911,7 @@ describe "Array: dispatch" do
   end
 
   it "sized poly array nil n" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@arr = [nil] * N` against an ivar slot inferred as `poly`
       # (sp_RbVal — wider than poly_array, set by `finalize_ivar_heterogeneity`
       # when distinct non-array writes are observed) used to compile to
@@ -959,7 +959,7 @@ describe "Array: dispatch" do
   end
 
   it "splat poly in array literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splatting a poly value into an array literal: whether it holds an array is
       # only known at runtime. An array is spliced one level, nil contributes nothing,
       # and any other scalar is inserted as-is (CRuby splat semantics). The receiver

@@ -2,22 +2,22 @@
 
 require "test_helper"
 require "rbconfig"
-require_relative "../../lib/ze0/prism"
-require_relative "../../lib/ze0/parse_cache"
-require_relative "../../lib/ze0/zr"
+require_relative "../../lib/zr/prism"
+require_relative "../../lib/zr/parse_cache"
+require_relative "../../lib/zr/zr"
 require_relative "../support/harness/prism_diff"
 
 # The host parses with the Ruby port, and keeps each parse in the cache
-# (lib/ze0/parse_cache.rb). The cache fails closed: every input of a parse
+# (lib/zr/parse_cache.rb). The cache fails closed: every input of a parse
 # is in the key, and a file that does not read back is a miss.
 class ParseCacheTest < Minitest::Test
-  ParseCache = Ze0::ParseCache
+  ParseCache = Zr::ParseCache
 
   # Asked in a child, and not of this process. A process that loaded
-  # ruby's own C prism first keeps it (`lib/ze0/prism.rb` says so), and
+  # ruby's own C prism first keeps it (`lib/zr/prism.rb` says so), and
   # this tier holds the harness that loads the C on purpose -- so what
   # this process ended up with says nothing about what the compiler uses.
-  # A fresh ruby that requires `ze0/prism` is the compiler's own case.
+  # A fresh ruby that requires `zr/prism` is the compiler's own case.
   def test_the_host_parses_with_the_ruby_port_and_the_vendored_ruby_half
     parse, gem, node, native = compiler_process.lines(chomp: true)
 
@@ -44,7 +44,7 @@ class ParseCacheTest < Minitest::Test
     files = ParseCache.parser_files
     [
       "rt/ext/prism/ruby/parser/core.rb", "rt/ext/prism/ruby/lexer.rb", "rt/ext/prism/ruby/ast.rb", "rt/ext/prism/prism.rb",
-      "lib/ze0/prism_backend/prism/prism.rb", "lib/ze0/prism.rb", "lib/ze0/parse_cache.rb"
+      "lib/zr/prism_backend/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/parse_cache.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last
     assert_includes files, gem
@@ -66,7 +66,7 @@ class ParseCacheTest < Minitest::Test
 
   def test_a_path_is_a_parser_file_by_the_patterns_alone
     ParseCache.parser_files.each { |file| assert ParseCache.parser_file?(file), file }
-    refute ParseCache.parser_file?(File.join(ROOT, "lib/ze0/zr.rb"))
+    refute ParseCache.parser_file?(File.join(ROOT, "lib/zr/zr.rb"))
     refute ParseCache.parser_file?(File.join(ROOT, "rt/ext/prism.rb"))
     assert ParseCache.parser_file?(File.join(ROOT, "rt/ext/prism/ruby/parser/core.rb"))
   end
@@ -79,8 +79,8 @@ class ParseCacheTest < Minitest::Test
     stamps = ParseCache.instance_variable_get(:@stamps)
     file = stamps.keys.first
     ParseCache.instance_variable_set(:@stamps, stamps.merge(file => [0, 0]))
-    Dir.mktmpdir("ze0-parse-") do |dir|
-      error = assert_raises(Ze0::Zr::Moved) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
+    Dir.mktmpdir("zr-parse-") do |dir|
+      error = assert_raises(Zr::Zr::Moved) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
       assert_includes error.message, file
       refute File.exist?(File.join(dir, "x.marshal"))
     end
@@ -94,7 +94,7 @@ class ParseCacheTest < Minitest::Test
   def test_a_derived_form_is_made_once_and_read_back_after
     source = "derived_#{Process.pid} = 1\n"
     options = { filepath: "derived.rb", line: 1 }
-    spotter = [File.join(ROOT, "lib/ze0/hir/spots.rb")]
+    spotter = [File.join(ROOT, "lib/zr/hir/spots.rb")]
     made = 0
     first = ParseCache.derived("spots", source, options, spotter) { made += 1; "1 n - 1 0 1 5\n" }
     again = ParseCache.derived("spots", source, options, spotter) { made += 1; "other" }
@@ -102,13 +102,13 @@ class ParseCacheTest < Minitest::Test
     assert_equal 1, made
     assert_equal first, again
     assert_equal Encoding::UTF_8, again.encoding
-    assert_equal "other", ParseCache.derived("spots", source, options, spotter + [File.join(ROOT, "lib/ze0/hir.rb")]) { "other" }
+    assert_equal "other", ParseCache.derived("spots", source, options, spotter + [File.join(ROOT, "lib/zr/hir.rb")]) { "other" }
   end
 
   def test_a_derived_form_whose_maker_is_not_there_is_made_and_not_kept
     source = "underived_#{Process.pid} = 1\n"
     options = { filepath: "derived.rb", line: 1 }
-    missing = [File.join(ROOT, "lib/ze0/no_such_maker.rb")]
+    missing = [File.join(ROOT, "lib/zr/no_such_maker.rb")]
     assert_equal "a", ParseCache.derived("spots", source, options, missing) { "a" }
     assert_equal "b", ParseCache.derived("spots", source, options, missing) { "b" }
   end
@@ -139,7 +139,7 @@ class ParseCacheTest < Minitest::Test
   # The memo is bounded, because a build parses each file once and would
   # otherwise hold every tree it ever made until the build ended.
   def test_the_memo_drops_the_least_recently_used_once_its_bound_is_passed
-    memo = Ze0::ParseCache::Memo.new(10)
+    memo = Zr::ParseCache::Memo.new(10)
     memo.keep("a", :first, 4)
     memo.keep("b", :second, 4)
     memo["a"]
@@ -152,7 +152,7 @@ class ParseCacheTest < Minitest::Test
   end
 
   def test_a_source_larger_than_the_whole_bound_is_answered_and_not_held
-    memo = Ze0::ParseCache::Memo.new(10)
+    memo = Zr::ParseCache::Memo.new(10)
     memo.keep("small", :kept, 4)
 
     assert_equal :huge, memo.keep("huge", :huge, 11)
@@ -161,9 +161,9 @@ class ParseCacheTest < Minitest::Test
   end
 
   def test_a_result_read_back_answers_as_the_parse_did
-    Dir.mktmpdir("ze0-parse-") do |dir|
+    Dir.mktmpdir("zr-parse-") do |dir|
       path = File.join(dir, "result.marshal")
-      source = File.read(File.join(ROOT, "lib/ze0/hir/build.rb"))
+      source = File.read(File.join(ROOT, "lib/zr/hir/build.rb"))
       parsed = Prism.parse(source, filepath: "build.rb")
       ParseCache.write(path, Marshal.dump(parsed))
       read = ParseCache.read(path)
@@ -175,7 +175,7 @@ class ParseCacheTest < Minitest::Test
   end
 
   def test_a_file_that_does_not_read_back_is_a_miss
-    Dir.mktmpdir("ze0-parse-") do |dir|
+    Dir.mktmpdir("zr-parse-") do |dir|
       path = File.join(dir, "result.marshal")
       assert_nil ParseCache.read(path)
       File.binwrite(path, Marshal.dump(Prism.parse("1"))[0, 40])
@@ -189,10 +189,10 @@ class ParseCacheTest < Minitest::Test
 
   private
 
-  # What a fresh `require "ze0/prism"` leaves standing, one fact a line.
+  # What a fresh `require "zr/prism"` leaves standing, one fact a line.
   def compiler_process
-    said = IO.popen(Ze0::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
-      require "ze0/prism"
+    said = IO.popen(Zr::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
+      require "zr/prism"
       gem = $LOAD_PATH.resolve_feature_path("prism").last
       puts Prism.method(:parse).source_location.first
       puts gem

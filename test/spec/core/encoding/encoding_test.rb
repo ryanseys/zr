@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Encoding programs" do
   it "append codepoint empty literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Five surfaces from the conformance wave, four of which crashed.
 
       # String#<< and #concat take an Integer as a codepoint. It was passed through
@@ -83,7 +83,7 @@ describe "Encoding programs" do
   end
 
   it "carrier utf8 encodings map their emoji" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # UTF8-DoCoMo, UTF8-KDDI and UTF8-SoftBank are UTF-8 whose private-use
       # emoji ruby maps to and from Unicode's own, by the tables of
       # enc/trans/emoji-exchange-tbl.rb. This runtime carries no such tables
@@ -118,7 +118,7 @@ describe "Encoding programs" do
   end
 
   it "empty receivers concat keeps a compatible encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby's concatenation negotiation for an EMPTY receiver: an
       # ascii-compatible empty string keeps its OWN encoding when the addition is
       # 7-bit ("".b << "abc" stays BINARY), and adopts the addition's encoding
@@ -179,7 +179,7 @@ describe "Encoding programs" do
   end
 
   it "compatible? answers by which side is empty, which is 7-bit, and the order the two are asked in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Encoding.compatible?` over the shapes that decide it: which side is empty,
       # which side is 7-bit, and whether either encoding is ascii-compatible. The
       # order the two sides are asked in IS the answer -- two ascii-only strings
@@ -310,7 +310,7 @@ describe "Encoding programs" do
   end
 
   it "a well-known Encoding constant compares equal to the encoding a string carries" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Well-known Encoding constants resolve to the matching boxed encoding value,
       # so `str.encoding == Encoding::UTF_8` compiles and compares (it used to emit
       # an sp_Class from the uninitialized-constant fallback into a bool context).
@@ -336,7 +336,7 @@ describe "Encoding programs" do
   end
 
   it "encodings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Ruby String is bytes PLUS an encoding that says how to read them. The
       # Encoding engine here supports UTF-8, US-ASCII, ASCII-8BIT (BINARY), and
       # ISO-8859-1 (Latin-1); the design extends to more by adding a table row.
@@ -429,7 +429,7 @@ describe "Encoding programs" do
   end
 
   it "file read applies external and internal encodings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File.read tags bytes with the external encoding (default UTF-8), or a
       # requested one; binread is always ASCII-8BIT; binwrite round-trips raw
       # bytes. Verified against ruby 4.0.6.
@@ -461,7 +461,7 @@ describe "Encoding programs" do
   end
 
   it "float hex encoding isa bool wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float() hex-float strings, Symbol#encoding, is_a?(Object) on typed
       # user objects, and boolean & | ^ with arbitrary (truthy) operands.
       p(Float("0x1p4"))
@@ -499,7 +499,7 @@ describe "Encoding programs" do
   end
 
   it "force encoding symbol argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         (+"x").force_encoding(:a)
       rescue TypeError => e
@@ -511,7 +511,7 @@ describe "Encoding programs" do
   end
 
   it "frozen string refuses force encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#force_encoding` on a frozen string raises FrozenError -- even
       # when the new encoding equals the current one. zeo answers the string
       # silently: force_encoding skips the frozen guard every other mutator
@@ -535,7 +535,7 @@ describe "Encoding programs" do
   end
 
   it "io encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading a file yields a string tagged with an ENCODING. A text read
       # (File.read) tags the bytes with the EXTERNAL encoding (UTF-8 by default,
       # or one you request) without validating them; a binary read (File.binread)
@@ -587,7 +587,7 @@ describe "Encoding programs" do
   end
 
   it "io nul bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r, w = IO.pipe
       w.write("hello\0world")
       w.close
@@ -615,7 +615,7 @@ describe "Encoding programs" do
   end
 
   it "io shovel chains binary and text arguments byte faithfully" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "/tmp/zeo_e2e_binshovel_#{Process.pid}"
       File.open(path, "wb") { |f| f << 180.chr << "a" }
       p File.binread(path).bytes
@@ -627,7 +627,7 @@ describe "Encoding programs" do
   end
 
   it "io write sends raw bytes and answers the byte count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # 1 binary byte + 2 UTF-8 bytes for "é" + 2 display bytes for 42 = 5;
       # the count is BYTES, not characters.
 
@@ -641,7 +641,7 @@ describe "Encoding programs" do
   end
 
   it "iso2022jp kddi converts through its stateless form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ISO-2022-JP-KDDI is stateless-ISO-2022-JP-KDDI's characters between
       # escapes, written and read as String#encode and a Converter do.
       def t(s, to, **o)
@@ -691,7 +691,7 @@ describe "Encoding programs" do
   end
 
   it "append_as_bytes, bytesplice and scrub! answer the new text on a frozen receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s1 = "abc"; r1 = (s1.append_as_bytes("de") rescue $!.class); p r1
       s2 = "hello"; r2 = (s2.bytesplice(0, 2, "HE") rescue $!.class); p r2
       s3 = "hello"; r3 = (s3.bytesplice(0..1, "HE") rescue $!.class); p r3
@@ -713,7 +713,7 @@ describe "Encoding programs" do
   end
 
   it "encode! and force_encoding answer the receiver's text on a frozen string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s1 = "hello"; r1 = (s1.encode!("UTF-8") rescue $!.class); p r1
       s2 = "hello"; r2 = (s2.force_encoding("UTF-8") rescue $!.class); p r2
       p "hello".encode("UTF-8")
@@ -732,7 +732,7 @@ describe "Encoding programs" do
   end
 
   it "scrub! answers the string whether or not there was anything to scrub" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s1 = "hello"; r1 = (s1.scrub! rescue $!.class); p r1
       s2 = "hello"; r2 = (s2.scrub!("?") rescue $!.class); p r2
       p("hello".scrub!)
@@ -750,7 +750,7 @@ describe "Encoding programs" do
   end
 
   it "issue string ops on broken encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby REFUSES a String operation that has to READ characters when the
       # receiver's bytes are not valid in its own encoding. zeo renders a bad byte as
       # U+FFFD (`StrBuf::to_utf8_lossy`) and used to answer anyway.
@@ -899,7 +899,7 @@ describe "Encoding programs" do
   end
 
   it "multibyte cjk encodings walk transcode and error shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The multibyte CJK rows (Shift_JIS / Windows-31J / EUC-JP / GBK / Big5):
       # structural walking is CRuby-faithful (a valid-but-unmapped pair is a real
       # character), mapping via encoding_rs; char ops, transcode round trips,
@@ -972,7 +972,7 @@ describe "Encoding programs" do
   end
 
   it "mutable str force encoding return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sequel to #441. The original fix gated force_encoding/encode/b
       # return-type inference on `recv == "string"`, which left the
       # `sp_String *` (mutable_str) receiver case unfixed. Codegen for
@@ -1000,7 +1000,7 @@ describe "Encoding programs" do
   end
 
   it "poly each byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `each_byte` / `each_codepoint` with a block on a receiver only known to be a
       # String at run time. The poly path served each_char but not these, so the call
       # fell through to NoMethodError.
@@ -1022,7 +1022,7 @@ describe "Encoding programs" do
   end
 
   it "poly string binary methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#bytes / #unpack1 on a value that widened to poly (a method with
       # multiple return paths) must dispatch to the String impl, not raise
       # "undefined method for poly".
@@ -1060,7 +1060,7 @@ describe "Encoding programs" do
   end
 
   it "poly string encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `encoding` on a String reached through a POLY receiver. The concrete String
       # arm has answered it since #723 and the poly dispatch had no entry, so a
       # String read out of a poly array raised NoMethodError naming its own class:
@@ -1105,7 +1105,7 @@ describe "Encoding programs" do
   end
 
   it "regexp encoding introspection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp introspection: #encoding (was silently ""), #fixed_encoding?, and
       # Regexp.linear_time? (both previously rejected at compile time).
 
@@ -1164,7 +1164,7 @@ describe "Encoding programs" do
   end
 
   it "single byte transcoding round trips and error shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pl = "żółć gęś"
       w = pl.encode("Windows-1250")
       p w.bytes
@@ -1201,7 +1201,7 @@ describe "Encoding programs" do
   end
 
   it "source file is bytes not utf8" do
-    result = ze0(<<~'RUBY', files: beside("source_bytes/latin1_comment.rb"))
+    result = zr(<<~'RUBY', files: beside("source_bytes/latin1_comment.rb"))
       # Ruby source is a byte stream, not text. CRuby reads a file with the
       # default UTF-8 source encoding and simply SKIPS a byte that is not valid
       # UTF-8 when it sits in a comment -- only code has to decode. A required
@@ -1217,7 +1217,7 @@ describe "Encoding programs" do
   end
 
   it "stdout receives a binary strings raw byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The harness captures stdout lossily, so the RAW 0xB4 byte surfaces
       # as one U+FFFD replacement char -- whereas a promoted output
       # (0xC2 0xB4) would decode "cleanly" as U+00B4. The replacement char IS
@@ -1233,7 +1233,7 @@ describe "Encoding programs" do
   end
 
   it "str force encoding return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def f(s); s.force_encoding(...); end` whose body's last
       # expression is `force_encoding` (a receiver passthrough at codegen)
       # previously had its return type inferred as mrb_int — the function
@@ -1270,7 +1270,7 @@ describe "Encoding programs" do
   end
 
   it "string append as bytes int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#append_as_bytes accepts Integer byte values (100 -> "d") as well as
       # Strings, and a mix of both.
       a = "abc"; a.append_as_bytes(100, 101); p a
@@ -1286,7 +1286,7 @@ describe "Encoding programs" do
   end
 
   it "string append binary safe" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#<< must preserve embedded NUL bytes: a mutable string's payload buffer
       # is length-tracked (a header on the 0xfd buffer), not NUL-terminated, so
       # appending content that begins with (or contains) 0x00 keeps every byte.
@@ -1346,7 +1346,7 @@ describe "Encoding programs" do
   end
 
   it "string encode newline option" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#encode`'s newline-rewrite options are ignored: zeo returns the
       # input unchanged for `newline: :cr`/`:crlf` and the `cr_newline:`/
       # `crlf_newline:` spellings, where ruby rewrites the newlines.
@@ -1368,7 +1368,7 @@ describe "Encoding programs" do
   end
 
   it "string encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #723. `.encoding` returns the source label (spinel uses
       # UTF-8 throughout) as a small Encoding value.
 
@@ -1389,7 +1389,7 @@ describe "Encoding programs" do
   end
 
   it "string encoding ivar wire and roundtrip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String's `I`-wrapper carries its encoding -- `E => true` (UTF-8),
       # `E => false` (US-ASCII), `encoding => "<name>"` (other), and NO wrapper
       # for ASCII-8BIT. The encoding survives a round-trip.
@@ -1421,7 +1421,7 @@ describe "Encoding programs" do
   end
 
   it "string new builds empty and copied buffers with encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p String.new
       p String.new("hi")
       p String.new.encoding.name
@@ -1437,7 +1437,7 @@ describe "Encoding programs" do
   end
 
   it "string plus concatenates raw bytes under the compatibility rule" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = 181.chr + "\n"
       p s.encoding
       p s.bytes
@@ -1457,7 +1457,7 @@ describe "Encoding programs" do
   end
 
   it "string replace adopts the sources bytes and encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby's `rb_str_replace` copies the source's bytes AND encoding onto the
       # receiver -- no transcoding, whatever encoding the receiver was born with.
       b = +"seed"
@@ -1485,7 +1485,7 @@ describe "Encoding programs" do
   end
 
   it "string scrub with a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#scrub` ignores its BLOCK: zeo substitutes the default replacement
       # where ruby yields each invalid byte run and splices the block's result.
       # The no-argument and string-argument forms agree. (Found by the 2026-08-24
@@ -1501,7 +1501,7 @@ describe "Encoding programs" do
   end
 
   it "string shovel appends bytes and codepoints in the receivers encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `"".b << 181` is the single raw byte 0xB5; a UTF-8 receiver encodes
       # the codepoint (an emoji is 4 bytes); a binary append composes.
 
@@ -1524,7 +1524,7 @@ describe "Encoding programs" do
   end
 
   it "xml attr escapes the apostrophe" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # xml: :attr escapes the apostrophe as &apos;, as enc/trans/escape.trans
       # does, both through String#encode and through a Converter.
 
@@ -1547,7 +1547,7 @@ describe "Encoding programs" do
   end
 
   it "writes GB18030 and CESU-8 past the two bytes they start with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GB18030 holds every Unicode character: the ones a two-byte row
       # does not name take four bytes, whether or not they are past the
       # BMP. CESU-8 writes a character past the BMP as its two
@@ -1588,7 +1588,7 @@ describe "Encoding programs" do
   end
 
   it "encode with invalid: :replace replaces bad bytes of a US-ASCII or UTF-8 source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(s, to, **o)
         r = s.encode(to, **o)
         p [r, r.encoding]
@@ -1612,7 +1612,7 @@ describe "Encoding programs" do
   end
 
   it "encode with invalid: :replace keeps the byte after a bad lead byte of a double-byte encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(bytes, from)
         r = bytes.b.force_encoding(from).encode("UTF-8", invalid: :replace)
         p [from, r]
@@ -1640,7 +1640,7 @@ describe "Encoding programs" do
   end
 
   it "encode with invalid: :replace replaces for GB18030, CESU-8, UTF8-MAC, ISO-2022-JP and the BOM encodings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(bytes, from, to = "UTF-8")
         r = bytes.b.force_encoding(from).encode(to, invalid: :replace)
         p [from, r]
@@ -1666,7 +1666,7 @@ describe "Encoding programs" do
   end
 
   it "the newline options of encode to UTF-16" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(s, to, **o)
         r = s.encode(to, **o)
         p [r.b, r.encoding]
@@ -1688,7 +1688,7 @@ describe "Encoding programs" do
   end
 
   it "an Encoding::Converter to CESU-8 or to UTF-16" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(from, to, s)
         c = Encoding::Converter.new(from, to)
         r = c.convert(s) + c.finish
@@ -1713,7 +1713,7 @@ describe "Encoding programs" do
   end
 
   it "a newline or xml option to an encoding with no converter raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(to, **o)
         r = "a<b".encode(to, **o)
         p [to, r.b]
@@ -1737,7 +1737,7 @@ describe "Encoding programs" do
   end
 
   it "a dummy encoding refuses case mapping and concatenation, and inspect escapes each byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       %w[UTF-7 UTF-16 ISO-2022-JP IBM037].each do |enc|
         s = "abc".b.force_encoding(enc)
         r = [enc, s.inspect]
@@ -1757,7 +1757,7 @@ describe "Encoding programs" do
   end
 
   it "scrub and grapheme_clusters of broken UTF-32" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "a\x00\x00\x00\xFF\xFF\xFF\xFFb\x00\x00".b.force_encoding("UTF-32LE")
       p [s.valid_encoding?, (s.scrub("?") rescue [$!.class, $!.message])]
       p s.scrub.b

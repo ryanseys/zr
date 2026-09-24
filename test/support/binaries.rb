@@ -4,11 +4,11 @@ require "digest"
 require "fileutils"
 require "stringio"
 require "zlib"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/native/build"
-require_relative "../../lib/ze0/obj/macho/skeleton"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/native/build"
+require_relative "../../lib/zr/obj/macho/skeleton"
 
-module Ze0
+module Zr
   module Spec
     # The binaries the examples built, kept for the next run.
     #
@@ -28,9 +28,9 @@ module Ze0
     # them back from the prelink in memory -- the text as the link
     # leaves it -- and what is kept is deflated. A whole spec tier is
     # then five gigabytes, not two hundred, and `trim` keeps the
-    # directory under `ZE0_BINARIES_GB` by dropping what was used
+    # directory under `ZR_BINARIES_GB` by dropping what was used
     # longest ago. A module has no prelink to draw on and is kept whole,
-    # so it is kept only when asked (`ZE0_BINARIES=1`); `ZE0_BINARIES=0`
+    # so it is kept only when asked (`ZR_BINARIES=1`); `ZR_BINARIES=0`
     # keeps nothing.
     #
     # The key fails closed. It holds the runtime's digest for the target
@@ -45,15 +45,15 @@ module Ze0
     module Binaries
       VERSION = 3
       # The environment a build reads that decides its bytes -- and
-      # `ZE0_VERIFY`, which decides whether the lowering checks itself,
+      # `ZR_VERIFY`, which decides whether the lowering checks itself,
       # so a verifying run lowers rather than takes.
-      ENVIRONMENT = %w[ZE0_LINK ZE0_EVAL ZE0_VERIFY ZE0_WASM_NAMES ZE0_WASM_WIDTH].freeze
+      ENVIRONMENT = %w[ZR_LINK ZR_EVAL ZR_VERIFY ZR_WASM_NAMES ZR_WASM_WIDTH].freeze
       PAGE = Obj::MachO::Prelink::PAGE
 
       module_function
 
       def wanted?(target)
-        case ENV["ZE0_BINARIES"]
+        case ENV["ZR_BINARIES"]
         when "1" then true
         when "0" then false
         else target.link
@@ -62,7 +62,7 @@ module Ze0
 
       def directory = File.join(Zr.cache, "binaries")
 
-      def limit = Float(ENV.fetch("ZE0_BINARIES_GB", 8)) * (1 << 30)
+      def limit = Float(ENV.fetch("ZR_BINARIES_GB", 8)) * (1 << 30)
 
       # Where the binary of this example is kept, or nil where no key
       # can describe it.

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO::console programs" do
   it "console escape answers its receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cursor/erase/scroll family writes an escape and answers the RECEIVER,
       # so `io.goto(0, 0).erase_line(0)` chains. They answered nil.
       #
@@ -94,7 +94,7 @@ describe "IO::console programs" do
   end
 
   it "require gated io row appears at the require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts STDOUT.respond_to?(:getch)
       puts STDOUT.respond_to?(:winsize)
       puts STDOUT.respond_to?(:nonblock?)
@@ -115,7 +115,7 @@ describe "IO::console programs" do
   end
 
   it "satisfied require activates at its own line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` records itself where it is WRITTEN, not for the whole program
       # at once. Every effect of loading a feature -- `$LOADED_FEATURES` naming it,
       # a require-gated builtin row becoming answerable -- starts at this line.

@@ -184,7 +184,7 @@ machine def zr_const_row(klass, id)
 end
 
 # Object's constants that a file only the runtime loads sets, as the eval
-# road's Ze0 and Prism: they stay out of the program's sight, as ruby has
+# road's Zr and Prism: they stay out of the program's sight, as ruby has
 # neither, until the program requires the file itself. Code of a unit
 # that loads hidden reads them, the runtime's own code does, and so does
 # anything that runs while a hidden file loads. A reflective read, as
@@ -1464,7 +1464,7 @@ machine def zr_mod_autoload_p(recv, argc, argv, cref, blk)
   zr_autoload_feature(recv, Machine.load64(slot, 0))
 end
 
-# The walking eval road (lib/ze0/eval/walk.rb) reads and writes
+# The walking eval road (lib/zr/eval/walk.rb) reads and writes
 # constants through the kernel's own lookup, so a string it evaluates
 # finds what compiled code finds. It has no inline cache to hand over
 # and no symbol id to spell, so these take the name as a Symbol and

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Regexp: encodings" do
   it "ascii escape inside a bracket class folds past ascii" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "ſ" =~ /[\w]/i
       p "K" =~ /[\w]/i
       p "ſ" =~ /[\w&&[a-z]]/i
@@ -24,7 +24,7 @@ describe "Regexp: encodings" do
   end
 
   it "class under i folds across ascii as onigmo does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Under /i a class folds a character across ASCII (s and the long s, k and
       # the Kelvin sign) only where the class holds it by something other than
       # \w, [[:word:]], \p{ASCII} or a POSIX bracket read as ASCII.
@@ -78,7 +78,7 @@ describe "Regexp: encodings" do
   end
 
   it "onigmo unicode and backtracking edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Onigmo's own answers at the edges a port gets wrong: grapheme clusters,
       # multi-character case folds, property aliases, ASCII-range options in
       # classes, recursion with a level, absent groups, look-behind alternation
@@ -128,7 +128,7 @@ describe "Regexp: encodings" do
   end
 
   it "reads each single byte encoding with its own classes and folds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Regexp over text in a single-byte encoding reads each byte with that
       # encoding's own tables: its word and POSIX classes, its lower-case
       # table under /i, and a sharp s that folds to "ss" where the encoding
@@ -203,7 +203,7 @@ describe "Regexp: encodings" do
   end
 
   it "regex posix class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # POSIX bracket classes [[:name:]] inside char classes (W9 / B49).
       # Previously parsed as the literal set of characters in ":name:", so
       # they never matched. Now they compile to the corresponding ASCII ranges.
@@ -279,7 +279,7 @@ describe "Regexp: encodings" do
   end
 
   it "the /, c, m and S marshal records each match CRuby byte for byte and round-trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `/` (regexp source + option byte, `I`-wrapped for encoding), `c`/`m`
       # (class/module reference), and `S` (Struct: class symbol, member count,
       # member/value pairs).
@@ -312,7 +312,7 @@ describe "Regexp: encodings" do
   end
 
   it "M-, C- and c are ruby's escapes, decoded before the engine sees the pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `\M-X`, `\C-X` and `\cX` are RUBY'S escapes, not the engine's. `re.c`
       # decodes them before the engine ever sees the pattern: `\M-` sets bit 0x80,
       # `\C-`/`\c` mask with 0x1f, and the two nest. The pattern's own encoding then
@@ -388,7 +388,7 @@ describe "Regexp: encodings" do
   end
 
   it "every String method taking a pattern reads wide and legacy text one character at a time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every String method that takes a Regexp reads wide and legacy text a
       # character at a time: scan, split, index and rindex, byteindex,
       # partition, slice and []=, start_with?, match and match?, sub! and
@@ -824,7 +824,7 @@ describe "Regexp: encodings" do
   end
 
   it "the FIXEDENCODING and NOENCODING bits count, and the source's own bytes settle the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Regexp.new(string, integer)`: the integer's FIXEDENCODING and
       # NOENCODING bits count, as rb_reg_initialize_str reads them, and the
       # encoding comes from the source and its escapes as rb_reg_preprocess
@@ -883,7 +883,7 @@ describe "Regexp: encodings" do
   end
 
   it "Regexp.new refuses a third argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         p Regexp.new("a", nil, "n").encoding.name
       rescue ArgumentError, TypeError => e
@@ -895,7 +895,7 @@ describe "Regexp: encodings" do
   end
 
   it "a pattern over EUC-JP or Shift_JIS text takes a whole two-byte character for a dot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Regexp over EUC-JP, Shift_JIS or Windows-31J text reads it a character
       # at a time, with that encoding's own classes and case folds: `.` takes a
       # whole two-byte character. The engine carries Onigmo's UTF-8 and ASCII
@@ -931,7 +931,7 @@ describe "Regexp: encodings" do
   end
 
   it "a pattern over Japanese, Chinese or Korean text reads whole characters and their properties" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Regexp over Japanese, Chinese or Korean text in a legacy multibyte
       # encoding reads whole characters of it: one to four bytes as the
       # encoding lays them out, a search that steps back onto a character's
@@ -1219,7 +1219,7 @@ describe "Regexp: encodings" do
   end
 
   it "a pattern in UTF-16 or UTF-32 reads a surrogate pair as one character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Regexp written in UTF-16 or UTF-32 reads text of that encoding a
       # character at a time: two or four bytes, a surrogate pair as one
       # character, a newline as the character U+000A, and Unicode's classes,
@@ -1358,7 +1358,7 @@ describe "Regexp: encodings" do
   end
 
   it "a binary subject matches no word boundary and no POSIX bracket" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "\xB5".b =~ /\b/
       p "\xB5".b =~ /[[:word:]]/
       p "\xC2\xB5".b =~ /[[:word:]]/
@@ -1374,7 +1374,7 @@ describe "Regexp: encodings" do
   end
 
   it "subject of another encoding compiles the pattern again" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pattern that fixed no encoding reads a subject of another encoding
       # by compiling its source again under the subject's (rb_reg_prepare_re):
       # the escapes decode as that encoding's characters, a byte no character
@@ -1444,7 +1444,7 @@ describe "Regexp: encodings" do
     ERR
   end
   it "a text with a byte past ASCII is scanned once, and the answer follows the bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A text with one byte past ASCII, matched many times, then changed
       # under the memo: the scan's answer follows the bytes.
       text = "id=1 café id=2 id=3"

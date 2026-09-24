@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "REXML programs" do
   it "requiring rexml document survives the ambient encoding class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rexml's `class Output; include Encoding` means REXML::Encoding, the gem's
       # own module -- never the builtin Encoding CLASS an outer scope offers. The
       # resolution must hold when rexml arrives as a lazy unit too, which is how

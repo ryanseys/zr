@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "CSV programs" do
   it "shift returns non-locally out of a block yielded deep inside the parser" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `CSV#shift` is `parser.parse { |row| return row }` -- a non-local return out
       # of a block yielded from deep inside the parser, past frames that catch a
       # `Signal::Return` of their own. It is the reason `shift`/`gets`/`readline`
@@ -49,7 +49,7 @@ describe "CSV programs" do
   end
 
   it "issue csv gem missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "csv"` -- the vendored gem loads, which brings `CSV.parse` and
       # `CSV.generate` with it.
       require "csv"
@@ -60,7 +60,7 @@ describe "CSV programs" do
   end
 
   it "qualified defined answers by position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` of a qualified path answers by POSITION, exactly like the bare
       # name: a constant a later require or a later statement defines is nil here,
       # whatever the whole program eventually holds. The runtime registry carries

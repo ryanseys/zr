@@ -74,7 +74,7 @@ class Binding
 
   # CRuby's prelude: the first `binding.irb` requires irb, whose own
   # Binding#irb replaces this one, and then calls it. A program that
-  # names `irb` carries rt/ext/ze0/irb_session.rb ahead of its body, and
+  # names `irb` carries rt/ext/zr/irb_session.rb ahead of its body, and
   # that file arms the require, so irb joins $LOADED_FEATURES only on
   # that first call.
   #

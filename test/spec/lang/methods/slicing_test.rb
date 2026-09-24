@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: slicing" do
   it "anon splat forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An anonymous positional splat (`def m(a, *) = f(a, *)`, Ruby 3.0) must forward
       # through a receiver call, like a named `*args` does.
       #
@@ -60,7 +60,7 @@ describe "Methods: slicing" do
   end
 
   it "bound method rest args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Method object whose target has a rest parameter takes ONE array there,
       # not one C argument per call-site argument. Bound positionally, the first
       # argument went into the array pointer's slot and the call died.
@@ -86,7 +86,7 @@ describe "Methods: slicing" do
   end
 
   it "call and write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CallAndWriteNode -- `obj.attr &&= val`.
       #
       # Reads `obj.attr`; if truthy, assigns. Mirror of CallOrWriteNode
@@ -125,7 +125,7 @@ describe "Methods: slicing" do
   end
 
   it "call or write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CallOrWriteNode -- `obj.attr ||= val`.
       #
       # Reads `obj.attr`; if falsy, assigns `obj.attr = val`. Receiver
@@ -171,7 +171,7 @@ describe "Methods: slicing" do
   end
 
   it "class method visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_class_method` marks a class method the same way `private` marks an
       # instance one: the name stays callable from inside the class's own class
       # methods and through `send`, but an explicit receiver raises, and the default
@@ -300,7 +300,7 @@ describe "Methods: slicing" do
   end
 
   it "ctor default reads self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constructor's default argument is evaluated on the object being built, so
       # it can call the object's own methods. Emitting it at the call site named a
       # `self` that does not exist there yet; the construction now allocates first
@@ -346,7 +346,7 @@ describe "Methods: slicing" do
   end
 
   it "destructuring params take splats" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A destructuring param may carry a splat, named or anonymous -- the same
       # `before`/`splat`/`after` shape every multi-assignment target group has.
 
@@ -363,7 +363,7 @@ describe "Methods: slicing" do
   end
 
   it "issue runtime override builtin iterator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Overriding a BUILTIN iterator at runtime has to take effect.
       #
       # Two layers had to move, because a builtin receiver reaches neither of the
@@ -441,7 +441,7 @@ describe "Methods: slicing" do
   end
 
   it "keyword arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Keyword arguments and `**` double-splats: literal `k: v` pairs and `**hash`
       # expansions live in ONE ordered list, merged left-to-right with last-key-wins.
       # Because Ruby's Hash is insertion-ordered, the order the two are written in is
@@ -531,7 +531,7 @@ describe "Methods: slicing" do
   end
 
   it "keyword table to a def without keywords roots no stale slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Literal keywords reach a def that declares none as one Hash, made
       # before the arity check fills the required parameters' slots: the
       # collector must not read what an earlier frame left in them.
@@ -551,7 +551,7 @@ describe "Methods: slicing" do
   end
 
   it "kwargs and forwarding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Keyword arguments through every dispatch shape, plus argument forwarding
       # (`...`, anonymous `*`/`**`/`&`).
 
@@ -690,7 +690,7 @@ describe "Methods: slicing" do
   end
 
   it "kwargs double splat at a call site binds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `**h` merges into the G2 trailing-kwargs Hash (literal pairs first,
       # splat entries after, same-key replacement -- `Hash#merge`'s rule).
 
@@ -713,7 +713,7 @@ describe "Methods: slicing" do
   end
 
   it "kwargs splat unknown keyword" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwarding a **hash that carries a key not accepted by the callee's fixed
       # keyword params raises ArgumentError, matching CRuby, instead of silently
       # ignoring the extra key.
@@ -754,7 +754,7 @@ describe "Methods: slicing" do
   end
 
   it "kwsplat literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Double-splatting a hash LITERAL at a call site (`f(**{ ... })`) must compile.
       #
       # The call-site double-splat pre-evaluates the spread hash to a temp. For a bare
@@ -798,7 +798,7 @@ describe "Methods: slicing" do
   end
 
   it "leading optional params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby funds the required parameters first and spends what is left on the
       # optional ones, wherever they sit. Reading the argument list positionally put
       # a lone argument in the leading optional and left the required one at its zero
@@ -884,7 +884,7 @@ describe "Methods: slicing" do
   end
 
   it "leading splat scalar massign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A leading/middle-splat massign with a scalar RHS aligns the value to the post-
       # rest targets: the rest is empty and the first post-target takes the value.
       def a1(x); *a, b = x; [a, b]; end
@@ -912,7 +912,7 @@ describe "Methods: slicing" do
   end
 
   it "method added hook survives a reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ClassMethods idiom where the `include` sits in a REOPEN, and where the
       # hook is inherited one class further down.
       #
@@ -959,7 +959,7 @@ describe "Methods: slicing" do
   end
 
   it "param lengthlike body widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #552. Body-usage param inference widens int/nil-defaulted
       # params to flat `poly` when the body calls a length-like
       # method (length / size / empty?) on the param. These methods
@@ -1031,7 +1031,7 @@ describe "Methods: slicing" do
   end
 
   it "redefining a method in one class body last def wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         def a
           "first"
@@ -1049,7 +1049,7 @@ describe "Methods: slicing" do
   end
 
   it "redefinition window reports its own body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inside a REDEFINITION WINDOW -- between two same-name `def`s -- reflection
       # answers for the body that is LIVE, not the last one written.
       #
@@ -1143,7 +1143,7 @@ describe "Methods: slicing" do
   end
 
   it "second def on a builtin is positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Array
         def size = 1
       end
@@ -1183,7 +1183,7 @@ describe "Methods: slicing" do
   end
 
   it "singleton body writes the class method table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class << self` body's statements are RECEIVERLESS in ruby. zeo rebinds
       # them onto `self.singleton_class`, so the receiver must be the surrogate --
       # that is the table those methods live in -- while the visibility barrier the
@@ -1263,7 +1263,7 @@ describe "Methods: slicing" do
   end
 
   it "splat call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat operator at the call site.
       # Covers pure splat, splat into a method with required + rest params,
       # and mixed prefix/splat/suffix into a rest-collecting method.
@@ -1378,7 +1378,7 @@ describe "Methods: slicing" do
   end
 
   it "splat destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat (rest) target in multi-assignment.
       # Covers leading / trailing / middle splat against array literals,
       # different element types, and a rest-returning function source.
@@ -1478,7 +1478,7 @@ describe "Methods: slicing" do
   end
 
   it "splat forwarding args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A splat in the middle of a call keeps the trailing positional args, and
       # forwarding *args/**kw does not drop the keyword arguments.
       def g(a, b, c, d) = [a, b, c, d]
@@ -1502,7 +1502,7 @@ describe "Methods: slicing" do
   end
 
   it "unbind bind a class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `UnboundMethod#bind` asks whether the argument is an instance of the method's
       # OWNER, and a class method's owner is `#<Class:Foo>` -- so the argument must be
       # a class in Foo's ancestry, not an instance of Foo. CRuby words that refusal
@@ -1578,7 +1578,7 @@ describe "Methods: slicing" do
   end
 
   it "unknown and missing keywords collect all names with no method suffix" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby reports every offending keyword (singular/plural) with no
       # `(in 'method')` suffix, for both direct calls and **hash forwarding.
 

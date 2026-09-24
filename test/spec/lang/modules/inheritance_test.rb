@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: inheritance and ancestors" do
   it "boxs include is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `include` from inside a box reaches the class's ancestry rather than its
       # own tables, and stays the box's.
 
@@ -23,7 +23,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "builtin ancestors are cruby exact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # THE keystone parity test: `.ancestors` for every core class, byte-
       # identical to real ruby. (Mutex/Queue excluded: real Ruby names them
       # `Thread::Mutex`/`Thread::Queue` -- a documented naming divergence.)
@@ -72,7 +72,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "class ancestors superclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#ancestors and Class#superclass over the full chain (user + builtin),
       # and Class values rendering through inspect/p. (CLASS-OBJECT.md Phase 3)
       class Animal; end
@@ -118,7 +118,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "include chain const lookup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Constants defined in a late-reopened module body resolve from
       # instance methods on a class that included the module. Sibling to
       # #573 (`b034816 reconcile_class_includes`) which handled the same
@@ -177,7 +177,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "include chain module nested const" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include A` brings A's nested constants/modules into the includer's
       # constant lookup chain. The bug: spinel tracked `include` on
       # `@cls_includes` only when it appeared in a class body, so a module
@@ -246,7 +246,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "include constant path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include` with a ConstantPathNode argument
       # (`include A::B`, not just bare `include B`).
       #
@@ -357,7 +357,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "include nested module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #425. A bare-receiver call to a method defined on an
       # `include`d module failed when the including class was nested
       # inside a module namespace:
@@ -467,7 +467,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "including a nested module materializes its methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Util
         module Greet
           def hello
@@ -487,7 +487,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "later include reaches back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Extra
         def tag = :from_module
       end
@@ -515,7 +515,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module include p" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Walks; end
       module Swims; end
       class Animal; end
@@ -533,7 +533,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module include predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Greetable; end
       class Person; include Greetable; end
       p Person.include?(Greetable)
@@ -553,7 +553,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module initialize no ctor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module's `def initialize` runs when an includer is constructed, and the
       # module itself has no `new`. Spinel emitted a constructor for the module all
       # the same, whose body called an sp_<Module>_initialize that nothing defines --
@@ -622,7 +622,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module ordering operators and subclasses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal; end
       class Dog < Animal; end
       class Cat < Animal; end
@@ -669,7 +669,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module reopen after include namespaced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #573 (Sam Ruby). When a module is forward-declared empty,
       # included by a class nested inside another module, and then
       # reopened with method definitions, the included class's
@@ -709,7 +709,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "module super into a value builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module mixed into a subclass of a VALUE builtin, whose method calls
       # `super`, crashes the generated program:
       #
@@ -762,7 +762,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "multiple modules in one include statement resolve in given order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module A
         def a
           "a"
@@ -785,7 +785,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "param include body widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #558 (rubys / Sam Ruby). Sibling of #552 for `.include?`,
       # the other "ambiguous receiver" method that exists on
       # String / Array / Hash / Range but NOT on Integer.
@@ -830,7 +830,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "subclass inherits module parent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Sub < Base` inside `module M` used to record `cls_parents`
       # as bare "Base" rather than "M_Base", so emit_class_fields' lookup
       # of the parent missed and Sub came out as an empty struct — every
@@ -881,7 +881,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "super into included module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Greet
         def hi = "hi"
         def shout(x) = x.upcase
@@ -940,7 +940,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "super resolves into an included module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A compile-time scan of the SUPERCLASS chain alone misses a method that
       # only an included module defines; the runtime walk covers the real
       # ancestry, so both a class->module and a module->module `super` land.
@@ -981,7 +981,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "three level super chain crosses a module boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Parent#greet` calls `super`, reaching `Middle#greet` (an included
       # module), which itself calls `super`, reaching `GrandParent#greet` --
       # a chain of 3, verifying `emit_super_inline`'s ancestors-based search
@@ -1011,7 +1011,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "top level include" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `include` mixes a module into Object (the main object's class),
       # so its methods and constants become available bare, program-wide.
 
@@ -1053,7 +1053,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "a top-level include brings a module's methods to main" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
       # them. CRuby installs them on Object; Spinel registers parallel
@@ -1085,7 +1085,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "a nested module's methods arrive under the name their namespace gives them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
       # them. CRuby installs them on Object; Spinel registers parallel
@@ -1130,7 +1130,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "two included modules resolve a shared name to the later one, and keep each one's own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
       # them. CRuby installs them on Object; Spinel registers parallel
@@ -1197,7 +1197,7 @@ describe "Modules: inheritance and ancestors" do
   end
 
   it "a user-defined method wins over an included module's of the same name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Top-level `include <Mod>` mixes the module's module_function
       # methods into the main scope so bare `<m>` calls dispatch to
       # them. CRuby installs them on Object; Spinel registers parallel

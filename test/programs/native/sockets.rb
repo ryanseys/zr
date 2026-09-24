@@ -7,7 +7,7 @@ p Socket.pack_sockaddr_in(80, "127.0.0.1").bytes
 p Socket.unpack_sockaddr_in(Socket.pack_sockaddr_in(80, "127.0.0.1"))
 p Socket.unpack_sockaddr_in(Socket.pack_sockaddr_in(443, "::1"))
 p Socket.unpack_sockaddr_in(Socket.pack_sockaddr_in(0, "2001:db8::1"))
-p Socket.unpack_sockaddr_un(Socket.pack_sockaddr_un("/tmp/ze0.sock"))
+p Socket.unpack_sockaddr_un(Socket.pack_sockaddr_un("/tmp/zr.sock"))
 p Socket.getaddrinfo("127.0.0.1", 80, nil, Socket::SOCK_STREAM)
 p Socket.getaddrinfo("localhost", "http", Socket::AF_INET, Socket::SOCK_STREAM).map { |r| r[0, 4] }
 p Socket.getnameinfo(Socket.pack_sockaddr_in(80, "127.0.0.1"), Socket::NI_NUMERICHOST | Socket::NI_NUMERICSERV)
@@ -47,7 +47,7 @@ p right.gets
 left.close
 right.close
 
-path = File.join(ENV["TMPDIR"] || "/tmp", "ze0-socket-#{Process.pid}")
+path = File.join(ENV["TMPDIR"] || "/tmp", "zr-socket-#{Process.pid}")
 listener = UNIXServer.new(path)
 talker = UNIXSocket.new(path)
 accepted = listener.accept

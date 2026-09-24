@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Struct: inheritance and ancestors" do
   it "anonymous struct and data custom initialize super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #192 feature (1): a `super` inside a method defined in a NON-const
       # `Struct.new`/`Data.define` block resolves through the runtime method-frame
       # stack into the native member-binding `initialize`, where previously it
@@ -41,7 +41,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "anonymous subclass of a compiled struct reads nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S1 = Struct.new(:a, :b)
       K = Class.new(S1)
       o = K.new(1, 2)
@@ -75,7 +75,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "data custom initialize supers with keyword args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # an explicit keyword `super(x: .., y: ..)` binds the parent's
       # keyword params by name; omitting a required one raises CRuby's
       # `missing keyword` ArgumentError.
@@ -103,7 +103,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "data super kwarg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A custom initialize on a Data/Struct value class delegates to super to set
       # the members. Data passes its members as keywords (super(x: ..., y: ...)),
       # which must map each member by name -- not positionally, which would drop the
@@ -160,7 +160,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "nested data reopen keeps the outer super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Data reopen whose body holds ANOTHER Data class with its own
       # `initialize`/`super`. The nested `class Particle` is what pushed the outer
       # reopen onto the static path, and the outer `super` then reached
@@ -197,7 +197,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "a bare super in a custom initialize forwards the method's own parameters into the members" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `super` (no parens) inside a Struct's custom initialize forwards the
       # method's own params into the members -- it must not leave them nil.
       Pair = Struct.new(:a, :b) do
@@ -237,7 +237,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "a Data subclass's constructor reports two frames and its Struct twin reports one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Data` subclass's constructor reports the two frames ruby reports, and its
       # `Struct` twin still reports its one.
       #
@@ -375,7 +375,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "a custom initialize that calls super sets every member, computed arguments included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct with a custom initialize that calls super(...) must set every member
       # via super, including computed (Array) args -- not leave them nil.
       SW = 4
@@ -407,7 +407,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "a class that inherits from Struct.new adds methods over the members it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point < Struct.new(:x, :y, keyword_init: true)
         def distance
           (x * x + y * y)
@@ -450,7 +450,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "a Struct subclass keeps the members, the positional constructor and the member face" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Kid < Base` where Base is a Struct. The subclass is registered before
       # the anonymous Struct it inherits from, and the member merge ran strictly in
       # index order, so the subclass came out with no members at all -- its methods
@@ -505,7 +505,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "a subclass's own ivars take slots of their own, clear of the inherited members" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A subclass of a Struct inherits the member list, so an instance of it has to
       # hold BOTH its ancestor's members and its own instance variables -- and the
       # ancestor's compiled body addresses a member by slot index, so the two must
@@ -584,11 +584,11 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "subclass sees only the calls ruby makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which of Struct's own methods its methods call on a subclass: every
       # method Struct defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       class Probe < Struct.new(:a, :b)

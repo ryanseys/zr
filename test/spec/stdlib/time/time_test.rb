@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Time: the time library" do
   it "sym hash method dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
 
@@ -63,7 +63,7 @@ describe "Time: the time library" do
   end
 
   it "the broken-down accessors, utc_offset and zone all answer whatever the host zone is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
 
@@ -173,7 +173,7 @@ describe "Time: the time library" do
   end
 
   it "iso8601 and strftime resolve on a Time receiver and answer a String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
 
@@ -242,7 +242,7 @@ describe "Time: the time library" do
   end
 
   it "utc resolves on a Time receiver, and chaining iso8601 onto it answers a Zulu string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
 
@@ -309,7 +309,7 @@ describe "Time: the time library" do
   end
 
   it "times map nested array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
 
@@ -341,7 +341,7 @@ describe "Time: the time library" do
   end
 
   it "toplevel ivar array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
 
@@ -378,7 +378,7 @@ describe "Time: the time library" do
   end
 
   it "a fixed-offset Time keeps its own clock fields through strftime, iso8601 and xmlschema" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fixed-offset Time (is_utc kind 2) renders its CIVIL fields shifted by
       # utc_off. sp_time_vtm has always done that -- so #hour, #to_s and #inspect
       # were right -- but strftime / iso8601 / xmlschema read the 3-state kind as a
@@ -451,7 +451,7 @@ describe "Time: the time library" do
   end
 
   it "Time.parse and its stricter siblings read every shape the gem builds on Date._parse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Time.parse` and its stricter siblings, from the vendored `time` gem. All of
       # them delegate to `Date._parse` (see `tests/date_parse_heuristics.rb`); this
       # file pins what the gem builds on top of it.

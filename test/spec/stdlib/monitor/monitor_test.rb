@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Monitor programs" do
   it "five more native types can be subclassed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A subclass of an instantiable native builtin is one husk wrapping the real
       # native value as a PAYLOAD, with the subclass's own ivars beside it. Five more
       # builtins join that list, each because a gem subclasses it for the payload.
@@ -122,7 +122,7 @@ describe "Monitor programs" do
   end
 
   it "is a reentrant lock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Monitor` is reentrant where `Mutex` deadlocks: the owner may enter again,
       # and the lock releases only at the outermost exit.
 
@@ -145,7 +145,7 @@ describe "Monitor programs" do
   end
 
   it "new_cond checks the owner, hands off between threads, times out, and keeps the nesting count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # monitor -- new_cond and MonitorMixin::ConditionVariable: the check-owner
       # rules, a producer/consumer handoff, the timeout return, and the nesting
       # count surviving a wait.
@@ -253,7 +253,7 @@ describe "Monitor programs" do
   end
 
   it "MonitorMixin is the Ruby half over the native reentrant lock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MonitorMixin is the Ruby half of `monitor` over the native reentrant lock.
 
       require "monitor"
@@ -283,7 +283,7 @@ describe "Monitor programs" do
   end
 
   it "a Monitor re-acquires for the thread that holds it, where a Mutex raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Monitor is a REENTRANT mutex, and that is the whole reason it exists: a
       # synchronized method calling another synchronized method of the same object
       # is the ordinary way to write one. Spinel aliased Monitor to Mutex, so the
@@ -328,7 +328,7 @@ describe "Monitor programs" do
   end
 
   it "mutex synchronize block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = Mutex.new
       m.synchronize { puts "locked" }
       puts "done"

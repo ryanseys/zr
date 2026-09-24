@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Struct: formatting and inspection" do
   it "anon struct class value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Struct.new(:a)` used as a VALUE rather than bound to a name -- printed,
       # passed, put in an array -- had no class registered for it at all, and the
       # call reported `Struct.new` as undefined (#4031). Only the forms that are a
@@ -69,7 +69,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "anon struct local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct.new(:a, :b) / Data.define(:x, :y) assigned DIRECTLY to a local
       # (never through a constant): register_structs synthesizes an anonymous
       # struct class keyed to the write node, class_var_static_ci resolves the
@@ -119,7 +119,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "cell value struct capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A captured-and-reassigned local needs a heap cell. Float, poly and class each
       # got a cell of their own C type; Range, Rational and Complex are the same shape
       # -- small by-value structs with no GC pointer -- but were left on the
@@ -189,7 +189,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "data inspect in container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       I = Data.define(:v)
       x = I.new(1)
       p([x])
@@ -200,7 +200,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "data positional args are keywords" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Data.define` builds a class whose two constructor forms are the SAME
       # constructor: ruby converts positional arguments to keywords and reports a
       # shortfall as a missing KEYWORD, never as an arity error.
@@ -257,7 +257,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "data reopen reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Data.define (or Struct.new) generated reader must resolve inside a method
       # defined on the REOPENED class.
       #
@@ -314,7 +314,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "a Struct reads by name, by symbol and by index, and prints through its own to_s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Person = Struct.new(:name, :age)
       p = Person.new("Alice", 30)
       puts p.name
@@ -349,7 +349,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "process times returns a process tms struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.times returns a Process::Tms with Float utime/stime/cutime/cstime
       # (via getrusage); the class name and struct-style inspect match CRuby.
 
@@ -375,7 +375,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "a member's reader and writer are kernel entries, so they have no frame of their own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct member's reader and writer are entries of the kernel's, with
       # no frame of their own: the arity error is the caller's, a trace sees
       # a C call, the writer's one parameter is `_`, and an allocated struct
@@ -448,7 +448,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "Struct and Data build their classes at run time, out of machinery the binary carries" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct and Data build classes at run time; the binary carries the class
       # machinery that needs.
       Pair = Struct.new(:left, :right) do
@@ -473,7 +473,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "a Struct or Data instance renders like CRuby, and a user #inspect overrides the generated one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # p / puts / print / interpolation / #inspect / #to_s of Struct and Data
       # instances render like CRuby. A user-defined #inspect or #to_s overrides the
       # generated one. Regular objects with a user #inspect also print via p now.
@@ -520,7 +520,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "display writes what inspect would" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Struct.new(:x, :y)
       Point.new(1, 2).display
       puts
@@ -530,7 +530,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "a keyword_init struct's name carries the (keyword_init: true) suffix" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A keyword_init Struct's inspect omits the "(keyword_init: true)" suffix.
       #
@@ -585,7 +585,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "a member-less struct keeps the space CRuby leaves where the name would go" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A member-less `Struct`/`Data` inspects with the space CRuby prints.
       #
       # CRuby writes `#<struct ` and then the NAME, so the separator belongs to
@@ -646,7 +646,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "a member named size dispatches to the generated reader, not to the builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct member named `size` (or `length`) must dispatch to the generated
       # member reader, not the built-in length/size, even on a poly receiver.
       E = Struct.new(:offset, :size, :name)
@@ -670,7 +670,7 @@ describe "Struct: formatting and inspection" do
   end
 
   it "to_a and values gather the members in declaration order, whatever their kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct#to_a and #values gather the member values into an array,
       # preserving declaration order. Members may be heterogeneous.
       Person = Struct.new(:name, :age)

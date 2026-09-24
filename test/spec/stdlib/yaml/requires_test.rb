@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "YAML: loading files" do
   it "object to yaml" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "yaml"
 
       p({ "x" => 1 }.to_yaml)
@@ -20,7 +20,7 @@ describe "YAML: loading files" do
   end
 
   it "psych load file and stream" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "yaml"
 
       # load_stream returns every document in a multi-document string.
@@ -54,7 +54,7 @@ describe "YAML: loading files" do
   end
 
   it "psych node tree emits yaml" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "psych"
 
       stream = Psych::Nodes::Stream.new
@@ -66,7 +66,7 @@ describe "YAML: loading files" do
   end
 
   it "psych scalar node knows where it ends" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "psych"
 
       doc = Psych.parse("a: hello\nb: 2\n")
@@ -86,7 +86,7 @@ describe "YAML: loading files" do
   end
 
   it "YAML's octal is 017, so the ruby spelling 0o17 loads as a String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # YAML's octal scalar is `017`; the Ruby-spelling `0o17` is a plain
       # STRING to psych. zeo parses it as octal 15. (Found by the 2026-08-24
       # probe sweep.)
@@ -102,7 +102,7 @@ describe "YAML: loading files" do
   end
 
   it "require \"yaml\" exposes YAML and Psych, and both load and dump what ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "yaml"` exposes both `YAML` and `Psych` (Ruby's `yaml.rb` is
       # `YAML = Psych`); dump uses Psych's block style (sequences under a key
       # stay at the key's indent).
@@ -125,7 +125,7 @@ describe "YAML: loading files" do
   end
 
   it "safe_load raises for an alias or a class its options do not name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -170,7 +170,7 @@ describe "YAML: loading files" do
   end
 
   it "a plain scalar resolves by YAML 1.1 rules, so yes is a boolean and 017 is octal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Psych resolves plain scalars by YAML 1.1 rules: yes/no/on/off (any
       # case) are booleans, Null/NULL are nil, 017 is OCTAL 15, 1:02:03 is the
       # sexagesimal 3723, and "1.0e3"/"1E2" stay STRINGS (the 1.1 float form

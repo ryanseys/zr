@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: searching and matching" do
   it "anonymous rest and keyword rest are values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `*` or `**` stands for the anonymous rest parameters wherever
       # a splat can: in an array literal and as an index.
       def m(*) = [*]
@@ -33,7 +33,7 @@ describe "Methods: searching and matching" do
   end
 
   it "class method additions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A batch of builtin class/instance methods: the `Hash[]` constructor,
       # `Array`/`Hash.try_convert`, `Complex.polar`, `Module#include?`, and
       # `Regexp.last_match`.
@@ -91,7 +91,7 @@ describe "Methods: searching and matching" do
   end
 
   it "codegen const lookup in toplevel method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for the `String#index` nil-guard in
       # `current_lexical_scope_name`. A toplevel `def show` body that
       # reads a CONSTANT routes through `resolve_const_read_name`, which
@@ -111,7 +111,7 @@ describe "Methods: searching and matching" do
   end
 
   it "find ifnone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find/detect with an ifnone proc: called only when no element matches;
       # a match (including a nil element) ignores it. The result carries whatever
       # the proc returns.
@@ -166,7 +166,7 @@ describe "Methods: searching and matching" do
   end
 
   it "Operator-write (`a[i] OP= v`)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
       # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
       # The op_assign section's `class Vec` is unique; locals reused
@@ -239,7 +239,7 @@ describe "Methods: searching and matching" do
   end
 
   it "And-write (`a[i] &&= v`)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
       # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
       # The op_assign section's `class Vec` is unique; locals reused
@@ -288,7 +288,7 @@ describe "Methods: searching and matching" do
   end
 
   it "Or-write (`a[i] ||= v`)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
       # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
       # The op_assign section's `class Vec` is unique; locals reused
@@ -323,7 +323,7 @@ describe "Methods: searching and matching" do
   end
 
   it "Target (multi-assign LHS into indexed slots)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Indexed-slot compound writes — `a[i] OP= v`, `a[i] &&= v`,
       # `a[i] ||= v`, `a[i], b[j] = ...`. Was four tests; merged here.
       # The op_assign section's `class Vec` is unique; locals reused
@@ -373,7 +373,7 @@ describe "Methods: searching and matching" do
   end
 
   it "method visibility reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Visibility is not only a call-time gate: `respond_to?`, `singleton_methods`
       # and the `*_instance_methods` family all report it, and code branches on what
       # they say. Three places where zeo enforced the gate but recorded nothing.
@@ -495,7 +495,7 @@ describe "Methods: searching and matching" do
   end
 
   it "primitive method shadow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #302: a user-defined class method whose name matches a
       # primitive method (e.g. `String#index`) used to shadow the primitive
       # during caller-side type inference. `def find_bracket(s); s.index("[");
@@ -555,7 +555,7 @@ describe "Methods: searching and matching" do
   end
 
   it "primitive method shadow int recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #305: follow-up to #302's primitive-shadow fix.
       #
       # #302 stopped the body-side param-type inference from committing
@@ -609,7 +609,7 @@ describe "Methods: searching and matching" do
   end
 
   it "reflection asks and answers as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def try = yield rescue [$!.class, $!.message]
 
       # respond_to? passes include_all on, and lets the hook's error out.
@@ -666,7 +666,7 @@ describe "Methods: searching and matching" do
   end
 
   it "runtime directive without arguments takes effect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The argument-less runtime directives, forced through string `eval` so no
       # compile-time resolution helps: a bare `private` switches the body default,
       # a bare `module_function` switches the mode, and `include` on a compiled
@@ -722,7 +722,7 @@ describe "Methods: searching and matching" do
   end
 
   it "splat builtin predicate family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # the predicate/search builtins take their argument as a scalar, so an
       # unexpanded splat answered from a comparison against the array pointer
       x001 = ["b"]
@@ -879,7 +879,7 @@ describe "Methods: searching and matching" do
   end
 
   it "splat index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `*` splat in the index of `g[...] += v` makes the index count unknown
@@ -951,7 +951,7 @@ describe "Methods: searching and matching" do
   end
 
   it "values at splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # values_at with a splatted array expands each element as a separate
       # key/index (#3277).
       a = [10, 20, 30, 40, 50]

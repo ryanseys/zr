@@ -404,7 +404,7 @@ end
 
 class Thread
   class Backtrace
-    # `--backtrace-limit`, which ze0 does not take: every row shows.
+    # `--backtrace-limit`, which zr does not take: every row shows.
     def self.limit = -1
 
     # One row of `caller_locations`, parsed from its `file:line:in

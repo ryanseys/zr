@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Coverage programs" do
   it "the lifecycle, its error shapes and the measured line array all match the C extension" do
-    result = ze0(<<~'RUBY', path: "coverage.rb", files: beside("coverage/target.rb"))
+    result = zr(<<~'RUBY', path: "coverage.rb", files: beside("coverage/target.rb"))
       # Line coverage over the AOT instrumentation: the lifecycle and its error
       # shapes, then the real measurement of coverage/target.rb -- required AFTER
       # Coverage.start, so it is reported (this file, loaded before, is not --
@@ -82,7 +82,7 @@ describe "Coverage programs" do
   end
 
   it "lines and oneshot_lines answer as hashes of targets, and each state refuses what it must" do
-    result = ze0(<<~'RUBY', files: beside("coverage_modes/lib_a.rb", "coverage_modes/lib_b.rb", "coverage/target.rb"))
+    result = zr(<<~'RUBY', files: beside("coverage_modes/lib_a.rb", "coverage_modes/lib_b.rb", "coverage/target.rb"))
       # Coverage's modes: lines and oneshot_lines as hashes of targets, the
       # counts a suspend leaves out, a result that keeps measuring, and the
       # errors each state refuses with.
@@ -140,7 +140,7 @@ describe "Coverage programs" do
   end
 
   it "names every branch the way the C extension names it" do
-    result = ze0(<<~'RUBY', files: beside("coverage/branching.rb"))
+    result = zr(<<~'RUBY', files: beside("coverage/branching.rb"))
       # Branch coverage over the AOT instrumentation, against the C
       # extension row for row: the key is [kind, id, start line, start
       # column, end line, end column] with 0-based columns, and the ids
@@ -212,7 +212,7 @@ describe "Coverage programs" do
   end
 
   it "names every method the way the C extension names it" do
-    result = ze0(<<~'RUBY', files: beside("coverage/branching.rb"))
+    result = zr(<<~'RUBY', files: beside("coverage/branching.rb"))
       # Method coverage over the AOT instrumentation, against the C
       # extension row for row. A row is made where the definition runs,
       # so it carries that run's owner and name and the span of the
@@ -266,7 +266,7 @@ describe "Coverage programs" do
   end
 
   it "Coverage.setup takes eval: true" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "coverage"
       Coverage.setup(lines: true, eval: true)
       p Coverage.running?

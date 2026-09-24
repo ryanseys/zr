@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Misc programs" do
   it "defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `defined?(expr)` answers ruby's prose for what the expression IS, or
@@ -100,7 +100,7 @@ describe "Misc programs" do
   end
 
   it "names and case" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       LIMIT = 10
       GREETING = "hi"
 
@@ -216,7 +216,7 @@ describe "Misc programs" do
   end
 
   it "sp net poll persistent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Persistent registration: register once per connection, then read only what
       # fired. The older reset/add/run/ready contract rebuilds the set every tick, so
       # a caller with N parked fds does O(N) work per tick however few are ready;
@@ -283,7 +283,7 @@ describe "Misc programs" do
   end
 
   it "sp net write partial" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Non-blocking write: hand back what the socket took, leave the policy for the
       # rest to the caller. sp_net_write_str / _bytes keep writing until everything
       # is gone, so one peer that cannot keep up delays delivery to every other one,
@@ -363,7 +363,7 @@ describe "Misc programs" do
   end
 
   it "DATA reads what follows __END__ in the main file" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # DATA is a File open on the main program, at the byte after the
       # __END__ line. It is defined only when the main file has one.
       p DATA.class

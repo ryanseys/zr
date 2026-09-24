@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: searching and matching" do
   it "extended mode ignores whitespace and comments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = /
         \d+  # a number
         -
@@ -17,7 +17,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "extended module carries a runtime installed body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` a module installs at RUN TIME -- one whose branch only the run time
       # picks -- is reachable through `extend` exactly as a statically registered
       # one is. fileutils writes the shape: `fu_windows?` is defined inside a
@@ -87,7 +87,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "extended module keeps its visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.extend(M)` copies M's instance methods onto the object's singleton and
       # LOSES their visibility marks. A `module_function` name is private on the
       # instance side, so CRuby refuses `obj.extend(MF).public_send(:helper)` and
@@ -143,7 +143,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "extended receiver copies like ruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # How extensions travel across copies: an object's clone carries the
       # singleton class (extended modules and def obj.method rows) and dup
       # drops it; a class's dup AND clone both keep it (rb_mod_init_copy
@@ -187,7 +187,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "five recorded divergences that are not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Five behaviours recorded in comments and docs as known divergences, all
       # of which zeo already answers exactly as ruby 4.0.6 does.
       #
@@ -274,7 +274,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "a value is_a? its own singleton class, and #class still reports the real one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value IS an instance of its own singleton class. CRuby gets this free --
       # `CLASS_OF(Foo)` literally IS `#<Class:Foo>`, and `#<Class:Sub>` inherits
       # `#<Class:Foo>` in a parallel chain. zeo mints singleton classes on demand, so
@@ -356,7 +356,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "include, prepend and extend inside class << obj route to the machinery extend uses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include`/`prepend`/`extend` inside `class << obj` on a PER-INSTANCE
       # singleton -- rdoc's `class << self; prepend Git; end` written inside a method
       # body, spreadsheet's `include Compatibility` inside a `module_eval`, treetop's
@@ -459,7 +459,7 @@ describe "Singleton: searching and matching" do
   end
 
   it "values singleton class is one object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `v.singleton_class` must answer the SAME object every time. For a value
       # receiver -- a String, an Array, a Hash, a Range, anything not an
       # `Object`-backed instance -- zeo minted a fresh one per call, so `equal?` was

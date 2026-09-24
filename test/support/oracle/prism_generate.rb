@@ -4,13 +4,13 @@
 # gem's own. Both render from prism 1.9.0's config.yml with the locals of
 # its template driver (vendor/ext/prism/templates/template.rb):
 #
-# * ze0's templates (test/support/oracle/prism/templates/*.rb.erb) render into
+# * zr's templates (test/support/oracle/prism/templates/*.rb.erb) render into
 #   rt/ext/prism/ruby/*.rb;
 # * upstream's templates (vendor/ext/prism/templates/lib) must render the
 #   vendored vendor/ext/prism/lib files byte for byte. Vendored files are
 #   never written; a difference fails.
 #
-#   rake gen:prism_generate             writes ze0's generated files
+#   rake gen:prism_generate             writes zr's generated files
 #   rake 'gen:prism_generate[--check]'  writes nothing, and fails on a
 #                                       stale or differing file
 require "erb"
@@ -42,7 +42,7 @@ module PrismGenerate
     end
   end
 
-  # Each of ze0's templates rendered: `{ path => text }`. A template sees
+  # Each of zr's templates rendered: `{ path => text }`. A template sees
   # config.yml's locals and `upstream`, the vendored templates directory.
   def ours
     locals = driver.send(:locals).merge(upstream: File.join(UPSTREAM, "templates"))

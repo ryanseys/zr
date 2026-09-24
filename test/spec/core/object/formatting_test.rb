@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: formatting and inspection" do
   it "builtin rows report rubys signature" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#parameters` and `#arity` on a BUILTIN row.
       #
       # CRuby reports NO parameter name on most of its C rows, so zeo's default is
@@ -150,7 +150,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "clone carries the singleton class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#clone copies the receiver's singleton class (dup deliberately does
       # not). zeo's clone builds a plain copy of the underlying object, so a
       # singleton method defined on the original is gone on the clone -- the copy
@@ -183,7 +183,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "default object inspect and to s carry address and ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Default (no override) `to_s` is `#<Class:0xADDR>`; `inspect` adds the
       # ivars as `@name=<inspected>` in declaration order. Addresses are
       # normalized in-program (as the corpus tests do) so the expectation is
@@ -220,7 +220,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "definition whose namespace is a runtime value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class <expr>::Name` -- a definition whose NAMESPACE is a runtime value
       # rather than a constant path. Four spellings in the corpus, all the same
       # thing said differently, and zeo used to reject every one of them with
@@ -306,7 +306,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "dollar star is argv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$*` is an alias of ARGV. zeo maps ARGV but leaves $* an ordinary
       # (nil-valued) global.
       puts $*.inspect
@@ -322,7 +322,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Primitives: .inspect as a method call
 
       # Integer
@@ -468,7 +468,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "inspect element reaches container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -544,7 +544,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "inspect ivar filter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#instance_variables_to_inspect: nil = every ivar; an Array is a
       # MEMBERSHIP filter over the object's own ivar order (oracle-pinned: the
       # array's order does not reorder, strings never match, non-Array raises).
@@ -599,7 +599,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "is a walks the cruby chains" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The hierarchy is live in `is_a?`/`kind_of?`/`instance_of?` -- statically
       # folded sites AND the runtime path through a Poly receiver, plus a user
       # class inheriting the full Object tail. Every line oracle-verified.
@@ -637,7 +637,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "issue anonymous module inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two compounding divergences in the default inspect of an anonymous
       # Class/Module: (1) an anonymous Module renders as `#<Class:0x...>` instead
       # of `#<Module:0x...>` -- zeo doesn't distinguish the two; (2) the address
@@ -659,7 +659,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "method inspect forwarding" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # The anonymous forwarding parameters (`*`, `**`, `&`, and the `...` that means
       # all three) in `#parameters` and in `#inspect`'s signature. Ruby names each
       # anonymous slot for its own sigil, and renders the group with rules that are
@@ -733,7 +733,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "method inspect native" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A body installed at RUNTIME reports its own signature. `def obj.m(x, y = 1)`,
       # `define_method`, `define_singleton_method`, and a `class_eval`-`def` all
       # install a proc that knows its parameters, and `#arity`/`#parameters`/`#inspect`
@@ -826,7 +826,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "method inspect shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#inspect` / `UnboundMethod#inspect` name where a method LIVES, how it
       # was reached, and what it takes. The location tail is this file's path, so
       # every assertion below strips it -- what is being pinned is the shape in
@@ -974,7 +974,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "nil receiver tap then" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts nil.tap { |x| x }.inspect
       puts nil.then { |x| x }.inspect
       p nil.then { |x| x.nil? ? 42 : 0 }
@@ -988,7 +988,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "nullable int to s evaluates once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<nullable int>.to_s` / `.inspect` must evaluate its receiver exactly once.
       # It lowers to a test-then-convert (`x == SP_INT_NIL ? "" : to_s(x)`); a naive
       # emit inlines the receiver twice, so a side-effecting receiver (a counter
@@ -1014,7 +1014,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "instance_variables and inspect report the ivars in assignment order, minted class or compiled" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An object's instance variables are reported in ASSIGNMENT order -- by
       # `instance_variables` and by the `inspect` built on it. For a class minted at
       # run time, zeo reports them in hash order instead.
@@ -1065,7 +1065,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "proc inspect identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Proc#inspect` identifies the proc: its address, where it was written, and
       # whether it is a lambda -- `#<Proc:0x000...7318 /path/to/file.rb:3>`, with
       # ` (lambda)` appended for one. zeo answers a bare `#<Proc>` for every proc in
@@ -1113,7 +1113,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "singleton body is a lexical scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` written in a constant-bearing `class << self` body is lexically
       # inside the SINGLETON class. Its bare constants and `Module.nesting` resolve
       # through the surrogate, whose lexical parent is the class itself -- so the
@@ -1188,7 +1188,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "to s renders the canonical opts body form and inspect the literal form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = /abc/x
       puts r.to_s
       r2 = /a.c/im
@@ -1206,7 +1206,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "tuple inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issues #724, #726. Tuples (fixed-arity return types from
       # Integer#divmod, Array#minmax, String#partition, etc.) used to fall
       # through to the unresolved-call warning when passed to inspect.
@@ -1227,7 +1227,7 @@ describe "Object: formatting and inspection" do
   end
 
   it "value type interp to s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x)
           @x = x

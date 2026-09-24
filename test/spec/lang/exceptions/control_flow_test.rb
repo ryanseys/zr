@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: control flow" do
   it "abstract raise override return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose base impl always raises (C void return) but is overridden by a
       # value-returning subclass must be callable in value position (#1416): widen the
       # raising base's return to the override's type since its body never returns.
@@ -44,7 +44,7 @@ describe "Exceptions: control flow" do
   end
 
   it "bare begin no handler" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `begin ... end` with no rescue / else / ensure protects nothing, so it
       # emits no handler frame -- the do-while idiom above all. The forms that DO
       # need one still behave.
@@ -130,7 +130,7 @@ describe "Exceptions: control flow" do
   end
 
   it "break across rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `break`/`next` inside a `begin`/`rescue` targets the native loop
       # written OUTSIDE the `begin` (Batch H). The `begin` expression is spliced
       # inline in the loop body, so its final settling translates the bubbled
@@ -225,7 +225,7 @@ describe "Exceptions: control flow" do
   end
 
   it "break in begin still leaves a raise free to propagate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The loop-crossing settle only translates Break/Next/Redo; a re-raised
       # exception still `?`-propagates out to the outer handler (H2).
 
@@ -248,7 +248,7 @@ describe "Exceptions: control flow" do
   end
 
   it "break next from inside begin rescue nested in a real escaping block works" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A custom `yield`-based method attaches a real escaping block here
       # directly, exercising the same closure boundary `Array#each` would.
       # The begin/rescue lowering needs no
@@ -289,7 +289,7 @@ describe "Exceptions: control flow" do
   end
 
   it "class method begin rescue ensure with return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exercises the class-method body lowering's own `Signal::Return`
       # catch (added specifically for `Begin` nodes inside a class method --
       # class methods can't contain an escaping block at all, so `Begin` was
@@ -320,7 +320,7 @@ describe "Exceptions: control flow" do
   end
 
   it "ensure runs on return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `begin..ensure..end` must run the ensure clause when the body
       # exits via `return` (bare or with a value). Previously the
       # generated C placed the ensure body *after* the unconditional
@@ -395,7 +395,7 @@ describe "Exceptions: control flow" do
   end
 
   it "ensure still runs when break crosses out of a begin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bubbled `break` is translated only AFTER `ensure` runs, exactly once
       # -- the loop-crossing settle sits below the ensure block (H2).
 
@@ -421,7 +421,7 @@ describe "Exceptions: control flow" do
   end
 
   it "exc stack window cleared" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The exception stack's mark window follows sp_exc_top up and down, and a slot
       # that leaves it kept its pointer. Pop below a used slot, collect (the object
       # is now unreferenced, so it is freed), then push back over it, and the window
@@ -468,7 +468,7 @@ describe "Exceptions: control flow" do
   end
 
   it "exception cause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception#cause: the exception being handled when a new one is raised
       # is threaded in automatically as the new exception's cause.
       begin
@@ -538,7 +538,7 @@ describe "Exceptions: control flow" do
   end
 
   it "infer trailing raise return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose body ends in a bare `raise` never returns through that
       # statement, so the raise must not contribute to the return type. Unifying its
       # void with the explicit returns' Integer has no rule and lands on poly, which
@@ -590,7 +590,7 @@ describe "Exceptions: control flow" do
   end
 
   it "method level rescue return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method-level rescue: when a method body is a begin/rescue, the
       # rescue body's last expression should become the method's return
       # value. CRuby semantics: `def f; X; rescue; Y; end` returns X if
@@ -646,7 +646,7 @@ describe "Exceptions: control flow" do
   end
 
   it "nested retry only restarts the innermost begin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       outer_runs = 0
       inner_attempts = 0
       begin
@@ -666,7 +666,7 @@ describe "Exceptions: control flow" do
   end
 
   it "next inside begin rescue continues the enclosing native loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next` from a `rescue` clause -> `continue` the enclosing loop (H2).
 
       i = 0
@@ -689,7 +689,7 @@ describe "Exceptions: control flow" do
   end
 
   it "next runs ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = []
       [1].each do |x|
         begin
@@ -738,7 +738,7 @@ describe "Exceptions: control flow" do
   end
 
   it "raise with an explicit message and class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class MyError < StandardError
       end
       class Risky
@@ -759,7 +759,7 @@ describe "Exceptions: control flow" do
   end
 
   it "rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test rescue/raise/ensure
 
       def safe_div(a, b)
@@ -822,7 +822,7 @@ describe "Exceptions: control flow" do
   end
 
   it "rescue naming an undefined constant compiles and never fires if no exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `rescue` clause's class expression is only evaluated while matching
       # an actually-raised exception. A clause that never fires must not fail
       # the compile just because its class isn't defined.
@@ -839,7 +839,7 @@ describe "Exceptions: control flow" do
   end
 
   it "rescue return with ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `return` / `next` from a rescue or else clause under `ensure` leaves the
       # handler stack intact for later rescues.
       def ret_from_rescue
@@ -919,7 +919,7 @@ describe "Exceptions: control flow" do
   end
 
   it "rescue value empty container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty container's type reads UNKNOWN for want of an element type, which is
       # not the same as producing no value. Wherever a rescue-bearing expression asks
       # "does this arm carry a value?", the two were conflated: the modifier form
@@ -1005,7 +1005,7 @@ describe "Exceptions: control flow" do
   end
 
   it "retry and ensure combined inside an enclosing while loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `begin`'s own `retry` restarts just its OWN body (not the `while`
       # loop), and `ensure` runs once per `while` ITERATION (twice total,
       # once per `i`) -- not once per `retry` attempt within an iteration.
@@ -1031,7 +1031,7 @@ describe "Exceptions: control flow" do
   end
 
   it "retry loop runs ensure exactly once not per attempt" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Attempt
         def initialize
           @attempts = 0
@@ -1055,7 +1055,7 @@ describe "Exceptions: control flow" do
   end
 
   it "return from a rescue body still runs ensure exactly once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class ReturnTester
         def m
           begin
@@ -1074,7 +1074,7 @@ describe "Exceptions: control flow" do
   end
 
   it "return from ensure overrides return from the begin body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real, tricky Ruby semantic: a `return` inside `ensure` wins over a
       # `return` already in flight from `begin`'s own body -- not just "ensure
       # runs afterward", it actually REPLACES the method's return value.
@@ -1099,7 +1099,7 @@ describe "Exceptions: control flow" do
   end
 
   it "times loop containing begin rescue with no crossing control flow still works" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A native loop CONTAINING a `begin`/`rescue` (as opposed to a `begin`
       # containing a bare `break`/`next` TARGETING an outer loop, the
       # rejected shape) is completely unaffected -- the `.times` loop's own
@@ -1124,7 +1124,7 @@ describe "Exceptions: control flow" do
   end
 
   it "toplevel return from rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `return` written at the top level ends the program. Zeo used to fold only
       # the plain statement form; from a position that RAISES the signal instead of
       # returning literally -- inside a `rescue` clause, an `ensure`, a `begin/end
@@ -1153,7 +1153,7 @@ describe "Exceptions: control flow" do
   end
 
   it "unresolved tail call value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose body ends in a call nothing resolves (`@text.string` with
       # @text a String) never returns a value: the emitter answers that tail with a
       # NoMethodError raise. A caller that READS the value still needs a typed
@@ -1214,7 +1214,7 @@ describe "Exceptions: control flow" do
   end
 
   it "valued break deep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Deeply nested break scopes: each recursion level enters a break-wrapped
       # iterator whose scope stays live while the block recurses deeper, so many
       # scopes are simultaneously on the fixed-size break stack. This exercises the
@@ -1260,7 +1260,7 @@ describe "Exceptions: control flow" do
   end
 
   it "valued break ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A break crossing begin/ensure frames runs the ensure bodies on the way out
       # (CRuby TAG_BREAK unwinding), then the call yields the break value.
       p([1, 2, 3].each { |x| begin; break 1 if x == 2; ensure; puts "e#{x}"; end })

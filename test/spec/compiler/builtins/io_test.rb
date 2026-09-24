@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: reading and writing" do
   it "dir full surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir surface (#2822-#2830): foreach/each_child ride entries/children + .each,
       # a chdir block splices with save/restore and returns the block's value, a bare
       # chdir goes home, getwd/Dir[]/delete/unlink are aliases, empty? stats the
@@ -70,7 +70,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "file and dir surface gaps" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir.glob with an ABSOLUTE-path pattern + a `*` wildcard (used to return
       # [] because the walk read "" instead of "/"); FNM_DOTMATCH yields "." and
       # dotfiles but never ".."; File.mkfifo returns 0 and creates a FIFO;
@@ -101,7 +101,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "file open is ios own row" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `open`, `new`, `for_fd` and `sysopen` are IO's rows, and File INHERITS them.
       #
       # CRuby defines all four on IO's singleton class alone (`io.c`'s `Init_IO`; the
@@ -211,7 +211,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "file stat surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "/tmp/sp_stat_surface_#{Process.pid}"
       File.write(path, "hello")
       st = File.stat(path)
@@ -252,7 +252,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "file surface extended" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       File.write("/tmp/sp_f2", "hello world")
       p File.ftype("/tmp/sp_f2")
       Dir.mkdir("/tmp/sp_f2dir") unless Dir.exist?("/tmp/sp_f2dir")
@@ -365,7 +365,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "io class methods surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO class methods (read/write/readlines/foreach/pipe/copy_stream/sysopen),
       # Kernel#open, read-into-buffer, puts with an Array, readlines separators.
       File.write("/tmp/sp_io4.txt", "one\ntwo\n")
@@ -422,9 +422,9 @@ describe "Builtins: reading and writing" do
   end
 
   it "io file stat rows" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # The `IO`, `File` and `File::Stat` rows that answer facts the runtime already
       # holds: the timestamp trio off one fstat, the device-number split, the
@@ -536,7 +536,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "io handle value surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO handle values: #class discrimination, sync, write capture, flush self,
       # close nil, << through an alias, and $stdout as a first-class IO value.
       File.write("/tmp/sp_io1.txt", "hi")
@@ -573,7 +573,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "io instance method surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ungetbyte pushes a byte back for the next read; binmode/binmode?,
       # autoclose=/autoclose?, to_io (self), close_on_exec?, pread/pwrite at a
       # fixed offset, advise (nil), close_write on a read-only file (IOError),
@@ -624,7 +624,7 @@ describe "Builtins: reading and writing" do
   end
 
   it "io instance read surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO instance reads: gets separator/limit/chomp, readline EOFError, lineno,
       # getc/readchar/getbyte, each_line separator + fresh strings, printf/putc,
       # pos=, readpartial, flock, each_char/each_byte, multi-arg write, sysseek.

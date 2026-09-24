@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Format: formatting and inspection" do
   it "a format argument that is itself a call is rooted where it stands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A format() argument that is itself a call rooting its own operands used to
       # leak that rooting decl into the PolyArray_push argument position
       # (`sp_PolyArray_push(_t, sp_RbVal _t2 = ...;` -- illegal C, #1508/#1498).
@@ -17,7 +17,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "the full C directive set answers, plus ruby's named and positional references" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `format` (aka `sprintf`, and `String#%`) supports the full C-style directive
       # set, plus Ruby's named and positional references.
 
@@ -66,7 +66,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "the named, positional, star-width and alternate forms each answer through format and String#%" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts format("%<name>s is %<age>d", name: "Ada", age: 36)
       puts format("%#b / %#x", 10, 255)
       puts format("%*d|", 5, 42)
@@ -79,7 +79,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a star width or precision takes the next argument, and a missing name raises KeyError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # format/sprintf: dynamic width/precision (%*d, %.*f) consume the next
       # positional argument; %<name>conv and %{name} reference a hash argument by
       # key (missing keys raise KeyError). Unknown specs used to echo verbatim.
@@ -116,7 +116,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "%.Nf rounds the way ruby rounds, and a precision past the shortest digits expands exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts format("%.2f", 2.675)
       puts format("%.1f", 0.15)
       vals = [2.675, 1.005, 8.835, 0.145, 1.115, 2.345, 3.045, 1.255, 0.615, 4.985]
@@ -164,7 +164,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "the + and space flags reach the non-decimal conversions, and %u is %d" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # The non-decimal conversions honour '+' and ' ': C's printf drops both on
       # them, so every signed form was missing its sign
@@ -276,7 +276,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "%g shows a fixed count of significant digits, and %#g keeps the trailing zeros" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `%g` picks between `%e` and `%f` and shows a fixed number of SIGNIFICANT
       # digits -- six by default, `%.Ng` for N, and `%#g` keeps the trailing zeros
       # that plain `%g` strips. zeo ignores the precision entirely and prints the
@@ -315,7 +315,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "%a and %A render a float in hexadecimal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # %a/%A hex-float directives render through C's own %a (C99, portable),
       # via String#%, format, and sprintf.
       p("%a" % 1.0)
@@ -333,7 +333,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a malformed directive and a mixed reference style each raise ArgumentError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(format("%.*f", -2, 3.14159))
       r001 = (format("%") rescue $!.class); p r001
       r002 = (format("%1$s %s", "a", "b") rescue $!.class); p r002
@@ -361,7 +361,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a missing name raises KeyError worded for the spelling, and unparseable text raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # The missing-key KeyError message brackets the key with <> where ruby uses
       # {}.
@@ -401,7 +401,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a named reference reads a symbol-keyed hash, held in a local or returned by a method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Named references in String#% (and the `%{name}` shorthand) read from a
       # symbol-keyed hash argument. Previously rejected at compile time.
       #   %<name>spec  -> the value formatted with `spec`
@@ -440,7 +440,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a name scanned out of the format still matches the hash's key byte for byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A format's `%<name>` / `%{name}` is scanned into a C stack buffer and then
       # compared against the hash's keys. The comparison read a marker byte in FRONT
       # of both operands to recover a length that can carry an embedded NUL -- and a
@@ -498,7 +498,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a numeric conversion refuses what is not a number, and takes a bignum whole" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A numeric conversion in format/sprintf answered 0 for an argument that is not
       # a number at all -- nil, a Symbol, an Array -- where CRuby refuses (#4010).
       # %s accepts anything and is unaffected.
@@ -586,7 +586,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "too few arguments and a bad directive raise, beside a block pattern and $!" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # gsub/sub with a String pattern and a block; format/% raising on too-few
       # arguments and malformed directives; $! visible inside rescue modifiers;
       # a Symbol variable as a block argument (&op) and via to_proc.
@@ -646,7 +646,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "%s calls to_s on every argument kind, and %f spells Inf, -Inf and NaN ruby's way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # %s calls to_s on every argument kind (it printed empty for symbols,
       # collections, booleans, and user objects); %f prints non-finite floats
       # with Ruby's casing (Inf/-Inf/NaN, where C printf lowercases).
@@ -669,7 +669,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "a splatted array variable contributes its elements as separate arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A splatted Array variable contributes its ELEMENTS to format/sprintf/printf:
       # it used to be pushed as one boxed array, so the conversions went unfed and the
       # call raised "too few arguments" (#3957).
@@ -715,7 +715,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "kernel array format negx wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Array enumerates Ranges and Hashes; format %x/%X/%o of a negative
       # renders Ruby's infinite-two's-complement ..-notation (sign flags switch
       # to signed magnitude). Complex(String) and the Rational division family.
@@ -760,7 +760,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "printf percent b" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # printf with a %b/%B binary conversion routes through the Ruby formatter
       # (the String#% / format engine): C printf has no portable %b -- glibc
       # 2.35+ renders it natively (which masked this on Linux), macOS prints a
@@ -784,7 +784,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "prints nonfinite floats with ruby casing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # %f/%e/%g print Inf/-Inf/NaN (Ruby's casing), not C's lowercase inf.
 
       puts format("%.3f", Float::INFINITY)
@@ -802,7 +802,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "sprintf long interp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sp_sprintf truncated string-interpolation results to 4095 bytes.
       #
       # Every Ruby string interpolation ("...#{x}...") compiles to
@@ -836,7 +836,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "sprintf positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "%1$s%2$s%1$s%2$s" % ["ab", "cd"]
       puts "%2$s %1$s" % ["world", "hello"]
       puts "%2$05d|%1$s|%2$d|%3$.2f" % [7, 42, 3.14159]
@@ -854,7 +854,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "string format poly array rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#% with a right-hand side whose static type is poly (a scalar at one
       # call site, an Array at another) must spread an Array value across the format
       # directives at runtime. Spinel previously wrapped a poly RHS in a one-element
@@ -887,7 +887,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "string format polyarr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#% with a poly_array (mixed-type) argument.
       puts "%s is %d" % ["age", 25]
       puts "%s: %.2f" % ["pi", 3.14159]
@@ -900,7 +900,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "string format scalar operands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#% with a bare nil / true / Rational operand: scalars box into
       # the one-element format path, and the float directives coerce a boxed
       # Rational (%.2f % (1r/3) => "0.33").

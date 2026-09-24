@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "ERB programs" do
   it "a block tag makes the snippet a block over the snippet's own _erbout local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An ERB template compiles to a Ruby snippet the eval VM runs, and a block tag
       # makes that snippet a block over the snippet's OWN local: every `<%= %>`
       # inside `<% 3.times do |i| %>` appends to the `_erbout` the line above it
@@ -43,7 +43,7 @@ describe "ERB programs" do
   end
 
   it "module_function names a method the body did not write, so ERB::Util reaches html_escape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "erb"` -- the vendored gem loads and templates render. `erb/util.rb`
       # reaches `html_escape` through `include ERB::Escape` and then
       # `module_function :html_escape`, so it exercises `module_function` naming a
@@ -87,7 +87,7 @@ describe "ERB programs" do
   end
 
   it "ERB::Util.html_escape rewrites the markup characters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "erb"
       puts ERB::Util.html_escape("<a & b>")
     RUBY
@@ -96,7 +96,7 @@ describe "ERB programs" do
   end
 
   it "issue erb render needs binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rendering an ERB template evaluates the compiled source in a Binding:
       # `ERB#result`/`#result_with_hash` default to `new_toplevel`, which derives
       # a binding from `TOPLEVEL_BINDING`. zeo has neither the constant nor
@@ -114,7 +114,7 @@ describe "ERB programs" do
   end
 
   it "reports template lines off by one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An error raised inside an ERB template names the TEMPLATE line: a
       # raise on template line 3 reports "(erb):3" (or "tpl.erb:3" with a
       # filename). zeo reports one line further (the generated code's

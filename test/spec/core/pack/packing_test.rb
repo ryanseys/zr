@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Pack: packing and unpacking" do
   it "array pack returns string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [72, 105]
       result = arr.pack("C*")
       puts result.length
@@ -15,7 +15,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "array pack string unpack" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #889: Array#pack and String#unpack with the common
       # numeric/string format specifiers.
       puts "ABC".unpack("C*").inspect
@@ -41,7 +41,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "every core directive round-trips, and the result's encoding follows what was written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#pack / String#unpack across the integer, string, base64, hex,
       # BER and UTF-8 directives. Verified against ruby 4.0.6.
 
@@ -88,7 +88,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "B, b, x, X and @ write bits and move the cursor, and the result carries an encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#pack`'s bit-string and position directives, and the encoding the
       # result carries. `unpack` had all of these; `pack` was missing `B`, `b` and
       # `x` entirely and raised `unsupported pack directive`.
@@ -160,7 +160,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "p and P write a machine pointer and keep the string it points at reachable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `p` and `P` write a MACHINE POINTER, so the packed string has to keep the
       # strings it points at reachable: CRuby hangs them off the result in a hidden
       # ivar and `unpack` looks the pointer up there, handing back THE ORIGINAL
@@ -237,7 +237,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "<, >, ! and _ modify the directive before them rather than being read as one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#pack / String#unpack: honor the '<' (little-endian), '>'
       # (big-endian), '!' and '_' (native size) directive modifiers.
       # Regression: each modifier char was consumed as if it were the next
@@ -336,7 +336,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "the float directives write IEEE-754 in the width and byte order they name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#pack on a Float array and the float/double directives (#pack_unpack_directives):
       # D/d/F/f native, E/e little-endian, G/g big-endian. Previously a TY_FLOAT_ARRAY
       # receiver had no codegen arm at all ("unsupported call: ... `pack` recv=.../ty18"),
@@ -437,7 +437,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "an integer directive truncates a Float toward zero and refuses NaN and Infinity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An integer pack directive truncates a Float toward zero (CRuby coerces
       # through an exact Integer, so a value past the i64 range wraps modulo
       # 2**64 rather than saturating); NaN/Infinity raise FloatDomainError.
@@ -463,7 +463,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "the native-size, quoted-printable and uuencode directives each round-trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#pack / String#unpack: float, native-size, quoted-printable, uuencode.
 
       # IEEE-754 floats: D/d/E doubles, G big-endian double, F/f/e single, g BE single.
@@ -508,7 +508,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "a template is directive letters with an optional count, and unpack reverses pack" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#pack` serializes elements into a byte string by a TEMPLATE of
       # directive letters; `String#unpack` reverses it. Each directive optionally
       # takes a count (a number, or `*` for "the rest").
@@ -577,7 +577,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "X, @ and a count move unpack's cursor, and moving past the start raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # String#unpack does not support the X (back up) directive.
       #
@@ -610,7 +610,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "str unpack gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#unpack1 on a fresh, unrooted substring must root that input across
       # unpack's internal allocations: without it, a GC triggered inside unpack
       # frees the substring and a reused slot corrupts the read.
@@ -644,7 +644,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "unpack at an offset reads the string in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # unpack and unpack1 with `offset:` read the receiver in place. `@` and
       # `X` count from the String's start, not from the offset; a chunk is
       # binary whatever the receiver's encoding.
@@ -716,7 +716,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "unpack bit string directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "abcd".unpack("B8")
       p "abcd".unpack("b8")
       p "abcd".unpack("B*").first.length
@@ -730,7 +730,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "unpack offset keyword starts mid string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `unpack`/`unpack1` accept `offset:`; `offset == bytesize` yields the
       # empty tail (nil), past-the-end raises, negative raises.
 
@@ -752,7 +752,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "unpack skip and position directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "abcd".unpack("x2a*")
       p "abc".unpack("@1a*")
       p "abc".unpack("a1@0a1")
@@ -766,7 +766,7 @@ describe "Pack: packing and unpacking" do
   end
 
   it "unpack1 literal format" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#unpack1 with a literal single-directive format: the directive fixes
       # the extracted value's type, so the result no longer stays poly. Doom's WAD
       # reader depends on this for header fields: `@num_lumps = data[4, 4].unpack1('V')`

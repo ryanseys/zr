@@ -3,7 +3,7 @@
 require_relative "answer"
 require_relative "unbundled"
 
-module Ze0
+module Zr
   module Harness
     # A child with both streams captured, bounded in wall-clock time and in
     # memory. The bound on memory is what keeps a runaway build or binary
@@ -16,8 +16,8 @@ module Ze0
     module Child
       # The most a build and a run may hold, in megabytes, summed over the
       # process group.
-      BUILD_MB = Integer(ENV.fetch("ZE0_BUILD_MB", "2048"))
-      RUN_MB = Integer(ENV.fetch("ZE0_RUN_MB", "1024"))
+      BUILD_MB = Integer(ENV.fetch("ZR_BUILD_MB", "2048"))
+      RUN_MB = Integer(ENV.fetch("ZR_RUN_MB", "1024"))
 
       # The environment a program gets when the question is "what does
       # ruby say", which is not the environment `bundle exec rake` runs
@@ -28,7 +28,7 @@ module Ze0
       # rubygems' `[[:req, :path]]`.
       #
       # The recordings were made by a bare ruby, so a road that asks
-      # ruby for an answer merges this. A road that builds with ze0 does
+      # ruby for an answer merges this. A road that builds with zr does
       # not: the compiler needs the gems bundler set up.
       BARE_RUBY = { "GEM_HOME" => nil, "GEM_PATH" => nil, "BUNDLE_GEMFILE" => nil,
                     "BUNDLE_BIN_PATH" => nil, "BUNDLE_LOCKFILE" => nil,

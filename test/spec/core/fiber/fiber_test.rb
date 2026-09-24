@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fiber programs" do
   it "inspect names the block's file and line and the fiber's status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber#inspect names the block's file and line and the fiber's status,
       # as fiber_to_s writes it. A fiber that resumed another is suspended by
       # resuming it; a thread's own fiber has no block.
@@ -42,7 +42,7 @@ describe "Fiber programs" do
   end
 
   it "kill unwinds through ensure, raise carries in, and a resumed or cross-thread resume says so" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fiber and a thread as CRuby has them: kill unwinds a fiber through
       # its ensure, raise carries an exception into it, a fiber resumed twice
       # or from another thread says so, a thread's locals belong to the fiber
@@ -107,7 +107,7 @@ describe "Fiber programs" do
   end
 
   it "a non-blocking fiber's reads and writes reach the scheduler's io_read and io_write with a buffer" do
-    result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
+    result = zr(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A non-blocking fiber's reads and writes reach its scheduler's io_read,
       # io_write, io_pread and io_pwrite with an IO::Buffer, in the sizes io.c
       # reads and writes with. This runtime reads and writes itself and hands
@@ -179,7 +179,7 @@ describe "Fiber programs" do
   end
 
   it "a scheduler takes sleep, a pipe, a Mutex, a Queue, a wait, a timeout and a resolve" do
-    result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
+    result = zr(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A thread with a fiber scheduler hands each blocking operation of its
       # non-blocking fibers to the scheduler: sleep, a pipe read and write, a
       # Mutex, a Queue, a Thread#value, Process.wait, Timeout.timeout,
@@ -234,7 +234,7 @@ describe "Fiber programs" do
   end
 
   it "allocate makes a fiber that refuses to run, and a subclass makes its fiber through super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber.new is Class#new: allocate makes a fiber that refuses to run, and
       # initialize checks the storage, then the block, then whether the fiber
       # was made already, as rb_fiber_initialize_kw does. A subclass makes its
@@ -288,7 +288,7 @@ describe "Fiber programs" do
   end
 
   it "scheduler runs the calls that may block" do
-    result = ze0(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
+    result = zr(<<~'RUBY', files: {"fiber_scheduler/scheduler.rb" => fixture("core/fiber/scheduler.rb")})
       # A non-blocking fiber hands open(2), close(2) of a stream that writes,
       # stat(2), access(2) and unlink(2) to its scheduler's
       # blocking_operation_wait, as an object of an unnamed class whose #call
@@ -365,7 +365,7 @@ describe "Fiber programs" do
   end
 
   it "set scheduler checks and closes the scheduler" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber.set_scheduler checks the hooks a scheduler needs and warns of
       # fiber_interrupt; Fiber.schedule runs the fiber hook, a sleep in it
       # reaches kernel_sleep, and setting nil closes the scheduler.
@@ -407,7 +407,7 @@ describe "Fiber programs" do
   end
 
   it "transferred fiber ends in its threads root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fiber that ends after a transfer goes back to its thread's own root
       # fiber, and Fiber#raise transfers to a fiber that transferred away.
       root = Fiber.current

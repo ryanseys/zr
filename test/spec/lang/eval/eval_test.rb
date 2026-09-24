@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Eval programs" do
   it "bare private in a singleton body runs under eval" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # A `class << self` body holding a BARE `private` compiles inside a run-time
       # `eval`.
       #
@@ -60,7 +60,7 @@ describe "Eval programs" do
   end
 
   it "binding captures the frame it was taken in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#binding` cannot be a builtin row: it would have to see its CALLER's
       # locals. The emitter builds it instead, from the names a `binding` in the
       # scope promotes to cells -- the only storage a binding can share.
@@ -157,7 +157,7 @@ describe "Eval programs" do
   end
 
   it "binding lvget" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # binding.local_variable_get(:name) with a literal symbol naming an in-scope
       # local is the only way to read a reserved-word parameter. It has a static
       # answer (the value of that local), so it lowers to a direct read.
@@ -202,7 +202,7 @@ describe "Eval programs" do
   end
 
   it "binding scopes" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # Where a `binding` is taken decides what it holds. A method's carries its
       # parameters (every kind) ahead of its locals; a class body's `self` and cref
       # are the class, which is what makes the `eval <<-RUBY, binding` idiom every
@@ -312,7 +312,7 @@ describe "Eval programs" do
   end
 
   it "binding toplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `TOPLEVEL_BINDING` IS the main script's frame, so it reads and writes the
       # same locals the file does -- and `Kernel#eval`'s own binding/filename/lineno
       # arguments run their source in whichever scope they name.
@@ -373,7 +373,7 @@ describe "Eval programs" do
   end
 
   it "bindings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `binding` and `local_variables` read the CALLER's scope, so no method
@@ -449,7 +449,7 @@ describe "Eval programs" do
   end
 
   it "bm instance eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test instance_eval { block } block-form lifting.
       # Each section's output is compared against CRuby by `make test`.
 
@@ -694,7 +694,7 @@ describe "Eval programs" do
   end
 
   it "call arg eval order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $n = 0
 
       def nxt
@@ -732,7 +732,7 @@ describe "Eval programs" do
   end
 
   it "call arg eval order scalar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $log = []
       def sink(a, b, c)
         "#{a}|#{b}|#{c}"
@@ -769,7 +769,7 @@ describe "Eval programs" do
   end
 
   it "class eval definee" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` or `define_method` inside a `class_eval`/`module_eval` block installs
       # on the receiver when the BLOCK runs, not when the enclosing class body was
       # compiled -- so it has to displace whatever the class already answers.
@@ -831,7 +831,7 @@ describe "Eval programs" do
   end
 
   it "class eval reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.class_eval do ... end` reopens the class: each `def` and
       # `define_method(:lit)` in the block body becomes an instance method on
       # the class, exactly as a `class Klass ... end` reopen would. A def may
@@ -937,7 +937,7 @@ describe "Eval programs" do
   end
 
   it "class eval resolves constants in the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The receiver is a class only the RUN TIME knows -- the snippet's own
       # compiler has no entry for it, so its id travels as an immediate and
       # every static fold stands down. The `def`'s body inherits the same
@@ -962,7 +962,7 @@ describe "Eval programs" do
   end
 
   it "class eval value form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value forms of class_eval / class_exec / module_eval / module_exec: the
       # block is spliced inline (self = the receiver constant), its value is the
       # call's value, and class_exec's args bind the block params (#2697). A pure-def
@@ -1001,7 +1001,7 @@ describe "Eval programs" do
   end
 
   it "definition hooks at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby reports every definition to the class it landed on. This file covers the
       # definitions made AT RUNTIME -- `define_method`, `class_eval`, `Class.new`, a
       # singleton def -- where the hook fires from the runtime writer itself.
@@ -1122,7 +1122,7 @@ describe "Eval programs" do
   end
 
   it "destructured param in a binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parenthesized destructuring block parameter, in a scope that materializes
       # a Binding. Zeo names the un-destructured slot internally (`__destr_0`) and
       # listed it among the scope's own locals, which did two wrong things at once:
@@ -1185,7 +1185,7 @@ describe "Eval programs" do
   end
 
   it "a literal eval reads and writes the enclosing local and instance variables" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts eval("1 + 2")
 
       x = 1
@@ -1214,7 +1214,7 @@ describe "Eval programs" do
   end
 
   it "a class body compiled at run time keeps its own openers, so the snippet still parses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class body compiled at RUN TIME is recovered from the snippet's own
       # source text, and the slice has to start where the BODY starts -- not at
       # the first statement.
@@ -1303,7 +1303,7 @@ describe "Eval programs" do
   end
 
   it "the class keyword binds the constant before the inherited hook fires, in a snippet too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `class` KEYWORD names a class and binds its constant BEFORE the
       # superclass's `inherited` hook fires -- CRuby's rb_define_class_id_under
       # order -- in an eval snippet too. Only `Class.new` shows the hook a nil
@@ -1331,7 +1331,7 @@ describe "Eval programs" do
   end
 
   it "a class at a literal eval's top level registers as one written in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal `eval` splices at compile time, and a `class` at its top level
       # registers exactly as one written in place -- the registration walk descends
       # the spliced body. (A top-level `def` in an eval is still a rejection.)
@@ -1344,7 +1344,7 @@ describe "Eval programs" do
   end
 
   it "class_eval writes a def on its receiver, and a bare private is a cursor the later defs read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The definition-level statements a run-time `eval` may write. Each one names
       # a DEFINEE only the run time knows -- `class_eval`'s receiver, a plain
       # `eval`'s enclosing class -- so each is the send ruby writes on it, and a
@@ -1433,7 +1433,7 @@ describe "Eval programs" do
   end
 
   it "a source only known at run time runs through the eval VM with self, constants and globals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Runtime string `eval` (#97 stage 2). Each source is a runtime VALUE (a
       # variable, not a string literal), so it runs through the eval VM -- a
       # tree-walking interpreter over prism, linked into the runtime -- rather than
@@ -1524,7 +1524,7 @@ describe "Eval programs" do
   end
 
   it "instance_eval of a string rebinds self, so an @ivar read resolves against the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The STRING form of `instance_eval` (#97 stage 2): the source runs through the
       # eval VM with `self` rebound to the receiver, so `@ivar` reads and
       # implicit-self calls resolve against that object -- the whole point of
@@ -1577,7 +1577,7 @@ describe "Eval programs" do
   end
 
   it "a class written in a run-time eval mints the class and runs the body as its own scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class`/`module` written in a run-time `eval`. The header mints or reuses
       # the class through the runtime; the BODY runs as one more `class_eval` of its
       # own source, which is what a class body IS -- a scope with its own cref, its
@@ -1664,7 +1664,7 @@ describe "Eval programs" do
   end
 
   it "a return an eval writes leaves the method the eval stands in, whichever form the eval took" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` written inside an eval'd string belongs to the method the eval
       # sits in, not to the eval. The method arms a catch for a return signal that
       # carries no home of its own, and it must arm it for every spelling of eval,
@@ -1689,7 +1689,7 @@ describe "Eval programs" do
   end
 
   it "a def written inside an eval keeps its own return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The catch belongs to the method the eval stands in. A `def` the eval writes
       # is a method of its own, so its `return` leaves it and no more: `outer` runs
       # on to its last statement.
@@ -1706,7 +1706,7 @@ describe "Eval programs" do
   end
 
   it "send, public_send and method all reach eval, and the string still compiles where it runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p send(:eval, "1 + 1")
       p __send__(:eval, "2 + 2")
       p "s".public_send(:instance_eval, "size")
@@ -1726,7 +1726,7 @@ describe "Eval programs" do
   end
 
   it "an invalid pattern in an eval raises SyntaxError, which a bare rescue does not catch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pattern the engine will not compile is a SYNTAX error, not a run-time
       # one: ruby reads the literal as it compiles the string, so the eval raises
       # SyntaxError and names onig's reason and the pattern. SyntaxError is a
@@ -1763,7 +1763,7 @@ describe "Eval programs" do
 
 
   it "a non-literal source is not refused at compile time; it runs in the VM" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-literal source is not rejected at compile time; it runs
       # through the runtime `eval`. (`y` is interpolated INTO the source string, not
       # referenced inside the eval.)
@@ -1776,7 +1776,7 @@ describe "Eval programs" do
   end
 
   it "|| in an eval'd source answers the operand, not true" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "nil || 'fallback'"; puts eval(src)
     RUBY
 
@@ -1784,7 +1784,7 @@ describe "Eval programs" do
   end
 
   it "a class << self body in a snippet homes its constants on the singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = <<~SRC
         module Schemes
           class << self
@@ -1835,7 +1835,7 @@ describe "Eval programs" do
   end
 
   it "a source assembled by interpolation runs as the text it became" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       op = "-"; puts eval("10 #{op} 3")
     RUBY
 
@@ -1843,7 +1843,7 @@ describe "Eval programs" do
   end
 
   it "eval, class_eval and module_eval each link the run-time compiler for the string they are given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # The verbs that run a STRING of ruby. There is nothing for the compile
@@ -1894,7 +1894,7 @@ describe "Eval programs" do
   end
 
   it "the eval VM answers defined? and forwards (...), which def_delegators needs" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # The eval VM's `defined?` and `(...)` forwarding -- forwardable's generated
       # delegators need both, so every gem that uses `def_delegators` does.
       class Box
@@ -1956,7 +1956,7 @@ describe "Eval programs" do
   end
 
   it "expression evaluates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "1 + 1"
       p eval(src)
       p eval("2 * 3" + "")
@@ -1966,7 +1966,7 @@ describe "Eval programs" do
   end
 
   it "instance eval binds the receiver and its singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       obj = Object.new
       obj.instance_variable_set(:@v, 3)
       read = "@v * 2"
@@ -1980,7 +1980,7 @@ describe "Eval programs" do
   end
 
   it "instance eval builtin receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # instance_eval / instance_exec with a block on a BUILTIN receiver (#2634):
       # the body is spliced inline with self bound to a temp; receiverless calls
       # dispatch on the new self (Kernel globals stay receiverless), and the call's
@@ -2026,7 +2026,7 @@ describe "Eval programs" do
   end
 
   it "instance_eval with an arity-0 block runs the block against the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site arity-0 instance-eval trampoline.
       #
       # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
@@ -2111,7 +2111,7 @@ describe "Eval programs" do
   end
 
   it "each receiverless call in the block reaches the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site arity-0 instance-eval trampoline.
       #
       # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
@@ -2209,7 +2209,7 @@ describe "Eval programs" do
   end
 
   it "nested trampolines compose, inner receiver inside outer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site arity-0 instance-eval trampoline.
       #
       # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
@@ -2304,7 +2304,7 @@ describe "Eval programs" do
   end
 
   it "an ivar read and written inside the block belongs to the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site arity-0 instance-eval trampoline.
       #
       # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
@@ -2413,7 +2413,7 @@ describe "Eval programs" do
   end
 
   it "the program runs to the end after the trampolines" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site arity-0 instance-eval trampoline.
       #
       # Full Ruby instance-eval is dynamic — `self` is rebound at runtime,
@@ -2522,7 +2522,7 @@ describe "Eval programs" do
   end
 
   it "instance eval unused param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # instance_eval/instance_exec with an unused block parameter must still
       # compile: the param gets no C declaration, so its binding is skipped (the
       # exec arg still evaluates for effect).
@@ -2559,7 +2559,7 @@ describe "Eval programs" do
   end
 
   it "instance_eval and instance_exec run against nil and against a number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a001 = (nil.instance_eval { 42 } rescue $!.class); p a001
       a002 = (nil.instance_exec(5) { |y| y } rescue $!.class); p a002
       v = nil.instance_eval { 42 }; p v
@@ -2583,7 +2583,7 @@ describe "Eval programs" do
   end
 
   it "iter bound evaluated once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $n = 0
       def nxt; $n += 1; $n; end
       def lim; $n += 1; 3; end
@@ -2617,7 +2617,7 @@ describe "Eval programs" do
   end
 
   it "iter recv evaluated once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fused loop must evaluate its receiver expression once, not once per
       # iteration: re-running a call mid-loop re-reads whatever it returns, so
       # `Dir.children(dir).each` deleting entries used to skip half of them.
@@ -2674,7 +2674,7 @@ describe "Eval programs" do
   end
 
   it "output args eval before write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # puts / print / p evaluate every argument before writing any.
       def a; puts "eval-a"; 1; end
       def b; puts "eval-b"; 2; end
@@ -2777,7 +2777,7 @@ describe "Eval programs" do
   end
 
   it "per object singleton body runs its leftovers in a class eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class << obj` had a fixed list of statements it could map, and rejected the
       # rest. The rejected shape is the same one `class << self` had: a statement
       # whose BLOCK reaches for `self`, which no receiver rewrite can rebind.
@@ -2870,7 +2870,7 @@ describe "Eval programs" do
   end
 
   it "protected reach from instance eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `protected` asks whether the CALLER's `self` is a kind of the method's owner.
       # zeo answers that from the class the call SITE sits in -- a compile-time
       # constant baked into the site (`codegen::call::visibility::caller_class`,
@@ -2931,7 +2931,7 @@ describe "Eval programs" do
   end
 
   it "resolves builtin class and module constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts eval("Integer".dup)
       puts eval("Math::PI".dup).round(2)
       puts eval("Math.sqrt(81)".dup)
@@ -2945,7 +2945,7 @@ describe "Eval programs" do
   end
 
   it "resolves user constants and classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       FOO = 42
       class Widget; end
       puts eval("FOO".dup)
@@ -2956,7 +2956,7 @@ describe "Eval programs" do
   end
 
   it "runtime eval defines classes and modules" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # `class`/`module` bodies inside eval: a fresh class with initialize+ivars,
       # a subclass whose method calls `super`, a module function, reopening a
       # compiled class, and the class expression's value. Non-literal source ->
@@ -2997,7 +2997,7 @@ describe "Eval programs" do
   end
 
   it "singleton body inside an eval keeps its end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class body inside an `eval` runs as one more `class_eval` of its own
       # SOURCE TEXT, recovered by slicing the snippet -- and the slice runs to the
       # CLASS's own `end`, not to its last statement.
@@ -3075,7 +3075,7 @@ describe "Eval programs" do
   end
 
   it "string class eval reads the locals of the method it stands in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class_eval, module_eval or instance_eval of a string reads and writes
       # the locals of the method it stands in, as eval does; the gem's heredoc
       # form names a local the string never assigns.
@@ -3111,7 +3111,7 @@ describe "Eval programs" do
   end
 
   it "toplevel binding constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # TOPLEVEL_BINDING is a global constant from boot: self = main, cref Object.
       p Object.constants.include?(:TOPLEVEL_BINDING)
       p TOPLEVEL_BINDING.class
@@ -3132,7 +3132,7 @@ describe "Eval programs" do
   end
 
   it "toplevel binding is mains own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `TOPLEVEL_BINDING` IS the top-level frame's binding. It is installed
       # unconditionally so `Object.constants` lists it, but naming it anywhere in
       # the program -- including from inside a required library's method, which is
@@ -3182,14 +3182,14 @@ describe "Eval programs" do
     OUT
   end
   it "walks past a builtin to the scope that wrote the eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 41
 
       # A Method object's `call` stands between the eval and the scope
       # that wrote it, and it has no locals, no cref and no block to
       # lend. ruby walks out to the nearest frame written in ruby
       # (rb_vm_get_ruby_level_next_cfp), so the eval still reads `x`;
-      # ze0 read the builtin's frame and raised NameError.
+      # zr read the builtin's frame and raised NameError.
       p method(:eval).call("x + 1")
 
       def inner

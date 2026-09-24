@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process: blocks and yields" do
   it "at exit returns proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       v001 = at_exit { }
       p v001.class
     RUBY
@@ -13,7 +13,7 @@ describe "Process: blocks and yields" do
   end
 
   it "class exec def body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # class_exec / module_exec with a method-defining block is the same
       # compile-time reopen class_eval already rode (#2722).
       class C; end
@@ -29,7 +29,7 @@ describe "Process: blocks and yields" do
   end
 
   it "exit systemexit and block given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `exit`/`abort` raise a RESCUABLE SystemExit carrying the status (it unwinds
       # through ensure), and `block_given?` answers for an `&block` parameter through
       # both the receiverless and the explicit `self.` spelling.
@@ -92,7 +92,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec autosplat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Auto-splat: a single array arg destructured across N>=2 block params
       # (CRuby binds arr[0]..arr[N-1] at arity >= 2). The params are typed
       # from the array's element type and codegen reads each element via the
@@ -144,7 +144,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Outer-local capture in a direct instance_exec block. Call-site
       # inline-splicing runs the block body in the caller's scope, so the
       # block both reads the caller's locals and writes them back -- the
@@ -207,7 +207,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec direct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Direct-path instance_exec: `recv.instance_exec(args) { |params| body }`
       # called without a wrapping trampoline method. The analyze pass lifts
       # the block to a static function `sp_iexec_<N>(self, args...)` and
@@ -292,7 +292,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec implicit self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Implicit-self direct call inside a class method:
       #   def configure
       #     instance_exec(10) { |n| add(n) }   # no explicit receiver
@@ -342,7 +342,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec nested" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested instance_exec: the rewrite descends into a lifted block body
       # so an inner instance_exec call lifts too, rebinding self per level.
       # The inner receiver is an outer-scope local captured into the block;
@@ -388,7 +388,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec numbered" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numbered block params (`_1.._N`) and the implicit `it` param in a
       # direct instance_exec. Each numbered slot binds to the corresponding
       # call-site arg, and the block body runs with self rebound to the
@@ -436,7 +436,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # User-defined instance_exec / instance_eval methods shadow the
       # compile-time intrinsic. Ordinary method dispatch resolves to the
       # user's method instead of the lift.
@@ -517,7 +517,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec trampoline result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An instance_exec result used through an intermediate local inside a method
       # (not a bare trampoline body), in value position. The method forwards its
       # block to a receiverless instance_exec, binds the result to a local, and
@@ -575,7 +575,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level method forwarding a block to instance_exec, with its return value
       # consumed. Previously the value form linked against an un-emitted `sp_run`; a
       # receiverless instance_exec does not rebind self, so it is exactly `b.call`.
@@ -621,7 +621,7 @@ describe "Process: blocks and yields" do
   end
 
   it "instance exec valuetype" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-type receiver (an immutable, scalar-only class the compiler
       # promotes to a by-value struct) works with direct instance_exec via
       # inline-splice. self is rebound to a by-value copy of the receiver, so
@@ -684,7 +684,7 @@ describe "Process: blocks and yields" do
   end
 
   it "system(exception: true) raises on failure, and a missing command names itself in the ENOENT message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process-launch error shapes: `system(cmd, exception: true)` raises
       # RuntimeError on failure and Errno::ENOENT on a missing command (zeo
       # answers false/nil, ignoring the option), and a bare `spawn` of a

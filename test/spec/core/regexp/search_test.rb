@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Regexp: searching and matching" do
   it "anchor takes a quantifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(/(?:(?!a))*b?/.match("b").to_a)
       p(/a(?:(?<=a))*b?/.match("ab").to_a)
     RUBY
@@ -16,7 +16,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "array index and size error messages match cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array error messages that CRuby spells precisely: a too-small negative index
       # to `[]=` carries `; minimum: -N` (the number, so an empty array reads
       # `minimum: 0`, not `-0`), and `drop`/`take` name the method that was actually
@@ -43,7 +43,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "back ref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # BackReferenceReadNode -- `$&`, `$~`, `$'`, $`, `$+`.
       #
       # Special globals populated by regex matches. Spinel's regex engine
@@ -97,7 +97,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "captured regexp cell scan" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Regexp is not a GC object: it is a compiled program the regexp engine
       # mallocs, which sp_mark_rbval already excludes from sp_gc_mark. A closure cell
       # holding one missed that exclusion, so marking a captured Regexp read a GC
@@ -142,7 +142,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "case string when sym no match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #378: `case <string> when :sym_literal` (and the
       # symmetric `case <symbol> when "string_literal"`) used to lower
       # to `strcmp(str, SPS_<sym>) == 0` / `mrb_int == const char *` —
@@ -216,7 +216,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "case when regex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #852: `case <string> when /regex/` SEGV'd because the
       # generic strcmp arm consumed the RegularExpressionNode's
       # fallthrough value `0`. Route through sp_re_match_p.
@@ -250,7 +250,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "class of a failed match is nilclass not matchdata" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # str.match(re) types as MatchData but returns nil on no match, so .class
       # must be read at runtime rather than constant-folded to MatchData.
 
@@ -268,7 +268,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "failed match clears the last match specials" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # They are RESET, not left holding the previous match -- the property
       # that makes `if s =~ re then $1 end` safe to reuse in a loop.
 
@@ -289,7 +289,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "fnmatch honours its flags" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File.fnmatch` honours every flag it accepts.
       #
       # It used to accept all five and honour one (`FNM_CASEFOLD`), which made
@@ -330,7 +330,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "hash and range breadth match the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Hash + Range Tier A surface: merge (with conflict block), fetch
       # shapes, dig, invert/key/value?, filters + transforms, each_key/value,
       # Range size/step/last(n), and String-range iteration via succ.
@@ -423,7 +423,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "incompatible regexp match raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A STRING pattern must be encoding-compatible with the receiver --
       # CRuby's `rb_enc_check`, the same test `+` makes. Without it the
       # pattern's bytes were reinterpreted under the receiver's encoding and
@@ -454,7 +454,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "is a against regexp and matchdata" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = /abc/
       puts r.is_a?(Regexp)
       puts r.is_a?(Object)
@@ -470,7 +470,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "keep escape moves the match but not the search" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = Regexp.new('a\Kb')
 
       p r =~ "ab"
@@ -503,7 +503,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "last match globals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Last-match globals ($~, $1.., $&, $`, $') and Regexp#~ / Regexp.timeout.
 
       # `=~` populates the last-match globals.
@@ -553,7 +553,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "last match named group" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Regexp.last_match with a String name raises "no implicit conversion";
       # ruby accepts a name.
@@ -583,7 +583,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "last match specials read off the most recent match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       if "hello world" =~ /(\w+)\s(\w+)/
         p $1
         p $2
@@ -609,7 +609,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match at a position anchors g against the true string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "aaa bbb ccc"
 
       # \G anchors at the search start position, not at the string start.
@@ -711,7 +711,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match globals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `$~` and the family that reads through it. All of them come off one
@@ -833,7 +833,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match globals frame local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f(s)
         s =~ /(l)/
         $1
@@ -902,7 +902,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match globals in blocks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p("a1b2".gsub(/(?<l>[a-z])(?<n>\d)/) { $~[:n] })
       z001 = []; "a1b2".scan(/(?<l>[a-z])(?<n>\d)/) { z001 << $~[:n] }; p z001
       p("a1b2".gsub(/([a-z])(\d)/) { $~[2] })
@@ -928,7 +928,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match holds the text as it was and shares it while unchanged" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A MatchData holds its text frozen, as it was when it matched: a String
       # of its own for each match of a text that is not frozen, and the text
       # itself when it is. A change of any kind leaves the earlier matches
@@ -1056,7 +1056,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match operator non regexp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         "Hello" =~ 0
       rescue NoMethodError => e
@@ -1080,7 +1080,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match p does not touch the last match but match does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `match?` is specifically the allocation-free predicate: it builds no
       # MatchData and so leaves the slot alone. `Regexp#match` sets it.
 
@@ -1100,7 +1100,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match p works from both the string and the regexp receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "hello".match?(/l+/)
       puts "hello".match?(/xyz/)
       puts(/l+/.match?("hello"))
@@ -1114,7 +1114,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match predicate bindings escape to the enclosing scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, "hi"]
       arr in [Integer => a, String => b]
       puts a
@@ -1125,7 +1125,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match predicate one liner is a boolean that never raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       if [1, 2] in [Integer, Integer]
         puts "matched"
       end
@@ -1140,7 +1140,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match required one liner binds on success" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2]
       arr => [first, second]
       puts first
@@ -1151,7 +1151,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match required one liner raises no matching pattern error on failure" do
-    result = ze0("5 => String\n")
+    result = zr("5 => String\n")
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
       core/regexp/search_test.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)
@@ -1159,7 +1159,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match tilde pre post" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # $~ answers its MatchData face (pre_match / post_match / to_s) from the same
       # match registers the back-references read.
       /foo/ =~ 'barfoobaz'
@@ -1180,7 +1180,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata hash is value based" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData#hash/#eql? are value-based (subject + pattern + regions), so
       # two matches produced by separate calls hash equal and work as the same
       # Hash key -- while a different subject keys apart.
@@ -1209,7 +1209,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata index bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # MatchData#[] past the last group answers the group text instead of nil.
       #
@@ -1247,7 +1247,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata index eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData#[] with a negative group index or a (start, length) pair, and
       # MatchData#== / #eql? (#2507, #2529, #2531).
       md = "abc".match(/(a)(b)(c)/)
@@ -1279,7 +1279,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata index range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An index outside a MatchData's groups is CRuby's IndexError. begin, end and
       # offset answered nil (and offset a pair of nils) instead.
       m = "hello".match(/(l)/)
@@ -1308,7 +1308,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata match by name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Regexp.last_match with a Symbol name raises "no implicit conversion";
       # ruby accepts a name.
@@ -1340,7 +1340,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata named group access by symbol string and named captures hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "John Smith".match(/(?<first>\w+) (?<last>\w+)/)
       puts m[:first]
       puts m["last"]
@@ -1358,7 +1358,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata named groups" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData named-group access: md[:name] / md["name"] select a named capture
       # group (previously returned the whole match), plus #named_captures and #names.
       # A non-participating named group is nil; an unknown name raises IndexError.
@@ -1416,7 +1416,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata offset names regexp and regexp class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "abc123".match(/([a-z]+)(\d+)/)
       p m.offset(2)
       p m.byteoffset(2)
@@ -1441,7 +1441,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata offsets match and deconstruction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData begin/end, bytebegin/byteend, match, inspect, deconstruct, and
       # deconstruct_keys with CRuby's key rules.
 
@@ -1469,7 +1469,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata regexp extended" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "abc123".match(/([a-z]+)(\d+)/)
       p m.offset(0); p m.offset(1); p m.offset(2)
       p m.byteoffset(0); p m.byteoffset(2)
@@ -1509,7 +1509,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata to a and captures" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "hello world".match(/(\w+) (\w+)/)
       puts m.to_a
       puts "---"
@@ -1527,7 +1527,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata unknown named group raises index error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unknown named-group key raises IndexError (previously an abort);
       # a known name resolves its capture.
 
@@ -1547,7 +1547,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata values at and string to r" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "2024-01-15".match(/(\d+)-(\d+)-(\d+)/)
       p m.values_at(1, 3)
       p m.values_at(0, 2)
@@ -1572,7 +1572,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata values at named" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData#values_at(:name) resolves each named group against this MatchData's
       # own regexp group table, like MatchData#[]. Spinel routed a Symbol/String
       # argument through the index accessor, which consulted a single first-seen global
@@ -1613,7 +1613,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata whole match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # $~[0] is the whole match even when capture groups are present; $~[n] are groups.
       "hello world" =~ /(\w+) (\w+)/
       p $~[0]
@@ -1629,7 +1629,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "matchdata whole match captures pre and post match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "hello world".match(/(\w+) (\w+)/)
       puts m[0]
       puts m[1]
@@ -1648,7 +1648,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "named captures dup names backref plus and nonstring match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # named_captures collects ALL indices for a name reused by several groups
       # (the engine collapses it, so this parses the source); \+ expands to the
       # highest participating group; Regexp#=~ against a non-String raises
@@ -1679,7 +1679,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "named captures symbolize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # named_captures(symbolize_names: false) asks for the string keys the
       # no-argument form gives. The argument was ignored -- any argument meant
       # symbolize -- and the keys came back as symbols.
@@ -1697,7 +1697,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "names meta" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData#string (the match subject), Regexp#names, and
       # Regexp#named_captures ({name => [group indices]}, duplicate names
       # collecting), on literal and variable receivers.
@@ -1724,7 +1724,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "nested class leaves the outer state as onigmo does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested character class leaves the outer class's state as Onigmo
       # leaves it: a value before it still pends, and a '-' after a leading
       # one is a plain character with no warning.
@@ -1757,7 +1757,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "nil match op variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # NilClass#=~ is always nil and nil !~ re is always true, including when the
       # nil is held in a variable (poly receiver path).
       n = nil
@@ -1775,7 +1775,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "not match op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #732. `str !~ /pattern/` should return true when no match
       # and false when there is a match. spinel used to emit the unresolved-
       # call warning and return 0; now `!~` is the negation of `=~`.
@@ -1795,7 +1795,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "not match operator negates from both receivers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts("hello" !~ /xyz/)
       puts("hello" !~ /l+/)
       puts(/xyz/ !~ "hello")
@@ -1809,7 +1809,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "oniguruma backed semantics match the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ^/$ do not match at the phantom position after a final newline
       p("a\n".scan(/^/).size)
       p("a\nb\n".scan(/^/).size)
@@ -1847,7 +1847,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex atomic group" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p("aaa".match(/(?>a+)a/))
       p("aaa".match?(/(?>a+)a/))
       p("aaa".match(/a++a/))
@@ -1877,7 +1877,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex backreferences and lookaround via fancy engine" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Constructs the linear-time `regex` crate can't do; a backtracking engine
       # transparently backs them. The fast path stays unaffected.
 
@@ -1910,7 +1910,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex capture scan toproc count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # s[/re/, n] and s[/re/, :name] captures, the String#scan block form,
       # count on a boxed-array block parameter, explicit Symbol#to_proc, and
       # combination/permutation over non-integer arrays.
@@ -1972,7 +1972,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex fancy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regex parity — backreferences and look-around, backed by a backtracking
       # engine that transparently kicks in for constructs the fast engine can't do.
       # The common fast path is unaffected.
@@ -2022,7 +2022,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex gpos subexp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p("foo".match(/\Gfoo/))
       p("abcabc".match(/(?<x>abc)\g<x>/))
       p("xfoo".match(/\Gfoo/))
@@ -2042,7 +2042,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex match nonstring" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Regexp#=~` (and match?/===) with a non-String operand raises
       # TypeError in CRuby; Spinel used to pass the scalar where a char* was
       # expected and segfault.
@@ -2071,7 +2071,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex match p poly recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver reaching String#match? / #!~ -- a block param over an array
       # whose element type never resolved, an element read out of a widened array.
       # emit_expr left the sp_RbVal in sp_re_match_p's const char * slot, so the
@@ -2123,7 +2123,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex namespaced const" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Refs #1008. A regex in a namespaced constant must resolve like a top-level
       # one: gsub/sub/scan/=~ should dispatch to the engine, not silently no-op
       # (gsub) or raise undefined-method (scan).
@@ -2152,7 +2152,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex negated shorthand toplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Top-level \D \W \S must match the complement set (not double-negate).
       p("5" =~ /\D/); p("x" =~ /\D/)
       p("a" =~ /\W/); p(" " =~ /\W/)
@@ -2182,7 +2182,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex value as match arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A regex in argument position may be any expression, not just a local or a
       # constant read. An inline `Regexp.new(s)` / `Regexp.union(..)` / a method
       # returning a regex is the same pattern value, and String#match / #match? /
@@ -2314,7 +2314,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex value as match arg object recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Widening which regex arguments reach the string-side match path must not
       # pull an Object receiver off its own methods: a class that defines match /
       # match? answers those itself, whatever the argument expression looks like.
@@ -2358,7 +2358,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "alternation takes the leftmost branch that lets the whole match succeed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported mruby-regexp alternation-priority fixes (leftmost-first).
       #
       # 4abed83f4: the linear-time Pike VM had no priority cut, so it kept the
@@ -2408,7 +2408,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a quantified atomic group keeps what it consumed and never gives it back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inserting a quantifier's SPLIT ahead of an atom relocates every jump target
       # that crosses the insertion, and the atomic group carries one in the same
       # field as the lookarounds do. It was left out of that walk, so `(?>a?)*` kept
@@ -2451,7 +2451,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a backreference under /i matches the other case of what the group took" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # A backreference compares case-SENSITIVELY even when the pattern is folded,
@@ -2491,7 +2491,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a {0,m} quantifier may match nothing at all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported mruby-regexp e246b2c05: {0,m} matched one copy too many. The
       # quantifier compiler emitted the atom once up front and counted it as the
       # first mandatory copy, which is wrong when the lower bound is zero. {0,m}/{0,}
@@ -2540,7 +2540,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a repetition whose body may match empty ends on an empty capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # A repetition whose body can match EMPTY runs one final iteration that
@@ -2593,7 +2593,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "under /x the whitespace and comments in a pattern are not part of it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Under `/x` the `regex` crate strips whitespace INSIDE a character class as
       # well as outside it -- unlike Ruby, which only ignores it between tokens. That
       # matters because zeo expands `\s` to a class, so a literal space written as one
@@ -2676,7 +2676,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "^ and $ anchor to a line, where \\A and \\z anchor to the subject" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's ^ and $ are always line-anchored, independent of the /m flag
       # (which in Ruby only makes `.` match newlines). ^ matches at the start
       # of the string and after any newline; $ matches at the end and before
@@ -2733,7 +2733,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "every literal pattern in a program compiles at startup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every literal pattern is compiled at startup into its own slot. A refusal
       # there used to leave the slot NULL for the first match to dereference; it now
       # reports and stops, the way CRuby refuses to run a file whose literal does not
@@ -2754,7 +2754,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a lookbehind of alternatives matches at the position after any of them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lookbehind was measured by walking its code, and the walk gave up at the
       # first alternation -- "for simplicity", though branches of the same width are
       # as measurable as a plain sequence. Both branches are measured now and the
@@ -2804,7 +2804,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a lookbehind counts characters, not bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lookbehind was measured and rewound in BYTES, so a class or a `.` inside
       # one -- each of which matches a character of whatever width -- landed the
       # rewind in the middle of a character (a silent no-match), and `.` was refused
@@ -2846,7 +2846,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "compilation, named captures and unicode classes work in the binary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The regexp engine is linked: compilation, named captures and unicode
       # classes all work in the binary.
       m = "2026-09-02".match(/(?<y>\d{4})-(?<m>\d{2})-(?<d>\d{2})/)
@@ -2865,7 +2865,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "Regexp#match with a block yields the MatchData and answers the block's value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Regexp#match with a block returns the MatchData instead of the block's
       # value.
@@ -2902,7 +2902,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match answers a MatchData that reads its groups by index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #867: String#match and Regexp#match return a MatchData-like
       # object instead of falling through to unresolved-call emit-0.
       md1 = "hello world".match(/\w+/)
@@ -2935,7 +2935,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "match? takes a start offset, and a negative one counts from the end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #869: Regexp#match?(str, pos) starts matching at byte
       # offset `pos`. Previously the position argument was silently
       # dropped and the call returned true for any non-empty pattern.
@@ -2954,7 +2954,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "MatchData reports size, captures, offsets, names and named_captures" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData carries its capture positions in the same block as the struct,
       # sized to the match. The read of the last group is what a mis-sized block
       # would get wrong, so the widest pattern this engine allows is exercised here
@@ -3023,7 +3023,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "\\k<name> matches what the group of that name took" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported mruby-regexp engine fix.
       #
       # 581092a75 (\k<name> named backreferences): named groups (?<n>...) existed but
@@ -3057,7 +3057,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a named capture reads by name, and =~ on a literal assigns the locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal regexp on the left of `=~` binds each named group to a local
       # variable (CRuby's MatchWriteNode): a String when the group participated, nil
       # otherwise. The `=~` itself yields the match index, or nil on no match. The
@@ -3121,7 +3121,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a pattern with a named group has no numbered captures" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m001 = "a1".match(/(?<l>[a-z])(\d)/)
       p m001.captures
       p m001.to_a
@@ -3147,7 +3147,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "Regexp.new builds from a string and reports its source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Regexp.new` builds a Regexp from a pattern string (or copies another
       # Regexp). A second argument sets flags: an Integer OR-ing the `Regexp::`
       # constants, or the historical boolean shorthand for case-insensitivity.
@@ -3184,7 +3184,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "Regexp.new takes another Regexp and copies its source and flags" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Regexp.new("a.c") =~ "xabc")
       p Regexp.new("hi", Regexp::IGNORECASE).match?("HI")
       p Regexp.new(/z/i).match?("Z")
@@ -3200,7 +3200,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a Regexp.new pattern matches a subject that arrives boxed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp#match on a Regexp.new pattern has to accept a subject that arrives
       # boxed: one call site handing it an untyped block parameter is enough to
       # widen the method's parameter, and the subject then reaches the runtime as a
@@ -3238,7 +3238,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "an alternation whose winning branch is not the first keeps its capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported mruby-regexp engine fixes.
       #
       # c0c8c7d47 (capture loss in Pike VM thread compaction): an alternation whose
@@ -3275,7 +3275,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a quantified alternation backtracks into its other branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported mruby-regexp da41af3c9: keep a quantifier's loop-back after an
       # alternation SPLIT is inserted in front of its atom. A greedy `\d+` compiles
       # to the class plus a SPLIT looping back to it; when that class also starts
@@ -3325,7 +3325,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "(?'name'...) is the other spelling of a named group" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A named group has two spellings and the engine read both of them in \k while
       # accepting only one in a declaration: the scan that decides whether a plain
       # group still captures already knew (?'name'), so a pattern using it demoted
@@ -3370,7 +3370,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a repeated group captures only its last iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported mruby-regexp engine fix.
       #
       # f5cb8e139 (relocate internal jumps when copying a repeated group): a
@@ -3397,7 +3397,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "two alternatives may share a capture name, and named_captures lists both slots" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(/(?<a>x)|(?<a>y)/.names)
       p("y".match(/(?<a>x)|(?<a>y)/).names)
       p(/(?<a>x)|(?<a>y)/.named_captures)
@@ -3415,7 +3415,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "a replacement string reads a group by number or by name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "ab".sub(/(?<x>b)/, "[\\1]")
       p "abab".gsub(/(?<x>b)/, "[\\1]")
       p "ab".sub(/(?<a>a)(?<b>b)/, "[\\1\\2]")
@@ -3452,7 +3452,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "source is the pattern as written and options is the flag bits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #868: Regexp#source returns the original pattern string;
       # #options returns the CRuby flag bitmask (1=IGNORECASE, 2=EXTENDED,
       # 4=MULTILINE).
@@ -3475,7 +3475,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "=== matches a string, which is what a case arm uses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp#=== matches a string against the pattern (the operator
       # `case x when /re/` uses). Previously fell through to the
       # unresolved-call path and raised at runtime.
@@ -3502,7 +3502,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "Regexp.union escapes the strings it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp.union builds an alternation of its operands. A String operand is
       # regexp-escaped; a (flagless) Regexp operand contributes its source; a single
       # Array argument is expanded into its elements; a single Regexp operand is
@@ -3561,7 +3561,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "rindex regexp polypoly merge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#rindex(Regexp) keys on the rightmost match START (a later-starting
       # shorter match beats an earlier longer one), and a heterogeneous hash
       # absorbs a typed hash through merge!/update.
@@ -3591,7 +3591,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "scan block tracks the current match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#scan` with a block sets `$~` to the CURRENT match on each iteration,
       # exactly as `sub`/`gsub`'s block forms do. The runtime's `scan` row collected
       # every match first and only then yielded, so `$~` sat at the LAST match for
@@ -3674,7 +3674,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "scan locals def boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #450 cascade 1. `scan_locals` walked into nested DefNode bodies
       # from any outer-context caller (notably infer_main_call_types' top-
       # level scan), pulling locals from inside unrelated methods into the
@@ -3739,7 +3739,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "scan walkers def boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Audit follow-up to #450 cascade 1. Several AST-walking helpers in
       # spinel_analyze.rb recursively descend into nested DefNode /
       # ClassNode / ModuleNode bodies without resetting scope context.
@@ -3803,7 +3803,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "scan with a block yields matches and returns the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The block form yields each match (a String, or an Array of groups) and
       # returns the RECEIVER, not the array of matches.
 
@@ -3824,7 +3824,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "scan with a string pattern matches literally" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String pattern is a literal (no metacharacters), matches
       # non-overlapping, and an empty pattern matches at every character
       # boundary. The block form yields each match and returns the receiver.
@@ -3850,7 +3850,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "scan without and with capture groups" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "one two three".scan(/\w+/)
       puts "---"
       puts "a1b2c3".scan(/([a-z])(\d)/)
@@ -3871,7 +3871,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "small api wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
       m = "2026-06".match(/(\d+)-(\d+)/)
       p m.size
@@ -3895,7 +3895,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "str match position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#match and String#match? with position argument
       # The position is a codepoint index (not byte offset) that limits
       # where the regex search starts.
@@ -3926,7 +3926,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "strbuf index after mutation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = String.new
       s << "abc"
       p s[0], s[2], s.length
@@ -3983,7 +3983,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string index regex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#index with a Regexp argument returns the first match position
       # (Integer) or nil on no match, like the string-argument form. Previously the
       # regex lowered to 0 and fed a bogus arg to the plain-string index path.
@@ -4006,7 +4006,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string match block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#match(/re/) { |m| } yields the MatchData on a hit and evaluates
       # to the block's value; nil (block not run) on a miss.
       p "foobar".match(/(o+)/) { |m| m[1].upcase }
@@ -4023,7 +4023,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string match operator returns char index or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts("hello world" =~ /world/)
       puts("hello world" =~ /xyz/)
       puts("hello" =~ /l+/)
@@ -4037,7 +4037,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string match position argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#match(pattern, pos)` starts the search at pos; zeo ignores the
       # second argument and matches from 0. `#match?` takes the same argument.
       # (Found by the 2026-08-24 probe sweep.)
@@ -4054,7 +4054,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string regexp group index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Regexp-with-capture-group form of the String index family: `s[/re/, n]`
       # already read the group, but removing or replacing it had no arm at all --
       # slice! answered nil and left the receiver alone, and []= was refused.
@@ -4115,7 +4115,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string scan literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#scan accepts a String pattern in both its value and block forms.
       p "MixedCase".scan("e")
       p "aaaa".scan("aa")
@@ -4154,7 +4154,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "string succ scan slice tilde wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#succ carries alphanumerics only; scan with (named) capture groups
       # returns capture rows (value, block, and destructured block forms);
       # slice!(regexp); $~ is a first-class MatchData built from the registers.
@@ -4227,7 +4227,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "succ kind flip carry and match block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # succ carries across a separator only when the alnum kind is preserved
       # ("1.9"->"2.0") and otherwise inserts ("a-9"->"a-10"); String#match with a
       # block yields the MatchData and answers the block value (nil on a miss).
@@ -4253,7 +4253,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "value type tuple gc scan" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class NameTag
         attr_reader :text
 

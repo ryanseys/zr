@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Encoding: searching and matching" do
   it "broken needle never matches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A needle that is not valid in its encoding never matches, as CRuby's
       # rb_str_index decides; a prefix or a suffix must end or start on a
       # character boundary.
@@ -44,7 +44,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "encode to an unknown encoding names the converter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#encode` to an unknown encoding raises
       # Encoding::ConverterNotFoundError naming the pair ("code converter not
       # found (UTF-8 to NO-SUCH-ENC)"); zeo routes through the registry lookup
@@ -76,7 +76,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "issue posix alpha class ascii only" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The POSIX bracket class `[[:alpha:]]` (and presumably its siblings) only
       # matches ASCII letters in zeo's regex engine -- CRuby's onig engine matches
       # any Unicode letter (e.g. "e" with an accent) against `[[:alpha:]]`.
@@ -93,7 +93,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "issue word char class ascii scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `\w` in a regex should only match ASCII word characters ([a-zA-Z0-9_]) by
       # default in CRuby's onig engine, excluding accented/Unicode letters. zeo's
       # `\w` is Unicode-aware and matches "e" with an accent too.
@@ -104,7 +104,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "match answers in the subjects encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every string a match hands back carries the SUBJECT's encoding, not the
       # engine's. zeo decodes a haystack to UTF-8 to search it, and used to slice
       # the groups out of that copy, so a binary or Latin-1 subject answered UTF-8
@@ -185,7 +185,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "match group keeps the haystacks encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       binary = "café".b
       latin1 = "\xe9".force_encoding("ISO-8859-1")
 
@@ -212,7 +212,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "matchdata values at byteoffset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData#values_at selects groups by index (nil for a group that did not
       # participate); #byteoffset/#bytebegin/#byteend report raw byte positions (the
       # char-based #begin/#end/#offset already worked). The MatchData receiver is
@@ -251,7 +251,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "regexp invalid byte match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         "\xff".force_encoding("UTF-8") =~ /a/
         p :no_raise
@@ -264,7 +264,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "regexp match checks the haystacks encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       utf8 = "café"
       binary = utf8.b
       latin1 = "\xe9".force_encoding("ISO-8859-1")
@@ -298,7 +298,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "the word boundary and the POSIX brackets read unicode, not ASCII" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "日本語" =~ /\b/
       p "日本語".scan(/\b/).size
       p "日本語" =~ /\B/
@@ -373,7 +373,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "regexp unicode escape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # `\u{...}` with more than one codepoint is a PARSE ERROR:
@@ -440,7 +440,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "string ascii7 fast index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Indexing a string that holds only 7-bit bytes is byte indexing: #length is
       # the byte length and s[i] is the byte at i. spinel had folded the UTF-8 walk
       # into a pointer-keyed length cache, so the walk was already gone -- but every
@@ -585,7 +585,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "string byteindex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#byteindex/#byterindex return BYTE offsets (not codepoint indices),
       # with byte-offset start/pos arguments; nil on miss.
       p "abcabc".byteindex("b")
@@ -615,7 +615,7 @@ describe "Encoding: searching and matching" do
   end
 
   it "index and include? find no match inside a double-byte character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       %w[GBK CP949 GB18030 Shift_JIS Big5].each do |enc|
         s = "\xA0z".b.force_encoding(enc)
         s = "\x81z".b.force_encoding(enc) unless s.valid_encoding?

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: regressions" do
   it "integer bit index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Integer#[N]` returns bit N (0-indexed from the LSB) of the
       # integer. `data[5]` was previously falling through to the
       # unknown-method 0-fallback. Lower as `((rc >> idx) & 1)`.
@@ -46,7 +46,7 @@ describe "Numeric: regressions" do
   end
 
   it "allbits? is true only when every bit in the mask is set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Basic, subset, zero mask, single bit, large value and a negative
       # receiver -- the same matrix nobits? and anybits? are held to.
 
@@ -79,7 +79,7 @@ describe "Numeric: regressions" do
   end
 
   it "nobits? is true only when no bit in the mask is set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 256.nobits?(1)
       puts 256.nobits?(255)
       puts 8.nobits?(4)
@@ -111,7 +111,7 @@ describe "Numeric: regressions" do
   end
 
   it "anybits? is true when at least one bit in the mask is set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 255.anybits?(128)
       puts 255.anybits?(1)
       puts 0.anybits?(1)
@@ -143,7 +143,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer ceildiv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # basic
       puts 7.ceildiv(2)
       puts 10.ceildiv(5)
@@ -182,7 +182,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer divmod" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 100.divmod(7)
       # Float#divmod returns [Integer, Float] — exercises the
       # tuple:int,float inspect arm.
@@ -193,7 +193,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer lcm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # basic
       puts 6.lcm(4)
       puts 4.lcm(6)
@@ -254,7 +254,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer powmod" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # basic
       puts 2.pow(10, 1000)
       puts 5.pow(2, 3)
@@ -325,7 +325,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer pred" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # basic
       puts 5.pred
       puts 1.pred
@@ -350,7 +350,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer sqrt" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Integer.sqrt(0)
       p Integer.sqrt(1)
       p Integer.sqrt(16)
@@ -384,7 +384,7 @@ describe "Numeric: regressions" do
   end
 
   it "catch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test catch/throw
 
       result = catch(:done) do
@@ -420,7 +420,7 @@ describe "Numeric: regressions" do
   end
 
   it "class threeq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#=== — case-when membership for primitive type names.
       # Compile-time decided based on the arg's inferred type.
       p Integer === 5
@@ -507,7 +507,7 @@ describe "Numeric: regressions" do
   end
 
   it "do while post test loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Prism's PM_LOOP_FLAGS_BEGIN_MODIFIER (= 4, bit 2) marks
       # `begin..end while cond` / `begin..end until cond` as post-test
       # loops — body runs at least once. Spinel was treating them as
@@ -541,7 +541,7 @@ describe "Numeric: regressions" do
   end
 
   it "fiber" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Fiber (cooperative concurrency)
 
       # Basic yield/resume
@@ -616,7 +616,7 @@ describe "Numeric: regressions" do
   end
 
   it "reduces a float array to its min, max, sum, first and last" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1.5, 2.5, 0.5, 3.5]
       puts arr.min     # 0.5
       puts arr.max     # 3.5
@@ -651,7 +651,7 @@ describe "Numeric: regressions" do
   end
 
   it "slices a float array by a range and by start and length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1.5, 2.5, 3.5, 4.5, 5.5]
       b = a[1..3]
       puts b.length    # 3
@@ -696,7 +696,7 @@ describe "Numeric: regressions" do
   end
 
   it "shift takes the front of a float array until it is empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1.5, 2.5, 3.5, 4.5]
       puts arr.shift  # 1.5
       puts arr.length # 3
@@ -719,7 +719,7 @@ describe "Numeric: regressions" do
   end
 
   it "ceil, floor, round and truncate take a number of decimal places" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 3.14159.round(2)
       puts 3.14159.round(4)
       puts 1.5.round(1)
@@ -775,7 +775,7 @@ describe "Numeric: regressions" do
   end
 
   it "prints a float as the shortest decimal that reads back as itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shortest decimal that round-trips; fixed-point inside CRuby's
       # [-4, 15] decimal-exponent window, scientific (`d.ddde+NN`)
       # outside.
@@ -832,7 +832,7 @@ describe "Numeric: regressions" do
   end
 
   it "Kernel#Float coerces a string, an integer and a float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Float("3.14")        # 3.14
       puts Float("0")           # 0.0
       puts Float("-2.5")        # -2.5
@@ -854,7 +854,7 @@ describe "Numeric: regressions" do
   end
 
   it "math" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math module methods. All should return Float.
 
       # Trig (in radians)
@@ -933,7 +933,7 @@ describe "Numeric: regressions" do
   end
 
   it "misc2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test format/sprintf
       puts format("%d:%02d", 5, 3)
       puts sprintf("hello %s %d", "world", 42)
@@ -965,7 +965,7 @@ describe "Numeric: regressions" do
   end
 
   it "the arithmetic, rounding, predicate and conversion rows each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test numeric methods and conversions
 
       puts (-5).abs     # 5
@@ -1007,7 +1007,7 @@ describe "Numeric: regressions" do
   end
 
   it "safe nav" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test safe navigation operator &.
 
       s = "hello"
@@ -1035,7 +1035,7 @@ describe "Numeric: regressions" do
   end
 
   it "shuffle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2, 3, 4, 5]
       s = arr.shuffle
       puts s.length
@@ -1094,7 +1094,7 @@ describe "Numeric: regressions" do
   end
 
   it "float array sort" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [3.5, 1.25, 2.0, 0.75, 4.125]
       b = a.sort
       puts b.length
@@ -1123,7 +1123,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer literal large" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       mod = 4_294_967_296
       puts mod
       puts 16_777_621 % mod
@@ -1147,7 +1147,7 @@ describe "Numeric: regressions" do
   end
 
   it "program name gvar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$PROGRAM_NAME` / `$0` are Ruby's standard aliases.
       puts $PROGRAM_NAME.length > 0
       puts $0.length > 0
@@ -1157,7 +1157,7 @@ describe "Numeric: regressions" do
   end
 
   it "multi write as expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #554. `(a, b = 10, 11)` used as an expression returns the RHS array.
       p( (a, b = 10, 11)[1] )
       p a
@@ -1182,7 +1182,7 @@ describe "Numeric: regressions" do
   end
 
   it "range predicate block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # (a..b).any?/all?/none?/one? { |i| ... }
       puts (0..5).all? {|i| i >= 0 }      # true
       puts (0..5).all? {|i| i < 3 }       # false
@@ -1214,7 +1214,7 @@ describe "Numeric: regressions" do
   end
 
   it "fetch nil default distinguishes zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #682: hash.fetch(k, nil).nil? distinguishes missing-key from a 0 value.
       h0 = {k: 0}
       v0 = h0.fetch(:k, nil)
@@ -1247,7 +1247,7 @@ describe "Numeric: regressions" do
   end
 
   it "stdlib" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#join
       arr = (1..5).to_a
       puts arr.join(", ")
@@ -1280,7 +1280,7 @@ describe "Numeric: regressions" do
   end
 
   it "math fn parity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # End-to-end exercise of every recognized Math fn.
       puts Math.sqrt(16.0).to_i.to_s
       puts Math.cos(0.0).to_i.to_s
@@ -1327,7 +1327,7 @@ describe "Numeric: regressions" do
   end
 
   it "float infinite nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#infinite?: nil for a finite value, -1 / +1 for -Inf / +Inf.
       p 0.0.infinite?
       p 3.14.infinite?
@@ -1348,7 +1348,7 @@ describe "Numeric: regressions" do
   end
 
   it "float next prev" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#next_float / prev_float — adjacent IEEE 754 representable
       # values via libm's nextafter.
       puts 1.0.next_float
@@ -1366,7 +1366,7 @@ describe "Numeric: regressions" do
   end
 
   it "float zero p" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#zero?: true only for 0.0 / -0.0.
       p 0.0.zero?
       p(-0.0.zero?)
@@ -1385,7 +1385,7 @@ describe "Numeric: regressions" do
   end
 
   it "int step expr block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#step with a block in expression position — CRuby returns
       # the receiver, not 0. Previously fell through to the unresolved-
       # call path and emitted 0 (and analyze inferred int_array, which
@@ -1399,7 +1399,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer nonzero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #874: Integer#nonzero? returns nil when receiver is 0,
       # self otherwise. Surfaces as int? (nullable int).
       puts 0.nonzero?.inspect
@@ -1415,7 +1415,7 @@ describe "Numeric: regressions" do
   end
 
   it "range size exclusive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#size with exclusive range
       # (1...5).size should return 4, not 5.
 
@@ -1427,7 +1427,7 @@ describe "Numeric: regressions" do
   end
 
   it "range size string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String range has no integer size; CRuby Range#size returns nil.
       # Integer ranges keep returning their element count.
       p (1..10).size
@@ -1447,7 +1447,7 @@ describe "Numeric: regressions" do
   end
 
   it "integer bignum batch2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer/Bignum conformance (KieranP #2418-#2423, #2425)
       p((2 ** 100).magnitude)
       p((2 ** 100).abs)
@@ -1486,7 +1486,7 @@ describe "Numeric: regressions" do
   end
 
   it "between? compares a bignum receiver against bignum bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((2 ** 150).between?(1, 2 ** 100))
       p((2 ** 150).between?(2 ** 100, 2 ** 200))
       p((10 ** 40).between?(10 ** 39, 10 ** 41))
@@ -1500,7 +1500,7 @@ describe "Numeric: regressions" do
   end
 
   it "between? compares a small Integer against bignum bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 50.between?(1, 2 ** 100)
       p 50.between?(2 ** 100, 2 ** 200)
       p (2 ** 100).between?(1, 2 ** 200)
@@ -1516,7 +1516,7 @@ describe "Numeric: regressions" do
   end
 
   it "the operator assignments keep a Rational local a Rational" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational operator-assignment (`r += x`, `-=`, `*=`, `/=`) on a Rational local.
       t = Rational(0, 1)
       t += Rational(1, 2)
@@ -1538,7 +1538,7 @@ describe "Numeric: regressions" do
   end
 
   it "round with a digit count dispatches on the value's runtime type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `.round(ndigits)` on a poly value (a zip-sum divided by a Float): the
       # digit-taking round must dispatch on the runtime tag, not raise NoMethodError.
       p ([1, 2].zip([3, 4]).sum { |x, y| x * y } / 2.0).round(2)
@@ -1560,7 +1560,7 @@ describe "Numeric: regressions" do
   end
 
   it "numerator and denominator answer for a Rational read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # numerator/denominator on a Rational read out of a poly container: the
       # poly receiver must dispatch on the runtime tag, not return an opaque value.
       arr = [Rational(1, 3), Rational(1, 2)]
@@ -1580,7 +1580,7 @@ describe "Numeric: regressions" do
   end
 
   it "a sum block runs its leading statement before the value it answers with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A sum block with a leading statement (a block-local) feeding a nested
       # Array#find: the leading statement must run, not be dropped.
       UNITS = [["d", 86400], ["h", 3600], ["m", 60], ["s", 1]]
@@ -1599,7 +1599,7 @@ describe "Numeric: regressions" do
   end
 
   it "conjugate and conj negate the imaginary part of a Complex read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # conjugate/conj on a Complex read out of a poly container: dispatch on the
       # runtime tag (negate the imaginary part) instead of returning an opaque value.
       xs = [Complex(1, 2), Complex(3, 4)]
@@ -1616,7 +1616,7 @@ describe "Numeric: regressions" do
   end
 
   it "a nested write lands on the inner array when both subscripts came from destructuring" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested write g[r][c] = v where r/c are poly (from destructuring) must land
       # on the inner array, not be dropped -- sp_poly_set_poly lacked Str/Float array
       # cases.
@@ -1638,7 +1638,7 @@ describe "Numeric: regressions" do
   end
 
   it "a sum block written with do...end runs its leading assignment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sum with a do...end block containing a leading local assignment: the
       # per-iteration leading statements must not emit a #line directive mid
       # statement-expression (a stray '#').
@@ -1658,7 +1658,7 @@ describe "Numeric: regressions" do
   end
 
   it "a Complex raised to a Rational power" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Complex(2, 3) ** Rational(2, 1))
       p(Complex(2, 3) ** Rational(1, 2))
       p(Complex(2, 3) ** Rational(3, 1))
@@ -1672,7 +1672,7 @@ describe "Numeric: regressions" do
   end
 
   it "a Float compares against a bignum by value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(3.0 <=> (10**30))
       p((10**30) <=> 3.0)
       p(3.0 <=> (10**30) * -1)
@@ -1690,7 +1690,7 @@ describe "Numeric: regressions" do
   end
 
   it "Float#step with a NaN bound yields nothing, and an infinite start never ends" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Float::NAN.step(2.0, 0.5) { |x| p x }; puts "a"
       1.0.step(Float::NAN, 0.5) { |x| p x }; puts "b"
       n = 0
@@ -1712,7 +1712,7 @@ describe "Numeric: regressions" do
   end
 
   it "Math.lgamma is exactly [Infinity, 1] at every non-positive integer pole" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # poles at non-positive integers are exactly [Infinity, 1]
       p Math.lgamma(-1.0)
       p Math.lgamma(-2.0)
@@ -1739,7 +1739,7 @@ describe "Numeric: regressions" do
   end
 
   it "Rational#round takes the rounding rule as half:" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Rational(5, 2).round(half: :even)
       p Rational(5, 2).round(half: :up)
       p Rational(5, 2).round(half: :down)
@@ -1763,7 +1763,7 @@ describe "Numeric: regressions" do
   end
 
   it "Rational#rationalize answers the simplest fraction inside the tolerance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Rational(1,3).rationalize(Rational(1,10))
       p Rational(5000,10001).rationalize(Rational(1,100))
       p Rational(22,7).rationalize(0.01)
@@ -1781,7 +1781,7 @@ describe "Numeric: regressions" do
   end
 
   it "Range#bsearch over floats takes the find-minimum form and the find-any form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((0.0..10.0).bsearch { |x| x * x - 4 >= 0 ? x * x - 4 : nil })
       p((0.0..10.0).bsearch { |x| 4 - x*x })
       p((0.0..10.0).bsearch { |x| x*x - 4 })
@@ -1801,7 +1801,7 @@ describe "Numeric: regressions" do
   end
 
   it "Signal.signame truncates a Float signal number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Signal.signame(2.9)
       p Signal.signame(2)
       p Signal.signame(9.99)
@@ -1815,7 +1815,7 @@ describe "Numeric: regressions" do
   end
 
   it "a **kwargs parameter collects every keyword, whatever the values are" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f(**k); p k; end
       f(value: ["x"])
       f(value: {x: "x"})
@@ -1834,7 +1834,7 @@ describe "Numeric: regressions" do
   end
 
   it "Math.lgamma answers sign -1 at negative zero and 1 at positive zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Math.lgamma(-0.0)
       p Math.lgamma(0.0)
       p Math.lgamma(-1.0)
@@ -1850,7 +1850,7 @@ describe "Numeric: regressions" do
   end
 
   it "pop and first answer through a method that took the array as a parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fn(opts) = opts.pop
       def fn2(*opts) = fn(opts)
       p fn([""])
@@ -1869,7 +1869,7 @@ describe "Numeric: regressions" do
   end
 
   it "Integer#[] takes a bit index, a range of bits and a start and length on a bignum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((2 ** 100)[10..20])
       p((2 ** 100)[100])
       p((2 ** 100)[99])
@@ -1891,7 +1891,7 @@ describe "Numeric: regressions" do
   end
 
   it "sum over a row answers in the row's own type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       mat = [[Rational(1, 2), Rational(1, 3)]]
       p mat[0].sum
       fmat = [[1.5, 2.5]]
@@ -1908,7 +1908,7 @@ describe "Numeric: regressions" do
   end
 
   it "a wrapper that splats both *args and **kwargs passes them on unchanged" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def build(name, **extra)
         "#{name}/#{extra.size}"
       end
@@ -1928,7 +1928,7 @@ describe "Numeric: regressions" do
   end
 
   it "Float#rationalize answers the simplest fraction inside the tolerance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 0.333333.rationalize(Rational(1, 1000))
       p 0.5.rationalize(Rational(1, 100))
       p 0.333333.rationalize(0.001)
@@ -1944,7 +1944,7 @@ describe "Numeric: regressions" do
   end
 
   it "between? and clamp take a Rational bound against an Integer receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(2.between?(1, Rational(5, 2)))
       p(5.clamp(1, Rational(9, 2)))
       p(5.clamp(1, Rational(11, 2)))
@@ -1962,7 +1962,7 @@ describe "Numeric: regressions" do
   end
 
   it "Rational#clamp and #between? answer in the bound's type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Rational(5, 2).clamp(1, 2))
       p(Rational(5, 2).clamp(1.0, 2.0))
       p(Rational(5, 2).clamp(Rational(0, 1), Rational(3, 1)))
@@ -1980,7 +1980,7 @@ describe "Numeric: regressions" do
   end
 
   it "Kernel#Integer takes a base, and refuses anything that is not a string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Item
         attr_reader :kind
         def initialize(kind) = @kind = kind
@@ -2023,7 +2023,7 @@ describe "Numeric: regressions" do
   end
 
   it "the Integer enumerators chain through with_index and with_object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 4.times.with_index(1).to_a
       p 3.upto(5).with_index(1).to_a
       p 5.downto(3).with_index(1).to_a
@@ -2049,7 +2049,7 @@ describe "Numeric: regressions" do
   end
 
   it "with_index and each_with_index answer the receiver when given a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(4.times.with_index(1) { |x, i| x })
       acc = []
       p(3.upto(5).with_index(10) { |x, i| acc << [x, i] })
@@ -2068,7 +2068,7 @@ describe "Numeric: regressions" do
   end
 
   it "a bignum negates and rounds at a negative precision, Float <=> NaN is nil, and arg answers by sign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bignum -@ / round / ceil / floor (incl. negative precision); Float <=> NaN
       # is nil; Float arg/angle/phase (Integer 0 or Float PI by sign).
       b = 2 ** 100
@@ -2107,7 +2107,7 @@ describe "Numeric: regressions" do
   end
 
   it "the bit slice, gcd, divmod, clamp and round(half:) edges raise or answer as CRuby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer bit-slice n[range], gcd/lcm TypeError on Float, divmod/modulo
       # with Float divisors, clamp with Float-bounded ranges (both receivers),
       # round(half:), and FloatDomainError on Infinity/NaN roundings.
@@ -2159,7 +2159,7 @@ describe "Numeric: regressions" do
   end
 
   it "rational complex wave9" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational floor/ceil (0/1 arg), predicates, coerce, Rational ** Rational,
       # Complex(String), ** float/Complex, to_i/to_f/to_r, numerator/denominator,
       # fdiv, coerce. Float-exponent pow is approx-checked (libm last-digit).

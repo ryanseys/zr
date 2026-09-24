@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: case mapping" do
   it "block forward two level" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def outer(&b)
         inner(&b)
       end
@@ -55,7 +55,7 @@ describe "Blocks: case mapping" do
   end
 
   it "block forward value callable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A callable *value* forwarded with `&` to an iterator -- `recv.<iter>(&f)` where
       # `f` is a Proc value, a Method object, or the method's own `&block` param -- is
       # desugared to `recv.<iter> { |x| f.call(x) }`, so it lowers through the normal
@@ -170,7 +170,7 @@ describe "Blocks: case mapping" do
   end
 
   it "block local shadows later outer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's block-local rule is TEXTUAL: a name assigned inside a block is
       # block-local unless the enclosing scope assigned it EARLIER in the source.
       # zeo's capture analysis (codegen::captures::collect_escaping_captures) is
@@ -200,7 +200,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each's block parameter shadows an outer String local of the same name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -231,7 +231,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each_with_index's index parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -260,7 +260,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each_with_index over Strings shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -291,7 +291,7 @@ describe "Blocks: case mapping" do
   end
 
   it "map's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -319,7 +319,7 @@ describe "Blocks: case mapping" do
   end
 
   it "map over Strings shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -348,7 +348,7 @@ describe "Blocks: case mapping" do
   end
 
   it "select's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -376,7 +376,7 @@ describe "Blocks: case mapping" do
   end
 
   it "reject's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -404,7 +404,7 @@ describe "Blocks: case mapping" do
   end
 
   it "partition's block parameters shadow an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -440,7 +440,7 @@ describe "Blocks: case mapping" do
   end
 
   it "partition over Strings shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -472,7 +472,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each_char's block parameter shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -503,7 +503,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each_byte's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -532,7 +532,7 @@ describe "Blocks: case mapping" do
   end
 
   it "cycle with a count shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -565,7 +565,7 @@ describe "Blocks: case mapping" do
   end
 
   it "scan with a block shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -596,7 +596,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each_slice's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -625,7 +625,7 @@ describe "Blocks: case mapping" do
   end
 
   it "each_cons's block parameter shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -654,7 +654,7 @@ describe "Blocks: case mapping" do
   end
 
   it "tap's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -681,7 +681,7 @@ describe "Blocks: case mapping" do
   end
 
   it "tap over a String shadows an outer Integer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -708,7 +708,7 @@ describe "Blocks: case mapping" do
   end
 
   it "then's block parameter shadows an outer String local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -734,7 +734,7 @@ describe "Blocks: case mapping" do
   end
 
   it "yield_self's block parameter shadows an outer Float local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block parameters shadow outer differently-typed locals correctly.
       # Without push_scope/declare_var around the block body compile, infer_type
       # returned the outer scope's type for the block param, dispatching the
@@ -759,7 +759,7 @@ describe "Blocks: case mapping" do
   end
 
   it "class body local captured by block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class body is an ordinary Ruby scope with ordinary locals, and a block
       # written in it closes over them -- optparse builds its whole accept table this
       # way (`yesno = CompletingHash.new; %w[- no].each { |el| yesno[el] = false }`),
@@ -835,7 +835,7 @@ describe "Blocks: case mapping" do
   end
 
   it "lambda named param type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -889,7 +889,7 @@ describe "Blocks: case mapping" do
   end
 
   it "lambda takes a literal block or a lambda" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The widened sweep behind `lambda_requires_a_literal_block`: every route a
       # block can reach `Kernel#lambda` by.
       #
@@ -967,7 +967,7 @@ describe "Blocks: case mapping" do
   end
 
   it "proc args published at call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Proc's boxed arguments ride ONE global side channel, so publishing them
       # belongs to the call rather than to the statement above it. As prelude lines,
       # two Proc calls in one expression both published before either ran, and the
@@ -1011,7 +1011,7 @@ describe "Blocks: case mapping" do
   end
 
   it "proc compose intermediate type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = ->(n) { n.to_s }
       b = ->(s) { s.length }
       p((a >> b).call(100))
@@ -1031,7 +1031,7 @@ describe "Blocks: case mapping" do
   end
 
   it "proc escaped arg types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc/lambda passed as a positional argument escapes into an opaque method
       # parameter and is called through the generic type-erased proc ABI. Its own
       # argument types are not statically knowable, so a Float argument must survive
@@ -1060,7 +1060,7 @@ describe "Blocks: case mapping" do
   end
 
   it "proc from container literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A container literal builds itself in the statement prelude, so an emitter that
       # writes a prelude line and renders an expression straight into it spliced the
       # literal's construction into the middle of that line -- not C at all. The

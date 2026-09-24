@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "GC programs" do
   it "argv gc" do
-    result = ze0(<<~'RUBY', argv: ["first", "second", "third", "fourth", "fifth"])
+    result = zr(<<~'RUBY', argv: ["first", "second", "third", "fourth", "fifth"])
 
       # sp_argv stores `const char *` pointers into the str-heap (via
       # sp_str_dup_external on main entry). Without explicit GC marking,
@@ -64,7 +64,7 @@ describe "GC programs" do
   end
 
   it "array callforms strbuf cycle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#<< as an expression on a STRBUF-promoted local; Array slice(i)/
       # slice(range), pop(n)/shift(n), max(n){cmp}/min(n){cmp}, sum(str){blk};
       # blockless cycle(n)/each_entry chains; collect_concat as a flat_map alias.
@@ -119,7 +119,7 @@ describe "GC programs" do
   end
 
   it "array cycle bang forms and values at" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 3].cycle(2).to_a
       c = []
       [1, 2].cycle(2) { |x| c << x }
@@ -150,7 +150,7 @@ describe "GC programs" do
   end
 
   it "array cycle bounded" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # <array>.cycle.first(n) / .take(n) consume the infinite cycle by a bounded count.
       # Unbounded forms (cycle.to_a / .each / bare cycle) remain a compile-time reject so
       # they can never hang -- see the note in the PR; they are intentionally not tested
@@ -190,7 +190,7 @@ describe "GC programs" do
   end
 
   it "array cycle enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless cycle(n) on a poly array is typed as an Enumerator, but the
       # emitter materialized the repeated array instead -- so the consumer read a
       # poly array through sp_Enumerator_to_a and the program died.
@@ -216,7 +216,7 @@ describe "GC programs" do
   end
 
   it "big payloads run the collector" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bytes Strings, Arrays and Hashes hold outside their cells count
       # toward a collection: a program that keeps few cells but makes large
       # payloads collects, so its memory stays bounded, and GC.stat reports
@@ -252,7 +252,7 @@ describe "GC programs" do
   end
 
   it "blockless cycle enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -273,7 +273,7 @@ describe "GC programs" do
   end
 
   it "bound method gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GC: a Method captures `self`, and the captured receiver may
       # be reachable only through the Method itself. The auto-generated
       # `sp_Method_gc_scan` walks `iv_self_obj` via `sp_gc_mark`, so
@@ -310,7 +310,7 @@ describe "GC programs" do
   end
 
   it "cycle block value position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#cycle(n) { } with its return value captured: the statement loop
       # runs against a hoisted receiver and the expression evaluates to nil
       # (a valued break still routes through the break wrapper).
@@ -333,7 +333,7 @@ describe "GC programs" do
   end
 
   it "cycle is collected without being asked" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GC" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
       # The collector only exists under `ZEO_GC=1`; without it `GC.start` bumps a
       # counter and nothing is reclaimed, so both answers read false. CRuby always
       # collects, so the oracle needs no counterpart.
@@ -399,7 +399,7 @@ describe "GC programs" do
   end
 
   it "cycle is reclaimed" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GC" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
       # This golden needs zeo's cycle collector armed (`ZEO_GC=1`), which is what
       # the harness sets when this sidecar is present. The oracle needs no
       # counterpart: CRuby always collects.
@@ -725,7 +725,7 @@ describe "GC programs" do
   end
 
   it "cycle is reclaimed beside live threads" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GC" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
       # This golden needs the cycle collector armed: without `ZEO_GC=1` zeo has no
       # collector at all and both counts read 2. CRuby always collects, so the oracle
       # needs no counterpart.
@@ -806,7 +806,7 @@ describe "GC programs" do
   end
 
   it "define finalizer runs at gc for a collected object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def register = ObjectSpace.define_finalizer(Object.new, proc { |id| puts "collected" })
       register
       GC.start
@@ -817,7 +817,7 @@ describe "GC programs" do
   end
 
   it "disabled collector grows the heap" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # While GC.disable holds, the heap grows instead of collecting when its
       # cells run out, so GC.count does not move; GC.enable lets it collect
       # again.
@@ -844,7 +844,7 @@ describe "GC programs" do
   end
 
   it "empty array cycle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([].cycle(2) { |x| p x })
       p([].cycle { |x| p x })
       p([].cycle(0).to_a)
@@ -867,7 +867,7 @@ describe "GC programs" do
   end
 
   it "enumerable zip compact cycle chain over range and hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..3).zip([4, 5, 6], [7, 8, 9])
       p (1..5).compact
       p (1..3).chain([4, 5]).to_a
@@ -900,7 +900,7 @@ describe "GC programs" do
   end
 
   it "enumerator cycle size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2].cycle.size
       p [1, 2].cycle(2).size
       p [1, 2].cycle(0).size
@@ -916,7 +916,7 @@ describe "GC programs" do
   end
 
   it "fiber capture no leak to sibling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #564 (Ori Pekelman). Fiber.new block bodies that capture a
       # local push a `_hcell_<name>_<n>` entry onto
       # @heap_promoted_names so the capturing function's emit sees
@@ -950,7 +950,7 @@ describe "GC programs" do
   end
 
   it "finalizer runs after a collection the program did not ask for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A finalizer runs once its object is collected, whether the program
       # called GC.start or the allocator collected on its own: ruby runs it
       # at the next safe point after the collection, so a program that waits
@@ -974,7 +974,7 @@ describe "GC programs" do
   end
 
   it "the heap survives a forced collection and the surviving objects keep their contents" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Allocation and collection under the linked runtime: the heap survives a
       # forced collection and the surviving objects keep their contents.
       kept = []
@@ -992,7 +992,7 @@ describe "GC programs" do
   end
 
   it "GC.count and the :count stat are both positive after an explicit GC.start" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GC.count is the number of GCs run and GC.stat carries a :count key; after
       # an explicit GC.start both must be positive. zeo answers 0 and its stat hash
       # has no :count row.
@@ -1010,7 +1010,7 @@ describe "GC programs" do
   end
 
   it "GC.enable and GC.disable each answer the state they replaced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p GC.disable
       p GC.disable
       p GC.enable
@@ -1026,7 +1026,7 @@ describe "GC programs" do
   end
 
   it "the old generation stays bounded when a later phase promotes harder than the first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The adaptive full-cycle interval bounds the TIME between full sweeps and
       # nothing bounded the SPACE. Once the cadence has ratcheted up, a phase that
       # promotes heavily piles garbage onto an old list nothing walks: full_runs
@@ -1071,7 +1071,7 @@ describe "GC programs" do
   end
 
   it "latest_gc_info answers a Symbol for :major_by and :state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       GC.start
       p GC.latest_gc_info(:major_by).class
       p GC.latest_gc_info(:state).class
@@ -1081,7 +1081,7 @@ describe "GC programs" do
   end
 
   it "a live set far past the mark stack's initial size walks iteratively" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A live set far larger than the mark stack's initial size (1024 cells):
       # the walk has to stay iterative rather than recursing per object.
       heap = []
@@ -1103,7 +1103,7 @@ describe "GC programs" do
   end
 
   it "a poly local holding an integer is marked tag-aware, never dereferenced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly local holding a non-pointer (int) value must be marked
       # tag-aware: rooting routes through sp_mark_rbval, which skips INT
       # rather than dereferencing the boxed integer as a pointer.
@@ -1121,7 +1121,7 @@ describe "GC programs" do
   end
 
   it "a poly local assigned from a method whose return unifies to poly stays rooted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly (sp_RbVal) local assigned from a method whose return type
       # unifies to poly must be GC-rooted, or a collection while it's live
       # frees the object it holds (use-after-free).
@@ -1147,7 +1147,7 @@ describe "GC programs" do
   end
 
   it "a poly local live across a rescue survives a collection inside it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly local live across a rescue (setjmp scope) with a GC: it must
       # be both volatile (longjmp-stable) and GC-rooted.
       class A; def v=(x); @v = x; end; def v; @v; end; end
@@ -1170,7 +1170,7 @@ describe "GC programs" do
   end
 
   it "a call's argument temporaries stay rooted while its sibling arguments evaluate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for #1057: a call's argument temporaries must stay GC-
       # rooted across evaluation of its sibling arguments. Each case puts a
       # fresh heap string in the slot gcc evaluates first (the last one)
@@ -1216,7 +1216,7 @@ describe "GC programs" do
   end
 
   it "a heap-typed parameter stays rooted across a collection inside the method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A heap-typed (poly / string) method parameter must stay GC-rooted
       # across a collection triggered inside the method, so a later read of it
       # (e.g. sp_poly_to_s in a %s interpolation arg) is not a use-after-free.
@@ -1244,7 +1244,7 @@ describe "GC programs" do
   end
 
   it "a runtime array builder and its string argument survive a collection mid-build" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GC roots for runtime array builders and their string arguments. Each of
       # these allocates per element while building (or while walking a pattern
       # that is itself a fresh unrooted interpolation temp), so enough entries
@@ -1291,7 +1291,7 @@ describe "GC programs" do
   end
 
   it "GC.stat names every key ruby names, fills a Hash it is given, and refuses one it does not know" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GC.stat answers every key CRuby's collector names, in its order, fills a
       # Hash it is given, and refuses a key it does not know.
       stats = GC.stat
@@ -1321,7 +1321,7 @@ describe "GC programs" do
   end
 
   it "the live-byte counter never wraps, so the threshold stays a real number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The collector recomputes its live-byte counter from the live set and THEN
       # sweeps, so a dead object's finalizer subtracted buffer bytes the fresh total
       # had never counted. Churning large arrays walked the counter below zero; the
@@ -1367,7 +1367,7 @@ describe "GC programs" do
   end
 
   it "generator element cycle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An extension-field element is a fixed-width array of field elements, and its
       # add is a generator over the two operands. The generator's own value comes
       # from the very methods its result feeds, so answering "array of anything" on
@@ -1412,7 +1412,7 @@ describe "GC programs" do
   end
 
   it "heap grows past its first arena table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arena table doubles when full, so a heap of more arenas than the
       # table first held keeps every object, and the count of slots follows.
       # A collection at every allocation (ZR_GC_STRESS) checks the roots over
@@ -1441,7 +1441,7 @@ describe "GC programs" do
   end
 
   it "include validates module and cycles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include` validates: a Class argument is a TypeError ("wrong argument
       # type Class (expected Module)") and a cyclic or self include is an
       # ArgumentError ("cyclic include detected"). zeo accepts all three
@@ -1476,7 +1476,7 @@ describe "GC programs" do
   end
 
   it "inspect result survives gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An #inspect built in a temporary string builder must hand back a string of
       # its own, not the builder's buffer.
       #
@@ -1532,7 +1532,7 @@ describe "GC programs" do
   end
 
   it "payloads envs and blocks under pressure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Large payloads, kept Envs, escaped blocks, kept each adapters and
       # Struct values together across many collections keep their contents.
       Point = Struct.new(:x, :y)
@@ -1583,7 +1583,7 @@ describe "GC programs" do
   end
 
   it "poly dispatch recv gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The receiver temporary of a polymorphic send (the `switch (cls_id)`
       # dispatch) must be GC-rooted: it can be the only live reference to the
       # receiver, methods do not root their own self, and a collection triggered
@@ -1640,7 +1640,7 @@ describe "GC programs" do
   end
 
   it "poly each receiver gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The poly (runtime-dispatch) `each` codegen stored the iterated
       # collection in an unrooted temp:
       #
@@ -1687,7 +1687,7 @@ describe "GC programs" do
   end
 
   it "poly gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Trash
         def initialize(n)
           @n = n
@@ -1737,7 +1737,7 @@ describe "GC programs" do
   end
 
   it "proc call blk gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for the sp_proc_call heap-use-after-free: a method keeping a real
       # &blk param (no yield -- the dead Thread.new branch capturing blk forces the
       # escaping sp_Proc path) held the proc box only in an untracked C parameter,
@@ -1785,7 +1785,7 @@ describe "GC programs" do
   end
 
   it "proc return catch no leak" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local return out of a `catch` block must restore the catch stack as it
       # unwinds home, so the catch slot is not leaked. A later `throw` with no live
       # catch must raise UncaughtThrowError rather than matching the stale slot and
@@ -1810,7 +1810,7 @@ describe "GC programs" do
   end
 
   it "range cycle block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#cycle block form: the counted form repeats the materialized int
       # range n times; the argless form cycles forever until a block break.
       # (cycle joined the range->int-array redispatch list, and the array cycle
@@ -1842,7 +1842,7 @@ describe "GC programs" do
   end
 
   it "sequential top level begin blocks do not leak handling state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Guards `zeo_rt::handling`'s push/pop discipline: three INDEPENDENT
       # `begin` blocks in sequence, the last a bare re-raise with nothing
       # currently being handled -- if an earlier block's `pop_handling` were
@@ -1875,7 +1875,7 @@ describe "GC programs" do
   end
 
   it "std stream singleton gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A standard stream stored into a GC-scanned slot.
       #
       # The three standard streams are singletons in static storage, not GC
@@ -1929,7 +1929,7 @@ describe "GC programs" do
   end
 
   it "struct inspect cycle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1947,7 +1947,7 @@ describe "GC programs" do
   end
 
   it "counts the same payload however often it is made and freed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bytes the heap counts against its malloc trigger must not
       # drift as the same buffers are made and freed. A count that falls
       # a little on every round pushes the next collection further away
@@ -1974,7 +1974,7 @@ describe "GC programs" do
   end
 
   it "asks the host for nothing when a collection frees nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A collection that finds the same objects live as the one before
       # it has nothing to say about how big the heap should be. It must
       # leave the heap where it found it, and not grow it again for
@@ -1996,7 +1996,7 @@ describe "GC programs" do
   end
 
   it "keeps a young object a site stored into an old one" do
-    result = ze0(<<~'RUBY', env: { "ZR_GC_VERIFY" => "1" })
+    result = zr(<<~'RUBY', env: { "ZR_GC_VERIFY" => "1" })
       # A minor collection starts from what the last one kept and stops
       # at every object it finds marked, so an old object that has come
       # to hold a young one must be written down first, or the young one
@@ -2033,7 +2033,7 @@ describe "GC programs" do
   end
 
   it "weakmap prunes a collected key at gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A key with no other strong reference is pruned once collected.
 
       m = ObjectSpace::WeakMap.new
@@ -2058,7 +2058,7 @@ describe "GC programs" do
   end
 
   it "keeps what a frame writes into a local of a scope that has escaped" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A scope that holds a block keeps its locals in an Env. It starts
       # as an image in the frame, whose slots are the frame's own -- and
       # every collection reads a frame as a root, so a store into them
@@ -2100,7 +2100,7 @@ describe "GC programs" do
   end
 
   it "counts the minor collections apart from the major ones, and the trace apart from the sweep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A collection is minor or major, so the two counts add up to the
       # one the collector answers, and the trace and the sweep are timed
       # apart inside the total.
@@ -2152,7 +2152,7 @@ describe "GC programs" do
   end
 
   it "the GC settings answer as ruby's do" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(name)
         p [name, yield]
       rescue Exception => e

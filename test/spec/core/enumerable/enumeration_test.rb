@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable: enumeration" do
   it "blockless breadth returns enumerators everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The blockless breadth: iteration methods across
       # Integer/Range/Hash/String/Array answer real Enumerators (inspect shows
       # the captured receiver/method/args; `each` re-invokes the source).
@@ -38,7 +38,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "blockless enumerable enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -77,7 +77,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "blockless forms return real enumerators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless map returns a real Enumerator whose `each` re-invokes the
       # captured method. Oracle-verified.
 
@@ -97,7 +97,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "container read blockless enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless enumerator on a value reached through a container -- a String
       # destructured out of an Array, an Array held as a Hash value -- materializes
       # like the statically typed receiver's does, instead of staying untyped.
@@ -143,7 +143,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "custom enum inject sym var" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs)
@@ -162,7 +162,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each cons block destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#each_cons block destructure on typed arrays:
       # `|a, b|` against `each_cons(2)` binds each pair element to
       # its own scalar param rather than to a sub-array.
@@ -192,7 +192,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each cons map types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_cons(n).map { |a, b, ...| } destructures the n-window into element-typed
       # params, so arithmetic and comparison behave like the elements rather than the
       # window array. A single param |w| still binds the whole window.
@@ -215,7 +215,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each cons with index map no double gets" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `.each_cons[.with_index].map { ... }` over a side-effecting inner
       # array must not re-emit the inner chain. Pre-fix compile_call_expr
       # emitted `rc` (the with_index/each_cons placeholder pair) before
@@ -247,7 +247,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each hands one value per element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable's methods read one value per element of `each`: the value
       # yielded, or the Array of them when each yields several, or nil for
       # none. Control flow in the caller's block, an each that keeps or
@@ -330,7 +330,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each through the adapter with enumerators and lazy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable methods over enumerators, lazy chains, an each that yields
       # to a kept block later, an each written in a module and refined, and
       # blocks that break, next, redo-free retry and raise through the
@@ -417,7 +417,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with index enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless Array#each_with_index / #each_index returns an external
       # Enumerator: each_with_index steps through [element, index] pairs, each_index
       # through the indices. #next / #peek / #rewind / #to_a / #size all work over the
@@ -481,7 +481,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with index filter map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator#filter_map over each_with_index: keep truthy block values.
       arr = [10, 20, 30, 40]
       puts arr.each_with_index.filter_map { |s, i| i if s > 15 }.inspect
@@ -520,7 +520,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with index inject" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # matz/spinel#1481: inject/reduce over each.with_index / each_with_index
       puts [10, 20, 30].each.with_index.inject(0) { |acc, (val, idx)| acc + idx }       # 3
       chars = [1, 2, 3]
@@ -544,7 +544,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with index struct present" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr.each_with_index` with no block answers an Enumerator. A Struct gets an
       # Enumerable #each_with_index synthesized, and a user definition of the name
       # takes over the poly dispatch -- so the call typed as that Struct, and the
@@ -594,7 +594,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with index sum block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A sum over an each_with_index enumerator folds [value, index] pairs, so a
       # 2-parameter block auto-splats each pair. The scalar-accumulator fold bound
       # only the first parameter and left the rest nil, so `a[i]` read index nil on
@@ -640,7 +640,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with index terminals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [10, 20, 30].each.with_index.to_a
       p [10, 20, 30].each.with_index.map { |v, i| i }
       p [10, 20, 30].each.with_index.any? { |v, i| i > 1 }
@@ -676,7 +676,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with object empty seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({ a: 1 }.each_with_object([]) { |x, a| a })
 
       p({ a: 1 }.each_with_object({}) { |x, a| a })          # Ruby: {}   Spinel: compile abort
@@ -715,7 +715,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "each with object memo" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_with_object accumulator element type is inferred from how the memo is
       # filled (`memo << e`), even when the seed is an empty `[]`. The inference
       # follows a forwarded callable value into its body, so `&proc` / `&->(){}` /
@@ -769,7 +769,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enum map chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       p a.each_index.map { |c| c }
       p a.each_index.collect { |c| c * 10 }
@@ -788,7 +788,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enum with index map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator#with_index return value on a stored map/each enumerator (#2510)
       e = [1, 2, 3].map
       p(e.with_index { |x, i| x * 10 + i })   # map enumerator -> collected array
@@ -809,7 +809,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "chain and Enumerator#+ build a Chain over the concatenated sources" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#chain / Enumerator#+ build an Enumerator::Chain over the
       # concatenated sources (#2545, #2548, #2551). The sources are materialized at
       # build time, so every terminal the sources support works on the chain.
@@ -884,7 +884,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "reduce with a &proc block publishes its own arguments on every iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reduce/inject with a &proc block argument forwards through a literal
       # two-param block; the fold emitter keeps the proc call's prelude inside the
       # loop, so every iteration publishes its own arguments (#2684).
@@ -916,7 +916,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator bare yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator.new with the bare `y.yield v` form (no parentheses). Prism parses
       # `y.yield v` and `y.yield(v)` into the same CallNode (the parens only change
       # opening_loc), so the yielder rewrite that turns `recv.yield ...` into
@@ -981,7 +981,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator block returns self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2, 3].each.each_cons(2) { |a001| a001 })
       p([1, 2, 3].each.each_slice(2) { |a002| a002 })
       p([1, 2, 3].each.each_entry { |a003| a003 })
@@ -997,7 +997,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator blockless regroup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2, 3].each.each_slice(2).to_a)
       p([1, 2, 3].each.each_cons(2).to_a)
       p([1, 2, 3].each.cycle.first(5))
@@ -1020,7 +1020,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator chain new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2].each
       b = [3, 4].each
       p Enumerator::Chain.new(a, b).to_a
@@ -1031,7 +1031,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator each entry receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       v = (1..3).each.each_entry { |x| x }
       p v
       v2 = (1..5).each.each_slice(2) { |s| s }
@@ -1054,7 +1054,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator external" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each with no block returns an external Enumerator. #next / #peek walk a
       # cursor and raise StopIteration past the end; #rewind resets it; #size reports
       # the element count. Kernel#loop rescues StopIteration to terminate.
@@ -1128,7 +1128,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator feed result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator#feed and StopIteration#result -- the two halves of the generator
       # resume protocol. #feed sets the value the generator's next `y.yield` returns
       # (raising TypeError if set twice before a #next); when the generator body runs
@@ -1215,7 +1215,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator feed sets yield return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #feed sets the value the paused y.yield returns on the next #next;
       # feeding twice before a #next raises TypeError; #feed answers nil.
 
@@ -1245,7 +1245,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator generator capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block-form Enumerator.new that captures enclosing locals builds a capture
       # struct handed to the generator. That struct must be GC-rooted before the
       # enumerator is allocated, or a collection triggered by the enumerator's own
@@ -1290,7 +1290,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator generator each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fiber-backed generator Enumerator (Enumerator.new { |y| ... }) and a
       # materialized enumerator both drive a block via #each: each drains the source
       # once and yields every value. next/peek/to_a/first/take/rewind already worked;
@@ -1369,7 +1369,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator generator lazy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lazy pipeline over a generator Enumerator streams values one at a time, so an
       # infinite generator is bounded by a downstream first(n) / take_while without
       # materializing the whole (unbounded) source. Finite generators and materialized
@@ -1424,7 +1424,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator idiom return self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `return to_enum(:each) unless block_given?` … `self`: each emission decides
       # block_given? statically, so one of the two paths is dead -- but it was still
       # emitted, and its value had to fit the other path's slot. The receiver landed
@@ -1476,7 +1476,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator in container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       e = [1, 2].each
       a = [e]
       p a[0].to_a
@@ -1509,7 +1509,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator lazy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Lazy over an integer range or array: the whole chain of
       # map/select/reject/filter/take_while fuses into one loop that pulls only as
       # many elements as the terminal (first(n) / take(n) / to_a / force) needs, so an
@@ -1548,7 +1548,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator lazy take while" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `take_while` and `find` terminate over an endless Enumerator -- one built by
       # `Enumerator.produce`, and one whose generator block is an unbounded `loop`.
       # Neither needs `.lazy` to do it: the EAGER Enumerable methods stop the source
@@ -1571,7 +1571,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator.new { |y| ... } is a fiber-backed external generator: `y << v`,
       # `y.yield(v)` and the bare `y.yield v` (no parentheses) all produce values
       # lazily, #next / #peek walk them, the generator terminates with StopIteration,
@@ -1642,7 +1642,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator ops: chained each_with_index, +, next_values/peek_values, product
       # (#2487, #2481, #2482, #2484)
       e = [10, 20].each.each_with_index
@@ -1668,7 +1668,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator produce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator.produce -> a fiber-backed infinite generator (#2483)
       e = Enumerator.produce(1) { |n| n * 2 }
       p(e.take(3))
@@ -1689,7 +1689,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator produce pair" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Enumerator.produce([0, 1]) { |a, b| [b, a] }.first(2))
       p(Enumerator.produce([0, 1]) { |a, b| [b, a + b] }.take(5))
       p(Enumerator.produce(1) { |n| n + 1 }.first(3))
@@ -1703,7 +1703,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator produce stop iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `StopIteration` raised inside a block that an Enumerator is driving ENDS the
       # enumeration; it is not an error. zeo lets it escape from
       # `Enumerator.produce`, so the idiomatic "generate until done" loop aborts the
@@ -1743,7 +1743,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator records alias name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2].collect.inspect
       p [1, 2].filter.inspect
       p [1, 2].find_all.inspect
@@ -1761,7 +1761,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator result source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A materialized enumerator (a blockless builtin iterator) carries its iterated
       # receiver, so a past-the-end StopIteration reports it as #result -- matching
       # CRuby, where e.g. Array#each returns the array. The receiver is threaded
@@ -1806,7 +1806,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator#size: the size protocol that never iterates. A materialized
       # enumerator (a blockless builtin #each / each_slice / each_cons) reports its
       # snapshot length; a fiber-backed generator (Enumerator.new) reports the size it
@@ -1862,7 +1862,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator size is lazy and oracle faithful" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `size` never iterates: receiver-derived for the same-size set, computed
       # for times/upto/each_slice, the stored hint for Enumerator.new, nil when
       # unknowable.
@@ -1890,7 +1890,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator to a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare (blockless) enumerator materializes with #to_a / #entries.
       # Array#each, Array#reverse_each, and String#each_char return an external
       # Enumerator; #to_a drains it into an array. Receivers are routed through a
@@ -1951,7 +1951,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator to s is the address form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator#to_s` is `Object#to_s` -- ruby never overrides it, so an
       # enumerator printed with `puts` or interpolated into a string shows its
       # address, and only `inspect` describes what it iterates. zeo renders both the
@@ -1989,7 +1989,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # lazy filter_map / flat_map (finite + infinite sources, array sources)
       p([1, 2, 3, 4].lazy.filter_map { |x| x }.to_a)
       p([1, 2, 3].lazy.flat_map { |x| [x, x] }.to_a)
@@ -2040,7 +2040,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator with index gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless <enum>.with_index materializes [element, index] pairs from the
       # source enumerator's snapshot. The source (a temporary `arr.each` /
       # `str.each_char` enumerator) must stay rooted while the pairs are built --
@@ -2062,7 +2062,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerator yielder forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Enumerator.new { |y| y << 1 << 2 }.to_a)
       p(Enumerator.new { |y| y << "a" << "b" }.to_a)
       p(Enumerator.new { |y| (y << 1) << 2 }.to_a)
@@ -2089,7 +2089,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 17.2 -- the fiber-backed Enumerator (per CRuby's enumerator.c):
       # blockless iteration methods return real Enumerators, external iteration
       # (#next/#peek) suspends a coroutine per element, StopIteration carries the
@@ -2231,7 +2231,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "enumerators chain and are enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Chaining: with_index/each_with_index wrap (blockless) and drive
       # (block-given), an Enumerator is itself Enumerable (reduce/sort/select
       # arrive via the real ancestor chain), and with_object threads its memo.
@@ -2260,7 +2260,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "external enumerator user object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An external enumerator over a user object. sp_enum_items_from -- which is
       # what materializes an enumerator's elements -- had arms for every builtin
       # container and none for a user object, so it answered the EMPTY array and
@@ -2313,7 +2313,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "ivar lazy init push via inherited getter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #451: cross-class sequel to #430. The lazy-init getter
       # `def errors; @errors = [] if @errors.nil?; @errors; end` is
       # defined on a parent class; the push `errors << "..."` happens
@@ -2394,7 +2394,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy blockless take drop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Lazy#take(n)/#drop(n) as blockless fused stages, including as the
       # first op before any block stage establishes an element type. Receivers are
       # routed through method params to exercise the runtime pipeline, not a fold.
@@ -2444,7 +2444,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy crosses variable and method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # a lazy chain held in a local or returned from a method
       p [1, 2, 3].lazy.first
       p [1, 2, 3].lazy.first(2)
@@ -2487,7 +2487,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy enumerable private aliases" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Lazy's `_enumerable_*` privates: ruby snapshots the EAGER Enumerable
       # bodies onto Lazy before the lazy overrides land, then makes them private.
       lz = (1..5).lazy
@@ -2536,7 +2536,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerable#lazy` returns an Enumerator::Lazy: a chain of transformations
       # that only runs on demand, so it can work over INFINITE sequences.
 
@@ -2580,7 +2580,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy enumerator hierarchy edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator::Lazy < Enumerator` beyond the promoted gap shape: ancestry
       # answers, lazy zip semantics, and the inherited terminals.
 
@@ -2649,7 +2649,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy enumerator over infinite and finite sources" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..Float::INFINITY).lazy.select(&:even?).map { |x| x * x }.first(3)
       p [1, 2, 3, 4].lazy.map { |x| x + 1 }.to_a
       p [1, 2, 3].lazy.class.name
@@ -2663,7 +2663,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy external iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `Enumerator::Lazy` IS an Enumerator, so it answers `next`/`peek` and
       # iterates one element at a time on demand. zeo's lazy has no `next`
       # (`NoMethodError`), which removes the only way to consume an infinite lazy
@@ -2707,7 +2707,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy is not an enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator::Lazy < Enumerator` in ruby. In zeo it is a plain Object that
       # includes Enumerable, so the parallel hierarchy is flat and every method a
       # lazy shares with an ordinary enumerator has to be re-declared on `Lazy`
@@ -2751,7 +2751,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy method block local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local assigned inside a .lazy block whose chain is spliced from a method
       # body has to be declared where the chain lands, not where it was written.
       def f
@@ -2784,7 +2784,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy nested chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2].lazy.map { |x| [1, 2].lazy.map { |y| y }.to_a }.to_a)
       p((1..3).lazy.map { |x| (1..x).lazy.map { |y| y * 2 }.to_a }.to_a)
       p((1..3).lazy.map { |x| (1..x).lazy.to_a }.to_a)
@@ -2802,7 +2802,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy new constructs a lazy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Lazy.new(source) { |yielder, *values| ... } builds a lazy over
       # the source with an explicit per-element body. zeo has no `new` row on Lazy
       # (NoMethodError); the class is only reachable through #lazy. Belongs to the
@@ -2822,7 +2822,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "lazy size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Lazy#size: source size propagated through the chain (#2485)
       p((1..10).lazy.size)                              # 10 (the filed repro)
       p([1, 2, 3].lazy.size)                            # 3
@@ -2856,7 +2856,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "map recv emitted once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #540. `n, m = gets.split.map &:to_i` emitted `gets` twice in
       # the generated C: once via compile_call_expr's pre-compute of
       # the call recv (`rc = compile_expr_gc_rooted(recv)`) and once
@@ -2915,7 +2915,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "max by count tie order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # max_by(n) returns tied elements in encounter order, descending by key
       # (#3255): a plain backward walk over the stable ascending sort reversed
       # ties, and a pre-ordering tail cut picked later-encountered boundary ties.
@@ -2944,7 +2944,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "reduce acc shadow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#reduce: the accumulator block param's type must come from the
       # seed (init_val), not from the element type. infer_type(acc) inside
       # the block must follow the seed in both directions — pointer seed
@@ -2988,7 +2988,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "reduce nil seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reduce(nil) -- folding with no natural identity
       p [1, 2, 3].reduce(nil) { |acc, t| acc.nil? ? t : t + acc }
       p [1, 2, 3].reduce(nil) { |acc, t| acc.nil? ? t : acc + t }
@@ -3023,7 +3023,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "reduce seed kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reduce/inject with an array-accumulator seed, and sum with a string init
       # and block.
       def f(xs); xs.reduce([]) { |a, x| a << x }; end
@@ -3056,7 +3056,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort by comparison failure names the operands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A failed comparison inside `sort_by`/`min_by`/`max_by` names the operand
       # classes ("comparison of Float with NaN failed"); zeo says "comparison
       # failed" without them. Plain `sort` already names them. (Found by the
@@ -3077,7 +3077,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort by tie order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `sort_by` does NOT sort the way `sort` does. CRuby watches the keys go by
       # and, when every one of them is a fixnum or a Float, drops `ruby_qsort` for
       # `rb_uniform_intro_sort_2` -- its own introsort, which breaks a tie somewhere
@@ -3144,7 +3144,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort by with index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless sort_by answers an Enumerator whose with_index feeds the index to
       # the key block. There was no Enumerator arm for it, so the chain raised
       # NoMethodError; the equivalent spelling over pairs serves it.
@@ -3191,7 +3191,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort by with index offset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = ["bb", "a", "cccc"]
       p a.sort_by.with_index(1) { |s, i| i }
       p a.sort_by.with_index(1) { |s, i| -i }
@@ -3215,7 +3215,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort min max block comparator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sort / min / max with a 2-param comparator block.
       # Block returns -1/0/1; sort uses it for ordering, min/max pick
       # the element that the comparator places at the extremum.
@@ -3256,7 +3256,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort mixed type raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sorting an array whose elements are not mutually comparable raises
       # ArgumentError, matching CRuby (it previously sorted silently). Arrays are
       # built with a variable element so they stay heterogeneous PolyArrays.
@@ -3326,7 +3326,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "sort with comparator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#sort` with a comparator block leaves equal keys wherever the C
       # library puts them: `ruby_qsort` IS the system `qsort_r`, and zeo calls the
       # same one, so the mixed-case word list below ("Apple"/"apple" compare equal)
@@ -3408,7 +3408,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "ternary lazy arms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class D
         def initialize(t)
           @t = t
@@ -3433,7 +3433,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "user enumerable each and for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class that mixes in Enumerable via a hand-written #each: its methods
       # (map/select/to_a/sum, direct #each return value) and `for x in obj` all
       # materialize through the synthesized element array. The bare-yield each
@@ -3501,7 +3501,7 @@ describe "Enumerable: enumeration" do
   end
 
   it "walks with an index and answers the receiver, whatever the receiver walks by" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Odd < Array
         def each
           return to_enum(:each) unless block_given?

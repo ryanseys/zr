@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "PTY programs" do
   it "expect answers a prompt over a pty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # expect, as ruby's pty extension ships it, reads a PTY child's prompt,
       # answers it, and gives nil when the pattern never comes.
       require "pty"
@@ -26,7 +26,7 @@ describe "PTY programs" do
   end
 
   it "a pty is a terminal, so the child's newline comes back as a carriage return and a newline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # pty -- a pseudo-terminal for a child process. A pty IS a terminal, so the
       # child's "\n" comes back "\r\n" (ONLCR) -- the observable difference from a
       # pipe, and what the golden pins.
@@ -78,7 +78,7 @@ describe "PTY programs" do
   end
 
   it "spawn answers Files named for the slave device, and check polls without blocking" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `PTY` against CRuby's `ext/pty/pty.c`.
       #
       # Five of these were wrong. `PTY.spawn` handed back plain `IO`s where ruby
@@ -181,7 +181,7 @@ describe "PTY programs" do
   end
 
   it "reads a character in raw mode" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `getch` and `getpass` over a real pty -- the end-to-end shape `irb` and
       # `reline` depend on.
       #

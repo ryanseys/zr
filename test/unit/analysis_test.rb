@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/ir/analysis"
-require_relative "../../lib/ze0/ir/verify"
+require_relative "../../lib/zr/ir/analysis"
+require_relative "../../lib/zr/ir/verify"
 
 # One cache of what the passes ask about a function's shape -- its
 # predecessors, its blocks in reverse postorder, the dominator tree and
@@ -11,12 +11,12 @@ require_relative "../../lib/ze0/ir/verify"
 # caught by the strict check, which builds the answers again and
 # compares.
 class AnalysisTest < Minitest::Test
-  Analysis = Ze0::IR::Analysis
+  Analysis = Zr::IR::Analysis
 
   # entry -> head; head -> body | done; body -> head; done -> ret. A
   # diamond hangs off body: body -> left | right -> join -> head.
   def looped
-    f = Ze0::IR::Function.new("looped", %w[i64], "i64")
+    f = Zr::IR::Function.new("looped", %w[i64], "i64")
     n = f.args[0]
     head, (i,) = f.block(%w[i64])
     body = f.label
@@ -103,11 +103,11 @@ class AnalysisTest < Minitest::Test
     f.switch(extra, open: true)
     f.jump(b[:done])
 
-    e = assert_raises(Ze0::IR::Verify::Error) { Ze0::IR::Verify.check(f, strict: true) }
+    e = assert_raises(Zr::IR::Verify::Error) { Zr::IR::Verify.check(f, strict: true) }
     assert_match(/stale/, e.message)
 
     f.changed!(:cfg)
-    assert_same f, Ze0::IR::Verify.check(f, strict: true)
+    assert_same f, Zr::IR::Verify.check(f, strict: true)
   end
 
   def test_an_instruction_change_keeps_the_graph_and_drops_the_uses

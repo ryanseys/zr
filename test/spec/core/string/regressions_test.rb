@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: regressions" do
   it "str array each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each on a str_array. The block param must shadow an outer
       # same-named mrb_int local. Body skips `puts i` to keep this scope-
       # shadow case separate from the format-specifier path.
@@ -27,7 +27,7 @@ describe "String: regressions" do
   end
 
   it "str array map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#map on a str_array. Issue #43: compile_map_expr had no
       # str_array branch, so `tt = foo.map { |s| ... }` silently emitted
       # `lv_tt = 0` and the subsequent iteration crashed.
@@ -92,7 +92,7 @@ describe "String: regressions" do
   end
 
   it "str array range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # StrArray slicing: a[range] and a[start, len].
       # Same regression class as IntArray: a[1..2] failed to compile and
       # a[1, 2] silently dropped the second arg.
@@ -153,7 +153,7 @@ describe "String: regressions" do
   end
 
   it "str format arr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#% with a str_array RHS, routed through sp_str_format_strarr.
       # The integer % path (sp_imod) is unchanged — only str_array RHS triggers
       # sprintf-style formatting.
@@ -188,7 +188,7 @@ describe "String: regressions" do
   end
 
   it "str justify" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test String#ljust, rjust, center with custom pad string
 
       # center with default (space) pad
@@ -238,7 +238,7 @@ describe "String: regressions" do
   end
 
   it "strindex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "hello world"
       puts s[0]    # h
       puts s[6]    # w
@@ -257,7 +257,7 @@ describe "String: regressions" do
   end
 
   it "chop removes the last character, and a whole CRLF" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # basic
       puts "hello".chop
 
@@ -288,7 +288,7 @@ describe "String: regressions" do
   end
 
   it "each_byte and bytes walk the bytes, not the characters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#each_byte iterates the bytes of a string. Mirrors each_char
       # but yields the (unsigned) byte value at each position rather than
       # a single-char substring. ASCII-only test pins parity with CRuby's
@@ -340,7 +340,7 @@ describe "String: regressions" do
   end
 
   it "a literal backslash is one character and an escape sequence is another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Literal backslash preservation — the original bug: "\\n" is two
       # bytes (backslash + n) in Ruby source-level escape, and length is 2.
       puts "\\n".length     # 2
@@ -374,7 +374,7 @@ describe "String: regressions" do
   end
 
   it "format fills each directive from its one argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `"fmt" % value` (the single-value form of String#%) used to fall
       # through to sp_imod, which rejected the format string as a non-int.
 
@@ -393,7 +393,7 @@ describe "String: regressions" do
   end
 
   it "lines keeps the separator on every line but a last one without it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Tests String#lines preserves trailing newline on each piece (CRuby semantics).
       p "hello\nworld\n".lines
       p "hello\nworld".lines
@@ -418,7 +418,7 @@ describe "String: regressions" do
   end
 
   it "strings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Symbol and String methods
 
       # Symbol
@@ -457,7 +457,7 @@ describe "String: regressions" do
   end
 
   it "strings2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test additional String methods
 
       str = "  Hello, World!  "
@@ -502,7 +502,7 @@ describe "String: regressions" do
   end
 
   it "strings3" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test additional string methods
 
       # ljust / rjust / center
@@ -575,7 +575,7 @@ describe "String: regressions" do
   end
 
   it "mutable str" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mutable strings (sp_String): the `<<` mutation path, replace/clear,
       # index access, gsub/sub, split, ljust/rjust, downcase/strip/...,
       # start_with?/end_with?/empty?/include?, to_s/to_i. Combines what
@@ -710,7 +710,7 @@ describe "String: regressions" do
   end
 
   it "str index range eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s[i..i] == "/"` used to skip compile_string_method_expr's `[]`
       # RangeNode arm and hit the `s[i] == "/"` single-char fast path
       # instead (compile_eq_char_index), which cast the RangeNode to
@@ -749,7 +749,7 @@ describe "String: regressions" do
   end
 
   it "str setbyte dup mutates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#setbyte` on a heap-allocated string mutates in place.
       # Spinel adopts `# frozen_string_literal: true` semantics
       # globally: string literals are frozen (rodata-resident), so a
@@ -775,7 +775,7 @@ describe "String: regressions" do
   end
 
   it "a subscript takes an endless or beginless range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #543. `s[1..]` (Ruby 2.6+ endless range) returned an empty
       # string under spinel-AOT instead of the substring from index 1
       # to end. CRuby returns "id" for ":id"[1..]; spinel returned "".
@@ -822,7 +822,7 @@ describe "String: regressions" do
   end
 
   it "index takes a start position and searches from there" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: `String#index(sub, start)` 2-arg form.
       # Pre-fix the codegen ignored `start` and re-emitted the 1-arg
       # call, so a "find next dot after position N" walk all returned
@@ -892,7 +892,7 @@ describe "String: regressions" do
   end
 
   it "index and rindex answer nil when there is no match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #532. `String#index` / `String#rindex` previously returned
       # mrb_int with -1 as the not-found sentinel. The CRuby idiom
       #
@@ -965,7 +965,7 @@ describe "String: regressions" do
   end
 
   it "a single-integer subscript past the end answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `"hello"[20]` (single-int index past the end) returns nil in CRuby,
       # not "". Pre-fix spinel's sp_str_sub_range fell through to its
       # OOB branch and returned the empty string, so a `.nil?` check
@@ -994,7 +994,7 @@ describe "String: regressions" do
   end
 
   it "to_i reads leading digits and underscores and stops at the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's `String#to_i` accepts `_` between consecutive digits and
       # stops at the first non-digit. spinel previously emitted
       # `(mrb_int)atoll(s)` which stops at the first `_`, returning 1
@@ -1020,7 +1020,7 @@ describe "String: regressions" do
   end
 
   it "empty string to sym" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty-string interning: "".to_sym and the :"" literal must resolve to the
       # same symbol id (an empty symbol once broke the C build).
       p("".to_sym == :"")
@@ -1038,7 +1038,7 @@ describe "String: regressions" do
   end
 
   it "str each line chomp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#each_line(chomp: true) strips trailing line endings.
       "a\nb\nc".each_line(chomp: true) { |l| p l }
       puts "---"
@@ -1062,7 +1062,7 @@ describe "String: regressions" do
   end
 
   it "str lines chomp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#lines(chomp: true) strips line endings from each line.
       # Without the chomp: keyword, line endings are preserved.
 
@@ -1079,7 +1079,7 @@ describe "String: regressions" do
   end
 
   it "str tr empty replacement" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#tr / tr_s with empty replacement string
       # When the to-string is empty, matched characters are deleted.
 
@@ -1096,7 +1096,7 @@ describe "String: regressions" do
   end
 
   it "ascii_only? is true only when every byte is under 128" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#ascii_only? : true iff every byte is 7-bit ASCII.
       p "hello".ascii_only?
       p "héllo".ascii_only?
@@ -1115,7 +1115,7 @@ describe "String: regressions" do
   end
 
   it "chomp takes the separator to remove" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #881: String#chomp with an explicit separator argument
       # strips that suffix. Without the fix the arg was silently dropped
       # and the default newline rules were applied.
@@ -1136,7 +1136,7 @@ describe "String: regressions" do
   end
 
   it "codepoints answers one number a character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #903: String#codepoints returns int_array of UTF-8
       # codepoints (not bytes).
       puts "hello".codepoints.inspect
@@ -1152,7 +1152,7 @@ describe "String: regressions" do
   end
 
   it "delete removes the characters every argument names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#delete with multiple args deletes the intersection of the
       # charsets (each arg is a charset spec).
       p "hello".delete("l", "o")
@@ -1174,7 +1174,7 @@ describe "String: regressions" do
   end
 
   it "an empty pattern matches between every pair of characters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #850: String#gsub with empty pattern inserts the
       # replacement between every character (and at the start/end).
       # Pre-fix, empty pattern was a no-op.
@@ -1186,7 +1186,7 @@ describe "String: regressions" do
   end
 
   it "splatting a String range into an array literal spreads it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splatting a string range into an array literal expands it into a
       # str_array (the runtime already has sp_StrArray_from_string_range; the
       # bug was the literal mis-typing to int_array and emitting a char*-in-
@@ -1206,7 +1206,7 @@ describe "String: regressions" do
   end
 
   it "scan answers the captures when the pattern has groups, the match when it does not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #880: String#scan returns nested arrays for capture groups.
 
       puts "hello world".scan(/(\w+)/).inspect
@@ -1224,7 +1224,7 @@ describe "String: regressions" do
   end
 
   it "<=> orders two strings byte by byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #900: String#<=> dispatches strcmp clamped to -1/0/1.
       # Pre-fix: always returned 0.
       puts "abc" <=> "abd"
@@ -1242,7 +1242,7 @@ describe "String: regressions" do
   end
 
   it "squeeze collapses runs of the characters every argument names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#squeeze with multiple args squeezes runs of chars in the
       # intersection of the charsets.
       p "aaabbbccc".squeeze("a", "b")
@@ -1260,7 +1260,7 @@ describe "String: regressions" do
   end
 
   it "strip, lstrip and rstrip remove a NUL along with the whitespace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#strip / #lstrip / #rstrip remove the NUL byte along with ASCII
       # whitespace, matching CRuby.
       p "\0 abc \0".strip
@@ -1282,7 +1282,7 @@ describe "String: regressions" do
   end
 
   it "itself answers the receiver, for a String and for a Symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#itself on string and symbol returns self.
       puts "hello".itself
       puts :foo.itself.inspect
@@ -1292,7 +1292,7 @@ describe "String: regressions" do
   end
 
   it "tr_s translates and then squeezes the run it made" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #902: String#tr_s translates and squeezes adjacent
       # identical translated chars (untranslated runs keep their
       # duplicates).
@@ -1312,7 +1312,7 @@ describe "String: regressions" do
   end
 
   it "valid_encoding? is false for bytes that are not the encoding's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#valid_encoding? — true for ASCII / well-formed UTF-8,
       # false for invalid byte sequences.
       puts "hello".valid_encoding?
@@ -1332,7 +1332,7 @@ describe "String: regressions" do
   end
 
   it "a NUL byte in a literal is one character of the string, not its end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #722: a string literal with an embedded NUL byte reports
       # the full length, and .bytes iterates all bytes (not strlen-
       # truncated at the NUL). Pre-fix the parser AST text format also
@@ -1352,7 +1352,7 @@ describe "String: regressions" do
   end
 
   it "hash array string batch8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash.try_convert, Array member?/entries/find_all/
       # grep(variable pattern or block)/chain, String tr_s!/delete_prefix!/
       # delete_suffix!/byteindex(Regexp)/dedup.
@@ -1437,7 +1437,7 @@ describe "String: regressions" do
   end
 
   it "a root-scoped class constant is the === receiver for its own instances" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(::Integer === 7)
       p(::Integer === "x")
       p(::String === "a")
@@ -1455,7 +1455,7 @@ describe "String: regressions" do
   end
 
   it "gsub and sub with a block hand the block the match and take what it answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "ab cd".gsub(/\b\w/) { |c| c.upcase }
       p "hello world".gsub(/\w+/) { |w| w.capitalize }
       p "a1b2c3".gsub(/(\d)/) { |m| ($1.to_i * 2).to_s }
@@ -1473,7 +1473,7 @@ describe "String: regressions" do
   end
 
   it "a multiple assignment destructures what a method returned" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def k
         [5, [[1, 2, 3], [4, 5, 6]]]
       end
@@ -1500,7 +1500,7 @@ describe "String: regressions" do
   end
 
   it "flat_map flattens one level, whatever the block answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..3).flat_map { |x| x * 2 }
       p (1..3).flat_map { |x| [x, x] }
       p (1..4).flat_map { |x| x.even? ? [x, x] : x }
@@ -1520,7 +1520,7 @@ describe "String: regressions" do
   end
 
   it "each_line into each_with_object builds a Hash of the split lines" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = "a=b\nc=d".each_line.each_with_object({}) do |raw, config|
         key, value = raw.split("=", 2)
         config[key] = value
@@ -1532,7 +1532,7 @@ describe "String: regressions" do
   end
 
   it "every in-place String mutator shows through an alias and through a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shared-mutable strings: every in-place mutator shares through aliases and
       # containers (P1+P2 of the reference-semantics plan).
       s = "hello world"
@@ -1606,7 +1606,7 @@ describe "String: regressions" do
   end
 
   it "concat through a reader fills the ivar array the constructor made" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Config
         def str(*opts) = add_flag(Flag.new(opts))
         def prepare! = @help_flag = add_flag(Flag.new(["x"]))
@@ -1635,7 +1635,7 @@ describe "String: regressions" do
   end
 
   it "a line built with + then appended to is stored whole" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Res
         attr_accessor :cookies
         def initialize
@@ -1681,7 +1681,7 @@ describe "String: regressions" do
   end
 
   it "prepend and concat with no argument leave the string alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m1 = +"hello"; r1 = (m1.prepend rescue $!.class); p r1
       f1 = "hello";  r2 = (f1.concat  rescue $!.class); p r2
       f2 = "hello";  r3 = (f2.prepend rescue $!.class); p r3
@@ -1695,7 +1695,7 @@ describe "String: regressions" do
   end
 
   it "String#+ refuses a non-String, concat with no argument answers the receiver, and a frozen bang raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#+ non-String -> TypeError; concat no-args -> self; match non-match
       # .class -> NilClass; frozen in-place bang -> FrozenError.
       p("ab".concat)
@@ -1726,7 +1726,7 @@ describe "String: regressions" do
   end
 
   it "match? takes a String pattern, and inspect escapes a control byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String conformance (KieranP #2308,#2310,#2312,#2313)
       p("hello".match?("l"))              # #2310 match? String pattern
       p("hello".match?("z"))
@@ -1764,7 +1764,7 @@ describe "String: regressions" do
   end
 
   it "-@ on a frozen string is the receiver, and []= answers the value assigned" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String conformance (KieranP #2369, #2370)
       a = "abc".freeze
       p((-a).equal?(a))              # #2369 frozen receiver: -@ is identity
@@ -1810,7 +1810,7 @@ describe "String: regressions" do
   end
 
   it "a Hash replacement in sub and gsub falls back to the hash's default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A String transform drops replacement characters ruby emits.
       #

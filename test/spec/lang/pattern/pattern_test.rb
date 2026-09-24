@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Pattern programs" do
   it "array mul string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array * sep` (String arg) is equivalent to Array#join(sep) and
       # returns a string. Previously spinel routed it through the int-repeat
       # path which treated the string pointer as a loop count.
@@ -23,7 +23,7 @@ describe "Pattern programs" do
   end
 
   it "for multi var" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `for a, b in coll` destructures each element into multiple LVs.
       for a, b in [[1, 2], [3, 4]]
         puts "#{a}, #{b}"
@@ -43,7 +43,7 @@ describe "Pattern programs" do
   end
 
   it "symbol inspect spl marker" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol#inspect literal prefix must use SPL marker so sp_str_byte_len's
       # s[-1] marker check is well-defined (avoids -O2 __builtin_trap).
       puts :hello.inspect          # :hello
@@ -62,7 +62,7 @@ describe "Pattern programs" do
   end
 
   it "split no arg ws" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #507. `s.split` (no arg) used to emit `sp_str_split(s, 0)` and
       # segfault at strlen(NULL) -- new sp_str_split_ws helper matches
       # Ruby's whitespace-mode split (no arg / nil arg form).
@@ -85,7 +85,7 @@ describe "Pattern programs" do
   end
 
   it "scalar zero truthiness" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       idx = 0
       if idx
         puts "local zero truthy"
@@ -113,7 +113,7 @@ describe "Pattern programs" do
   end
 
   it "reduce sym op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #506. `[1,2,3,4].reduce(:*)` previously fell through unresolved
       # on int_array. Codegen now folds the symbol-arg form inline for
       # binary arithmetic / bitwise ops on int_array.
@@ -142,7 +142,7 @@ describe "Pattern programs" do
   end
 
   it "array of hash lit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #402: array literal of hash literals (`[{n: 3}, {n: 1}]`)
       # was typed as `sp_IntArray *` (the bottom default), but the
       # elements were emitted as `sp_SymIntHash *`. Fix: inference
@@ -167,7 +167,7 @@ describe "Pattern programs" do
   end
 
   it "integer div" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # basic
       puts 7.div(2)
       puts 10.div(5)
@@ -206,7 +206,7 @@ describe "Pattern programs" do
   end
 
   it "case in value position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case/in used as a value: assignment RHS, method receiver, and method-return
       # position. Pre-fix this hit "unsupported expression: CaseMatchNode" (or
       # silently produced nil when in return position).
@@ -243,7 +243,7 @@ describe "Pattern programs" do
   end
 
   it "flat map poly receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # flat_map on a poly receiver -- a value whose array-ness is only known at
       # runtime (a recursive parameter, or a `case ... end` whose arms mix arrays and
       # scalars). The receiver is coerced to a poly array at runtime, so the recursive
@@ -273,7 +273,7 @@ describe "Pattern programs" do
   end
 
   it "a hash pattern matches a scrutinee whose type is only known at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash pattern in case/in must match a poly scrutinee at runtime (checking
       # the value is a hash with the required keys), not fail closed.
       def f(v)
@@ -317,7 +317,7 @@ describe "Pattern programs" do
   end
 
   it "a Hash does not match an array pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash must not match an array pattern `[x, y]` (a Hash has no #deconstruct
       # in CRuby); the array-pattern condition requires an array-kind poly value.
       def f(v)
@@ -344,7 +344,7 @@ describe "Pattern programs" do
   end
 
   it "a guard on an in clause falls through to the next pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def describe7(event)
         case event
         in { type: :move, dx:, dy: } if dx == 0 && dy == 0 then "no movement"
@@ -361,7 +361,7 @@ describe "Pattern programs" do
   end
 
   it "a reduce accumulator widens to hold what the pattern-matching reducer answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method returning a hash, folded once via reduce (concrete seed) and once
       # pushed via each_with_object (poly), widens to poly; the reduce accumulator
       # must widen to match rather than assigning the boxed result into a concrete
@@ -387,7 +387,7 @@ describe "Pattern programs" do
   end
 
   it "underscore name may bind inside an alternation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby refuses a binding inside a `|` alternation -- `in [1, x] | [3, 4]` is
       # a SyntaxError -- but it carves out every name beginning with `_`. Both
       # `in [301 | 302, :post] | [303, _]` and `in [1, _v] | [9, 9]` are Syntax OK,

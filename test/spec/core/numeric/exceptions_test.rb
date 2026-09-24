@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: raising and rescuing" do
   it "complex nil arg and nomethod" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Complex rejects a nil component (TypeError), and an undefined method
       # on a Complex/Rational value raises NoMethodError instead of aborting.
       begin; Complex(nil); rescue => e; p e.class; end
@@ -26,7 +26,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "float division by zero returns infinity not an error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression guard for the fix above: `ZeroDivisionError` must stay
       # `Int`/`Int`-division-specific -- real Ruby's `Float`/`0` is
       # `Infinity`/`-Infinity`/`NaN` (IEEE semantics), never a raised
@@ -40,7 +40,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "float divmod zerodiv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#divmod(0) / Float#divmod(0.0) raises ZeroDivisionError.
       #
       # Sibling of Integer#divmod(0) which was fixed in the parent
@@ -112,7 +112,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "float rational math family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#numerator/#denominator (exact rational of the double), Math.frexp,
       # and Math.sqrt coercing a Rational argument.
       def num(a) = a.numerator
@@ -159,7 +159,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "float remainder zero divisor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Float#remainder by zero answers NaN where ruby raises ZeroDivisionError.
       #
@@ -184,7 +184,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "int bit beginless raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts 255[..3]
       rescue ArgumentError => e
@@ -211,7 +211,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() reads a decimal string, signed or not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -245,7 +245,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() allows the leading and trailing whitespace CRuby allows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -291,7 +291,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() reads a sign, and a sign on its own is not a number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -325,7 +325,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() reads the edges of the machine word" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -351,7 +351,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() raises for a string that names no number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -383,7 +383,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() raises for trailing junk after the digits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -413,7 +413,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer() raises for leading junk before the digits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -439,7 +439,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "a bare rescue catches the ArgumentError, whose message quotes the string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -477,7 +477,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "a hundred raises in succession leave the allocator sound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -519,7 +519,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "an endless method with a rescue clause still answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
       # which silently returned 0 for invalid input — that meant
@@ -551,7 +551,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "integer bit reference operator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 0b1011[0]
       p 0b1011[2]
       p 5[0, 2]
@@ -585,7 +585,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "integer conversion base zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Integer(str, 0)` means "detect the base from the literal prefix" (0x, 0b,
       # 0o/0, else decimal) -- the C strtol convention. zeo's Integer() only accepts
       # explicit bases and raises ArgumentError for base 0.
@@ -612,7 +612,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "integer sqrt is exact including bignums" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Integer.sqrt(0)
       p Integer.sqrt(8)
       p Integer.sqrt(9)
@@ -636,7 +636,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "kernel float strict" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #888: Kernel#Float() raises ArgumentError on unparseable
       # input per MRI; previously silently returned 0.0 from strtod.
       begin
@@ -666,7 +666,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "kernel integer float errors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Integer / #Float raise TypeError on nil (not 0), and Integer with a
       # base and a non-String value raises ArgumentError (#2514, #2515).
       p((Integer(nil) rescue $!.class))
@@ -694,7 +694,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "kernel integer with base" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #887: Kernel#Integer(s, base) parses non-decimal correctly
       # and raises catchable ArgumentError on invalid input.
       puts Integer("ff", 16)
@@ -724,7 +724,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "kernel rational strict" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (Rational("bad") rescue $!.class); p r001
       r002 = (Rational("") rescue $!.class); p r002
       r003 = (Rational(nil) rescue $!.class); p r003
@@ -752,7 +752,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "an in-domain argument still answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -786,7 +786,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "sqrt of a negative raises Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -817,7 +817,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "log of a negative raises Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -848,7 +848,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "log2 and log10 of a negative raise Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -884,7 +884,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "acos and asin outside -1 to 1 raise Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -920,7 +920,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "acosh below 1 raises Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -950,7 +950,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "atanh raises past 1, and answers an infinity at the endpoints" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -980,7 +980,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Integer.sqrt of a negative raises Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -1010,7 +1010,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Math::DomainError descends from StandardError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -1046,7 +1046,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "a bare rescue catches a Math::DomainError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -1076,7 +1076,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "an unrestricted function answers NaN or an infinity rather than raising" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -1104,7 +1104,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "the two-argument log computes in the base it is given, and raises for a negative one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* methods raise Math::DomainError on out-of-domain input,
       # matching CRuby semantics. Previously spinel called bare libc
       # sqrt(-1.0) etc. which returns NaN silently. Math::DomainError is
@@ -1138,7 +1138,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "math domainerror namespaced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # raise/rescue a builtin namespaced exception under its qualified name.
       begin
         raise Math::DomainError, "boom"
@@ -1156,7 +1156,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Float#% by zero raises ZeroDivisionError, and a negative count raises for the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#% by zero raises ZeroDivisionError (not NaN); a negative first/last
       # count raises ArgumentError with the receiver-specific message.
 
@@ -1186,7 +1186,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "the modulo, divmod and negative-count edges raise with CRuby's own messages" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby error-protocol edges for numeric and collection operations.
       def caught
         yield
@@ -1234,7 +1234,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "Complex() and its siblings answer nil under exception: false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Complex() with exception: false raises instead of answering nil.
       #
@@ -1265,7 +1265,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "an exception: keyword stays a keyword and never counts as the second component" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Complex() with an exception: keyword mis-routes the keyword into the
       # numeric argument.
@@ -1297,7 +1297,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "size, rationalize and the Rational and Complex constructors all answer exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 42.size
       p (2**64).size
       p (2**64 - 1).size
@@ -1341,7 +1341,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "random bignum seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = Random.new(2**70)
       v = r.rand(100)
       p v >= 0 && v < 100
@@ -1359,7 +1359,7 @@ describe "Numeric: raising and rescuing" do
   end
 
   it "rational ctor exact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Rational with Float and Rational operands keeps the exact value
       # (5/2 for 2.5) instead of truncating through an int cast. Per-operand-kind
       # helpers: a mixed-type param would widen to poly, which has no ctor arm.

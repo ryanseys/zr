@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "TracePoint programs" do
   it "attr reader call backtrace line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby compiles an `attr_*` accessor iseq-less, so it appears in no
       # backtrace. zeo's is frameless too -- but it still stamped its own line, and
       # a stamp with no frame of its own lands in the CALLER's and is never
@@ -64,7 +64,7 @@ describe "TracePoint programs" do
   end
 
   it "backtrace frames match cruby across definition kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The comprehensive frame battery, all verbatim ruby 4.0.6 (invoked as
       # `-e`, the same label this harness compiles under): method labels
       # (Object#m / Foo#m / Foo.cm / M.modfun / M#mixed), lexical block
@@ -186,7 +186,7 @@ describe "TracePoint programs" do
   end
 
   it "backtrace names the scope and the call line" do
-    result = ze0(<<~'RUBY', files: beside("lib/backtrace_scopes.rb"))
+    result = zr(<<~'RUBY', files: beside("lib/backtrace_scopes.rb"))
       # Two questions a backtrace answers that zeo used to answer differently
       # from ruby, both about WHERE a frame is rather than what it does.
       #
@@ -264,7 +264,7 @@ describe "TracePoint programs" do
   end
 
   it "builtin ruby method fires call and return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A :call and a :return fire around the methods CRuby writes in Ruby of its
       # own, at the place each one stands in CRuby's builtin sources; a method
       # whose Ruby definition stands only under a JIT stays C's.
@@ -294,7 +294,7 @@ describe "TracePoint programs" do
   end
 
   it "c call and set trace func fire around c methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # TracePoint's :c_call and :c_return fire around each method CRuby
       # writes in C, where the program calls it: an operator, an accessor, a
       # method called with a block and the block's own calls.
@@ -371,7 +371,7 @@ describe "TracePoint programs" do
   end
 
   it "exception backtrace empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception#backtrace carries the real stamped frames (frame tracking):
       # non-empty after a raise, innermost line first. The path prefix is the
       # compile-time input path, so assertions stay path-portable.
@@ -394,7 +394,7 @@ describe "TracePoint programs" do
   end
 
   it "exception backtrace full message and inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # backtrace carries the real stamped frames; full_message renders the
       # uncaught-report shape from them; inspect renders "#<Class: msg>" (or
       # the bare class name when the message is empty). Expected output is
@@ -423,7 +423,7 @@ describe "TracePoint programs" do
   end
 
   it "exception backtrace wired" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception#backtrace returns an Array of frame strings (method-granularity,
       # populated only in --debug builds; release returns []). This guards the
       # dispatch shape that's release-stable -- backtrace is an Array, not a
@@ -446,7 +446,7 @@ describe "TracePoint programs" do
   end
 
   it "frozen error backtrace extra frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby answers `<<` and `[]=` on a String/Array/Hash with a SPECIALIZED VM
       # instruction (`opt_ltlt`, `opt_aset`), which pushes no control frame -- so a
       # raise from inside one names only the caller. The general fallback does frame,
@@ -519,7 +519,7 @@ describe "TracePoint programs" do
   end
 
   it "kernel conversion backtrace frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#Integer` and its family are ordinary cfuncs in CRuby, so they push a
       # control frame and a raise from inside one names them. zeo's codegen calls
       # them through a fast path that never reaches the dispatch boundary where a
@@ -593,7 +593,7 @@ describe "TracePoint programs" do
   end
 
   it "line binding sees a blocks locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A :line hook reads the Binding of the frame the line runs in, which
       # holds the locals of a block and of the method around it, even where
       # nothing in the block asks for a binding itself.
@@ -616,7 +616,7 @@ describe "TracePoint programs" do
   end
 
   it "parameters and a targeted enable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # TracePoint#parameters answers the parameters of the code an event is
       # for, and enable(target:) sees only the events of the target's code and
       # of the blocks written inside it, never a C event.
@@ -678,7 +678,7 @@ describe "TracePoint programs" do
   end
 
   it "set trace func installs a hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `set_trace_func` is a real row: `defined?`, `private_method_defined?`
       # and clearing with nil answer as ruby does, and a Proc it takes is
       # called with each event as `(event, file, line, id, binding, klass)`.
@@ -715,7 +715,7 @@ describe "TracePoint programs" do
   end
 
   it "trace var" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `trace_var` runs something on every assignment RUBY makes to a global.
       # (`set_trace_func`, the other half of Kernel's tracing surface, is not here:
       # it hands its hook a Binding at each event, which this runtime has no way to
@@ -806,7 +806,7 @@ describe "TracePoint programs" do
   end
 
   it "the lifecycle and error shapes answer, and the event streams match the oracle line for line" do
-    result = ze0(<<~'RUBY', path: "core/tracepoint/tracepoint.rb")
+    result = zr(<<~'RUBY', path: "core/tracepoint/tracepoint.rb")
       # TracePoint: lifecycle and error shapes, then oracle-matched event streams
       # over methods, class bodies, blocks, raises, and an unwinding return. Every
       # handler filters to this file's own path: CRuby implements enable/disable
@@ -1022,7 +1022,7 @@ describe "TracePoint programs" do
   end
 
   it "TracePoint's own methods fire a call and return pair, and disable reports one last event" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby implements TracePoint's own surface in Ruby (<internal:trace_point>),
       # so calling one of those methods while a trace is live fires an ordinary
       # :call/:return pair -- `tp.disable` reports one last :disable on its way out.
@@ -1092,7 +1092,7 @@ describe "TracePoint programs" do
   end
 
   it "a :line event answers the object the line ran under and a binding on that scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `TracePoint#self` and `#binding` answer for a `:line` event, as CRuby's do:
       # `self` is the object the line ran under and `binding` is that scope.
       #
@@ -1122,7 +1122,7 @@ describe "TracePoint programs" do
     _(result).must_answer "[Object, Binding]\n"
   end
   it "a rescue clause fires :rescue where it caught, and a bare TracePoint asks for everything" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `:rescue` fires where the exception is caught, not where it was raised:
       # in the frame that holds the matching clause, at that clause's line, with
       # the exception still in `raised_exception`. A clause that does not match
@@ -1173,7 +1173,7 @@ describe "TracePoint programs" do
   end
 
   it "fires thread_begin and thread_end around a threads body, from nowhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # thread_start_func_2 fires these from the VM and not from a frame,
       # so the row names no file, no line and no method; `self` is the
       # thread the events are for, which is the thread that runs the
@@ -1198,7 +1198,7 @@ describe "TracePoint programs" do
   end
 
   it "fires fiber_switch where control arrives, naming the call that sent it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # cont.c fires this in the fiber control reached, so the row stands
       # where that fiber stands: a fresh one has run no line and names
       # nothing. `self` is the thread, which is what th->self is there,
@@ -1231,7 +1231,7 @@ describe "TracePoint programs" do
   end
 
   it "counts no fiber switch where a thread hands the turn on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A thread here runs on a fiber of its own, and the scheduler hands
       # the turn on with the switch a fiber uses. CRuby's threads are the
       # operating system's and fire nothing as they take turns, and
@@ -1249,7 +1249,7 @@ describe "TracePoint programs" do
   end
 
   it "fires script_compiled for each string a program evaluates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `:script_compiled` fires once a string of Ruby has compiled and before
       # it runs. `eval_script` is the string; `instruction_sequence` carries
       # what the code answers to -- the name, the label and the first line
@@ -1289,7 +1289,7 @@ describe "TracePoint programs" do
   end
 
   it "fires script_compiled where a required file is about to run" do
-    result = ze0(<<~'RUBY', files: beside("script_compiled/loaded.rb"))
+    result = zr(<<~'RUBY', files: beside("script_compiled/loaded.rb"))
       # A file a require reached fires the same event: `eval_script` is nil,
       # because no string was compiled, and the sequence answers to the file
       # and carries `<top (required)>`. ruby fires it where the file compiles;

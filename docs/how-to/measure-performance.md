@@ -1,7 +1,7 @@
 # How to measure performance
 
-This guide shows you how to measure how fast ze0's binaries run and how
-fast ze0 builds them.
+This guide shows you how to measure how fast zr's binaries run and how
+fast zr builds them.
 
 ## Time the binaries
 
@@ -15,7 +15,7 @@ $ rake 'bench[--runs 5 fib]'
 ```
 
 A row with a wrong answer fails, and has no time. The report gives the
-median of the runs: `ze0` is the binary's wall clock, and `cpu` beside it
+median of the runs: `zr` is the binary's wall clock, and `cpu` beside it
 is the user and system time the binary itself spent, which the machine's
 other work does not move. Each run is clocked with `Benchmark.measure`
 from the [benchmark](https://github.com/ruby/benchmark) gem, a
@@ -41,10 +41,10 @@ run benchmarks on a quiet one, not beside a test run.
 
 ## Time a build
 
-Set `ZE0_TIMING=1` to print how long each phase of a build takes:
+Set `ZR_TIMING=1` to print how long each phase of a build takes:
 
 ```console
-$ ZE0_TIMING=1 exe/ze0 build app.rb -o app
+$ ZR_TIMING=1 exe/zr build app.rb -o app
 ```
 
 The first build after a change under `rt/` or `lib/` compiles the
@@ -64,9 +64,9 @@ $ rake 'compile[--write]'          # writes the table to tmp/bench/compile.txt
 ```
 
 The rungs are a ladder of require graphs: `hello` requires nothing,
-`stdlib` requires six of the libraries ze0 carries, and `rubygems` and
+`stdlib` requires six of the libraries zr carries, and `rubygems` and
 `bundler` enter at the two largest umbrellas there are. The runtime is
-warm, as it is for everyone who is not building ze0 for the first time,
+warm, as it is for everyone who is not building zr for the first time,
 and the first run of each rung is thrown away.
 
 ## Measure the size of the generated code
@@ -86,8 +86,8 @@ The compiler is Ruby, so a Ruby profiler works on it. The Gemfile has
 group:
 
 ```console
-$ ZE0_GC=0 bundle exec vernier run -- ruby exe/ze0 build app.rb -o app
+$ ZR_GC=0 bundle exec vernier run -- ruby exe/zr build app.rb -o app
 ```
 
-`ZE0_GC=0` stops `ze0` from starting itself again with its
+`ZR_GC=0` stops `zr` from starting itself again with its
 collector settings, so the profile is of the process vernier started.

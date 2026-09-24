@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Kernel: formatting and inspection" do
   it "caller locations objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `caller_locations` answers `Thread::Backtrace::Location` objects, not strings:
       # forwardable reads `caller_locations(2, 1).first.path` to build its deprecation
       # message.
@@ -53,7 +53,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "class member beats kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class K
         def puts(v) = "class-puts:#{v}"
         def print(v) = "class-print:#{v}"
@@ -141,7 +141,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "cmeth name collision with kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #407 case 1: a class/module class method whose name
       # collides with a Kernel/Object inferred-type default (e.g.
       # `hash`, `to_s` is exempt because it actually works the right
@@ -210,7 +210,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "format f writes an exact number exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # %f of an Integer or a Rational writes its exact digits, the magnitude
       # rounded half up, as CRuby's sprintf does; %e goes through a Float.
       def t = yield rescue [$!.class, $!.message]
@@ -249,7 +249,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "a user object converts through to_str, to_int and to_ary at a builtin's slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
       # wanted; one that defines neither raises CRuby's TypeError. The raw object
@@ -336,7 +336,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "a boxed user object converts inside a generic runtime call too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
       # wanted; one that defines neither raises CRuby's TypeError. The raw object
@@ -401,7 +401,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "the same protocol runs through a poly slot, where the class is not known" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
       # wanted; one that defines neither raises CRuby's TypeError. The raw object
@@ -457,7 +457,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "a native binding's declared :string argument converts as well" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's implicit conversion protocol at builtin argument boundaries: a user
       # object defining #to_str / #to_int converts where a String / Integer is
       # wanted; one that defines neither raises CRuby's TypeError. The raw object
@@ -495,7 +495,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "inspect that answers no string is made one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An inspect that answers something other than a String is made one by
       # rb_obj_as_string's rule: its to_s, else the #<Class:0x...> form. So is
       # a to_s that answers no String, where puts or interpolation needs one.
@@ -542,7 +542,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "puts, p, print, format and printf all write and answer what the oracle writes and answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts [1, [2, nil]], "x"
       puts
       r = p 1, "two"
@@ -591,7 +591,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "caller answers an Array and honours its start and length window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#caller resolves to an Array (the call stack); frame *content* is
       # method-granularity and only populated in --debug builds (release returns
       # []), so this checks the dispatch shape that's release-stable: caller is an
@@ -614,7 +614,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "the Kernel conversions do not consult to_int, to_str or to_ary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Kernel conversions do not consult the to_int/to_str/to_ary protocol
       # methods.
@@ -647,7 +647,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "Kernel as an explicit receiver means what the bare call means, the frame-sensitive rows included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel's module functions answer to the module as an explicit receiver, and
       # mean exactly what the bare call means. `Kernel.exit` is how a CLI library
       # makes its exit path injectable (`lambda { |s| Kernel.exit(s) }`), and
@@ -768,7 +768,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "block_given?, binding and local_variables answer through send with a literal symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Four `Kernel` functions cannot be reached through `send`, `method` or
       # `respond_to?` -- but every probe here uses a LITERAL symbol, so all of them
       # are mechanically fixable: a literal `send(:block_given?)` can fold into the
@@ -817,7 +817,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "random inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Random.new(5).inspect.start_with?("#<Random:0x"))
       r = Random.new(5)
       p(r.inspect.start_with?("#<Random:0x"))
@@ -834,7 +834,7 @@ describe "Kernel: formatting and inspection" do
   end
 
   it "toplevel def beats kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def raise(v) = "raise:#{v}"
       def system(v) = "system:#{v}"
       def caller(v) = "caller:#{v}"

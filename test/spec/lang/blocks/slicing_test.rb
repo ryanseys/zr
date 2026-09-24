@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: slicing" do
   it "begin and end blocks run before and after the main program" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # BEGIN runs first in SOURCE order; END runs at exit in REVERSE order,
       # which is `at_exit` exactly -- so END lowers to one.
 
@@ -29,7 +29,7 @@ describe "Blocks: slicing" do
   end
 
   it "begin block defines a class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `BEGIN { ... }` runs before the main program, in the top-level scope and
       # the top-level cref -- so a `class`, a `module` or a `def` written there is
       # an ordinary top-level definition that simply happens earlier. sekrets and
@@ -107,7 +107,7 @@ describe "Blocks: slicing" do
   end
 
   it "block call multi arg first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `first` on an Enumerable whose #each invokes the block through
       # `block.call(a, b)` with MULTIPLE arguments failed to compile:
       #
@@ -143,7 +143,7 @@ describe "Blocks: slicing" do
   end
 
   it "block local cell in nested block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local declared in a block that sits inside another block, and captured by a
       # third: the cell VARIABLE is declared in the frame that owns the scope, but
       # this block body is emitted INSIDE the enclosing block's proc function, where
@@ -197,7 +197,7 @@ describe "Blocks: slicing" do
   end
 
   it "block local fresh per iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block-local variables are FRESH on every block invocation: a name first
       # assigned inside a block (not captured from the enclosing scope) must not
       # carry its value into the next iteration. The `keep ||=` pattern below
@@ -264,7 +264,7 @@ describe "Blocks: slicing" do
   end
 
   it "block param trailing comma" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A block parameter list with a trailing comma (`|a,|`) does not discard
       # the extra element, so the body sees the wrong binding.
@@ -333,7 +333,7 @@ describe "Blocks: slicing" do
   end
 
   it "block proc args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block and Proc argument semantics.
 
       # Hash#each yields each pair as ONE array, so a block sees it whole or splits it.
@@ -388,7 +388,7 @@ describe "Blocks: slicing" do
   end
 
   it "closure captures class value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class held in a local rides a cell when a closure captures it, the way a
       # float does: a cls_id and a rodata name, with no GC pointer of its own. It had
       # no cell shape, so the capture was refused outright -- reachable as soon as the
@@ -434,7 +434,7 @@ describe "Blocks: slicing" do
   end
 
   it "escaping block captures self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -480,7 +480,7 @@ describe "Blocks: slicing" do
   end
 
   it "multi arg yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-argument `yield` in a method body (issue #98).
       #
       # Pre-fix, every `yield` lowered against a single-arg `_block`
@@ -564,7 +564,7 @@ describe "Blocks: slicing" do
   end
 
   it "nested block captures outer param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested block reading the ENCLOSING block's parameter, where the inner call
       # is one a user class owns and the block is therefore materialized as a proc.
       #
@@ -655,7 +655,7 @@ describe "Blocks: slicing" do
   end
 
   it "nested block frame counts its levels" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby names a block after the scope it was WRITTEN in and COUNTS the nesting:
       # `block in <base>`, then `block (2 levels) in <base>`, `block (3 levels) in
       # <base>`. The base never changes as the nesting grows -- it stays the method
@@ -726,7 +726,7 @@ describe "Blocks: slicing" do
   end
 
   it "numbered param per block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `_1` .. `_9` (and `it`, which the parser lowers to `_1`) are names spinel
       # synthesizes rather than names the author wrote, and blocks share their
       # enclosing scope's local table -- so two such blocks in one method interned
@@ -824,7 +824,7 @@ describe "Blocks: slicing" do
   end
 
   it "proc numbered params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numbered parameters (_1.._9) in first-class procs/lambdas: they surface as
       # plain local reads with no parameters node, bind boxed off the argument
       # side-channel, and count toward lambda arity.
@@ -852,7 +852,7 @@ describe "Blocks: slicing" do
   end
 
   it "proc param container input" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Call-site argument inference for proc/lambda params: a container argument
       # (array/hash/string) overrides a param's bare-int default instead of widening
       # to a poly scalar. This is what lets a 1-param proc/lambda VALUE forwarded into
@@ -904,7 +904,7 @@ describe "Blocks: slicing" do
   end
 
   it "repeated underscore parameter binds the first slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby lets a parameter name repeat when it begins with `_` -- `def f(a, a)` is
       # a SyntaxError, `def f(_, _)` is not -- and only the FIRST occurrence owns the
       # readable local. Every shape below is oracled against ruby 4.0.6.
@@ -972,7 +972,7 @@ describe "Blocks: slicing" do
   end
 
   it "splat param with block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A splat parameter collects the call's arguments even when the call site
       # also passes a block: the block routes the call through the inlining path,
       # which used to bind parameters positionally and drop the rest packing --
@@ -1056,7 +1056,7 @@ describe "Blocks: slicing" do
   end
 
   it "to enum size block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `to_enum`/`enum_for` take a block that supplies the enumerator's `size`
       # lazily. zeo drops it, so a custom Enumerable's `size` answers nil.
       #
@@ -1113,7 +1113,7 @@ describe "Blocks: slicing" do
   end
 
   it "yield mixed block types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One yield method called with blocks of different value types: each call
       # site carries its own block's type (a class method used to funnel every
       # site through the first site's C type and segfault).

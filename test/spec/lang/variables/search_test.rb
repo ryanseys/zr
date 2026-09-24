@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables: searching and matching" do
   it "array index assign out of range raises index error not a panic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Before this fix, a negative out-of-range `Array#[]=` index was an
       # unconditional abort -- a real `IndexError` (catchable) is
       # constructed instead now, and the array is otherwise
@@ -30,7 +30,7 @@ describe "Variables: searching and matching" do
   end
 
   it "array index assign splices start length and range spans" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3, 4]
       a[1, 2] = [:x, :y, :z]
       p a
@@ -61,7 +61,7 @@ describe "Variables: searching and matching" do
   end
 
   it "compound and or assignment on an array index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2, 3]
       arr[0] += 10
       puts arr[0]
@@ -73,7 +73,7 @@ describe "Variables: searching and matching" do
   end
 
   it "compound assignment through a multi argument index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[]`-style compound assignment with MORE than one index. `[]`/`[]=` are
       # ordinary methods, so `a[i, j] += rhs` is a two-argument `[]` paired with a
       # three-argument `[]=` -- Array's `(start, length)` splice form. Each index
@@ -107,7 +107,7 @@ describe "Variables: searching and matching" do
   end
 
   it "compound index assignment in tail position compiles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression test for a pre-existing codegen bug found during the
       # freeze work (not freeze-related): `HirNode::Seq` -- the lowering
       # artifact behind `arr[i] += 1` -- emitted a brace-less statement
@@ -129,7 +129,7 @@ describe "Variables: searching and matching" do
   end
 
   it "defined classifies assignments it and match globals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` answers as CRuby's defined_expr0 does: every write, an
       # operator assignment among them, is an "assignment"; `it` is a local;
       # a call with a block literal is an expression; `$1` and `$&` are
@@ -174,7 +174,7 @@ describe "Variables: searching and matching" do
   end
 
   it "defined globals and match vars check definedness at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user global is "global-variable" only once assigned; a predefined
       # special ($~) always is; a match capture only when it participated. An
       # array literal is defined only if every element is.
@@ -204,7 +204,7 @@ describe "Variables: searching and matching" do
   end
 
   it "definition hooks global" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A definition hook written on `Module`, `Class` or `BasicObject` ITSELF
       # answers for every class in the program.
       #
@@ -250,7 +250,7 @@ describe "Variables: searching and matching" do
   end
 
   it "index compound assignment works inside a thread block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # From the reference corpus (index_opassign_in_thread_block.rb): the
       # `Seq` desugar's hidden temps declared inside an escaping Proc's own
       # prelude, against a captured-cell array.
@@ -267,7 +267,7 @@ describe "Variables: searching and matching" do
   end
 
   it "index opassign value prelude rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Index operator-assignment in VALUE position whose RIGHT-HAND SIDE needs a
       # prelude. `index_opassign_in_thread_block.rb` pinned the value-position
       # op-write itself (a block lifted to a real proc, so its tail `arr[i] += x` is
@@ -346,7 +346,7 @@ describe "Variables: searching and matching" do
   end
 
   it "rightward assign destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rightward assignment with an array / hash pattern (MatchRequiredNode):
       # `value => [a, b, c]` destructures and binds, raising
       # NoMatchingPatternError when the value does not match.

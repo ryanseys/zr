@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: interpolation" do
   it "amp sym in string literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "count(&:alive)"
       puts s
       puts s.length
@@ -43,7 +43,7 @@ describe "String: interpolation" do
   end
 
   it "autoload interpolated dir feature" do
-    result = ze0(<<~'RUBY', files: beside("autoload_interp/sprocket.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_interp/sprocket.rb"))
       # `autoload :Const, "#{__dir__}/sibling"` -- how puma, rack and sidekiq name a
       # sibling file. zeo splices the target at compile time, so the interpolation
       # has to fold then; only a plain literal and `File.expand_path` did.
@@ -64,7 +64,7 @@ describe "String: interpolation" do
   end
 
   it "backtick interpolates and runs a shell command" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Interpolation shares the normal dstr path; a `;` forces the `/bin/sh -c`
       # path (shell metacharacter), while the bare word execs directly.
 
@@ -83,7 +83,7 @@ describe "String: interpolation" do
   end
 
   it "hash shorthand and interpolated symbols" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 1
       name = "n"
       p({x:, name:})
@@ -109,7 +109,7 @@ describe "String: interpolation" do
   end
 
   it "interp adjacent concat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # adjacent string literals joined by backslash-continuation, each with its own
       # interpolation -- parses to nested InterpolatedStringNodes
       def svg(px, inner)
@@ -143,7 +143,7 @@ describe "String: interpolation" do
   end
 
   it "interp symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # InterpolatedSymbolNode -- `:"foo_#{x}"`.
       #
       # Lowered to InterpolatedStringNode + sp_intern at codegen side.
@@ -172,7 +172,7 @@ describe "String: interpolation" do
   end
 
   it "interpolate handles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r, w = IO.pipe
       s = "#{r} #{w}"
       p s.start_with?("#<IO:")
@@ -197,7 +197,7 @@ describe "String: interpolation" do
   end
 
   it "interpolated alias installs at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `alias` KEYWORD with an interpolated symbol -- `alias :"#{kind}_attr"
       # :"#{kind}_attrs"` -- has no compile-time spelling, but it is still just a
       # runtime install on the default definee, in class-body order.
@@ -233,7 +233,7 @@ describe "String: interpolation" do
   end
 
   it "interpolation multistmt" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #729. `"#{stmt1; stmt2; ...; stmtN}"` should evaluate every
       # statement in source order (for side effects) and use the LAST
       # statement's value in the string. spinel used to take stmts.first,
@@ -259,7 +259,7 @@ describe "String: interpolation" do
   end
 
   it "interpolation symbol name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `"#{sym}"` should render the symbol's name, not its int id.
       # Pre-fix compile_interpolated had no symbol arm in its
       # type-dispatch switch, so the default int path emitted the raw
@@ -296,7 +296,7 @@ describe "String: interpolation" do
   end
 
   it "module body string const interp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Interpolating a String constant defined in the same module/class body
       # must read the constant's value, not its raw pointer. Before, the
       # constant reference inside another constant's initializer was annotated
@@ -349,7 +349,7 @@ describe "String: interpolation" do
   end
 
   it "a literal interpolates, indexes from either end, and takes an index write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       name = "world"
       greeting = "hello #{name}, #{1 + 2} times"
       puts(greeting)
@@ -371,7 +371,7 @@ describe "String: interpolation" do
   end
 
   it "takes multi statement empty and braceless forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "v=#{1; 2}"
       p "v=#{a = 3; a * 2}"
       p a

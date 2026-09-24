@@ -55,10 +55,10 @@ module Gen
     def def_name(enc) = "zr_enc_mb_#{enc.name.downcase.tr('-', '_')}"
 
     def write
-      require_relative "../lib/ze0/zr"
+      require_relative "../lib/zr/zr"
       Gen.pinned!("gen:enc_mb")
 
-      Ze0::Zr.require_onig
+      Zr::Zr.require_onig
 
       # The encodings a String walks with an encoder of their own: ASCII meets
       # them, a character spans bytes, and they are not UTF-8 under a name.

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions programs" do
   it "bang exception object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # $! is the exception object the innermost active rescue is handling (nil
       # outside one): same identity as the rescue variable and the raised object.
       e = StandardError.new 'foo'
@@ -45,7 +45,7 @@ describe "Exceptions programs" do
   end
 
   it "bare raise re raises preserving a custom exceptions own ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class MyError < StandardError
         def initialize(msg, code)
           super(msg)
@@ -83,7 +83,7 @@ describe "Exceptions programs" do
   end
 
   it "bare raise with no active rescue constructs a runtime error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bare `raise` (re-raise) outside any active `rescue` clause -- real
       # Ruby constructs a fresh `RuntimeError` with an EMPTY message rather
       # than erroring (oracle-verified: `ruby -e 'begin; raise; rescue => e;
@@ -100,7 +100,7 @@ describe "Exceptions programs" do
   end
 
   it "basicobject dup rescued" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An absent Object method on a blank-slate receiver raises INSIDE the
       # enclosing handler's region (#2726): the raise is an expression-arm prelude,
       # which used to emit before the rescue modifier's setjmp.
@@ -118,7 +118,7 @@ describe "Exceptions programs" do
   end
 
   it "begin rescue used as an expressions value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = begin
         raise "bad"
       rescue
@@ -131,7 +131,7 @@ describe "Exceptions programs" do
   end
 
   it "bigint div by zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bigint division / modulo by zero raises ZeroDivisionError.
       #
       # Bigint detection: `a = a * 2` inside a `while` loop promotes the
@@ -185,7 +185,7 @@ describe "Exceptions programs" do
   end
 
   it "bigint volatile combo" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression test: bigint operations inside begin/rescue must compile
       # clean under -Werror. Locals in setjmp-bearing functions are emitted
       # `volatile sp_Bigint *`, but the bigint runtime takes plain
@@ -280,7 +280,7 @@ describe "Exceptions programs" do
   end
 
   it "case in pattern matching inside a rescue body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Composes pattern matching with exception handling --
       # `e.send(:message)` is a `Poly` expression, matched via `case/in`'s own
       # `#deconstruct`-independent `ClassCheck`/`Capture` path.
@@ -299,7 +299,7 @@ describe "Exceptions programs" do
   end
 
   it "case in with no matching arm and no else raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The message names the value and the sub-test that rejected it,
       # which is the whole diagnostic for a `case/in` -- oracle-verified.
 
@@ -315,7 +315,7 @@ describe "Exceptions programs" do
   end
 
   it "catch throw delivers values and uncaught throw raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def thrower; throw :done, [1, 2]; end
       p catch(:done) { thrower }
       outer = Object.new; inner = Object.new
@@ -342,7 +342,7 @@ describe "Exceptions programs" do
   end
 
   it "collection leaf methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array, Hash, and Range leaf methods.
 
       # Array#rfind scans from the right; Array#fetch_values is strict.
@@ -427,7 +427,7 @@ describe "Exceptions programs" do
   end
 
   it "core error shows only ruby frames" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An error a core method raises shows the frames of the methods the
       # program called and the C methods ruby shows, and none of the helpers
       # the runtime keeps for itself: in a block, in sort_by, in Integer(), in
@@ -550,9 +550,9 @@ describe "Exceptions programs" do
   end
 
   it "core error shows only ruby frames pack" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pack or unpack that raises shows the frame of the method the program
-      # called, and none of the helpers ze0 keeps for itself: CRuby does that
+      # called, and none of the helpers zr keeps for itself: CRuby does that
       # work in C, with no frame and no constant a program can see.
 
       def show
@@ -602,7 +602,7 @@ describe "Exceptions programs" do
   end
 
   it "deep object chain release" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Releasing a long chain of objects must not cost one stack frame per link.
       class Link
         attr_accessor :nxt
@@ -654,7 +654,7 @@ describe "Exceptions programs" do
   end
 
   it "definition ruby raises on is rescuable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `superclass mismatch` is an EXCEPTION in ruby, raised at the definition -- not
       # a broken program. A `begin ... rescue TypeError` around one catches it, prints,
       # and carries on, so a program that does that has to compile and do the same.
@@ -781,7 +781,7 @@ describe "Exceptions programs" do
   end
 
   it "dollar bang reads the exception being handled" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$!` is the current exception inside a rescue (block or modifier form),
       # nil outside one.
 
@@ -805,7 +805,7 @@ describe "Exceptions programs" do
   end
 
   it "dot class works on rescue bindings and poly receivers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         raise "boom"
       rescue => e
@@ -827,7 +827,7 @@ describe "Exceptions programs" do
   end
 
   it "dup and clone of uncopyable handles raise cruby shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The former loud-panic tier is real, rescuable raises now -- every
       # message verbatim from ruby 4.0.6. Fiber is the special one: CRuby's
       # shallow copy succeeds but skips the machine stack, so the COPY is an
@@ -863,7 +863,7 @@ describe "Exceptions programs" do
   end
 
   it "else clause runs only on the no exception path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts "body"
       rescue
@@ -883,7 +883,7 @@ describe "Exceptions programs" do
   end
 
   it "ensure runs when no exception is raised and there is no rescue at all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts "no exception"
       ensure
@@ -895,7 +895,7 @@ describe "Exceptions programs" do
   end
 
   it "env error shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV's error shapes: a non-String key is a TypeError, a bare `fetch` miss
       # is a KeyError.
 
@@ -915,7 +915,7 @@ describe "Exceptions programs" do
   end
 
   it "errno messages name crubys call sites" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A SystemCallError message's `@ site` names CRuby's own C function, not
       # the syscall: `@ rb_sysopen`, `@ io_fread`, `@ dir_chdir0`,
       # `@ rb_check_realpath_internal`, `@ rb_file_s_stat`, `@ apply2files`, and
@@ -948,7 +948,7 @@ describe "Exceptions programs" do
   end
 
   it "errno sites name crubys c functions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `@ site` in a SystemCallError message names CRuby's own C FUNCTION,
       # not the syscall underneath it. `File.stat` says `rb_file_s_stat`,
       # `File.delete` says `apply2files` (the shared helper behind chmod, chown,
@@ -1039,7 +1039,7 @@ describe "Exceptions programs" do
   end
 
   it "eval of invalid literal source raises a catchable syntax error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal `eval("...")` whose source doesn't parse does not fail the
       # COMPILE: it falls through to the runtime `eval` and raises a catchable
       # SyntaxError, exactly as CRuby does.
@@ -1051,7 +1051,7 @@ describe "Exceptions programs" do
   end
 
   it "eval syntax error is catchable at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       bad = "1 +"
       begin
         eval(bad)
@@ -1064,7 +1064,7 @@ describe "Exceptions programs" do
   end
 
   it "exception attributes raise when unset and private call flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # KeyError#key / #receiver and NameError#receiver raise ArgumentError when
       # never set, but a real miss (nil.foo, h.fetch) sets them. NoMethodError's
       # 4th positional is the private_call? flag.
@@ -1097,7 +1097,7 @@ describe "Exceptions programs" do
   end
 
   it "exception cause chains from active rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         begin
           raise "inner"
@@ -1135,7 +1135,7 @@ describe "Exceptions programs" do
   end
 
   it "exception class new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 1C: built-in exception class `.new("msg")`.
       # `RuntimeError.new(...)`, `ArgumentError.new(...)` etc. previously
       # emitted an undefined `sp_RuntimeError` type (the analyze inferred
@@ -1199,7 +1199,7 @@ describe "Exceptions programs" do
   end
 
   it "exception equality exception method and message coercion" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       e = RuntimeError.new("m")
       e2 = RuntimeError.new("m")
       p e == e2
@@ -1237,7 +1237,7 @@ describe "Exceptions programs" do
   end
 
   it "exception messages" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception's message comes from its own `initialize`/`to_s` chain, so
       # `raise SomeError` (no message) must actually RUN the class's constructor --
       # defaults, `super` and all -- rather than short-cutting to the class name.
@@ -1375,7 +1375,7 @@ describe "Exceptions programs" do
   end
 
   it "exception override message unqueried" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Ov7 < StandardError
         def message; "overridden"; end
       end
@@ -1393,7 +1393,7 @@ describe "Exceptions programs" do
   end
 
   it "exception reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening the native exception hierarchy and the builtin modules (D3).
       # The exception prelude lives natively, yet stays fully open: a reopen
       # ADDS a method reaching every subclass and OVERRIDES an existing one
@@ -1461,7 +1461,7 @@ describe "Exceptions programs" do
   end
 
   it "expr retry equal curry methodobj" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # p(multi) / loop as expressions, retry with ensure, Array/Hash#equal?,
       # curry[a, b] multi-arg application, and &method(:kernel_builtin) procs.
       x = p(1, 2)
@@ -1553,7 +1553,7 @@ describe "Exceptions programs" do
   end
 
   it "instance eval rescue modifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An instance_eval/exec splice as the EXPRESSION of a rescue modifier (#2723):
       # the expression arm's own preludes must land inside the protected region, and
       # the splice temp's seeded type must survive the write pass's per-iteration
@@ -1583,7 +1583,7 @@ describe "Exceptions programs" do
   end
 
   it "invalid attribute name is a name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `attr_accessor`/`attr_reader`/`attr_writer` validate the name ("invalid
       # attribute name '1bad'"); zeo accepts anything and mints :"1bad" rows,
       # which then leak into instance_methods. (Found by the 2026-08-24 probe
@@ -1601,7 +1601,7 @@ describe "Exceptions programs" do
   end
 
   it "join separator slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `join`'s separator is a NILABLE String slot: nil is legal and means "" (it
       # is `$,`'s default), false and every other class are a TypeError. The
       # emitters passed the argument into the const char* slot raw, so both spellings
@@ -1658,7 +1658,7 @@ describe "Exceptions programs" do
   end
 
   it "method of an unknown name raises name error at construction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         "str".method(:definitely_not_defined)
       rescue NameError => e
@@ -1678,7 +1678,7 @@ describe "Exceptions programs" do
   end
 
   it "method undefined name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#method / #public_method with an undefined name raise NameError
       # immediately; a defined name still returns a callable Method.
       r = (true.method(:nope) rescue $!.class); p r
@@ -1708,7 +1708,7 @@ describe "Exceptions programs" do
   end
 
   it "multi line exception message keeps its class tag on line one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's uncaught-exception report puts the class tag at the end of the
       # message's FIRST line and lets the rest run underneath, unindented -- the
       # `error_pos`/`print_errinfo` split. zeo appended it after the whole message,
@@ -1731,7 +1731,7 @@ describe "Exceptions programs" do
   end
 
   it "native exception hides its message ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A raised native exception exposes NO `@message` ivar (CRuby stores it in a
       # hidden slot): `instance_variables` is empty and `@message` reads nil.
 
@@ -1752,7 +1752,7 @@ describe "Exceptions programs" do
   end
 
   it "nested begin ensure runs inner before outer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         begin
           puts "inner body"
@@ -1772,7 +1772,7 @@ describe "Exceptions programs" do
   end
 
   it "no matching pattern error message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `NoMatchingPatternError` names the value and the test that failed:
       #
       #     1: String === 1 does not return true
@@ -1831,7 +1831,7 @@ describe "Exceptions programs" do
   end
 
   it "nomethod raises on every receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An undefined method raises a rescuable NoMethodError wherever CRuby does:
       # an Array/Hash/Symbol literal and a user-class instance were refused at
       # compile time, so a program that only reaches the call behind a rescue could
@@ -1861,7 +1861,7 @@ describe "Exceptions programs" do
   end
 
   it "nomethod receiver parens" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (begin; ({a: 1}).nope; rescue NoMethodError => e001; e001.receiver; end); p r001
 
       p(begin; ({}).nope; rescue NoMethodError => e; e.receiver; end)
@@ -1894,7 +1894,7 @@ describe "Exceptions programs" do
   end
 
   it "pattern key error class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash pattern that misses a KEY raises `NoMatchingPatternKeyError` in CRuby,
       # carrying the key it wanted and the Hash it was asked of. zeo raised the parent
       # `NoMatchingPatternError` with no detail.
@@ -1982,7 +1982,7 @@ describe "Exceptions programs" do
   end
 
   it "pattern naming an undefined constant raises name error when tried" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       r = begin
         case x
@@ -1999,7 +1999,7 @@ describe "Exceptions programs" do
   end
 
   it "poly length size nomethod" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `length` / `size` on a boxed receiver that has neither: the poly length
       # helper answered 0 for nil, a number and a user object, so a nil read out of
       # a hash miss answered 0 where CRuby raises NoMethodError (#3974).
@@ -2044,7 +2044,7 @@ describe "Exceptions programs" do
   end
 
   it "poly receiver call with unknown keyword raises at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The other old silent-drop site: kwargs on a Poly receiver now ride
       # the G2 convention; an undefined method stays a real NoMethodError.
 
@@ -2063,7 +2063,7 @@ describe "Exceptions programs" do
   end
 
   it "poly recv int iterators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # times / upto / downto with a block, on a receiver only known to be an
       # Integer at run time. The arm that unboxes a boxed receiver and re-dispatches
       # through the typed Integer emitters only ever ran for the BLOCKLESS names, so
@@ -2119,7 +2119,7 @@ describe "Exceptions programs" do
   end
 
   it "poly sign predicate user zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class defining zero? claims the name, so every call on a poly receiver
       # goes through the class dispatch. A Float or Integer arriving at that same call
       # site still has to answer its own sign from the runtime tag - the dispatch used
@@ -2160,7 +2160,7 @@ describe "Exceptions programs" do
   end
 
   it "prepend on builtin exception ignored" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Wrap
         def detailed_message(highlight: true, **)
           "[" + super + "]"
@@ -2182,7 +2182,7 @@ describe "Exceptions programs" do
   end
 
   it "private method called with an explicit receiver raises at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A visibility violation is RUNTIME behavior in Ruby, not a syntax
       # error: it raises NoMethodError when the call actually runs, so it can
       # be rescued and an unreachable one stays silent. Message shape and
@@ -2217,7 +2217,7 @@ describe "Exceptions programs" do
   end
 
   it "protected method called from outside any related class raises at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same rule as the private case above -- a runtime NoMethodError.
 
       class Money
@@ -2244,7 +2244,7 @@ describe "Exceptions programs" do
   end
 
   it "raise cause and backrefs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three lowering gaps that CRuby resolves differently than a naive compiler
       # would: an explicit `cause:`, the `$+` backreference, and adjacent
       # interpolated string literals.
@@ -2354,7 +2354,7 @@ describe "Exceptions programs" do
   end
 
   it "raise computed class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise <computed>, message` -- a runtime-computed exception class/instance
       # (not a literal constant) coerces like Kernel#raise (`klass.exception(msg)`).
       def boom(klass) = raise klass, "boom from #{klass}"
@@ -2376,7 +2376,7 @@ describe "Exceptions programs" do
   end
 
   it "raise forwards its arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise(...)` -- argument forwarding into raise. The static raise desugar
       # has no shape for `...`, so it must route through the general call
       # lowering, which expands the forwarding into `*rest, **kw, &blk` and
@@ -2418,7 +2418,7 @@ describe "Exceptions programs" do
   end
 
   it "raise names its own cause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise ..., cause: c` names the cause outright, so the automatic `$!`
       # chaining is skipped and the named one stands -- `cause: nil` suppresses
       # chaining entirely, and a non-exception cause is a TypeError.
@@ -2475,7 +2475,7 @@ describe "Exceptions programs" do
   end
 
   it "raise shortform default args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A short-form `raise Cls, "msg"` of an exception whose initialize has
       # defaulted parameters (positional or keyword) must fill those defaults at
       # the generated constructor call site: sp_Cls_new keeps the full signature,
@@ -2506,7 +2506,7 @@ describe "Exceptions programs" do
   end
 
   it "raise takes one keyword and collapses the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `cause:` is the only keyword `raise` reads. Anything else written that way is
       # not a keyword at all: ruby collapses the rest into ONE Hash and passes it as
       # an ordinary positional argument, so it lands in the MESSAGE slot and reaches
@@ -2603,7 +2603,7 @@ describe "Exceptions programs" do
   end
 
   it "raise uses exception hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class CustomE < StandardError
         def self.exception(msg = nil) = new("custom: #{msg}")
       end
@@ -2619,7 +2619,7 @@ describe "Exceptions programs" do
   end
 
   it "raise with a bare class defaults the message to the class name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Assert the UNCAUGHT path here (see the `rescue` tests below for the
       # caught path): an unhandled `raise MyError` (no explicit message) exits 1 with the
       # class's own name as the message (no runtime `self.class` reflection
@@ -2642,7 +2642,7 @@ describe "Exceptions programs" do
   end
 
   it "raise with an exception hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise obj, "msg"` where obj's class overrides #exception does not even
       # BUILD: codegen hands the constructed object to the raise-argument
       # coercion unboxed, where a boxed value is wanted, and the generated program
@@ -2671,7 +2671,7 @@ describe "Exceptions programs" do
   end
 
   it "raising a non exception is a type error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise <non-exception>` coerces at runtime -- a String becomes a
       # RuntimeError, everything else is CRuby's TypeError -- instead of
       # panicking when the raise machinery unwraps a non-Object.
@@ -2713,7 +2713,7 @@ describe "Exceptions programs" do
   end
 
   it "rescue binding rebinds whatever the name held" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue => e` assigns `e`, and ruby does not care what `e` was before. The
       # name simply holds the exception inside the handler, and keeps holding it
       # afterwards -- a rescue binding is an ordinary local assignment, not a scoped
@@ -2841,7 +2841,7 @@ describe "Exceptions programs" do
   end
 
   it "rescue honors custom case eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue M => e` matches via `===` (CRuby's rule) -- a matcher module that
       # OVERRIDES `self.===` decides for itself. rspec-support's
       # AllExceptionsExceptOnesWeMustNotRescue catches everything except
@@ -2872,7 +2872,7 @@ describe "Exceptions programs" do
   end
 
   it "rescue modifier assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `expr rescue fallback` as an rvalue — verifies that
       # RescueModifierNode is wired into infer_type so the receiving
       # variable gets the unified type rather than the default int.
@@ -2908,7 +2908,7 @@ describe "Exceptions programs" do
   end
 
   it "rescue module bare reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rescue-by-module matching (an exception matches a rescue arm naming a
       # module its class includes) and user readers on a bare-rescued exception.
 
@@ -2996,7 +2996,7 @@ describe "Exceptions programs" do
   end
 
   it "rescue namespaced exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user exception raised under its qualified Ruby name ("App::Error") must be
       # matched by every arm shape: a namespaced arm (`rescue App::Error`, whose AST
       # name is the leaf), a leaf-referenced arm inside the module, a parent-class
@@ -3040,7 +3040,7 @@ describe "Exceptions programs" do
   end
 
   it "rescue splat follows the splat rule" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue A, *list => e` splats `list` by the SAME rule an argument list does.
       #
       # zeo tested the splat's value as if it were always one class, so `*nil` --
@@ -3121,7 +3121,7 @@ describe "Exceptions programs" do
   end
 
   it "runtime raise not compile error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Cases where a compiler is tempted to reject at build time but real Ruby
       # raises at RUNTIME -- so the program must compile, run, and let a `rescue`
       # see the error. Codegen lowers every branch eagerly, so rejecting any of
@@ -3256,7 +3256,7 @@ describe "Exceptions programs" do
   end
 
   it "scoped const write to an undefined scope raises before the rhs runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby resolves the scope BEFORE evaluating the value, so the RHS side
       # effect never runs.
 
@@ -3273,7 +3273,7 @@ describe "Exceptions programs" do
   end
 
   it "top level def recursion and mutual calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fib(n)
         n < 2 ? n : fib(n - 1) + fib(n - 2)
       end
@@ -3287,7 +3287,7 @@ describe "Exceptions programs" do
   end
 
   it "transform keys combined cmp wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # transform_keys with a mapping AND a fallback block, and Comparable
       # operators over a nil-capable user <=> (incomparable raises).
       h = { a: 1, b: 2, c: 3 }
@@ -3325,7 +3325,7 @@ describe "Exceptions programs" do
   end
 
   it "uncaught error reports its causes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The report of an uncaught exception names each cause after it, each
       # once, as full_message does.
       class Outer < StandardError; end
@@ -3352,7 +3352,7 @@ describe "Exceptions programs" do
   end
 
   it "uncaught exception report matches cruby shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The top-level report: innermost frame heads the message line, outer
       # frames follow tab-indented -- verbatim ruby 4.0.6 (as `-e`).
 
@@ -3369,7 +3369,7 @@ describe "Exceptions programs" do
   end
 
   it "unshareable message is deep copied across the boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mutating the original AFTER send must not affect the ractor's copy --
       # the whole point of the isolation discipline.
       # Asserted via `puts` on the round-tripped copy (collection methods on
@@ -3394,7 +3394,7 @@ describe "Exceptions programs" do
   end
 
   it "a jump out of an ensure puts $! back to what it was before the begin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An ensure that ends in a jump drops the exception it ran for, and $!
       # goes back to what it held before the begin, as it does when the
       # ensure falls through. The dropped exception is then no later

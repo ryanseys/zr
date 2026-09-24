@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: the io/wait and io/nonblock libraries" do
   it "nonblock? and nonblock= read and set the flag, and the block form restores it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "io/nonblock"` -- `IO#nonblock?`, `#nonblock=`, and the block form
       # that sets the flag only for its block. CRuby's reader form requires that
       # block, and its `IO.pipe` hands back fds already marked non-blocking.
@@ -60,7 +60,7 @@ describe "IO: the io/wait and io/nonblock libraries" do
   end
 
   it "wait_readable and wait_writable poll the descriptor of each end of a pipe" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "io/wait"` is a native no-op feature (like io/console): IO gains
       # `#wait_readable`/`#wait_writable`, real `poll(2)` over the fd. A pipe with
       # a byte buffered is readable; its write end is writable. net/protocol's

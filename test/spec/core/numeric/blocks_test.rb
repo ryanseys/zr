@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: blocks and yields" do
   it "float step block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #870: Float#step yields floats. Pre-fix the LV slot was
       # typed as mrb_int so `lv_x += 0.5` truncated to `+= 0` and looped
       # forever.
@@ -31,7 +31,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "floats and lambdas" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 1.5 + 2.5
       puts 3.0 - 1
       puts 2.0 * 3
@@ -119,7 +119,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "int nil boxing min max block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty collections return nil from min/max even when a comparator block is
       # supplied. Keep nonempty and argument-taking forms covered at the same time.
       class EmptyInts
@@ -160,7 +160,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "integer step no limit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#step with no limit iterates until the block breaks.
       r = 1.step { |i| break i if i > 3 }
       p r
@@ -173,7 +173,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "lambda float captures with float param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A multi-statement lambda/proc may capture two or more non-Integer (Float,
       # String, ...) locals even when it also takes a Float parameter. Captures ride
       # the capture struct as real fields; a first-class proc's .call passes Float
@@ -215,7 +215,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "proc curry collects arguments and each step is reusable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       add = ->(a, b, c) { a + b + c }
       p add.curry[1][2][3]
       p add.curry[1, 2][3]
@@ -239,7 +239,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "proc float arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Float argument to a proc / lambda `.call` (or a lowered `yield`) must read
       # back as itself inside the block, not 0.0.
       #
@@ -308,7 +308,7 @@ describe "Numeric: blocks and yields" do
   end
 
   it "proc float return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc/lambda whose body's value is a Float carries that float back
       # through `.call` (boxed in the poly return slot), instead of truncating
       # to the int the proc-fn ABI slot defaults to.

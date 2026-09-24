@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Marshal programs" do
   it "carries an array s ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1]
       a.instance_variable_set(:@meta, 7)
       back = Marshal.load(Marshal.dump(a))
@@ -16,7 +16,7 @@ describe "Marshal programs" do
   end
 
   it "data value and the numeric values round trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal writes a Data value as the Struct record CRuby writes, reads it
       # back frozen, and builds a Rational or a Complex without calling their
       # `allocate`, which Ruby cannot call. A class is written by its name
@@ -43,7 +43,7 @@ describe "Marshal programs" do
   end
 
   it "an anonymous class is refused, because a dump names the class load must find" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A dump names the class so `Marshal.load` can find it again, which an
       # ANONYMOUS class has no way to be -- so it is refused rather than written as a
       # reference nothing can resolve.
@@ -97,7 +97,7 @@ describe "Marshal programs" do
   end
 
   it "the value tower round-trips, and symbols and floats write CRuby's exact bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal round-trips the value tower (primitives, bignum, array, hash,
       # Rational, shared refs and cycles) and writes CRuby's exact wire bytes for
       # symbols (with ;-symlinks) and floats.
@@ -145,7 +145,7 @@ describe "Marshal programs" do
   end
 
   it "dump takes an IO and a depth limit, and load takes an IO, freeze: and a proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal's entry surface beyond the byte format (which matches
       # exactly): `dump(obj, io)` WRITES to the IO (zeo writes nothing),
       # `load` accepts an IO source, `freeze: true` freezes the graph, the
@@ -183,7 +183,7 @@ describe "Marshal programs" do
   end
 
   it "an exception loads back, and an extended module travels with the object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A dumped exception loads back. `marshal_allocate` has no Exception arm,
       # so it reports "allocator undefined" for a class `rclass.rs` already knows
       # how to allocate.
@@ -225,7 +225,7 @@ describe "Marshal programs" do
   end
 
   it "dump writes a NUL-heavy payload to an IO, and load reads one back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal.load takes either the serialized bytes or an IO to read them from,
       # and Marshal.dump writes to an IO when it is given one. Only the String forms
       # were compiled: `Marshal.load(f)` handed the sp_File* over as though the
@@ -282,7 +282,7 @@ describe "Marshal programs" do
   end
 
   it "Rational, Complex and a plain user object round-trip, sharing what was shared" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -448,7 +448,7 @@ describe "Marshal programs" do
   end
 
   it "a graph of hashes, arrays and a Struct comes back == to what went in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal writes and reads a graph of core objects inside the binary.
       Point = Struct.new(:x, :y)
       data = { list: [1, 2.5, "three", :four], point: Point.new(6, 7), set: (1..3).to_a }
@@ -469,7 +469,7 @@ describe "Marshal programs" do
   end
 
   it "an instance variable on a String survives the round trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Instance variables on a STRING survive a Marshal round-trip (the I
       # prefix carries them); zeo drops them silently -- object ivars already
       # round-trip. Data loss, not a missing error. (Found by the 2026-08-24
@@ -488,7 +488,7 @@ describe "Marshal programs" do
   end
 
   it "a repeated symbol writes a link, and a float writes CRuby's shortest round-tripping text" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal writer: a repeated symbol emits a `;<index>` link (CRuby writes each
       # symbol in full once), and floats use CRuby's Marshal text -- the shortest
       # round-tripping %g with the exponent normalized (0.0 -> "0", 100.0 -> "1e2",
@@ -512,7 +512,7 @@ describe "Marshal programs" do
   end
 
   it "a Range and a hash default survive the round trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -571,7 +571,7 @@ describe "Marshal programs" do
   end
 
   it "the I, /, c, m, S, U and u records each match CRuby byte for byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Marshal wire format: the `I` encoding wrapper, `/` Regexp, `c`/`m` class and
       # module references, `S` Struct, and the `U`/`u` user hooks -- all byte-checked
       # against CRuby and round-tripped.
@@ -663,7 +663,7 @@ describe "Marshal programs" do
   end
 
   it "plain object keeps its ivar order and marshals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two divergences on the same storage, both on a BARE `Object` and neither on a
       # user class, which is why the corpus never saw them.
       #
@@ -734,7 +734,7 @@ describe "Marshal programs" do
   end
 
   it "refuses the undumpable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Marshal.dump` refuses what cannot round-trip: an object with a singleton
       # ("singleton can't be dumped") and an IO ("can't dump IO"). zeo dumps both
       # happily, silently losing the singleton and the stream -- wrong DATA, not
@@ -759,7 +759,7 @@ describe "Marshal programs" do
   end
 
   it "stream holds one value after another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A load takes one value from a stream and leaves the rest, so a stream
       # holds value after value. A hash whose default is a block cannot be
       # written at all, and neither can a module with no name.
@@ -778,7 +778,7 @@ describe "Marshal programs" do
       p Marshal.load(io)
       p t { Marshal.load(io) }
 
-      path = File.join(Dir.tmpdir, "ze0_marshal_stream_#{Process.pid}.bin")
+      path = File.join(Dir.tmpdir, "zr_marshal_stream_#{Process.pid}.bin")
       File.open(path, "wb") { |f| Marshal.dump({ "a" => 1 }, f); Marshal.dump("b", f) }
       File.open(path, "rb") do |f|
         p Marshal.load(f)
@@ -823,7 +823,7 @@ describe "Marshal programs" do
   end
 
   it "symbol round trips with its encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Symbol is its bytes and the encoding they are in, and Marshal keeps
       # both: a binary name is plain bytes, a UTF-8 one names its encoding. An
       # Encoding's own _load answers the name it was handed; Marshal's loader
@@ -852,7 +852,7 @@ describe "Marshal programs" do
   end
 
   it "user marshal and userdef hooks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `U` (marshal_dump/marshal_load) and `u` (_dump/self._load) drive
       # serialization through user methods; both round-trip through allocate +
       # the hook.
@@ -886,7 +886,7 @@ describe "Marshal programs" do
   end
 
   it "refuses a d tag for a class no C extension made, as ruby refuses it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `d` is what CRuby's `_dump_data` writes for a T_DATA object, and
       # only a C extension makes one. marshal.c reads the class name,
       # allocates the class, and refuses unless what it made is T_DATA --
@@ -915,7 +915,7 @@ describe "Marshal programs" do
   end
 
   it "names the path as far as it read it when a class is missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rb_path_to_class` walks the path from Object one component at a
       # time, and a component that names nothing stops with the path as
       # far as the walk read it -- which takes in the separator it had

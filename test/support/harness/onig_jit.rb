@@ -2,13 +2,13 @@
 
 require "fiddle"
 require "tmpdir"
-require_relative "../../../lib/ze0/machine/lower"
-require_relative "../../../lib/ze0/native/build"
-require_relative "../../../lib/ze0/obj/jit/fiddle"
-require_relative "../../../lib/ze0/paths"
-require_relative "../../../lib/ze0/zr"
+require_relative "../../../lib/zr/machine/lower"
+require_relative "../../../lib/zr/native/build"
+require_relative "../../../lib/zr/obj/jit/fiddle"
+require_relative "../../../lib/zr/paths"
+require_relative "../../../lib/zr/zr"
 
-module Ze0
+module Zr
   module Harness
     # The kernel matcher (rt/kernel/onig_*.rb) JIT-loaded into this ruby,
     # searching programs the core compiled under this ruby: what the
@@ -21,7 +21,7 @@ module Ze0
 
       def initialize
         Zr.require_onig
-        Dir.mktmpdir("ze0-onig-") do |dir|
+        Dir.mktmpdir("zr-onig-") do |dir|
           consts = File.join(dir, "consts.rb")
           File.write(consts, "CLOCK_MONOTONIC = 6\n")
           lower = Machine.unit(Dir[File.join(Paths::RT, "kernel/onig_*.rb")].sort + [consts])

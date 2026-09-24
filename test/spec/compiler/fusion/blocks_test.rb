@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: blocks and yields" do
   it "block forward recv typed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Typed-receiver `recv.m { ... }` &block forwarding (Site B).
       #
       # Pre-fix `compile_object_method_expr` dropped the literal block: the
@@ -105,7 +105,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "block given inline call site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #706: block_given? in a yield-using method, called from
       # a site that either omits the block (zero-arg case emits
       # `sp_f(NULL, NULL)`) or supplies a literal block (inline path
@@ -121,7 +121,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "block next nil typed map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `next` yields nil, even when the block's tail is typed.
       p [1, 2, 3].map { |v| next if v == 2; v }
       p ["a", "b"].map { |v| next if v == "a"; v }
@@ -160,7 +160,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "fiber yield inside an inline times block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = Fiber.new do
         3.times do |i|
           Fiber.yield i
@@ -182,7 +182,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "fused block resets its own locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A name first assigned INSIDE a fused block is fresh on every iteration,
       # even though the splice shares the enclosing scope where it was hoisted.
       out = []
@@ -215,7 +215,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inline nested yield ivar self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested yield-method inlining: the outer inlined body calls another yielding
       # method on a DIFFERENT receiver, passing its own (renamed) locals as args,
       # and the caller's block reads the caller's ivars. The args must respect the
@@ -271,7 +271,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inline yield deep nested self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three levels of inlined yielding methods: process (inlined via its block),
       # then @a.run and @b.run2 nested inside its spliced block. The deepest block
       # reads @tag through Top's self while A's and B's receivers have overwritten
@@ -307,7 +307,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inline yield method with return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method containing `return` must still inline at block call sites
       # (a bailed inline emitted a plain call to a never-emitted symbol, an
       # undefined-symbol link error: doom's PlayerPhysics#each_nearby_linedef).
@@ -347,7 +347,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inline yield nested self ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Inner
         def initialize(v)
           @val = v
@@ -384,7 +384,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inline yield return side effect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def side
         puts "side effect happened"
         42
@@ -410,7 +410,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inlined yield block param type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #395 string-yield sub-variant. The previous fix only
       # covered int-yielding `each` over a user class; a string-yielding
       # variant still tripped a type mismatch (block param `k` got
@@ -449,7 +449,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "inlined yield self locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #395 / #392 cluster: inlined yield-bearing method bodies
       # previously emitted (a) `self->iv_X` references with no `self` in
       # scope at the call site, (b) half-renamed locals (`lv_i_y1` for the
@@ -511,7 +511,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "kwsplat yield inline bind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method called with a forwarded **hash: its keyword params must
       # bind from the splatted hash (by runtime lookup) when the inlined body yields
       # to the caller's block, not fall through to a fabricated default.
@@ -546,7 +546,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "massign in inlined yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A multiple assignment inside a method body that gets yield-inlined into its
       # caller: every local-target emission (fixed targets, the rest, poly gets)
       # must go through the inline rename table -- the declarations are renamed,
@@ -576,7 +576,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "nested capture inlined times" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An escaping closure can capture the param (and block-locals) of an INLINED
       # `.times` block, even when that `.times` is itself nested inside another
       # escaping block (Batch H). The `.times` body shares the enclosing scope,
@@ -627,7 +627,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "nested escaping block captures an inlined times param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An escaping closure capturing the param of an INLINED `.times` block.
       # The `.times` body shares the enclosing scope, so the param is
       # cell-wrapped per iteration -- fresh each turn, matching Ruby -- and the
@@ -656,7 +656,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "proc capture inline block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc created inside an INLINED iterator block, capturing the block's param
       # (#2648): the body is wrapped in an immediately-called lambda that owns a
       # renamed copy of the param, so each iteration captures a FRESH cell.
@@ -687,7 +687,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "sibling block owns its local beside a fused loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       line = "mentions alpha and beta"
       names = ["alpha", "gamma"]
 
@@ -719,7 +719,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield inline arg caller context" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An argument to a yielding (inlined) method is call-site code: it must
       # resolve against the CALLER's self and class, not the receiver's. Here
       # `interval` is the caller Widget's attr_reader, interpolated into the
@@ -757,7 +757,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield inline ctor self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding `initialize` is inlined at the `new { }` call site. Its body
       # runs in the CONSTRUCTED class's context, so an implicit-self call there
       # (`setup`) must resolve against Builder, not the caller Client — while
@@ -804,7 +804,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield inline divergent accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yield-inlined method that accumulates yield results into an array it
       # returns (map-style) must widen that array to poly when its callers pass
       # blocks of divergent value type -- otherwise an object-returning block's
@@ -837,7 +837,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield inline divergent block map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yield-inline wrapper called from sites whose blocks return DIFFERENT types:
       # the collector the inner iterator builds must hold poly elements. One shared
       # inlined body cannot size it for both an Integer- and a String-returning block
@@ -877,7 +877,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield inline receiver self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method is inlined at its block call site. The inlined body
       # runs in the RECEIVER's class context, so an implicit-self call inside
       # it (`to_a` / `size` below, both defined on Relation) must resolve
@@ -920,7 +920,7 @@ describe "Fusion: blocks and yields" do
   end
 
   it "yield typed hash block local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `yield <typed-hash>` from a top-level method should propagate the
       # hash's type to the caller's block-param local. Pre-fix
       # block_param_type_at returned `int` for no-recv user yield methods

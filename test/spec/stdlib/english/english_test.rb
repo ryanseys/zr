@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "English programs" do
   it "an English alias resolves to a name, and the name says where the value lives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "English"` -- the vendored gem is nothing but `alias $NAME $special`
       # lines, so it exercises the whole special-global surface: an alias resolves to
       # a NAME, and the name is what says whether the value lives in the `$foo` table

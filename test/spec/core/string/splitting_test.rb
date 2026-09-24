@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: splitting and joining" do
   it "armed each line streams a pipe the writer fills incrementally" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # each_line re-enters the with_file seam once per line, so the
       # consumer parks BETWEEN lines while main wakes to write the next
       # one; the closed write end ends the stream.
@@ -27,7 +27,7 @@ describe "String: splitting and joining" do
   end
 
   it "chunk slice float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block-based slicing/chunking materialized via .to_a on Float-element
       # arrays and on an empty (untyped) array literal.
 
@@ -52,7 +52,7 @@ describe "String: splitting and joining" do
   end
 
   it "hash value split widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling to #437. `h = {}; h[pa[i]] = pb[i]` where both `pa` and
       # `pb` come from `split` results inside a method body. #437 added
       # str_int_hash → str_str_hash widening in refine_locals_multi_pass_full
@@ -81,7 +81,7 @@ describe "String: splitting and joining" do
   end
 
   it "plain string split goes straight to the kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A split by a String pattern other than " " or "" with no limit takes
       # the kernel's path first; the answers agree with every other form.
       p "a,b,,c,,".split(",")
@@ -139,7 +139,7 @@ describe "String: splitting and joining" do
   end
 
   it "reopen split superclass dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported from the spinel corpus at c55d9bdb.
       # A class opened BARE and reopened with a superclass is ruby's own
       # `TypeError: superclass mismatch for class Sub` -- a real bare `class Sub`
@@ -187,7 +187,7 @@ describe "String: splitting and joining" do
   end
 
   it "split default separator global" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $; = ","
       p "a,b".split
       p "a,b".split(nil)
@@ -202,7 +202,7 @@ describe "String: splitting and joining" do
   end
 
   it "split keeps leading and embedded empties but drops trailing ones" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "a,b,,c".split(/,/)
       puts "---"
       puts ",a,b".split(/,/)
@@ -227,7 +227,7 @@ describe "String: splitting and joining" do
   end
 
   it "split on blanks goes straight to the kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A split with no pattern, or on " ", with no limit takes the kernel's
       # word scan; it agrees with the limit forms, `$;`, a block, tabs and
       # newlines, and IO#each_line counts `$.` without touching `$_`.
@@ -287,7 +287,7 @@ describe "String: splitting and joining" do
   end
 
   it "split on unresolved chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method compiled but never called whose body splits an unresolvable chain
       # (`Undefined.application.class.to_s.split("::")`) must still produce
       # compilable C: the chain resolves to a poly nil at codegen even though it is
@@ -312,7 +312,7 @@ describe "String: splitting and joining" do
   end
 
   it "split on whitespace keeps nul inside a word" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # awk-style split breaks on space and \t through \r only: a NUL stays
       # inside its word, while strip takes NUL off the ends.
       p "a\0b".split(" "), "a\0 b".split(" "), " a\v b\fc\r\n".split(" ")
@@ -339,7 +339,7 @@ describe "String: splitting and joining" do
   end
 
   it "str split space dynamic limit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A single-space separator selects Ruby's whitespace mode even when the
       # separator is held in a variable or an explicit limit is supplied.
       sep = " "
@@ -373,7 +373,7 @@ describe "String: splitting and joining" do
   end
 
   it "str split space whitespace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#split(" ") is whitespace-split mode (CRuby special case)
       # Strips leading whitespace, collapses consecutive whitespace.
 
@@ -395,7 +395,7 @@ describe "String: splitting and joining" do
   end
 
   it "str split trailing empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#split without limit drops trailing empty strings
       # String#split(sep, -1) keeps them (CRuby default vs no-limit behavior).
       # String#split(sep, 0) is "no limit" and drops trailing empties too;
@@ -422,7 +422,7 @@ describe "String: splitting and joining" do
   end
 
   it "each_char with a block answers the receiver, and yields whole code points" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #866: String#each_char with a block returns the receiver
       # (not nil and not 0).
       s = "hello".each_char {}
@@ -449,7 +449,7 @@ describe "String: splitting and joining" do
   end
 
   it "a blockless each_line is an Enumerator that to_a, first, take and next all read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless String#each_line returns an Enumerator over the lines, mirroring the
       # blockless each_char enumerator.
       p "a\nb\nc".each_line.to_a
@@ -479,7 +479,7 @@ describe "String: splitting and joining" do
   end
 
   it "each_line answers the receiver in expression position as well as in statement" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#each_line with a block returns the receiver (self), per CRuby.
       # The statement form already worked; the expression form (capturing the
       # return value) failed to resolve -- each_line was missing from the
@@ -531,7 +531,7 @@ describe "String: splitting and joining" do
   end
 
   it "each_line yields each line with its newline, the last one only if the source had it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#each_line yields each line WITH its trailing newline
       # (CRuby behaviour). Last line keeps no newline only when the
       # source itself didn't end with one.
@@ -560,7 +560,7 @@ describe "String: splitting and joining" do
   end
 
   it "each_line takes a separator and yields the pieces with it still attached" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       z001 = []; "1-2-3".each_line("-") { |l001| z001 << l001 }; p z001
       p("1-2-3".each_line("-").to_a)
       z2 = []; "a\nb\n".each_line { |l| z2 << l }; p z2
@@ -574,7 +574,7 @@ describe "String: splitting and joining" do
   end
 
   it "lines with an empty separator splits into paragraphs, keeping the blank line with the one before" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # String#lines in paragraph mode (a "" separator) does not split on the
       # blank line.
@@ -606,7 +606,7 @@ describe "String: splitting and joining" do
   end
 
   it "split with a block yields each piece, and the method still answers its own value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#split with a block yields each substring (rather than ignoring the
       # block and returning the array). Spinel previously never ran the block. The
       # call is used in statement position, collecting via the block's side effects --
@@ -646,7 +646,7 @@ describe "String: splitting and joining" do
   end
 
   it "split by a pattern with capture groups splices the captures between the pieces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #856: split with a regex that has capture groups splices
       # the matched groups into the result between segments.
       puts "hello world".split(/(\s+)/).inspect
@@ -665,7 +665,7 @@ describe "String: splitting and joining" do
   end
 
   it "upto walks the succ sequence to its argument inclusive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#upto walks successive strings (the same succ-based sequence a
       # String range produces) from the receiver to the argument inclusive,
       # yielding each to the block. The block-less form materializes the

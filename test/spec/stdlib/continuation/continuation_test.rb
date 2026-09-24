@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Continuation programs" do
   it "callcc goes back through its continuation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # callcc returns the continuation, and a call goes back through it: from
       # later in the same frame, after the method that captured it returned,
       # and in the middle of a block. The warning callcc gives names the
@@ -51,7 +51,7 @@ describe "Continuation programs" do
   end
 
   it "callcc warns only while warnings are on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The continuation extension warns that callcc is obsolete as it loads,
       # through rb_warn, which says nothing while $VERBOSE is nil. Kernel#warn
       # is silent then too.
@@ -71,7 +71,7 @@ describe "Continuation programs" do
   # continuation missed -- a Proc on the stack whose frame has returned
   # -- is read at once, where a plain run met it only now and then.
   it "survives collections" do
-    result = ze0(<<~'RUBY', env: {"ZR_GC_STRESS" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_GC_STRESS" => "1"})
 
       # A continuation keeps the frames it saved alive across collections, a
       # loop can be made of one, and a call from another fiber or thread is

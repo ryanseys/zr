@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Zlib programs" do
   it "const get dynamic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class IS a constant of the scope it sits in, and reflection has to see it
       # under a name computed at run time -- an autoloader, `Marshal`, a YAML class
       # tag and a plain `Object.const_get(config_string)` all resolve that way.
@@ -125,7 +125,7 @@ describe "Zlib programs" do
   end
 
   it "deflate bytes match ruby at every level" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Deflate writes the bytes ruby's zlib 1.3.1 writes, at every level.
       # The port in rt/kernel/zlib_*.rb is held to them byte for byte: a
       # short stream is shown whole, a long one by its size and crc.
@@ -242,7 +242,7 @@ describe "Zlib programs" do
   end
 
   it "deflate bytes match ruby at every strategy and window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Deflate's bytes at every strategy, window size, memory level and
       # wrapper: raw (negative window bits), zlib, and gzip (window bits 16+n,
       # whose header carries the OS byte of the platform: 19 on macOS).
@@ -506,7 +506,7 @@ describe "Zlib programs" do
   end
 
   it "deflate dictionary and copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A preset dictionary, the stream copy, and inflate's need for the same
       # dictionary: NeedDict, then the data after set_dictionary.
       require "zlib"
@@ -599,7 +599,7 @@ describe "Zlib programs" do
   end
 
   it "deflate flush modes and chunks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bytes each flush mode writes at each step of a stream, and that
       # the way input is cut into calls does not change them.
       require "zlib"
@@ -672,7 +672,7 @@ describe "Zlib programs" do
   end
 
   it "deflate params mid stream" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # deflateParams between appends: what the old parameters compressed is
       # flushed, the new ones compress the rest, and the bytes are ruby's.
       # (`<<` keeps the output buffer; ruby's params after `deflate` reads a
@@ -756,7 +756,7 @@ describe "Zlib programs" do
   end
 
   it "deflate reset and reuse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reset takes a stream back to its start: the same bytes come out again,
       # the totals start over, and a finished stream can be reused.
       require "zlib"
@@ -820,7 +820,7 @@ describe "Zlib programs" do
   end
 
   it "gzip reader writer edge cases" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The gzip container's edge surface: line-reading modes, limits, buffers,
       # unget, multi-member streams, and the exact error classes with their
       # `input` payloads. Every row is deterministic -- no timestamps, no
@@ -1076,7 +1076,7 @@ describe "Zlib programs" do
   end
 
   it "inflate data type and totals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The stream fields ruby exposes: data_type as deflate guesses it, the
       # adler, the totals, the buffers' counts, and the finished flags.
       require "zlib"
@@ -1165,7 +1165,7 @@ describe "Zlib programs" do
   end
 
   it "an invalid block type and a broken stored block each raise DataError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every message inflate gives for a broken stream, from hand-built
       # streams: the block types, the code length sets, the distances, the
       # wrappers' headers and trailers.
@@ -1272,7 +1272,7 @@ describe "Zlib programs" do
   end
 
   it "a wrong header check raises DataError and says so" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every message inflate gives for a broken stream, from hand-built
       # streams: the block types, the code length sets, the distances, the
       # wrappers' headers and trailers.
@@ -1343,7 +1343,7 @@ describe "Zlib programs" do
   end
 
   it "a good gzip stream still reads, whatever the corrupt ones did" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every message inflate gives for a broken stream, from hand-built
       # streams: the block types, the code length sets, the distances, the
       # wrappers' headers and trailers.
@@ -1415,7 +1415,7 @@ describe "Zlib programs" do
   end
 
   it "inflate sync and sync point" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # inflateSync finds the next full-flush point after damage, and
       # sync_point? reports a stream stopped at one.
       require "zlib"
@@ -1495,7 +1495,7 @@ describe "Zlib programs" do
   end
 
   it "io copy stream honours length and offset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.copy_stream`'s third and fourth arguments.
       #
       # Both were accepted and dropped. `copy_length` is what rubygems unpacks every
@@ -1621,7 +1621,7 @@ describe "Zlib programs" do
   end
 
   it "subclass of zlib inflate inherits the stream" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Zlib::Inflate` is a value-builtin payload root: a subclass wraps the
       # native stream as its payload and adds ivars of its own -- `Inflate.new`
       # with no arguments is a real empty form, so a subclass without its own
@@ -1659,7 +1659,7 @@ describe "Zlib programs" do
   end
 
   it "an invalid compression level raises StreamError, and a corrupt gzip trailer still reads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Zlib rows beyond the (matching) core: an invalid compression level
       # raises Zlib::StreamError (zeo compresses anyway); `Zlib.crc32_combine`
       # and `Zlib.zlib_version`/`Zlib::VERSION` are absent; and a gzip stream
@@ -1693,7 +1693,7 @@ describe "Zlib programs" do
   end
 
   it "crc32 and adler32 answer what ruby answers, with and without a seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "zlib"
       puts Zlib.crc32("abc")
       puts Zlib.adler32("abc")
@@ -1708,7 +1708,7 @@ describe "Zlib programs" do
   end
 
   it "deflate hands back what has been flushed so far, and << queues the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -1763,7 +1763,7 @@ describe "Zlib programs" do
   end
 
   it "the window bits pick the container, which is how a client decodes a raw stream" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -1814,7 +1814,7 @@ describe "Zlib programs" do
   end
 
   it "the counters and the lifecycle a ZStream shares all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -1886,7 +1886,7 @@ describe "Zlib programs" do
   end
 
   it "each failure mode of the incremental surface raises its own class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -1925,7 +1925,7 @@ describe "Zlib programs" do
   end
 
   it "a GzipWriter round-trips its payload and answers the io it closed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -2026,7 +2026,7 @@ describe "Zlib programs" do
   end
 
   it "a GzipReader reads back the lines and the encoding it was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -2138,7 +2138,7 @@ describe "Zlib programs" do
   end
 
   it "a file on disk round-trips through both halves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -2175,7 +2175,7 @@ describe "Zlib programs" do
   end
 
   it "a corrupt member raises GzipFile::Error once the buffer it filled is read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -2224,7 +2224,7 @@ describe "Zlib programs" do
   end
 
   it "the stream classes report a running crc32 and adler32" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
       # headers carry the current time, and deflate output is only guaranteed to
@@ -2256,7 +2256,7 @@ describe "Zlib programs" do
   end
 
   it "deflate and inflate round-trip at every level, and inflate reads any zlib's bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "zlib"
 
       # deflate / inflate round-trip (and inflate is byte-compatible with any zlib).
@@ -2289,7 +2289,7 @@ describe "Zlib programs" do
   end
 
   it "require \"zlib\" brings up the constants, the stream classes and the exception classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "zlib"` brings up the whole module: the 38 constants, the six
       # stream classes, and the thirteen exception classes the gem's Ruby half
       # defines. This is the shape check -- behaviour is in zlib_classes.rb.
@@ -2313,7 +2313,7 @@ describe "Zlib programs" do
   end
 
   it "the compressor writes ruby's own bytes on every target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zlib on every target: the compressor writes ruby's bytes there too.
       require "zlib"
       text = ("wasm and native agree " * 30) + (0..127).to_a.pack("C*")

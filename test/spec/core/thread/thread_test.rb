@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread programs" do
   it "armed gvl holder blocked in fifo open does not stall its siblings" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # File.open's open(2) ITSELF blocks on a FIFO until the other end
       # shows up -- the reason the release wraps the open, not just reads.
       # Without it the reader parks inside the armed Gvl and main can never
@@ -24,7 +24,7 @@ describe "Thread programs" do
   end
 
   it "armed read family parks per call without stalling the writer" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The with_file seam beyond gets: readline and a LENGTHED read(n)
       # each park on the pipe in their own Gvl-released section, with main
       # feeding the pipe in stages between sleeps -- two consecutive
@@ -55,7 +55,7 @@ describe "Thread programs" do
   end
 
   it "reads back what it wrote to fiber storage, and nil for a key it never wrote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Fiber[:user_id] = 42
       puts Fiber[:user_id]
 
@@ -78,7 +78,7 @@ describe "Thread programs" do
   end
 
   it "refuses Fiber.current[k] = v, because storage is reached through the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber storage is reached through `Fiber[]`, and a Fiber instance
       # carries no `[]=` to alias it with.
 
@@ -93,7 +93,7 @@ describe "Thread programs" do
   end
 
   it "keeps fiber storage alive across a collection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sp_fiber_root.storage must survive GC. sp_fiber_root is a static
       # rather than sp_gc_alloc'd, so the heap walker never scans it;
       # without explicit marking in sp_re_mark_globals the SymPolyHash
@@ -125,7 +125,7 @@ describe "Thread programs" do
   end
 
   it "fiber storage inherits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Parent fiber's storage is snapshot-copied into a child fiber at
       # Fiber.new time. Subsequent writes on either side are independent
       # (shallow copy).
@@ -152,7 +152,7 @@ describe "Thread programs" do
   end
 
   it "fiber storage persists" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Storage values persist across yield/resume cycles within the same
       # fiber. Mirrors the existing fiber_ivar_persists_across_yield test
       # but exercises the storage path instead of ivars.
@@ -175,7 +175,7 @@ describe "Thread programs" do
   end
 
   it "fiber storage siblings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling fibers have independent storage. A write in one does not
       # affect the other even if they share a parent.
       Fiber[:tag] = "parent"
@@ -208,7 +208,7 @@ describe "Thread programs" do
   end
 
   it "clearing a sized queue wakes its pushers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SizedQueue#clear empties the queue and wakes every thread waiting to
       # push, as rb_szqueue_clear does.
 
@@ -231,7 +231,7 @@ describe "Thread programs" do
   end
 
   it "concurrency class constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The concurrency classes answer as VALUES, and a SizedQueue is a real
       # subclass of Queue.
       #
@@ -285,7 +285,7 @@ describe "Thread programs" do
   end
 
   it "concurrency path2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Queue and Mutex methods on a dynamically-typed (Poly) receiver: held in an
       # Array/Hash/ivar so the compiler can't statically know the type and must
       # dispatch through the runtime method table (Path-2).
@@ -349,7 +349,7 @@ describe "Thread programs" do
   end
 
   it "condition variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConditionVariable — thread coordination paired with a Mutex.
 
       cv = ConditionVariable.new
@@ -398,7 +398,7 @@ describe "Thread programs" do
   end
 
   it "container read missing arms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three shapes of the same gap: a value whose type is only known at run time
       # reaches an emitter keyed on the static type, finds no arm, and either raises
       # NoMethodError naming exactly what the receiver is, or answers the slot's
@@ -473,7 +473,7 @@ describe "Thread programs" do
   end
 
   it "each threads bare reraise sees its own handled exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each thread's bare `raise` must re-raise its OWN handled exception, never
       # a sibling's -- the per-thread handling stack keeps the two isolated.
 
@@ -507,7 +507,7 @@ describe "Thread programs" do
   end
 
   it "external iteration drives a real fiber" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The keystone: external iteration over a method-backed enumerator --
       # `next` advances a real fiber, `peek` caches without consuming, the
       # classic `loop { e.next }` idiom terminates via StopIteration and
@@ -549,7 +549,7 @@ describe "Thread programs" do
   end
 
   it "fiber drop teardown" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Suspended fibers and abandoned enumerator iterations are torn down
       # without running their `ensure` bodies -- at process end, at thread end,
       # and when a re-init row (`rewind`) discards a suspended iteration
@@ -590,7 +590,7 @@ describe "Thread programs" do
   end
 
   it "fiber extended" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber.current has a stable identity (the root fiber at the top level)
       p Fiber.current.class
       p Fiber.current.equal?(Fiber.current)
@@ -655,7 +655,7 @@ describe "Thread programs" do
   end
 
   it "fiber gc root isolation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Cooperative fibers each hold their own GC roots. Pre-fix the
       # single shared sp_gc_roots[] / sp_gc_nroots pair meant that a
       # fiber switch via non-LIFO yields / Fiber.transfer let one
@@ -743,7 +743,7 @@ describe "Thread programs" do
   end
 
   it "fiber nested fiber" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Fiber / Enumerator.new body may itself create another Fiber / Enumerator.
       # Each body lowers to its own file-scope C function. Previously the inner
       # body was emitted into the shared g_procs buffer while the outer body was
@@ -830,7 +830,7 @@ describe "Thread programs" do
   end
 
   it "fiber storage nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber[:k] = nil must compile: fiber storage is poly-valued, so a nil value
       # is carried boxed (not declared as a `void` temp).
       Fiber.new do
@@ -846,7 +846,7 @@ describe "Thread programs" do
   end
 
   it "fiber wide router" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A wide, shallow call fan-out inside a fiber: every arm forced inline is
       # absorbed into one frame as a sibling of the others, and the rooted locals
       # cannot share slots, so the frame grows with the BREADTH of the router. The
@@ -902,7 +902,7 @@ describe "Thread programs" do
   end
 
   it "fibers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber -- cooperative stackful coroutines
 
       # a producer yielding values to its resumer
@@ -980,7 +980,7 @@ describe "Thread programs" do
   end
 
   it "gc first thread threshold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Creating the first Thread sizes the object-heap collection budget for the
       # worker pool. It used to MULTIPLY the current threshold by the pool size --
       # and the pool is min(cores, SPINEL_WORKERS), not the thread count the program
@@ -1036,7 +1036,7 @@ describe "Thread programs" do
   end
 
   it "a fiber created inside a method closes over that method's parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Server
         def self.run(sfd)
           f = Fiber.new { sfd + 1 }
@@ -1073,7 +1073,7 @@ describe "Thread programs" do
   end
 
   it "index opassign in thread block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Index operator-assignment (`arr[i] += x`) on a captured variable inside a
       # block that escapes into a Thread. The block is lifted to a real proc whose
       # result is consumed through the proc-call ABI, so the op-write appears in
@@ -1124,7 +1124,7 @@ describe "Thread programs" do
   end
 
   it "Thread.new passes its arguments to the block and answers the block's value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Thread.new(7, 8) { |a, b| [a, b] }.value
       p Thread.new(7) { |a| a }.value
       r = (Thread.new(1, 2, 3) { |a, b, c| a + b + c }.value rescue $!.class); p r
@@ -1140,7 +1140,7 @@ describe "Thread programs" do
   end
 
   it "a finished Thread inspects as dead" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Thread.new { 1 }
       t.join
       p t.inspect.start_with?("#<Thread")
@@ -1156,13 +1156,13 @@ describe "Thread programs" do
   end
 
   it "Thread.new with no block raises ThreadError" do
-    result = ze0("r = (Thread.new rescue $!.class); p r\n")
+    result = zr("r = (Thread.new rescue $!.class); p r\n")
 
     _(result).must_answer "ThreadError\n"
   end
 
   it "Thread, Mutex and Queue are the classes their constructors name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Thread.new { 1 }
       p t.class
       p t.frozen?
@@ -1186,7 +1186,7 @@ describe "Thread programs" do
   end
 
   it "a Thread inspects with the file and line it was started at" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Thread.new { 1 }
       t.join
       p t.inspect.include?(__FILE__)
@@ -1204,7 +1204,7 @@ describe "Thread programs" do
   end
 
   it "ivar sole thread handoff" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Instance variables read and write without locking while one Ruby thread
       # exists. The moment a second one is spawned that has to stop, for objects
       # built BEFORE the spawn as much as after -- so this hammers the same objects
@@ -1317,7 +1317,7 @@ describe "Thread programs" do
   end
 
   it "mutex protected counter across threads is exact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # THE canonical threading idiom -- Proc-within-Proc (Thread.new wrapping
       # synchronize). The mutex makes the sum exact (2000) regardless of how the
       # two OS threads interleave.
@@ -1335,7 +1335,7 @@ describe "Thread programs" do
   end
 
   it "mutex synchronize exits with a break value and unlocks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       mu = Mutex.new
       r = mu.synchronize { break 5 }
       puts r
@@ -1346,7 +1346,7 @@ describe "Thread programs" do
   end
 
   it "opposite order two container ops do not deadlock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The lock-ordering probe family: mirrored two-container operations
       # (replace, ==, eql?, <=>, string ==, Encoding.compatible?) hammered
       # from two threads in OPPOSITE orders. Any builtin that holds both
@@ -1372,7 +1372,7 @@ describe "Thread programs" do
   end
 
   it "queue and mutex methods on a poly receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Queue/Mutex held in a collection is a dynamically-typed (Poly)
       # receiver, so these methods dispatch through the runtime Path-2 tables
       # rather than the static Path-1 codegen arm. Both must agree.
@@ -1420,7 +1420,7 @@ describe "Thread programs" do
   end
 
   it "queue length shovel and empty predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       q3 = Queue.new
       q3 << 5
       q3 << 6
@@ -1441,7 +1441,7 @@ describe "Thread programs" do
   end
 
   it "ractor experimental warning" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Ractor API is experimental, and Ruby says so once -- at the FIRST
       # `Ractor.new`, naming that line, and never again however many Ractors follow.
       # It is an ordinary categorised warning, so `Warning[:experimental] = false`
@@ -1483,7 +1483,7 @@ describe "Thread programs" do
   end
 
   it "ractor message passing send and receive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       worker = Ractor.new do
         msg = Ractor.receive
         msg * 10
@@ -1498,7 +1498,7 @@ describe "Thread programs" do
   end
 
   it "ractor messages are received in fifo order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = Ractor.new do
         a = Ractor.receive
         b = Ractor.receive
@@ -1517,7 +1517,7 @@ describe "Thread programs" do
   end
 
   it "ractor runs in parallel and returns its value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = Ractor.new(20, 22) do |a, b|
         a + b
       end
@@ -1530,7 +1530,7 @@ describe "Thread programs" do
   end
 
   it "several ractors run in parallel and all values collect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r1 = Ractor.new(1) { |n| n * 10 }
       r2 = Ractor.new(2) { |n| n * 10 }
       r3 = Ractor.new(3) { |n| n * 10 }
@@ -1543,7 +1543,7 @@ describe "Thread programs" do
   end
 
   it "sleep forever parks until interrupted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `sleep` with no duration parks until an interrupt arrives, then delivers
       # it normally.
 
@@ -1565,7 +1565,7 @@ describe "Thread programs" do
   end
 
   it "sleep poly arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sleep with a poly argument (a duration pulled from a heterogeneous hash)
       # must coerce poly -> float for sp_sleep(mrb_float).
       h = { "t" => 0.0, "n" => 2 }
@@ -1577,7 +1577,7 @@ describe "Thread programs" do
   end
 
   it "sleep return value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sleep returns the Integer number of seconds slept (0 for a zero duration),
       # not nil. Cover bare, assigned, Kernel-qualified (plain and root-qualified),
       # and arithmetic-consumer forms.
@@ -1602,7 +1602,7 @@ describe "Thread programs" do
   end
 
   it "value answers the block's result, join blocks, and an unhandled raise reaches the joiner" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.new runs a green thread on the cooperative scheduler (Phase 0, N=1):
       # #value returns the block result, #join blocks until it finishes, #alive?
       # reports completion, an unhandled exception is re-raised at #join/#value, and
@@ -1654,7 +1654,7 @@ describe "Thread programs" do
   end
 
   it "four threads allocating at once leave the heap sound and the sum deterministic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Concurrent allocation from multiple threads must be thread-safe and
       # deterministic. Each worker thread allocates a fresh Array per work item
       # (exercising sp_gc_alloc + the container growth paths that adjust the GC
@@ -1695,7 +1695,7 @@ describe "Thread programs" do
   end
 
   it "GC.start after threads have run takes the stop-the-world barrier and does not hang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An explicit GC.start in a program that has run threads. The collection has to
       # take the stop-the-world barrier: its parallel sweep hands one slot to each
       # other worker and waits for them, which only happens if they are parked at the
@@ -1741,7 +1741,7 @@ describe "Thread programs" do
   end
 
   it "Thread#[] is fiber-local, so a write inside a Fiber is invisible after it ends" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread#[] / Thread#[]= are FIBER-local storage (thread_variable_get/set are
       # the thread-local pair). A write inside a Fiber must be invisible after the
       # fiber ends. zeo keeps one locals map per thread, so the fiber's write leaks
@@ -1770,7 +1770,7 @@ describe "Thread programs" do
   end
 
   it "Thread.list holds the main thread plus every spawned thread still alive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.list returns the main thread plus every live spawned thread.
       p Thread.list.size                       # 1 (just main)
       p Thread.list.include?(Thread.current)   # true
@@ -1800,7 +1800,7 @@ describe "Thread programs" do
   end
 
   it "Thread.new(arg) gives the block its own value rather than a shared capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.new(arg) passes the argument as the block's first parameter -- the
       # canonical way to give each thread its own value instead of capturing a shared
       # variable. The argument reaches the block on the thread's first scheduling.
@@ -1835,7 +1835,7 @@ describe "Thread programs" do
   end
 
   it "value answers a block that built an Integer and one that built a String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Thread.new { 21 * 2 }
       puts t.value
 
@@ -1847,7 +1847,7 @@ describe "Thread programs" do
   end
 
   it "a deadlock after queues, mutexes and condition variables raises fatal and the program goes on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(n)
         r = yield
         p [n, r]
@@ -1976,7 +1976,7 @@ describe "Thread programs" do
   end
 
   it "a mutex its dead owner held is free again" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = Mutex.new
       Thread.new { m.lock }.join
       p [m.locked?, m.try_lock, m.owned?]
@@ -1988,7 +1988,7 @@ describe "Thread programs" do
   end
 
   it "a non-main Ractor may not read unshareable state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $VERBOSE = nil
       NONSH = ["a"]
       $g = 1

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread: raising and rescuing" do
   it "begin rescue ensure and retry work inside threads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t1 = Thread.new do
         begin
           raise "in thread"
@@ -32,7 +32,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "blockless thread and fiber raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless `Thread.new`/`Fiber.new` raises at runtime in real Ruby
       # (thread.c:1034) rather than being a static error, and both are
       # rescuable -- so the program must compile and run.
@@ -56,7 +56,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "catch in fiber body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # catch/throw used inside a fiber body (and a poly-valued catch) must compile.
       r = catch(:done) do
         f = Fiber.new do
@@ -79,7 +79,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "fiber exception boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #1474: a fiber's begin/rescue handlers must not leak across the fiber
       # boundary. Each case previously crashed (cross-stack longjmp) or mis-routed.
 
@@ -137,7 +137,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "fiber raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber#raise injects an exception at the fiber's suspension point. The argument
       # forms mirror Kernel#raise. A handled raise lets the fiber continue; an
       # unhandled one propagates to the caller of #raise.
@@ -207,7 +207,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "kernel catch throw sleep via dynamic dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `send`/`&:` force dynamic dispatch through the Kernel table rather than
       # the static codegen fast path.
 
@@ -225,7 +225,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "main thread is a raise target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A sibling raising into MAIN: delivered at main's next checkpoint --
       # here, waking its sleep -- and rescuable like any other raise.
 
@@ -244,7 +244,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "mutex error semantics match cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       mu = Mutex.new
       begin
         mu.unlock
@@ -273,7 +273,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "mutex synchronize ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mutex#synchronize releases the lock with ensure semantics: on normal exit, on
       # an exception raised in the block (re-raised to the caller), on a `return` out
       # of the block, and on a non-local unwind (throw) passing through it.
@@ -327,7 +327,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "negative sleep is an argument error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `sleep(-1)` raises ArgumentError "time interval must not be negative";
       # zeo raises TypeError with a conversion message. (Found by the 2026-08-24
       # probe sweep.)
@@ -342,7 +342,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "no method error propagates out of fibers and ractors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Bare; end
       f = Fiber.new { Bare.new.send(:nope) }
       begin
@@ -374,7 +374,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "push to a closed queue raises closed queue error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       qq = Queue.new
       qq.close
       puts qq.closed?
@@ -389,7 +389,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "queue argument validation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Queue-family argument surfaces: `Queue#pop(true)` takes the non_block
       # flag and raises ThreadError ("queue empty") on an empty queue; zeo's row
       # takes no arguments at all. `SizedQueue.new(0)` raises ArgumentError
@@ -412,7 +412,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "ractor reports its uncaught exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A ractor that dies of an uncaught exception REPORTS it on stderr as it
       # terminates, and `#value` raising `Ractor::RemoteError` is a separate
       # mechanism -- a program sees both.
@@ -464,7 +464,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "raise inside a fiber backtraces only the fibers own frames" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ec-swap's frame slice, oracle-verified: the fiber starts on a
       # FRESH backtrace stack, so a raise through a method inside it sees
       # exactly [the method, the fiber block] -- none of main's frames --
@@ -489,7 +489,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "raise into sleep wakes the sleeper immediately" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The timeout-gem shape: a thread parked in a LONG sleep is raisable
       # and wakes now, not at the sleep's natural end. Threshold-based (well
       # under the 10s the sleep would otherwise take), never order-based.
@@ -519,7 +519,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "rescue bind in fiber body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue => e` inside a Fiber body binds the exception local in the
       # fiber body's own function. Regression: the binding was attributed to
       # the enclosing scope, so `_fiber_body_N` referenced an undeclared lv_e.
@@ -557,7 +557,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "retired scheduler knobs are silently ignored" do
-    result = ze0(<<~'RUBY', argv: ["--no-gvl"], env: {"ZEO_THREADS" => "not-a-number"})
+    result = zr(<<~'RUBY', argv: ["--no-gvl"], env: {"ZEO_THREADS" => "not-a-number"})
       # `ZEO_THREADS`/`--no-gvl` configure nothing -- threads are always real OS
       # threads. A value, even a malformed one, is silently ignored rather than a
       # startup error, so existing scripts keep running.
@@ -571,7 +571,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "an ensure written in a thread's block runs, and the value still reaches join" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = [0].map do |w|
         Thread.new do
           w.to_s
@@ -630,7 +630,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "Thread#raise aimed at the main thread delivers or stays pending, and never crashes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread#raise aimed at the MAIN thread from a sibling: the main thread is
       # a first-class interrupt target (delivered at its next interruption
       # checkpoint), and the rescue swallows it exactly as under CRuby. The
@@ -652,7 +652,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "Thread#raise on the current thread raises where the call is, so the rescue around it catches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Thread#raise` on the CURRENT thread raises synchronously -- the rescue
       # around the call catches it. zeo defers it like a cross-thread interrupt,
       # so the rescue misses and the exception escapes afterwards. (Found by the
@@ -670,7 +670,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "a thread that dies of an uncaught exception reports on stderr, apart from the re-raise at join" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A thread that dies of an uncaught exception says so on stderr as it
       # terminates, naming itself. That report and the re-raise at `#join` are
       # SEPARATE mechanisms -- a program can see both, or silence the report and
@@ -760,7 +760,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "uncaught exception in a ractor wraps in remote error at value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The port model relays the failure as CRuby does: a
       # `Ractor::RemoteError` whose `#cause` is the original exception.
 
@@ -784,7 +784,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "uncaught exception in a thread reraises at join and value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby stores the exception and re-raises it in whoever joins
       # (`thread.c:1195`). The no-join report_on_exception stderr warning is
       # a documented skip.

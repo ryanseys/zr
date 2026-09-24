@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Kernel: defining and naming methods" do
   it "callee answers the called name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Klass
         def self.original = __callee__
         singleton_class.alias_method :nickname, :original
@@ -38,7 +38,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "implicit self and respond to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def greet
           hello
@@ -138,7 +138,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "implicit self send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Implicit-self send(:literal) / __send__ / public_send -> direct call (#1261).
       # Done on the AST, so a `send(:` inside a string literal is NOT rewritten.
       class Dispatcher
@@ -169,7 +169,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "fail is an exact alias of raise, a bare one inside a rescue included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#fail is an exact alias of Kernel#raise: a bare message raises a
       # RuntimeError, an explicit class + message raises that class, and a bare `fail`
       # inside a rescue re-raises the current exception.
@@ -225,7 +225,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "__id__ is an alias of object_id" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#__id__ is an alias of #object_id.
       p(42.__id__ == 42.object_id)
       p("x".__id__.class)
@@ -242,7 +242,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "respond to implicit self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Screen
         attr_accessor :width
         attr_writer :depth
@@ -332,7 +332,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "respond to kernel mixin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C; end
       c = C.new
       puts c.respond_to?(:display)
@@ -368,7 +368,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "respond to on implicit self inside a class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Implicit-self respond_to? inside a `def self.x` resolves against the
       # class value (like explicit self.respond_to?), so a sibling class method
       # answers true, not false.
@@ -392,7 +392,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "runtime define method in a class body loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class-body `each` loop whose `define_method` block captures the loop
       # variable installs each method into the runtime overlay, reachable on
       # every instance and by `respond_to?`.
@@ -418,7 +418,7 @@ describe "Kernel: defining and naming methods" do
   end
 
   it "user def fail outranks the kernel alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `fail` is `Kernel#raise`'s exact synonym -- and a popular USER method
       # name. Resolution order is real Ruby's: a `def fail` in the receiver's
       # chain wins over the Kernel meaning, however many arguments it takes.

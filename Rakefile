@@ -17,20 +17,20 @@ ROOT = __dir__
 # tuning a compile wants.
 $LOAD_PATH.unshift(File.join(ROOT, "lib"), File.join(ROOT, "test"))
 
-# What `Ze0::CLI.tune!` does to a command, without its re-exec, since a
+# What `Zr::CLI.tune!` does to a command, without its re-exec, since a
 # rake task cannot start itself again. A task that spawns a compile
 # hands the tuning on through the environment, and the child then goes
 # straight on rather than starting itself again.
-def ze0_tune!
-  require "ze0/cli"
-  ENV.update(Ze0::CLI::GC_ENV) if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
-  RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"
+def zr_tune!
+  require "zr/cli"
+  ENV.update(Zr::CLI::GC_ENV) if ENV["ZR_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
+  RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZR_YJIT"] != "0"
 end
 
 # A generated file, written whole: the task prints into a string and the
 # file is replaced only once all of it is there, so a generator that
 # stops half way leaves the old file standing.
-def ze0_write(path)
+def zr_write(path)
   require "stringio"
   io = StringIO.new
   yield io
@@ -41,11 +41,11 @@ end
 # `TARGET=wasm32-wasi` builds every program for that triple and runs it
 # the way that triple is run, as the cross-target rows of CI do;
 # `GC=stress` collects at every allocation.
-ENV["ZE0_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
+ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
 # Every task runs the compiler under ruby unless the caller asks for the
 # compiled one: the tiers, the bootstrap and `rake compile` measure and
-# compare ruby's own road (lib/ze0/self_host.rb).
-ENV["ZE0_SELF"] ||= "0"
+# compare ruby's own road (lib/zr/self_host.rb).
+ENV["ZR_SELF"] ||= "0"
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 
 # One tier: every file under `glob`, loaded into one process, which
@@ -73,42 +73,42 @@ ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # and the prelinked image, about as much again as the caches themselves.
 # Every worker is a fork of that process, so all of them share one copy
 # rather than reading and parsing it each.
-def ze0_ready_line(wasm: false) = %(require "support/built"; Ze0::Test::Built.ready!(wasm: #{wasm}))
+def zr_ready_line(wasm: false) = %(require "support/built"; Zr::Test::Built.ready!(wasm: #{wasm}))
 
 desc "Build the runtime for the checks on this host: its object, the prelinked image and the eval road"
-task("build") { ze0_build("Ze0::Test::Built.targets") }
+task("build") { zr_build("Zr::Test::Built.targets") }
 
 desc "Build the wasm32-wasi runtime and its preludes, for the checks that build modules"
-task("build:wasm") { ze0_build("[Ze0::Target::WASM32_WASI]") }
+task("build:wasm") { zr_build("[Zr::Target::WASM32_WASI]") }
 
 desc "Build both: this host, then wasm32-wasi"
-task("build:all") { ze0_build("Ze0::Test::Built.targets(wasm: true)") }
+task("build:all") { zr_build("Zr::Test::Built.targets(wasm: true)") }
 
-desc "Build the compiler with itself, which exe/ze0 then hands each build to while nothing under lib, rt or vendor changes"
+desc "Build the compiler with itself, which exe/zr then hands each build to while nothing under lib, rt or vendor changes"
 task("build:self") do
-  require_relative "lib/ze0/self_host"
-  Ze0::SelfHost.build
-  abort("rake build:self: the compiled compiler did not build") unless Ze0::SelfHost.current?
-  puts "the compiled compiler: #{Ze0::SelfHost.binary}"
+  require_relative "lib/zr/self_host"
+  Zr::SelfHost.build
+  abort("rake build:self: the compiled compiler did not build") unless Zr::SelfHost.current?
+  puts "the compiled compiler: #{Zr::SelfHost.binary}"
 end
 
-def ze0_build(targets)
+def zr_build(targets)
   require "rbconfig"
-  sh(RbConfig.ruby, "-Ilib:test", "-e", %(require "support/built"; Ze0::Test::Built.build(#{targets})), verbose: false)
+  sh(RbConfig.ruby, "-Ilib:test", "-e", %(require "support/built"; Zr::Test::Built.build(#{targets})), verbose: false)
 end
 
 # The tiers run under the collector tuning a build runs under
 # (`CLI::GC_ENV`): a worker is a compiler, and it allocates as one. Set
 # in this process, the tier's ruby inherits it. Measured over 510
 # examples of three spec directories: 20.1 s -> 18.6 s.
-alias ze0_tuned ze0_tune!
+alias zr_tuned zr_tune!
 
 def tier(name, glob, framework, what, wasm: false)
-  task("#{name}:tune") { ze0_tuned }
+  task("#{name}:tune") { zr_tuned }
   Minitest::TestTask.create(name) do |t|
     t.libs = %w[lib test]
-    # The tests are the compiler's own Ruby, as `ze0` itself is.
-    t.test_prelude = "RubyVM::YJIT.enable; #{ze0_ready_line(wasm: wasm)}"
+    # The tests are the compiler's own Ruby, as `zr` itself is.
+    t.test_prelude = "RubyVM::YJIT.enable; #{zr_ready_line(wasm: wasm)}"
     t.framework = %(require "#{framework}")
     t.test_globs = [File.join(ROOT, glob)]
     t.warning = false
@@ -141,7 +141,7 @@ end
 # A word is only taken when it resolves INSIDE `test/`, so `N=/utf8/`,
 # a switch, a bracketed argument and a real task name all go by
 # untouched.
-def ze0_test_argv
+def zr_test_argv
   ARGV.drop(1).filter_map do |word|
     next if word.include?("=") || word.start_with?("-")
 
@@ -161,26 +161,26 @@ def ze0_test_argv
 end
 
 # The files a word names, and the helper the tier they live in loads.
-def ze0_test_files(paths)
+def zr_test_files(paths)
   paths.flat_map { |p| File.directory?(p) ? Dir[File.join(p, "**/*_test.rb")].sort : [p] }
        .group_by { |f| f.start_with?(File.join(ROOT, "test/spec", "")) ? "spec_helper" : "test_helper" }
 end
 
-ZE0_TEST_ARGV = ze0_test_argv
+ZR_TEST_ARGV = zr_test_argv
 
 desc "Where the tier running now stands, or the last one stood (tmp/test-progress.txt)"
 task("test:progress") do
   require_relative "test/support/progress"
-  puts(Ze0::Test::Progress.read || "no tier has run yet")
+  puts(Zr::Test::Progress.read || "no tier has run yet")
 end
 
 desc "Every test: the units, the specs and the end-to-end programs"
-if ZE0_TEST_ARGV.empty?
+if ZR_TEST_ARGV.empty?
   task test: %w[test:unit test:spec test:e2e]
 else
   task :test do
     require "rbconfig"
-    ze0_tuned
+    zr_tuned
     # The tier's own switches, so one file answers to what a whole tier
     # answers to: `N=` matches an example, `X=` leaves one out, `A=`
     # passes anything else through.
@@ -188,8 +188,8 @@ else
     opts += ["-n", ENV["N"]] if ENV["N"]
     opts += ["-e", ENV["X"]] if ENV["X"]
     opts += ENV["A"].split if ENV["A"]
-    ze0_test_files(ZE0_TEST_ARGV).each do |framework, files|
-      line = "RubyVM::YJIT.enable; #{ze0_ready_line}; " + %(require "#{framework}"; ) +
+    zr_test_files(ZR_TEST_ARGV).each do |framework, files|
+      line = "RubyVM::YJIT.enable; #{zr_ready_line}; " + %(require "#{framework}"; ) +
              files.map { |f| %(require "#{f}"; ) }.join
       sh(RbConfig.ruby, "-Ilib:test", "-e", line, "--", *opts)
     end
@@ -197,7 +197,7 @@ else
 end
 
 tier "test:unit", "test/unit/*_test.rb", "test_helper",
-     "ze0's own internals"
+     "zr's own internals"
 tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
      "Ruby held to ruby, program by program"
 tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",

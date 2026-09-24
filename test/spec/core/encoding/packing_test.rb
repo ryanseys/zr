@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Encoding: packing and unpacking" do
   it "array combinatorics and binary search" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 3].combination(2).to_a
       p [1, 2, 3].combination(0).to_a
       p [1, 2, 3].combination(4).to_a
@@ -34,7 +34,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "big5 refuses cyrillic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Encoding Cyrillic to Big5: CRuby's strict Big5 has no Cyrillic rows and
       # refuses with UndefinedConversionError; zeo's WHATWG table maps them (the
       # HKSCS-adjacent region), so it encodes MORE than ruby. The inverse
@@ -51,7 +51,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "binary read mode encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |d|
@@ -71,7 +71,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "binary string fidelity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Binary strings must survive every operation that copies or moves them.
       #
       # This is a REGRESSION SUITE for one recurring defect, not a feature test.
@@ -204,7 +204,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "binary string length bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A binary string (invalid UTF-8, e.g. a binary-mode read) counts its length in
       # bytes (Ruby ASCII-8BIT semantics), matching bytesize -- not UTF-8 codepoints.
       bin = [0x00, 0x80, 0xC0, 0xFF, 0x41, 0xFE].pack('C*')
@@ -237,7 +237,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "binmode means binary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `#binmode` is not a no-op. The newline half of binary mode is one on
       # Unix, which is presumably why this looked harmless -- but the ENCODING
       # half is not: CRuby's `rb_io_binmode` and `strio_binmode` retag the stream
@@ -292,7 +292,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "carriers exchange emoji in one step" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The carriers' UTF-8 encodings exchange their emoji with each other and
       # with Unicode in one step, and a failure words them as ruby does.
       def t(s, to, **o)
@@ -345,7 +345,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "carriers shift jis converts through their utf8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # Ruby converts SJIS-DoCoMo, SJIS-KDDI, SJIS-SoftBank and
       # stateless-ISO-2022-JP-KDDI through the carrier's own UTF-8, whose emoji
@@ -425,7 +425,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "character a converter refuses is still one character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby answers two questions about a multibyte String from two tables, and
       # they disagree. Where a character ends comes from the encoding itself
       # (onigmo's mbclen), so CP51932 reads 8F A1 A1 as ONE character and calls
@@ -468,7 +468,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "converter reads a stateful source in pieces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Converter reads a stateful source a piece at a time: an escape in one
       # piece sets how the bytes of the next one read.
       %w[ISO-2022-JP CP50220 CP50221 ISO-2022-JP-KDDI].each do |name|
@@ -524,7 +524,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "default encodings are settable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Encoding.default_external= and default_internal= set what a stream that
       # names no encoding reads and converts to, what "external", "filesystem"
       # and "internal" name, and what a bare String#encode converts to.
@@ -656,7 +656,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "a dummy UTF-16 encoding writes a BOM and reads the endianness back off one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The dummy UTF-16/UTF-32 encodings (no endianness in the name): encoding
       # TO one writes a BOM then big-endian code units; decoding FROM one reads
       # the endianness off the BOM, and without a BOM the bytes are an invalid
@@ -689,7 +689,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "euc jp encodes jis x 0212" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Encoding "é" (and other Latin letters) to EUC-JP: CRuby reaches JIS X
       # 0212 (the SS3 plane -- bytes 8f ab b1); zeo's encoder (encoding_rs's
       # WHATWG table, which is decode-only for JIS X 0212) refuses with
@@ -707,7 +707,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "integer chr encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#chr: CRuby-strict range check for the byte form (RangeError outside
       # 0..255) and real UTF-8 encoding for chr(Encoding::UTF_8) -- previously the
       # encoding argument was dropped and the codepoint silently truncated to one
@@ -759,7 +759,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "io binary write paths" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every route a String can take to a write. A String carries its own byte
       # count, so an embedded NUL must not truncate the write -- and the answer must
       # not depend on which spelling of the receiver or which write form was used.
@@ -814,7 +814,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "iso 2022 jp family converts through its stateless form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ISO-2022-JP family converts through its stateless multibyte encoding:
       # each run of two-byte characters stands behind its escape, CP50221 holds
       # halfwidth katakana as a set of its own and CP50220 writes them fullwidth,
@@ -879,7 +879,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "magic comment encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # encoding: ISO-8859-1
       # A `# encoding:` magic comment on the first line (or the second, after a
       # shebang) sets the SCRIPT ENCODING: the encoding every string literal in the
@@ -913,7 +913,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "magic comment sets the script encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # encoding: ISO-8859-1
       # A `# encoding:` comment on the first line tags every string literal and
       # __ENCODING__ with that encoding. Verified against ruby 4.0.6. (The
@@ -934,7 +934,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "pack float native and encoding directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1.5].pack("D").bytes
       p [1.5].pack("G").bytes
       p [3.14].pack("d").unpack("d")
@@ -960,7 +960,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "pack utf8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#pack("U*") encodes integer codepoints as UTF-8. The runtime
       # `U` directive was missing, so pack returned an empty string.
       p [0x1E0A].pack("U*").bytes       # E1 B8 8A
@@ -990,7 +990,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "print of binary chr strings reaches the file byte for byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "/tmp/zeo_e2e_binprint_#{Process.pid}"
       File.open(path, "wb") { |f| f.print 180.chr, 0.chr, 255.chr }
       p File.binread(path).bytes
@@ -1001,7 +1001,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "puts of binary strings adds newlines without reencoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The second argument already ends in a newline BYTE -- `puts` must
       # not double it, and the 0xB5 byte must survive un-promoted.
 
@@ -1015,7 +1015,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "random urandom binary length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Random.urandom hands back binary bytes, so #length is the byte count. spinel
       # keeps no per-string encoding tag and counts UTF-8 code points whenever the
       # bytes happen to spell valid UTF-8 -- true of about 1.5% of 4-byte draws, which
@@ -1048,7 +1048,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "regexp multibyte literal atom" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # A multibyte literal in a pattern is emitted one BYTE at a time, so each
@@ -1092,7 +1092,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "setbyte nul bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: String#setbyte sized the receiver with strlen, which stops at
       # the first NUL byte. An all-NUL buffer (the pack("C*") byte-buffer pattern)
       # measured length 0, so every setbyte raised IndexError despite length/
@@ -1136,7 +1136,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string binary char table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s[i]` on a BINARY string used to allocate: the shared 1-byte substring table
       # is a static array whose entries carry no header (marker 0xff), and the
       # ASCII-8BIT tag lives in a header -- so keeping the tag meant building a real
@@ -1238,7 +1238,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string binary tag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       b = "café".b
       p b.length
       p "café".length
@@ -1359,7 +1359,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string binary tag sources" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # spinel has two encodings, UTF-8 and ASCII-8BIT, and one rule for which is
       # which: a string is ASCII-8BIT when the PROGRAM ASKED FOR BYTES. CRuby's third
       # encoding, US-ASCII, carries only "these bytes are 7-bit" -- measurably nothing
@@ -1454,7 +1454,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string bytes crypt" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#append_as_bytes and String#crypt.
 
       # append_as_bytes: integers contribute their low byte, strings their bytes.
@@ -1509,7 +1509,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string byteslice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#byteslice: byte-indexed substring. Negative start counts from
       # the end. (Out-of-range yields "" like slice, not CRuby's nil, so it is
       # not exercised here.)
@@ -1532,7 +1532,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string nul bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Embedded NUL bytes survive frozen-string operations (dedup / .freeze): the
       # 0xf1 frozen marker carries the real byte length, so nothing truncates at NUL.
       s = "a\u0000b"
@@ -1563,7 +1563,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string search binary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#include?/#index/#rindex must be byte-oriented and NUL-transparent:
       # spinel Strings can carry embedded NULs (pack, socket reads), so a strstr-
       # backed search that stops at the first NUL diverges from CRuby (issue #1778).
@@ -1595,7 +1595,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string times repeats raw bytes keeping the encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = 180.chr * 3
       p r.bytes
       p r.encoding
@@ -1610,7 +1610,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string unicode" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String grapheme clusters and Unicode normalization.
 
       # Grapheme clusters group a base character with its combining marks, and treat
@@ -1666,7 +1666,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "string upto and byte indexing methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "a8".upto("b1").to_a
       r = []
       "a".upto("e") { |x| r << x }
@@ -1696,7 +1696,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "strings keep their encodings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String keeps the encoding ruby gives it: a partial read, and any
       # read in binary mode, is binary; +s and -s keep it; a codepoint appends
       # by the String's encoding; reverse walks characters, an invalid byte
@@ -1741,7 +1741,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "symbol multibyte length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol#length / #size count characters, not bytes, for multibyte
       # symbol names.
       p :αβγ.length
@@ -1759,7 +1759,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "SJIS-SoftBank converts an emoji to UTF8-SoftBank" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "\xF9\x41".b.force_encoding("SJIS-SoftBank")
       r = s.encode("UTF8-SoftBank")
       p [r.b, r.encoding]
@@ -1773,7 +1773,7 @@ describe "Encoding: packing and unpacking" do
   end
 
   it "ISO-2022-JP-KDDI reads and writes its emoji through UTF8-KDDI" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(s, to, **o)
         r = s.encode(to, **o)
         p [r.encoding.name, r.b]

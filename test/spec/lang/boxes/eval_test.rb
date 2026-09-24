@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Boxes: evaluating a string" do
   it "box eval defines and returns across the boundary" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `Box#eval`: a statement-position eval may DEFINE classes in the box; an
       # expression-position eval returns a value whose static type is the box's
       # own class (Path 1 dispatch on a cross-boundary instance); two boxes
@@ -36,7 +36,7 @@ describe "Boxes: evaluating a string" do
   it "box eval dynamic source routes through the vm" do
     files = beside("box_eval/lib.rb", "box_eval/main.rb")
 
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # A NON-literal `box.eval` source (a variable, a computed string) routes
       # through the runtime `eval` in the box's dimension -- the same fall-through
       # `Kernel#eval` uses for a dynamic source, but carrying `box_id`. A dynamic
@@ -61,7 +61,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box global is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -74,7 +74,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box kernel method is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -87,7 +87,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box literal eval is spliced" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -106,7 +106,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box reopens its own patch twice" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -120,7 +120,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "spliced box eval names its own file" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A literal `box.eval` is SPLICED at compile time, and the snippet is a
@@ -155,7 +155,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "two boxes patch one class independently" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       a = Ruby::Box.new
@@ -175,7 +175,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "two boxes patch one shared class independently" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Two boxes patching one shared class do not see each other, and main sees
       # neither. One box could be made to work by accident (any box-shaped key
       # answers); two cannot.
@@ -199,7 +199,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "value built in a box carries no box methods into main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A box's patch of a shared class must not follow a value BACK to main:
       # the Array built inside the box is an ordinary Array in main, and calling
       # the box's method on it raises there.

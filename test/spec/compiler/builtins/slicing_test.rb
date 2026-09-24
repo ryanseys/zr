@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: slicing" do
   it "builtin collection via enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A collection method CRuby defines on the class itself walks that class's own
       # storage -- `rb_ary_collect` never calls `each`. zeo routed 23 of these rows
       # through `Enumerable`, whose bodies iterate by SENDING `each`, so overriding
@@ -122,7 +122,7 @@ describe "Builtins: slicing" do
   end
 
   it "builtin reopen dup override beats kernel dup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `dup` override beats universal `Kernel#dup` on both the static String
       # site and a Poly site (the any-builtin-overrides fall-through); `clone`
       # -- not overridden -- stays the universal shallow copy.
@@ -147,7 +147,7 @@ describe "Builtins: slicing" do
   end
 
   it "builtin reopen methods take blocks and capture self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blocks through a builtin reopen: `yield` + an optional parameter, and an
       # escaping block that captures both a mutated local (a Captured cell) and
       # `self` (the `__self: RubyValue` clone path).
@@ -186,7 +186,7 @@ describe "Builtins: slicing" do
   end
 
   it "builtin reopen nil hash and range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The receiver-kind breadth: NilClass (no static TyKind -- fully dynamic),
       # Hash (implicit native `size`), and Range (static `self.last`/`self.first`
       # fast paths inside the reopen body).
@@ -222,7 +222,7 @@ describe "Builtins: slicing" do
   end
 
   it "builtin reopen override beats native length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Overriding an EXISTING native method: the user `length` wins at a static
       # call site (where `try_collection_dispatch` would answer 3), at a dynamic
       # Poly site, and `size` -- a separate method in real Ruby, NOT an alias of
@@ -248,7 +248,7 @@ describe "Builtins: slicing" do
   end
 
   it "instance exec parity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Consolidated CRuby-4.0.6 parity anchor for direct instance_exec: one
       # file exercising the supported core shapes in combination. Every line's
       # output is cross-checked against `ruby` (the .expected is the oracle).
@@ -306,7 +306,7 @@ describe "Builtins: slicing" do
   end
 
   it "range query and step surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every `Range` query and `#step` shape, against ruby 4.0.6: the closed forms
       # an unbounded range answers without walking, the negative-count refusals, and
       # the bad-stride messages -- which all come from `begin + step`.
@@ -486,7 +486,7 @@ describe "Builtins: slicing" do
   end
 
   it "string range walk surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `succ` walk `String#upto` and a String/Symbol Range share
       # (`rb_str_upto_each`): its single-character, all-digit and byte-ordered
       # branches, plus what a `break` in each form answers.

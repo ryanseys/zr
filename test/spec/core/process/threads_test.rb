@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process: threads, fibers and ractors" do
   it "fiber current storage kill and raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Fiber.current.equal?(Fiber.current)
       Fiber[:level] = "outer"
       seen = []
@@ -55,7 +55,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "fiber kill" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber#kill terminates a fiber, running its ensure blocks. The kill signal
       # unwinds through ensure clauses but is NOT caught by user rescue clauses, and
       # the fiber does not resume past the kill point.
@@ -123,7 +123,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "fiber transfer and kill" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber#transfer round-tripping through the root fiber, Fiber#[]/#[]= storage,
       # the FiberError guards, and Fiber#kill running ensure blocks.
       main = Fiber.current
@@ -200,7 +200,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "one threads bad dispatch no longer kills the other threads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A failing thread surfaces its error at its OWN join; the healthy worker
       # completes normally, unaffected.
 
@@ -229,7 +229,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "thread kill raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread#kill terminates a thread, running its ensure blocks; Thread#raise
       # injects an exception caught by the thread's rescue. A thread is blocked on a
       # Queue so the delivery point is deterministic (Thread.pass runs it to the
@@ -291,7 +291,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "thread list kill raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.list (the live-thread registry) and Thread#kill/#raise.
       Thread.report_on_exception = false
 
@@ -363,7 +363,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "thread registry and kill raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.list (main plus live spawns, joined ones pruned) and
       # Thread.list.include? by identity; Thread#kill unwinding a blocked thread
       # through its ensure; Thread#raise injecting a rescuable exception; #kill
@@ -434,7 +434,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "thread stop status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Thread.new { Thread.stop }
       sleep 0.1
       p t.status
@@ -451,7 +451,7 @@ describe "Process: threads, fibers and ractors" do
   end
 
   it "waiting for a child lets other threads run" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A thread that waits for a child parks on the pipe SIGCHLD writes to,
       # so its siblings run while the child does: Process.wait, detach, and a
       # read on a pipe each let a sleeping thread tick.

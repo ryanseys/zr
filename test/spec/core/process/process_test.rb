@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process programs" do
   it "armed gvl holder waiting on a child process does not stall its siblings" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The process-family probe: the backtick child spins until main
       # creates its flag file, and main can only run if the thread parked
       # in read_to_end/wait(2) released the armed Gvl -- without the
@@ -24,7 +24,7 @@ describe "Process programs" do
   end
 
   it "at exit status override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A handler's `exit` overrides the process status (checked by the e2e
       # suite); the REMAINING handlers still run -- the observable rule here.
       at_exit { puts "h1" }
@@ -42,7 +42,7 @@ describe "Process programs" do
   end
 
   it "backticks and process status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Backtick command literals, `system`, and `$?` as a `Process::Status`.
       # `` `cmd` `` lowers to an implicit-self fcall to the overridable `Kernel#\``,
       # capturing the child's stdout; `system` inherits stdio and answers a
@@ -87,7 +87,7 @@ describe "Process programs" do
   end
 
   it "boxs singleton alias is its own and does not abort" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A class-method ALIAS written in a box's `class << self`. This ABORTED the
       # process before: the alias named the box's overlay class, which registers
       # no entry, and the registrar's `expect` on that lookup is reached across an
@@ -105,7 +105,7 @@ describe "Process programs" do
   end
 
   it "busy loop threads are killable and raisable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A compute-only loop never reaches a blocking primitive, so `#kill`/`#raise`
       # have no natural delivery point. The back-edge check in every native loop
       # delivers them anyway -- kill runs the ensure, raise is rescuable inside
@@ -151,7 +151,7 @@ describe "Process programs" do
   end
 
   it "chld trap and child waiters share the signal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A CHLD trap still runs while threads wait for children, and system
       # and backticks let other threads run; trap answers DEFAULT for the
       # handling the waiters install.
@@ -185,7 +185,7 @@ describe "Process programs" do
   it "circular requires compose in rubys execution order" do
     files = beside("circular_requires/ca.rb", "circular_requires/cb.rb", "circular_requires/main.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # CRuby registers a feature as loading BEFORE executing it, so the
       # inner require of an in-progress file is a no-op and execution order
       # is ca-start, all of cb, ca-end -- the dedup-before-lowering rule
@@ -204,7 +204,7 @@ describe "Process programs" do
   end
 
   it "deadlocked wait raises fatal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A wait only another Ruby thread can end, with no other Ruby thread left to
       # end it, is a deadlock. zeo used to HANG there; CRuby raises `fatal`.
       #
@@ -291,7 +291,7 @@ describe "Process programs" do
   end
 
   it "define finalizer runs at exit and validates args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The finalizer for a still-referenced object runs at program exit; the
       # undefined one never runs; the bad-argument shapes match CRuby.
 
@@ -325,7 +325,7 @@ describe "Process programs" do
   end
 
   it "dynamic load compiles and raises loaderror only when executed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Guarded dynamic load: guard false -> never executes -> no error.
       path = nil
       load path if path
@@ -358,12 +358,12 @@ describe "Process programs" do
   end
 
   it "empty command names no program" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A command with no word in it -- `system("")` or `system(" ")` -- still names
       # a program: the empty name, which no directory holds. ruby's exec answers
       # ENOENT, so `system` reports 127 and `exception: true` raises it.
       #
-      # ze0 split the command into NO words and handed the spawn an empty list, so
+      # zr split the command into NO words and handed the spawn an empty list, so
       # the kernel read a program name that was not there: signal 11.
 
       def refusal(label)
@@ -405,7 +405,7 @@ describe "Process programs" do
   end
 
   it "a self join and its siblings raise ThreadError before any wait begins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every blocking primitive registers with the deadlock detector and parks in
       # slices, so none of them can hang where CRuby raises.
       #
@@ -459,7 +459,7 @@ describe "Process programs" do
   end
 
   it "a wait nothing can satisfy is reported as a deadlock rather than left to hang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every blocking primitive registers with the deadlock detector and parks in
       # slices, so none of them can hang where CRuby raises.
       #
@@ -507,7 +507,7 @@ describe "Process programs" do
   end
 
   it "the limit argument of a join is honoured rather than accepted and ignored" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every blocking primitive registers with the deadlock detector and parks in
       # slices, so none of them can hang where CRuby raises.
       #
@@ -569,7 +569,7 @@ describe "Process programs" do
   end
 
   it "a raise aimed at the current thread is delivered where it is written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every blocking primitive registers with the deadlock detector and parks in
       # slices, so none of them can hang where CRuby raises.
       #
@@ -615,7 +615,7 @@ describe "Process programs" do
   end
 
   it "a Mutex, a Queue and an uncontended lock all still answer under the supervision" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every blocking primitive registers with the deadlock detector and parks in
       # slices, so none of them can hang where CRuby raises.
       #
@@ -700,7 +700,7 @@ describe "Process programs" do
   end
 
   it "exit in an at exit handler sets the status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Handlers run last first; the status a handler's `exit` gives wins over
       # the one the program asked for.
       at_exit { exit 3 }
@@ -713,7 +713,7 @@ describe "Process programs" do
   end
 
   it "exit poly status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `exit(status)` whose status expression is poly-typed (here a poly-hash
       # get) must unbox the value -- a bare (int)(sp_RbVal) cast is a cc error.
       h = { "status" => 0, "note" => "text" }
@@ -725,7 +725,7 @@ describe "Process programs" do
   end
 
   it "explicit return inside a block exits the enclosing method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `c` is a `New`-assigned LOCAL, not a method parameter -- see
       # `an_escaping_block_can_mutate_an_ivar_via_self_capture`'s comment for
       # why (params are always statically `Poly`, a separate pre-existing
@@ -754,7 +754,7 @@ describe "Process programs" do
   end
 
   it "infinite recursion aborts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -825,7 +825,7 @@ describe "Process programs" do
   end
 
   it "instance exec break" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `break` inside a direct instance_exec block exits the block. In
       # expression position `break <v>` makes <v> the value of the call,
       # matching CRuby. The body is spliced at the call site and wrapped in
@@ -883,7 +883,7 @@ describe "Process programs" do
   end
 
   it "instance exec const receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant bound to an instance (`CONST = Foo.new`) works as an
       # instance_exec receiver: recv_class_idx_for_rebind resolves the
       # constant's registered obj_<Class> type, the same way the local and
@@ -914,7 +914,7 @@ describe "Process programs" do
   end
 
   it "instance exec def singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside instance_exec defines a singleton method on the receiver
       # at runtime (CRuby), and zeo matches.
       class Box
@@ -932,7 +932,7 @@ describe "Process programs" do
   end
 
   it "instance exec define method privacy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # define_method inside instance_exec: CRuby raises NoMethodError (it is a
       # private method of Module, and the receiver is a plain instance).
       class Box
@@ -953,7 +953,7 @@ describe "Process programs" do
   end
 
   it "instance exec dynamic ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An ivar first assigned inside an instance_exec / instance_eval block
       # must get a struct slot on the receiver's class. collect_ivars only
       # scans method bodies, so the lift registers the slot (typed from the
@@ -989,7 +989,7 @@ describe "Process programs" do
   end
 
   it "instance exec kwargs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Keyword block params bind by name from the call-site `key:` args. An
       # optional param falls back to its default expression when the call
       # omits it; a positional param can precede the keyword params.
@@ -1031,7 +1031,7 @@ describe "Process programs" do
   end
 
   it "instance exec mixed args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mixed-args instance_exec trampoline: the trampoline body forwards
       # a mix of forwarded locals, the receiver's ivars, and literals --
       # not just call-site params by index.
@@ -1082,7 +1082,7 @@ describe "Process programs" do
   end
 
   it "instance exec module builder" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # instance_exec in a method defined in an INCLUDED module must compile: the
       # block's self rebinds to the includer (CRuby inserts a per-includer iclass and
       # runs the block on the receiver), so bare calls inside the block dispatch on the
@@ -1115,7 +1115,7 @@ describe "Process programs" do
   end
 
   it "instance exec next" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next` inside a direct instance_exec block exits the block once. In
       # expression position `next <v>` makes <v> the value of the call,
       # matching CRuby -- equivalent to `break <v>` for a once-run block. The
@@ -1175,7 +1175,7 @@ describe "Process programs" do
   end
 
   it "instance exec nonlocal return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` inside a direct instance_exec block returns from the
       # ENCLOSING method, not just the block -- matching CRuby. The block body
       # is spliced at the call site, so the return lowers to a real C return
@@ -1230,7 +1230,7 @@ describe "Process programs" do
   end
 
   it "instance exec return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Direct instance_exec in expression position: the call's value is the
       # block's last expression (CRuby semantics), not the receiver.
       #
@@ -1299,7 +1299,7 @@ describe "Process programs" do
   end
 
   it "instance exec splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat-trampoline instance_exec:
       #
       #   def m(*args, &b)
@@ -1361,7 +1361,7 @@ describe "Process programs" do
   end
 
   it "instance exec toplevel method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local assigned `Class.new` inside a top-level method body resolves
       # as an instance_exec receiver. The rewrite now walks top-level method
       # bodies (ieval_walk_toplevel_methods), the sibling of the class-method
@@ -1394,7 +1394,7 @@ describe "Process programs" do
   end
 
   it "instance_exec runs the block against the receiver, so its ivars are the receiver's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site instance_exec trampoline.
       #
       # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
@@ -1469,7 +1469,7 @@ describe "Process programs" do
   end
 
   it "instance_exec passes its fixed arguments to the block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site instance_exec trampoline.
       #
       # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
@@ -1561,7 +1561,7 @@ describe "Process programs" do
   end
 
   it "instance_exec keeps the outer local the block closed over" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site instance_exec trampoline.
       #
       # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
@@ -1643,7 +1643,7 @@ describe "Process programs" do
   end
 
   it "instance_exec runs to the end and the program carries on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline-at-call-site instance_exec trampoline.
       #
       # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
@@ -1713,7 +1713,7 @@ describe "Process programs" do
   end
 
   it "instance exec valuetype trampoline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-type receiver (small immutable class promoted to a by-value struct)
       # reached through an instance_exec *trampoline* method. The trampoline splice
       # must bind the rebound self by value and dereference its ivars with `.`, not
@@ -1762,7 +1762,7 @@ describe "Process programs" do
   end
 
   it "uid, gid, getpgrp and getsid answer Integers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Process.uid.class
       puts Process.gid.class
       puts Process.euid.class
@@ -1786,7 +1786,7 @@ describe "Process programs" do
   end
 
   it "Process.times answers a Process::Tms of Floats" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Process::Tms
       p Process.times.class
       p Process.times.utime.class
@@ -1806,7 +1806,7 @@ describe "Process programs" do
   end
 
   it "clock_getres answers in the unit it is asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = Process.clock_getres(Process::CLOCK_MONOTONIC)
       puts r.class
       puts r > 0
@@ -1823,7 +1823,7 @@ describe "Process programs" do
   end
 
   it "getpriority, groups and the PRIO_ constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Process.getpriority(Process::PRIO_PROCESS, 0).class
       g = Process.groups
       puts g.class
@@ -1840,7 +1840,7 @@ describe "Process programs" do
   end
 
   it "Process.times answers a Process::Tms however its result is bound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (Process.times rescue $!.class); p r001.class
       t = (Process.times rescue nil)
       p t.class
@@ -1855,7 +1855,7 @@ describe "Process programs" do
   end
 
   it "an attribute named exit reads the attribute, not Kernel#exit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Crash
         attr_accessor :exit
         def fn
@@ -1871,7 +1871,7 @@ describe "Process programs" do
   end
 
   it "issue dollar dollar pid missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `$$` global answers the running process id, the same value
       # `Process.pid` does. Checked by equality and positivity rather than the
       # literal number, which necessarily differs between the ruby oracle run and
@@ -1884,7 +1884,7 @@ describe "Process programs" do
   end
 
   it "leading assignment and kernel select follow cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A command whose first word holds an `=` is an assignment, and only a
       # shell can do that, so the command goes through /bin/sh. Beside it:
       # Kernel carries select as a private method and as a module function,
@@ -1938,7 +1938,7 @@ describe "Process programs" do
   end
 
   it "method defined on a bootstrap class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `method_defined?` on an EXCEPTION class asks at run time, because the
       # compiler cannot see the rows those classes have.
       #
@@ -1992,7 +1992,7 @@ describe "Process programs" do
   end
 
   it "popen dash forks and daemon detaches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO.popen("-") forks with pipes on the child's standard streams, and
       # Process.daemon leaves the parent for a session of its own.
       out = IO.popen("-") do |io|
@@ -2035,7 +2035,7 @@ describe "Process programs" do
   end
 
   it "CLOCK_MONOTONIC and CLOCK_REALTIME are Integers a clock_gettime call takes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process::CLOCK_MONOTONIC / CLOCK_REALTIME are Integer values, usable
       # beyond a direct clock_gettime argument.
       x = Process::CLOCK_MONOTONIC
@@ -2055,7 +2055,7 @@ describe "Process programs" do
   end
 
   it "pid and clock_gettime are asserted as facts about their values, never as the values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Process` identity and clocks -- asserted as FACTS about the values, never
       # the values themselves (a pid isn't reproducible).
 
@@ -2080,7 +2080,7 @@ describe "Process programs" do
   end
 
   it "pid is above zero and ppid is not below it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #893: Process.pid / Process.ppid dispatched via getpid /
       # getppid. Values vary by run; test the type. ppid is 0 on
       # Windows where MinGW lacks getppid, >= 0 elsewhere.
@@ -2092,7 +2092,7 @@ describe "Process programs" do
   end
 
   it "a child that exits 0 reports exited? and success?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
       # true/false are spelled /usr/bin/... because that is where macOS keeps them;
@@ -2141,7 +2141,7 @@ describe "Process programs" do
   end
 
   it "spawn of a command that is not there raises Errno::ENOENT" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
       # true/false are spelled /usr/bin/... because that is where macOS keeps them;
@@ -2187,7 +2187,7 @@ describe "Process programs" do
   end
 
   it "a child that exits 1 reports exited? true and success? false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
       # true/false are spelled /usr/bin/... because that is where macOS keeps them;
@@ -2230,7 +2230,7 @@ describe "Process programs" do
   end
 
   it "the status waitpid2 answers reports signaled? and its siblings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
       # true/false are spelled /usr/bin/... because that is where macOS keeps them;
@@ -2279,7 +2279,7 @@ describe "Process programs" do
   end
 
   it "the status answers its accessors through a String consumer too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
       # true/false are spelled /usr/bin/... because that is where macOS keeps them;
@@ -2326,7 +2326,7 @@ describe "Process programs" do
   end
 
   it "a child that did not exit normally answers nil rather than false for exitstatus" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
       # true/false are spelled /usr/bin/... because that is where macOS keeps them;
@@ -2381,7 +2381,7 @@ describe "Process programs" do
   end
 
   it "spawn takes a command, arguments, a shell line, an environment and an exec replacement" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.spawn / Process.exec: spawn starts a child WITHOUT waiting (answering
       # a reapable pid), exec replaces the current image. Output is written from exit
       # statuses only, so it stays byte-identical to CRuby with no temp files.
@@ -2439,7 +2439,7 @@ describe "Process programs" do
   end
 
   it "wait, waitpid, wait2, waitall and detach each report a child's end their own way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.wait / waitpid / wait2 / waitpid2 / waitall / detach / last_status,
       # plus the $? Process::Status they publish and the Errno::ECHILD raised when no
       # children remain. Children are spawned with Process.fork and each exits with a
@@ -2496,7 +2496,7 @@ describe "Process programs" do
   end
 
   it "Process.detach answers a Process::Waiter, which is a Thread that knows the pid" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process::Waiter -- Process.detach's answer: a REAL thread retagged to the
       # subclass, with #pid as its one own method and #value joining the reaper.
       pid = Process.spawn("sleep", "0")
@@ -2535,7 +2535,7 @@ describe "Process programs" do
   end
 
   it "system argument list" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-argument system calls execute the command directly with its argv list.
 
       system("ruby", "-e", "puts 'stmt_ok'")
@@ -2565,7 +2565,7 @@ describe "Process programs" do
   end
 
   it "system returns true false and sets status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `system` inherits stdio and answers true (exit 0) / false (nonzero),
       # setting `$?` either way. A nonzero exit does not raise.
 
@@ -2586,7 +2586,7 @@ describe "Process programs" do
   end
 
   it "systemcallerror case equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `SystemCallError.===` -- what `rescue Errno::ENOENT` really asks. It matches
       # on the ERRNO NUMBER, so any object answering that number matches, and the
       # bare `SystemCallError` matches every one of its instances outright.
@@ -2671,7 +2671,7 @@ describe "Process programs" do
   end
 
   it "thread join waits for the body and returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Deterministic by construction: `join` blocks until the spawned thread's
       # body has run to completion, so "in thread" always prints before "after
       # join". (Real ruby agrees on this shape's ordering -- oracle-verified.)
@@ -2687,7 +2687,7 @@ describe "Process programs" do
   end
 
   it "woken waiter is not a deadlock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A wake is progress. The deadlock detector must not call a thread blocked
       # once its condition is already true.
       #

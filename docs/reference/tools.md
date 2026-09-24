@@ -10,13 +10,13 @@ its full usage.
 | Task | Does |
 |---|---|
 | `rake test` | the units, the specs and the end-to-end programs |
-| `rake test:unit [N=/Exe/]` | ze0's own internals |
+| `rake test:unit [N=/Exe/]` | zr's own internals |
 | `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, program by program |
 | `rake test:e2e [TARGET=]` | whole programs through a real link |
 | `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6 |
 | `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
-| `rake 'bench[--runs 5 fib]'` | how long does what ze0 built take? |
+| `rake 'bench[--runs 5 fib]'` | how long does what zr built take? |
 | `rake stage1`, `rake stage2` | the bootstrap |
 
 ## Generated files
@@ -27,7 +27,7 @@ edit it by hand.
 
 | Task | Writes |
 |---|---|
-| `rake gen:features` | `lib/ze0/hir/features.rb` |
+| `rake gen:features` | `lib/zr/hir/features.rb` |
 | `rake gen:unicode` | `rt/core/unicode.rb`: case mappings |
 | `rake gen:encodings` | `rt/core/encodings.rb`: the encoding registry |
 | `rake gen:transcode` | `rt/core/transcode.rb`: single-byte encoding tables |
@@ -45,11 +45,11 @@ beside the tests that run them.
 | Task | Writes | Held by |
 |---|---|---|
 | `rake gen:description` | `rt/ext/os/<os>/zr_description.rb` | `test/unit/description_test.rb` |
-| `rake gen:libsystem` | `lib/ze0/obj/macho/libsystem.rb` | `test/unit/libsystem_test.rb` |
+| `rake gen:libsystem` | `lib/zr/obj/macho/libsystem.rb` | `test/unit/libsystem_test.rb` |
 | `rake gen:prism_generate` | `rt/ext/prism/ruby/*.rb` | `test/unit/prism_test.rb` |
 | `rake gen:prism_encoding_tables` | `rt/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
 
-`ZE0_BLESS=1 rake test:unit N=/Description/` writes the first two again
+`ZR_BLESS=1 rake test:unit N=/Description/` writes the first two again
 from inside the check.
 
 ### Tables with no generator here

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Socket programs" do
   it "addrinfo family predicates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Addrinfo's family predicates compared their (heap) afname against a bare C
       # literal through sp_str_eq, which confirms a strcmp hit by comparing byte
       # lengths -- and taking a bare literal's length reads its out-of-bounds s[-1]
@@ -38,7 +38,7 @@ describe "Socket programs" do
   end
 
   it "builtin cls id distinct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three SP_BUILTIN_* cls_ids named two kinds each, because they are declared in
       # two headers that cannot see one another: Addrinfo shared STRBUF's -40 and so
       # answered String, Socket::Option shared OpenStruct's -41, and Enumerator
@@ -70,7 +70,7 @@ describe "Socket programs" do
   end
 
   it "c half answers each method as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ext/socket's C half is ruby over the kernel's calls. Each row is one
       # method of it, whose answer -- an inspect, an error's class and words,
       # the bytes of an address -- is the one socket.so gives.
@@ -155,7 +155,7 @@ describe "Socket programs" do
       t("udp recvfrom_nonblock") { u1.recvfrom_nonblock(10)[0] }
       t("udp recvfrom_nonblock empty") { u1.recvfrom_nonblock(10)[0] }
       u1.close; u2.close
-      path = "/tmp/ze0-sock-#{$$}"
+      path = "/tmp/zr-sock-#{$$}"
       shown = ->(text) { text.gsub(path, "PATH") }
       File.delete(path) if File.exist?(path)
       us = UNIXServer.new(path)
@@ -256,7 +256,7 @@ describe "Socket programs" do
   end
 
   it "closed tcp server raises ioerror and a dead port refuses connections" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every operation on a closed server raises IOError "closed stream"
       # (close itself is idempotent), and connecting to the freed port
       # raises Errno::ECONNREFUSED.
@@ -295,7 +295,7 @@ describe "Socket programs" do
   end
 
   it "connect nonblock sockaddr 1arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "socket"
 
       def sockaddr_in(port, host)
@@ -362,7 +362,7 @@ describe "Socket programs" do
   end
 
   it "eof on a non seekable descriptor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `eof?` on a PIPE or SOCKET peeks one byte instead of seeking.
       #
       # The old implementation probed end-of-file with `pos` + `seek(End)` + seek
@@ -478,7 +478,7 @@ describe "Socket programs" do
   end
 
   it "exception module hierarchy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO::WaitReadable` -- and the `IO::EAGAINWaitReadable` / `EWOULDBLOCK` classes
       # built on it -- does not exist here, so every rescue arm that matches on the
       # marker module fails to resolve. ruby mixes those modules into the Errno
@@ -563,7 +563,7 @@ describe "Socket programs" do
   end
 
   it "gem s ruby half runs over the c half" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # lib/socket.rb, as the gem ships it, over the C half: servers and
       # clients of each family, the non-blocking calls, and a descriptor sent
       # through a unix socket.
@@ -611,9 +611,9 @@ describe "Socket programs" do
       t("recvmsg nonblock") { a, b = UNIXSocket.pair; r = b.recvmsg_nonblock(exception: false); a.write("q"); r2 = b.recvmsg_nonblock(10); [a, b].each(&:close); [r, r2[0]] }
       t("recvfrom unix") { a, b = UNIXSocket.pair; a.write("u"); r = b.recvfrom(5); [a, b].each(&:close); r }
       t("socket recvfrom") { a, b = Socket.pair(:UNIX, :DGRAM); a.send("d", 0); r = b.recvfrom(5); [a, b].each(&:close); [r[0], r[1].class, r[1].inspect] }
-      t("unix_server_socket") { path = "/tmp/ze0-us-#{$$}"; r = Socket.unix_server_socket(path) { |s| [s.class, s.local_address.unix_path == path] }; File.exist?(path) && File.delete(path); r }
+      t("unix_server_socket") { path = "/tmp/zr-us-#{$$}"; r = Socket.unix_server_socket(path) { |s| [s.class, s.local_address.unix_path == path] }; File.exist?(path) && File.delete(path); r }
       t("Socket.unix") do
-        path = "/tmp/ze0-u2-#{$$}"
+        path = "/tmp/zr-u2-#{$$}"
         srv = UNIXServer.new(path)
         th = Thread.new { c = srv.accept; c.write("ok"); c.close }
         r = Socket.unix(path) { |s| s.read }
@@ -661,7 +661,7 @@ describe "Socket programs" do
   end
 
   it "poly handle face" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A handle read out of a container arrives boxed, and the boxed value had no
       # method surface at all: every Addrinfo and Socket::Option reader raised
       # NoMethodError. Each of these names belongs to exactly one builtin handle
@@ -715,7 +715,7 @@ describe "Socket programs" do
   end
 
   it "send shadowing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `send` is not magic: it is an ordinary method on Kernel, so a class that
       # defines its own wins the lookup by sitting earlier in the ancestor chain --
       # and only Kernel's reinterprets its first argument as a method name.
@@ -838,7 +838,7 @@ describe "Socket programs" do
   end
 
   it "a socket writes binary bytes, NUL included, and answers the count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `TCPSocket#write_nonblock` is not implemented, so line 40 raises.
       require "socket"
 
@@ -897,7 +897,7 @@ describe "Socket programs" do
   end
 
   it "sockaddr_in and Addrinfo#to_sockaddr build the packed sockaddr that one-argument connect takes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Socket.sockaddr_in and Addrinfo#to_sockaddr: the packed sockaddr String the
       # 1-argument connect_nonblock takes. Without them a caller had to build the
       # bytes by hand (`[Socket::AF_INET, port].pack('vn') + ...`), which only
@@ -967,7 +967,7 @@ describe "Socket programs" do
   end
 
   it "BasicSocket#send writes bytes to the peer where the receiver types as a socket" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `BasicSocket#send` overrides `Kernel#send`: on a socket, `sock.send(data,
       # flags)` writes bytes to the peer and answers the count -- it does NOT invoke a
       # method named by `data`. zeo implements `BasicSocket#send`, but `send` is also a
@@ -992,7 +992,7 @@ describe "Socket programs" do
   end
 
   it "systemcallerror hierarchy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every Errno::* is a SystemCallError, in `rescue` as well as in #is_a?.
       begin
         File.open("/nonexistent_spinel_xyz")
@@ -1049,7 +1049,7 @@ describe "Socket programs" do
   end
 
   it "tcp server addr shape listen and backlog queueing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #addr is `[family, port, name, ip]` (numeric name -- CRuby's
       # do_not_reverse_lookup default); #listen on a bound listener is a
       # validated no-op answering 0; and two clients that connect BEFORE any
@@ -1087,7 +1087,7 @@ describe "Socket programs" do
   end
 
   it "tcp server and socket round trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # require "socket" activates TCPServer/TCPSocket. A single-threaded round
       # trip: connect first (queues in the listen backlog), accept, then exchange
       # bytes via the inherited IO surface (write/gets/read on TCPSocket < IO).

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks programs" do
   it "block arg constant callable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `&SOME_LAMBDA` forwards a callable the same way `&some_lambda` does: a
       # constant read is as deterministic and side-effect-free as a local one. Only
       # locals and ivars were accepted, so the constant form was refused outright.
@@ -45,7 +45,7 @@ describe "Blocks programs" do
   end
 
   it "block autosplat collectors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block with 2+ params iterating an array whose elements are sub-arrays
       # auto-splats each element across the params (CRuby proc auto-splat), for the
       # collecting emitters map/collect, select/filter, reject, and sort_by. A single
@@ -101,7 +101,7 @@ describe "Blocks programs" do
   end
 
   it "block forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose only use of its &block parameter is to forward it to another
       # call (never calling/yielding it directly) must stay a real method and pass
       # the block along -- to a yielding target and to an explicit &block target.
@@ -156,7 +156,7 @@ describe "Blocks programs" do
   end
 
   it "block forward block arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `&proc_var` argument forwarding (`def m(&b); g(&b); end`).
       #
       # Pre-fix Spinel never parsed `&expr` in call argument position
@@ -228,7 +228,7 @@ describe "Blocks programs" do
   end
 
   it "block forward nilcheck" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwarding `&block` into a callee that nil-checks the forwarded block.
       # The combination (forward + nil-check) previously rejected at compile time.
 
@@ -269,7 +269,7 @@ describe "Blocks programs" do
   end
 
   it "block forward recursive cmethod" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal block on an implicit-self call to a &block-forwarding recursive
       # class method: the block lifts to a real proc (capturing enclosing locals)
       # and the &block forward passes the caller's proc through.
@@ -313,7 +313,7 @@ describe "Blocks programs" do
   end
 
   it "block forward self call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Self-call `m { ... }` &block forwarding (Site A).
       #
       # When a method on class C calls another method on the same class
@@ -388,7 +388,7 @@ describe "Blocks programs" do
   end
 
   it "block forwarded into recursive yielder" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block handed to a method that FORWARDS it to a self-recursive yielder.
       #
       # The yielder recurses, so its block cannot be spliced into it -- it is lowered
@@ -486,7 +486,7 @@ describe "Blocks programs" do
   end
 
   it "block given block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `block_given?` for `&block` parameters.
       #
       # Pre-fix `block_given?` only returned the right answer inside methods
@@ -563,7 +563,7 @@ describe "Blocks programs" do
   end
 
   it "block kwrest param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def m(a)
         yield a
       end
@@ -588,7 +588,7 @@ describe "Blocks programs" do
   end
 
   it "block param destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Parenthesized block parameters destructure each array element into the nested
       # names: `|a, (b, c), d|`, `|(a, b)|`, nested `(b, (c, d))`, a named splat rest
       # `(b, *r)`, and an anonymous splat `(*)`. Works across every block-taking form.
@@ -637,7 +637,7 @@ describe "Blocks programs" do
   end
 
   it "block param distribution" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def m(a)
         yield a
       end
@@ -679,7 +679,7 @@ describe "Blocks programs" do
   end
 
   it "block splat param iterators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block splat parameters through the specialized iterator lowerings: a
       # splat-only block wraps each yielded element whole (two-value yields pack
       # both); |x, *r| binds an empty rest for scalar elements. Unsupported
@@ -728,7 +728,7 @@ describe "Blocks programs" do
   end
 
   it "block tail prelude inside" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block emitter that renders its tail as an EXPRESSION must catch that
       # expression's statement-shaped setup itself: g_pre at that point is the buffer
       # for the whole enclosing line, so anything routed there runs OUTSIDE the
@@ -786,7 +786,7 @@ describe "Blocks programs" do
   end
 
   it "block yield keyword param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielded block binds keyword params by name from the yielded kwargs hash;
       # an omitted optional keyword takes its default.
       def kw; yield(a: 1, b: 2); end
@@ -805,7 +805,7 @@ describe "Blocks programs" do
   end
 
   it "block yield optional param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielded block binds optional positional params to the yielded arg when
       # present, else to the declared default expression.
       def one; yield 5; end
@@ -826,7 +826,7 @@ describe "Blocks programs" do
   end
 
   it "captured block call value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested proc literal can capture an enclosing method's &block (an
       # sp_Proc param) and call it, and the value flows back at the block's
       # real type. Covers the value carried through the proc-var indirection
@@ -884,7 +884,7 @@ describe "Blocks programs" do
   end
 
   it "case when lambda predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case/when with lambda predicates: Proc#=== calls the lambda with the
       # scrutinee, so its parameter takes the scrutinee's type -- including a
       # Class-valued scrutinee that can't ride the integer proc-call ABI.
@@ -952,7 +952,7 @@ describe "Blocks programs" do
   end
 
   it "class defined inside a lambda registers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class` written inside a lambda body defines its class where it is
       # written, exactly like one inside a block -- both run later, maybe never,
       # and the registration is a compile-time fact either way (the body still
@@ -988,7 +988,7 @@ describe "Blocks programs" do
   end
 
   it "closure capture float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A closure that captures a float-typed outer variable: the capture rides a
       # native double cell, so reads, writes, and compound-assignment all work. (A
       # proc that also takes a float parameter is still rejected, since float proc
@@ -1044,7 +1044,7 @@ describe "Blocks programs" do
   end
 
   it "cmethod self receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Keystore
         def self.maker
           1
@@ -1086,7 +1086,7 @@ describe "Blocks programs" do
   end
 
   it "combined optional rest post keyword keyword rest and block params all bind correctly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
         def build(a, b = 10, *rest, c, d: 5, **kw, &blk)
           puts a
@@ -1114,7 +1114,7 @@ describe "Blocks programs" do
   end
 
   it "container typing compile gaps" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three shapes that did not compile at all, each for its own reason.
 
       # A multiple-assignment target captured by a later block. The target lives in a
@@ -1177,7 +1177,7 @@ describe "Blocks programs" do
   end
 
   it "curry compose" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       add001 = ->(a, b) { a + b }.curry
       c001 = add001[1] >> ->(x001) { x001 * 10 }
       p c001.call(4)
@@ -1216,7 +1216,7 @@ describe "Blocks programs" do
   end
 
   it "curry constant lambda" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `curry` walks the chain back to the base proc to learn its arity, which is
       # how it knows which application completes it. The walk resolved a lambda held
       # in a LOCAL and not one held in a CONSTANT, so a curried constant never
@@ -1269,7 +1269,7 @@ describe "Blocks programs" do
   end
 
   it "def in class new block yields" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` in expression position (a `Class.new` block) threads its
       # block too.
 
@@ -1285,7 +1285,7 @@ describe "Blocks programs" do
   end
 
   it "default arg find block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find / detect { |x| cond } used as a parameter default. The default is
       # evaluated at the call site, where the block's local variable has no top-level
       # declaration -- previously this emitted C referencing an undeclared `lv_n`.
@@ -1319,7 +1319,7 @@ describe "Blocks programs" do
   end
 
   it "defined yield no block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # defined?(yield) must reflect whether the current method actually received a
       # block: nil when called without one, "yield" when a block is present.
       def f
@@ -1346,7 +1346,7 @@ describe "Blocks programs" do
   end
 
   it "defined yield reflects block presence at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # defined?(yield) is nil without a block, "yield" with one.
 
       def f
@@ -1370,7 +1370,7 @@ describe "Blocks programs" do
   end
 
   it "derived proc identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two kinds of proc that are DERIVED from something else keep a trace of what
       # they came from, and zeo's do not.
       #
@@ -1418,7 +1418,7 @@ describe "Blocks programs" do
   end
 
   it "destructured names are capturable by escaping blocks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A destructured name is an ordinary local: an escaping block captures it by
       # reference, so a write inside the block is visible after it returns. This
       # regressed once already -- `captures::own_param_names` kept its own copy of
@@ -1444,7 +1444,7 @@ describe "Blocks programs" do
   end
 
   it "empty block body iterators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `{ }` and `{ nil }` are the same block, and CRuby answers accordingly. The
       # iterator arms each read the block body's TAIL to type their result, and most
       # of them declined outright when there was none -- so the call fell through to
@@ -1533,7 +1533,7 @@ describe "Blocks programs" do
   end
 
   it "empty block param shadow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block with an EMPTY body still binds its parameters, so a parameter that
       # shadows an outer local still needs its own slot. The rename pass skipped such
       # a block outright -- there is nothing inside it to rewrite -- and the two names
@@ -1590,7 +1590,7 @@ describe "Blocks programs" do
   end
 
   it "external singleton def yields its call site block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       obj = Object.new
       def obj.greet
         yield "world"
@@ -1611,7 +1611,7 @@ describe "Blocks programs" do
   end
 
   it "forward args block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `...` forwards a block as well as positional/keyword args. The forwarder is a
       # real function, so a literal block is redirected straight to the (yielding or
       # &block) target it forwards to, with the call-site args coming along.
@@ -1676,7 +1676,7 @@ describe "Blocks programs" do
   end
 
   it "forwarded block same name callee" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Several methods share the forwarded name; the one that KEEPS the block
       # decides whether the forwarder's captures need cells.
       class Decoy
@@ -1741,7 +1741,7 @@ describe "Blocks programs" do
   end
 
   it "<< and >> compose a lambda and a proc alike" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = -> (x) { x * 2 }
       g = -> (x) { x + 1 }
       puts (f << g).call(3)
@@ -1762,7 +1762,7 @@ describe "Blocks programs" do
   end
 
   it "initialize block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An explicit `&blk` block parameter on initialize is threaded through .new:
       # the constructor accepts the block and forwards it, so a stored block can be
       # called later.
@@ -1804,7 +1804,7 @@ describe "Blocks programs" do
   end
 
   it "initialize yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `yield` / `block_given?` inside `initialize` must run the constructor body
       # (and drive the block when one is passed), for both heap and value-type classes.
       #
@@ -1887,7 +1887,7 @@ describe "Blocks programs" do
   end
 
   it "lambda call dot call and bracket syntax" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       add = ->(x, y) { x + y }
       puts add.call(3, 4)
       puts add.(3, 4)
@@ -1912,7 +1912,7 @@ describe "Blocks programs" do
   end
 
   it "lambda capturing block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda's required parameters are typed from the call sites the analysis can
       # see, and fall back to Integer when it sees none. That fallback is only safe
       # for a lambda it can enumerate the callers of, so one that ESCAPES widens to
@@ -1958,7 +1958,7 @@ describe "Blocks programs" do
   end
 
   it "lambda escapes through constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2017,7 +2017,7 @@ describe "Blocks programs" do
   end
 
   it "lambda keyword call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       l = ->(k: 5) { k }
       p(l.call(k: 9))
       p(l.call)
@@ -2032,7 +2032,7 @@ describe "Blocks programs" do
   end
 
   it "lambda nested emit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested proc literals: the emitter must not splice the inner _proc_ function
       # into the middle of the outer one (both built into the same buffer before).
       f = -> { -> { 41 }.call + 1 }
@@ -2045,7 +2045,7 @@ describe "Blocks programs" do
   end
 
   it "lowered block given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A self-recursive yielding method is emitted as a real C function (the block
       # becomes a proc parameter) rather than inlined. `block_given?` inside it must
       # reflect whether a block was actually passed -- true on the block-bearing call,
@@ -2070,7 +2070,7 @@ describe "Blocks programs" do
   end
 
   it "massign captured proc cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def make
         p = proc { "orig" }
         esc = lambda { p.call }   # captures p by reference -> p lives in a heap cell
@@ -2087,7 +2087,7 @@ describe "Blocks programs" do
   end
 
   it "massign proc cell nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-assign of nil (a boxed sp_RbVal temp) into a captured TY_PROC cell must
       # launder to NULL, not cast the sp_RbVal struct to (mrb_int) (invalid C).
       def make
@@ -2105,7 +2105,7 @@ describe "Blocks programs" do
   end
 
   it "module nested reopen yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module NS
         class Base
           def self.ping
@@ -2142,7 +2142,7 @@ describe "Blocks programs" do
   end
 
   it "named block parameter can be called explicitly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `&block` parameter is real syntax now (a rejection this test
       # used to check for was lifted).
 
@@ -2158,7 +2158,7 @@ describe "Blocks programs" do
   end
 
   it "new with block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal block passed to `.new` is forwarded to `initialize`, so
       # `yield`/`block_given?` inside it see the block.
 
@@ -2210,7 +2210,7 @@ describe "Blocks programs" do
   end
 
   it "param referenced only inside an escaping block is captured" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The parameter-capture fix: `n` (a method param) appears ONLY inside
       # the escaping block -- previously misclassified as a block-own local
       # and silently re-declared Nil. Oracle: 11, 12.
@@ -2242,7 +2242,7 @@ describe "Blocks programs" do
   end
 
   it "parenthesized block params destructure their slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parenthesized parameter destructures the value bound to its slot --
       # `|(a, b)|`, mixed with plain params, and nested arbitrarily deep. Lowered
       # as the multi-assignment it is (see `hir::Params::destructures`).
@@ -2263,7 +2263,7 @@ describe "Blocks programs" do
   end
 
   it "positional install still beats a block installed accessor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ...and the pass's own job is untouched: a block-installed accessor still
       # loses to the `def` written below it, and so does a macro a class method
       # expands. A fix that made `dyn_defs` refuse more than it should would show
@@ -2296,7 +2296,7 @@ describe "Blocks programs" do
   end
 
   it "proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test &block, Proc.new, proc, Proc#call
 
       # &block parameter — receive block as Proc
@@ -2354,7 +2354,7 @@ describe "Blocks programs" do
   end
 
   it "proc arg channel released" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GC" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
       # This golden reads `GC.stat[:heap_live_slots]`, which only the allocation
       # registry can answer, and only `ZEO_GC=1` arms it. CRuby always tracks, so the
       # oracle needs no counterpart.
@@ -2439,7 +2439,7 @@ describe "Blocks programs" do
   end
 
   it "proc arg object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Wrapper
         def initialize(val)
           @val = val
@@ -2463,7 +2463,7 @@ describe "Blocks programs" do
   end
 
   it "proc block param call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc's own &block param (#2648): the caller's literal block rides the
       # _sp_proc_blk side-channel into the callee's prologue; calling without a
       # block binds nil.
@@ -2488,7 +2488,7 @@ describe "Blocks programs" do
   end
 
   it "proc call splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pr = ->(a, b, c) { a + b + c }
       args = [1, 2, 3]
       p(pr.call(*args))
@@ -2512,7 +2512,7 @@ describe "Blocks programs" do
   end
 
   it "proc called from two scopes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc handed to a method is called from there as well as from the scope
       # that made it. The two sites pass different types, so the params cannot be
       # pinned to the visible one.
@@ -2547,7 +2547,7 @@ describe "Blocks programs" do
   end
 
   it "proc capture enclosing lambda" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc closing over an ENCLOSING lambda/proc's variables (#2648): the
       # enclosing proc's frame owns the variable, so its prologue materializes the
       # heap cell and the inner proc captures the cell pointer. The proc's own **kw
@@ -2591,7 +2591,7 @@ describe "Blocks programs" do
   end
 
   it "proc capture nested frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       [1].each do |k|
         values = [2]
         f = ->(e) { values.include?(k) }
@@ -2632,7 +2632,7 @@ describe "Blocks programs" do
   end
 
   it "proc case eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       even = ->(x) { x.even? }
       puts(even === 4)
       puts(even === 3)
@@ -2651,7 +2651,7 @@ describe "Blocks programs" do
   end
 
   it "proc case eq value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#=== answers the proc's return value; a case/when only cares about its
       # truthiness, so both readings agree there but a direct call does not (#3818).
       double = ->(x) { x * 2 }
@@ -2679,7 +2679,7 @@ describe "Blocks programs" do
   end
 
   it "proc cell capture marked" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A captured Proc rides in an sp_int cell -- an integer slot holding a
       # collectable object. The capture's scan marked the CELL and nothing marked the
       # proc, so a nested `proc { |v| two.call(v, v) }` called through freed memory
@@ -2726,7 +2726,7 @@ describe "Blocks programs" do
   end
 
   it "proc closure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression test for proc closures (capturing outer locals).
       # Phase 2 of proc closure recovery: captures via heap cells + per-proc
       # capture struct, mirroring the Fiber capture mechanism.
@@ -2786,7 +2786,7 @@ describe "Blocks programs" do
   end
 
   it "proc compose container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       fs001 = [->(x) { x + 1 }]
       id001 = ->(x) { x }
       c001 = id001 >> fs001[0]
@@ -2805,7 +2805,7 @@ describe "Blocks programs" do
   end
 
   it "proc compose curry forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc composition through poly-param procs, curry saturation, Proc.new(&b)
       # forwarding a captured block, and explicit Method#to_proc.
 
@@ -2863,7 +2863,7 @@ describe "Blocks programs" do
   end
 
   it "proc curry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#curry completion typing: a curried application stays a curry until it
       # reaches the proc's arity, when it realizes to the proc's (int) result -- so a
       # completed curry is a first-class int (printable with `p`, usable in
@@ -2918,7 +2918,7 @@ describe "Blocks programs" do
   end
 
   it "proc keyword param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A stored proc declaring keyword params binds them from the call's kwargs;
       # an omitted optional keyword takes its default.
       add = proc { |a:, b:| a + b }
@@ -2946,7 +2946,7 @@ describe "Blocks programs" do
   end
 
   it "proc pattern from container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       tbl001 = { even: ->(x) { x.even? } }
       p(case 4 when tbl001[:even] then "y" else "n" end)
       tbl002 = { even: ->(x) { x.even? } }; p(tbl002[:even] === 4)
@@ -2968,7 +2968,7 @@ describe "Blocks programs" do
   end
 
   it "proc ruby2 keywords warning" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pr = proc { |x| x }
       pr.ruby2_keywords
       p :done
@@ -2980,7 +2980,7 @@ describe "Blocks programs" do
   end
 
   it "procs own block param receives the call site block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc/lambda that declares its own `&block` parameter receives the
       # block passed to its `#call` -- the block rides the closure's third
       # parameter into the body, where `b.call`/`b.nil?` reflect it. Covers a
@@ -3008,7 +3008,7 @@ describe "Blocks programs" do
   end
 
   it "safe nav block calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `&.` call has to reach the safe-nav guard. Three lowerings walk the
       # receiver without looking at the operator -- the value-position iterator, the
       # statement-position one, and the comprehension family -- so `v&.each { }` fed
@@ -3161,7 +3161,7 @@ describe "Blocks programs" do
   end
 
   it "safe nav block family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `v&.<enumerable> { }` on a nil receiver answers nil. The element-loop
       # lowerings walk the receiver without looking at the call operator, so they ran
       # on the very nil the guard exists to stop.
@@ -3194,7 +3194,7 @@ describe "Blocks programs" do
   end
 
   it "singleton class block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton-class blocks define methods on an object's singleton class. The
       # `class << self` form inside a class/module body already worked; this adds the
       # `class << Const` form (a constant naming a class or module) and the top-level
@@ -3251,7 +3251,7 @@ describe "Blocks programs" do
   end
 
   it "splat delete and block tail iter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#delete with a splatted argument list (#3521): delete was missing from
       # the fixed-arity list, so the splat array reached the slot expecting one key.
       k001 = [:a]
@@ -3309,7 +3309,7 @@ describe "Blocks programs" do
   end
 
   it "splat into a proc or lambda receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       add3 = ->(a, b, c) { a + b + c }
       args = [1, 2, 3]
       p add3.call(*args)
@@ -3330,7 +3330,7 @@ describe "Blocks programs" do
   end
 
   it "to enum enum for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_enum / enum_for build a real lazy Enumerator that defers `recv.m(*args)`:
       # the receiver's method is driven through a fiber generator, so .class is
       # Enumerator, .next/.peek do external iteration, and the full Enumerable surface
@@ -3440,7 +3440,7 @@ describe "Blocks programs" do
   end
 
   it "to enum size without block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2].to_enum(:each).size
       p 3.times.to_enum.size
       p [1, 2].enum_for(:each) { 99 }.size
@@ -3454,7 +3454,7 @@ describe "Blocks programs" do
   end
 
   it "top level def called from a lambda" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def base
         40
       end
@@ -3466,7 +3466,7 @@ describe "Blocks programs" do
   end
 
   it "top level def with block and yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def twice
         yield 1
         yield 2
@@ -3478,7 +3478,7 @@ describe "Blocks programs" do
   end
 
   it "toplevel kwrest block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class App
         def initialize(title:, body:)
           @title = title
@@ -3504,7 +3504,7 @@ describe "Blocks programs" do
   end
 
   it "uniq block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#uniq / uniq! with a block dedupe by the block's return value, keeping
       # the first element of each key group and preserving the receiver's element type.
       # Receivers are routed through per-type identity methods to defeat constant
@@ -3551,7 +3551,7 @@ describe "Blocks programs" do
   end
 
   it "yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test program for yield/block support
 
       # User-defined iterator with yield
@@ -3631,7 +3631,7 @@ describe "Blocks programs" do
   end
 
   it "yield carries keywords" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def m1
         yield 1, a: 2, b: 3
       end
@@ -3678,7 +3678,7 @@ describe "Blocks programs" do
   end
 
   it "yield channels" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # The three channels a call carries -- positionals, keywords and the
@@ -3760,7 +3760,7 @@ describe "Blocks programs" do
   end
 
   it "yield splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `yield(*arr)`: a single splat spreads its array across the block's parameters
       # (auto-splat), exactly like passing the elements positionally. Previously
       # rejected ("unsupported expression: SplatNode") because each yield argument was
@@ -3831,7 +3831,7 @@ describe "Blocks programs" do
   end
 
   it "yield takes splat arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `HirNode::Yield` carries the same `Vec<ArrayElem>` a Call's positional
       # args do, so a splat flattens at runtime and the block then binds from
       # the result through its ordinary parameter machinery -- auto-splat,
@@ -3871,7 +3871,7 @@ describe "Blocks programs" do
   end
 
   it "a block parameter only called, handed on or tested stays the block it was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `&b` parameter that the method only calls, hands on or tests
       # stays the block it was given; every shape reads as before.
       def call_it(x, &b) = b.call(x)

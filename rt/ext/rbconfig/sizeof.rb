@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 # `rbconfig/sizeof`, which ruby builds as a C extension out of its own
-# <limits.h>, <float.h> and <stdint.h>. ze0 compiles no C, so the facts
+# <limits.h>, <float.h> and <stdint.h>. zr compiles no C, so the facts
 # come from the target the program was built for instead: every target
 # here is one C ABI, and `RUBY_PLATFORM` names which. A gem reads these
 # to size a buffer or to bound an integer, and both answers follow from
 # the width of a pointer.
 module RbConfig
-  # The widths that do not move: C fixes them, or every ABI ze0 emits
+  # The widths that do not move: C fixes them, or every ABI zr emits
   # for agrees on them.
   sizeof = {
     "int" => 4, "short" => 2, "long long" => 8, "__int128" => 16, "off_t" => 8,
@@ -24,7 +24,7 @@ module RbConfig
   }
 
   # The pointer family. wasm32 is an ILP32 ABI, where a pointer, a
-  # `long` and a `size_t` are four bytes; every other target ze0 emits
+  # `long` and a `size_t` are four bytes; every other target zr emits
   # for is LP64.
   pointer = RUBY_PLATFORM.start_with?("wasm32") ? 4 : 8
   %w[long void* size_t ptrdiff_t intptr_t uintptr_t ssize_t].each { |name| sizeof[name] = pointer }
@@ -84,7 +84,7 @@ module RbConfig
   limits["SIZE_MAX"] = unsigned[SIZEOF["size_t"]]
   limits["PTRDIFF_MAX"], limits["PTRDIFF_MIN"] = signed[SIZEOF["ptrdiff_t"]]
 
-  # The float limits are IEEE 754's, which every target ze0 emits for
+  # The float limits are IEEE 754's, which every target zr emits for
   # keeps: `float` is binary32, `double` and `long double` binary64.
   limits.update(
     "FLT_RADIX" => 2, "FLT_ROUNDS" => 1, "FLT_EVAL_METHOD" => 0,

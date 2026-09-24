@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: visibility" do
   it "issue module private instance methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private` inside a MODULE body did not reach the registry, in any of its
       # three forms. The same directives inside a CLASS body worked, which is what
       # made this look like a scope-frame problem -- it was not.
@@ -111,7 +111,7 @@ describe "Methods: visibility" do
   end
 
   it "issue private class method def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_class_method def helper ...` under a `module_function` directive
       # registers the def: `private_class_method` takes the def's symbol as an
       # argument, and the def itself defines the method as usual. zeo does not model
@@ -136,7 +136,7 @@ describe "Methods: visibility" do
   end
 
   it "module function dead method dce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A named-module_function method that no in-unit call site reaches
       # (even via a chain of other uncalled module functions) is dead-code-
       # eliminated, so its body — which may use unimplemented dynamic
@@ -172,7 +172,7 @@ describe "Methods: visibility" do
   end
 
   it "module function governs a runtime define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `module_function` is a MODE: every definition after it in the body
       # becomes both a module method and a private instance copy. Zeo resolves
       # that cursor at compile time, which reaches a `def` and reaches the block
@@ -256,7 +256,7 @@ describe "Methods: visibility" do
   end
 
   it "operator assignment through self calls private methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An operator assignment through a literal `self` may call private
       # readers, writers, `[]` and `[]=`, as a plain `self.x = v` may.
       class Counter
@@ -300,7 +300,7 @@ describe "Methods: visibility" do
   end
 
   it "private def idiom and retroactive private by name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         def pub_a
           priv_a
@@ -331,7 +331,7 @@ describe "Methods: visibility" do
   end
 
   it "protected method callable from a related classs own method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Money
         def initialize(amount)
           @amount = amount
@@ -356,7 +356,7 @@ describe "Methods: visibility" do
   end
 
   it "public method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "hello".public_method(:upcase)
       p m.call
       class C; def foo(x); x*3; end; end
@@ -370,7 +370,7 @@ describe "Methods: visibility" do
   end
 
   it "toplevel method runtime name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level method is emitted as sp_<name>, which is the runtime's own
       # namespace. The mangler carries an rb_ infix for names that would land in it,
       # but it only looked at the segment in front of an underscore -- so `def sym_x`
@@ -472,7 +472,7 @@ describe "Methods: visibility" do
   end
 
   it "visibility keywords switch the default for subsequent defs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `private`/`public` switches the DEFAULT visibility for every
       # subsequent `def` in the class body (see
       # `parse::lower_class_body_statement`'s docs) -- this test only checks

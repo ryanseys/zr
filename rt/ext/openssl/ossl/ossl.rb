@@ -420,7 +420,7 @@ module OpenSSL
     # a separate object so that a copy of the Ruby object, which shares
     # it until initialize_copy sets its own, never frees it twice.
     # (A reader method and not attr_reader, as throughout the port: in
-    # ze0 an attr_* method of the runtime's own files reads a hidden field.)
+    # zr an attr_* method of the runtime's own files reads a hidden field.)
     class Handle
       def address = @address
 

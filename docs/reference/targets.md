@@ -1,7 +1,7 @@
 # Targets
 
-A target is what ze0 emits. The gem itself runs on any host that has
-ruby 4.0.6. `Ze0::Target` (`lib/ze0/target.rb`) defines each target.
+A target is what zr emits. The gem itself runs on any host that has
+ruby 4.0.6. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 
 | Target | Outputs | Object format | Runtime layers |
 |---|---|---|---|
@@ -13,19 +13,19 @@ ruby 4.0.6. `Ze0::Target` (`lib/ze0/target.rb`) defines each target.
 
 | Output | Host requirement |
 |---|---|
-| `aarch64-apple-darwin` binary | any host: ze0 links it |
+| `aarch64-apple-darwin` binary | any host: zr links it |
 | `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`, or any host with `aarch64-linux-musl-gcc` on the `PATH` |
 | WASI module | any host |
 | Mach-O or ELF object | any host |
 
-`ze0 run` runs a binary only on the target's own host. On a host that
-cannot link a binary, `ze0 build` without `--emit` exits with status 3.
+`zr run` runs a binary only on the target's own host. On a host that
+cannot link a binary, `zr build` without `--emit` exits with status 3.
 
 ## Differences between targets
 
 | | darwin | linux-musl | wasi |
 |---|---|---|---|
-| Linker | ze0's own (`Obj::MachO::Executable`) | `cc -static` | none: one module |
+| Linker | zr's own (`Obj::MachO::Executable`) | `cc -static` | none: one module |
 | `Fiber`, `Thread`, `Ractor` | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
 | `eval` of a string | yes | yes | yes, by walking the tree |
 | FFI (`ffi`, `fiddle`) | yes | no | no |

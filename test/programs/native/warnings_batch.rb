@@ -41,7 +41,7 @@ p v == a, v.equal?(a), v.match?("AB"), v.options, v.source, a.clone.frozen?
 d = [1, 2, 3].each
 w = d.dup
 p w.next, w.class
-dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "ze0_chdir_#{Process.pid}")
+dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr_chdir_#{Process.pid}")
 Dir.mkdir(dir)
 begin
   before = Dir.pwd

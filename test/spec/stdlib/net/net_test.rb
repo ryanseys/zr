@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Net programs" do
   it "glob require and loaded features" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # net/smtp loads its authenticators with a glob-and-require, and rubygems its
       # plugins the same way. The pattern is a compile-time fact, so the matches are
       # spliced like any other require -- and because they were, the loop's own
@@ -60,7 +60,7 @@ describe "Net programs" do
   end
 
   it "http request reaches a server thread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Net::HTTP talks to a TCPServer in a thread of the same program: each
       # side parks on its socket, and the scheduler polls every parked socket
       # while no thread can run.
@@ -95,7 +95,7 @@ describe "Net programs" do
   end
 
   it "issue net http missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "net/http"` -- the vendored gem loads and `Net::HTTP.get` answers.
       # net/http has no C extension of its own; it builds on the socket ext.
       require "net/http"
@@ -106,7 +106,7 @@ describe "Net programs" do
   end
 
   it "issue net smtp missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "net/smtp"` -- the vendored gem loads and defines `Net::SMTP`.
       require "net/smtp"
       p defined?(Net::SMTP)

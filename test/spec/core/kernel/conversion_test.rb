@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Kernel: conversion" do
   it "conv lying ducks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A present-but-lying to_x raises CRuby's "can't convert" shape; a nil
       # answer from to_x means "not convertible" at check sites.
       class LiarInt
@@ -52,7 +52,7 @@ describe "Kernel: conversion" do
   end
 
   it "conv to int duck" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_int ducks at NUM2LONG index/count sites.
       class Two
         def to_int
@@ -88,7 +88,7 @@ describe "Kernel: conversion" do
   end
 
   it "an &obj block argument converts through to_proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's implicit-conversion protocols: `&obj` converts through `to_proc`,
       # `**obj` through `to_hash`, and a splice/auto-splat value through `to_ary`.
       # Each is duck-typed -- any object answering the method participates.
@@ -157,7 +157,7 @@ describe "Kernel: conversion" do
   end
 
   it "a **obj argument converts through to_hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's implicit-conversion protocols: `&obj` converts through `to_proc`,
       # `**obj` through `to_hash`, and a splice/auto-splat value through `to_ary`.
       # Each is duck-typed -- any object answering the method participates.
@@ -213,7 +213,7 @@ describe "Kernel: conversion" do
   end
 
   it "a splat and a destructuring assignment convert through to_ary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's implicit-conversion protocols: `&obj` converts through `to_proc`,
       # `**obj` through `to_hash`, and a splice/auto-splat value through `to_ary`.
       # Each is duck-typed -- any object answering the method participates.
@@ -258,7 +258,7 @@ describe "Kernel: conversion" do
   end
 
   it "the conversion functions raise TypeError for a bad argument type and RangeError past the bound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Kernel conversion functions raise ArgumentError where ruby raises
       # TypeError for a bad argument type.
@@ -322,7 +322,7 @@ describe "Kernel: conversion" do
   end
 
   it "method objects bind a receiver and convert to procs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def double(x) = x * 2
       m = method(:double)
       p m.call(21)
@@ -355,7 +355,7 @@ describe "Kernel: conversion" do
   end
 
   it "method to proc carries its block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Proc `Method#to_proc` builds forwards its block to the wrapped method.
       #
       # It used to drop it, so a block-taking method reached through `to_proc` ran
@@ -425,7 +425,7 @@ describe "Kernel: conversion" do
   end
 
   it "nilclass bool ops conversions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # NilClass: boolean & | ^ (variable and literal receivers), ===, and the
       # conversions to_a/to_h/to_r/to_c on a nil-holding (poly-widened) variable.
       x = nil
@@ -470,7 +470,7 @@ describe "Kernel: conversion" do
   end
 
   it "user to proc block arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `&obj` where obj defines #to_proc converts through to_proc, exactly as CRuby
       # does: to_proc is called ONCE to obtain the block, then that proc runs per element.
       class Dbl
@@ -511,7 +511,7 @@ describe "Kernel: conversion" do
   end
 
   it "yielder to proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Enumerator.new { |y| y.to_proc.call(1) }.to_a)
       p(Enumerator.new { |y| [1, 2, 3].each(&y.to_proc) }.to_a)
       p(Enumerator.new { |y| [1, 2, 3].each(&y) }.to_a)

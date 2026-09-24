@@ -1,9 +1,9 @@
-# How to change the version of a library ze0 carries
+# How to change the version of a library zr carries
 
 This guide shows you how to move one of ruby's pure-Ruby libraries,
-such as `csv` or `uri`, to another version. ze0 reads these libraries
-from installed gems and compiles them into programs. `ze0.gemspec`
-pins each one to one version, and `lib/ze0/library_digests.rb` records
+such as `csv` or `uri`, to another version. zr reads these libraries
+from installed gems and compiles them into programs. `zr.gemspec`
+pins each one to one version, and `lib/zr/library_digests.rb` records
 the files of that version.
 
 A gem with a C extension is different: see
@@ -11,7 +11,7 @@ A gem with a C extension is different: see
 
 ## 1. Change the pin
 
-Change the version in `PINS` in `lib/ze0/libraries.rb`. The gemspec
+Change the version in `PINS` in `lib/zr/libraries.rb`. The gemspec
 reads its dependencies from there.
 
 To carry a new library, add its gem to `PINS`. If the gem does not

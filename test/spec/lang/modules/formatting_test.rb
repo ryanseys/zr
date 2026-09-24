@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: formatting and inspection" do
   it "bare module body cmethod call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bare (receiverless) class-method call in a module/class body must propagate
       # the callee's return type to the call expression.
       #
@@ -42,7 +42,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "class hierarchy module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 3 Tier 2. Modules in the unified cls_id
       # space + woven into ancestors via the @cls_includes pass.
       #
@@ -111,7 +111,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "class name collision across modules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same leaf-name classes in different modules must stay distinct. They share a
       # flat sp_<Name> C namespace keyed by the leaf name, so before the qualifying
       # pass `Web::Response` and `Chat::Response` collapsed onto one struct + method
@@ -195,7 +195,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "class self body mixin keeps the metaclass chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin written inside a `class << self` body reaches the singleton class,
       # and a singleton class's ancestry is ruby's parallel METACLASS chain --
       # `#<Class:Object>`, `#<Class:BasicObject>`, `Class`, `Module` -- not the
@@ -286,7 +286,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "class under an anonymous module is named for now" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class set as a constant of an anonymous module takes a temporary
       # name under the module's #<Module:0x...>; when the module is named,
       # everything it holds takes its name for good.
@@ -327,7 +327,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "mixin multi arg ordering" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A single multi-argument `include`/`prepend` keeps its arguments in SOURCE
       # order in the resulting ancestry, which is the OPPOSITE of what separate
       # statements produce:
@@ -414,7 +414,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "module builtin name class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         class Bench
           def self.bench_name; "base"; end
@@ -448,7 +448,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "module name anonymous" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#name` answers only for a class or module a CONSTANT PATH reaches.
       # Everything else is nameless and answers nil -- while `#to_s`/`#inspect` still
       # render it, which is the whole point of the two being different methods.
@@ -527,7 +527,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "module reopen reports the module as owner" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening a BUILTIN MODULE and asking who owns the method.
       #
       # A `module Comparable; def ctag; end; end` reopen flattens its row onto every
@@ -608,7 +608,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "protocols" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Money
         include Comparable
         attr_reader :cents
@@ -670,7 +670,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "reopen mixin applies where it stands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `include`/`prepend` written in a REOPEN is a runtime event with a
       # position: code between the two bodies must not see the edit. zeo recorded it
       # as a compile-time ancestry fact, so it applied from program start.
@@ -753,7 +753,7 @@ describe "Modules: formatting and inspection" do
   end
 
   it "shared module body that must not be shared" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One `def` in a module, included into classes that make it emit DIFFERENTLY.
       # `codegen::share` serves a widely-inherited body from a single emitted
       # function, so each shape here is one it must decline -- and `codegen::
@@ -831,7 +831,7 @@ describe "Modules: formatting and inspection" do
     files = beside("superclass_clause/bench.rb", "superclass_clause/outer.rb", "superclass_clause/root.rb",
                    "superclass_clause/zprobe.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # `class Bench < Probe` inside `module Mini` names `Mini::Probe`, even when an
       # unrelated top-level `module Probe` is registered and `Mini::Probe` is not yet.
       #

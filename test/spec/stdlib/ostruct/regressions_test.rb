@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "OpenStruct: regressions" do
   it "an OpenStruct reads and writes by method and by subscript, and inspects its members" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
 
       o = OpenStruct.new(a: 1, b: "hi")
@@ -69,7 +69,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "OpenStruct#class is OpenStruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       def assert_equal(expected, actual)
         raise unless expected == actual
@@ -83,7 +83,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "an OpenStruct returned from a method keeps what the method wrote into it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
 
       class Main
@@ -109,7 +109,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "OpenStruct.new takes a Hash held in a variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       hash = {a: 1}
       object = OpenStruct.new(hash)
@@ -121,7 +121,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "an OpenStruct returned from one arm of a method reads by method name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
 
       class Crash
@@ -140,7 +140,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "a subscript write to a returned OpenStruct shows through the reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       class Main
         def parse(args)
@@ -158,7 +158,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "OpenStruct#inspect lists the members it has when it is called" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       o = OpenStruct.new
       o.x = 1
@@ -185,7 +185,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "a frozen OpenStruct refuses a new member by either spelling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       o = OpenStruct.new(a: 1)
       p o.frozen?
@@ -221,7 +221,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "a member built from a nil default reads back nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
 
       class Config
@@ -278,7 +278,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "an aliased reader works as a Symbol block through map and select" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
 
       class Item
@@ -310,7 +310,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "a case over a regexp constant parses switches into a frozen OpenStruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       class Config
         attr_reader :flags, :lookup
@@ -408,7 +408,7 @@ describe "OpenStruct: regressions" do
   end
 
   it "an OpenStruct member named uniq or size shadows the method of that name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
 
       class Flag

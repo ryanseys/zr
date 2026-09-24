@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/machine/lower"
+require_relative "../../lib/zr/machine/lower"
 
 # What a kernel def may write (`IR::Effects`), as `Machine::Lower`
 # computes it over a small unit: the region of each store, closed over
@@ -65,13 +65,13 @@ class EffectsTest < Minitest::Test
 
   def effects
     @effects ||= begin
-      unit = Ze0::Machine::Lower.new([[SOURCE, "effects_test.rb"]])
+      unit = Zr::Machine::Lower.new([[SOURCE, "effects_test.rb"]])
       unit.run
       unit.declared_defs.transform_values(&:effects)
     end
   end
 
-  def bit(region) = Ze0::IR::Effects.bit(region)
+  def bit(region) = Zr::IR::Effects.bit(region)
 
   def test_a_store_to_a_static_is_a_write_to_its_region_closed_over_the_calls
     assert_equal bit(:gates), effects.fetch("set_gates")
@@ -86,22 +86,22 @@ class EffectsTest < Minitest::Test
   end
 
   def test_a_store_through_a_pointer_writes_what_a_pointer_can_reach_and_no_guard_word
-    assert_equal Ze0::IR::Effects::UNKNOWN, effects.fetch("poke")
+    assert_equal Zr::IR::Effects::UNKNOWN, effects.fetch("poke")
   end
 
   def test_an_import_writes_what_a_pointer_reaches_and_a_call_through_a_pointer_everything
-    assert_equal Ze0::IR::Effects::UNKNOWN, effects.fetch("tell")
-    assert_equal Ze0::IR::Effects::ALL, effects.fetch("jump")
-    assert_equal Ze0::IR::Effects::ALL, Ze0::IR::Effects.import("pthread_create")
-    assert_equal Ze0::IR::Effects::ALL, Ze0::IR::Effects.import("zr_toplevel")
+    assert_equal Zr::IR::Effects::UNKNOWN, effects.fetch("tell")
+    assert_equal Zr::IR::Effects::ALL, effects.fetch("jump")
+    assert_equal Zr::IR::Effects::ALL, Zr::IR::Effects.import("pthread_create")
+    assert_equal Zr::IR::Effects::ALL, Zr::IR::Effects.import("zr_toplevel")
   end
 
   def test_the_description_carries_the_effects
-    unit = Ze0::Machine::Lower.new([[SOURCE, "effects_test.rb"]])
+    unit = Zr::Machine::Lower.new([[SOURCE, "effects_test.rb"]])
     unit.run
-    text = Ze0::Machine::Description.of(unit).to_text
+    text = Zr::Machine::Description.of(unit).to_text
     assert_includes text, "e set_gates #{bit(:gates)}\n"
-    assert_equal bit(:gates), Ze0::Machine::Description.parse(text).def_for("set_slowly").effects
+    assert_equal bit(:gates), Zr::Machine::Description.parse(text).def_for("set_slowly").effects
   end
 end
 
@@ -112,14 +112,14 @@ end
 class KernelEffectsTest < Minitest::Test
   def kernel
     text = File.read(File.join(ROOT, "rt/ext/os/darwin/zr_description.rb"))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
-    Ze0::Machine::Description.parse(text)
+    Zr::Machine::Description.parse(text)
   end
 
   def test_allocation_moves_the_stamps_and_leaves_the_gates_alone
     alloc = kernel.def_for("zr_alloc").effects
-    assert Ze0::IR::Effects.writes?(alloc, :stamps)
-    refute Ze0::IR::Effects.writes?(alloc, :gates)
-    assert_equal Ze0::IR::Effects::ALL, kernel.def_for("zr_send_cached").effects
-    assert Ze0::IR::Effects.writes?(kernel.def_for("zr_gates_recheck").effects, :gates)
+    assert Zr::IR::Effects.writes?(alloc, :stamps)
+    refute Zr::IR::Effects.writes?(alloc, :gates)
+    assert_equal Zr::IR::Effects::ALL, kernel.def_for("zr_send_cached").effects
+    assert Zr::IR::Effects.writes?(kernel.def_for("zr_gates_recheck").effects, :gates)
   end
 end

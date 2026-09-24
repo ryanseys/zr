@@ -2,7 +2,7 @@
 
 require "test_helper"
 require "tmpdir"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/native/build"
 
 # The unit cache fails closed on the other units' names. A `require` of
 # a load-path file spells that unit's entry, which is made from the
@@ -32,26 +32,26 @@ class UnitCacheTest < Minitest::Test
 
   def test_a_program_links_in_a_second_directory_after_its_units_were_kept_in_a_first
     2.times do
-      Dir.mktmpdir("ze0-unit-cache-") do |dir|
+      Dir.mktmpdir("zr-unit-cache-") do |dir|
         dir = File.realpath(dir)
         Dir.mkdir(File.join(dir, "lib"))
         File.write(File.join(dir, "lib/demo.rb"), DEMO)
         File.write(File.join(dir, "user.rb"), USER)
         File.write(File.join(dir, "main.rb"), MAIN)
-        program = Dir.chdir(dir) { Ze0::Native::Build.lower(MAIN, "main.rb") }
+        program = Dir.chdir(dir) { Zr::Native::Build.lower(MAIN, "main.rb") }
         bin = File.join(dir, "main")
 
-        assert_nil Ze0::Native::Build.program(program, bin, work: dir)
+        assert_nil Zr::Native::Build.program(program, bin, work: dir)
         assert_equal "42\n", IO.popen([bin], &:read)
       end
     end
   end
 
   def test_the_key_moves_with_another_units_entry
-    Dir.mktmpdir("ze0-unit-cache-") do |dir|
+    Dir.mktmpdir("zr-unit-cache-") do |dir|
       unit = StandIn.new
       keys = %w[one two].map do |entry|
-        cache = Ze0::UnitCache.new(dir: dir, runtime: "rt", table: "rt", traced: 0, entries: ["zr_toplevel_unit_0", entry])
+        cache = Zr::UnitCache.new(dir: dir, runtime: "rt", table: "rt", traced: 0, entries: ["zr_toplevel_unit_0", entry])
         cache.send(:key, unit, "zr_toplevel_unit_0")
       end
 

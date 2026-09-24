@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: dispatch" do
   it "or write ivar poly setter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Flash2
         def hi; "hi"; end
       end
@@ -50,7 +50,7 @@ describe "Object: dispatch" do
   end
 
   it "poly dispatch value type to s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A by-value (value-type) class defining #to_s: the synthesized poly to_s
       # dispatch arm must dereference the boxed pointer into the by-value self,
       # both when the class merely exists (compile) and when a boxed instance
@@ -94,7 +94,7 @@ describe "Object: dispatch" do
   end
 
   it "poly is a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<poly>.is_a?(Klass)` / `kind_of?` / `instance_of?` runtime
       # dispatch. Spinel previously fell through to user-class dispatch
       # only — the SP_TAG_INT / SP_TAG_STR / SP_TAG_FLT / SP_TAG_NIL /
@@ -159,7 +159,7 @@ describe "Object: dispatch" do
   end
 
   it "type question through a cell answers as the builtin it holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The core's type questions at a site whose receiver's class the body
       # does not know: the cell holds the builtin, and the site answers what
       # a class's rank settles, and calls for the rest.
@@ -302,7 +302,7 @@ describe "Object: dispatch" do
   end
 
   it "poly object default render" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare Object (boxed with the builtin object class id) renders CRuby's
       # #<Object:0xADDR> through the poly to_s/inspect defaults (print/p paths).
       puts Object.new.to_s.gsub(/0x[0-9a-f]+/, "0xADDR")
@@ -313,7 +313,7 @@ describe "Object: dispatch" do
   end
 
   it "poly to s user class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class defining an instance `to_s`/`inspect` must not capture boxed
       # scalars in the polymorphic to_s/inspect dispatch. Every boxed scalar carries
       # cls_id 0, which aliased the first user class (index 0): a poly `value.to_s`
@@ -376,7 +376,7 @@ describe "Object: dispatch" do
   end
 
   it "poly to sym" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # x stays poly (called with String and Symbol), so #to_sym dispatches through
       # the poly-scalar runtime path rather than a concrete String/Symbol path.
       def as_sym(x) = x.to_sym
@@ -409,7 +409,7 @@ describe "Object: dispatch" do
   end
 
   it "poly user binop object result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user operator with a POLY operand runs through the boxed arithmetic path,
       # but the fixpoint still settles the call's type on the class that defines it.
       # `(a % o).value` then read a field off an sp_RbVal.
@@ -446,7 +446,7 @@ describe "Object: dispatch" do
   end
 
   it "poly user nil predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Null Object answers `nil?` with true, and its guard has to fire. The
       # poly-receiver arm folded `nil?` to the tag test without asking whether a user
       # class owns the name -- the arm directly below it skips for exactly that
@@ -513,7 +513,7 @@ describe "Object: dispatch" do
   end
 
   it "reopened freeze takes the ordinary dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A reopen of `String#freeze` takes the ordinary dispatch, so the
       # literal-freeze fold stands down.
       #
@@ -551,7 +551,7 @@ describe "Object: dispatch" do
   end
 
   it "user defined dup override wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `dup`/`clone` are ordinary overridable Kernel methods in real Ruby --
       # the static arm must fall through to Path 1 dispatch when the
       # receiver's class defines its own.

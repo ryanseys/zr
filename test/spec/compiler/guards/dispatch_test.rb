@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Guards: dispatch" do
   it "case guard defines a nested conditional class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Host
       end
       def engine = "native"
@@ -40,7 +40,7 @@ describe "Guards: dispatch" do
   end
 
   it "case in guard and class precedence" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Classifier
         def classify(v)
           case v
@@ -71,7 +71,7 @@ describe "Guards: dispatch" do
   end
 
   it "class body guard asks about the class" do
-    result = ze0(<<~'RUBY', files: beside("class_body_guard/ext.rb", "class_body_guard/plat.rb"))
+    result = zr(<<~'RUBY', files: beside("class_body_guard/ext.rb", "class_body_guard/plat.rb"))
       # A guard the SOURCE wrote inside a class body asks about the CLASS, and runs
       # where it is written -- inside the class-body frame, with `self` bound to the
       # class.
@@ -107,7 +107,7 @@ describe "Guards: dispatch" do
   end
 
   it "class body guard runs in the enclosing scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A trailing `if`/`unless` on a `class` keyword belongs to the ENCLOSING
       # scope, not to the class body: ruby evaluates it there (a raise inside one
       # reports the enclosing frame, never `<class:X>`), and the locals it reads are
@@ -200,7 +200,7 @@ describe "Guards: dispatch" do
   end
 
   it "a guard that makes the namespace and fills it later reads the state of that moment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -230,7 +230,7 @@ describe "Guards: dispatch" do
   end
 
   it "the same guard skips its branch once the name is bound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -261,7 +261,7 @@ describe "Guards: dispatch" do
   end
 
   it "a conjunction of defined? over a constant nothing has folds false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -284,7 +284,7 @@ describe "Guards: dispatch" do
   end
 
   it "a const_set pins down neither the constant it names nor the module it names it in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -316,7 +316,7 @@ describe "Guards: dispatch" do
   end
 
   it "Module.constants names the top level's list, and a map over it reads the same" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -348,7 +348,7 @@ describe "Guards: dispatch" do
   end
 
   it "Object.constants.include? asks the same question through the list" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -380,7 +380,7 @@ describe "Guards: dispatch" do
   end
 
   it "a global nothing in the program assigns is not defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -408,7 +408,7 @@ describe "Guards: dispatch" do
   end
 
   it "defined? of a literal is the string expression, so that branch always runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -432,7 +432,7 @@ describe "Guards: dispatch" do
   end
 
   it "the constants the interpreter installs on Object are there before the first line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -475,7 +475,7 @@ describe "Guards: dispatch" do
   end
 
   it "the mkmf gate is defined and nil before any require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -537,7 +537,7 @@ describe "Guards: dispatch" do
   end
 
   it "the scope operator does not reach Object's constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
       # run, so at the guard the answer is no -- which is exactly what the
@@ -555,7 +555,7 @@ describe "Guards: dispatch" do
   end
 
   it "defined guard dead branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A statically-false defined?(Const) guard must fold the whole branch away:
       # the constant resolves to nothing at compile time, so the branch is dead code.
       # Shape from doom's gosu_window YJIT toggle:
@@ -654,7 +654,7 @@ describe "Guards: dispatch" do
   end
 
   it "defined guard over a missing constant folds its dead branch away" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The dead arm references `Absent::Thing` and calls a method that doesn't
       # exist on `Shim` -- both must be eliminated, not emitted, or the program
       # fails to compile. CRuby's reachability agrees the branch never runs.
@@ -684,7 +684,7 @@ describe "Guards: dispatch" do
   end
 
   it "defined guard static fold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `defined?(Const)` guard over a constant that provably can't exist folds
       # the whole branch away at compile time -- the dead branch is never emitted,
       # so its body may reference the missing constant (or otherwise-uncompilable
@@ -747,7 +747,7 @@ describe "Guards: dispatch" do
   end
 
   it "folded guard still sets the match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A condition zeo folds at compile time must not eat the condition's own
       # EFFECT. `=~` writes `$~`, so `if RUBY_PLATFORM =~ /darwin|linux/` leaves a
       # match behind in ruby and the next line may read it.
@@ -785,7 +785,7 @@ describe "Guards: dispatch" do
   end
 
   it "guard on a constant only this branch defines" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?`/`const_defined?` ask about a MOMENT: has this name been bound yet?
       # When the only definition of the name in the whole program is the branch the
       # guard itself decides, the answer at the guard is "not yet" -- so the `unless`
@@ -846,7 +846,7 @@ describe "Guards: dispatch" do
   end
 
   it "guarded def whose guard passes still wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A guard that PASSES still installs. Without this the rule could be
       # satisfied by never installing a guarded body at all, which is a different
       # bug wearing the same green.
@@ -869,7 +869,7 @@ describe "Guards: dispatch" do
   end
 
   it "logical pointer guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Holder
         def initialize
           @text = nil
@@ -896,7 +896,7 @@ describe "Guards: dispatch" do
   end
 
   it "named build time predicate is still a build time guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gem that gives its build-time question a name asks it as an ordinary
       # method call -- `if Sass::Util.rbx?` -- and what sits behind the name is a
       # guard the compiler already decides. sass wraps its whole StringScanner class
@@ -976,7 +976,7 @@ describe "Guards: dispatch" do
   end
 
   it "platform guard decides at build time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Four more guard shapes that decide at compile time, each gating a NEW
       # class -- the shape that has no answer under a compile-time MRO unless
       # the condition folds:
@@ -1033,7 +1033,7 @@ describe "Guards: dispatch" do
   end
 
   it "pruned guard still binds its locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's parser creates a local binding for an assignment it never runs, so
       # `if false; x = 1; end; p x` answers nil rather than raising NameError. A
       # class-body guard zeo decides at compile time is spliced away entirely --
@@ -1086,7 +1086,7 @@ describe "Guards: dispatch" do
   end
 
   it "reload guard written with a bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gem's version file wraps its own definitions in a reload guard, so that
       # requiring it twice by two spellings is harmless. `unless defined?(X)` already
       # folded; `if !defined?(X)` -- the commoner spelling -- did not, because the
@@ -1145,7 +1145,7 @@ describe "Guards: dispatch" do
   end
 
   it "ruby engine guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gem writes `if RUBY_ENGINE == "truffleruby"` around a whole `class`/`def`
       # to pick an engine-specific implementation (prism's serializer does exactly
       # this for its StringIO). zeo reports MRI's own identity, so the guard decides
@@ -1215,7 +1215,7 @@ describe "Guards: dispatch" do
   end
 
   it "string guard family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The String rows whose guard or option was remembered rather than
       # structural, in one place.
       #
@@ -1320,7 +1320,7 @@ describe "Guards: dispatch" do
   end
 
   it "undecidable class body guard still runs its directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class-body `if` whose condition is a real RUNTIME question -- reading ENV,
       # say -- cannot be folded away, so both branches survive to run at the class's
       # definition site. A `def` in one already had its own conditional registration
@@ -1437,7 +1437,7 @@ describe "Guards: dispatch" do
   end
 
   it "version kept as segments is still a build time guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gem that gates on the ruby version by SEGMENT rather than by string writes
       # the split once, names it, and indexes the name at every guard beneath. Sass
       # is the shape:
@@ -1541,7 +1541,7 @@ describe "Guards: dispatch" do
   end
 
   it "version number guard folds numerically" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate written against the NUMBER folds at compile time even when
       # the kinds mix: `RUBY_VERSION.to_f >= 2.4` (rampi), `RUBY_VERSION.to_i <
       # 3.0` (sanity-ruby). The refinement activations gems guard this way NEED

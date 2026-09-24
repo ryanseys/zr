@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 require "tmpdir"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/native/build"
-require_relative "../../lib/ze0/native/parallel"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/native/build"
+require_relative "../../lib/zr/native/parallel"
 require_relative "harness/wasmtime"
 
-module Ze0
+module Zr
   module Test
     # The runtime a check tier runs on: built ahead of time by
     # `rake build`, and only checked for by the tiers.
@@ -45,24 +45,24 @@ module Ze0
       # The targets a run builds for: this host's, and wasm32-wasi where
       # wasmtime is installed and the run was given that target or asks
       # for it (the unit tier, whose files build modules). Another native
-      # target is built by a `ze0` of its own (`E2E.build`), with a
+      # target is built by a `zr` of its own (`E2E.build`), with a
       # toolchain this process may not have, and is left to it.
       def targets(wasm: false)
-        wasm ||= ENV["ZE0_TARGET"] == Target::WASM32_WASI.triple
+        wasm ||= ENV["ZR_TARGET"] == Target::WASM32_WASI.triple
         [Target.default, *(Target::WASM32_WASI if wasm && Harness::Wasmtime.installed?)].uniq
       end
 
       # Stops the run where a target's caches are not built, else loads
-      # them into this process for the workers to share. `ZE0_BUILT=0`
+      # them into this process for the workers to share. `ZR_BUILT=0`
       # asks for neither: for a file that builds no program -- the IR,
       # the encoders, the parsers -- while the runtime is being built
       # for something else. A file that does build then builds the
-      # runtime for itself, cold, as `ze0 build` would.
+      # runtime for itself, cold, as `zr build` would.
       def ready!(wasm: false)
-        return if ENV["ZE0_BUILT"] == "0"
+        return if ENV["ZR_BUILT"] == "0"
 
         targets(wasm: wasm).each do |target|
-          abort("ze0 is not built for #{target.triple}: run `rake build` first") unless built?(target)
+          abort("zr is not built for #{target.triple}: run `rake build` first") unless built?(target)
           load(target)
         end
       end
@@ -102,22 +102,22 @@ module Ze0
         abort("#{failed} of #{targets.size} builds did not finish") unless failed.zero?
       end
 
-      # A child that builds `target`'s caches, and its pid. `ZE0_JOBS` is
+      # A child that builds `target`'s caches, and its pid. `ZR_JOBS` is
       # how a build is told its workers, and the child is the build's
       # alone.
       def start(target, jobs:, say:)
-        say&.puts("building ze0 for #{target.triple}: the runtime, its image and the eval road")
+        say&.puts("building zr for #{target.triple}: the runtime, its image and the eval road")
         Process.fork do
-          ENV["ZE0_JOBS"] = jobs.to_s
+          ENV["ZR_JOBS"] = jobs.to_s
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           target.link ? build_binary(target) : build_module(target)
-          say&.puts(format("built ze0 for %s in %.1f s", target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began))
+          say&.puts(format("built zr for %s in %.1f s", target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began))
         end
       end
 
       def build_binary(target)
         program = Zr.program(EVALS, "built.rb", target: target)
-        Dir.mktmpdir("ze0-build-") do |work|
+        Dir.mktmpdir("zr-build-") do |work|
           why = Native::Build.program(program, File.join(work, "built"), work: work)
           raise "the build did not finish: #{why}" if why
         end
@@ -127,7 +127,7 @@ module Ze0
       # A module with no linker: a plain program and one that evals, since
       # each waits on symbols of its own and so reads a prelude of its own.
       def build_module(target)
-        Dir.mktmpdir("ze0-build-") do |work|
+        Dir.mktmpdir("zr-build-") do |work|
           [PLAIN, EVALS].each_with_index do |source, i|
             program = Zr.program(source, "built.rb", target: target)
             why = Native::Build.wasm_program(program, File.join(work, "built#{i}.wasm"))

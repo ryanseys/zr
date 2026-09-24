@@ -49,7 +49,7 @@ module Record
     abort "#{path}: no such program" unless File.file?(path)
     abort "#{path}: already recorded; say --again if you mean to replace it" if File.file?("#{base}.out") && !again
 
-    how = Ze0::E2E::HOW.fetch(base.delete_prefix("e2e/"), {})
+    how = Zr::E2E::HOW.fetch(base.delete_prefix("e2e/"), {})
     stdin = how[:stdin] && File.binread(File.expand_path(how[:stdin], File.dirname(path)))
     # RUBYOPT is cleared: what the shell happens to carry must not reach
     # the answer a program is held to.

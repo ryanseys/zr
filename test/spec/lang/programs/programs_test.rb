@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Whole programs" do
   it "bitwise mask over int64" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bitwise op whose literal operand exceeds int64 (a 64-bit mask such as
       # 0xFFFFFFFFFFFFFFFF, typed as a bigint) must still lower -- the result slot
       # is int and takes the low-64 bit pattern. The xorshift64 / 64-bit-mask
@@ -33,7 +33,7 @@ describe "Whole programs" do
   end
 
   it "case mapping methods take no options" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `upcase`/`downcase`/`capitalize`/`swapcase` -- and their `!` and `Symbol`
       # twins -- accept NO arguments in zeo, so every one of ruby's case-mapping
       # options is an `ArgumentError`.
@@ -99,7 +99,7 @@ describe "Whole programs" do
   end
 
   it "case value untaken arm effects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case-as-value: an untaken arm's value construction must not run. The arm
       # values here need setup statements (array literals, a raising call as an
       # element), which used to hoist ahead of the branch dispatch and fire
@@ -170,7 +170,7 @@ describe "Whole programs" do
   end
 
   it "core breadth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 17.1 -- Tier A breadth across String/Symbol/Array/Hash/Range/
       # Enumerable/Kernel, resolved down the CRuby-exact ancestor chains
       # (Comparable driving <=>, Enumerable driving each, Kernel's universals).
@@ -278,7 +278,7 @@ describe "Whole programs" do
   end
 
   it "defined op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #711. `defined?(expr)` used to emit a raw pointer value
       # (printed as a giant integer) instead of a tag string. Now resolves
       # at compile time to "local-variable" / "instance-variable" /
@@ -311,7 +311,7 @@ describe "Whole programs" do
   end
 
   it "each entry reverse each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#each_entry alias of each; Enumerable#reverse_each
       # walks the receiver in reverse.
 
@@ -338,7 +338,7 @@ describe "Whole programs" do
   end
 
   it "env key p" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV.key? / has_key? / include? / member? -> getenv presence (bool).
       # Previously an unresolved call ("undefined method 'key?' for unknown").
       p ENV.key?("PATH")
@@ -365,9 +365,9 @@ describe "Whole programs" do
   end
 
   it "fiddle" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       require "fiddle"
 
@@ -640,7 +640,7 @@ describe "Whole programs" do
   end
 
   it "flat map take rooted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # flat_map's receiver is the array the loop walks, and the block body allocates
       # (the result array, each spliced value). A freshly built receiver -- here the
       # array `take` returns -- is held by nothing, so a collection inside the loop
@@ -685,13 +685,13 @@ describe "Whole programs" do
   end
 
   it "the smallest program runs, and puts writes a symbol without its colon" do
-    result = ze0("puts :ok\n")
+    result = zr("puts :ok\n")
 
     _(result).must_answer "ok\n"
   end
 
   it "hello world" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "Hello, world!"
     RUBY
 
@@ -699,7 +699,7 @@ describe "Whole programs" do
   end
 
   it "GC.stat has no bytes key, so reading one raises NoMethodError on nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = GC.stat
       puts s.key?("bytes")
       puts s.key?("old_bytes")
@@ -729,7 +729,7 @@ describe "Whole programs" do
   end
 
   it "curry takes a lambda's arguments one at a time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       add = -> (a, b) { a + b }
       add5 = add.curry[5]
       puts add5[3]
@@ -754,7 +754,7 @@ describe "Whole programs" do
   end
 
   it "index target takes every index shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[]=` is an ordinary method, so an indexed assignment target carries
       # however many indexes the receiver's `[]=` takes -- in compound
       # assignment, in multi-assignment, and through a splat, each index
@@ -813,7 +813,7 @@ describe "Whole programs" do
   end
 
   it "issue drb missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "drb"` -- the vendored gem loads and defines `DRb`.
       require "drb"
       p defined?(DRb)
@@ -823,7 +823,7 @@ describe "Whole programs" do
   end
 
   it "multi write scalar rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Scalar int RHS to multi-assign: `a, b = 1` previously emitted
       # `sp_IntArray *_t = 1LL;` which failed to compile. CRuby treats
       # the scalar as `[scalar]` so the first slot gets it; the extra
@@ -848,7 +848,7 @@ describe "Whole programs" do
   end
 
   it "pop and shift take a count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `pop`/`shift` answer ONE element; `pop(n)`/`shift(n)` answer an ARRAY
       # -- a different return type, not just a different count, which is why
       # the no-arg form can't be `pop(1)`. Both were `arity!(args, 0)`, so the
@@ -886,7 +886,7 @@ describe "Whole programs" do
   end
 
   it "strbuf shovel chain value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-position << chain over a buffer-promoted string local must land
       # every link in the base: `r = (u << "2" << "3")` used to keep only the
       # first append in u (the second link concatenated a read-out copy).
@@ -922,7 +922,7 @@ describe "Whole programs" do
   end
 
   it "toplevel return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `return` written at a file's top level ends that file: ruby stops
@@ -961,7 +961,7 @@ describe "Whole programs" do
   end
 
   it "values at" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #742 (partial -- values_at). `arr.values_at(i, j, ...)`
       # picks elements at the given indices and returns a fresh array of
       # the same element type. spinel used to fall through to the
@@ -992,7 +992,7 @@ describe "Whole programs" do
   end
 
   it "zeo dev promote probe" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "promoted"
     RUBY
 

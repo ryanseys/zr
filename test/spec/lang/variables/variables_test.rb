@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables programs" do
   it "arg assigned in sequence" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A call whose pointer argument is a bare variable assigned earlier in the SAME
       # sequence-expression the call belongs to: the argument must be read at the call
       # (after the in-sequence assignment), not hoisted above it. Regression: the arg
@@ -31,7 +31,7 @@ describe "Variables programs" do
   end
 
   it "assignment rescue modifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class TopRisk
         def risky_top
           raise "bad"
@@ -45,7 +45,7 @@ describe "Variables programs" do
   end
 
   it "backref globals are frame local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby scopes $~ (and so $1/$&/$`/$') per method frame (the svar slot on the
       # frame): a match inside a called method never touches the caller's backrefs.
       # zeo stores one process-global last-match, so the callee's match leaks out.
@@ -85,7 +85,7 @@ describe "Variables programs" do
   end
 
   it "bigint local in int slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A counter the analysis widens to Bignum (repeated doubling) still has to
       # work where an integer is wanted: an index, a count, a slice bound.
       n = 10
@@ -122,7 +122,7 @@ describe "Variables programs" do
   end
 
   it "box globals are fully separate" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Gvar isolation is BIDIRECTIONAL (separate per-box tables, no fallback):
       # a box reads nil for main's `$g`, and a box's write never reaches main.
 
@@ -144,7 +144,7 @@ describe "Variables programs" do
   end
 
   it "break in a non lambda proc call raises local jump error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `break` inside an explicitly created proc invoked via `#call` has no
       # iterator to unwind to, so CRuby raises LocalJumpError (`#reason`
       # `:break`) -- even while the creating iterator is still live. A lambda's
@@ -176,7 +176,7 @@ describe "Variables programs" do
   end
 
   it "callers locals are the evals locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       n = 20
       src = "n * 3"
       p eval(src)
@@ -189,7 +189,7 @@ describe "Variables programs" do
   end
 
   it "case in hash pattern shorthand binds local named after key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { name: 1 }
       case h
       in { name: }
@@ -201,7 +201,7 @@ describe "Variables programs" do
   end
 
   it "case when poly scrutinee bound to local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `case v when X then ... end` bound to a local via `r = ...`
       # pre-fix emitted two C temps: a result temp (typed from the
       # branch values) and a scrutinee temp (used inside
@@ -250,7 +250,7 @@ describe "Variables programs" do
   end
 
   it "celled op assign types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x op= v` on a local captured by a proc must take the same typed arm as an
       # uncaptured one. The celled path used to carry its own short list of arms and
       # sent every other type through the int helpers.
@@ -301,7 +301,7 @@ describe "Variables programs" do
   end
 
   it "class method dispatches dynamically through a class valued variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The receiver isn't a literal constant, so codegen can't emit a direct
       # `H1::__cm_run(...)` -- it goes through the registry's class-method
       # table on a `RubyValue::Class` receiver.
@@ -328,7 +328,7 @@ describe "Variables programs" do
   end
 
   it "class own method shadows an included module method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Greetable
         def greet
           "hi"
@@ -351,7 +351,7 @@ describe "Variables programs" do
   end
 
   it "class stored in a variable constructs and dispatches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
         def initialize(n)
           @n = n
@@ -371,7 +371,7 @@ describe "Variables programs" do
   end
 
   it "compound assignment on a frozen array raises after the read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `d[0] += 1` desugars to a read (fine on a frozen array) then a `[]=`
       # (raises) -- real Ruby's own order.
 
@@ -388,7 +388,7 @@ describe "Variables programs" do
   end
 
   it "compound assignment on a plain non class constant dispatches correctly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A real, previously-undetected bug, found alongside the `||=` fix
       # above: the compiler's call lowering treated ANY `HirNode::ClassRef`
       # receiver as a `ClassName.foo(...)` class-method call, UNCONDITIONALLY
@@ -420,7 +420,7 @@ describe "Variables programs" do
   end
 
   it "compound assignment on an attribute evaluates the receiver exactly once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         attr_accessor :n
         def initialize
@@ -450,7 +450,7 @@ describe "Variables programs" do
   end
 
   it "condition variable wait signal and broadcast coordinate threads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # signal/broadcast return self; wait releases the mutex, parks the thread
       # until broadcast, then re-acquires. The handoff is deterministic via the
       # shared `ready` flag under the mutex.
@@ -489,7 +489,7 @@ describe "Variables programs" do
   end
 
   it "cvar cref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `@@x` resolves against the LEXICAL cref, and only a `class`/`module`
@@ -572,7 +572,7 @@ describe "Variables programs" do
   end
 
   it "deeply nested dynamic blocks share locals through capture cells" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bm_ao_render's shape: `.times` on an UNTYPED receiver makes every
       # level a real escaping Proc, and the innermost block both assigns its
       # own local (`vf`) and reads outer block params. The mid-chain block
@@ -601,7 +601,7 @@ describe "Variables programs" do
   end
 
   it "defined asks every part as written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` asks about each part as it is written. A call with any
       # receiver, `self` among them, is asked as an explicit call, so a private
       # method -- a private writer too -- is not there; a writer that is, is a
@@ -681,7 +681,7 @@ describe "Variables programs" do
   end
 
   it "defined classifies calls assignments and keyword literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method call answers "method" only if the receiver responds; a bare
       # undefined name is nil. Assignments answer "assignment". nil/true/false
       # answer their own name.
@@ -714,7 +714,7 @@ describe "Variables programs" do
   end
 
   it "defined globals methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # defined? on globals and methods. Methods already returned
       # "method"; globals were returning "expression". CRuby returns
       # "global-variable" for assigned $x but nil for never-assigned
@@ -742,7 +742,7 @@ describe "Variables programs" do
   end
 
   it "dir handle argf class and binding local variable get" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir.new/Dir.open handles (#path/#read/#each/#children/#entries/
       # #rewind/#close, the block form, ENOENT on a missing path), ARGF's
       # literally-named class and default "-" filename with no file args, and
@@ -796,7 +796,7 @@ describe "Variables programs" do
   it "earlier i root shadows a later same named stdlib file" do
     files = beside("earlier_root/main.rb", "earlier_root/stdliblib/patched.rb", "earlier_root/userlib/patched.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # The documented precedence: `-I` roots are searched in order, first hit
       # wins (Ruby's own `$LOAD_PATH` rule) -- so a user root placed BEFORE the
       # stdlib checkout shadows the stdlib copy of a same-named feature, and the
@@ -811,7 +811,7 @@ describe "Variables programs" do
   end
 
   it "eval locals defined and read within one scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "a = 4; b = 5; a * b"; puts eval(src)
     RUBY
 
@@ -819,7 +819,7 @@ describe "Variables programs" do
   end
 
   it "eval shares the enclosing local scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 1
       eval("x = x + 1")
       puts x
@@ -829,7 +829,7 @@ describe "Variables programs" do
   end
 
   it "fiber body captures and mutates enclosing locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The fiber's block goes through the ordinary escaping-Proc capture
       # machinery (Arc<Mutex> cells), so shared mutation across
       # suspension points works exactly like any other escaping block.
@@ -850,7 +850,7 @@ describe "Variables programs" do
   end
 
   it "fiber rebinding a captured local propagates to the enclosing scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # From the reference project's own regression corpus
       # (fiber_reassign_capture.rb): REBINDING (not just mutating) a captured
       # name inside the fiber must write through the shared cell.
@@ -868,7 +868,7 @@ describe "Variables programs" do
   end
 
   it "freezing an array makes index assignment raise a catchable frozen error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       a.freeze
       begin
@@ -883,7 +883,7 @@ describe "Variables programs" do
   end
 
   it "frozen hash assignment raises with the inspect bearing message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1 }
       h.freeze
       begin
@@ -898,7 +898,7 @@ describe "Variables programs" do
   end
 
   it "frozen string assignment raises with the quoted inspect message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "abc"
       s.freeze
       begin
@@ -916,7 +916,7 @@ describe "Variables programs" do
   end
 
   it "global alias shares storage in both directions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias $copy $orig` is a real alias, not a copy: one slot, two names,
       # and writing EITHER is visible through the other. Oracle-verified both
       # ways -- which is why it can't lower to `$copy = $orig`.
@@ -944,7 +944,7 @@ describe "Variables programs" do
   end
 
   it "global var punct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #831: punctuation global variables compile to safe
       # C identifiers. Pre-fix the generated C had `gv_!` / `gv_;` /
       # `gv_,` / `gv_/` etc. which aren't valid C and broke any program
@@ -965,7 +965,7 @@ describe "Variables programs" do
   end
 
   it "global variables read write and default to nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $x = 10
       puts $x
       puts $never_set
@@ -981,7 +981,7 @@ describe "Variables programs" do
   end
 
   it "gsub block form can capture and mutate an enclosing local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exercises the same real-`Proc`/capture machinery every other escaping
       # block already uses (`emit_proc_value`) -- not a bespoke code path.
 
@@ -994,7 +994,7 @@ describe "Variables programs" do
   end
 
   it "gvar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test global variables
       $count = 0
       $name = "world"
@@ -1028,7 +1028,7 @@ describe "Variables programs" do
   end
 
   it "gvar opassign value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # a global-variable operator assignment evaluates to the updated value --
       # as a method's tail (its return value), as a call argument, and inline in
       # an expression. `def tick; $count += 1; end` used to compile tick as void,
@@ -1086,7 +1086,7 @@ describe "Variables programs" do
   end
 
   it "hash reassigning an existing key keeps its original insertion position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       h[:a] = 1
       h[:b] = 2
@@ -1099,7 +1099,7 @@ describe "Variables programs" do
   end
 
   it "indexed assignment value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An assignment expression evaluates to its RIGHT-HAND SIDE, never to what the
       # setter returned. zeo answers the setter's return value.
       #
@@ -1152,7 +1152,7 @@ describe "Variables programs" do
   end
 
   it "is a and kind of against a statically known int local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       puts x.is_a?(Integer)
       puts x.is_a?(String)
@@ -1169,7 +1169,7 @@ describe "Variables programs" do
   end
 
   it "a method whose tail is a subscript assignment answers the value assigned" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Slap
         class Flag
           def initialize(kind)
@@ -1207,7 +1207,7 @@ describe "Variables programs" do
   end
 
   it "late ret through local chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that returns another method's value through a local (`a = nxt; a`)
       # was inferred as void when the callee's own return -- also flowing through a
       # local (`r = ...; r`) -- only settled in the post-fixpoint write-type re-run.
@@ -1264,7 +1264,7 @@ describe "Variables programs" do
   end
 
   it "load reexecutes every time with fresh locals and never registers the feature" do
-    result = ze0(<<~'RUBY', files: beside("load_reexecutes/main.rb", "load_reexecutes/tick.rb"))
+    result = zr(<<~'RUBY', files: beside("load_reexecutes/main.rb", "load_reexecutes/tick.rb"))
       # Three executions: two `load`s plus a `require` -- load never adds to
       # the feature table in real Ruby, so the require still fires. `ticks`
       # restarts at 0 each execution (fresh local scope per load), which the
@@ -1283,7 +1283,7 @@ describe "Variables programs" do
   end
 
   it "local or assign and and assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = nil
       x ||= 5
       puts x
@@ -1296,7 +1296,7 @@ describe "Variables programs" do
   end
 
   it "local reassigned to a different class still compiles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `local_types` is read flow-insensitively, so a retyped local must
       # widen to Poly rather than let a later class's identifier describe an
       # earlier read.
@@ -1324,7 +1324,7 @@ describe "Variables programs" do
   end
 
   it "locals and assignment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = 1
       b = a
       a = a + 1
@@ -1360,7 +1360,7 @@ describe "Variables programs" do
   end
 
   it "massign nil underflow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multiple assignment edges: an explicit-nil RHS element, and splat-underflow
       # where post-splat targets run past the available elements (they land nil).
       # Distinct variable names per statement avoid cross-statement type unification.
@@ -1414,7 +1414,7 @@ describe "Variables programs" do
   end
 
   it "massign pair of object and int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `path << [start, -1]` then `cell, _ = path[id]`. While the fixpoint runs,
       # `start` has no type yet and the literal reads as an int array (an UNKNOWN
       # element unifies away), so the container was narrowed to a table of int arrays
@@ -1454,7 +1454,7 @@ describe "Variables programs" do
   end
 
   it "massign poly scalar target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Cell
         attr_reader :n
         def initialize(n); @n = n; end
@@ -1480,7 +1480,7 @@ describe "Variables programs" do
   end
 
   it "massign underfill nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multiple assignment with fewer RHS values than LHS targets fills the extra
       # targets with nil (not the type's zero), for scalar, literal-array, and
       # mixed-splat RHS forms.
@@ -1506,7 +1506,7 @@ describe "Variables programs" do
   end
 
   it "module constants included modules and class variables" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#constants (own first, ancestors' next, Object's excluded),
       # #included_modules (modules in the MRO), and #class_variables (own +
       # ancestors).
@@ -1536,7 +1536,7 @@ describe "Variables programs" do
   end
 
   it "multi assign from a non array binds one value and nil fills" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a, b = 5
       p [a, b]
       c, d = [1, 2]
@@ -1547,7 +1547,7 @@ describe "Variables programs" do
   end
 
   it "multi assign into attr targets correctly calls the setter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A real, previously-undetected bug: `CallTargetNode::name()` is
       # ALREADY the setter name (`:x=`, confirmed via `Prism.parse`), but
       # `parse::lower_multi_target` appended ANOTHER `=`, building an
@@ -1585,7 +1585,7 @@ describe "Variables programs" do
   end
 
   it "multi assign poly rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-assign with a TY_POLY right-hand side: the boxed value can hold an
       # array at runtime, so it must be destructured element-by-element. The
       # scalar fast path used to hand the whole array to the first target and
@@ -1651,7 +1651,7 @@ describe "Variables programs" do
   end
 
   it "multi assign post targets clamp when underfull" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The same underfull clamping in a multi-assignment: `w, *x, y, z = [1, 2]`
       # is `y=2, z=nil`, not `z=2`.
 
@@ -1674,7 +1674,7 @@ describe "Variables programs" do
   end
 
   it "multi assign trailing comma discards the tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `a, = rhs` is prism's ImplicitRestNode -- an anonymous rest that takes
       # the named lefts and discards the rest, exactly like `a, *_ = rhs`. This
       # is the `spec_tuples, = fetcher.spec_for_dependency` shape rubygems uses.
@@ -1724,7 +1724,7 @@ describe "Variables programs" do
   end
 
   it "multi assign with and without a splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a, b = 1, 2
       puts a
       puts b
@@ -1747,7 +1747,7 @@ describe "Variables programs" do
   end
 
   it "multi assignment into a frozen index target raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = [1, 2]
       f.freeze
       begin
@@ -1761,7 +1761,7 @@ describe "Variables programs" do
   end
 
   it "multiple assignment used as an expression yields the raw rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(a, b = rhs)` in value position yields the RHS verbatim, as CRuby does:
       # a call returning an array yields that array (not a fresh copy), a bare
       # scalar yields the scalar (not `[scalar]`), an implicit list yields the
@@ -1794,7 +1794,7 @@ describe "Variables programs" do
   end
 
   it "multiple assignment from a literal list makes no Array when nothing takes its value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `a, b = x, y` as a statement assigns from the list with no Array
       # made and taken apart, as CRuby's compiler does when the value is
       # popped; every shape of target still reads as if it had been.
@@ -1881,7 +1881,7 @@ describe "Variables programs" do
   end
 
   it "named capture auto binding assigns a local per group" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `/(?<a>..)/ =~ str` assigns each named group to a local of that name.
       # Only with the literal on the LEFT -- `str =~ /(?<a>.)/` binds nothing,
       # which is Ruby's own asymmetry (the parser can only declare the locals
@@ -1908,7 +1908,7 @@ describe "Variables programs" do
   end
 
   it "nested destructuring multi assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       (a, b), c = [[1, 2], 3]
       puts a
       puts b
@@ -1923,7 +1923,7 @@ describe "Variables programs" do
   end
 
   it "nested massign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested multiple-assignment targets bind through the nesting.
       def s(x); x; end
       (a, (b, c)), d = s([[1, [2, 3]], 4])
@@ -1936,7 +1936,7 @@ describe "Variables programs" do
   end
 
   it "nested massign poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested multiple-assignment from a poly-typed RHS (an Integer|Array union, not
       # a statically-typed array), which destructures via sp_poly_massign_get.
       def maybe(f)
@@ -1952,7 +1952,7 @@ describe "Variables programs" do
   end
 
   it "nonlocal return and localjump" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2032,7 +2032,7 @@ describe "Variables programs" do
   end
 
   it "object local boxed write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2098,7 +2098,7 @@ describe "Variables programs" do
   end
 
   it "object local written in a branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local holding a user-class instance, assigned somewhere other than a
       # top-level statement of its scope. Zeo gives such a local an unboxed
       # `Arc<Concrete>` slot whose binding comes from the assignment itself, so
@@ -2179,7 +2179,7 @@ describe "Variables programs" do
   end
 
   it "object typed local widened to poly across branches boxes correctly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x`'s two branches assign DIFFERENT classes, so
       # `analyze::locals::merge_locals` widens its whole-scope type to `Poly`
       # (a plain `RubyValue` slot) -- but each branch's own `HirNode::New` codegen
@@ -2225,7 +2225,7 @@ describe "Variables programs" do
   end
 
   it "op assign tail return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An operator-assignment (x += 1, @x += 1) in method tail position returns the
       # updated value, like the class-variable form already did. (matz/spinel#1484)
       class CounterLocal
@@ -2286,7 +2286,7 @@ describe "Variables programs" do
   end
 
   it "op assign user operator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `slot OP= rhs` desugars to `slot = slot OP rhs`. When the slot
       # is obj-typed and the class defines OP as a user method, codegen
       # must dispatch through that method. The previous version emitted
@@ -2329,7 +2329,7 @@ describe "Variables programs" do
   end
 
   it "operators work on locals not just literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Originally, only a literal-on-literal `+` compiled at all. This
       # proves the generalization: arithmetic on locals typed `Int` by the
       # forward local-type tracker (`analyze::locals`).
@@ -2353,7 +2353,7 @@ describe "Variables programs" do
   end
 
   it "or assign on a never before defined constant quietly defines it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A real, previously-undetected bug: `CONST ||= v` on a constant that
       # was NEVER assigned raised `NameError` instead of quietly defining
       # it -- confirmed via real `ruby` that this is a genuine, narrow
@@ -2371,7 +2371,7 @@ describe "Variables programs" do
   end
 
   it "or assign on an attribute short circuits without calling the setter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         attr_accessor :n
       end
@@ -2388,7 +2388,7 @@ describe "Variables programs" do
   end
 
   it "or assignment writes only when it has to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x ||= v` is `x || (x = v)` and `x &&= v` is `x && (x = v)`: the write
       # happens only when the value is needed. A frozen receiver sees that --
       # memoizing into an ivar that is already set does not write -- and so does
@@ -2454,7 +2454,7 @@ describe "Variables programs" do
   end
 
   it "other compound assignment operators still raise on an undefined constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression guard for the fix above: `||=`'s new leniency must NOT
       # leak into `+=`/`&&=` -- confirmed against real `ruby` that those
       # still raise on a genuinely undefined constant. An uncaught Ruby
@@ -2472,7 +2472,7 @@ describe "Variables programs" do
   end
 
   it "output separator globals are honoured" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$,` (the output field separator) and `$\` (the output record separator)
       # are honoured by the three sites that read them: `print` on any stream and
       # `Array#join`.
@@ -2526,7 +2526,7 @@ describe "Variables programs" do
   end
 
   it "poly global scalar assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A global that holds different types across assignments has a poly (sp_RbVal)
       # slot; assigning a bare scalar (`$g = 42`) into it must box the value, not
       # store the raw int into the sp_RbVal slot (a C compile error).
@@ -2551,7 +2551,7 @@ describe "Variables programs" do
   end
 
   it "polymorphic locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         def initialize
           @tag = "foo"
@@ -2592,7 +2592,7 @@ describe "Variables programs" do
   end
 
   it "require relative splices in document order and shares the global namespace" do
-    result = ze0(<<~'RUBY', files: beside("require_relative_order/greeter.rb", "require_relative_order/main.rb"))
+    result = zr(<<~'RUBY', files: beside("require_relative_order/greeter.rb", "require_relative_order/main.rb"))
       # Top-level `def` in ANY file (main or required) is a separate,
       # pre-existing gap ("unexpected top-level-only node"), routed
       # around with classes/module functions here exactly like every
@@ -2611,7 +2611,7 @@ describe "Variables programs" do
   end
 
   it "required files top level locals are isolated from the main file" do
-    result = ze0(<<~'RUBY', files: beside("required_file_locals/counterlib.rb", "required_file_locals/main.rb"))
+    result = zr(<<~'RUBY', files: beside("required_file_locals/counterlib.rb", "required_file_locals/main.rb"))
       # Real Ruby gives every file its own top-level local scope: main's
       # `count` and the lib's `count` (mutated through a block, exercising
       # the rename pass inside shared-scope block bodies) never touch. The
@@ -2629,7 +2629,7 @@ describe "Variables programs" do
   end
 
   it "return from proc whose home is gone raises localjumperror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Once the home method has unwound -- via exception OR normal return --
       # the Proc's `return` finds no live home and raises LocalJumpError rather
       # than leaking a Signal::Return.
@@ -2674,7 +2674,7 @@ describe "Variables programs" do
   end
 
   it "rightward assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rightward assignment `expr => var` (Ruby 3.0+). Prism encodes this
       # as a MatchRequiredNode whose `pattern` is a LocalVariableTargetNode.
       # spinel_parse rewrites the simple-target case to a LocalVariableWriteNode
@@ -2724,7 +2724,7 @@ describe "Variables programs" do
   end
 
   it "sees globals and main object ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $g = "global"
       @iv = 41
       puts eval("$g".dup)
@@ -2735,7 +2735,7 @@ describe "Variables programs" do
   end
 
   it "std streams not reassigned" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A program that never reassigns a standard stream must emit exactly as before:
       # no global, no runtime test on the read path.
       #
@@ -2762,7 +2762,7 @@ describe "Variables programs" do
   end
 
   it "stdout stderr constants and globals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       STDOUT.puts "via const"
       $stdout.puts "via global"
       STDERR.puts "err const"
@@ -2786,7 +2786,7 @@ describe "Variables programs" do
   end
 
   it "subclass reassigning a cvar mutates the shared inherited storage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Verified against real Ruby first: a subclass's own `@@x = ...`
       # does NOT shadow -- it finds and mutates the SAME storage inherited
       # from the superclass (real Ruby's actual, if slightly surprising,
@@ -2815,7 +2815,7 @@ describe "Variables programs" do
   end
 
   it "thread current name status and thread locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Thread.current == Thread.main
       p Thread.pass
       t = Thread.new { 20 + 22 }
@@ -2855,7 +2855,7 @@ describe "Variables programs" do
   end
 
   it "time utc and local accept a fractional seconds field" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Rational/Float seconds field splits into the integer second plus an
       # EXACT sub-second (Time stores a rational epoch, so #subsec is exact).
 
@@ -2872,7 +2872,7 @@ describe "Variables programs" do
   end
 
   it "user method named clone does not shadow the internal arc clone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Ruby method named `clone` becomes an INHERENT `fn clone` on the
       # generated struct; every internal self/local copy must therefore avoid
       # `.clone()` method syntax (which would resolve to the Ruby method --
@@ -2909,7 +2909,7 @@ describe "Variables programs" do
   end
 
   it "verbose global default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p $VERBOSE
       $VERBOSE = true
       p $VERBOSE

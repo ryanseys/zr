@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: searching and matching" do
   it "container string index write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `outer[i][k] = v` where the inner value is a String: spinel splices a String
       # into a FRESH buffer, so the result has to be stored back into outer's slot.
       # The store-back form existed for a statically Integer index and not for a boxed
@@ -67,7 +67,7 @@ describe "String: searching and matching" do
   end
 
   it "scan over a long string takes linear time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each match's MatchData holds the text it matched. CRuby shares the
       # text's buffer with a frozen copy, so a match costs nothing for the
       # length of the text; here each match copies the whole of it, and a scan
@@ -87,7 +87,7 @@ describe "String: searching and matching" do
   end
 
   it "str rindex position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#rindex with position argument
       # The position limits the search to codepoint index <= pos.
       # Negative pos counts from end: effective = cl + pos.
@@ -135,7 +135,7 @@ describe "String: searching and matching" do
   end
 
   it "index takes a start offset, counting from either end, and answers nil past the last match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "hello world".index("o")
       p "hello world".index("o", 5)
       p "hello world".index("o", -3)
@@ -153,7 +153,7 @@ describe "String: searching and matching" do
   end
 
   it "[]= at a single integer index replaces one character, appends at the length, or widens" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#[]= across every index shape.
 
       # Single integer index: replace one char, negative index, append at length,
@@ -221,7 +221,7 @@ describe "String: searching and matching" do
   end
 
   it "[]= takes a Range, a (start, length), a substring or a pattern, and raises on a miss" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#[]= beyond the single integer index: Range, (start, length),
       # substring, and Regexp forms, plus the raising misses.
       s = "hello"
@@ -273,7 +273,7 @@ describe "String: searching and matching" do
   end
 
   it "[]= reaches the string a container holds, so rows[0][1] = x mutates it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rows[0][1] = "*"` mutates the string the container holds: `[]=` was not a
       # container-reaching mutator, so the Array form raised NoMethodError and the
       # Hash form silently did nothing (#3940).
@@ -333,7 +333,7 @@ describe "String: searching and matching" do
   end
 
   it "character indexing re-decides its byte shortcut after anything that changes the bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Character indexing takes a byte-indexed shortcut when every character is one
       # byte. Whether that holds is a property of the CONTENT, not just the encoding,
       # so it has to be re-decided after anything that changes the bytes.
@@ -415,7 +415,7 @@ describe "String: searching and matching" do
   end
 
   it "index(nil) raises TypeError rather than reporting no match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #847: String#index(nil) used to silently return -1 / nil,
       # conflating "no implicit conversion" with "not found". MRI raises
       # TypeError for nil arg.
@@ -431,7 +431,7 @@ describe "String: searching and matching" do
   end
 
   it "[]= takes an index that is only known to be an Integer at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s[i] = v` took a statically Integer index only. A boxed one reaches it
       # whenever the value came out of a container -- a destructured block parameter,
       # an element read, an untyped argument -- and the call fell through to
@@ -486,7 +486,7 @@ describe "String: searching and matching" do
   end
 
   it "rindex, include?, start_with?, end_with? and count each raise TypeError on nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String methods that raise TypeError for nil arguments.
       # Issue #847 covered index(); this extends to rindex,
       # include?, start_with?, end_with?, and count.
@@ -537,7 +537,7 @@ describe "String: searching and matching" do
   end
 
   it "count and delete take several char sets, and match, rindex and split take their optional arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `count`/`delete` take one OR MORE char-set specs (intersected, `^`
       # negation honored); `match`/`match?`/`rindex` take an optional start
       # position; `rindex` also accepts a Regexp; `each_line` an optional
@@ -581,7 +581,7 @@ describe "String: searching and matching" do
   end
 
   it "symbol string methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol string-surface methods, lowered over the symbol's name: index/slice
       # yield a substring (or nil), succ re-interns a symbol, and start_with?/
       # end_with?/match? yield a bool. Receivers go through a method param so the
@@ -635,7 +635,7 @@ describe "String: searching and matching" do
   end
 
   it "start_with? and end_with? read the bytes where they stand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The comparison is of the receiver's own bytes: a prefix that ends
       # inside a character is not a prefix, whatever its bytes say, and a
       # suffix is read from the offset its length puts it at. CRuby's
@@ -680,7 +680,7 @@ describe "String: searching and matching" do
   end
 
   it "scan and gsub leave $~ on the last match in every shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       text = "one 1, two 22, three 333"
       # No block: the whole matches, then the groups; $~ is the last match.
       p text.scan(/\d+/)

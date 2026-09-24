@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/zr"
+require_relative "../../lib/zr/zr"
 
 # Which programs carry the compiler.
 #
@@ -59,13 +59,13 @@ class EvalRoadTest < Minitest::Test
   # back the moment it compiled anything. The rows go on from the
   # road's, as the symbol ids and the site indices already do.
   def test_a_program_numbers_its_using_rows_past_the_roads
-    road = Ze0::Zr.road(Ze0::Target.default)
+    road = Zr::Zr.road(Zr::Target.default)
     assert_operator road.activations, :>, 0, "the road activates refinements of its own"
 
-    loader = Ze0::Hir::Build::Loader.new(Ze0::Hir::Build.stdlib(Ze0::Target.default), external: road)
+    loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default), external: road)
     assert_equal road.activations, loader.activations
 
-    Dir.mktmpdir("ze0-road-") do |work|
+    Dir.mktmpdir("zr-road-") do |work|
       rb = File.join(work, "using.rb")
       source = "module M; refine Integer do; def trip = self * 3; end; end\nusing M\np 7.trip\n"
       File.write(rb, source)
@@ -78,10 +78,10 @@ class EvalRoadTest < Minitest::Test
 
   # Whether the program in `source` would be linked beside the compiler.
   def carried?(source)
-    Dir.mktmpdir("ze0-road-") do |work|
+    Dir.mktmpdir("zr-road-") do |work|
       rb = File.join(work, "road.rb")
       File.write(rb, source)
-      loader = Ze0::Hir::Build::Loader.new(Ze0::Hir::Build.stdlib(Ze0::Target.default))
+      loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default))
       loader.unit(rb, source)
       loader.evals?
     end

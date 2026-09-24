@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: comparison and equality" do
   it "bool case equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # TrueClass#=== / FalseClass#=== is case equality: true only when the
       # argument is a boolean with the same value.
       p(true === true)
@@ -29,7 +29,7 @@ describe "Object: comparison and equality" do
   end
 
   it "case equality boxed receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `===` on a boxed receiver dispatches on the receiver's runtime class the way
       # CRuby does: a Range covers, a Regexp matches, a Class tests membership. It
       # used to compile as plain equality, so all three answered false (#3963).
@@ -89,7 +89,7 @@ describe "Object: comparison and equality" do
   end
 
   it "case equality dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Even
         def ===(n); n.even?; end
       end
@@ -135,7 +135,7 @@ describe "Object: comparison and equality" do
   end
 
   it "case equality dispatches a user defined triple equals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `case`/`when`, an `in` value/pin pattern, and `grep` all dispatch the
       # pattern's own `===`. A shared native ladder bottoming out in `==` would
       # make a user class whose `===` differs from its `==` silently take the
@@ -184,7 +184,7 @@ describe "Object: comparison and equality" do
   end
 
   it "case when user equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `case obj when other` asks `other === obj`, which for a class defining #==
       # is that method; comparing the C structs did not compile for a value type and
       # compared addresses for a heap object (#3820).
@@ -222,7 +222,7 @@ describe "Object: comparison and equality" do
   end
 
   it "count uses equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#count(item) counts elements EQUAL to its argument; the predicates
       # take a pattern and match with ===. A class argument told them apart (#3817).
       h = { a: 1, b: 2 }
@@ -254,7 +254,7 @@ describe "Object: comparison and equality" do
   end
 
   it "dup runs copy hooks the program wrote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `dup`/`clone` run the copy hooks only where CRuby's road would reach code
       # the program wrote. A NATIVE receiver's own initialize_copy row guards the
       # direct spelling on a built receiver -- dup's fresh copy is not that, so
@@ -295,7 +295,7 @@ describe "Object: comparison and equality" do
   end
 
   it "eql equal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer/String #eql? and #equal? on typed receivers.
       # eql?/equal? are value-equality with NO numeric coercion, unlike ==.
 
@@ -367,7 +367,7 @@ describe "Object: comparison and equality" do
   end
 
   it "eql on chain result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#eql? compares element-wise, like ==, including on a method-chain result.
       def s(x); x; end
       p s([2, 1]).sort.eql?([1, 2])
@@ -389,7 +389,7 @@ describe "Object: comparison and equality" do
   end
 
   it "exc eq clone shadow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three surfaces from the conformance wave.
 
       # A user Exception subclass keeps Exception#== -- class plus message -- rather
@@ -461,7 +461,7 @@ describe "Object: comparison and equality" do
   end
 
   it "explicit triple equals on class values checks ancestry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
       end
 
@@ -478,7 +478,7 @@ describe "Object: comparison and equality" do
   end
 
   it "is a descendant runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Static-vs-runtime class lattice for `is_a?` / `kind_of?` /
       # `instance_of?` when the recv's static type is a parent class but
       # the runtime instance can be any descendant. Previously spinel
@@ -556,7 +556,7 @@ describe "Object: comparison and equality" do
   end
 
   it "issue method object equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method#== compares receiver IDENTITY (`equal?`) as well as the bound method
       # entry, so two Methods over two distinct String receivers are unequal even
       # though both call the same String#upcase.
@@ -569,7 +569,7 @@ describe "Object: comparison and equality" do
   end
 
   it "main object identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The top-level `self` renders as `main`, not as an address. ruby gets there
       # by installing `to_s`/`inspect` singletons on the object; zeo asks by
       # identity, because installing a singleton at startup would mark the
@@ -634,7 +634,7 @@ describe "Object: comparison and equality" do
   end
 
   it "method receiver equal self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # method(:m).receiver of a bare top-level method IS the main object, so the
       # identity test against self folds to true (#3245).
       def d(n) = n
@@ -656,7 +656,7 @@ describe "Object: comparison and equality" do
   end
 
   it "more truthies nil compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #562 (gurgeous / Adam Doppelt). A corpus of `<container_op>
       # == nil` predicates that CRuby answers as true but spinel
       # previously emitted as false. Root cause: typed-array /
@@ -704,7 +704,7 @@ describe "Object: comparison and equality" do
   end
 
   it "nullable obj nil compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #423. `if c != nil` (or `while c != nil`) on a nullable
       # user-class local emitted the body unconditionally -- the `!=
       # nil` comparison was constant-folded to TRUE, the surrounding
@@ -812,7 +812,7 @@ describe "Object: comparison and equality" do
   end
 
   it "display writes, clone(freeze:) answers, and instance_variable_defined? takes a String or a Symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#display, String clone(freeze:), equal?/eql? on nil/bool/symbol,
       # and instance_variable_defined? with string/symbol names.
       5.display
@@ -854,7 +854,7 @@ describe "Object: comparison and equality" do
   end
 
   it "dup answers a separate object that is neither == nor equal? to the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       o = Object.new
       p(o.dup == o)
       p(o.dup.equal?(o))
@@ -877,7 +877,7 @@ describe "Object: comparison and equality" do
   end
 
   it "dup and clone answer a separate instance and call a user initialize_copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # dup/clone of a user object must produce a SEPARATE instance (not alias the
       # original), and must invoke a user-defined initialize_copy hook so deep-copy
       # semantics work. Previously dup/clone fell through to an identity shortcut and
@@ -954,7 +954,7 @@ describe "Object: comparison and equality" do
   end
 
   it "the identity and reflection rows answer what CRuby answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object identity/reflection conformance (KieranP #2281-2286)
       a = ->(x) { x }
       p a.equal?(a)                       # #2281 Proc equal?
@@ -1007,7 +1007,7 @@ describe "Object: comparison and equality" do
   end
 
   it "== with no user == is identity, so an instance equals only itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#== with no user-defined == is identity comparison: an instance is
       # equal only to itself, and two distinct instances are never equal. Receivers
       # go through method params so the compare hits the runtime object path (and so
@@ -1050,7 +1050,7 @@ describe "Object: comparison and equality" do
   end
 
   it "equal? is reference identity, and freeze answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#equal? is reference identity (a heap instance is its pointer);
       # freeze is a no-op returning self, so frozen? consistently reports false.
       class Foo
@@ -1078,7 +1078,7 @@ describe "Object: comparison and equality" do
   end
 
   it "poly equality mixed sites" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def same(a, b)
         a == b
       end
@@ -1136,7 +1136,7 @@ describe "Object: comparison and equality" do
   end
 
   it "uniq uses eql identity for user class defining only eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # uniq (and Array#eql?) dedup by eql?/hash, not ==. A class that defines
       # only == keeps every instance distinct (Object#eql? is identity), so
       # two equal-by-== Points both survive uniq -- unlike include?/index,
@@ -1167,7 +1167,7 @@ describe "Object: comparison and equality" do
   end
 
   it "user defined equality dispatches everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         attr_reader :x
 
@@ -1197,7 +1197,7 @@ describe "Object: comparison and equality" do
   end
 
   it "value type identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = Complex(2, 3)
       p a == Complex(2, 3)
       p a.eql?(Complex(2, 3))

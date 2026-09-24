@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: slicing" do
   it "builtin module reopen reaches all includers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening a builtin MODULE (D3): the added method reaches every includer --
       # Enumerable across Array/Hash, Comparable across Integer.
 
@@ -33,7 +33,7 @@ describe "Modules: slicing" do
   end
 
   it "later def on a module installs at its line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` where it stands, and a MODULE's `def` is no
       # different: a call written above a reopen answers the FIRST body, in every
       # class that mixed the module in, in a module that includes it, and in an
@@ -139,7 +139,7 @@ describe "Modules: slicing" do
   end
 
   it "mixin in a case arm widens its call sites" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `prepend`/`include`/`extend` reachable through a class-body `case` arm is
       # an ancestry edit exactly as one in an `if` branch is. Whether it happens is a
       # runtime fact, so every call site the module could newly answer has to stop
@@ -172,7 +172,7 @@ describe "Modules: slicing" do
   end
 
   it "module class reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module/class constant must behave as a first-class Module/Class
       # object: .class, is_a?/kind_of?/instance_of?(Module|Class), and a
       # nested name rendered with the `::` separator.
@@ -221,7 +221,7 @@ describe "Modules: slicing" do
   end
 
   it "module redefinition reaches its copies" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module's rows are MATERIALIZED onto every class that mixes it in, so a
       # host's own flattened copy answers before the module is ever asked. A second
       # `def` on the module wrote an overlay row nothing read, and every call --
@@ -312,7 +312,7 @@ describe "Modules: slicing" do
   end
 
   it "module reopen cmeth redefine" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #517. `module M; def self.X; ...; end; end` re-opened with a
       # second `def self.X` previously emitted two C functions with the
       # same name but possibly-conflicting return types. CRuby's
@@ -345,7 +345,7 @@ describe "Modules: slicing" do
   end
 
   it "reopen module and class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening `Module` and `Class` themselves. Zeo rejected both outright --
       # they were the last two builtins excluded from the reopen path, on the
       # reasoning that a `RubyValue::Class` receiver has no per-value dispatch to
@@ -420,7 +420,7 @@ describe "Modules: slicing" do
   end
 
   it "runtime def on a module reaches its including classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Greet
         def hello = :first
       end

@@ -3,7 +3,7 @@
 require "test_helper"
 require "fileutils"
 require "tmpdir"
-require_relative "../../lib/ze0/zr"
+require_relative "../../lib/zr/zr"
 
 # What the runtime's digest covers, and what it leaves out.
 #
@@ -15,19 +15,19 @@ require_relative "../../lib/ze0/zr"
 # list, `Zr::PER_TARGET`, leaves a backend and an object writer out of
 # every target but the one that emits with them.
 class DigestTest < Minitest::Test
-  LIB = File.join(ROOT, "lib/ze0")
+  LIB = File.join(ROOT, "lib/zr")
 
   def compiler = Dir[File.join(LIB, "**/*.rb")].sort
 
   def test_every_file_of_the_compiler_is_in_one_digest_or_the_other
-    covered = Ze0::Target.all.flat_map { |target| Ze0::Zr.compiler_files(target) } + Ze0::Zr::LINK_ONLY
+    covered = Zr::Target.all.flat_map { |target| Zr::Zr.compiler_files(target) } + Zr::Zr::LINK_ONLY
 
     assert_equal compiler, covered.uniq.sort
   end
 
   def test_the_files_left_out_are_left_out_by_name
-    Ze0::Zr::LINK_ONLY.each { |path| assert_path_exists path }
-    assert_empty Ze0::Zr::LINK_ONLY & Ze0::Zr.sources
+    Zr::Zr::LINK_ONLY.each { |path| assert_path_exists path }
+    assert_empty Zr::Zr::LINK_ONLY & Zr::Zr.sources
   end
 
   # The default is to count: a file no prefix names is in every target's
@@ -35,16 +35,16 @@ class DigestTest < Minitest::Test
   # it out by name.
   def test_a_file_no_prefix_names_counts_for_every_target
     named = compiler.select do |path|
-      Ze0::Zr::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
+      Zr::Zr::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
     end
-    shared = Ze0::Target.all.map { |target| Ze0::Zr.compiler_files(target) }.reduce(:&)
+    shared = Zr::Target.all.map { |target| Zr::Zr.compiler_files(target) }.reduce(:&)
 
-    assert_equal (compiler - named - Ze0::Zr::LINK_ONLY).sort, shared.sort
+    assert_equal (compiler - named - Zr::Zr::LINK_ONLY).sort, shared.sort
   end
 
   def test_a_backend_and_an_object_writer_belong_to_the_target_they_emit_for
-    darwin = Ze0::Zr.compiler_files(Ze0::Target::AARCH64_DARWIN)
-    wasm = Ze0::Zr.compiler_files(Ze0::Target::WASM32_WASI)
+    darwin = Zr::Zr.compiler_files(Zr::Target::AARCH64_DARWIN)
+    wasm = Zr::Zr.compiler_files(Zr::Target::WASM32_WASI)
 
     assert_includes darwin, File.join(LIB, "backend/aarch64/codegen.rb")
     assert_includes darwin, File.join(LIB, "obj/macho/object_file.rb")
@@ -61,14 +61,14 @@ class DigestTest < Minitest::Test
   def test_a_lowering_file_moves_the_runtime_digest_and_a_linker_does_not
     copied do |root|
       was = digests(root)
-      touching(File.join(root, "lib/ze0/hir/build.rb")) do
+      touching(File.join(root, "lib/zr/hir/build.rb")) do
         refute_equal was.first, digests(root).first, "the runtime digest ignored the front end"
       end
-      touching(File.join(root, "lib/ze0/obj/macho/prelink.rb")) do
+      touching(File.join(root, "lib/zr/obj/macho/prelink.rb")) do
         assert_equal was.first, digests(root).first, "the runtime digest followed the linker"
         refute_equal was.last, digests(root).last, "the link digest ignored the linker"
       end
-      touching(File.join(root, "lib/ze0/backend/wasm/codegen.rb")) do
+      touching(File.join(root, "lib/zr/backend/wasm/codegen.rb")) do
         assert_equal was.first, digests(root).first, "the native runtime digest followed the wasm backend"
       end
     end
@@ -82,7 +82,7 @@ class DigestTest < Minitest::Test
   # files for their own digests, and one that read a file mid-write took
   # a runtime nobody had built and spent its deadline building it.
   def copied
-    Dir.mktmpdir("ze0-digest-") do |dir|
+    Dir.mktmpdir("zr-digest-") do |dir|
       root = File.realpath(dir)
       FileUtils.cp_r(File.join(ROOT, "lib"), File.join(root, "lib"))
       %w[rt vendor].each { |name| File.symlink(File.join(ROOT, name), File.join(root, name)) }
@@ -93,11 +93,11 @@ class DigestTest < Minitest::Test
   # `[runtime digest, link digest]` of the compiler under `root`, asked
   # in a child so this process keeps neither answer.
   def digests(root)
-    env = Ze0::Harness::Unbundled.env.merge("ZE0_CACHE" => File.join(root, "cache"))
+    env = Zr::Harness::Unbundled.env.merge("ZR_CACHE" => File.join(root, "cache"))
     said = IO.popen(env, [RbConfig.ruby, "-I#{root}/lib", "-e", <<~RUBY],
-      require "ze0/zr"
-      puts Ze0::Zr::Runtime.new(Ze0::Target.default).digest
-      puts Ze0::Zr.link_digest
+      require "zr/zr"
+      puts Zr::Zr::Runtime.new(Zr::Target.default).digest
+      puts Zr::Zr.link_digest
     RUBY
                     unsetenv_others: true, &:read)
     assert_predicate $?, :success?, "the child did not answer: #{said}"

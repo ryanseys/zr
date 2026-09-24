@@ -4,19 +4,19 @@ require "spec_helper"
 
 describe "Kernel programs" do
   it "adds no constant of its compiler" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An eval compiles its string here with a compiler in Ruby, over prism,
-      # which the program carries. Its constants, Ze0 and Prism, stay out of
+      # which the program carries. Its constants, Zr and Prism, stay out of
       # the program's sight, as ruby has neither: not in Object.constants, not
       # for defined?, const_get or a string an eval runs, nor after
       # RubyVM::AbstractSyntaxTree's translator loads.
       eval "1"
       p Object.constants.include?(:Prism), defined?(Prism)
-      p Object.constants.include?(:Ze0), defined?(Ze0)
+      p Object.constants.include?(:Zr), defined?(Zr)
 
       p Object.const_defined?(:Prism), (Object.const_get(:Prism) rescue $!.class), Module.constants.include?(:Prism)
       p eval("defined?(Prism)"), eval("1 + 2")
-      p RubyVM::AbstractSyntaxTree.parse("1").type, defined?(Prism), defined?(Ze0)
+      p RubyVM::AbstractSyntaxTree.parse("1").type, defined?(Prism), defined?(Zr)
 
     RUBY
 
@@ -37,7 +37,7 @@ describe "Kernel programs" do
   end
 
   it "autoload raises from a const added hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `autoload` declares the constant, so a const_added hook that raises
       # raises out of the autoload, as it does out of an assignment.
       module M
@@ -61,7 +61,7 @@ describe "Kernel programs" do
   end
 
   it "bare super forwards a child optional into a parent required slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The child's and parent's parameter SHAPES differ, so the forwarding
       # must flatten positionally rather than match bucket-for-bucket.
 
@@ -83,7 +83,7 @@ describe "Kernel programs" do
   end
 
   it "boxs kernel method is not callable in main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A module reopened inside a box keeps its methods there -- `Kernel` is the
       # sharpest case, since a leak would give every object in main a new method.
 
@@ -99,7 +99,7 @@ describe "Kernel programs" do
   end
 
   it "break bubbles through nested begins to the outer loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An inner `begin` (loop labels cleared) `?`-propagates the `break` up to
       # the outer `begin`, which -- inline in the loop -- performs the literal
       # translation. The crossing scan descends THROUGH nested begins (H2).
@@ -127,7 +127,7 @@ describe "Kernel programs" do
   end
 
   it "call site splat on an implicit self sibling call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Adder
         def add3(a, b, c)
           a + b + c
@@ -143,7 +143,7 @@ describe "Kernel programs" do
   end
 
   it "caller locations" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # AOT builds keep no runtime call-stack frames (as with Kernel#caller), so
       # caller_locations is an empty array rather than nil. The array-shaped contract
       # still holds: it is an Array, is iterable, and is nil-safe under &..
@@ -179,7 +179,7 @@ describe "Kernel programs" do
   end
 
   it "catch anonymous tag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = catch do |t|
         p t.class
         throw t, :done
@@ -191,7 +191,7 @@ describe "Kernel programs" do
   end
 
   it "catch throw tags values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # catch/throw: values delivered across method boundaries, non-symbol object
       # tags matched by identity, the auto-tag block-param form, and UncaughtThrowError.
 
@@ -272,7 +272,7 @@ describe "Kernel programs" do
   end
 
   it "catch throw uncaught" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # catch/throw delivers a value across method boundaries; a throw whose tag has
       # no live catch raises UncaughtThrowError (rescuable), rather than leaking.
 
@@ -341,7 +341,7 @@ describe "Kernel programs" do
   end
 
   it "class body require runs in place" do
-    result = ze0(<<~'RUBY', files: beside("class_body_require/inner.rb"))
+    result = zr(<<~'RUBY', files: beside("class_body_require/inner.rb"))
       # A `require` written in a `class`/`module` BODY runs AT ITS OWN POSITION in
       # CRuby, at the top-level cref -- not after the whole enclosing file.
       #
@@ -390,7 +390,7 @@ describe "Kernel programs" do
   end
 
   it "const path unresolved require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unresolved qualified constant (`Mylib::VERSION`, Mylib undefined) degrades
       # to a rescuable runtime NameError rather than emitting a bare `Mylib_VERSION` C
       # identifier (undeclared -> C compile error). The constant would once have come
@@ -409,12 +409,12 @@ describe "Kernel programs" do
   end
 
   it "conversion refusal names nil true and false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rb_builtin_class_name: a refusal names nil, true and false by themselves
       # rather than by their classes, and an anonymous class by the path
       # `#<Class:0x...>` rather than by a name it has none of.
       #
-      # ze0 interpolated the class at about 76 sites, so `[1] - nil` said
+      # zr interpolated the class at about 76 sites, so `[1] - nil` said
       # "NilClass" where ruby says "nil", and a value of an anonymous class said
       # nothing at all, because `Class#name` answers nil for one.
       #
@@ -493,7 +493,7 @@ describe "Kernel programs" do
   end
 
   it "equal p boxed argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `equal?` with a boxed argument compares addresses: the same call reached
       # with an object and with a symbol widens the parameter to poly, and the
       # comparison used to fold to false for an object compared with itself (#3807).
@@ -541,7 +541,7 @@ describe "Kernel programs" do
   end
 
   it "eval caller locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `eval` runs in the CALLER's frame, so a dynamic source reads and
       # writes the locals around it -- and a local the source introduces stays
       # afterwards. The compiler reaches this by materializing the calling scope as
@@ -627,7 +627,7 @@ describe "Kernel programs" do
   end
 
   it "eval while loop in the vm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "s = 0; i = 1; while i <= 4; s = s + i; i = i + 1; end; s"; puts eval(src)
     RUBY
 
@@ -635,7 +635,7 @@ describe "Kernel programs" do
   end
 
   it "for loops over hashes and parenthesized collections" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       total = 0
       for k, v in { "a" => 1, "b" => 2, "c" => 3 }
         total += v
@@ -676,7 +676,7 @@ describe "Kernel programs" do
   end
 
   it "implicit alloc site escape layout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :label)
 
@@ -713,7 +713,7 @@ describe "Kernel programs" do
   end
 
   it "implicit alloc site escape param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Store
         def initialize
           @records = []
@@ -747,7 +747,7 @@ describe "Kernel programs" do
   end
 
   it "implicit alloc site escape scoped locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Store
         def initialize
           @records = []
@@ -798,7 +798,7 @@ describe "Kernel programs" do
   end
 
   it "implicit alloc site holder shared method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :label)
 
@@ -832,7 +832,7 @@ describe "Kernel programs" do
   end
 
   it "implicit new local method scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Implicit-new local class resolution must be method-scoped. A local's
       # type can never come from a same-named local in a *different* method.
       #
@@ -904,7 +904,7 @@ describe "Kernel programs" do
   end
 
   it "implicit self call dispatches to a sibling method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def greet
           hello
@@ -922,7 +922,7 @@ describe "Kernel programs" do
   end
 
   it "implicit self call in a class method resolves against the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `self` in a class method is the class it was CALLED on, not the one
       # whose body the method was written in. Both of these were silently wrong
       # (no error, just the wrong object) while implicit-self resolution used
@@ -957,7 +957,7 @@ describe "Kernel programs" do
   end
 
   it "implicit self call with args can mutate an ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Counter
         def initialize
           @count = 0
@@ -982,7 +982,7 @@ describe "Kernel programs" do
   end
 
   it "OpenStruct without its require raises NameError rather than failing to compile" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenStruct without `require "ostruct"` must raise a clean NameError (the same
       # path as any undefined constant), not fail C compilation. The general shape --
       # an unresolved call in `p`'s argument position -- must compile to its diverging
@@ -1011,7 +1011,7 @@ describe "Kernel programs" do
   end
 
   it "a Binding names the whole frame, so writes flow both ways and a local declared later is already in it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#binding` at the top level: the Binding shares the frame's slots, so
       # every write is visible through both sides -- and a local declared LATER in
       # the scope is already in it, because a Binding names the whole frame rather
@@ -1105,7 +1105,7 @@ describe "Kernel programs" do
   end
 
   it "caller answers an empty Array, and the private conversion helpers resolve through every dispatch path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `caller`/`caller_locations` answer an empty Array (no runtime frames in an
       # AOT build), and the private Kernel conversion/format helpers resolve as
       # real methods -- so a splat call, `method(:Integer)`, or a forwarded block
@@ -1133,7 +1133,7 @@ describe "Kernel programs" do
   end
 
   it "Hash(), warn, printf, putc and p answer in value position what ruby answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Hash / #warn / #printf / #putc / p() value position (#2513, #2526, #2541)
       p(Hash(nil))
       p(Hash([]))
@@ -1164,7 +1164,7 @@ describe "Kernel programs" do
   end
 
   it "a proc calls, warn writes to stderr, __method__ names the method, and a bare new builds the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       sq = proc { |x| x * x }
       puts sq.call(5)
       warn "to stderr"
@@ -1187,7 +1187,7 @@ describe "Kernel programs" do
   end
 
   it "a def written inside module Kernel reaches every class and is emitted once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` written inside `module Kernel` reaches every class in the program,
       # and zeo emits its body ONCE. This is the same rule as a top-level `def`
       # (see `a_toplevel_def_is_one_body_for_every_class`), reached by the other
@@ -1248,7 +1248,7 @@ describe "Kernel programs" do
   end
 
   it "a method added by reopening Kernel reports Kernel as its owner, from every carrier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Kernel
         def tagged(x) = x
       end
@@ -1277,7 +1277,7 @@ describe "Kernel programs" do
   end
 
   it "__callee__ and __method__ agree without an alias, and a private or missing call names the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # __callee__ / __method__ (identical without aliases)
       def who
         [__method__, __callee__]
@@ -1329,7 +1329,7 @@ describe "Kernel programs" do
   end
 
   it "lambda requires a literal block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#lambda` accepts a block WRITTEN AT THE SITE THAT INVOKES IT and
       # refuses one that arrives any other way.
       #
@@ -1392,7 +1392,7 @@ describe "Kernel programs" do
   end
 
   it "loop swallows stop iteration and returns its result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `loop`'s full StopIteration contract (CRuby kernel.rb:151): a manual
       # `raise StopIteration` returns nil (no result set), `break value` still
       # carries its value out, and every OTHER exception propagates.
@@ -1414,7 +1414,7 @@ describe "Kernel programs" do
   end
 
   it "nested catch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A catch whose body's value is another catch: the inner one's setup was
       # appended in the middle of the outer's assignment, so the C did not compile.
       p(catch(:outer) { catch(:inner) { 1 } })
@@ -1432,7 +1432,7 @@ describe "Kernel programs" do
   end
 
   it "p as expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#p returns its argument, so it composes as an expression:
       # x = p(y), puts p(y), f(p(y)). Statement-position p is unchanged.
       x = p(42)
@@ -1467,7 +1467,7 @@ describe "Kernel programs" do
   end
 
   it "pattern implicit rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A trailing comma in an array pattern (`in [0, 1, ]`) is an implicit rest:
       # at-least length semantics, binding nothing.
       case [0, 1, 2, 3]
@@ -1484,7 +1484,7 @@ describe "Kernel programs" do
   end
 
   it "poly empty p user length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Asking whether a user class owns the CALLED name: a class defining `length`
       # used to send every `empty?` on a boxed receiver into an unconditional
       # NoMethodError, whatever the receiver turned out to be (#3805).
@@ -1530,7 +1530,7 @@ describe "Kernel programs" do
   end
 
   it "private method callable via implicit self and explicit self dot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real Ruby (2.7+): a private method IS callable with an explicit
       # receiver as long as it's a literal `self` -- not just implicit-self
       # (no receiver at all).
@@ -1558,7 +1558,7 @@ describe "Kernel programs" do
   end
 
   it "proc compose requires a callable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Proc#>>`/`#<<` type-check their operand AT COMPOSE TIME ("callable
       # object is expected"); zeo builds the composite and would only fail when
       # called. (Found by the 2026-08-24 probe sweep.)
@@ -1578,7 +1578,7 @@ describe "Kernel programs" do
   end
 
   it "proc to proc self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(->(x) { x }.to_proc.call(3))
       l001 = ->(x) { x }; p l001.to_proc.call(3)
       p l001.to_proc.arity
@@ -1599,7 +1599,7 @@ describe "Kernel programs" do
   end
 
   it "program that requires prism after an eval sees it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The prism an eval compiles with is the one a program requires: the
       # require answers true once, and Prism then stands in Object as ruby
       # stands it, while the compiler goes on working.
@@ -1608,7 +1608,7 @@ describe "Kernel programs" do
       p require("prism"), require("prism")
       p defined?(Prism), Object.constants.include?(:Prism), Prism.parse("1 + 2").value.class
       p eval("[defined?(Prism), 4]")
-      p defined?(Ze0)
+      p defined?(Zr)
 
     RUBY
 
@@ -1625,7 +1625,7 @@ describe "Kernel programs" do
   end
 
   it "public def hides a private kernel name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One name resolves to ONE definition, so the class that defines it decides
       # which reflection list it lands in. `private_methods` walked the whole chain
       # and let Kernel's private `exec` back onto the list under a class that had
@@ -1670,7 +1670,7 @@ describe "Kernel programs" do
   end
 
   it "puts and p through a replaced stdout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # puts, print and p reach whatever $stdout is: an object with only
       # write, a StringIO, and a pipe with sync off; and puts of a String
       # subclass, a symbol and an object with to_s take the line walk.
@@ -1727,7 +1727,7 @@ describe "Kernel programs" do
   end
 
   it "rand prng stream" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The PRNG contract: same seed -> same stream, for every consumer of the
       # Kernel-level stream (rand in all its forms, shuffle, sample, the Random
       # default instance). Values are implementation-specific (spinel is not
@@ -1821,7 +1821,7 @@ describe "Kernel programs" do
   end
 
   it "random methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Random / Kernel#rand semantics (#2517-2525, #2543, #2544)
       srand(5)
       p(srand(10))                 # 2517: returns previous seed (5)
@@ -1871,7 +1871,7 @@ describe "Kernel programs" do
   end
 
   it "random prng" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Random` -- a seedable PRNG. zeo's generator is xorshift64*, not CRuby's
       # MT19937, so raw sequences differ; this example prints only the DETERMINISTIC
       # guarantees that hold for any correct PRNG (reproducibility, ranges, return
@@ -1922,7 +1922,7 @@ describe "Kernel programs" do
   end
 
   it "random rand argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Random#rand validates its bound and preserves a Float bound's return type. A
       # non-positive bound (Integer or Float) silently returned 0; MRI raises
       # ArgumentError "invalid argument - <n>". A Float bound was truncated to an
@@ -1958,7 +1958,7 @@ describe "Kernel programs" do
   end
 
   it "random rejects non positive bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin; Random.new(1).rand(0); rescue ArgumentError => e; puts e.message; end
       begin; Random.new(1).rand(-3); rescue ArgumentError => e; puts e.message; end
     RUBY
@@ -1967,7 +1967,7 @@ describe "Kernel programs" do
   end
 
   it "random seeded sequence" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A seed only means anything if it replays somebody else's numbers: a test
       # fixture, a shuffled deck rebuilt from a log, a property-test seed pasted out
       # of a failure report. So `Random.new(42)` here draws ruby's own MT19937
@@ -2086,7 +2086,7 @@ describe "Kernel programs" do
   end
 
   it "recursive implicit yield value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A self-recursive method that uses implicit `yield` and forwards its
       # block down the recursion (`countdown(n - 1) { yield }`) carries the
       # block's value back at the block's real type. Such methods are lowered
@@ -2136,7 +2136,7 @@ describe "Kernel programs" do
   end
 
   it "super with no literal block forwards the callers block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Parent
         def run
           yield
@@ -2154,7 +2154,7 @@ describe "Kernel programs" do
   end
 
   it "top level def overrides a kernel function" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling/top-level resolution runs BEFORE the Kernel function set --
       # real Ruby's rule (a user `def rand` wins over Kernel#rand).
 
@@ -2168,7 +2168,7 @@ describe "Kernel programs" do
   end
 
   it "try convert across types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.try_convert(obj)` for the other three types that expose the
       # check-conversion protocol. All four doors share one implementation, and its
       # defining property is that the answer keeps the class it arrived with: the
@@ -2255,7 +2255,7 @@ describe "Kernel programs" do
   end
 
   it "until loop and modifier forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       n = 5
       until n == 0
         n -= 1
@@ -2279,7 +2279,7 @@ describe "Kernel programs" do
   end
 
   it "value subclass conversions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class S < String; end
       class A < Array; end
       class H < Hash; end
@@ -2327,7 +2327,7 @@ describe "Kernel programs" do
   end
 
   it "value subclass conversions demote but mutators rewrap" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value subclass (`class S < String`) carries its payload behind a bridge
       # that re-wraps a builtin's return value into the subclass when it hands back
       # the SAME handle -- the no-allowlist heuristic for self-returning mutators
@@ -2374,7 +2374,7 @@ describe "Kernel programs" do
   end
 
   it "value subclass conversions protocol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String/Array subclass satisfies the implicit-conversion protocol AS itself
       # -- `to_str`/`to_ary` answer the object, not a fresh builtin -- so every site
       # that asks for one has to unwrap the payload it carries.
@@ -2411,7 +2411,7 @@ describe "Kernel programs" do
   end
 
   it "warn answers its ruby parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby writes Kernel#warn in Ruby, so its parameters are the Ruby
       # ones, not the `[[:rest]]` a method written in C answers. A library
       # that checks for the category keyword (prism's polyfill does) must
@@ -2433,7 +2433,7 @@ describe "Kernel programs" do
   end
 
   it "warn kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #734. `warn arg, ...` writes each arg to stderr with a
       # newline (matching Kernel#warn). spinel used to emit the unresolved-
       # call warning and drop the IO silently.
@@ -2456,7 +2456,7 @@ describe "Kernel programs" do
   end
 
   it "while loop with break and next values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       i = 0
       sum = 0
       while i < 10
@@ -2473,7 +2473,7 @@ describe "Kernel programs" do
   end
 
   it "pp's backtrace has no bind_call frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Bad
         def pretty_print(q) = raise("in pp")
       end
@@ -2492,7 +2492,7 @@ describe "Kernel programs" do
   end
 
   it "a Symbol block of pp is a private call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         [[1] * 3].each(&:pp)
       rescue NoMethodError => e

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/backend/aarch64/codegen"
-require_relative "../../lib/ze0/backend/aarch64/stub"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/backend/aarch64/codegen"
+require_relative "../../lib/zr/backend/aarch64/stub"
 
 # The encoder, held to the `aarch64` gem. The gem is generated from the
 # ARM specification, so it is the authority on what an instruction
@@ -12,7 +12,7 @@ require_relative "../../lib/ze0/backend/aarch64/stub"
 # no eval yet. Every function of the runtime assembles through both and
 # must give the same bytes.
 class Aarch64Test < Minitest::Test
-  Aarch64 = Ze0::Backend::Aarch64
+  Aarch64 = Zr::Backend::Aarch64
 
   # The gem's assembler, taking our registers: the one emitter drives
   # both, so a difference is the encoding and nothing else. The gem has
@@ -93,9 +93,9 @@ class Aarch64Test < Minitest::Test
 
   def self.runtime
     @runtime ||= begin
-      symbols = Ze0::Machine::Symbols.new
-      unit = Ze0::Machine.unit(Ze0::Zr.kernel_files + [File.join(ROOT, "test/rt/puts.rb")], symbols: symbols)
-      functions, = Ze0::Zr.core(unit, symbols)
+      symbols = Zr::Machine::Symbols.new
+      unit = Zr::Machine.unit(Zr::Zr.kernel_files + [File.join(ROOT, "test/rt/puts.rb")], symbols: symbols)
+      functions, = Zr::Zr.core(unit, symbols)
       unit.functions + functions
     end
   end
@@ -118,8 +118,8 @@ class Aarch64Test < Minitest::Test
       functions.each_with_index do |f, i|
         next unless i % SHARDS == n
 
-        ours = Ze0::Backend::Aarch64::Codegen.new(f, defined: names).compile
-        theirs = Ze0::Backend::Aarch64::Codegen.new(f, defined: names, assembler: Gem).compile
+        ours = Zr::Backend::Aarch64::Codegen.new(f, defined: names).compile
+        theirs = Zr::Backend::Aarch64::Codegen.new(f, defined: names, assembler: Gem).compile
         assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*"), "#{f.name} encodes differently"
         assert_equal theirs.relocs, ours.relocs, "#{f.name} relocates differently"
       end
@@ -131,17 +131,17 @@ class Aarch64Test < Minitest::Test
   def test_every_opcode_fixture_encodes_as_the_gem_does
     require "aarch64"
     require_relative "../native/ops"
-    Ze0::Native::Ops.all.each_value do |f|
-      ours = Ze0::Backend::Aarch64::Codegen.new(f).compile
-      theirs = Ze0::Backend::Aarch64::Codegen.new(f, assembler: Gem).compile
+    Zr::Native::Ops.all.each_value do |f|
+      ours = Zr::Backend::Aarch64::Codegen.new(f).compile
+      theirs = Zr::Backend::Aarch64::Codegen.new(f, assembler: Gem).compile
       assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*"), "#{f.name} encodes differently"
     end
   end
 
   def test_the_stack_switch_stub_encodes_as_the_gem_does
     require "aarch64"
-    ours = Ze0::Backend::Aarch64::Stub.switch
-    theirs = Ze0::Backend::Aarch64::Stub.switch(assembler: Gem)
+    ours = Zr::Backend::Aarch64::Stub.switch
+    theirs = Zr::Backend::Aarch64::Stub.switch(assembler: Gem)
     assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*")
   end
 end

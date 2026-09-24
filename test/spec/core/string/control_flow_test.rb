@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: control flow" do
   it "case when string range nil bound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nil endpoint of a string range (here an unset String ivar, which reads as a
       # NULL slot) is an OPEN bound under Range#=== / case-when, exactly like CRuby:
       # `(nil.."m") === "c"` is true. The endpoint must not be dereferenced by strcmp,
@@ -41,7 +41,7 @@ describe "String: control flow" do
   end
 
   it "default nil param with str return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method with `default = nil` whose body also returns a String from
       # another path: the function return type was `const char *` (string?)
       # but the param slot stayed `mrb_int` (the literal nil's int default),
@@ -83,7 +83,7 @@ describe "String: control flow" do
   end
 
   it "loop do end with break value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       i = 0
       result = loop do
         i += 1
@@ -96,7 +96,7 @@ describe "String: control flow" do
   end
 
   it "method return mixed int string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose return paths mix a genuine int (an int literal or a
       # param-sourced int ivar) with a string must box its return to poly so
       # the int arm is not silently returned through the string pointer slot.
@@ -179,7 +179,7 @@ describe "String: control flow" do
   end
 
   it "module cls method string return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #127: a module-level singleton method (`module M; def self.X; ... end; end`)
       # whose body returns a non-int value used to be typed as `mrb_int` at every
       # call site. Capturing to a local emitted `mrb_int = const char *` (compile
@@ -245,7 +245,7 @@ describe "String: control flow" do
   end
 
   it "next value each slice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next <value>` through each_slice(n).map contributes the value.
       p [1, 2, 3, 4].each_slice(2).map { |a, b| next 0 if a == 1; a + b }   # [0, 7]
       p [1, 2, 3, 4, 5].each_slice(2).map { |a, b| a }                      # [1, 3, 5]
@@ -255,7 +255,7 @@ describe "String: control flow" do
   end
 
   it "param widens when body assigns string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method body that reassigns one of its parameters to a value
       # of an incompatible type (here: int call sites + string body
       # write) needs the param's slot widened to `poly` so the
@@ -290,7 +290,7 @@ describe "String: control flow" do
   end
 
   it "str array max min by" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #863: max_by / min_by on String arrays return the element,
       # not the score (and not 0).
       puts ["hello", "hi", "goodbye"].max_by { |s| s.length }
@@ -307,7 +307,7 @@ describe "String: control flow" do
   end
 
   it "oct is a lenient base-8 parse: whitespace, a sign, a base prefix and underscore separators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#oct is a lenient Integer(str, 8)-style parse: leading whitespace, an
       # optional sign, an optional base prefix (0x/0b/0o/0d or a leading 0 = octal),
       # and single underscore separators between digits. Spinel previously mishandled

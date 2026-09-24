@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Kernel: loading files" do
   it "bare require needs a load path root" do
-    result = ze0(<<~'RUBY', files: beside("bare_require/lib/thing.rb", "bare_require/vendor/thing/lib/thing.rb"))
+    result = zr(<<~'RUBY', files: beside("bare_require/lib/thing.rb", "bare_require/vendor/thing/lib/thing.rb"))
       # `require "thing"` names the `thing.rb` sitting under a `$LOAD_PATH` root --
       # not every loaded file whose path happens to end in `/thing.rb`. zeo compared
       # `$LOADED_FEATURES` by path SUFFIX alone, so a vendored copy already loaded
@@ -34,7 +34,7 @@ describe "Kernel: loading files" do
   end
 
   it "boot preloaded feature needs no require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Monitor` needs NO require: ruby 4.0 loads `monitor` before the program's
       # first line, so its constant is there whatever the program says
       # (oracle-verified). The ext gate is about a feature ruby does NOT preload;
@@ -48,7 +48,7 @@ describe "Kernel: loading files" do
   end
 
   it "computed require loads a bundled library" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` whose argument is not a literal has to reach the libraries the
       # runtime carries, not just the files on `$LOAD_PATH`.
       #
@@ -126,7 +126,7 @@ describe "Kernel: loading files" do
   end
 
   it "computed require reveals the gated constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Loading a feature is only half of a `require`: the constant it gates has to
       # start existing at that line, and not before.
       #
@@ -180,7 +180,7 @@ describe "Kernel: loading files" do
   end
 
   it "deferred require reopens container" do
-    result = ze0(<<~'RUBY', files: beside("deferred_require/lib.rb"))
+    result = zr(<<~'RUBY', files: beside("deferred_require/lib.rb"))
       # A deferred (in-method) require whose file reopens a compact-path class
       # (`class Outer::Feature::Policy`) BEFORE the forward-declaration it depends on
       # (`module Outer::Feature`) registers -- the rubygems `Gem::Security` shape.
@@ -208,7 +208,7 @@ describe "Kernel: loading files" do
   end
 
   it "loaded features records require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
       p $LOADED_FEATURES.any? { |f| f.include?("set") }
       p $LOADED_FEATURES.empty?
@@ -218,7 +218,7 @@ describe "Kernel: loading files" do
   end
 
   it "missing require names the library" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
 
       io = StringIO.new
@@ -252,7 +252,7 @@ describe "Kernel: loading files" do
   end
 
   it "native require relative defers to runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require_relative` of a NATIVE (.so/.bundle) feature names a compiled
       # extension zeo cannot load. The call keeps its site and raises the catchable
       # runtime LoadError -- CRuby's own answer when the file is absent -- instead
@@ -283,7 +283,7 @@ describe "Kernel: loading files" do
   end
 
   it "optional require relative" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require_relative` under a `rescue LoadError` is the optional-native-half
       # idiom: rgeo requires its C implementation and catches the LoadError when it
       # is absent. The missing target keeps its CALL and raises at runtime for the
@@ -308,7 +308,7 @@ describe "Kernel: loading files" do
     files = beside("plain_require/main.rb", "plain_require/vendorlib/util/strings.rb",
                    "plain_require/vendorlib/util.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       $LOAD_PATH.unshift(File.expand_path("plain_require/vendorlib", __dir__))
       require_relative "plain_require/main"
     RUBY
@@ -322,7 +322,7 @@ describe "Kernel: loading files" do
   end
 
   it "re require answers false" do
-    result = ze0(<<~'RUBY', files: beside("re_require/dep.rb", "re_require/other.rb", "re_require/pair.rb"))
+    result = zr(<<~'RUBY', files: beside("re_require/dep.rb", "re_require/other.rb", "re_require/pair.rb"))
       # `require` answers true the first time and false every time after -- the
       # question is whether the FEATURE loaded, not whether this call site ran.
       #
@@ -382,7 +382,7 @@ describe "Kernel: loading files" do
     files = beside("require_in_block/in_body.rb", "require_in_block/lazy.rb", "require_in_block/never.rb",
                    "require_in_block/once.rb", "require_in_block/repeat.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A block body runs only when something yields to it, and how many times is a
       # runtime fact -- so a `require` written inside one is not a load this compile
       # can perform ahead of time. rack's test helper is the shape that found it:
@@ -480,7 +480,7 @@ describe "Kernel: loading files" do
   end
 
   it "require in a block that never yields does not load" do
-    result = ze0(<<~'RUBY', files: beside("require_in_unyielded_block/dep.rb", "require_in_unyielded_block/prog.rb"))
+    result = zr(<<~'RUBY', files: beside("require_in_unyielded_block/dep.rb", "require_in_unyielded_block/prog.rb"))
       # A block body runs only when something yields to it, so a `require` written
       # inside one is not a load this compile can perform ahead of time. rack's
       # test helper is the shape: `separate_testing do require_relative "..." end`,
@@ -498,7 +498,7 @@ describe "Kernel: loading files" do
   end
 
   it "require of a file the eval road holds loads it in sight" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A program that evals carries the compiler, whose road loads ffi for
       # its own use, out of sight. The program's own require of ffi brings it
       # into sight: the files it loaded in turn and the constants they define
@@ -522,7 +522,7 @@ describe "Kernel: loading files" do
   end
 
   it "require of a preloaded feature answers false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby loads these features before the program starts, so a require of
       # one answers false, by any of its names. Only pathname's C half is
       # loaded; a require of pathname still runs its Ruby half.
@@ -539,7 +539,7 @@ describe "Kernel: loading files" do
   end
 
   it "require parent" do
-    result = ze0(<<~'RUBY', files: beside("require_parent/views/articles/index.rb", "require_parent/views.rb"))
+    result = zr(<<~'RUBY', files: beside("require_parent/views/articles/index.rb", "require_parent/views.rb"))
       # Regression: `require_relative ".."` must load the parent directory's
       # `<dir>.rb`. Ruby normalizes "views/articles/.." -> "views" and appends
       # ".rb" -> "views.rb"; Spinel must not glue ".rb" onto a literal ".." to
@@ -552,7 +552,7 @@ describe "Kernel: loading files" do
   end
 
   it "required feature inside eval installs its visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "fileutils"` from inside an `eval` raises where the same require at
       # the top level succeeds:
       #
@@ -601,7 +601,7 @@ describe "Kernel: loading files" do
   end
 
   it "resolve feature path answers where a require would land" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       p $LOAD_PATH.respond_to?(:resolve_feature_path)
@@ -662,7 +662,7 @@ describe "Kernel: loading files" do
   end
 
   it "run time compile reruns a loaded feature" do
-    result = ze0(<<~'RUBY', files: fixtures("reloaded_feature/wants_forwardable.rb"))
+    result = zr(<<~'RUBY', files: fixtures("reloaded_feature/wants_forwardable.rb"))
       require "forwardable"
       $LOAD_PATH.unshift(File.expand_path("../../fixtures/reloaded_feature", __dir__))
       name = "wants_forwardable"
@@ -674,7 +674,7 @@ describe "Kernel: loading files" do
   end
 
   it "runtime required gems dependency loads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` reached only from a METHOD BODY loads the vendored gem at
       # run time -- but the gem's own nested dependency require does not
       # deliver its constants: tempfile's `require "tmpdir"` leaves
@@ -692,7 +692,7 @@ describe "Kernel: loading files" do
   end
 
   it "second require of one feature answers false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p require("json")
       p require("json")
 
@@ -722,7 +722,7 @@ describe "Kernel: loading files" do
   end
 
   it "splat require defers to runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require(*names)` has no compile-time feature name -- the call stays live
       # and the runtime `Kernel#require` raises the catchable `LoadError`, which
       # is the whole point: every corpus hit sits inside a `rescue LoadError`

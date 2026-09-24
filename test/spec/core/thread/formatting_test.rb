@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread: formatting and inspection" do
   it "concurrency logical operands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `&&` / `||` with a concurrency handle on either side must keep the handle's
       # full identity.
       #
@@ -80,7 +80,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "fiber class reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Fiber value answers the reflection protocol like any object: #class names
       # it "Fiber", and is_a?/kind_of?/instance_of?, the `===` case operator, and a
       # case/when all resolve against Fiber and its ancestors.
@@ -119,7 +119,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "fiber transfer root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber#transfer back to the root fiber (Fiber.current obtained in main).
       # Previously segfaulted: the root fiber has no mmap'd stack/body, and
       # transferring to it hit the "first entry" path that ctx_make's a fresh
@@ -173,7 +173,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "a parked fiber's locals survive a collection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fiber's captured locals must survive a GC that fires while the
       # fiber is parked. The capture struct holds the only reference to
       # these objects; without a scan hook on it the collector frees them
@@ -249,7 +249,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "shows the frames it is in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Thread#backtrace`: the frames another thread stands in, innermost
       # first, and nil once the thread has ended. A start past the outermost
       # frame is nil as well, as `caller` answers.
@@ -297,7 +297,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "four allocating workers each finish their loop and their totals add up" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       threads = []
       t = 0
       while t < 4
@@ -330,7 +330,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "Thread.pass yields a turn without draining the siblings, and never starves the main loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.pass from the main thread yields a turn to runnable siblings
       # without draining them to completion. On a preemptive parallel scheduler
       # (CRuby, and zeo's OS threads) the interleaving ORDER is nondeterministic,
@@ -377,7 +377,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "more CPU-bound threads than workers still all finish, whatever the interleaving" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # More CPU-bound threads than OS workers, each a bounded loop with no explicit
       # yield: under the parallel build the monitor must timeslice them (otherwise the
       # excess threads starve), and the bound keeps the program correct and
@@ -391,7 +391,7 @@ describe "Thread: formatting and inspection" do
   end
 
   it "toplevel thread is the main thread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The top level runs on the main Ruby thread: `Thread.current` there IS
       # `Thread.main` -- one object, one native id -- and a spawned thread is
       # neither. Pinned because zeo once ran the top level on a spawned OS thread

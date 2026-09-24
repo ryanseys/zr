@@ -314,7 +314,7 @@ machine def zr_loading_hidden
   Machine.load64(zr_hidden_loader(), 0) != 0
 end
 
-# The walking eval road (lib/ze0/eval/walk.rb) runs the program's own
+# The walking eval road (lib/zr/eval/walk.rb) runs the program's own
 # code inside the road's own files, which load out of the program's
 # sight. While it walks, what asks is the program: a constant a string
 # it evaluates defines on Object is the program's own and is never
@@ -623,7 +623,7 @@ machine def zr_run_top(fn, mid)
 end
 
 # What the compiler lays out for a require whose name the program
-# computes (lib/ze0/zr.rb, `load_tables`): the count of files compiled
+# computes (lib/zr/zr.rb, `load_tables`): the count of files compiled
 # in, their rows, and nine (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
                            preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,

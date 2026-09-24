@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: splitting and joining" do
   it "builtin called every way answers the same" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin reached through a site's cell, through send, through a
       # Method object, through method_missing's fallback, under a refinement
       # and with keywords answers as ruby's does, and its frame names it.
@@ -67,7 +67,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "a constructor's default parameter fills when the argument is missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #49 (default args at call sites) and the scope follow-ups.
       # Merged from default_arg_{ctor,method,inherited,partial,self_call,
       # callee_scope}.rb. Each section covers a distinct dispatch path;
@@ -96,7 +96,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "an inherited method keeps the default its definition wrote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #49 (default args at call sites) and the scope follow-ups.
       # Merged from default_arg_{ctor,method,inherited,partial,self_call,
       # callee_scope}.rb. Each section covers a distinct dispatch path;
@@ -131,7 +131,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "a call may fill some defaulted parameters and leave the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #49 (default args at call sites) and the scope follow-ups.
       # Merged from default_arg_{ctor,method,inherited,partial,self_call,
       # callee_scope}.rb. Each section covers a distinct dispatch path;
@@ -163,7 +163,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "a default reaches an implicit-self call in the same class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #49 (default args at call sites) and the scope follow-ups.
       # Merged from default_arg_{ctor,method,inherited,partial,self_call,
       # callee_scope}.rb. Each section covers a distinct dispatch path;
@@ -198,7 +198,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "a default expression reads an ivar of the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #49 (default args at call sites) and the scope follow-ups.
       # Merged from default_arg_{ctor,method,inherited,partial,self_call,
       # callee_scope}.rb. Each section covers a distinct dispatch path;
@@ -238,7 +238,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "a default expression calls a bare method of the same class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #49 (default args at call sites) and the scope follow-ups.
       # Merged from default_arg_{ctor,method,inherited,partial,self_call,
       # callee_scope}.rb. Each section covers a distinct dispatch path;
@@ -276,7 +276,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "issue runtime redefine accessor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Redefining an already-compiled method AT RUNTIME has to take effect.
       #
       # A runtime definition lands in the overlay, and only DYNAMIC dispatch consults
@@ -370,7 +370,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "kwargs and double splats preserve source order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The KwArg merge: `Call`/`HashLit`/`Yield` carry ONE ordered list of
       # literal pairs and `**h` double-splats. Ruby's Hash is insertion-ordered
       # and the merge is left-to-right last-wins, so the interleaving is
@@ -413,7 +413,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "kwargs double splat forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwarding a `**hash` into a callee's keyword-rest (`**opts`) parameter.
       # The forwarded hash's entries must reach `opts`; the kwrest param keeps its
       # Symbol-keyed hash type (it receives the whole hash, not a value type).
@@ -466,7 +466,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "multi write call rhs as expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #584 (cielavenir). Multi-assignment used as an expression value
       # whose RHS is a call returning a typed array (here `gets.split.
       # map(&:to_i)` → int_array), followed by an outer subscript /
@@ -515,7 +515,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "ruby2 keywords forwarding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The keyword/positional split rides on the trailing hash's OWN mark
       # (`RHashData::kw_marked`, CRuby's `rb_keyword_given_p`), and a splat CLEARS
       # it: `def forward(*args) = sink(*args)` hands `sink` a positional Hash, not
@@ -599,7 +599,7 @@ describe "Methods: splitting and joining" do
   end
 
   it "self receiver runs no visibility check" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby runs no visibility check against a literal `self` receiver (private has
       # been reachable through one since 2.7), nor against the receiver it
       # synthesizes for a call written with none. Every other explicit receiver

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: comparison and equality" do
   it "class value hash key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Class used as a Hash key compares by name, the way `==` on two of them does.
       # Hashing the box itself made every occurrence a distinct key: `h[Integer] = 1;
       # h[Integer] = 2` kept both, and `group_by(&:class)` made one bucket per element.
@@ -38,7 +38,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "class values print and compare by identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
       end
 
@@ -69,7 +69,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "compare by identity predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#compare_by_identity? reports false for an ordinary (value-keyed) hash.
       # The mutating Hash#compare_by_identity is rejected at compile time, since
       # spinel compares hash keys by value and cannot switch a hash to identity
@@ -90,7 +90,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "float negative zero hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # -0.0 and 0.0 hash differently from ruby's answer.
       #
@@ -111,7 +111,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "compare_by_identity keys by equal?, so two equal strings are two keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#compare_by_identity — keys compared by object identity (equal?),
       # not structure (eql?/hash).
 
@@ -194,7 +194,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "compare_by_identity answers the receiver, and the mode holds for every later write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       puts h.compare_by_identity?          # false
       puts h.compare_by_identity.equal?(h) # true (returns self)
@@ -234,7 +234,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "a hash inside a container compares by value, like every other container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Boxed hashes compare by value like every other container: the poly-eq
       # object arm had no hash cases, so [h] == [same-content-h] was pointer
       # identity and always false.
@@ -257,7 +257,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "to_h with no block answers the receiver itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#to_h with no block is the identity (returns self). Verified via class,
       # length, and key access to avoid the 3.2-vs-3.4 hash-inspect spacing diff.
       h = {a: 1, b: 2}
@@ -293,7 +293,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "update folds several hashes in order and answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#update / #merge! with several hash arguments folds each in order and
       # returns the receiver (a value the caller can use, not nil).
       p({ a: 1 }.update({ b: 2 }, { c: 3 }))
@@ -311,7 +311,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "a user object with #hash and #eql? is a key a freshly built equal one finds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user object with #hash + #eql? works as a Hash key: two value-equal keys
       # collide to the same slot and compare equal, so a freshly-built key finds the
       # stored value. Previously object keys used pointer identity and always missed.
@@ -381,7 +381,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "a user #eql? is called with a poly operand, and an alias of == resolves to it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash keyed by a custom object honors user-defined #hash / #eql?: an
       # equal-but-distinct key finds the entry (sp_gen_obj_hash / sp_gen_obj_eql
       # hooks). `self == o` inside #eql? dispatches to the user #== even though
@@ -438,7 +438,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "value? answers whether any value equals the argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #738 (partial -- value? / has_value?). Hash#value?(v) returns
       # true if any value in the hash equals v, else false. spinel used to
       # fall through to the unresolved-call warning.
@@ -472,7 +472,7 @@ describe "Hash: comparison and equality" do
   end
 
   it "rational cmp float hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational value operations against a Float and as a Hash key. Comparing a
       # Rational to a Float previously coerced the Float to a Rational (truncating
       # 1.5 -> 1/1), and a Rational's hash was pointer-based (unstable), so equal

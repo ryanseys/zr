@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Guards: frozen literals" do
   it "freeze returns self keeping the static collection type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exercises `types.rs`'s `.freeze`-returns-self inference: `names[0]`/
       # `names.length` must still take the static Array fast path (a Poly
       # fallback would panic). A LOCAL, not the classic `NAMES = [...].freeze`
@@ -27,7 +27,7 @@ describe "Guards: frozen literals" do
   end
 
   it "frozen and arg validation guards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Frozen mutators (String insert/prepend/slice!, Hash []=/merge!/clear) and
       # arg validation (Integer base, Set enumerable, Random#bytes, Float#divmod
       # NaN) raise the CRuby exception class rather than silently mutating.
@@ -63,7 +63,7 @@ describe "Guards: frozen literals" do
   end
 
   it "frozen class and object mutation guards raise cruby frozen errors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The frozen-class guard family: civar/cvar writes (static paths and
       # reflection), runtime define_method / define_singleton_method, plus
       # frozen-object ivar/singleton/extend guards and the frozen-builtin
@@ -135,7 +135,7 @@ describe "Guards: frozen literals" do
   end
 
   it "frozen hash opassign guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A compound assignment (h[k] += v) to a frozen Hash raises FrozenError instead
       # of silently mutating; a non-frozen hash updates normally.
       def inc(h); h[:x] += 1; h[:x]; rescue FrozenError => e; e.class.name; end
@@ -150,7 +150,7 @@ describe "Guards: frozen literals" do
   end
 
   it "frozen string append guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # <<, concat, and prepend on a frozen String raise FrozenError with the CRuby
       # message (including contents), whether the receiver is a chained .freeze or a
       # frozen local; a mutable string appends normally.
@@ -173,7 +173,7 @@ describe "Guards: frozen literals" do
   end
 
   it "frozen string dedup intern and mutation guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((-"hello").equal?(-"hello"))
       p("a".dedup.equal?("a".dedup))
       p(("he" + "llo").dedup.equal?("hello".dedup))
@@ -205,7 +205,7 @@ describe "Guards: frozen literals" do
   end
 
   it "guarded definitions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `class` written inside another statement is the class's whole body,
@@ -298,7 +298,7 @@ describe "Guards: frozen literals" do
   end
 
   it "guarded reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `def` under a guard is REGISTERED BUT NOT PROMISED: it claims no static
@@ -399,7 +399,7 @@ describe "Guards: frozen literals" do
   end
 
   it "static guards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A guard a whole-program compile can decide leaves only the branch that

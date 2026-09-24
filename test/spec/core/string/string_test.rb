@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String programs" do
   it "braceless hash non symbol keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A braceless hash argument is the keyword-argument spelling only when its keys
       # are Symbols. A non-Symbol key cannot be a keyword at all, so Ruby passes an
       # ordinary Hash positionally -- and pinning the collapsed parameter to the
@@ -87,7 +87,7 @@ describe "String programs" do
   end
 
   it "catch string tag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         catch("str") { throw "str", :s }
       rescue UncaughtThrowError => e
@@ -99,7 +99,7 @@ describe "String programs" do
   end
 
   it "clock symbol name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Process.clock_gettime` takes a clock as a SYMBOL name.
       #
       # The symbol spelling is the portable one -- a constant the platform does
@@ -137,7 +137,7 @@ describe "String programs" do
   end
 
   it "env string inference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #129: ENV["X"] was inferred as int at every call site even though
       # the dispatch correctly emits sp_str_dup_external(getenv(...)) returning
       # const char *. Fix is in `infer_operator_type`'s `[]` branch (early
@@ -188,7 +188,7 @@ describe "String programs" do
   end
 
   it "eq string vs int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String and an Integer are never == in Ruby (no implicit coercion).
       # Spinel used to lock the == operand types and emit sp_str_eq(str, int)
       # (or int == char*), failing to compile.
@@ -225,7 +225,7 @@ describe "String programs" do
   end
 
   it "exception super interpolated message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user exception subclass whose #initialize forwards an interpolated
       # string to super must report that interpolated message, with the
       # construction args bound to the initialize params -- not just the
@@ -279,7 +279,7 @@ describe "String programs" do
   end
 
   it "gc root ptr array literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression test: `@x = [Klass.new(...)]` literal must keep the freshly
       # allocated PtrArray reachable across each element's allocation. Without
       # the SP_GC_ROOT on the temp, GC fired during a later Klass.new sees the
@@ -349,7 +349,7 @@ describe "String programs" do
   end
 
   it "gc stat string heap" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GC.stat surfaces the string heap (str_bytes / str_count). Spinel allocates
       # string data on a separate malloc'd heap (sp_str_heap) that is deliberately
       # excluded from the object-heap `bytes` figure (see sp_str_alloc), so a
@@ -376,7 +376,7 @@ describe "String programs" do
   end
 
   it "gc str arg rooted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: string arguments to allocating sp_str.c helpers must be
       # GC-rooted. sp_str_bytes / sp_str_codepoints allocate an IntArray before
       # reading the argument; when the argument is a fresh unrooted temp (an
@@ -420,7 +420,7 @@ describe "String programs" do
   end
 
   it "hash strstr merge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = { "O" => "Off-topic", "" => "Cancel" }
       b = a.merge({ "Q" => "Low Quality" })
       puts b.length
@@ -441,7 +441,7 @@ describe "String programs" do
   end
 
   it "inherited kwarg nil default string ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three intertwined fixes around kwarg param inference on an
       # inherited instance method:
       #
@@ -509,7 +509,7 @@ describe "String programs" do
   end
 
   it "io buffer for aliases its string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO::Buffer.for(string)` shares the STRING's own bytes, so a buffer write
       # is visible through the string before the block ends -- CRuby's buffer
       # really aliases its string's storage, and this one does too.
@@ -571,7 +571,7 @@ describe "String programs" do
   end
 
   it "io buffer reads and writes bytes in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO::Buffer is a window on bytes: its own, or a String's. A buffer made
       # `for` a String reads and writes that String's bytes in place, which is
       # what ruby means by locking the string for the block. Addresses in the
@@ -672,7 +672,7 @@ describe "String programs" do
   end
 
   it "issue string subclass new with arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Instantiating a String subclass with a constructor argument
       # (`klass.new("x")`) raises ArgumentError ("wrong number of arguments") --
       # zeo doesn't forward the argument to String's own initializer for a
@@ -694,7 +694,7 @@ describe "String programs" do
   end
 
   it "issue203 string new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #203: `String.new` resolved to 0 because the constructor
       # dispatch had no String arm. Code that combined the result with
       # `<<` (the Rails view-emit accumulator pattern) failed to compile.
@@ -733,7 +733,7 @@ describe "String programs" do
   end
 
   it "method level rescue return string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method-level rescue return value with string-returning bodies.
       # The int-returning shape works once compile_body_into /
       # compile_rescue_chain_into capture the begin / rescue last expr.
@@ -786,7 +786,7 @@ describe "String programs" do
   end
 
   it "module function promotes bareword and symbol forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `module_function` promotes every following `def` to a module
       # method; `module_function :name` promotes an already-defined one.
 
@@ -806,7 +806,7 @@ describe "String programs" do
   end
 
   it "module function str method param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module_function-promoted method whose body calls a string method
       # on its param, invoked with a string-literal arg, must route the
       # param to the string path (not the int "0" NoMethodError fallback).
@@ -827,7 +827,7 @@ describe "String programs" do
   end
 
   it "param ptr from callee slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method param passed unmodified to a callee whose corresponding
       # slot is `ptr` / a specific class pointer used to leave the caller's
       # param typed `mrb_int`. The C compile then failed at the call site
@@ -883,7 +883,7 @@ describe "String programs" do
   end
 
   it "plain string raise is caught by an explicit runtime error rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         raise "just a string"
       rescue RuntimeError => e
@@ -895,7 +895,7 @@ describe "String programs" do
   end
 
   it "raise of a plain string is an implicit runtime error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Risky
         def check
           raise "plain string error"
@@ -911,7 +911,7 @@ describe "String programs" do
   end
 
   it "ruby engine name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p RUBY_ENGINE
       p RUBY_ENGINE.is_a?(String)
       p(RUBY_ENGINE == "spinel")
@@ -925,7 +925,7 @@ describe "String programs" do
   end
 
   it "str count multi arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#count with multiple args computes intersection of charsets
       # Each additional arg further restricts which chars to count.
 
@@ -948,7 +948,7 @@ describe "String programs" do
   end
 
   it "str oct prefix" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#oct with prefix auto-detection.
       # CRuby's oct handles 0x (hex), 0b (binary), 0o (explicit octal),
       # 0 (implicit octal), and bare digits (base 8). Previously spinel
@@ -972,7 +972,7 @@ describe "String programs" do
   end
 
   it "str ord empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#ord on empty string should raise ArgumentError, not return 0.
       begin
         "".ord
@@ -994,7 +994,7 @@ describe "String programs" do
   end
 
   it "clamp takes two bounds or a range, and refuses an exclusive or a reversed one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p("z".clamp(.."c"))
       p("a".clamp("b"..))
       r001 = ("b".clamp("a"..."c") rescue $!.class); p r001
@@ -1016,7 +1016,7 @@ describe "String programs" do
   end
 
   it "a NUL is an ordinary byte, so two strings differing after one compare, sort and key apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A NUL is an ordinary byte in a Ruby String, and the representation records
       # the real length -- but comparison went through strcmp, which stops at the
       # first one. Two strings differing only after a NUL compared equal, so they
@@ -1089,7 +1089,7 @@ describe "String programs" do
   end
 
   it "equal? is pointer identity, so each literal occurrence is its own object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#equal? is pointer identity; each literal occurrence is a distinct
       # object (matching plain CRuby), while aliases and self-comparison hold.
       a = "abc"
@@ -1130,7 +1130,7 @@ describe "String programs" do
   end
 
   it "freeze marks in place and answers the same object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#freeze marks in place and returns the SAME object:
       # s.freeze.equal?(s) is true and s.frozen? flips. equal? on two string
       # expressions compares pointers (identical literals share storage, like
@@ -1152,7 +1152,7 @@ describe "String programs" do
   end
 
   it "itself, tap and then each answer the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "hello"
       puts s.itself.equal?(s)
       puts s.tap { |x| x }.equal?(s)
@@ -1167,7 +1167,7 @@ describe "String programs" do
   end
 
   it "bytesplice, append_as_bytes and crypt answer, beside Float#=== and nil's boolean operators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#bytesplice with Range / #append_as_bytes / #crypt,
       # Float#=== against non-float operands, and nil & / | / ^ boolean ops
       # on a receiver that widened to poly.
@@ -1234,7 +1234,7 @@ describe "String programs" do
   end
 
   it "a String argument at a search or a substitution joins with the receiver's encoding, or raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String argument at a search or a substitution site must join with
       # the receiver -- CRuby's rb_enc_check, the same test `+` makes. Without
       # it the argument's bytes are read under the receiver's encoding, so the
@@ -1308,7 +1308,7 @@ describe "String programs" do
   end
 
   it "<< answers the receiver itself, so the expression value and a later read are one object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#<< returns the receiver itself (identity), not a copy (KieranP #2307).
       # The mutable-buffer receiver appends in place; the expression value and a
       # subsequent read of the variable are the same object.
@@ -1335,7 +1335,7 @@ describe "String programs" do
   end
 
   it "to_c reads the leading substring it can into a Complex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#to_c: lenient leading-substring parse into a Complex.
 
       # Rectangular forms.
@@ -1410,7 +1410,7 @@ describe "String programs" do
   end
 
   it "struct string member gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A single fresh-string struct member must survive the struct's own allocation
       # (SP_POOL_NEW can trigger a GC before the member is stored). The constructor
       # roots its heap arguments so the collector cannot sweep the name before it is
@@ -1456,11 +1456,11 @@ describe "String programs" do
   end
 
   it "subclass sees only the calls ruby makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which of String's own methods its methods call on a subclass: every
       # method String defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       class Probe < String
@@ -1643,7 +1643,7 @@ describe "String programs" do
   end
 
   it "symbol nil truthiness" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nilable symbol slot stores (sp_sym)-1 as its nil sentinel. Truthiness
       # in conditions and in the value form of && / || must test the sentinel;
       # it used to read always-true, so `if @exit_triggered` fired on nil.
@@ -1737,7 +1737,7 @@ describe "String programs" do
   end
 
   it "value subclass of string equality and hashing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `String` subclass (D3): inherited `String` methods, a `super`-free custom
       # method, `dup` independence, and payload-based equality/`Hash`-key identity
       # (`Tag.new("k")` is the same key as `"k"`, symmetric `==`).

@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/ir/verify"
+require_relative "../../lib/zr/ir/verify"
 
 # The strict checks type every operand, not only a jump's arguments:
 # an `i8` compared with an `i64` (#43) is refused where it is made,
 # on every target, and so is a call with the wrong arguments.
 class VerifyTest < Minitest::Test
-  Verify = Ze0::IR::Verify
+  Verify = Zr::IR::Verify
 
   def function(params, ret)
-    f = Ze0::IR::Function.new("probe", params, ret)
+    f = Zr::IR::Function.new("probe", params, ret)
     yield f, *f.args
     f
   end

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable programs" do
   it "autoload is lazy" do
-    result = ze0(<<~'RUBY', files: beside("autoload_fixture/late.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_fixture/late.rb"))
       # `Module#autoload` runs its target at the DECLARATION, where ruby runs it at
       # the constant's first READ.
       #
@@ -64,7 +64,7 @@ describe "Enumerable programs" do
   end
 
   it "autoload lazy at declaration" do
-    result = ze0(<<~'RUBY', files: beside("autoload_lazy/differ.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_lazy/differ.rb"))
       # An `autoload` target no longer loads BEFORE the statement holding it:
       # differ.rb calls a singleton method this module body installs a few
       # statements earlier (rspec-support's exact shape) -- the old eager splice
@@ -93,7 +93,7 @@ describe "Enumerable programs" do
   end
 
   it "blocked consumer is woken by a producer thread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The consumer genuinely BLOCKS on the empty pop (a Condvar wait) and is
       # woken by the producer's push -- exercising the real cross-thread wakeup
       # path. The value is deterministic regardless of which thread runs first.
@@ -109,7 +109,7 @@ describe "Enumerable programs" do
   end
 
   it "dir each child enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |d|
@@ -126,7 +126,7 @@ describe "Enumerable programs" do
   end
 
   it "dir for fd and enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Dir.for_fd` is not implemented, so the program dies on line 9 before any of
       # the Enumerable-on-Dir coverage below it runs. ruby opens a Dir handle from a
       # raw file descriptor.
@@ -176,7 +176,7 @@ describe "Enumerable programs" do
   end
 
   it "chunk_while and slice_when walk adjacent pairs and cut on opposite conditions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -207,7 +207,7 @@ describe "Enumerable programs" do
   end
 
   it "slice_before cuts ahead of a match and slice_after behind one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -242,7 +242,7 @@ describe "Enumerable programs" do
   end
 
   it "grep keeps what its pattern matches with === and grep_v keeps the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -273,7 +273,7 @@ describe "Enumerable programs" do
   end
 
   it "zip pads a short source with nil and stops at the receiver's length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -297,7 +297,7 @@ describe "Enumerable programs" do
   end
 
   it "minmax_by answers the least and the greatest by the block's key, in one pass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -319,7 +319,7 @@ describe "Enumerable programs" do
   end
 
   it "combination and permutation answer their tuples, the empty and impossible cases included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -351,7 +351,7 @@ describe "Enumerable programs" do
   end
 
   it "bsearch answers the leftmost element the block admits, or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -376,7 +376,7 @@ describe "Enumerable programs" do
   end
 
   it "cycle repeats the source the number of times it is given, and nothing for zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -409,7 +409,7 @@ describe "Enumerable programs" do
   end
 
   it "flatten!, uniq! and reverse! answer nil when nothing moved and the receiver when it did" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -438,7 +438,7 @@ describe "Enumerable programs" do
   end
 
   it "values_at reads a list of indices and pads past the end with nil, and each_index walks them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -464,7 +464,7 @@ describe "Enumerable programs" do
   end
 
   it "Array.new fills from a block once per index, and from one value every slot shares" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -500,7 +500,7 @@ describe "Enumerable programs" do
   end
 
   it "every row above answers the same on a user class that writes only each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
       # Everything here is driven by the receiver's own `each`, so it works the
@@ -537,7 +537,7 @@ describe "Enumerable programs" do
   end
 
   it "chain, reverse_each, compact and to_set read a user class the same as an Array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable chain/reverse_each/compact/to_set on user classes + Array#chain (#2474-2478)
       class C
         include Enumerable
@@ -563,7 +563,7 @@ describe "Enumerable programs" do
   end
 
   it "any?, all?, none? and one? match their pattern argument with ===" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # any?/all?/none?/one? accept a pattern argument, matched with === (case
       # equality) against each element -- a class, range, regexp, or any === value.
       nums = [1, 2, 3, 4]
@@ -601,7 +601,7 @@ describe "Enumerable programs" do
   end
 
   it "a class, a range, a regexp and a pair each serve as a predicate's pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 3].any?(Integer)
       p [1, "a", 3].all?(Integer)
       p [1, 2, 3].none?(String)
@@ -623,7 +623,7 @@ describe "Enumerable programs" do
   end
 
   it "a surplus argument to an optional-argument row raises for the count, and names the right bound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Enumerable/Array rows that take an OPTIONAL argument must still count
       # what they were given: a surplus one is `wrong number of arguments`, not a
       # conversion error on the first, and not silently ignored.
@@ -681,7 +681,7 @@ describe "Enumerable programs" do
   end
 
   it "tally counts into the hash it is given and answers that same object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#tally(hash) counts into the given accumulator hash and returns it
       # (the same object), across hash variants (#2628).
       class E
@@ -706,7 +706,7 @@ describe "Enumerable programs" do
   end
 
   it "a class that includes Enumerable and writes only each gets every Enumerable method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class that includes Enumerable and defines only #each gets the bare
       # Enumerable methods (map/select/to_a/sort/count/...) directly, with no explicit
       # enum_for: the compiler redirects each such call through the materialized array.
@@ -803,7 +803,7 @@ describe "Enumerable programs" do
   end
 
   it "enumerator identity and resumability" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator identity/copy semantics: blockless `each` returns SELF,
       # pre-iteration dup is a fresh enumerator over the same source, breaking
       # out of an external loop leaves the enumerator resumable.
@@ -832,7 +832,7 @@ describe "Enumerable programs" do
   end
 
   it "exception from deep inside a fibers method stack reraises at the resumer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Deep
         def go; boom; end
         def boom
@@ -852,7 +852,7 @@ describe "Enumerable programs" do
   end
 
   it "fiber does not see its resumers currently handled exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby: the fiber has its own errinfo (fresh, nil), so its bare
       # `raise` builds a fresh empty-message RuntimeError instead of
       # re-raising the resumer's in-flight exception -- `fiber saw: []`.
@@ -875,7 +875,7 @@ describe "Enumerable programs" do
   end
 
   it "fiber reached through a dynamic receiver still resumes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The static fast path emits `fiber_resume` directly; a fiber held in a
       # collection/ivar dispatches through the runtime's Fiber table instead.
 
@@ -895,7 +895,7 @@ describe "Enumerable programs" do
   end
 
   it "fiber resume and yield pass values in both directions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # resume(v)'s v becomes the suspended Fiber.yield's return value;
       # Fiber.yield(v)'s v becomes resume's return value -- CRuby
       # `make_passing_arg` both ways.
@@ -918,7 +918,7 @@ describe "Enumerable programs" do
   end
 
   it "fibers rescue state survives suspension isolated from the resumer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The fiber suspends MID-rescue; the resumer then handles (and
       # finishes handling) its own exception; on re-entry the fiber's bare
       # re-raise must still see the FIBER's exception -- the save/restore
@@ -949,7 +949,7 @@ describe "Enumerable programs" do
   end
 
   it "include enumerable block each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class that includes Enumerable and defines each by forwarding an explicit
       # &block (rather than using yield) still derives the Enumerable method set:
       # each drives the synthesized materialization the same way a yield-based each
@@ -995,7 +995,7 @@ describe "Enumerable programs" do
   end
 
   it "minmax by count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#min_by(n) / max_by(n) with a count return the n smallest / largest
       # elements by the block's key, as a generic Array: min_by ascending, max_by
       # descending. Receivers are routed through per-type identity methods to defeat
@@ -1039,7 +1039,7 @@ describe "Enumerable programs" do
   end
 
   it "minmax makes one pass over its source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerable#minmax` ran `min` and then `max`, so a comparison block saw
       # every element TWICE and the source was walked twice. CRuby's `enum_minmax`
       # buffers in PAIRS: one comparison orders the pair, then at most one more
@@ -1092,7 +1092,7 @@ describe "Enumerable programs" do
   end
 
   it "misc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test miscellaneous features: is_a?, respond_to?, String <<, Array#reduce, upto/downto
 
       # String << (append/concat mutating)
@@ -1156,7 +1156,7 @@ describe "Enumerable programs" do
   end
 
   it "nested fibers each yield to their own resumer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The exact shape a fiber save/restore discipline exists for: after the
       # inner fiber yields, the OUTER fiber's own Fiber.yield must suspend the
       # outer one, not touch the inner's suspended yielder. The inner fiber is
@@ -1181,7 +1181,7 @@ describe "Enumerable programs" do
   end
 
   it "never yields" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Empt
         include Enumerable
         def each; end
@@ -1199,7 +1199,7 @@ describe "Enumerable programs" do
   end
 
   it "nmin keeps rubys survivors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `min(n)`, `max(n)`, `min_by(n)` and `max_by(n)` are NOT sort-then-take.
       # CRuby buffers 4n elements, QUICKSELECTS them down to n, and remembers the
       # last pivot as a limit -- after which an element no better than the limit is
@@ -1288,7 +1288,7 @@ describe "Enumerable programs" do
   end
 
   it "non number ends the compensated sum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value that is no number ends a compensated Float sum: CRuby goes on
       # from the sum without the compensation it had gathered, for an Array
       # and for any Enumerable.
@@ -1308,7 +1308,7 @@ describe "Enumerable programs" do
   end
 
   it "raising to s and inspect propagate catchably through every display consumer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The fallible-display contract: a user `to_s`/`inspect` that raises
       # surfaces as a CATCHABLE exception from puts/print/p/warn/format/
       # interpolation (string and regexp)/Array+Hash to_s -- never a
@@ -1424,7 +1424,7 @@ describe "Enumerable programs" do
   end
 
   it "reopening enumerable reaches every includer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable is a NATIVE builtin, yet reopenable (D3): an added
       # method registers as a value method on the module id and the MRO walk
       # finds it for every includer, its body free to drive the native
@@ -1443,7 +1443,7 @@ describe "Enumerable programs" do
   end
 
   it "resolves before method missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The send-ladder fidelity fix: a REAL module method (Enumerable's `map`,
       # via `include Enumerable` + `each`) resolves BEFORE `method_missing` --
       # previously method_missing fired first, the opposite of real Ruby.
@@ -1471,7 +1471,7 @@ describe "Enumerable programs" do
   end
 
   it "resuming a dead fiber raises a catchable fiber error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       d = Fiber.new { :done }
       d.resume
       begin
@@ -1485,7 +1485,7 @@ describe "Enumerable programs" do
   end
 
   it "scalar isa dead branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       h[57] = -4
 
@@ -1523,7 +1523,7 @@ describe "Enumerable programs" do
   end
 
   it "super from an overridden inspect resumes above it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module PB; def inspect = "P" + super; end
       class Array; prepend PB; end
       p [1, 2].inspect
@@ -1555,7 +1555,7 @@ describe "Enumerable programs" do
   end
 
   it "tail iter call receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An iterator answers its receiver, and at tail position that value is the
       # method's return. The statement form produces it by re-READING the receiver,
       # so a receiver that is itself a call used to fall through to nil.
@@ -1610,7 +1610,7 @@ describe "Enumerable programs" do
   end
 
   it "take while boxed predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # take_while / drop_while whose block answers a boxed value: `!(rbval)` is not
       # valid C -- the value is a struct -- so the loop condition did not compile.
       p([1,nil,2].take_while { |q| q })
@@ -1628,7 +1628,7 @@ describe "Enumerable programs" do
   end
 
   it "tally accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#tally(hash) accumulates into the given hash and returns it (#2533)
       h = Hash.new(0)
       p([1, 1, 2, 3, 3, 3].tally(h))
@@ -1651,7 +1651,7 @@ describe "Enumerable programs" do
   end
 
   it "thread and the fiber it resumes have isolated handling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Thread mid-rescue resumes a fiber whose bare raise must see an EMPTY
       # $!, not the thread's in-flight exception.
 
@@ -1676,7 +1676,7 @@ describe "Enumerable programs" do
   end
 
   it "throw inside a fiber cannot see the resumers catch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ec-swap's catch-tag slice, oracle-verified: a fiber has its own
       # execution context, so the resumer's live `catch` frame is invisible
       # inside it (UncaughtThrowError AT the throw) -- while a catch/throw
@@ -1705,7 +1705,7 @@ describe "Enumerable programs" do
   end
 
   it "uncaught exception inside a fiber reraises at the resumer and kills the fiber" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = Fiber.new do
         raise "boom in fiber"
       end

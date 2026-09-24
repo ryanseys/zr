@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: defining and naming methods" do
   it "alias and singleton class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def hello
           "hi"
@@ -106,7 +106,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "alias on a singleton class copies the visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias_method` copies the method ENTRY, so the alias carries the source's
       # visibility -- on a singleton class exactly as on a plain one.
       class C
@@ -161,7 +161,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "receiverless call sees the receivers own singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A receiverless call inside a method is a send to `self` like any other, and
       # `self` may carry a per-object singleton method that shadows the class's. zeo
       # resolved the receiverless form straight to the class's compiled definition,
@@ -225,7 +225,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "attr_reader, attr_accessor and alias_method inside class << self all reach the class's own ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C003
         @shown003 = true
         @count003 = 2
@@ -266,7 +266,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "an alias_method on a singleton takes the visibility of the method it copies" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `alias_method` on an object's SINGLETON class installs a public row even
       # when its source is private. Ruby gives an alias the visibility of the method
       # it copies, on a singleton exactly as on a class.
@@ -322,7 +322,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "undef in a reopened singleton applies where it stands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef` inside a reopened `class << self` retires the class method WHERE IT
       # STANDS. Recording it as a compile-time fact applied it from program start, so
       # a call written between the two bodies raised.
@@ -396,7 +396,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "undef in a reopened singleton class reaches back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class << self; undef away; end` written in a LATER reopening retires the
       # class method from that point on. zeo retires it for the whole program, so
       # the call written before the reopening raises NoMethodError instead of
@@ -428,7 +428,7 @@ describe "Singleton: defining and naming methods" do
   end
 
   it "undef in a singleton body retires it for that object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef :close` inside a singleton body retires the name for ONE object. It
       # had no arm in the per-object desugar and fell through to the pass-through
       # catch-all (an `undef` names no `self`), which put a definition-level node

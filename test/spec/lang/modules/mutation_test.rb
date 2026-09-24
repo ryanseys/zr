@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: changing in place" do
   it "boxs prepend is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `prepend`, which has to beat the builtin row for the box and leave main's
       # alone.
       #
@@ -25,7 +25,7 @@ describe "Modules: changing in place" do
   end
 
   it "class prepend ancestors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A prepended module precedes the class in #ancestors (#2702). Dispatch already
       # honoured prepend; only the ancestor listing was missing it.
       module M; def hi; "M"; end; end
@@ -71,7 +71,7 @@ describe "Modules: changing in place" do
   end
 
   it "issue prepend dynamic class body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `prepend` called inside a `Class.new { ... }` block raises NoMethodError
       # instead of prepending the module -- it only works in a literal `class ...
       # end` body.
@@ -93,7 +93,7 @@ describe "Modules: changing in place" do
   end
 
   it "later prepend reaches back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Loud
         def speak = "!" + super + "!"
       end
@@ -132,7 +132,7 @@ describe "Modules: changing in place" do
   end
 
   it "module both prepended and included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module PREPENDED and INCLUDED on the same class appears TWICE in CRuby's
       # ancestry -- once ahead of the class, once behind it -- and its body runs
       # once per position.
@@ -245,7 +245,7 @@ describe "Modules: changing in place" do
   end
 
   it "an included module supplies a method the class does not write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -264,7 +264,7 @@ describe "Modules: changing in place" do
   end
 
   it "the class's own method wins over an included module's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -300,7 +300,7 @@ describe "Modules: changing in place" do
   end
 
   it "a prepended module's method wins over the class's own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -329,7 +329,7 @@ describe "Modules: changing in place" do
   end
 
   it "two included modules resolve with the later one closer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -364,7 +364,7 @@ describe "Modules: changing in place" do
   end
 
   it "a diamond of modules resolves each name once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -398,7 +398,7 @@ describe "Modules: changing in place" do
   end
 
   it "extend puts a module's instance methods on the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -424,7 +424,7 @@ describe "Modules: changing in place" do
   end
 
   it "module_function makes a module's method its own singleton method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -446,7 +446,7 @@ describe "Modules: changing in place" do
   end
 
   it "a module's state is shared by every class that includes it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -486,7 +486,7 @@ describe "Modules: changing in place" do
   end
 
   it "super from an included module reaches the next one along the chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           "generic"
@@ -513,7 +513,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend and include together resolve in correct precedence order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MRO here is `Pre, Own, Inc, Object` -- `Own`'s own `label` calls
       # `super` and reaches `Inc` (the next ancestor after `Own`); `Pre`'s
       # `label` calls `super` and reaches `Own`.
@@ -542,7 +542,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend call form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `C.prepend(M)` CALL (explicit receiver, not the class-body `prepend M` form)
       # is a static structural fact about the class ancestry for a whole-program AOT
       # target -- recognized at analyze time and recorded as the same compile-time
@@ -610,7 +610,7 @@ describe "Modules: changing in place" do
   end
 
   it "a prepend written as a call shows in the ancestry it edits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
       # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
       # that itself includes another), multiple separate prepend calls, interaction
@@ -649,7 +649,7 @@ describe "Modules: changing in place" do
   end
 
   it "a prepended module that includes another lands both in the ancestry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
       # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
       # that itself includes another), multiple separate prepend calls, interaction
@@ -687,7 +687,7 @@ describe "Modules: changing in place" do
   end
 
   it "two separate prepend calls put the later one closer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
       # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
       # that itself includes another), multiple separate prepend calls, interaction
@@ -725,7 +725,7 @@ describe "Modules: changing in place" do
   end
 
   it "a prepend call and a class-body prepend on one class order together" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
       # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
       # that itself includes another), multiple separate prepend calls, interaction
@@ -763,7 +763,7 @@ describe "Modules: changing in place" do
   end
 
   it "super from a prepended module reaches an included module's copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
       # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
       # that itself includes another), multiple separate prepend calls, interaction
@@ -797,7 +797,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend keeps a subclass own def over a parent overlay" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Marker
         def tag = :marker
       end
@@ -830,7 +830,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend on a builtin class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `C.prepend(M)` on a BUILTIN is a compile-time ancestry edit, and `super` from
       # M's body must resume at C's NATIVE row. Two things were missing: a reopened
       # builtin registers its whole FLATTENED table as value methods, so the `super`
@@ -910,7 +910,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend on builtin super recurses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Loud
         def upcase = "<" + super + ">"
       end
@@ -923,7 +923,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend super basic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #720 follow-up: `super` inside a prepended method now
       # routes back to the original (overridden) method body via the
       # synthetic shadow registered at prepend time. Before the fix the
@@ -948,7 +948,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend super chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #720 follow-up: prepended super walks through C's own body
       # down to the parent class. MRO is M -> C -> P; M's super -> C's
       # body; C's body's super -> P's body.
@@ -978,7 +978,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend super forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #720 follow-up: bare `super` (ForwardingSuperNode) inside
       # a prepended method forwards every formal parameter to the
       # shadow, same as the explicit form.
@@ -1002,7 +1002,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend super multi" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #720 follow-up: multiple `prepend` calls stack — each
       # prepend's super walks back through the previous prepend's body
       # and eventually to C's own. MRO is M2 -> M1 -> C; M2's super ->
@@ -1034,7 +1034,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend super subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #720 follow-up: a subclass inherits a prepended method
       # correctly. D inherits hi from C; D.new.hi dispatches to C's
       # prepended hi (M's body) and super walks back to C's original
@@ -1062,7 +1062,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepend two classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The prepend transplant MOVED the module's method scope into the prepending
       # class (`sc->class_id = ci`) rather than copying it. The same module prepended
       # by more than one class then gave the first prepender the scope and left every
@@ -1164,7 +1164,7 @@ describe "Modules: changing in place" do
   end
 
   it "prepended operator reaches every call site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each redefinition falls back to `super`, so everything else the
       # operator does stays as it was.
       def add(a, b) = a + b
@@ -1233,7 +1233,7 @@ describe "Modules: changing in place" do
   end
 
   it "runtime prepend lands where it is written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `K.prepend M` with an explicit receiver is an ordinary send, so the
       # ancestry changes where the CALL is written. zeo recorded it as a
       # compile-time ancestry edit instead, and the prepend was in place from the
@@ -1291,7 +1291,7 @@ describe "Modules: changing in place" do
   end
 
   it "stacked prepends resolve in reverse declaration order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `prepend M1; prepend M2` -- M2 (most recently prepended) is closest,
       # ahead of M1, ahead of the class's own definition.
 

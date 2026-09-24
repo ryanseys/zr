@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "../../../lib/ze0/record"
+require_relative "../../../lib/zr/record"
 
-module Ze0
+module Zr
   module Harness
     # What a program said, what the machine it runs on must have, and
     # the scrubs that let two answers be compared.
-    class Answer < Ze0::Record
+    class Answer < ::Zr::Record
       FIELDS = %i[stdout stderr code signal].freeze
       attr_accessor :stdout, :stderr, :code, :signal
 

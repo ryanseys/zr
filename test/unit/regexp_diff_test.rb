@@ -12,8 +12,8 @@ class RegexpDiffTest < Minitest::Test
   SAMPLE = File.join(__dir__, "regexp_diff_sample.jsonl")
 
   def test_the_sample_matches_ruby
-    cases = Ze0::Harness::RegexpDiff.read_jsonl(SAMPLE)
-    runner = Ze0::Harness::RegexpDiff::Runner.new
+    cases = Zr::Harness::RegexpDiff.read_jsonl(SAMPLE)
+    runner = Zr::Harness::RegexpDiff::Runner.new
     Regexp.timeout = 2.0
     cases.each { |kase| runner.run(kase) }
 

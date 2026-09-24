@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: loading files" do
   it "cwd require that misses raises at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "./x"` resolves against the runtime working directory in real
       # Ruby. zeo resolves it against the requiring file's directory (the
       # deterministic analogue -- `load`'s documented rule), and a MISS defers to
@@ -34,7 +34,7 @@ describe "Exceptions: loading files" do
   end
 
   it "did you mean library" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # did_you_mean is loaded before the program, as ruby's gem prelude loads
       # it, and a NameError names the locals and methods it may have meant.
       p require("did_you_mean")
@@ -62,7 +62,7 @@ describe "Exceptions: loading files" do
   end
 
   it "load error path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `LoadError#path` names the feature that would not load. It is one of the
       # typed introspection slots an exception carries beside its message, and the
       # raise site fills it; a hand-built LoadError leaves it nil rather than raising
@@ -124,7 +124,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require gated extension constant is a name error without its require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ext require-gate: a require-gated builtin's constant
       # (`Base64`, gated by `"base64"`) is INVISIBLE until `require "base64"`
       # activates it -- referencing it un-required raises `NameError:
@@ -145,7 +145,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require gated extension name error is rescuable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same gate, caught: since the miss surfaces through the runtime
       # constant path it's an ordinary rescuable `NameError` (oracle prints
       # `rescued: uninitialized constant Base64`). This program NEVER requires
@@ -164,7 +164,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require that cannot resolve takes the rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The i18n/excon shape: an optional accelerator behind `begin; require "x";
       # <definitions>; rescue LoadError; <fallback>`. The feature does not exist, so
       # ruby raises at the require and only the fallback ever runs.
@@ -199,7 +199,7 @@ describe "Exceptions: loading files" do
                      "raising_feature/r3.rb", "raising_feature/r4.rb", "raising_feature/r5.rb", "raising_feature/r6.rb",
                      "raising_feature/r8.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A `require` zeo resolves at COMPILE time is spliced in place, and the
       # spliced body has to land INSIDE the `begin` that wrote the require. CRuby
       # runs the required file during the `require` call, so a raise from the
@@ -308,7 +308,7 @@ describe "Exceptions: loading files" do
   end
 
   it "rescued require load error" do
-    result = ze0(<<~'RUBY', files: beside("rescued_require/probe.rb"))
+    result = zr(<<~'RUBY', files: beside("rescued_require/probe.rb"))
       # A require inside `begin ... rescue LoadError` whose FILE RESOLVES but whose
       # top level RAISES LoadError when it runs -- power_assert's TracePoint probe,
       # which test-unit requires exactly this way and degrades by rescuing. The
@@ -330,7 +330,7 @@ describe "Exceptions: loading files" do
   end
 
   it "unresolvable require inside rescue loaderror defers to runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The optional-dependency idiom: `begin; require 'missing'; rescue
       # LoadError`. A literal require that can't be resolved but is lexically
       # inside a `rescue LoadError` is deferred to a runtime `Kernel#require`

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: evaluating a string" do
   it "builds its cref on the callers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A string `class_eval`/`module_eval` builds its cref on the CALLER's
       # lexical chain -- CRuby pushes the receiver onto the cref of the frame the
       # call is written in, so a constant beside the CALL SITE resolves inside
@@ -58,7 +58,7 @@ describe "String: evaluating a string" do
   end
 
   it "class eval string constant scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The STRING forms of `class_eval`/`module_eval`/`instance_eval` evaluate with
       # the receiver as the constant lookup scope. zeo evaluates them with the
       # caller's scope, so a constant owned by the receiver is not found.
@@ -119,7 +119,7 @@ describe "String: evaluating a string" do
   end
 
   it "eval non string argument is a type error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         eval(123)
       rescue TypeError => e
@@ -131,7 +131,7 @@ describe "String: evaluating a string" do
   end
 
   it "eval string defines a module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `eval` of a literal string that defines a `class`/`module`. At the TOP LEVEL
       # zeo parses the snippet at compile time and inlines it, so the definition is
       # ordinary; inside a METHOD body it falls through to the runtime eval VM,
@@ -195,7 +195,7 @@ describe "String: evaluating a string" do
   end
 
   it "eval string interpolation inside source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       code = 'n = 6; "n=#{n * n}"'; puts eval(code)
     RUBY
 
@@ -203,7 +203,7 @@ describe "String: evaluating a string" do
   end
 
   it "instance eval string mutates an ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Counter
         def initialize
           @n = 0
@@ -218,7 +218,7 @@ describe "String: evaluating a string" do
   end
 
   it "instance eval string reads the receivers ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Account
         def initialize(n)
           @balance = n
@@ -233,7 +233,7 @@ describe "String: evaluating a string" do
   end
 
   it "instance eval string rebinds self to a literal receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "upcase.reverse"; puts "hello".instance_eval(src)
     RUBY
 

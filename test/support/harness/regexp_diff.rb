@@ -4,10 +4,10 @@ require "json"
 require "strscan"
 require_relative "onig_jit"
 
-Ze0::Zr.require_onig
-require File.join(Ze0::Paths::RT, "core/regexp_pattern.rb")
+Zr::Zr.require_onig
+require File.join(Zr::Paths::RT, "core/regexp_pattern.rb")
 
-module Ze0
+module Zr
   module Harness
     # The Ruby Onigmo held to ruby's own engine, in one process: a case
     # is a pattern with its option bits, a subject, a byte start and a

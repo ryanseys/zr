@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "WeakRef programs" do
   it "is a real delegator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `WeakRef` is CRuby's own pure-Ruby file now (`gems/weakref`), so it really
       # descends from `Delegator < BasicObject` -- which means a `WeakRef` is NOT an
       # `Object`, the one consequence with a sharp edge (a guard sorted it the wrong
@@ -91,7 +91,7 @@ describe "WeakRef programs" do
   end
 
   it "raises ref error once collected" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `nil`, not `false`: weakref.rb spells it `@@__map.key?(self) or
       # defined?(@delegate_sd_obj)`, and `defined?` answers nil.
 
@@ -125,7 +125,7 @@ describe "WeakRef programs" do
   end
 
   it "a WeakRef forwards every call to a referent that is still alive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "weakref"
       s = "hello"
       w = WeakRef.new(s)
@@ -153,7 +153,7 @@ describe "WeakRef programs" do
   end
 
   it "a subclass is the native delegator itself, and carries its own copy of the delegation rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `WeakRef`'s constructor takes the receiver class, so a subclass IS the
       # native delegator -- no payload wrapper, no re-tagging. What a subclass
       # needs beyond that is its own copy of the two delegation rows: the send-miss
@@ -202,7 +202,7 @@ describe "WeakRef programs" do
   end
 
   it "a subclass is allocated unseated, so its initialize runs and its super seats the referent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class TaggedRef < WeakRef` used to be registered with the ROOT's own
       # constructor, which seated the referent straight from the args -- the
       # subclass's `initialize` never ran and `@tagged` read back nil.

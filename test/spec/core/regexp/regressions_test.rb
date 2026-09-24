@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Regexp: regressions" do
   it "the match operator, the named captures, gsub and the count rows each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Regexp support
 
       # match operator
@@ -58,7 +58,7 @@ describe "Regexp: regressions" do
   end
 
   it "\\b inside a character class means backspace, and outside one it stays a word boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `\b` inside a `[...]` character class means U+0008 (backspace),
       # not the letter `b`. Outside `[...]`, `\b` is a word-boundary
       # anchor — the regex compiler's outer loop consumes that case
@@ -92,7 +92,7 @@ describe "Regexp: regressions" do
   end
 
   it "an inline-flag group compiles and matches rather than spin on the unconsumed ?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(?xim:...)` inline-flag groups previously parsed into an infinite
       # loop in re_compile: the `?` after `(` didn't match any recognized
       # directive (`:`, `=`, `!`, `<...`) and didn't advance c->p, so
@@ -139,7 +139,7 @@ describe "Regexp: regressions" do
   end
 
   it "a MatchData is truthy and its captures read by index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ["12-a", "xx", "999-z"].each do |s|
         m = s.match(/^(\d+)-/)
         if m && m[1].to_i < 999
@@ -158,7 +158,7 @@ describe "Regexp: regressions" do
   end
 
   it "two MatchData hash alike when they matched the same text" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m1 = "abc".match(/b/)
       m2 = "xbz".match(/b/)
       m3 = "abc".match(/b/)
@@ -175,7 +175,7 @@ describe "Regexp: regressions" do
   end
 
   it "MatchData#deconstruct_keys answers only the named captures asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = "abc".match(/(?<x>b)(?<y>c)/)
       p m.deconstruct_keys([:x])
       p m.deconstruct_keys([:y, :x])
@@ -201,7 +201,7 @@ describe "Regexp: regressions" do
   end
 
   it "!~ is the negation of =~, for a Regexp and for a class that defines =~" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Pat
         def initialize(s); @s = s; end
         def =~(str); str.include?(@s) ? 0 : nil; end
@@ -227,7 +227,7 @@ describe "Regexp: regressions" do
   end
 
   it "Regexp.new takes the option bits and reports them back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Regexp.new("a", Regexp::EXTENDED).options
       puts Regexp.new("a", Regexp::MULTILINE).options
       puts Regexp.new("a", Regexp::IGNORECASE).options
@@ -253,7 +253,7 @@ describe "Regexp: regressions" do
   end
 
   it "=~ and index answer a character offset, not a byte offset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p("あいうえお" =~ /う/)
       p "あいうえお".index(/う/)
       p "abcdef".index(/d/)
@@ -276,7 +276,7 @@ describe "Regexp: regressions" do
   end
 
   it "scan with a block collects the captures of each match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def tok(expr)
         tokens = []
         expr.scan(/\s*(\d+\.\d+|\d+|[+\-*\/()]|[a-z]+)/) { |m| tokens << m[0] }
@@ -302,7 +302,7 @@ describe "Regexp: regressions" do
   end
 
   it "a regexp match inside a ||= memo reads the capture once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Crash
         attr_reader :text
         def initialize(text) = @text = text
@@ -317,7 +317,7 @@ describe "Regexp: regressions" do
   end
 
   it "a case arm that matches a regexp sets Regexp.last_match and the numbered globals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `case`/`when <regex>` arm does not set `Regexp.last_match` (`$~`), so every
       # `last_match` read after a matched arm answers nil. ruby's `Regexp#===` sets
       # the match globals exactly as `=~` does.
@@ -383,7 +383,7 @@ describe "Regexp: regressions" do
   end
 
   it "a regexp holding an escaped quote is one token, not the end of a string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module YarnLockParser
         class Parser
           TOKEN_TYPES = {

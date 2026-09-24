@@ -1,15 +1,15 @@
-# ze0
+# zr
 
-**A Ruby compiler, written in Ruby.** ze0 compiles Ruby programs to
+**A Ruby compiler, written in Ruby.** zr compiles Ruby programs to
 native binaries and WebAssembly modules. A compiled program answers
-exactly what ruby 4.0.6 answers. When ze0 cannot promise that for a
+exactly what ruby 4.0.6 answers. When zr cannot promise that for a
 program, it refuses to compile it, and names the line.
 
 ```console
 $ cat hello.rb
 puts "Hello, #{ARGV.first || "world"}!"
 
-$ ze0 build hello.rb -o hello
+$ zr build hello.rb -o hello
 $ ./hello Ruby
 Hello, Ruby!
 ```
@@ -21,7 +21,7 @@ repository.
 ## Install
 
 ```console
-$ gem install ze0
+$ gem install zr
 ```
 
 You need:
@@ -32,23 +32,23 @@ You need:
   requires `openssl`. The binary opens the library when that `require`
   runs, and raises `LoadError` when the library is absent.
 
-The install compiles nothing. ze0 links a macOS binary itself, so it
+The install compiles nothing. zr links a macOS binary itself, so it
 needs no C compiler and no linker.
 
 ## Use
 
 ```console
-$ ze0 run app.rb                              # compile, run, and clean up
-$ ze0 build app.rb -o app                     # a native binary
-$ ze0 build app.rb -o app.wasm --emit wasm    # a WASI module
-$ ze0 build app.rb -o app --target aarch64-linux-musl
-$ ze0 targets                                 # what this machine can build
+$ zr run app.rb                              # compile, run, and clean up
+$ zr build app.rb -o app                     # a native binary
+$ zr build app.rb -o app.wasm --emit wasm    # a WASI module
+$ zr build app.rb -o app --target aarch64-linux-musl
+$ zr targets                                 # what this machine can build
 ```
 
 A binary holds your program, Ruby's core library and the runtime. It
 needs no ruby and no gems to run.
 
-New to ze0? Start with the tutorial
+New to zr? Start with the tutorial
 [Compile your first program](docs/tutorials/compile-your-first-program.md).
 
 ## What it builds
@@ -73,13 +73,13 @@ app.rb ─► prism ─► HIR ─► IR ─┬─► aarch64 machine code ─�
 - **prism** parses the program. It is a Ruby port of the parser that
   ruby itself uses.
 - **The HIR** is the program as a plain tree: desugared, with names
-  resolved. A form ze0 cannot compile is refused here.
+  resolved. A form zr cannot compile is refused here.
 - **The IR** is one SSA form that every backend reads.
 - **The runtime** is compiled into every program: a kernel in a typed
   dialect of Ruby, and the core library in ordinary Ruby.
 
 ruby 4.0.6 is the only source of right answers. Every test program
-carries ruby's recorded output, and ze0 must match it byte for byte.
+carries ruby's recorded output, and zr must match it byte for byte.
 
 Read more in [Architecture](docs/explanation/architecture.md) and
 [The contract](docs/explanation/the-contract.md).
@@ -87,11 +87,11 @@ Read more in [Architecture](docs/explanation/architecture.md) and
 ## Contribute
 
 ```console
-$ git clone https://github.com/ryanseys/ze0.git
-$ cd ze0
+$ git clone https://github.com/ryanseys/zr.git
+$ cd zr
 $ bundle install
 $ rake test:spec N=/blocks/  # Ruby held to ruby, program by program
-$ rake test:unit                # ze0's own internals
+$ rake test:unit                # zr's own internals
 ```
 
 The tutorial [Add your first spec](docs/tutorials/add-your-first-spec.md)
@@ -109,6 +109,6 @@ how-to guides, reference and explanation.
 
 ## License
 
-ze0 is under the MIT License (`LICENSE.txt`). The vendored and derived
+zr is under the MIT License (`LICENSE.txt`). The vendored and derived
 parts keep their own licenses, and `THIRD_PARTY_NOTICES.md` names each
 one.

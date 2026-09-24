@@ -6,13 +6,13 @@ require_relative "harness/answer"
 require_relative "harness/child"
 require_relative "harness/runner"
 
-module Ze0
+module Zr
   # The end-to-end tier: whole programs, built the way anyone builds one
   # -- the CLI, in its own process, through a real link -- and held to
   # what ruby answered.
   #
   # The specs compile in process and answer for the language. These
-  # answer for the product: that `ze0 build` writes a binary, and that
+  # answer for the product: that `zr build` writes a binary, and that
   # the binary a link produced starts, reads its ARGV, opens a socket,
   # takes a signal, resolves a Gemfile and flushes its output at exit.
   # They are filed by area, as the specs are, so `test/e2e/core/process`
@@ -42,7 +42,7 @@ module Ze0
     #
     # It lives here rather than in the test file because `rake record`
     # reads it too: a program is asked of ruby the way it is asked of
-    # ze0, or the answer is not an answer to the same question.
+    # zr, or the answer is not an answer to the same question.
     HOW = {
       "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZEO_AOT_SMOKE" => "on" } },
       "stdlib/bundler/require_bundler" => { build_mb: 3072 },
@@ -95,7 +95,7 @@ module Ze0
 
     # The programs as tests on `suite`.
     def self.define(suite, how = HOW)
-      target = Harness::Runner.named(ENV["ZE0_TARGET"])
+      target = Harness::Runner.named(ENV["ZR_TARGET"])
       runner = Harness::Runner.new(ROOT, target)
       allowed = baseline(target)
       unknown = how.keys - programs.map { |rb| key(rb) }
@@ -123,7 +123,7 @@ module Ze0
         skip how[:skip] if how[:skip]
         skip runner.refusal if runner.refusal
 
-        Dir.mktmpdir("ze0-e2e-") do |work|
+        Dir.mktmpdir("zr-e2e-") do |work|
           bin = File.join(work, "p")
           build(rb, bin, how, runner)
           answer(rb, bin, how, want, runner)
@@ -145,7 +145,7 @@ module Ze0
         flunk "this now passes: take it off test/baselines/#{runner.target.triple}.txt"
       end
 
-      # `ze0 zr build`, in its own process, from `test/`, as any of
+      # `zr zr build`, in its own process, from `test/`, as any of
       # these programs would be built by hand.
       def build(rb, bin, how, runner)
         megabytes = [how[:build_mb] || 0, Harness::Child::BUILD_MB].max

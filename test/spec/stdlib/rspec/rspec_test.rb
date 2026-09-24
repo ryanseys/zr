@@ -6,7 +6,7 @@ describe "RSpec programs" do
   it "reports a failure" do
     skip "rspec is not installed: neither engine has it, so there is nothing to compare"
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # XFAIL: rspec renders a failing or pending example by extracting the source
       # snippet for the line that raised, and `RSpec::Support::Source#ast` does that
@@ -84,14 +84,14 @@ describe "RSpec programs" do
   it "a real suite runs and reports its examples, matchers, doubles, hooks, counts and exit status" do
     skip "rspec is not installed: neither engine has it, so there is nothing to compare"
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # MILESTONE: a REAL rspec suite, written the way anyone writes one, runs under
       # zeo and reports what rspec reports -- examples, matchers, doubles, hooks,
       # the counts and the exit status.
       #
       # A failing or a pending example renders through `RSpec::Support::Source`,
-      # which asks for `ripper`; ze0 answers that over
+      # which asks for `ripper`; zr answers that over
       # `Prism::Translation::Ripper`. The other half of this file holds that.
       #
       # Both engines read the SAME rspec, from `vendor/bundle` -- the Gemfile.lock

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: slicing" do
   it "begin rescue else clause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 1B: `begin..rescue..else..end` the `else` body runs only when
       # the begin body completed without exception. Pre-fix the parser
       # emitted the else_clause field but the codegen ignored it -- the
@@ -82,7 +82,7 @@ describe "Exceptions: slicing" do
   end
 
   it "builtin arg mismatches raise cruby error shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The table rows validate argument TYPES with CRuby's exact TypeError/
       # ArgumentError messages (previously an arg-type mismatch degraded to
       # NoMethodError) -- all real, rescuable exceptions now.
@@ -115,7 +115,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a proc return runs an intervening ensure, and then the home method returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -140,7 +140,7 @@ describe "Exceptions: slicing" do
   end
 
   it "two nested ensures run inner first as a proc return unwinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -170,7 +170,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a non-matching rescue is skipped, and the ensure still runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -196,7 +196,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a proc return that passes no ensure goes straight home" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -216,7 +216,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a proc return through a rescue modifier still returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -236,7 +236,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a throw runs an intervening ensure before it reaches its catch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -260,7 +260,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a throw to an outer tag passes an inner catch of another tag, running its ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -288,7 +288,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a throw that passes no ensure is delivered directly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -304,7 +304,7 @@ describe "Exceptions: slicing" do
   end
 
   it "an ordinary exception still runs its ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -332,7 +332,7 @@ describe "Exceptions: slicing" do
   end
 
   it "an uncaught throw raises UncaughtThrowError, which a bare rescue catches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -360,7 +360,7 @@ describe "Exceptions: slicing" do
   end
 
   it "an uncaught throw runs the ensures it passes on its way out" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
       # uncaught `throw` raises a (catchable) UncaughtThrowError.
@@ -387,7 +387,7 @@ describe "Exceptions: slicing" do
   end
 
   it "conv typeerror names the right class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The class a conversion TypeError names has to survive the emission that sits
       # between taking it and writing it. class_ruby_name built the qualified name
       # into a shared static buffer, so a message built as
@@ -461,7 +461,7 @@ describe "Exceptions: slicing" do
   end
 
   it "defined does not swallow nomethoderror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` must answer `nil` for a call chain that cannot run, never raise.
       # zeo evaluates the receiver chain and lets the `NoMethodError` escape.
       #
@@ -494,7 +494,7 @@ describe "Exceptions: slicing" do
   end
 
   it "error names the code it came from" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # detailed_message shows the line an error came from with a caret run
       # under the node that failed, as error_highlight spots it: a call's name
       # or arguments, a constant, an operator write, and for a wrong argument
@@ -635,7 +635,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a break, next or redo out of an ensure-carrying begin runs the ensure first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A jump out of an ensure-carrying `begin` runs the ensure first: it
       # travels as a signal and the `begin` settles it onto its own target.
       i = 0
@@ -839,7 +839,7 @@ describe "Exceptions: slicing" do
   end
 
   it "a raise out of an ensure-carrying begin runs the ensure and carries the exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def b
         begin
           raise "boom"
@@ -860,7 +860,7 @@ describe "Exceptions: slicing" do
   end
 
   it "an ensure inside a loop body runs on every pass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def c
         [10, 20].each do |x|
           begin
@@ -885,7 +885,7 @@ describe "Exceptions: slicing" do
   end
 
   it "nested ensures run inner first as the jump leaves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def d
         begin
           begin
@@ -909,7 +909,7 @@ describe "Exceptions: slicing" do
   end
 
   it "an ensure that the jump does not cross does not run" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def e
         begin
           return 1
@@ -927,7 +927,7 @@ describe "Exceptions: slicing" do
   end
 
   it "an ensure runs before the value the begin answers reaches its reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f
         begin
           yield
@@ -1032,7 +1032,7 @@ describe "Exceptions: slicing" do
   end
 
   it "nested ensure self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method shaped `save; begin; yield self; ensure; restore; end; self` must
       # compile when it yields to a block that calls the SAME method (re-entrantly).
       #
@@ -1084,7 +1084,7 @@ describe "Exceptions: slicing" do
   end
 
   it "no method error messages name the real class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
       end
 
@@ -1112,7 +1112,7 @@ describe "Exceptions: slicing" do
   end
 
   it "overfull raise is a runtime argument error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#raise` with more than 3 positional arguments (appnexusapi passes
       # a message twice) or with only `cause:` is a RUNTIME ArgumentError: the
       # call evaluates its arguments first and raises only when reached, so the
@@ -1149,7 +1149,7 @@ describe "Exceptions: slicing" do
   end
 
   it "raise cause is three state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby distinguishes three states with a Qundef/Qnil/value sentinel
       # (rb_f_raise, eval.c:740), and the first two mean OPPOSITE things: an
       # omitted `cause:` chains automatically from $!, while `cause: nil`
@@ -1210,7 +1210,7 @@ describe "Exceptions: slicing" do
   end
 
   it "raise in ensure loses cause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception raised inside an `ensure` while another is propagating takes the
       # propagating one as its `cause`. zeo leaves `cause` nil, so the original
       # failure is gone.
@@ -1282,7 +1282,7 @@ describe "Exceptions: slicing" do
   end
 
   it "raise reraise in def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 1A: bare `raise` (re-raise) inside a def's rescue clause.
       # Pre-fix the codegen routed the surrounding begin/rescue's body
       # through compile_body_into which uses compile_expr for the last
@@ -1337,7 +1337,7 @@ describe "Exceptions: slicing" do
   end
 
   it "re raise preserves the exact same object not a copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proves re-raise doesn't construct a fresh exception -- mutating an
       # ivar (via an `attr_accessor`-generated setter) INSIDE the inner
       # `rescue`, then bare `raise`-ing, must be visible to the OUTER
@@ -1372,7 +1372,7 @@ describe "Exceptions: slicing" do
   end
 
   it "reraise nested rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `raise` re-raises the exception its own rescue caught, even when the
       # rescue body ran another begin/rescue first. The saved class/message buffers
       # were shared across clauses, so the inner clause overwrote the outer one's
@@ -1473,7 +1473,7 @@ describe "Exceptions: slicing" do
   end
 
   it "three rescue clauses skips non matching ones in order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         raise RangeError, "oops"
       rescue ArgumentError
@@ -1489,7 +1489,7 @@ describe "Exceptions: slicing" do
   end
 
   it "unknown keyword argument is an error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A keyword a method does not declare raises ArgumentError ("unknown
       # keyword: :b") on EVERY call path. zeo's compile-time arity check gets the
       # static shapes right; the DYNAMIC paths -- a runtime-defined method, a

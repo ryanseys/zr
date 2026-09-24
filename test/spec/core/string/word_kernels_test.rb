@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: the byte kernels a word at a time" do
   it "compares hashes scans and splits bytes eight at a time as one at a time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The kernels behind ==, <=>, hash, ascii_only?, valid_encoding?,
       # index and split(" ") read eight bytes a step and the rest one at a
       # time. Every length from 0 to 129 and every place a difference can

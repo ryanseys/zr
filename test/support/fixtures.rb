@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Ze0
+module Zr
   # The files a spec example needs, read from disk rather than pasted
   # into the example as an escaped literal.
   #
@@ -16,8 +16,8 @@ module Ze0
   # `must_answer fixture("core/object/method_owners.out")` is 31,713
   # bytes of ruby's own output, which was one line of the spec file.
   #
-  # This is one module on purpose. `Ze0::Spec::DSL` and
-  # `Ze0::Reader::Sandbox` are two implementations of one DSL, and a
+  # This is one module on purpose. `Zr::Spec::DSL` and
+  # `Zr::Reader::Sandbox` are two implementations of one DSL, and a
   # keyword added to both drifts; a helper included in both cannot.
   module Fixtures
     ROOT = File.expand_path("../fixtures", __dir__)

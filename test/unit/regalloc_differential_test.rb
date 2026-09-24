@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/backend/aarch64"
-require_relative "../../lib/ze0/ir/passes"
-require_relative "../../lib/ze0/ir/interp"
-require_relative "../../lib/ze0/obj/jit/fiddle"
+require_relative "../../lib/zr/backend/aarch64"
+require_relative "../../lib/zr/ir/passes"
+require_relative "../../lib/zr/ir/interp"
+require_relative "../../lib/zr/obj/jit/fiddle"
 
 # The register allocator, held to the road that allocates nothing.
 #
@@ -14,7 +14,7 @@ require_relative "../../lib/ze0/obj/jit/fiddle"
 # register across a call, or across a back edge -- and each runs three
 # ways: through `IR::Interp`, and through the JIT with every value
 # allocated and with every value in its frame home. The three must
-# agree. A failure prints the seed and the function, and `ZE0_SEED=`
+# agree. A failure prints the seed and the function, and `ZR_SEED=`
 # runs that seed again.
 #
 # A probe takes four integers and a double, and its callee three
@@ -24,21 +24,21 @@ require_relative "../../lib/ze0/obj/jit/fiddle"
 # be a register an integer had yet to leave (the case that reached a
 # spec before it reached this test).
 class RegallocDifferentialTest < Minitest::Test
-  COUNT = Integer(ENV.fetch("ZE0_DIFFERENTIAL", 500))
+  COUNT = Integer(ENV.fetch("ZR_DIFFERENTIAL", 500))
   CALLEE = "probe_callee"
   OPS = %i[iadd isub imul band bor bxor ishl ushr sshr sdiv udiv srem urem].freeze
-  CONDS = Ze0::IR::Inst::CONDS
+  CONDS = Zr::IR::Inst::CONDS
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
   def test_allocated_and_unallocated_code_answer_as_the_interpreter_does
-    seed = Integer(ENV.fetch("ZE0_SEED") { Random.new_seed % (1 << 31) })
+    seed = Integer(ENV.fetch("ZR_SEED") { Random.new_seed % (1 << 31) })
     rng = Random.new(seed)
     functions = [callee] + COUNT.times.map { |n| generate(rng, "probe_#{n}") }
-    functions.each { |f| Ze0::IR::Passes.prepare(f, strict: true) }
-    interp = Ze0::IR::Interp.new(functions)
+    functions.each { |f| Zr::IR::Passes.prepare(f, strict: true) }
+    interp = Zr::IR::Interp.new(functions)
     allocated = loaded(functions, allocate: true)
     spilled = loaded(functions, allocate: false)
     functions.drop(1).each do |f|
@@ -57,8 +57,8 @@ class RegallocDifferentialTest < Minitest::Test
 
   # The functions loaded into this process, each callable by name.
   def loaded(functions, allocate:)
-    unit = Ze0::Backend::Aarch64.unit(functions.map(&:dup), [], allocate: allocate)
-    symbols = Ze0::Obj::JIT.load(unit, host: Ze0::Obj::JIT::Fiddle.new)
+    unit = Zr::Backend::Aarch64.unit(functions.map(&:dup), [], allocate: allocate)
+    symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
     functions.to_h do |f|
       types = f.params.map { |t| t == "f64" ? Fiddle::TYPE_DOUBLE : Fiddle::TYPE_LONG }
       [f.name, Fiddle::Function.new(symbols.fetch(f.name), types, Fiddle::TYPE_LONG)]
@@ -68,7 +68,7 @@ class RegallocDifferentialTest < Minitest::Test
   # `probe_callee(x, y, z) = x * 3 + y * 5 + z * 7 + 1`, in the unit
   # beside the probes.
   def callee
-    f = Ze0::IR::Function.new(CALLEE, %w[i64 i64 i64], "i64")
+    f = Zr::IR::Function.new(CALLEE, %w[i64 i64 i64], "i64")
     x, y, z = f.args
     sum = f.iadd(f.imul(x, f.iconst("i64", 3)), f.imul(y, f.iconst("i64", 5)))
     f.ret(f.iadd(f.iadd(sum, f.imul(z, f.iconst("i64", 7))), f.iconst("i64", 1)))
@@ -79,7 +79,7 @@ class RegallocDifferentialTest < Minitest::Test
   # a run of operations, a loop of a few passes carrying two values, a
   # run more, and an answer.
   def generate(rng, name)
-    f = Ze0::IR::Function.new(name, %w[i64 i64 i64 i64 f64], "i64")
+    f = Zr::IR::Function.new(name, %w[i64 i64 i64 i64 f64], "i64")
     callee = f.callee(CALLEE, %w[i64 i64 i64], "i64")
     *ints, double = f.args
     pool = ints + [f.bitcast("i64", double)]

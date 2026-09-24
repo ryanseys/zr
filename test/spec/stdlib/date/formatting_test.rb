@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Date: formatting and inspection" do
   it "every Date and DateTime field answers what ruby answers, without reading the machine's zone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The whole `Date`/`DateTime` surface, field by field, against ruby 4.0.6.
       # Nothing here reads the machine's zone: `to_time` appears only through
       # fields that a local Time renders identically everywhere.
@@ -299,7 +299,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "the proleptic-Gregorian fields, day arithmetic, ordering and Julian day all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       # Construction and field access on the proleptic-Gregorian calendar.
@@ -353,7 +353,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "next_month off the 31st lands on the last day the month has" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 1, 31)
@@ -374,7 +374,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "julian?, gregorian? and start report the reform day the date was built with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -399,7 +399,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "to_date, to_datetime and to_time each keep the day they were given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -416,7 +416,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "upto, downto and step walk the days between two dates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 27)
@@ -433,7 +433,7 @@ describe "Date: formatting and inspection" do
   end
 
   it ">> and << move whole months, clamping to the last day the month has" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 1, 31)
@@ -452,7 +452,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "an ISO 8601 timestamp records its fields in the shapes one actually arrives in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -489,7 +489,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "RFC 2822 and HTTP-date record the weekday name they carry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -520,7 +520,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a month name reads in either order, with or without a comma" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -561,7 +561,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a dot date reads year first or day first by which part cannot be a day" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -599,7 +599,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a bare digit run is read by its length, with no validation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -640,7 +640,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a clock on its own reads its meridian marker or its zone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -683,7 +683,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a week date and an ordinal date read as the other calendars ISO 8601 spells" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -708,7 +708,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a two-digit year widens only where the caller asked for a century" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -739,7 +739,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "nothing recognisable answers an empty hash rather than raising" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -769,7 +769,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "commentary in parentheses is dropped, as RFC 2822 allows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -794,7 +794,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "Date.parse completes every field above the most significant one found" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -840,7 +840,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "the zone table :offset is filled from answers each spelling's seconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
       # against ruby 4.0.6, including the KEY ORDER: the hash records fields in the
@@ -872,7 +872,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "rfc3339, httpdate, xmlschema and jisx0301 each render the same day their own way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -891,7 +891,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "Date._strptime keys its answer in the order the directives matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Date._strptime` is the format-DIRECTED scanner behind `Date.strptime`,
       # `DateTime.strptime` and the `time` gem's `Time.strptime`. aws-sigv4's
       # `presign_url` reaches it through the last of those.
@@ -968,7 +968,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a DateTime keeps its clock through parse, strptime and new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       p DateTime.parse("2024-01-02T03:04:05+00:00").to_s
@@ -986,7 +986,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "nilable time strftime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nilable Time (`created_at : Time?`) is held as a poly value, so calling
       # strftime on it used to lower to the unresolved-call raise even for a real
       # Time. The poly dispatch now gives strftime a Time arm: a genuine Time
@@ -1029,7 +1029,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "reopened builtin operators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An operator redefined on a reopened builtin.
       #
       # zeo rejected this for EVERY builtin, on the reasoning that a native operator
@@ -1120,7 +1120,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "strftime width and vms date" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two strftime divergences left after the flag work, both about the part of a
       # directive that is NOT a flag.
       #
@@ -1174,7 +1174,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "time strftime long format" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # strftime output longer than the old fixed 256-byte buffer was silently
       # dropped to "". A roomier buffer now handles realistic long formats
       # (lots of literal text, repeated or wide directives). A pathological
@@ -1208,7 +1208,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a truncated document answers at every position one can be cut" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1291,7 +1291,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "an anchor and its alias name one object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1366,7 +1366,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a merge key splices the mapping it names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1425,7 +1425,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a tag decides the type of the scalar under it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1494,7 +1494,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a stream of several documents loads one at a time or all at once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1547,7 +1547,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a duplicate key, a complex key and a nested flow each load" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1600,7 +1600,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "a very long scalar survives whole" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1643,7 +1643,7 @@ describe "Date: formatting and inspection" do
   end
 
   it "every value round-trips through dump and load" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Guards programs" do
   it "alias of an inherited builtin resolves statically dynamically and in subclasses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The general (non-raise) family: `dup!` for Object's `dup` becomes a
       # registry NAME-INDIRECTION row (`register_alias`), consulted on the send
       # MISS paths -- so a static call, a dynamic `send`, a subclass receiver,
@@ -35,7 +35,7 @@ describe "Guards programs" do
   end
 
   it "alias under a static modifier and if elsif" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A statically-literal `if`/`unless` guard on an `alias` is folded at
       # definition time: the selected branch's alias is registered.
 
@@ -66,7 +66,7 @@ describe "Guards programs" do
   end
 
   it "array bounds guards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array negative-argument guards and nil returns: slice with a negative
       # length, sample(-n), Array.new(-n), fetch with a block / CRuby's IndexError
       # message, and first/last on an empty literal.
@@ -141,7 +141,7 @@ describe "Guards programs" do
   end
 
   it "array clear frozen guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#clear on a frozen array raises FrozenError with the CRuby message
       # (including the inspected contents); a non-frozen array clears normally.
       def cl(a); a.clear; a; end
@@ -164,7 +164,7 @@ describe "Guards programs" do
   end
 
   it "array fold delete flatten rindex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty seedless folds are nil; delete's not-found block yields its value;
       # flatten! mutates in place; rindex takes a block.
       p [].reduce(:+).inspect
@@ -198,7 +198,7 @@ describe "Guards programs" do
   end
 
   it "autoload target is also a guarded require" do
-    result = ze0(<<~'RUBY', files: beside("autoload_target/lib.rb", "autoload_target/target.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_target/lib.rb", "autoload_target/target.rb"))
       # One file, demanded twice under two different names. rack writes both:
       #
       #   lib/rack.rb          autoload :MediaType, "rack/media_type"
@@ -255,7 +255,7 @@ describe "Guards programs" do
   end
 
   it "both branches define the same conditional class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         def greet = "base"
       end
@@ -293,7 +293,7 @@ describe "Guards programs" do
   end
 
   it "a version comparison at build time picks the branch its number falls in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -331,7 +331,7 @@ describe "Guards programs" do
   end
 
   it "String#to_i reads the leading integer of a version and stops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -378,7 +378,7 @@ describe "Guards programs" do
   end
 
   it "an unescaped dot in a version pattern is exactly one character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -422,7 +422,7 @@ describe "Guards programs" do
   end
 
   it "an /i pattern over the engine name reads the same at build time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -470,7 +470,7 @@ describe "Guards programs" do
   end
 
   it "String#[] as a condition asks whether the pattern matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -513,7 +513,7 @@ describe "Guards programs" do
   end
 
   it "a literal list asked for membership is the comparison spelled sideways" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -561,7 +561,7 @@ describe "Guards programs" do
   end
 
   it "instance_methods.include? is method_defined? the long way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -604,7 +604,7 @@ describe "Guards programs" do
   end
 
   it "a guard on a constant the program does fill installs the filled body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -648,7 +648,7 @@ describe "Guards programs" do
   end
 
   it "RUBY_PLATFORM.to_s is RUBY_PLATFORM, because String#to_s answers self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A version gate is written against the NUMBER as often as against the string
       # (`Rails::VERSION::MAJOR`), and a platform gate against a pattern or a list.
       # All three are as fixed for a whole-program target as the version strings the
@@ -693,7 +693,7 @@ describe "Guards programs" do
   end
 
   it "case in guard binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A destructured array-pattern guard sees the bindings the pattern introduces.
       def s(x); x; end
       r = case s([1, 2])
@@ -715,7 +715,7 @@ describe "Guards programs" do
   end
 
   it "case in guard bindings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pattern guard (`in PATTERN if GUARD` / `unless GUARD`) can reference the
       # bindings introduced by the pattern. Receivers go through per-type identity
       # methods to defeat constant folding while keeping each scrutinee monomorphic.
@@ -781,7 +781,7 @@ describe "Guards programs" do
   end
 
   it "case in object deconstruct keys with constant guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x, y)
           @x = x
@@ -806,7 +806,7 @@ describe "Guards programs" do
   end
 
   it "case in unless guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2]
       in [a, *b] unless a == 0
         puts a
@@ -817,7 +817,7 @@ describe "Guards programs" do
   end
 
   it "casecmp folds non ascii" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#casecmp` and `Symbol#casecmp` compare ASCII case-insensitively
       # and everything else BY BYTES.
       #
@@ -853,7 +853,7 @@ describe "Guards programs" do
   end
 
   it "class body guard folds in cref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class-body guard folds with the same superset the top level uses, in the
       # body's own cref. Before the lift this whole shape was a compile error ("a
       # position the analyze walk doesn't register"). The probe names a class
@@ -875,7 +875,7 @@ describe "Guards programs" do
   end
 
   it "class in a block under an undecided guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class`/`module` written inside a BLOCK registers at the top level -- the
       # walk descends into the block body, the definition keeps its document
       # position, and the class exists once the block has run.
@@ -944,7 +944,7 @@ describe "Guards programs" do
   end
 
   it "class self conditional def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A conditional `def` inside `class << self` -- erb/compiler.rb's
       # `class << self; if defined?(Ractor); def register_scanner ...; else; ...`.
       # zeo statically decides the version/`defined?` guard and registers ONLY the
@@ -969,7 +969,7 @@ describe "Guards programs" do
   end
 
   it "conditional class body defs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class-body `if`/`unless` whose guard is compile-time decidable (a
       # target-version or feature-probe gate) and whose taken branch holds a whole
       # definition (`class`/`module`/`include`/`prepend`) is inlined into that branch,
@@ -1018,7 +1018,7 @@ describe "Guards programs" do
   end
 
   it "conditional class method def leaves the inherited one reachable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         def self.create
           :inherited
@@ -1055,7 +1055,7 @@ describe "Guards programs" do
   end
 
   it "a def under a false guard is absent to a call and to reflection alike" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1094,7 +1094,7 @@ describe "Guards programs" do
   end
 
   it "a def under a true guard is present by every one of those readings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1128,7 +1128,7 @@ describe "Guards programs" do
   end
 
   it "a conditional def does not displace one that always runs when its guard is false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1162,7 +1162,7 @@ describe "Guards programs" do
   end
 
   it "the conditional def wins when its guard is true, as last-def-wins says" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1194,7 +1194,7 @@ describe "Guards programs" do
   end
 
   it "a false-guarded def does not shadow an ancestor's, so the inherited body answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1239,7 +1239,7 @@ describe "Guards programs" do
   end
 
   it "where both branches define the name, the taken branch is what answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1272,7 +1272,7 @@ describe "Guards programs" do
   end
 
   it "a top-level class X ... end if cond reopens through the same path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1310,7 +1310,7 @@ describe "Guards programs" do
   end
 
   it "a definition carries more than one trailing modifier, and the pair is read together" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
       # row, because that row would answer whether or not the branch ran. What the
@@ -1359,7 +1359,7 @@ describe "Guards programs" do
   end
 
   it "conditional reopen adds method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class REOPENING that only ADDS methods, guarded by a runtime-undecidable
       # condition (`... end if enabled`). zeo pushes the guard into the class body
       # (`class Widget; if enabled; def extra; ...`) so the method is defined
@@ -1393,7 +1393,7 @@ describe "Guards programs" do
   end
 
   it "def two guards deep stays inside both of them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bundler's actual nesting: a guard inside a guard, with a local assigned
       # between them and the body reading a constant only the inner branch writes.
 
@@ -1416,7 +1416,7 @@ describe "Guards programs" do
   end
 
   it "defined const document order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?(Const)` answers from DOCUMENT ORDER: ruby knows a constant only
       # once its `class` statement or its assignment has executed, where a
       # whole-program view finds the definition wherever in the file it is written.
@@ -1483,7 +1483,7 @@ describe "Guards programs" do
   end
 
   it "defined stands down when a program can load at run time" do
-    result = ze0(<<~'RUBY', files: beside("defined_defers/latecomer.rb"))
+    result = zr(<<~'RUBY', files: beside("defined_defers/latecomer.rb"))
       $LOAD_PATH.unshift(File.join(__dir__, "defined_defers"))
       require "latecomer"
 
@@ -1527,7 +1527,7 @@ describe "Guards programs" do
   end
 
   it "defined value const guards class def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level class/module definition guarded by `defined?(Mod::VALUE_CONST)`
       # where the constant is a plain VALUE (not a class) that the module's own body
       # assigns. zeo must statically decide the guard (this is the rubygems idiom
@@ -1555,7 +1555,7 @@ describe "Guards programs" do
   end
 
   it "explicit so require resolves a statically linked extension" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `.so` require resolves through the static-ext table rather than the
       # filesystem -- zeo is a Ruby built with `--with-static-linked-ext`, and
       # CRuby registers static exts under `"<feature>.so"` (`load.c:1161`).
@@ -1572,7 +1572,7 @@ describe "Guards programs" do
   end
 
   it "feature probe defs fold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Feature-probe guards fold against the compiled method tables, exactly as CRuby
       # decides them at load time. rubygems/bundler gate compat reopens on whether a
       # class already has a method -- e.g. bundler's
@@ -1619,7 +1619,7 @@ describe "Guards programs" do
   end
 
   it "fiber error guards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Fiber misused in ways CRuby rejects must raise FiberError, not crash:
       # yielding from the root fiber, yielding inside a fiber entered via #transfer,
       # and resuming a fiber that is still running (double resume). Each is catchable.
@@ -1684,7 +1684,7 @@ describe "Guards programs" do
   end
 
   it "fiber transfer root and error guards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fiber#transfer round-tripping through the root fiber, Fiber#[]/#[]=
       # storage, the FiberError guards (yield in a transfer-entered fiber, double
       # resume), and Fiber#kill running ensure blocks.
@@ -1732,7 +1732,7 @@ describe "Guards programs" do
   end
 
   it "fnmatch casefold flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p File.fnmatch("a*", "A.rb", File::FNM_CASEFOLD)
       p File.fnmatch("A*", "a.rb", File::FNM_CASEFOLD)
       p File.fnmatch("a*", "A.rb")
@@ -1746,7 +1746,7 @@ describe "Guards programs" do
   end
 
   it "fold memo to proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f001 = ->(m, k) { m << k }
       p(["a"].each_with_object([]) { |k001, m001| f001.call(m001, k001) })
       f002 = ->(m, k) { m[k] = 1 }
@@ -1770,7 +1770,7 @@ describe "Guards programs" do
   end
 
   it "fold nonempty array seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       g = [[1, 2], [3, 4]]
       v = g.reduce([0]) { |a, r| a + r }
       p v
@@ -1798,7 +1798,7 @@ describe "Guards programs" do
   end
 
   it "forwarded nil guarded block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A captured &blk that is nil-guarded (forcing a real proc param) and then
       # forwarded into a callee must still reach that callee's yield / block.call.
 
@@ -1855,7 +1855,7 @@ describe "Guards programs" do
   end
 
   it "guarded class defines only when its branch runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts defined?(Widget).inspect
       def probe? = false
       if probe?
@@ -1881,7 +1881,7 @@ describe "Guards programs" do
   end
 
   it "guarded class method does not take the later bodys position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The class-method channel takes the same rule. It is counted apart from the
       # instance channel, so a fix that only watched one would pass everything
       # above and still hand `def self.x` the wrong body.
@@ -1904,7 +1904,7 @@ describe "Guards programs" do
   end
 
   it "a guarded reopen walked first does not displace the real definition" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -1934,7 +1934,7 @@ describe "Guards programs" do
   end
 
   it "the same pair in one file, guarded first, keeps the unguarded body" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -1971,7 +1971,7 @@ describe "Guards programs" do
   end
 
   it "and in the other order, the unguarded body still wins" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -2003,7 +2003,7 @@ describe "Guards programs" do
   end
 
   it "a guard that is true still installs its body" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -2037,7 +2037,7 @@ describe "Guards programs" do
   end
 
   it "a name only a false branch writes is absent, and so is its constant" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -2074,7 +2074,7 @@ describe "Guards programs" do
   end
 
   it "three bodies for one name, two of them guarded, install only the unguarded one" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -2106,7 +2106,7 @@ describe "Guards programs" do
   end
 
   it "a guard inside a guard, with a local assigned between them, still reads right" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -2140,7 +2140,7 @@ describe "Guards programs" do
   end
 
   it "a block-installed accessor loses to the def that always runs" do
-    result = ze0(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
+    result = zr(<<~'RUBY', files: beside("guarded_def/base.rb", "guarded_def/real.rb"))
       module Probe
         # A question no compile-time fold can answer, the way bundler asks
         # `Gem::Platform.local.cpu`. Every guard below reads it.
@@ -2184,7 +2184,7 @@ describe "Guards programs" do
   end
 
   it "guarded def written first does not take the later bodys position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The reported shape, smallest form: guarded body FIRST, unguarded second.
 
       def cpu = ["arm", "64"].join
@@ -2206,7 +2206,7 @@ describe "Guards programs" do
   end
 
   it "guarded def written last does not displace the earlier body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ...and with the guarded body written last, which is the same rule read
       # from the other end.
 
@@ -2225,7 +2225,7 @@ describe "Guards programs" do
   end
 
   it "guarded top level def defines at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A guarded top-level plain `def` (myrrha's `def Boolean(s)` behind
       # `Myrrha.core_ext?`): defined -- as a private Object instance method --
       # exactly when the branch runs.
@@ -2288,7 +2288,7 @@ describe "Guards programs" do
   end
 
   it "hash symbol fold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({ a: 1 }.inject(:+))
       p({ a: 1, b: 2 }.reduce(:+))
       a477 = { a: 1 }
@@ -2308,7 +2308,7 @@ describe "Guards programs" do
   end
 
   it "isa fold leading statements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A folded `is_a?` arm in EXPRESSION position must still run its statements in
       # order. The fold emitted the arm's leading statements inside a statement
       # expression wrapped around its value -- but the value itself, when it is a
@@ -2395,7 +2395,7 @@ describe "Guards programs" do
   end
 
   it "inject with an Integer seed folds to whatever type the elements widen it to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def horner(coeffs, x)
         coeffs.inject(0) { |acc, c| acc * x + c }
       end
@@ -2417,7 +2417,7 @@ describe "Guards programs" do
   end
 
   it "method defined folds inherited native" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `method_defined?` / `respond_to?` guards must see native methods a user
       # class inherits from Object/Kernel -- rspec-core's 1.8.7 shim gates a
       # self-recursive `singleton_class` def on exactly this probe, so a confident
@@ -2451,7 +2451,7 @@ describe "Guards programs" do
   end
 
   it "pattern match as and guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issues #884 #905: pattern-match `as` binding and `if` guard
       # clause both used to leave the matched LV undeclared, causing
       # C compile errors. Now both bind correctly: CapturePatternNode
@@ -2496,7 +2496,7 @@ describe "Guards programs" do
   end
 
   it "platform gate is a build time question" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RUBY_PLATFORM =~ /mswin|mingw|windows/` is the platform gate half the gem
       # corpus writes, and it is decidable when the program is compiled: the platform
       # is baked in. Deciding it is what keeps a windows-only branch -- full of types
@@ -2576,7 +2576,7 @@ describe "Guards programs" do
   end
 
   it "platform guarded require is not loaded" do
-    result = ze0(<<~'RUBY', files: beside("platform_guarded/posix_only.rb", "platform_guarded/windows_only.rb"))
+    result = zr(<<~'RUBY', files: beside("platform_guarded/posix_only.rb", "platform_guarded/windows_only.rb"))
       # A `require` under a platform guard names a file this program never loads, so
       # a whole-program compiler must not load it either. mixlib-shellout requires its
       # windows half from inside `class ShellOut`, and that half is full of windows
@@ -2664,7 +2664,7 @@ describe "Guards programs" do
   end
 
   it "refine in a conditional reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `refine` written inside a class body that a RUNTIME-undecidable `if`
       # reopened. power_assert does exactly this -- every refinement it owns lives
       # inside `if PowerAssert.configuration._redefinition; module PowerAssert`,
@@ -2743,7 +2743,7 @@ describe "Guards programs" do
   end
 
   it "regexp unicode casefold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # `/i` folds only ASCII, so a non-ASCII literal does not match its
@@ -2812,7 +2812,7 @@ describe "Guards programs" do
   end
 
   it "reopen guarded by an outer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class reopened under a trailing `if` that reads a local of the ENCLOSING
       # scope. Zeo runs a class body at its document position, inside the enclosing
       # scope's own block, but built that body's context from the body's own
@@ -2871,7 +2871,7 @@ describe "Guards programs" do
   end
 
   it "respond to true and false on a statically known receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Dog
         def bark
           "woof"
@@ -2889,7 +2889,7 @@ describe "Guards programs" do
   it "run time compile handles aliases and guards" do
     files = fixtures("runtime_compiled/aliased_extend.rb", "runtime_compiled/guarded_toplevel.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # The RUN-TIME compiler on shapes real gems use. A `require` whose target only
       # the running program knows -- a computed feature name, or one reached through
       # a `$LOAD_PATH` the program just changed -- is compiled at run time by a
@@ -2939,7 +2939,7 @@ describe "Guards programs" do
   end
 
   it "runtime conditional class reveals on definition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fancy? = true
       if fancy?
         module Helpers
@@ -2968,7 +2968,7 @@ describe "Guards programs" do
   end
 
   it "runtime private constant reaches a folded read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_constant` is a run-time flag: a snippet can set it on a constant
       # the compiler already resolved, so a program that can `eval` at all asks
       # the run time at every explicit-scope read instead of folding one.
@@ -3021,7 +3021,7 @@ describe "Guards programs" do
   end
 
   it "scaffolded extension constant resolves but is a name error without require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A scaffolded ext (json) is still require-gated: its constant is a
       # NameError until `require "json"` fires, exactly like the fully-built
       # ones -- scaffolding changes only what the METHODS do, not the gate.
@@ -3038,7 +3038,7 @@ describe "Guards programs" do
   end
 
   it "singleton class rescue guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `rescue` guarding a statement inside `class << obj`, the per-instance
       # singleton class.
       #
@@ -3107,7 +3107,7 @@ describe "Guards programs" do
   end
 
   it "singleton prepend reaches static call sites" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<expr>.singleton_class.prepend(M)` where the RECEIVER or the MODULE is not
       # a compile-time constant used to be rejected: statically resolved `X.m` call
       # sites never consulted the runtime singleton tables the send writes, so the
@@ -3151,7 +3151,7 @@ describe "Guards programs" do
   end
 
   it "spaceship nil guard poly compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `<=>` with a `return nil` guard has an sp_RbVal return, and its body's
       # compare goes through the polymorphic helper as soon as the ivar holds more
       # than one type -- or simply when a second class in the program also defines
@@ -3223,7 +3223,7 @@ describe "Guards programs" do
   end
 
   it "static top level if guard registers or drops its definitions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `if defined?(Const) ... module M ... end` idiom (singleton's
       # `if defined?(Ractor)` tail): a decidably-TRUE guard's branch is spliced
       # through the top-level walk (its module registers, its methods resolve),
@@ -3264,7 +3264,7 @@ describe "Guards programs" do
   end
 
   it "statically wrong arity call raises at runtime and dead code stays silent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's behavior: the error belongs to the CALL, not the program.
 
       module M
@@ -3292,7 +3292,7 @@ describe "Guards programs" do
   end
 
   it "defined? of a constant the program never defines folds false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3327,7 +3327,7 @@ describe "Guards programs" do
   end
 
   it "&& over two such probes waits on both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3360,7 +3360,7 @@ describe "Guards programs" do
   end
 
   it "a capability probe on a String literal answers from String's own surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3398,7 +3398,7 @@ describe "Guards programs" do
   end
 
   it "the same probe answers on the other literal receivers and through a method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3453,7 +3453,7 @@ describe "Guards programs" do
   end
 
   it "unless !x folds too, and keeps the branch this time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3487,7 +3487,7 @@ describe "Guards programs" do
   end
 
   it "const_defined? is defined?'s reflective twin and reads the same state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3519,7 +3519,7 @@ describe "Guards programs" do
   end
 
   it "a capability probe whose answer is genuinely no takes the other branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3555,7 +3555,7 @@ describe "Guards programs" do
   end
 
   it "a standard stream is an IO instance, which is how a gem probes for one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
       # zeo has to decide such a guard at compile time -- it registers definitions in
@@ -3588,7 +3588,7 @@ describe "Guards programs" do
   end
 
   it "top level guarded directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A guarded `def` or `alias` at top level compiles with the guard deciding at
       # runtime -- the directive rides into an Object reopen, where the class-body
       # conditional machinery already knows how to register-but-not-promise it.
@@ -3609,7 +3609,7 @@ describe "Guards programs" do
   end
 
   it "two guarded bodies and one real one still answer the real one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three bodies for one name, two of them guarded: the two lists differ by
       # two, so an off-by-one fix would still land on the wrong row.
 
@@ -3631,7 +3631,7 @@ describe "Guards programs" do
   end
 
   it "undef under dynamic guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef :m if <runtime condition>` -- drb's shape. The guard can't be decided
       # at compile time, so the undef has to become a runtime `undef_method` rather
       # than the compile-time record an unguarded `undef` is.
@@ -3681,7 +3681,7 @@ describe "Guards programs" do
   end
 
   it "user platform predicate folds and defers" do
-    result = ze0(<<~'RUBY', files: beside("user_predicate/windows_only.rb"))
+    result = zr(<<~'RUBY', files: beside("user_predicate/windows_only.rb"))
       # puppet's shape: the platform test is a USER method whose body is
       # `!!File::ALT_SEPARATOR`. The predicate's truth is a property of the build,
       # so a top-level guard reading it picks its branch at compile time -- and a
@@ -3726,7 +3726,7 @@ describe "Guards programs" do
   end
 
   it "version gate compares by version not by string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby preloads rubygems, so a gem reaches for `Gem::Version` without ever
       # requiring it -- and rubygems' `<=>` COERCES a plain string operand, making the
       # comparison version-segment-wise rather than lexicographic. The two answer
@@ -3833,7 +3833,7 @@ describe "Guards programs" do
   end
 
   it "version gate defs fold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Version-gate guards wrapping whole definitions fold at compile time against
       # zeo's fixed target version, exactly as CRuby decides them at load time.
       # `RUBY_VERSION` is a build-time String, so `RUBY_VERSION <op> "x"` folds by the
@@ -3886,7 +3886,7 @@ describe "Guards programs" do
   end
 
   it "version gated def folds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         def self.helper?
           true
@@ -3907,7 +3907,7 @@ describe "Guards programs" do
     _(result).must_answer "true\n"
   end
   it "the named calls with a fast path answer as the call does, past the road and once redefined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The named calls with a fast path: what they answer on the road, past
       # the fixnums, on a frozen receiver, and once the method is redefined.
       s = "abc".b
@@ -3988,7 +3988,7 @@ describe "Guards programs" do
   end
 
   it "a String's bytes are read and written in place, and every case past the road answers as the method does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bytes read and written where they stand: a loop over a copy, the
       # scans forgotten after a write, a chilled literal, a subclass, a frozen
       # String, the ends of the range, and a MatchData taken before the write.
@@ -4091,7 +4091,7 @@ describe "Guards programs" do
   end
 
   it "a fixnum and a flonum are negated in place, and every other value is sent -@" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `-x` on a fixnum and on a flonum in place: the fixnum ends, the zeros,
       # the flonum whose negation is no flonum, a heap Float, NaN and the
       # infinities, a Rational, and both methods once redefined.
@@ -4152,7 +4152,7 @@ describe "Guards programs" do
   end
 
   it "a new at the site allocates and sends initialize as Class#new does, whatever the class makes of either" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `new` at the site: every count of arguments, keywords, a splat, a
       # private initialize, a class's own new, an initialize redefined after
       # the site ran, a raise inside it, and a class with no allocator.
@@ -4268,7 +4268,7 @@ describe "Guards programs" do
   end
 
   it "a relation over plain reads in a test branches on the comparison, and answers as the call does past the road" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A relation over plain reads as a test: fixnums, flonums, the two
       # mixed, a bignum, NaN, nil and a String, in `if`, `unless`, `while`,
       # `until`, a ternary and `elsif`; under a refinement; and once
@@ -4350,7 +4350,7 @@ describe "Guards programs" do
   end
 
   it "a def that begins with a pure test is answered at the site on that arm, and called on every other" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A def whose first decision is pure is answered at the site on that
       # arm: a recursion's leaves, a guard clause, operands past the fixnums,
       # a redefined operator, a redefined def, and a receiver of another class.

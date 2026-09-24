@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: defining and naming methods" do
   it "alias keyword inside a class eval block aliases at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias new old` in a general (non-class-body) context -- here a module's
       # `class_eval` block, where `self` is the module -- desugars to a runtime
       # `alias_method`, the same path delegate.rb's `kernel.class_eval do alias
@@ -24,7 +24,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "curry through parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Whether an application saturates a curry is decided statically when the base
       # proc's arity can be traced. A curry that arrives through a parameter, a
       # container or an untyped slot cannot be traced, and answering "not yet
@@ -81,7 +81,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "def in a block stays runtime only" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Reach::through_block` is the one restriction the nested walk keeps: a `def`
       # written in a block may never run at all, so it is not registered at compile
       # time. It still defines itself when the block runs, which is all CRuby
@@ -118,7 +118,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "method missing to ary spreads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A BasicObject that forwards to an Array through method_missing, and says
       # so through respond_to_missing?, spreads over block parameters, a
       # multiple assignment and a splat, as rb_check_funcall lets it: prism's
@@ -149,7 +149,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "proc anonymous rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `|*|` (anonymous rest) accepts any arity in a lambda; the arity check keys
       # on rest PRESENCE, not on it having a name.
       l = lambda { |*| 1 }
@@ -167,7 +167,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "proc curry reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       c = ->(a, b) { a + b }.curry
       p(c.arity)
       p(c.lambda?)
@@ -182,7 +182,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "proc new with a block is that block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Proc.new { |x| x * 2 }.call(4)
       p Proc.new { |a, b| [a, b] }.arity
       p Proc.new {}.lambda?
@@ -196,7 +196,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "proc optional params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Optional parameters on proc literals: CRuby's distribution -- requireds from
       # the front, posts reserved at the back, optionals consume what remains (else
       # their defaults, which may reference earlier params), the rest takes the rest.
@@ -230,7 +230,7 @@ describe "Blocks: defining and naming methods" do
   end
 
   it "proc rest post params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat-rest and trailing post-required parameters on proc literals: CRuby's
       # distribution fills leading requireds from the front, posts from the back,
       # the (possibly empty) remainder is the rest, and missing posts bind nil.

@@ -8,15 +8,15 @@ require "support/e2e"
 # the CLI in its own process and run as a binary. What ruby answered
 # sits beside it: `<name>.out`, and `<name>.err` and `<name>.status`
 # when there is something to say. `rake record` writes them, and
-# `Ze0::E2E::HOW` says what the few that need arguments need.
+# `Zr::E2E::HOW` says what the few that need arguments need.
 #
 # A build is a child process of its own that is allowed as much as
 # three gigabytes, so this tier runs fewer at a time than the specs,
 # which build in the worker itself.
-Minitest.parallel_executor = Ze0::Test::ForkPool.new(size: Integer(ENV.fetch("MT_CPU", 4)))
+Minitest.parallel_executor = Zr::Test::ForkPool.new(size: Integer(ENV.fetch("MT_CPU", 4)))
 
 class BinariesTest < Minitest::Test
-  include Ze0::E2E::DSL
+  include Zr::E2E::DSL
 
-  Ze0::E2E.define(self)
+  Zr::E2E.define(self)
 end

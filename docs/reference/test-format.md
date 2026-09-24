@@ -24,11 +24,11 @@ Nothing is escaped and nothing has a marker, so a program may write any
 bytes at all — binary output, invalid UTF-8, a last line with no
 newline — and a wrong answer is a `diff` of two files.
 
-Most of what ze0 is held to is not written this way. A language
+Most of what zr is held to is not written this way. A language
 question is a spec example, which inlines its program and is compiled
 in process; see [Add a spec](../how-to/add-a-spec.md). A program earns
 a place here when the question is about the product rather than the
-language: that `ze0 build` writes a binary, and that the binary starts,
+language: that `zr build` writes a binary, and that the binary starts,
 reads its ARGV, opens a socket, takes a signal and flushes its output
 at exit.
 
@@ -46,7 +46,7 @@ program.
 
 Nearly every program is built and run with no arguments, no environment
 of its own and no conditions. The few that need something are named in
-`Ze0::E2E::HOW`, in `test/support/e2e.rb`:
+`Zr::E2E::HOW`, in `test/support/e2e.rb`:
 
 ```ruby
 HOW = {
@@ -67,7 +67,7 @@ HOW = {
 | `skip:` | why it does not run at all, in words |
 
 `rake record` reads the same table, so a program is asked of ruby the
-way it is asked of ze0.
+way it is asked of zr.
 
 ## Another target
 

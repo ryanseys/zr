@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: formatting and inspection" do
   it "inlined accessor ignores a later redefinition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A call to an accessor from INSIDE the class was inlined to the ivar read,
       # and a later `define_method` of that name did not reach it. The same call
       # from outside saw the redefinition, so one object answered two different
@@ -60,7 +60,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "inlined method celled local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method local captured by a block is reached through a heap cell. When the
       # method is INLINED at its call site -- which a `yield` in it forces -- the
       # inlined body kept the cell form while the prologue declared a plain renamed
@@ -185,7 +185,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "instance exec spliced types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String, symbol, and mixed-type block params inside a spliced
       # trampoline body.
       #
@@ -258,7 +258,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "matchdata methods work on a dynamically typed receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` can be nil (whenever the last match failed), so it never infers
       # as `TyKind::MatchData` and can't take codegen's static MatchData fast
       # path -- it dispatches dynamically, which needs a real runtime table.
@@ -289,7 +289,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "typed array empty returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #832: int_array pop/shift/min/max on empty return nil
       # (int? sentinel SP_INT_NIL) per MRI. Non-empty returns the value.
       # float_array is deferred (needs float? sentinel design).
@@ -324,7 +324,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "typed hash caller no body widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #556 (Ori Pekelman). Smoke test for the move of
       # infer_hash_param_from_body out of the iterative inference
       # loop. The full bug only triggers in tep's framework
@@ -377,7 +377,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "typed hash inspect and each value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #851: typed-hash inspect for sym_int_hash, plus
       # Hash#each_value across common typed hashes.
       h = {a: 1, b: 2}
@@ -403,7 +403,7 @@ describe "Fusion: formatting and inspection" do
   end
 
   it "typed hash missing returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #833 (#801 partial): *StrHash missing-key bracket access
       # returns nil per MRI, not the type's zero value.
       # *IntHash variants still return 0 (their analyze-side LV slot

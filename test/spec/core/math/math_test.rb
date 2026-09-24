@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Math programs" do
   it "a Math function reads its argument through to_f, and the refusal names no function" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math's functions read a Float, an Integer or another Numeric through
       # its to_f, and refuse anything else with ruby's message, whatever
       # answers to_f: the check names no function.
@@ -50,7 +50,7 @@ describe "Math programs" do
   end
 
   it "a Float or an Integer argument is answered by the kernel at once, with the domain and the edges kept" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.sqrt, sin, cos, tan, atan, exp and cbrt answer a Float or a
       # fixnum with no send of the check: the domain refusal, -0.0, an
       # integer past 2**53, a negative integer and a bignum answer as

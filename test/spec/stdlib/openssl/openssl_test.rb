@@ -4,9 +4,9 @@ require "spec_helper"
 
 describe "OpenSSL programs" do
   it "asn1 values encode and decode as der" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL::ASN1 over the host's libssl: values encode to the DER ruby
       # writes, decode back to the same classes, and malformed input raises
       # ASN1Error.
@@ -135,16 +135,16 @@ describe "OpenSSL programs" do
   end
 
   it "certificate chain verifies through a store" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # X509 over the host's libssl: a root and a leaf made here, a CSR, a CRL
       # that revokes a second leaf, and a Store that verifies the chain at a
       # fixed time.
 
       require "openssl"
 
-      def name(cn) = OpenSSL::X509::Name.parse("/C=CA/O=ze0/CN=#{cn}")
+      def name(cn) = OpenSSL::X509::Name.parse("/C=CA/O=zr/CN=#{cn}")
 
       def certificate(serial, subject, issuer, key, signer, extensions)
         cert = OpenSSL::X509::Certificate.new
@@ -232,8 +232,8 @@ describe "OpenSSL programs" do
 
     _(result).must_answer <<~'OUT'
       -- certificates --
-      /C=CA/O=ze0/CN=root
-      CN=root,O=ze0,C=CA
+      /C=CA/O=zr/CN=root
+      CN=root,O=zr,C=CA
       1
       2
       2026-01-01 00:00:00 UTC
@@ -242,8 +242,8 @@ describe "OpenSSL programs" do
         basicConstraints critical=true
         keyUsage critical=true
         subjectKeyIdentifier critical=false
-      /C=CA/O=ze0/CN=example.com
-      CN=root,O=ze0,C=CA
+      /C=CA/O=zr/CN=example.com
+      CN=root,O=zr,C=CA
       2
       2
       2026-01-01 00:00:00 UTC
@@ -276,7 +276,7 @@ describe "OpenSSL programs" do
       "ok"
       true
       true
-      ["/C=CA/O=ze0/CN=example.com", "/C=CA/O=ze0/CN=root"]
+      ["/C=CA/O=zr/CN=example.com", "/C=CA/O=zr/CN=root"]
       false
       true
       "certificate revoked"
@@ -289,9 +289,9 @@ describe "OpenSSL programs" do
   end
 
   it "https keepalive request completes" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `OpenSSL::Buffering#read_nonblock` is aliased to `readpartial`, and that
       # alias breaks its contract in three ways. The consequence is that an HTTPS
       # request over a KEEP-ALIVE connection never returns -- not a timeout, a hang.
@@ -395,9 +395,9 @@ describe "OpenSSL programs" do
   end
 
   it "keys sign derive and export through the library" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # PKey over the host's libssl: Ed25519 from fixed bytes answers fixed
       # signatures; RSA, EC, DSA and DH keys generate, sign, derive and export,
       # and read back what they wrote, with and without a passphrase.
@@ -530,9 +530,9 @@ describe "OpenSSL programs" do
   end
 
   it "ocsp response answers its request" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OCSP over the host's libssl: a request for two certificates with a
       # nonce, a responder that answers one good and one revoked, and a client
       # that verifies the response, matches the nonce and reads each status.
@@ -645,9 +645,9 @@ describe "OpenSSL programs" do
   end
 
   it "BN builds from every integer form, converts back, and reports its encodings" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL::BN over the vendored libcrypto BIGNUM. BN#inspect is the plain
       # object form (address-bearing), so the golden prints values through
       # to_i/to_s, never p on a BN itself.
@@ -801,9 +801,9 @@ describe "OpenSSL programs" do
   end
 
   it "Buffering is a real module over sysread and syswrite, and it owns the read surface" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `OpenSSL::Buffering` is a real module, mixed into SSLSocket, that supplies
       # the whole read/write surface over the receiver's `sysread`/`syswrite`/
       # `sysclose`. It used to be implemented straight onto SSLSocket, so the module
@@ -998,9 +998,9 @@ describe "OpenSSL programs" do
   end
 
   it "Cipher reports its metadata and round-trips CBC, and a legacy name fails at new" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL::Cipher over the vendored libcrypto EVP. Legacy-provider names
       # (RC4, BF-CBC) fail at new under OpenSSL 3, in zeo as under CRuby.
       require "openssl"
@@ -1215,7 +1215,7 @@ describe "OpenSSL programs" do
   end
 
   it "the library version strings keep the shape a build-specific value allows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
@@ -1239,7 +1239,7 @@ describe "OpenSSL programs" do
   end
 
   it "Digest answers its name and its hexdigest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
@@ -1309,7 +1309,7 @@ describe "OpenSSL programs" do
   end
 
   it "HMAC answers the digest of a key and a message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
@@ -1360,7 +1360,7 @@ describe "OpenSSL programs" do
   end
 
   it "the KDF rows derive a key from a password and a salt" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
@@ -1399,7 +1399,7 @@ describe "OpenSSL programs" do
   end
 
   it "Random answers binary bytes of the length it is asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
@@ -1431,7 +1431,7 @@ describe "OpenSSL programs" do
   end
 
   it "OpenSSLError descends from StandardError, and each module's error from it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL tier 1: versions, Digest, HMAC, KDF, Random, secure compares.
       # Library version STRINGS are build-specific (zeo vendors its own OpenSSL
       # 3.x), so the golden prints shape checks, never the raw strings.
@@ -1465,9 +1465,9 @@ describe "OpenSSL programs" do
   end
 
   it "secure_compare is length-independent, and fixed_length_secure_compare demands equal lengths" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "openssl"
 
       # Constant-time string comparison, length-independent: true iff equal.
@@ -1497,9 +1497,9 @@ describe "OpenSSL programs" do
   end
 
   it "the constants, the context defaults and an unconnected SSLSocket all answer offline" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL::SSL's offline surface: constants, context configuration, and an
       # unconnected SSLSocket. A real handshake needs a network peer, so it is not
       # exercised here (the suite stays hermetic).
@@ -1622,9 +1622,9 @@ describe "OpenSSL programs" do
   end
 
   it "an SSLSocket over an unconnected socket answers its configuration and forwards to the socket" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The client-TLS surface that needs no network peer: an SSLSocket over an
       # unconnected socket answers its configuration and forwards the
       # descriptor-level family to the socket underneath, and the RFC 6125
@@ -1706,9 +1706,9 @@ describe "OpenSSL programs" do
   end
 
   it "pkcs7 and pkcs12 sign encrypt and bundle" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # PKCS7 and PKCS12 over the host's libssl: a signed message verifies
       # against its signer, detached or attached; an enveloped message opens
       # with the recipient's key; a PKCS12 bundle round-trips its key, its
@@ -1809,7 +1809,7 @@ describe "OpenSSL programs" do
   end
 
   it "a Queue subclass builds its queue through an argumentless super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class inheriting a native type has no struct of its own: its instances
       # wrap the real native value as a payload and carry their own ivars beside it.
       # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
@@ -1863,7 +1863,7 @@ describe "OpenSSL programs" do
   end
 
   it "a File subclass takes its payload through super and keeps its own ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class inheriting a native type has no struct of its own: its instances
       # wrap the real native value as a payload and carry their own ivars beside it.
       # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
@@ -1922,7 +1922,7 @@ describe "OpenSSL programs" do
   end
 
   it "a subclass deeper in one family roots its payload at the nearest native ancestor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class inheriting a native type has no struct of its own: its instances
       # wrap the real native value as a payload and carry their own ivars beside it.
       # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
@@ -1964,7 +1964,7 @@ describe "OpenSSL programs" do
   end
 
   it "a socket wrapper and a cipher subclass are each named at construction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class inheriting a native type has no struct of its own: its instances
       # wrap the real native value as a payload and carry their own ivars beside it.
       # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
@@ -2029,7 +2029,7 @@ describe "OpenSSL programs" do
   end
 
   it "a Fiber subclass takes the block as its body, the way a Thread subclass does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class inheriting a native type has no struct of its own: its instances
       # wrap the real native value as a payload and carry their own ivars beside it.
       # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
@@ -2081,9 +2081,9 @@ describe "OpenSSL programs" do
   end
 
   it "timestamp authority stamps and verifies" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # OpenSSL::Timestamp over the host's libssl: a request for a SHA-256
       # imprint, a factory that answers it with a token from a TSA certificate,
       # and a verification of that token against the request and a store.
@@ -2215,9 +2215,9 @@ describe "OpenSSL programs" do
   end
 
   it "tls handshake completes over loopback" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SSL over the host's libssl: a server and a client in one process over
       # 127.0.0.1, with a certificate made here. The client verifies the peer
       # and its host name, both sides pick ALPN "h2", and lines echo both ways;
@@ -2246,7 +2246,7 @@ describe "OpenSSL programs" do
       server_ctx.min_version = OpenSSL::SSL::TLS1_2_VERSION
       server_ctx.alpn_protocols = %w[h2 http/1.1]
       server_ctx.alpn_select_cb = ->(protocols) { protocols.include?("h2") ? "h2" : protocols.first }
-      server_ctx.session_id_context = "ze0"
+      server_ctx.session_id_context = "zr"
       server_names = []
       server_ctx.servername_cb = proc { |_ssl, name| server_names << name; nil }
 
@@ -2347,9 +2347,9 @@ describe "OpenSSL programs" do
   end
 
   it "yaml loads and entropy draws run concurrently under the armed gvl" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The ext tail of the sweep: two threads Psych-load the same file
       # while a third draws OS entropy, all in ZEO_GVL=1 mode.
 

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: formatting and inspection" do
   it "empty hash arg param widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #397. `def store(receiver); receiver["k"] = "v"; end; store({})`
       # previously emitted `sp_StrIntHash_set(receiver, "k", "v")` -- a const
       # char* into the int-valued slot of `sp_StrIntHash`, fails C-compile.
@@ -62,7 +62,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "empty hash int int promote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `{}` hash that then receives an integer-literal key must
       # promote from the str_int_hash empty-default to int_int_hash.
       # Otherwise the integer key is passed to sp_StrIntHash_set/_get as a
@@ -110,7 +110,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a Hash used as a key is found by its pairs whatever their order, never by identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash used as a Hash KEY was keyed by identity, not by value: two equal
       # literals were two different keys, and `#hash` disagreed between them.
       #
@@ -209,7 +209,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "dup, clone, merge and compact carry the default block or value to the copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       g = Hash.new { |hh, k| hh[k] = k * 2 }
       g["a"] = "x"
       p g.dup["yy"], g.clone["xx"], g.merge({})["ss"], g.compact["qq"]
@@ -272,7 +272,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "eql? compares by value, and replace widens the receiver to hold what it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash Enumerable wiring, eql?, replace widening (KieranP #2361,#2372,#2373,#2374)
       p({ a: 1 }.eql?({ a: 1 }))
       p({ a: 1 }.eql?({ a: 2 }))
@@ -331,7 +331,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "fetch's KeyError names the missing key as it inspects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#fetch's KeyError must carry the missing key: "key not found: <key.inspect>".
       # The suffix was dropped, so the message was a bare "key not found". Each key type
       # inspects differently (:sym, "str", 99), so the key is boxed and inspected.
@@ -372,7 +372,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a mixed-value hash inspects with the key spelling ruby uses for its key kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h_sym_poly = { a: "x", b: 1, c: :sym }
       p h_sym_poly
       puts h_sym_poly.inspect
@@ -399,7 +399,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a Float or an Array key spreads over the table rather than piling on a few slots" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bucket index takes the low bits of a key's hash, and several key kinds
       # leave their information out of those (a Float's mantissa bits are zero for a
       # whole number, an array of small coordinates folds to h*31+x). Those keys
@@ -460,7 +460,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "an empty Hash.new(default) answers size and inspect before a key is written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty Hash.new(default) is a real hash: size/inspect/p work before any
       # key is inserted (it used to raise "uninitialized constant Hash"), and the
       # default is served for missing keys.
@@ -491,7 +491,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a Hash.new called on directly answers every method, with no key usage to go on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash.new called on directly has no key usage to decide its variant, and
       # staying unknown made every method on it an unresolved call (#3823).
       begin
@@ -526,7 +526,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a hash that holds itself compares equal and inspects the inner one as ..." do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash, an Array or an object that holds itself ends its walk where
       # CRuby does: the same two objects compared again inside their own
       # comparison are equal, and an object inspected again inside its own
@@ -573,7 +573,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "transform_keys takes a mapping hash, and a block covers the keys the mapping misses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({ a: 1, b: 2 }.transform_keys(a: :x))
       p({ a: 1, b: 2 }.transform_keys(a: :x) { |k| k.to_s })
       h = { a: 1, b: 2 }
@@ -589,7 +589,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a block that changes the key type changes the hash's own key kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#transform_keys with a sym → string block: result is a
       # str_*_hash (key-type swap). Same-type blocks preserve the variant.
       h = {a: 1, b: 2}
@@ -614,7 +614,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a symbol-keyed literal converts at the boundary of a callee that wants a wider hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #690: Symbol-keyed hash literal passed to a sym_poly_hash-typed
       # callee param must convert at the call boundary; the post-#676
       # kwargs-bind path no longer covered this shape.
@@ -648,7 +648,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "a local and the ivar behind it settle on one hash layout, never two" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash variants (SymPolyHash, StrPolyHash, PolyPolyHash, ...) have different
       # struct layouts. Type inference must not let a local and the ivar backing it
       # settle on DIFFERENT variants, or codegen casts the pointer across layouts
@@ -731,7 +731,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "int int hash missing key nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {1 => 10, 2 => 20}
       p h[99]
       p h[99].nil?
@@ -757,7 +757,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "kwargs merge default hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `CONST.merge(opts)` where CONST is a Symbol-keyed hash and `opts`
       # is a method parameter with an empty-hash default (`def m(opts = {})`).
       # CRuby folds trailing keyword arguments into a Symbol-keyed positional
@@ -826,7 +826,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "param body hash inference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #542. Method param defaulted to int when no caller passed a
       # concretely-typed argument. The body's `row["id"]` then emitted
       # the literal 0 with a "cannot resolve" warning and the method
@@ -911,7 +911,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "raising hash reaches the caller" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user `hash` that raises is an ordinary exception, not a crash.
       #
       # zeo projects a Hash key through an infallible `hash_key`, reached from
@@ -963,7 +963,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "small hash keeps no bins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash of eight entries or fewer scans its entries; past eight it
       # indexes them. Every operation agrees across the border, with
       # deletes, a rehash, compare_by_identity, a copy and keys whose eql?
@@ -1039,7 +1039,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "sym int hash missing key nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {a: 1, b: 2}
       p h[:miss]
       p h[:miss].nil?
@@ -1073,7 +1073,7 @@ describe "Hash: formatting and inspection" do
   end
 
   it "user hash protocol keys hashes by value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Key
         attr_reader :k
 

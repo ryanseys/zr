@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Warning programs" do
   it "missing positional arg warns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A statically-detectable wrong-arity call raises ArgumentError at RUNTIME,
       # exactly when the call would run (dead code stays silent, matching CRuby).
       # This replaces the old compat behaviour of padding the missing slot with 0.
@@ -36,7 +36,7 @@ describe "Warning programs" do
   end
 
   it "warn category" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#warn(category:) honors CRuby's default warning levels. The :deprecated
       # category is off by default (Warning[:deprecated] == false without -W:deprecated),
       # so those warnings print nothing; other categories print normally. Suppressed
@@ -58,7 +58,7 @@ describe "Warning programs" do
   end
 
   it "warn category and to i base0" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#warn(category:) honors CRuby's default warning levels: :deprecated is
       # off by default (prints nothing), while :experimental and the uncategorized
       # form print to stderr. The keyword Hash itself is never printed, and a
@@ -103,7 +103,7 @@ describe "Warning programs" do
   end
 
   it "warn category suppresses only deprecated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # :deprecated is off by default (prints nothing); :experimental and the
       # uncategorized form print to stderr. The kwarg Hash is never itself
       # printed.
@@ -120,7 +120,7 @@ describe "Warning programs" do
   end
 
   it "warn render" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       warn ["x", "y"]
       warn "z"
       warn 1, 2
@@ -138,7 +138,7 @@ describe "Warning programs" do
   end
 
   it "warn unresolved call context" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #490. A method with no reachable caller defaults its params to
       # mrb_int, then any operation in the body that's invalid on Int
       # fires "cannot resolve call to '<m>' on int (emitting 0)". The
@@ -165,7 +165,7 @@ describe "Warning programs" do
   end
 
   it "warn with uplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#warn with `uplevel:` prefixes the message with the caller frame's
       # "file:line: warning: ". zeo's warn ignores the option and prints the bare
       # message.
@@ -186,7 +186,7 @@ describe "Warning programs" do
   end
 
   it "redefining a basic operator warns under the performance category" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Under Warning[:performance], a program that writes over one of the
       # core's basic operators -- a def, an alias, define_method, remove_method,
       # undef_method or a prepend in front of it -- is told once, with the

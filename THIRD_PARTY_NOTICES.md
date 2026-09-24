@@ -1,6 +1,6 @@
 # Third-party notices
 
-ze0's own code is under the MIT License (`LICENSE.txt`). The gem also
+zr's own code is under the MIT License (`LICENSE.txt`). The gem also
 ships code that other people wrote. This file names each part, its
 version, its license, and where its license text is.
 
@@ -26,9 +26,9 @@ BSD-2-Clause. `vendor/lib/VERSIONS` names them; the license texts are
 `vendor/lib/LICENSES/COPYING` and `BSDL`.
 
 The rest of ruby's library is not in this gem. It is the default and
-bundled gems `ze0.gemspec` depends on (`Ze0::Libraries::PINS` in
-`lib/ze0/libraries.rb`), which rubygems installs with their own license
-files. A program ze0 builds carries the files it requires from them,
+bundled gems `zr.gemspec` depends on (`Zr::Libraries::PINS` in
+`lib/zr/libraries.rb`), which rubygems installs with their own license
+files. A program zr builds carries the files it requires from them,
 under each gem's own license.
 
 `vendor/prelude/gem_prelude.rb` is ruby 4.0.6's own `gem_prelude.rb`,

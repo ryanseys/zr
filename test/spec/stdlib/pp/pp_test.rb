@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "PP programs" do
   it "compiled code releases a dead slot" do
-    result = ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -64,7 +64,7 @@ describe "PP programs" do
   end
 
   it "deferred require loads when it runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` written inside a METHOD body defines its feature's constants
       # when the method RUNS, exactly as CRuby does -- not before the program's
       # first statement.
@@ -119,7 +119,7 @@ describe "PP programs" do
   end
 
   it "first pp loads pp rb" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The first pp requires ruby's pp.rb, as CRuby's prelude does, so a wide
       # object wraps and a pretty_print method answers for its object.
 
@@ -164,7 +164,7 @@ describe "PP programs" do
   end
 
   it "pp asks io/console for the width under a rescue, so a wide structure prints either way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # pp asks io/console for the width under a `rescue LoadError`, so a
       # wide structure prints whether or not a console library is present.
       require "pp"
@@ -210,7 +210,7 @@ describe "PP programs" do
   end
 
   it "the pretty printer wraps, indents and groups every structure it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -290,7 +290,7 @@ describe "PP programs" do
   end
 
   it "pp prints inspect and answers its argument, store is the method form of []=, and a huge literal is Infinity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#pp prints inspect like p (and returns its argument); Hash#store is
       # the method form of []=; an out-of-range float literal is Float::INFINITY
       # (it used to emit an invalid C token).

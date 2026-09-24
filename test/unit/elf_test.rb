@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 
 # The ELF writer, read back in Ruby: what a link on an aarch64-linux host
 # needs to find in the object is there. On that host each native fixture
 # also links statically and runs.
 class ElfTest < Minitest::Test
-  Obj = Ze0::Obj
-  Elf = Ze0::Obj::Elf::ObjectFile
+  Obj = Zr::Obj
+  Elf = Zr::Obj::Elf::ObjectFile
 
   # `mov w0, #3; bl exit`, the branch patched by the link.
   MAIN_EXIT_3 = [0x60, 0x00, 0x80, 0x52, 0x00, 0x00, 0x00, 0x94].pack("C*")
@@ -20,7 +20,7 @@ class ElfTest < Minitest::Test
   def unit
     u = Obj::Unit.new
     u.function("main", MAIN_EXIT_3, relocs: [Obj::Reloc.new(4, :branch26, "exit")])
-    u.datum("msg", :text_const, "hello, ze0!\n", linkage: :export)
+    u.datum("msg", :text_const, "hello, zr!\n", linkage: :export)
     u.datum("table", :data_const, "\0" * 8, relocs: [Obj::Reloc.new(0, :abs64, "msg", 4)])
     u.datum("counter", :bss, 16)
     u
@@ -80,7 +80,7 @@ class ElfTest < Minitest::Test
     assert_equal %w[exit main msg], globals.map(&:name)
     assert_equal Elf::SHN_UNDEF, globals.find { |s| s.name == "exit" }.shndx
     assert_equal Elf::STT_FUNC, globals.find { |s| s.name == "main" }.type
-    assert_equal 12, globals.find { |s| s.name == "msg" }.size
+    assert_equal 11, globals.find { |s| s.name == "msg" }.size
   end
 
   def test_relocations_carry_their_type_symbol_and_addend
@@ -90,11 +90,11 @@ class ElfTest < Minitest::Test
   end
 
   def test_every_native_fixture_writes_an_object_that_reads_back
-    Ze0::Native::Fixtures::NAMES.each do |name|
-      functions, data = Ze0::Native::Fixtures.build(name)
-      Dir.mktmpdir("ze0-elf-") do |dir|
+    Zr::Native::Fixtures::NAMES.each do |name|
+      functions, data = Zr::Native::Fixtures.build(name)
+      Dir.mktmpdir("zr-elf-") do |dir|
         obj = File.join(dir, "#{name}.o")
-        assert_nil Ze0::Native::Build.object(functions, data, obj, target: Ze0::Target::AARCH64_LINUX_MUSL)
+        assert_nil Zr::Native::Build.object(functions, data, obj, target: Zr::Target::AARCH64_LINUX_MUSL)
         sections, symbols, relocs = read(File.binread(obj))
         assert symbols.any? { |s| s.name == "main" && s.type == Elf::STT_FUNC }, name
         relocs.each_value { |rows| rows.each { |_, type, _, _| assert_includes Elf::RELOC.values, type, name } }
@@ -119,7 +119,7 @@ class ElfTest < Minitest::Test
   def test_llvm_readelf_reads_the_object
     readelf = ["llvm-readelf", "readelf", "/opt/homebrew/opt/llvm/bin/llvm-readelf"].find { |tool| system("command -v #{tool} > /dev/null 2>&1") }
     skip "no readelf" unless readelf
-    Dir.mktmpdir("ze0-elf-") do |dir|
+    Dir.mktmpdir("zr-elf-") do |dir|
       obj = File.join(dir, "u.o")
       File.binwrite(obj, Elf.write(unit))
       out = IO.popen([readelf, "-r", "-s", obj], err: %i[child out], &:read)
@@ -132,13 +132,13 @@ class ElfTest < Minitest::Test
   # A cross toolchain links here what only an aarch64-linux-musl host
   # runs: off that host the check reads the binary's header instead.
   def test_a_native_fixture_links_statically_and_runs
-    target = Ze0::Target::AARCH64_LINUX_MUSL
+    target = Zr::Target::AARCH64_LINUX_MUSL
     skip "a static link needs an aarch64-linux-musl host or toolchain" unless target.linkable?
-    Ze0::Native::Fixtures::NAMES.each do |name|
-      functions, data = Ze0::Native::Fixtures.build(name)
-      Dir.mktmpdir("ze0-elf-") do |dir|
+    Zr::Native::Fixtures::NAMES.each do |name|
+      functions, data = Zr::Native::Fixtures.build(name)
+      Dir.mktmpdir("zr-elf-") do |dir|
         bin = File.join(dir, name)
-        assert_nil Ze0::Native::Build.binary(functions, data, bin, work: dir, target: target)
+        assert_nil Zr::Native::Build.binary(functions, data, bin, work: dir, target: target)
         assert_static_aarch64_executable File.binread(bin), name
         next unless target.native?
 

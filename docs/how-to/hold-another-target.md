@@ -41,7 +41,7 @@ A spec example says so beside its answer:
 
 ```ruby
 it "names the platform" do
-  _(ze0(%(puts RUBY_PLATFORM))).must_answer "arm64-darwin24\n",
+  _(zr(%(puts RUBY_PLATFORM))).must_answer "arm64-darwin24\n",
                                             linux: "aarch64-linux-musl\n",
                                             wasi: "wasm32-wasi\n"
 end
@@ -57,7 +57,7 @@ questions, and splitting it is better than recording it twice.
 ## Run the Linux tests in the container CI uses
 
 ```console
-$ docker run -d --name alpine -v "$PWD:/ze0" -w /ze0 ruby:4.0.6-alpine sleep infinity
+$ docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.6-alpine sleep infinity
 $ docker exec alpine apk add --no-cache build-base git
 $ docker exec alpine bundle install
 $ docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e

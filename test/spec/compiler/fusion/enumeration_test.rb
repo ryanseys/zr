@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: enumeration" do
   it "fused inject carries its accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2, 3, 4]
 
       p arr.inject(0) { |a, b| a + b }
@@ -52,7 +52,7 @@ describe "Fusion: enumeration" do
   end
 
   it "lazy unfused terminal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A terminal the lazy pipeline does not fuse -- sum, count, min, include? --
       # runs on the materialized result. Without an arm the call answered nil or
       # refused to compile.
@@ -97,7 +97,7 @@ describe "Fusion: enumeration" do
   end
 
   it "map each cons typed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Typed block results through each_cons(n).map and each_cons(n).with_index.map
       # must collect the real values. Guards the emit_boxed refactor of these
       # collecting emitters against regressing the typed (non-poly) path.
@@ -116,7 +116,7 @@ describe "Fusion: enumeration" do
   end
 
   it "map untyped block result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An untyped block result (here a read of an unassigned ivar, which is untyped
       # and evaluates to nil) collected by map / each_cons must produce nil elements,
       # never crash or mis-box. Covers the area of the untyped-into-poly-array boxing
@@ -141,7 +141,7 @@ describe "Fusion: enumeration" do
   end
 
   it "obj array sort typed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # No-block sort/sort!/min/max over arrays of user objects. A local touched
       # only by modeled ops narrows to the typed object-array representation (the
       # runtime compares through the cmp hook); a component whose sort result
@@ -226,7 +226,7 @@ describe "Fusion: enumeration" do
   end
 
   it "redefined array each beats the splice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A reopen of `Array#each` makes the splice illegal: `iter_inline_ok_for`
       # answers false and the site's other arm -- an ordinary block send -- is
       # what finds the new definition. Without that guard a fused site would
@@ -242,7 +242,7 @@ describe "Fusion: enumeration" do
   end
 
   it "two spliced loops in one scope each own their local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Both loops splice into the enclosing scope and both first-assign `r`, so
       # each gets storage of its own for its loop's extent. The two storages are
       # registered under synthetic keys, and a key collision left the first loop's
@@ -289,7 +289,7 @@ describe "Fusion: enumeration" do
   end
 
   it "typed array each fuses under a guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr.each { }` on a statically-`Array` receiver splices the block body
       # into a native loop. Unlike the literal `n.times` shape, the receiver's
       # class here is a compile-time BELIEF, so the site asks TWO runtime
@@ -341,7 +341,7 @@ describe "Fusion: enumeration" do
   end
 
   it "user redefinition unfuses the new iterator kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Array
         def detect
           :from_the_reopen

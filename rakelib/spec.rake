@@ -16,7 +16,7 @@
 # editing thousands of examples, and the only safe way to do that is to
 # be able to prove an edit changed nothing but what it meant to.
 #
-# `Ze0::Reader` reads a spec file without compiling or running anything,
+# `Zr::Reader` reads a spec file without compiling or running anything,
 # and hands back what each example *is*: its sentence, its program, the
 # keywords it was written with, and the answer it claims. Two readings
 # that agree are two files that mean the same. It compiles nothing, so
@@ -24,7 +24,7 @@
 #
 # What this cannot see: the reader is blind to anything outside an
 # example -- file comments, `require` lines, blank-line structure -- and
-# it evaluates a guard (`Ze0::Spec.platform`) once, down one branch. So
+# it evaluates a guard (`Zr::Spec.platform`) once, down one branch. So
 # it proves meaning is preserved, not that the file is unchanged. Pair it
 # with `rake oracle`, which asks ruby the same question the spec asks.
 
@@ -40,11 +40,11 @@ module SpecNet
     # was about.
     require "digest"
     require_relative "../test/support/reader"
-    return if defined?(Ze0::Spec.platform)
+    return if defined?(Zr::Spec.platform)
 
-    Ze0.const_set(:Spec, Module.new) unless Ze0.const_defined?(:Spec, false)
-    Ze0::Spec.define_singleton_method(:platform) { "macos" }
-    Ze0::Spec.define_singleton_method(:need?) { |_name| true }
+    Zr.const_set(:Spec, Module.new) unless Zr.const_defined?(:Spec, false)
+    Zr::Spec.define_singleton_method(:platform) { "macos" }
+    Zr::Spec.define_singleton_method(:need?) { |_name| true }
   end
 
   module_function
@@ -69,11 +69,11 @@ module SpecNet
   # the old side out of `/tmp` would report a moved path for every
   # example in the suite and never report clean.
   def examples(path, renames: false, as: path)
-    Ze0::Reader.read(path).map do |e|
+    Zr::Reader.read(path).map do |e|
       parts = { "describe" => e.about, "program" => e.source&.b,
                 "keywords" => bytes(e.given), "answer" => bytes(e.want) }
       unless renames
-        written = e.given[:path] || Ze0::Reader.path_for(as)
+        written = e.given[:path] || Zr::Reader.path_for(as)
         parts = { "sentence" => e.name, "path" => written }.merge(parts)
       end
       [rel(as), e.name, Digest::SHA256.hexdigest(Marshal.dump(parts.values)), e, parts]
@@ -123,7 +123,7 @@ namespace :spec do
 
     apart = []
     checked = 0
-    Dir.mktmpdir("ze0-verify-") do |work|
+    Dir.mktmpdir("zr-verify-") do |work|
       paths.flat_map { |p| SpecNet.files(p) }.each do |file|
         rel = SpecNet.rel(file)
         was = IO.popen(["git", "show", "#{rev}:#{rel}"], err: File::NULL, &:read)
@@ -160,7 +160,7 @@ end
 # The shapes a spec file is written in. None of this changes what an
 # example means, which is why it is a check and not a rewrite: the
 # repository has no linter, and a house style this particular is better
-# held by a task that knows about `ze0` and `must_answer` than by a
+# held by a task that knows about `zr` and `must_answer` than by a
 # general one that does not.
 module SpecStyle
   # Wide enough for a table row, narrow enough to read beside another
@@ -195,7 +195,7 @@ module SpecStyle
   # these -- a program under test may open one of its own (`eval(<<~SRC)`,
   # a Gemfile, a PEM), and an expected answer may quote the text of one,
   # as the Ripper examples do. Neither is this file's shape to hold.
-  OPENS = /(?:\bze0\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<[-~]'?([A-Z_]+)/
+  OPENS = /(?:\bzr\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<[-~]'?([A-Z_]+)/
 
   module_function
 
@@ -260,7 +260,7 @@ module SpecStyle
       next if inside
 
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
-      line.scan(/(?:\bze0\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
+      line.scan(/(?:\bzr\(|\bmust_answer |\b(?:stderr|linux|wasi): )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
         out << [n, "heredoc <<#{squiggly}#{tag}: use <<~"] if squiggly != "~"
         out << [n, "heredoc #{tag}: not one of #{TAGS.join(", ")}"] unless TAGS.include?(tag)
         # A Ruby program in an interpolating heredoc has live `#{}` in
@@ -375,7 +375,7 @@ namespace :spec do
     coupled = 0
     gained = 0
     argv.flat_map { |p| SpecNet.files(p) }.each do |file|
-      Ze0::Reader.read(file).each do |e|
+      Zr::Reader.read(file).each do |e|
         head, parts = SpecSplit.sections(e.source)
         next unless parts
 
@@ -446,14 +446,14 @@ namespace :spec do
     spec_file, program = argv
     raise ArgumentError, "want: rake 'spec:ask[<spec_file> <program.rb>]'" unless spec_file && program
 
-    kwargs = { path: Ze0::Reader.path_for(spec_file) }
+    kwargs = { path: Zr::Reader.path_for(spec_file) }
     if borrow
-      from = Ze0::Reader.read(spec_file).find { |e| e.name == borrow }
+      from = Zr::Reader.read(spec_file).find { |e| e.name == borrow }
       raise ArgumentError, "no example named #{borrow.inspect} in #{spec_file}" unless from
 
       kwargs = from.kwargs
     end
-    example = Ze0::Reader::Example.new(name: "ask", source: File.read(program), kwargs: kwargs, want: {})
+    example = Zr::Reader::Example.new(name: "ask", source: File.read(program), kwargs: kwargs, want: {})
     answer = Oracle.ask(example)
     raise "ruby did not finish" unless answer
 

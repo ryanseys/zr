@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Boxes programs" do
   it "boolean operators box object typed operands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Flag; end
       f = Flag.new
       puts (f && 1).inspect
@@ -22,7 +22,7 @@ describe "Boxes programs" do
   end
 
   it "box attr accessor is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -35,7 +35,7 @@ describe "Boxes programs" do
   end
 
   it "box class ivar is not readable in the box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -47,7 +47,7 @@ describe "Boxes programs" do
   end
 
   it "box class method is absent from mains reflection" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -60,7 +60,7 @@ describe "Boxes programs" do
   end
 
   it "box class variable is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -73,7 +73,7 @@ describe "Boxes programs" do
   end
 
   it "box const set reaches main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -85,7 +85,7 @@ describe "Boxes programs" do
   end
 
   it "box constant on a shared class is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -100,7 +100,7 @@ describe "Boxes programs" do
   it "box exceptions are rescuable in main" do
     files = beside("box_exceptions/main.rb", "box_exceptions/thrower.rb")
 
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # Exceptions cross the boundary as plain references: a box-defined
       # `BoxError < StandardError` raised from box code is rescuable in main
       # through the SHARED bootstrap superclass chain, and `e.class` names it.
@@ -114,7 +114,7 @@ describe "Boxes programs" do
   end
 
   it "box handle carries cruby ids" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # The `Ruby::Box` handle surface, under CRuby's own gate.
@@ -193,7 +193,7 @@ describe "Boxes programs" do
   end
 
   it "box handle is a real ruby box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # `Ruby::Box.new` answers a value that IS a `Ruby::Box`.
@@ -227,7 +227,7 @@ describe "Boxes programs" do
   end
 
   it "box include is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -245,7 +245,7 @@ describe "Boxes programs" do
   it "box isolation and shared builtins" do
     files = beside("box_isolation/main.rb", "box_isolation/widget.rb")
 
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # The keystone: a box-required file's classes are DISTINCT from main's
       # (same file, different class objects), builtins are SHARED
       # (`box::String == String`), a box top-level constant is readable
@@ -271,7 +271,7 @@ describe "Boxes programs" do
   it "box loads its own copy of a file" do
     files = beside("box_own_copy/widget.rb")
 
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
 
 
       # A box requires from its OWN load path, and gets its own copy.
@@ -332,7 +332,7 @@ describe "Boxes programs" do
   end
 
   it "box nested class is reachable by path" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -348,7 +348,7 @@ describe "Boxes programs" do
   end
 
   it "box nullable builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A reference-backed BUILTIN type (IO/Fiber/Thread/Exception/Proc/...) is a
       # nilable C pointer just like a user object: an unset ivar or a `return nil`
       # yields NULL. Boxing it into a poly slot must produce nil, not a "truthy"
@@ -383,7 +383,7 @@ describe "Boxes programs" do
   end
 
   it "box nullable obj" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method or hash lookup that can `return nil` yields a genuinely NULL object
       # pointer. Boxing it into a poly value must produce nil, not a "truthy" object
       # wrapping a NULL pointer -- otherwise `unless x` / `if x` passes and the first
@@ -415,7 +415,7 @@ describe "Boxes programs" do
   end
 
   it "box pointer to poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `box_val_to_poly` and `box_expr_to_poly` previously fell through
       # to `sp_box_int(val)` for any pointer-typed expression they didn't
       # explicitly recognize (hashes, mutable strings, etc.), yielding
@@ -449,7 +449,7 @@ describe "Boxes programs" do
   end
 
   it "box prepend is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -462,7 +462,7 @@ describe "Boxes programs" do
   end
 
   it "box removes only its own class method 2" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `remove_method` in a box's `class << self` retires the box's own row and
       # leaves main's alone. The removal has to find the row first -- it asked
       # about the overlay id and was told the method did not exist.
@@ -480,7 +480,7 @@ describe "Boxes programs" do
   end
 
   it "box reopen after the first loses its mixin" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -522,7 +522,7 @@ describe "Boxes programs" do
   end
 
   it "box reopen in expression position stays in the box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -575,7 +575,7 @@ describe "Boxes programs" do
   end
 
   it "box snippet names itself in a backtrace" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A box's snippet names itself differently from every other eval, in three
@@ -610,7 +610,7 @@ describe "Boxes programs" do
   end
 
   it "box unbox local assign cond" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `infer_type(LocalVariableWriteNode)` returned the RHS's static
       # type rather than the slot's. `compile_cond_expr` uses the
       # expression type to pick between `sp_poly_truthy(...)` and a
@@ -639,7 +639,7 @@ describe "Boxes programs" do
   end
 
   it "a class in a box is its own class, globals and constants are box-separate, and values cross as references" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # Phase 18 -- Ruby::Box: compile-time box namespaces. A class defined in a
@@ -712,7 +712,7 @@ describe "Boxes programs" do
   it "one file required into two boxes runs twice, and a box's builtin patch stays inside it" do
     files = beside("boxes_reexecute/blank.rb", "boxes_reexecute/main.rb")
 
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # Per-box re-execution (the same file `box.require`d into two boxes runs
       # twice, with independent class-variable state per box), and per-box
       # builtin MONKEYPATCHES: a box's `String#blank?` resolves from that box's
@@ -735,7 +735,7 @@ describe "Boxes programs" do
   end
 
   it "class written in a box stays in it" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A `class` written in a box belongs to that box: main cannot reach it.
@@ -768,7 +768,7 @@ describe "Boxes programs" do
   end
 
   it "disabled box carries no gate rows" do
-    result = ze0(<<~'RUBY', ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', ruby: ["-W:no-experimental"])
 
       # `Ruby::Box`'s gate-only rows exist only under `RUBY_BOX=1`, as CRuby's do.
       #
@@ -815,7 +815,7 @@ describe "Boxes programs" do
   end
 
   it "if arms with different object classes box to ruby value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         def tag = "a"
       end
@@ -831,7 +831,7 @@ describe "Boxes programs" do
   end
 
   it "a method that answers with what it yielded hands back the object itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A; def id; 1; end; end
       class B; def id; 2; end; end
       def txn; result = yield; result; end
@@ -844,7 +844,7 @@ describe "Boxes programs" do
   end
 
   it "main definitions are invisible inside a box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A main-only class/constant is INVISIBLE inside a box (boxes dup from
       # MASTER, not main): resolving it inside box.eval raises NameError-shaped
       # failures rather than leaking main's definitions.
@@ -860,7 +860,7 @@ describe "Boxes programs" do
   end
 
   it "master constants stay visible inside a box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # The other half of that line: a box IS a copy of master, so the constants
       # the runtime installed before main ran stay visible inside it -- the bare
       # read's fallback tail reaches those and stops, rather than continuing into
@@ -878,7 +878,7 @@ describe "Boxes programs" do
   end
 
   it "module acc dispatch param box" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #314 follow-up: `Mod.accessor.method(args)` (the
       # module-singleton-accessor dispatch from #126/#304) emitted
       # call-site args with raw `compile_expr` (no boxing). When the
@@ -931,7 +931,7 @@ describe "Boxes programs" do
   end
 
   it "nullable array keyword box" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nil-defaulting array-typed value boxed into a poly slot must become nil,
       # not a truthy OBJ wrapping a NULL pointer (segfault on later access) (#3275).
       class Config
@@ -956,7 +956,7 @@ describe "Boxes programs" do
   end
 
   it "poly attr reader box dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #700 shape A: when a poly-widened setter receives an attr_reader
       # value from an int-typed LV (where codegen's
       # compile_int_class_fallback_expr picks the first class with the
@@ -998,7 +998,7 @@ describe "Boxes programs" do
   end
 
   it "poly recv aref box arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #351: sister-to-#341. After #341 widened the per-class
       # `def [](k)` parameter to `sp_RbVal` (poly) when callers pass
       # heterogeneous key types, compile_poly_method_call's per-class
@@ -1051,7 +1051,7 @@ describe "Boxes programs" do
   end
 
   it "return of an object typed value boxes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize(tag)
           @tag = tag
@@ -1073,7 +1073,7 @@ describe "Boxes programs" do
   end
 
   it "ruby box surface" do
-    result = ze0(<<~'RUBY', ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', ruby: ["-W:no-experimental"])
 
       # The Ruby namespace + Ruby::Box census surface, disabled mode (no RUBY_BOX
       # in the environment -- the harness sets the gate only for a source that
@@ -1127,7 +1127,7 @@ describe "Boxes programs" do
   end
 
   it "run time box reads back its own constant" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A box minted at RUN TIME, whose id the compiler never saw. Its constant
       # has to be written and read under the same box, which is the case that
       # broke when the write learned the box before the read did.
@@ -1144,7 +1144,7 @@ describe "Boxes programs" do
   end
 
   it "shift operator boxes an object typed argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `junk << Trash.new(1)` on a Poly receiver: the numeric-op fallback must
       # box an argument it holds unboxed (found by the conformance corpus's
       # argv_gc as a compile failure).
@@ -1168,7 +1168,7 @@ describe "Boxes programs" do
   end
 
   it "snippet mints no compile time box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # `Ruby::Box.new` in a SNIPPET mints a real box.
@@ -1204,7 +1204,7 @@ describe "Boxes programs" do
   end
 
   it "top level def in a box stays in it" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A top-level `def` written in a box belongs to that box: main cannot call
@@ -1235,7 +1235,7 @@ describe "Boxes programs" do
   end
 
   it "yield boxes an object typed argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # (`Builder.new { }` can't be used here: `.new` doesn't forward its
       # block to `initialize` yet -- a separate, pre-existing gap.)
 

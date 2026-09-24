@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: conversion" do
   it "chain with no argument answers the receiver's own elements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#chain with no argument: the eager .chain.to_a is just the receiver's
       # own elements.
       p([1, 2, 3].chain.to_a)
@@ -25,7 +25,7 @@ describe "Array: conversion" do
   end
 
   it "combination(n) without a block materializes into the n-element combinations" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#combination(n) without a block materializes into the n-combinations via to_a.
       def s(x); x; end
       p s([1, 2, 3]).combination(2).to_a
@@ -45,7 +45,7 @@ describe "Array: conversion" do
   end
 
   it "flatten calls to_ary on an element that is not an Array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Pair
         def to_ary = [1, 2]
 
@@ -67,7 +67,7 @@ describe "Array: conversion" do
   end
 
   it "sum, minmax and the float comparisons answer what CRuby answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array/Float/Integer conformance (KieranP #2295-2302)
       p([1.1, 1.1, 2.2].uniq)          # #2295 FloatArray#uniq
       p Array.new                       # #2296 bare Array.new as direct p arg
@@ -103,7 +103,7 @@ describe "Array: conversion" do
   end
 
   it "permutation answers the k-element permutations blockless, and yields each one with a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#permutation on integer arrays, mirroring combination: blockless returns
       # an array of the k-element permutations; the block form yields each one.
       p [1, 2, 3].permutation(2).to_a
@@ -127,7 +127,7 @@ describe "Array: conversion" do
   end
 
   it "to_h raises for an element that is not a pair, naming its index and length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#to_h wants each element to be a two-element array. A longer or shorter
       # one is an ArgumentError and a non-array a TypeError; the extra elements were
       # simply dropped and a short one read a nil value.
@@ -152,7 +152,7 @@ describe "Array: conversion" do
   end
 
   it "conv to ary duck" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_ary ducks at Array-argument sites.
       class Pair
         def to_ary
@@ -188,7 +188,7 @@ describe "Array: conversion" do
   end
 
   it "hash flatten depth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#flatten(depth): to_a.flatten(depth) semantics -- depth >= 2 expands
       # array values, 0 keeps the pairs, negative flattens completely (the
       # argless interleave keeps its fast arm).
@@ -215,7 +215,7 @@ describe "Array: conversion" do
   end
 
   it "integer digits invalid radix" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#digits validates its radix: a base below 2 raises ArgumentError (a
       # negative base gives "negative radix", 0 or 1 give "invalid radix N"), and a
       # negative receiver raises Math::DomainError. The radix was silently coerced to

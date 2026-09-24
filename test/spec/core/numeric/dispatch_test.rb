@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: dispatch" do
   it "case in matches float and builtin classes on poly values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def describe(val)
         case val
         in Integer then "int"
@@ -28,7 +28,7 @@ describe "Numeric: dispatch" do
   end
 
   it "complex poly arith" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Arithmetic and abs/abs2/magnitude on a Complex read out of a poly container
       # (the poly `+`/`-`/`*`/`/` and sp_poly_abs dispatch the Complex tag). Complex
       # division with integer components follows spinel's float-backed Complex
@@ -65,7 +65,7 @@ describe "Numeric: dispatch" do
   end
 
   it "int nil boxing at poly boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A missed element read from an int container boxes as nil, not as an Integer.
       def klass(v) = v.class.name
       def isnil(v) = v.nil?
@@ -138,7 +138,7 @@ describe "Numeric: dispatch" do
   end
 
   it "integer poly arg methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer methods whose argument the runtime takes as an mrb_int must unbox a
       # polymorphic argument (here an element of a mixed array, poly-typed but an
       # integer at runtime) rather than emitting it as a raw boxed value.
@@ -190,7 +190,7 @@ describe "Numeric: dispatch" do
   end
 
   it "math poly arg unbox" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.* with a poly-typed argument (a value that unifies to Integer|Float)
       # must unbox at the call boundary via sp_poly_to_f. Previously only a plain
       # TY_INT arg got a (double) cast; a poly arg passed straight through as an
@@ -243,7 +243,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test polymorphic variables (sp_RbValue)
 
       # Variable holding different types
@@ -284,7 +284,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly arithmetic invalid raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Invalid operations reached through boxed values must raise instead of
       # silently producing Integer zero.
       receivers = [nil, true, :token, {"a" => 1}]
@@ -352,7 +352,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly exact numeric ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exact receiver reaching an operator or a numeric method through a block
       # parameter is boxed, and the poly path answered it in floats or not at all.
       # `**` evaluated in doubles (a different answer as well as a different class),
@@ -437,7 +437,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly numeric div remainder" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Float#div by zero raises FloatDomainError where ruby raises
       # ZeroDivisionError.
@@ -504,7 +504,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly numeric query methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numeric / byte query methods on a poly value (a boxed element of a
       # heterogeneous array): nan? / finite? / infinite? / abs / floor / ceil /
       # round / truncate / zero? / positive? / negative? / bytesize / ord /
@@ -642,7 +642,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly rational arithmetic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A polymorphic method whose numeric params unify to poly (called with Integer
       # then Rational) does Rational arithmetic when a Rational operand is present,
       # instead of truncating it through integer division.
@@ -683,7 +683,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly sign predicate float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zero?/positive?/negative? on a POLY receiver must test the number itself, not
       # its integer truncation. A parameter widened to poly by one call site reading an
       # element off a heterogeneous array answered as though every value with |v| < 1
@@ -743,7 +743,7 @@ describe "Numeric: dispatch" do
   end
 
   it "poly to c flags" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = nil
       p(x.to_c)
       p(nil.to_c)
@@ -762,7 +762,7 @@ describe "Numeric: dispatch" do
   end
 
   it "promote poly overflow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly-typed integer (a heterogeneous-array element) whose arithmetic
       # overflows int64 auto-promotes to bigint under --int-overflow=promote.
       arr = [4000000000000000000, "x"]

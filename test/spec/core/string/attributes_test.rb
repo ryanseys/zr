@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: generated attribute methods" do
   it "alias attr reader source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias`/`alias_method` may name an attr_reader/attr_accessor-generated
       # method as the source. The new name then reads the same backing ivar,
       # carrying the ivar's inferred type (so typed uses like upcase work).
@@ -57,7 +57,7 @@ describe "String: generated attribute methods" do
   end
 
   it "attr accessor reader and writer generate real methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         attr_accessor :value
         attr_reader :ro
@@ -81,7 +81,7 @@ describe "String: generated attribute methods" do
   end
 
   it "attr override dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An explicit method overriding an inherited (or same-class) attr_reader/
       # attr_accessor must run via normal dispatch, not be shadowed by direct field
       # access at the call site. The more-derived definition wins.
@@ -165,7 +165,7 @@ describe "String: generated attribute methods" do
   end
 
   it "attr reader and attr writer declared standalone generate only their own half" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         attr_reader :x
         attr_writer :y
@@ -187,7 +187,7 @@ describe "String: generated attribute methods" do
   end
 
   it "attr reader override type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Attr
         attr_accessor :x
         def initialize(v)
@@ -245,7 +245,7 @@ describe "String: generated attribute methods" do
   end
 
   it "attr write boxed dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Attr
         attr_accessor :x
 
@@ -312,7 +312,7 @@ describe "String: generated attribute methods" do
   end
 
   it "attr writer from a block loses to a later def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         attr_writer :x
         def x=(v)
@@ -363,7 +363,7 @@ describe "String: generated attribute methods" do
   end
 
   it "extended attr accessor override wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Macros
         def attr_accessor(name)
           puts "macro attr_accessor #{name}"
@@ -425,7 +425,7 @@ describe "String: generated attribute methods" do
   end
 
   it "issue attr in dynamic class body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # attr_reader/attr_accessor/attr_writer only work in a literal `class`/`module`
       # body. Invoked from inside a `Class.new { ... }` or `#class_eval { ... }`
       # block, zeo raises NoMethodError instead of defining the accessor.
@@ -450,7 +450,7 @@ describe "String: generated attribute methods" do
   end
 
   it "module attr alias include" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M001
         attr_accessor :x001
       end
@@ -481,7 +481,7 @@ describe "String: generated attribute methods" do
   end
 
   it "module metaprogramming attr class eval exec and invented ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # attr (== attr_reader), class_eval/module_exec block forms whose
       # added methods are inherited by subclasses and includers, and an
       # invented ivar (assigned by a class_eval/instance_exec body, never
@@ -526,7 +526,7 @@ describe "String: generated attribute methods" do
   end
 
   it "module singleton attr accessor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #511. `module M; class << self; attr_accessor :x; end; end` on a
       # module previously didn't recognize either the reader or writer
       # for non-constant-RHS assignments — the existing constant-fold
@@ -579,7 +579,7 @@ describe "String: generated attribute methods" do
   end
 
   it "poly attr reader shadows builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An attr_reader/attr_accessor whose name collides with a builtin poly
       # zero-arg helper (value/resume/join -> Thread#value, sum/min/max/first/
       # last/sample -> array reductions) must shadow the helper exactly like an
@@ -645,7 +645,7 @@ describe "String: generated attribute methods" do
   end
 
   it "poly attr writer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: a setter call (`obj.x = val`) on a parameter typed as
       # a class union must execute the assignment. Previously the dispatch
       # loop emitted no arms for attr_writer setters on poly receivers and
@@ -753,7 +753,7 @@ describe "String: generated attribute methods" do
   end
 
   it "rescue attr with sibling exc subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading a rescued exception's attr must still compile when the program
       # defines a SECOND, unrelated exception subclass. The second subclass's
       # `initialize` `message` param is never constrained to a String (its own
@@ -800,7 +800,7 @@ describe "String: generated attribute methods" do
   end
 
   it "same named attr no widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #684: a concretely-typed receiver's attr_reader must not widen to
       # poly just because an unrelated class shares the same attr name.
       class Bag

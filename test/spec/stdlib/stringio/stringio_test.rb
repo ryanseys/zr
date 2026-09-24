@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "StringIO programs" do
   it "reads writes and tracks position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
       io = StringIO.new
       io.puts "hello"
@@ -23,7 +23,7 @@ describe "StringIO programs" do
   end
 
   it "string io answers the same off either implementation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # stringio -- the differential matrix all three implementations answer:
       # ruby's C gem (the recorded text), zeo's native ext, and the pure port.
       require "stringio"
@@ -242,7 +242,7 @@ describe "StringIO programs" do
   end
 
   it "a StringIO held in an ivar takes packed bytes and reads them back whole" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
 
       class Bits
@@ -287,7 +287,7 @@ describe "StringIO programs" do
   end
 
   it "getbyte and each_byte read bytes, so a multi-byte character does not make them skip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `StringIO`'s BYTE-wise reads. Distinct from `getc`'s character-wise ones: a
       # multi-byte encoding must not make a byte reader skip. prism's deserializer
       # walks its buffer entirely through `getbyte`.
@@ -334,7 +334,7 @@ describe "StringIO programs" do
   end
 
   it "the mode string decides every read, write, truncate and append the StringIO allows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # StringIO's mode string decides what it allows, and the whole table is
       # here because every row of it was previously ignored.
       #
@@ -387,7 +387,7 @@ describe "StringIO programs" do
   end
 
   it "each_line, readlines and gets take chomp:, and printf is public on the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `StringIO` is meant to be drop-in for an `IO`, which is what makes it the
       # standard way to capture output or feed a parser in a test. Three of IO's
       # methods are missing or mis-scoped on it:
@@ -433,7 +433,7 @@ describe "StringIO programs" do
   end
 
   it "StringIO.open yields the io, answers the block's value, and closes it afterwards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `StringIO.open(string) { |io| ... }` must YIELD the new StringIO to the
       # block and answer the block's value, closing the io afterwards -- the same
       # contract `File.open` has. zeo's row builds the StringIO and returns it,
@@ -467,7 +467,7 @@ describe "StringIO programs" do
   end
 
   it "ungetbyte pushes a byte back for the next read to take" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
 
       s = StringIO.new("hello")
@@ -484,7 +484,7 @@ describe "StringIO programs" do
   end
 
   it "ungetc pushes a character back for the next read to take" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
 
       s = StringIO.new("hello")
@@ -503,7 +503,7 @@ describe "StringIO programs" do
   end
 
   it "append mode seeks to the end before each write, and a read-only io refuses one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # StringIO's write modes: append mode seeks to the END before each write
       # (zeo overwrites from position 0 -- "cb" instead of "abc": data
       # corruption, not a missing error), and a read-only StringIO refuses a
@@ -527,7 +527,7 @@ describe "StringIO programs" do
   end
 
   it "subclassing stringio and file" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user subclass of a builtin carries the builtin's native object as a
       # payload. `StringIO` and `File` join Array/String/Hash/StringScanner as
       # payload roots: puma's `IOBuffer < StringIO` and aws-sdk's `ManagedFile <

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: frozen literals" do
   it "class method barrier follows the visibility timeline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         def self.helper(x) = x + 1
       end
@@ -79,7 +79,7 @@ describe "Methods: frozen literals" do
   end
 
   it "a class method reopened across class bodies answers each body's own version" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -115,7 +115,7 @@ describe "Methods: frozen literals" do
   end
 
   it "module_function reaches the same timeline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -153,7 +153,7 @@ describe "Methods: frozen literals" do
   end
 
   it "three bodies each answer in their own window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -192,7 +192,7 @@ describe "Methods: frozen literals" do
   end
 
   it "two definitions in one body with a statement between them each hold their window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -225,7 +225,7 @@ describe "Methods: frozen literals" do
   end
 
   it "the class-method and instance-method channels do not interfere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -263,7 +263,7 @@ describe "Methods: frozen literals" do
   end
 
   it "a redefined class method keeps its arguments, its block and its defaults" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -299,7 +299,7 @@ describe "Methods: frozen literals" do
   end
 
   it "self is the class in every body, so class-level ivars carry across them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -337,7 +337,7 @@ describe "Methods: frozen literals" do
   end
 
   it "super from a redefined class method reaches the parent's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -376,7 +376,7 @@ describe "Methods: frozen literals" do
   end
 
   it "a subclass sees the timeline of the parent's class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -412,7 +412,7 @@ describe "Methods: frozen literals" do
   end
 
   it "a module's own def self.x follows the same timeline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -448,7 +448,7 @@ describe "Methods: frozen literals" do
   end
 
   it "reflection names the owner, and the last body's report is the one that stands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -487,7 +487,7 @@ describe "Methods: frozen literals" do
   end
 
   it "singleton_method_added reports each definition where it is written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -527,7 +527,7 @@ describe "Methods: frozen literals" do
   end
 
   it "a redefinition clears the private mark, as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby installs each `def` WHERE IT STANDS, so a call written between two
       # same-name definitions answers the FIRST body. zeo's static tables carry only
       # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
@@ -564,7 +564,7 @@ describe "Methods: frozen literals" do
   end
 
   it "defined calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `defined?(f(a))` answers "method" only when the call resolves AND
@@ -637,7 +637,7 @@ describe "Methods: frozen literals" do
   end
 
   it "destructuring parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `(a, b)` parameter takes ONE slot like any other, and the names
@@ -688,7 +688,7 @@ describe "Methods: frozen literals" do
   end
 
   it "later def self reaches back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A later `def self.x` installs at its OWN line: a call written above the
       # reopen answers the earlier body, as ruby's install-where-it-stands rule
       # requires. `module_function` reaches it the same way -- its class-method copy
@@ -747,7 +747,7 @@ describe "Methods: frozen literals" do
   end
 
   it "method introspection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test __method__, freeze/frozen?
 
       # __method__
@@ -785,7 +785,7 @@ describe "Methods: frozen literals" do
   end
 
   it "splat arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `*` splat at a call site makes the argument count unknown at compile
@@ -846,7 +846,7 @@ describe "Methods: frozen literals" do
   end
 
   it "tail forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # Three forms that need no machinery of their own.
@@ -934,7 +934,7 @@ describe "Methods: frozen literals" do
   end
 
   it "tail forms two" do
-    result = ze0(<<~'RUBY', path: "ze0/tail_forms_two.rb")
+    result = zr(<<~'RUBY', path: "zr/tail_forms_two.rb")
       # frozen_string_literal: true
 
       # More forms that needed no machinery of their own.
@@ -1050,8 +1050,8 @@ describe "Methods: frozen literals" do
       [:one, :two]
       [:three]
     OUT
-      ze0/tail_forms_two.rb:45: warning: already initialized constant A::B::LEVEL
-      ze0/tail_forms_two.rb:42: warning: previous definition of LEVEL was here
+      zr/tail_forms_two.rb:45: warning: already initialized constant A::B::LEVEL
+      zr/tail_forms_two.rb:42: warning: previous definition of LEVEL was here
     ERR
   end
 end

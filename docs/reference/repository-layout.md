@@ -5,27 +5,27 @@
 The gem ships `exe/`, `lib/`, `rt/` and `vendor/ext`, `vendor/lib`,
 `vendor/prelude`, with the license files. Its only require path is
 `lib/`. The pure-Ruby library a program requires is not in the gem: it
-is the gems `ze0.gemspec` depends on (`lib/ze0/libraries.rb`).
+is the gems `zr.gemspec` depends on (`lib/zr/libraries.rb`).
 
 | Path | Holds |
 |---|---|
-| `exe/ze0` | the gem's command; `lib/ze0/cli.rb` holds its commands |
-| `lib/ze0.rb` | the entry: version, paths and targets |
-| `lib/ze0/paths.rb` | where ze0 reads its sources and writes its cache |
-| `lib/ze0/libraries.rb` | the pinned gems a program requires from, and the tree that links them |
-| `lib/ze0/target.rb` | the targets, and what this host can build |
-| `lib/ze0/prism.rb` | loads prism on the host; `Ze0.parse` |
-| `lib/ze0/parse_cache.rb` | the host's cache of parse results |
-| `lib/ze0/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
-| `lib/ze0/zr/` | the HIR to IR against the `zr` runtime |
-| `lib/ze0/machine/` | the kernel dialect to IR, and the kernel's description |
-| `lib/ze0/ir/` | the IR, its passes, its verifier, and an interpreter |
-| `lib/ze0/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
-| `lib/ze0/backend/wasm/` | the wasm emitter |
-| `lib/ze0/obj/` | the object model, relocations, and the JIT loader |
-| `lib/ze0/obj/macho/`, `lib/ze0/obj/elf/` | the Mach-O object and executable writers; the ELF object writer |
-| `lib/ze0/native/` | the build driver, parallel assembly, the linkers |
-| `lib/ze0/eval.rb` | the compiler a program that evals carries |
+| `exe/zr` | the gem's command; `lib/zr/cli.rb` holds its commands |
+| `lib/zr.rb` | the entry: version, paths and targets |
+| `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
+| `lib/zr/libraries.rb` | the pinned gems a program requires from, and the tree that links them |
+| `lib/zr/target.rb` | the targets, and what this host can build |
+| `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
+| `lib/zr/parse_cache.rb` | the host's cache of parse results |
+| `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
+| `lib/zr/zr/` | the HIR to IR against the `zr` runtime |
+| `lib/zr/machine/` | the kernel dialect to IR, and the kernel's description |
+| `lib/zr/ir/` | the IR, its passes, its verifier, and an interpreter |
+| `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
+| `lib/zr/backend/wasm/` | the wasm emitter |
+| `lib/zr/obj/` | the object model, relocations, and the JIT loader |
+| `lib/zr/obj/macho/`, `lib/zr/obj/elf/` | the Mach-O object and executable writers; the ELF object writer |
+| `lib/zr/native/` | the build driver, parallel assembly, the linkers |
+| `lib/zr/eval.rb` | the compiler a program that evals carries |
 | `rt/kernel/` | the runtime's kernel, in the kernel dialect |
 | `rt/kernel/os/<os>/`, `rt/kernel/arch/<arch>/` | the OS and machine layers |
 | `rt/core/` | the core library, in ordinary Ruby, one file per class |
@@ -38,29 +38,29 @@ is the gems `ze0.gemspec` depends on (`lib/ze0/libraries.rb`).
 | `vendor/lib/` | the files of ruby 4.0.6's library that no gem ships, unedited |
 | `vendor/prelude/` | ruby's `gem_prelude.rb` |
 
-`rt/` and `vendor/` sit beside `lib/`, not in it. ze0 compiles them
+`rt/` and `vendor/` sit beside `lib/`, not in it. zr compiles them
 into programs, and the host ruby never loads them. A file such as
 `vendor/lib/pathname.rb` must never shadow ruby's own.
 
 A build requires ruby's library from one directory, the library tree:
 a link to each file of each pinned gem and of `vendor/lib`. It is
-`tmp/lib/<key>/` in a checkout, and `ze0/lib/<key>/` in the user's
-cache for an installed gem. `lib/ze0/libraries/resolve.rb` writes it,
+`tmp/lib/<key>/` in a checkout, and `zr/lib/<key>/` in the user's
+cache for an installed gem. `lib/zr/libraries/resolve.rb` writes it,
 in a ruby with rubygems, when the gems it read from change.
 
 ## The repository only
 
 | Path | Holds |
 |---|---|
-| `lib/ze0/prism_backend/` | makes `require "prism/prism"` load the port on the host |
+| `lib/zr/prism_backend/` | makes `require "prism/prism"` load the port on the host |
 | `rakelib/` | every task's body, one file a subject; see [Tasks](tools.md) |
 | `docs/` | this documentation |
 | `test/test_helper.rb` | what every test file requires |
-| `test/spec_helper.rb` | what a spec file requires: the helper, plus `ze0` |
+| `test/spec_helper.rb` | what a spec file requires: the helper, plus `zr` |
 | `test/support/` | the test library: the harness, the spec road, the fork pool |
 | `test/support/harness/` | what ruby answered, the child bound, the benchmark runner, and the diff harnesses |
 | `test/support/oracle/` | the four generators a check runs on every `rake test:unit` |
-| `test/unit/` | ze0's own internals: minitest files `rake test:unit` runs |
+| `test/unit/` | zr's own internals: minitest files `rake test:unit` runs |
 | `test/spec/` | Ruby held to ruby, program by program: `rake test:spec` |
 | `test/e2e/` | whole programs through a real link: `rake test:e2e`, filed by area as the specs are, each with what ruby answered beside it |
 | `benchmark/` | the benchmarks, at the top of the repository as other gems keep them: whole programs with what ruby answered for each, and the rungs `rake compile` builds; see `benchmark/README.md` |

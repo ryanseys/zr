@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Encoding: case mapping" do
   it "casecmp incompatible encoding is nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#casecmp` and `#casecmp?` against an incompatibly-encoded operand
       # answer nil; zeo compares the bytes anyway and answers an ordering.
       # (Found by the 2026-08-24 probe sweep.)
@@ -16,7 +16,7 @@ describe "Encoding: case mapping" do
   end
 
   it "cesu8 holds unicode code points" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CESU-8 holds Unicode's code points: three bytes as UTF-8 writes them,
       # or six for a character past the BMP, a pair of surrogates.
       c = "aé日\u{1F600}".encode("CESU-8")
@@ -67,7 +67,7 @@ describe "Encoding: case mapping" do
   end
 
   it "every row of Encoding.list carries the names, aliases, dummy? and ascii_compatible? the oracle gives it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every row of `Encoding.list`, generated from the ruby 4.0.6 oracle by
       # `tools/encoding_tables.rb`. The whole list is printed because the registry
       # IS the contract: the order, the names, the aliases, `dummy?` and
@@ -281,7 +281,7 @@ describe "Encoding: case mapping" do
   end
 
   it "regexp unicode property" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `\p{...}` character properties. The engine used to refuse every one of them
       # at compile time, so a program carrying one did not build at all -- and the
       # property IS the predicate, so nothing on the author's side can rewrite it
@@ -391,7 +391,7 @@ describe "Encoding: case mapping" do
   end
 
   it "single byte encodings validity length case and lookup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = ("caf" + 0xE9.chr).force_encoding("Windows-1252")
       p s.valid_encoding?
       p s.length
@@ -423,7 +423,7 @@ describe "Encoding: case mapping" do
   end
 
   it "string encoding ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String operations are CHARACTER-correct and ENCODING-preserving: a UTF-8
       # multibyte character counts as one, and a substring/reverse/upcase keeps the
       # receiver's encoding instead of silently becoming UTF-8.
@@ -488,7 +488,7 @@ describe "Encoding: case mapping" do
   end
 
   it "symbol case setbyte chr toc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol case conversions / succ preserve Symbol class through &:sym blocks
       # and variables; String#setbyte copy-on-write on value-semantics strings;
       # String#chr / #intern / #to_c.
@@ -527,7 +527,7 @@ describe "Encoding: case mapping" do
   end
 
   it "unicode case latin1" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String case methods handle ASCII + Latin-1 Supplement + Latin Extended-A
       # (the common accented Latin ranges), not just ASCII a-z. ß upcases to SS.
       p "äöü".upcase
@@ -561,7 +561,7 @@ describe "Encoding: case mapping" do
   end
 
   it "utf16 and utf32 wide encodings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The wide Unicode rows (UTF-16LE/BE, UTF-32LE/BE): NOT ASCII-compatible
       # (never ascii_only, even empty; concatenation with anything else only
       # through an empty side), surrogate-pair walking, scalar-based chr/<<,
@@ -618,7 +618,7 @@ describe "Encoding: case mapping" do
   end
 
   it "utf8 by another name walks as utf8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # UTF8-MAC and the carriers' UTF-8 walk as UTF-8 walks: a character is
       # its code point, which inspect shows, and CESU-8, which is not among
       # them, shows its own the same way.

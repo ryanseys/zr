@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Struct: regressions" do
   it "group_by then sum with &:reader folds a Struct's members by group" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Item = Struct.new(:cat, :qty) do
         def value = qty
       end
@@ -36,7 +36,7 @@ describe "Struct: regressions" do
   end
 
   it "Data#with answers a new value with the named members replaced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       C = Data.define(:a)
       r = [C.new(1), C.new(2)]
       p r.map { |c| c.with(a: c.a + 1) }.map(&:a)
@@ -55,7 +55,7 @@ describe "Struct: regressions" do
   end
 
   it "min_by and max_by over Structs answer the Struct itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Struct.new(:x, :y)
       pts = [Point.new(1, 2), Point.new(3, 4)]
       p pts.min_by { |pt| pt.x }.to_h
@@ -75,7 +75,7 @@ describe "Struct: regressions" do
   end
 
   it "to_a, to_h and members answer for a Struct read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_a / members / to_h on a Struct read out of a poly container (Struct#to_a
       # is its member values, #members the field-name symbols).
       E = Struct.new(:a, :b)
@@ -99,7 +99,7 @@ describe "Struct: regressions" do
   end
 
   it "a multiple assignment destructures what deconstruct answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multiple assignment from #deconstruct of a Data/Struct value read out of a
       # poly container: deconstruct is the member values (an Array), which the poly
       # receiver derives via sp_poly_to_a_arr.
@@ -122,7 +122,7 @@ describe "Struct: regressions" do
   end
 
   it "a splatted array fills a Data's members, and a wrong count raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Data.define(:x, :y)
       p Point.new(*[1, 2])
       p (Point.new(*[1]) rescue $!.class)
@@ -142,7 +142,7 @@ describe "Struct: regressions" do
   end
 
   it "Data#with takes its replacements splatted from a Hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Data.define(:x, :y)
       a = Point.new(1, 2)
       p a.with(**{x: 10})
@@ -160,7 +160,7 @@ describe "Struct: regressions" do
   end
 
   it "Struct.new and Data.define take their member names splatted from an array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       syms = [:sx, :sy, :sz]
       K = Data.define(*syms)
       p K.members
@@ -181,7 +181,7 @@ describe "Struct: regressions" do
   end
 
   it "deconstruct_keys answers only the members it was asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Data.define(:x, :y)
       p1 = Point.new(1, 2)
       p(p1.deconstruct_keys([:x, :nope]))
@@ -199,7 +199,7 @@ describe "Struct: regressions" do
   end
 
   it "a member named class or hash shadows the method of that name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       C = Data.define(:class, :hash)
       c = C.new("k", 5)
       p(c.class)
@@ -224,7 +224,7 @@ describe "Struct: regressions" do
   end
 
   it "a frozen Struct raises FrozenError from the writer and from []=" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Pt = Struct.new(:x, :y)
       a = Pt.new(1, 2).freeze
       p(begin; a.x = 5; rescue => e; e.class; end)
@@ -245,7 +245,7 @@ describe "Struct: regressions" do
   end
 
   it "a keyword_init Struct and a Data refuse a member name they do not have" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       KW = Struct.new(:a, :b, keyword_init: true)
       r = (begin; KW.new(a: 1, z: 9); "no error"; rescue ArgumentError => e; e.class; end); p r
       p(KW.new(a: 1, b: 2).to_a)
@@ -263,7 +263,7 @@ describe "Struct: regressions" do
   end
 
   it "freeze marks a class, a module and a Struct class frozen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C; end
       class D; end
       C.freeze
@@ -291,7 +291,7 @@ describe "Struct: regressions" do
   end
 
   it "a member name ending in ? reads, writes through send, and inspects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S = Struct.new(:verbose?, :name)
       o = S.new(true, "x")
       p o.verbose?
@@ -347,7 +347,7 @@ describe "Struct: regressions" do
   end
 
   it "Struct.new and Data.define take a member name held in a variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       name = :port
       S = Struct.new(name)
       p S.members
@@ -376,7 +376,7 @@ describe "Struct: regressions" do
   end
 
   it "FrozenError#receiver is the Hash or Struct that refused the write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = (begin; h = {a: 1}.freeze; h[:b] = 2; rescue FrozenError => e; e.receiver; end)
       p r
       h2 = { "k" => 1 }.freeze
@@ -396,7 +396,7 @@ describe "Struct: regressions" do
   end
 
   it "a hash pattern matches a Data read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Vec = Data.define(:x, :y)
 
       top = [Vec.new(3, 4)].first
@@ -410,7 +410,7 @@ describe "Struct: regressions" do
   end
 
   it "a find pattern picks the Struct class the value belongs to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       A = Struct.new(:x)
       B = Struct.new(:y)
       def ev(node)
@@ -445,7 +445,7 @@ describe "Struct: regressions" do
   end
 
   it "a Data pattern matches through a nested hash pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       User = Data.define(:name)
       h = { user: User.new("Alice") }
       case h
@@ -466,7 +466,7 @@ describe "Struct: regressions" do
   end
 
   it "a curried Method takes its arguments one at a time or together" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def greet3(g, n) = "#{g}, #{n}!"
       cg = method(:greet3).to_proc.curry
       p cg["Hi"]["there"]
@@ -495,7 +495,7 @@ describe "Struct: regressions" do
   end
 
   it "a method defined in a Struct or Data body reaches to_h, members and with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       D = Data.define(:a, :b) do
         def to_hash = to_h
         def bump = with(b: b + 1)
@@ -534,7 +534,7 @@ describe "Struct: regressions" do
   end
 
   it "a member reader wins over a builtin of the same name through a block parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Data/Struct field reader whose name collides with a Time builtin must
       # dispatch to the member reader when the value flows through a poly block param.
       Event = Data.define(:day, :hour)

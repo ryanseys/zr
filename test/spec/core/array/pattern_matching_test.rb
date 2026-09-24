@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: pattern matching" do
   it "first, last, take, drop and the deconstruct rows answer on an empty array too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array/Comparable conformance (KieranP #2287,#2289-2294)
       class Ver
         include Comparable
@@ -55,7 +55,7 @@ describe "Array: pattern matching" do
   end
 
   it "a case/in array pattern checks the required element values, not only the length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A case/in array pattern must check required element values, not only length.
       def si(x); x; end
       def ss(x); x; end
@@ -124,7 +124,7 @@ describe "Array: pattern matching" do
   end
 
   it "a case/in array pattern reads a poly scrutinee's length and elements through the poly path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A case/in array pattern over a poly-typed scrutinee must read its length and
       # elements through the poly path (sp_poly_length / sp_poly_index_poly behind a
       # tag guard), never `->len` on a bare value. One helper fed several element
@@ -190,7 +190,7 @@ describe "Array: pattern matching" do
   end
 
   it "a trailing comma in an array pattern is an implicit rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [0, 1, 2, 3]
       in [0, 1, ] then puts "matched"
       else puts "no"
@@ -205,7 +205,7 @@ describe "Array: pattern matching" do
   end
 
   it "case in array pattern binds pre and rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2, 3]
       in [Integer => a, *rest]
         puts a
@@ -217,7 +217,7 @@ describe "Array: pattern matching" do
   end
 
   it "case in array pattern pre and post splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2, 3, 4, 5]
       in [*pre, 3, *post]
         puts pre.length
@@ -229,7 +229,7 @@ describe "Array: pattern matching" do
   end
 
   it "case in nested array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested array pattern in `case/in` (`in [a, [b, c], d]`) destructures the
       # sub-array element, binding its inner targets, and matches only when the
       # element is itself a correctly-shaped array. Previously the nested element was
@@ -301,7 +301,7 @@ describe "Array: pattern matching" do
   end
 
   it "case in object deconstruct dispatches to array pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x, y)
           @x = x
@@ -322,7 +322,7 @@ describe "Array: pattern matching" do
   end
 
   it "deconstruct must return an array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `deconstruct` must answer an Array and `deconstruct_keys` a Hash. A
       # wrong return RAISES -- it does not fall through to the next `in` clause.
       #
@@ -415,7 +415,7 @@ describe "Array: pattern matching" do
   end
 
   it "nested array pattern deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S001 = Struct.new(:a, :b)
       arr001 = [S001.new(1, 2)]
       r001 = (case arr001; in [S001[x001, y001]] then [x001, y001]; end rescue $!.class); p r001
@@ -433,7 +433,7 @@ describe "Array: pattern matching" do
   end
 
   it "oneline in array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One-line `expr in pattern` with an array pattern yields a boolean.
       def s(x); x; end
       a = (s([1, 2, 3]) in [1, *]);    p a
@@ -449,7 +449,7 @@ describe "Array: pattern matching" do
   end
 
   it "struct values values at dig and filtered deconstruct keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Struct.new(:x, :y)
       p Point.new(3, 4).values
       p Point.new(3, 4).values_at(0, -1)

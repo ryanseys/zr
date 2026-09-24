@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Control programs" do
   it "and arm returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An arm with no C VALUE cannot sit in a C conditional beside a typed sibling:
       # a method whose body is `nil` compiles to a void function, and `a && a.analyze`
       # put that call straight into one arm of `? :` whose other arm is an sp_Att *.
@@ -60,7 +60,7 @@ describe "Control programs" do
   end
 
   it "and or empty literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `[]` / `{}` on the right of `&&` / `||` carries no element type of
       # its own, so it caches UNKNOWN and ty_unify() dropped it, answering the LEFT
       # operand's type. The array construction was then emitted into that slot: for
@@ -135,7 +135,7 @@ describe "Control programs" do
   end
 
   it "and short circuit nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A short-circuiting `&&` over a scalar left operand yields that operand's nil,
       # so nil? answers true and compact drops it. `||` keeps a truthy left as itself.
       s = "a"
@@ -172,7 +172,7 @@ describe "Control programs" do
   end
 
   it "ast translator answers unknown for some shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` maps prism's node kinds onto CRuby's NODE_*
       # names, and the mapping is INCOMPLETE: an unmapped kind answers a node of
       # type `:UNKNOWN` with its location intact and no children, so a walker sees
@@ -224,7 +224,7 @@ describe "Control programs" do
   end
 
   it "bang mutator return value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A successful in-place String mutation returns the receiver. The "did it
       # change?" test compared the buffer with the new content AFTER writing it back
       # -- and the comparison operand was sp_String_cstr, a pointer INTO the buffer
@@ -275,7 +275,7 @@ describe "Control programs" do
   end
 
   it "bare regexp condition matches the last read line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A regexp literal written where a condition goes is not the object: ruby
       # rewrites it into a match against `$_`, the last line `gets` read, and the
       # condition is the match POSITION or nil. `~re` is the same operator spelled
@@ -344,7 +344,7 @@ describe "Control programs" do
   end
 
   it "begin and end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `BEGIN { }` runs before the rest of the file, in the order the file
@@ -384,7 +384,7 @@ describe "Control programs" do
   end
 
   it "bigint poly container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bigint value stored in a heterogeneous (poly) Array or Hash used to box as
       # nil, because the poly value (sp_RbVal) had no bigint tag. With SP_TAG_BIGINT it
       # is a first-class poly element: display, ==, include?, and hash-key all work.
@@ -429,7 +429,7 @@ describe "Control programs" do
   end
 
   it "bigint propagation chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Stress test: bigint propagation through a chain of dependent locals.
       # `a` starts int but is promoted to bigint by `a = a * 2` inside the
       # while loop (detected by scan_bigint_in_loop). Subsequent assignments
@@ -479,7 +479,7 @@ describe "Control programs" do
   end
 
   it "bigint return int literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose return slot promoted to Bigint (an accumulator multiply under
       # --int-overflow=promote) but whose early guard returns a plain int literal
       # used to emit `return 0LL` through the sp_Bigint* slot -- a NULL pointer that
@@ -547,7 +547,7 @@ describe "Control programs" do
   end
 
   it "boolean short circuit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       y = 3
       puts((x > y) && :yes)
@@ -569,7 +569,7 @@ describe "Control programs" do
   end
 
   it "case fallthrough returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #707: case without `else` returns nil on fallthrough.
       puts (case 99; when 1; "one"; end).inspect
       puts (case 1; when 1; "one"; end).inspect
@@ -590,7 +590,7 @@ describe "Control programs" do
   end
 
   it "case when splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `when *list` spreads the list the way a call site's splat does: a plain
       # value is one candidate and nil is none. With a subject each candidate
       # answers `===`; without one, its own truth is the test.
@@ -647,7 +647,7 @@ describe "Control programs" do
   end
 
   it "case when with and without a subject" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       day = :tue
       case day
       when :sat, :sun
@@ -685,7 +685,7 @@ describe "Control programs" do
   end
 
   it "catch throw through loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # throw from inside `loop` passes through loop's StopIteration handler (a
       # non-local unwind in transit, like every begin/rescue passes it through);
       # a break-less loop as the catch body tail types as nil and rides the slot.
@@ -709,7 +709,7 @@ describe "Control programs" do
   end
 
   it "if, elsif, case, while, until, the modifiers and a rescue all take the branch they should" do
-    result = ze0(<<~'RUBY', path: "ze0/control_flow.rb")
+    result = zr(<<~'RUBY', path: "zr/control_flow.rb")
       def grade(n)
         if n >= 90
           "A"
@@ -795,7 +795,7 @@ describe "Control programs" do
       puts classify(5)
       puts classify(50)
 
-      # `begin` with no clause is a grouping, and the memo shape ze0's own
+      # `begin` with no clause is a grouping, and the memo shape zr's own
       # sources are full of.
       memo = {}
       memo[:k] ||= begin
@@ -946,7 +946,7 @@ describe "Control programs" do
       nil
       "fussy"
       Fussy
-      ["ze0/control_flow.rb:152:in 'Object#deep'", "ze0/control_flow.rb:154:in 'Object#shallow'"]
+      ["zr/control_flow.rb:152:in 'Object#deep'", "zr/control_flow.rb:154:in 'Object#shallow'"]
       "returned x"
       nil
       [1, "e2", 3]
@@ -956,7 +956,7 @@ describe "Control programs" do
   end
 
   it "each entry returns receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#each_entry answers the receiver, like #each.
       #
       # It had no emitter at all for a Hash or a Range, and answered nil for an Array
@@ -1040,7 +1040,7 @@ describe "Control programs" do
   end
 
   it "each return value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block-form each (and each_value/each_key/each_pair/each_with_index/
       # reverse_each) returns its receiver, so the value composes and chains.
       r = [1, 2, 3].each { |x| x }
@@ -1072,7 +1072,7 @@ describe "Control programs" do
   end
 
   it "end block registers once per site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `END { }` registers its block the first time its site runs and never
       # again, however often the site is reached; two sites register two.
       3.times { END { puts "end in a loop" } }
@@ -1091,7 +1091,7 @@ describe "Control programs" do
   end
 
   it "enum for each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # enum_for(:each) / to_enum materializes a user class's #each into an array, so
       # the full Enumerable surface (to_a/map/select/count/...) works on a class that
       # only defines #each. The compiler synthesizes a per-class helper that drives
@@ -1157,7 +1157,7 @@ describe "Control programs" do
   end
 
   it "flat map poly return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # flat_map whose block value is not statically an array -- a bare poly, or a mix
       # of array and scalar as in `cond ? sub_array : scalar` -- follows CRuby: an array
       # value is spliced one level, a scalar is appended as-is. Distinct per-case
@@ -1185,7 +1185,7 @@ describe "Control programs" do
   end
 
   it "for loops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       sum = 0
       for i in 1..5
         sum += i
@@ -1248,7 +1248,7 @@ describe "Control programs" do
   end
 
   it "for var two element types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `for` loop variable is an ordinary local, so two loops binding the same
       # name share one C slot. It was typed from whichever loop the pass reached
       # last, and the other then assigned a String element into an sp_int slot. The
@@ -1306,7 +1306,7 @@ describe "Control programs" do
   end
 
   it "loop answers with the value its break was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = loop { break 42 }
       puts r.inspect
       puts r.class
@@ -1332,7 +1332,7 @@ describe "Control programs" do
   end
 
   it "ignore case flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "HELLO".match?(/hello/i)
       puts "HELLO".match?(/hello/)
     RUBY
@@ -1341,7 +1341,7 @@ describe "Control programs" do
   end
 
   it "TrueClass and FalseClass are the classes a boolean matches in a case" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       b = true
       p(TrueClass === b)
       p(case b when TrueClass then :yes else :no end)
@@ -1363,7 +1363,7 @@ describe "Control programs" do
   end
 
   it "filter_map keeps what the block answers and drops what is nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {a: 1, b: 2}
       p h.filter_map { |k, v| [k, v] if v > 1 }
       p h.filter_map { |k, v| v * 10 if v > 1 }
@@ -1380,7 +1380,7 @@ describe "Control programs" do
   end
 
   it "break takes a value out of a while loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       list, kept = ["--", "x"], []
       while (i = list.shift)
         case i
@@ -1402,7 +1402,7 @@ describe "Control programs" do
   end
 
   it "a lambda whose body ends after a loop answers its tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       g = ->() { loop { break }; 42 }
       p g.call
       h = ->() { r = []; loop { break }; [r, 1] }
@@ -1422,7 +1422,7 @@ describe "Control programs" do
   end
 
   it "iterator tail returns receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def each001(h001); h001.each { |k001, v001| nil }; end
       p each001({ "a" => 1 })
 
@@ -1502,7 +1502,7 @@ describe "Control programs" do
   end
 
   it "jump values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `return`, `next` or `break` that carries more than one value answers
@@ -1556,7 +1556,7 @@ describe "Control programs" do
   end
 
   it "loop bigint return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose loop-carried local is bigint-promoted (d = d * 2) and then
       # returned must have a bigint (sp_Bigint *) return type, not void. Bigint was
       # missing from is_scalar_ret and c_type_name, so such methods emitted
@@ -1594,7 +1594,7 @@ describe "Control programs" do
   end
 
   it "not and the gates on every receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `not` and `!` on every kind of receiver, before and after the classes
       # nil, true and false stand under gain a `!` of their own, and mixed
       # with the operators whose gates flip on redefinition.
@@ -1676,7 +1676,7 @@ describe "Control programs" do
   end
 
   it "not stays inline for nil true and false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `not v` and `!v` answer inline for nil, true and false while none of
       # their classes redefines `!`; any other receiver sends `!` through its
       # own site, so a class with its own `!` answers, and a `!` written on
@@ -1756,7 +1756,7 @@ describe "Control programs" do
   end
 
   it "not user object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Obj
         def initialize; @x = 7; end
       end
@@ -1774,7 +1774,7 @@ describe "Control programs" do
   end
 
   it "parenthesized body ending in self returns self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def m = (@x = 2; self)` -- a `Seq` whose tail is `self`. The `Seq`
       # block emitted its tail unboxed (`Arc<Concrete>`) while every consumer
       # of a `Seq` (which always infers `Poly`) expects a boxed `RubyValue` --
@@ -1794,7 +1794,7 @@ describe "Control programs" do
   end
 
   it "poly recv while family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find_all / take_while / drop_while on a receiver only known to be a
       # container at run time. select and reject had an arm; these three fell
       # through to the loud NoMethodError.
@@ -1845,7 +1845,7 @@ describe "Control programs" do
   end
 
   it "poly size user return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `size` / `length` on a poly receiver answers an Integer -- unless a user class
       # owns the name and answers something else, in which case the call is a union.
       # The dispatch always emits the builtin length arms (a symbol, a string, every
@@ -1899,7 +1899,7 @@ describe "Control programs" do
   end
 
   it "promote block loop bigint" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # promote-only: an accumulator multiplied inside a block-iteration loop grows
       # past 64 bits. In --int-overflow=promote the analyzer widens it to bigint
       # (the same self-referential-multiply detection used for `while`, extended to
@@ -1930,7 +1930,7 @@ describe "Control programs" do
   end
 
   it "safe nav arg iterators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `v&.each_slice(n) { }` / `v&.each_cons(n) { }`. The re-dispatch materializes
       # the boxed receiver into a poly array and re-enters the call so the array
       # emitters serve it -- and poking the receiver's cached type is not enough to
@@ -1963,7 +1963,7 @@ describe "Control programs" do
   end
 
   it "safe nav no c nil result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `&.` whose answer has no C nil to hold one -- a Class, a Symbol, a Rational,
       # a Complex -- has to be poly, the way a C bool already had to be. The rules
       # that said so were placed by position in the inference chain, so the names
@@ -2022,7 +2022,7 @@ describe "Control programs" do
   end
 
   it "safe nav operator write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `o&.v op= rhs` runs nothing at all when the receiver is nil -- not the
       # read, not the right-hand side -- and answers nil. The receiver itself is
       # evaluated exactly once, before the guard.
@@ -2083,7 +2083,7 @@ describe "Control programs" do
   end
 
   it "safe nav or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Inner005
         def opacity005; 0.5; end
         def name005; "hi"; end
@@ -2118,7 +2118,7 @@ describe "Control programs" do
   end
 
   it "safe nav predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = nil
       p(x&.positive?)
       def f(v)
@@ -2146,7 +2146,7 @@ describe "Control programs" do
   end
 
   it "safe navigation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize(value)
           @value = value
@@ -2164,7 +2164,7 @@ describe "Control programs" do
   end
 
   it "safe navigation returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #701: safe navigation `&.` on nil returns nil.
 
       # Literal nil receiver — short-circuits without warning.
@@ -2206,7 +2206,7 @@ describe "Control programs" do
   end
 
   it "safe navigation target writes only to a receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A safe-navigation target writes only when its receiver is not nil:
       # `rescue => o&.x` and `for o&.x in list`.
       class Box
@@ -2246,7 +2246,7 @@ describe "Control programs" do
   end
 
   it "ternary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       n = 7
       puts(n > 5 ? :big : :small)
     RUBY
@@ -2255,7 +2255,7 @@ describe "Control programs" do
   end
 
   it "then block always breaks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `then` block whose body always `break`s completes normally nowhere, so it
       # published no result type and the value slot the block substrate writes was
       # declared `void`, which cannot declare a C variable. The break delivers its
@@ -2296,7 +2296,7 @@ describe "Control programs" do
   end
 
   it "void value and case" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-form && / || whose unified type is nil/void, and a case whose
       # scrutinee is an empty container literal, must not declare a `void` C temp
       # (an empty `()` operand or `[]` scrutinee has no scalar storage type).
@@ -2326,7 +2326,7 @@ describe "Control programs" do
     OUT
   end
   it "a case arm over a symbol, nil, true or false answers by identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `case` arm over a symbol, nil, true or false asks Object#=== of the
       # literal, which is identity where the class's `==` is BasicObject's
       # (SHAPE_EQQ at the site, and zr_obj_eqq answers with no send); a
@@ -2370,7 +2370,7 @@ describe "Control programs" do
   end
 
   it "a flip-flop of integer literals compares them with $." do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $VERBOSE = nil
       r = []
       (1..8).each { |i| $. = i; r << i if 2..4 }
@@ -2397,7 +2397,7 @@ describe "Control programs" do
   end
 
   it "a retry that cannot run may stand in a block inside a rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A retry that cannot run is no error: the parse drops it with its
       # dead branch before it asks whether the retry is where one may be.
       begin

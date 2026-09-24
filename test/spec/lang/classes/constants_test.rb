@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: constants" do
   it "bare constant still falls back to the top level from inside a class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       MAX_ITEMS = 5
       class Config
         LIMIT = 3
@@ -20,7 +20,7 @@ describe "Classes: constants" do
   end
 
   it "boxs constant on a shared class is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A constant written on a SHARED class inside a box, read back by path.
       # `Array::BOXC` is a scope-operator read rather than a cref walk, so it is
       # a different path into the same table.
@@ -37,7 +37,7 @@ describe "Classes: constants" do
   end
 
   it "class allocate builtin var" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#allocate on builtin classes yields the class's empty value, and a
       # variable-held class (builtin or user) dispatches like the constant (#2655).
       # A user allocate skips initialize.
@@ -65,7 +65,7 @@ describe "Classes: constants" do
   end
 
   it "class allocate skips initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class#allocate` builds an instance WITHOUT running `initialize` (so a
       # required-arg `initialize` is bypassed); the object is still a usable
       # instance whose ivars start nil and can be assigned by hand. A builtin
@@ -100,7 +100,7 @@ describe "Classes: constants" do
   end
 
   it "class body runs in document order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class body runs WHERE IT IS WRITTEN. zeo already emitted it there for a
       # body reached directly from the top level, but the reachability walk deciding
       # which bodies those are only descended through a class body and a box scope --
@@ -175,7 +175,7 @@ describe "Classes: constants" do
   end
 
   it "class const defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#const_defined? answers at compile time from the flat constant/class
       # registry (the same namespace a constant read resolves against).
       class Foo
@@ -199,7 +199,7 @@ describe "Classes: constants" do
   end
 
   it "class constant path read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #52: reading a class-scoped constant from outside the class
       # via `ClassName::CONST` used to emit `User_MAX_NAME_LENGTH` as an
       # undeclared C identifier. Now it's emitted as `cst_User_MAX_NAME_LENGTH`
@@ -237,7 +237,7 @@ describe "Classes: constants" do
   end
 
   it "class in the source mints and runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The header mints the class through the runtime; the BODY runs as one
       # more `class_eval` of its own source, which is what a class body IS
       # -- a scope of its own, with its own cref.
@@ -254,7 +254,7 @@ describe "Classes: constants" do
   end
 
   it "class value chained cmethod" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A singleton method that returns the class object, chained into another
       # singleton method.
       #
@@ -366,7 +366,7 @@ describe "Classes: constants" do
   end
 
   it "class var builtin new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local statically holding one builtin class constant dispatches like the
       # constant itself (#2715) -- the receiver is retargeted at the AST.
       k = Array
@@ -388,7 +388,7 @@ describe "Classes: constants" do
   end
 
   it "const defined inherit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `const_defined?`/`const_get` take an `inherit` flag, and the two answers are
       # genuinely different: a top-level constant belongs to `Object`, so every class
       # sees it INHERITED and none of them owns it. A block opens no constant scope
@@ -488,7 +488,7 @@ describe "Classes: constants" do
   end
 
   it "const get class name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Object.const_get(:Foo)` where Foo is a class or module the program defines:
       # the lookup knew only VALUE constants, so it raised NameError for a constant
       # the program does define.
@@ -529,7 +529,7 @@ describe "Classes: constants" do
   end
 
   it "const inherit flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Up; TAG = "up"; end
       class Down < Up; end
       p Down.const_defined?(:TAG)
@@ -551,7 +551,7 @@ describe "Classes: constants" do
   end
 
   it "const missing on a named class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `const_missing` is never called for a constant read off a class the compiler
       # can name: `ClsHost::Whatever` raises `NameError` directly.
       #
@@ -603,7 +603,7 @@ describe "Classes: constants" do
   end
 
   it "constant path that only holds a class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `M::ALIAS` where `ALIAS` is a constant HOLDING a class, not a class of its
       # own, is the scope operator's question. Handing the whole string to the
       # bare-name cref walk looks for a constant literally called "M::ALIAS" and
@@ -676,7 +676,7 @@ describe "Classes: constants" do
   end
 
   it "constants resolve through the superclass chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base2
         LIMIT = 5
       end
@@ -694,7 +694,7 @@ describe "Classes: constants" do
   end
 
   it "dynamic class new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Tier 5. Dynamic `<sp_Class>.new` over a Class-typed
       # value. Pre-Tier-5 only the constant-receiver form worked
       # (`Foo.new` resolves at codegen time); a Class-typed local
@@ -750,7 +750,7 @@ describe "Classes: constants" do
   end
 
   it "nested classes define dispatch and resolve lexical constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         DEFAULT = 10
 
@@ -782,7 +782,7 @@ describe "Classes: constants" do
   end
 
   it "new on a dynamic constant scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # faraday's `self.class::Handler.new(...)`: the receiver spells a constant path,
       # but its scope is only known at run time, so the class comes from the receiver's
       # own class -- a subclass overrides which one by redefining the constant.
@@ -838,7 +838,7 @@ describe "Classes: constants" do
   end
 
   it "runtime class body names its own class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby binds a class's constant BEFORE running its body, so a class whose
       # superclass is a runtime value may name itself inside that body. jmespath's
       # token.rb is exactly this shape:
@@ -890,7 +890,7 @@ describe "Classes: constants" do
   end
 
   it "top level scoped constant names the builtin class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `::Integer` (and other `::Name` top-level anchors) resolve to the builtin
       # class in every position: is_a?/kind_of?/instance_of? arguments, `===`
       # receivers, and as a first-class Class value.

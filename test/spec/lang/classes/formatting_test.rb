@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: formatting and inspection" do
   it "allocate on a value class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class#allocate` on a value class -- the gap this promotes.
       #
       # Only 2 of zeo's 98 native classes declared a blank value, so `Regexp`,
@@ -44,7 +44,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "bare reopen does not steal a declaring site" do
-    result = ze0(<<~'RUBY', files: beside("bare_reopen/aitem.rb", "bare_reopen/item.rb", "bare_reopen/root.rb"))
+    result = zr(<<~'RUBY', files: beside("bare_reopen/aitem.rb", "bare_reopen/item.rb", "bare_reopen/root.rb"))
       # One file REOPENS `class Item` bare; another DECLARES it with a superclass.
       # The compiler walks units in demand order, so the bare reopen can come first
       # -- and the declaration must still be the one that fixes the superclass and
@@ -91,7 +91,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class const as value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 1. A class constant referenced as a value (not
       # as the receiver of `.new` / a class method call) used to emit a
       # bare C identifier:
@@ -161,7 +161,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class hierarchy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 3 (Tier 1, classes-only). Exercise the
       # precomputed ancestors / parents tables added in this phase.
       # Modules + dynamic is_a? + case-when on Class come in later
@@ -220,7 +220,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class hierarchy builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 3 Tier 4. Built-in class prefix in the
       # unified cls_id space. Primitives (Integer, String, Array, ...)
       # now occupy cls_ids 0..20 per docs/CLASS-OBJECT.md; user
@@ -285,7 +285,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class lt builtin parent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#< with a built-in parent class. A user class A < StandardError
       # should report `A < StandardError == true` and have StandardError
       # in its ancestor chain.
@@ -311,7 +311,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class name in cmeth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #509. `Class#name` (and `self.name`) inside `def self.X` body
       # previously fell through to the unresolved-call warning and
       # emitted 0. Used by ActiveRecord's `"#{name}.table_name must
@@ -352,7 +352,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class name means what it means here" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Whether a superclass NAME is a compile-time class or a constant holding one
       # minted at run time is a question about the site that spells it. Asking the
       # whole arena "is there a `class Error` anywhere" answers for every other site
@@ -394,7 +394,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class named after a compiler type compiles and behaves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Vec`, `Option` and `Box` are names a compiler wants for itself. Ruby lets
       # a program take any of them, and the class must behave as Ruby says.
 
@@ -430,7 +430,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class reopen replaces methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #489. Two `class Foo` definitions in the same translation unit
       # (whether from two require_relative'd files or a single file with
       # re-opened class) previously emitted duplicate C function symbols
@@ -481,7 +481,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class value unified" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # .class yields a first-class (name-backed) Class value for every receiver
       # kind: it compares with ===/== semantics, stringifies via to_s, and a Class
       # scrutinee in when matches only Class/Module.
@@ -520,7 +520,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "class var new arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x); @x = x; end
         def to_s; "P(#{@x})"; end
@@ -534,7 +534,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "a class carries constants, ivars, inheritance and a module it mixes in" do
-    result = ze0(<<~'RUBY', path: "ze0/classes_and_modules.rb")
+    result = zr(<<~'RUBY', path: "zr/classes_and_modules.rb")
       class Animal
         LEGS = 4
 
@@ -983,13 +983,13 @@ describe "Classes: formatting and inspection" do
       NameError
       "private constant Ledger::SECRET referenced"
     OUT
-      ze0/classes_and_modules.rb:356:in 'Object#blow_up': went wrong (Louder)
-      	from ze0/classes_and_modules.rb:358:in '<main>'
+      zr/classes_and_modules.rb:356:in 'Object#blow_up': went wrong (Louder)
+      	from zr/classes_and_modules.rb:358:in '<main>'
     ERR
   end
 
   it "compiled class allocates directly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Foo.new` on a plain compiled class allocates without dispatching for
       # `new` at all: the runtime's `new` is served by the CONSTRUCTOR, not by a
       # class-method row, so the call site's cache could only ever remember the
@@ -1043,7 +1043,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "the File path family is string work that never touches the disk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
       # Everything here is zone- and machine-independent on purpose: Time uses a
@@ -1091,7 +1091,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "a fixed instant read in UTC answers the same broken-down fields everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
       # Everything here is zone- and machine-independent on purpose: Time uses a
@@ -1206,7 +1206,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "Dir and File read and write a real scratch tree" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
       # Everything here is zone- and machine-independent on purpose: Time uses a
@@ -1334,7 +1334,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "the Errno family carries CRuby's own message shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
       # Everything here is zone- and machine-independent on purpose: Time uses a
@@ -1369,7 +1369,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "ENV is an object with hash-shaped methods, not a Hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
       # Everything here is zone- and machine-independent on purpose: Time uses a
@@ -1410,7 +1410,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "the Process rows answer for this process" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The P-B core classes: File, Dir, Time, Process, ENV.
       #
       # Everything here is zone- and machine-independent on purpose: Time uses a
@@ -1435,7 +1435,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "def self inside class self is unreachable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def self.x` written INSIDE `class << self` defines a method on the
       # singleton's OWN singleton -- `K.singleton_class.x` -- and it is NOT a class
       # method of `K`.
@@ -1475,7 +1475,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "env gated class stays concealed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       if ENV["ZEO_NOPE"]
         class Gated
           def x = 1
@@ -1498,7 +1498,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "every native class allocates where ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class#allocate` answers a blank instance for every native class ruby
       # allocates, and refuses for every one ruby refuses -- with ruby's own error
       # class each time.
@@ -1623,7 +1623,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "a Hash default block runs for a missing key and not for a written one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = Hash.new { |hash, key| "missing: #{key}" }
       puts h[:a]
       puts h[:b]
@@ -1654,7 +1654,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "initialize override param inference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A subclass `initialize` override repurposes its positional parameters; a
       # parent `initialize` parameter default (e.g. `opts = nil`) must not widen an
       # unrelated override parameter to poly. Each case checks the override param
@@ -1737,7 +1737,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "nil value class union" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `nil | W` where W would otherwise be a value-layout class: any nil
       # witness on a W-typed slot disqualifies the value layout (a by-value
       # struct has no nil), falling back to the pointer form whose NULL-nil
@@ -1789,7 +1789,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "qualified class ruby name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested class whose leaf name is a builtin's is qualified internally
       # (`Brainfuck__Array`) so it cannot be mistaken for the builtin. Its
       # Ruby-visible name is still `Brainfuck::Array`, through every spelling.
@@ -1818,7 +1818,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "qualified reopen keeps nesting" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class first seen through a compact `module A::B::C` definition still
       # resolves bare enclosing names from a NESTED reopen's body: CRuby's
       # nesting is per definition site, and the nested site carries the full
@@ -1849,7 +1849,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "reflective program keeps every class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reflection wide enough to produce ANY class is a hatch, not an edge: no
       # scan of the source bounds what these can name, so the compiler stops
       # narrowing the builtin method tables and carries all of them
@@ -1883,7 +1883,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "reopened builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gated builtin is the runtime's half of a library whose other half is
       # ruby: `require "digest"` reveals the module the runtime carries, and a
       # `module Digest` after it REOPENS that module rather than shadowing it.
@@ -1942,7 +1942,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "reopened builtin class runs a ruby initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening a natively implemented builtin with a Ruby `initialize` runs
       # that body.
       #
@@ -2037,7 +2037,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "splat and double splat at a new call site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `*args` positional splat and a `**h` double-splat at `.new`
       # dispatch through the runtime constructor rather than being rejected.
 
@@ -2061,7 +2061,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "superclass clause reads the enclosing ancestry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare constant resolves in two halves: the lexical scopes' own tables, then
       # the ANCESTORS of the innermost one. A superclass clause is a bare constant,
       # so `class Leaf < Inner` nested in `class Mid < Base` finds `Base::Inner`.
@@ -2125,7 +2125,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "user initialize on a native class runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # A native class's `new` FUSES allocate and initialize, so it cannot run a
       # body it does not know about. Ruby's `new` is allocate plus whatever
@@ -2195,7 +2195,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "visibility change in a reopened class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Visibility is positional: `private :name` in a REOPENED class body applies
       # from that point in program order, and calls made while the method was still
       # public succeed. zeo's analyze folds visibility into one order-insensitive

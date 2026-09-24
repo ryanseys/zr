@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: raising and rescuing" do
   it "builtin frames in a backtrace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's backtrace names the C frames a raise passed through. A raise from
       # inside a block given to `Kernel#then` shows ruby's
       # `from ...:in 'Kernel#then'` line between the block and its caller; zeo's
@@ -48,7 +48,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "builtin reopen chained patches and nme" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A patch calling another patch (implicit self -> direct free-fn call, the
       # result's `+` going back through dynamic String dispatch), and an unknown
       # method still raising real Ruby's exact NoMethodError.
@@ -75,7 +75,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "exception object surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception object surface: value equality (==), identity equality (eql?), the
       # #exception copy method (instance and class forms), non-String message
       # coercion, and Exception.to_tty?.
@@ -133,7 +133,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "exception owner rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The four rows ruby declares ON an exception class that zeo used to answer
       # from an ancestor. Reflection has to name the same owner, because a rescue
       # handler that asks `SignalException.instance_methods(false)` gets a different
@@ -219,7 +219,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "exception reflection surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception classes as first-class constants: defined?, superclass chain,
       # and the rarer subclasses as reflectable values.
       p defined?(ArgumentError)
@@ -261,7 +261,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "exception value parity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception value semantics: #== by class+message, KeyError key inspect,
       # Math::DomainError naming, private/public NameError on undefined names,
       # NameError#name, and raise with an explicit cause.
@@ -361,7 +361,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "frozen error raised inside a thread surfaces at join" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1]
       a.freeze
       t = Thread.new { a[0] = 9 }
@@ -379,7 +379,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "kernel raise is a real dispatch row reachable through send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.send(:raise, ...)` used to be NoMethodError (raise existed only as
       # a parse-time lowering). Now a real Kernel row mirrors CRuby's
       # `rb_make_exception`: class+message, bare re-raise from `$!`, a bare
@@ -434,7 +434,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "signal module and signal exception surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SignalException/Interrupt resolve a signal name<->number (#signo/#signm,
       # arg-form validation) and the Signal module answers list/signame/trap
       # (trap is a validated no-op that records the prior action). Byte-verified

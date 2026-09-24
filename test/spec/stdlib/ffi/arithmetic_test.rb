@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "FFI: arithmetic" do
   it "bare struct name in a signature is a reference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `FFI::Struct` subclass in an `attach_function` signature is
       # ruby-ffi's StructByReference -- the ABI type is a POINTER (`.by_value` is
       # the by-value spelling). An argument takes a struct instance and passes its
@@ -61,7 +61,7 @@ describe "FFI: arithmetic" do
   end
 
   it "attach_function emits an extern C wrapper, and the scalar marshaling matches CRuby with the gem" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The real `ffi` gem API, AOT-compiled: `require "ffi"` is a native
       # no-op, `extend FFI::Library` marks the module, and `attach_function` (plain
       # and the 4-arg rename form) emits a compile-time `extern "C"` + `#[link]` and
@@ -94,7 +94,7 @@ describe "FFI: arithmetic" do
   end
 
   it "an :int argument computed by repeated multiplication still marshals as a plain C int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An FFI :int argument fed by an integer computed through repeated
       # multiplication (a value a widening analysis could have promoted) still
       # marshals as a plain C int. Ported from spinel's ffi_func to the real ffi
@@ -130,7 +130,7 @@ describe "FFI: arithmetic" do
   end
 
   it "a program that attaches libc functions runs the same under CRuby with the gem and under zeo" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real `ffi` gem API, AOT-compiled (#204): `attach_function` emits a
       # compile-time `extern "C"` + `#[link]`; the program runs identically under
       # CRuby+ffi and zeo.
@@ -162,7 +162,7 @@ describe "FFI: arithmetic" do
   end
 
   it "MemoryPointer reads, writes, pointer arithmetic, typed arrays, and an out-of-bounds IndexError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # FFI `FFI::MemoryPointer`: an owned heap buffer with typed
       # read/write accessors, pointer arithmetic, typed arrays, `from_string`, and
       # an out-of-bounds `IndexError` -- byte-identical to `ffi 1.17.4`.
@@ -204,7 +204,7 @@ describe "FFI: arithmetic" do
   end
 
   it "a MemoryPointer passes to C as its raw address, and a char * return comes back as an FFI::Pointer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # FFI `:pointer` marshaling: a `MemoryPointer` passed to a C
       # function as its raw address, and a C `char *` return wrapped back as an
       # `FFI::Pointer`. `strcpy(buf, "hello")` fills the buffer and returns it;
@@ -232,7 +232,7 @@ describe "FFI: arithmetic" do
   end
 
   it "an array literal of :pointer returns infers as pointers, not as an int array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #492 (ported to the real ffi gem API). An array literal whose elements are
       # FFI :pointer returns (e.g. `[LibC.malloc(...)]`) must infer as an array of
       # pointers, not collapse to an int-array representation -- push sites and
@@ -263,7 +263,7 @@ describe "FFI: arithmetic" do
   end
 
   it "layout declares the C fields, [] and []= read and write them, and C fills the struct through its pointer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # FFI::Struct through the real ffi gem API (ported from spinel's ffi_struct
       # DSL): `layout` declares the C fields, `[]`/`[]=` read and write them, and a
       # C function can fill a struct through its pointer.

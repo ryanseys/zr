@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable: slicing" do
   it "container read max by element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # max_by / min_by on an Array reached through a container return the winning
       # element, typed like the one sort_by(...).first or find return -- not an
       # untyped value every later call rejects.
@@ -42,7 +42,7 @@ describe "Enumerable: slicing" do
   end
 
   it "slice_when, chunk_while, slice_before and slice_after cut on a block, a value or a pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 4, 9, 10, 11, 12, 15]
       p a.slice_when { |i, j| i + 1 != j }.to_a
       p a.chunk_while { |i, j| i + 1 == j }.to_a
@@ -67,7 +67,7 @@ describe "Enumerable: slicing" do
   end
 
   it "min and max with a count answer that many, ordered, and never more than the source holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..10).min(3)
       p (1..10).max(3)
       p [5, 1, 4, 2].min(2)
@@ -87,7 +87,7 @@ describe "Enumerable: slicing" do
   end
 
   it "first resume args bind to the fiber blocks params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = Fiber.new do |a, b|
         a + b
       end
@@ -98,7 +98,7 @@ describe "Enumerable: slicing" do
   end
 
   it "lazy first no stage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `first` needs no stage between it and the lazy source: `e.lazy.first(2)` is
       # as well defined as `e.lazy.map { }.first(2)`, but only the staged form was
       # recognized and the bare one answered nil.
@@ -125,7 +125,7 @@ describe "Enumerable: slicing" do
   end
 
   it "minmax by and the one pass methods walk each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1..4).minmax_by { -_1 })
       p(%w[a bb cc d].minmax_by(&:size))
       p([].minmax_by { _1 })
@@ -182,7 +182,7 @@ describe "Enumerable: slicing" do
   end
 
   it "sum adds floats with compensation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#sum adds exactly while it can and, from the first Float,
       # with Kahan-Babuska compensation, as Array#sum and CRuby's enum_sum do.
       def t = yield rescue [$!.class, $!.message]
@@ -216,7 +216,7 @@ describe "Enumerable: slicing" do
   end
 
   it "user enumerable first boxed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end

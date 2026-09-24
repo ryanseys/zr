@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Control: control flow" do
   it "break in a define method body returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method(:go) { break :early }` answers `:early`: the block BECAME
       # the method, so there is no yielding call left to break out of, and CRuby
       # applies its lambda rule -- `break` returns from the method. rake's
@@ -65,7 +65,7 @@ describe "Control: control flow" do
   end
 
   it "break in a while condition leaves the loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `while` loop is entered before its condition runs, so a `break` or
       # `next` in the condition belongs to that loop: at the top level, in a
       # method, and in a block, where it leaves the loop and not the block.
@@ -101,7 +101,7 @@ describe "Control: control flow" do
   end
 
   it "break with a value makes the iterator call return it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `break <v>` in a block makes the whole Enumerable call evaluate to <v>
       # (CRuby TAG_BREAK), not the partial accumulator -- across value-producing
       # (map/select/reject/reduce/count/find) and self-returning
@@ -133,7 +133,7 @@ describe "Control: control flow" do
   end
 
   it "case tail all arms return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A tail `case` whose every arm leaves the function has no value of its own,
       # so the value path widened it to poly and returned the box from a concretely
       # typed function. The if/elsif/else form of the same dispatch always worked
@@ -196,7 +196,7 @@ describe "Control: control flow" do
   end
 
   it "cmeth return nil or obj via intermediate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #411. A class method that initializes a local to `nil`,
       # conditionally reassigns it through an intermediate variable, and
       # returns the local emitted with return type `mrb_int` even though
@@ -299,7 +299,7 @@ describe "Control: control flow" do
   end
 
   it "collatz" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def steps(n)
         count = 0
         while n != 1
@@ -325,7 +325,7 @@ describe "Control: control flow" do
   end
 
   it "concealed class answers nil until reopened" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def probe? = false
       if probe?
         class Ghost
@@ -358,7 +358,7 @@ describe "Control: control flow" do
   end
 
   it "if/elsif/else answers the same as a statement and as a value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       n = -5
       if n < 0
         puts :negative
@@ -383,7 +383,7 @@ describe "Control: control flow" do
   end
 
   it "__LINE__, defined?, the if and unless modifiers, and a ternary chain all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test control flow additions
 
       # __LINE__
@@ -421,7 +421,7 @@ describe "Control: control flow" do
   end
 
   it "break inside a case inside a loop leaves the loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       out = []
       i = 0
       loop do
@@ -442,7 +442,7 @@ describe "Control: control flow" do
   end
 
   it "a method call used as an argument in a while condition runs on every iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method call used as an ARGUMENT inside a while condition must be
       # re-evaluated every iteration, not hoisted into a temp before the loop.
       class Gen
@@ -473,7 +473,7 @@ describe "Control: control flow" do
   end
 
   it "next inside a case inside a while skips to the following iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       out = []
       i = 0
       while i < 8
@@ -491,7 +491,7 @@ describe "Control: control flow" do
   end
 
   it "a method call used as an argument in an until condition runs on every iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same re-evaluation requirement for an until condition argument.
       class Gen
         def initialize
@@ -521,7 +521,7 @@ describe "Control: control flow" do
   end
 
   it "an until modifier re-reads the method in its condition on each pass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize
           @v = 0
@@ -545,7 +545,7 @@ describe "Control: control flow" do
   end
 
   it "a while modifier re-reads the method in its condition on each pass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Counter
         def initialize
           @n = 0
@@ -569,7 +569,7 @@ describe "Control: control flow" do
   end
 
   it "each loop binds its own stop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every `loop` desugars to a `rescue StopIteration` whose binding must be
       # ITS OWN local. A single fixed name (`__loop_stop`) aliased every loop in
       # the program to one local -- a `Ractor.new { loop { ... } }` written inside
@@ -618,7 +618,7 @@ describe "Control: control flow" do
   end
 
   it "exc frame break next pops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # break/next leaving a begin/rescue inside a loop must pop the live setjmp
       # frame, exactly like an early return: the stale jmp_buf otherwise points
       # into a dead C stack frame and the next raise longjmps into garbage
@@ -693,7 +693,7 @@ describe "Control: control flow" do
   end
 
   it "an early return out of a begin pops its frame, so two hundred of them do not leak" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An early `return` from inside begin/rescue must pop the live setjmp
       # exception frames it exits. If codegen emits a bare C `return`, the frame
       # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
@@ -733,7 +733,7 @@ describe "Control: control flow" do
   end
 
   it "a raise after many early returns lands in the fresh handler" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An early `return` from inside begin/rescue must pop the live setjmp
       # exception frames it exits. If codegen emits a bare C `return`, the frame
       # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
@@ -776,7 +776,7 @@ describe "Control: control flow" do
   end
 
   it "an early return through two nested begin frames pops both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An early `return` from inside begin/rescue must pop the live setjmp
       # exception frames it exits. If codegen emits a bare C `return`, the frame
       # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
@@ -835,7 +835,7 @@ describe "Control: control flow" do
   end
 
   it "a return from a begin/rescue nested inside a begin/ensure runs the deferred clause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An early `return` from inside begin/rescue must pop the live setjmp
       # exception frames it exits. If codegen emits a bare C `return`, the frame
       # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
@@ -896,7 +896,7 @@ describe "Control: control flow" do
   end
 
   it "a return from a begin/ensure nested inside a begin/rescue carries on after the ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An early `return` from inside begin/rescue must pop the live setjmp
       # exception frames it exits. If codegen emits a bare C `return`, the frame
       # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
@@ -957,7 +957,7 @@ describe "Control: control flow" do
   end
 
   it "for compiles to coll.each and performs no type dispatch of its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `for` performs NO type dispatch -- ruby compiles it to `coll.each { |x|
@@ -997,7 +997,7 @@ describe "Control: control flow" do
   end
 
   it "a single for index over a multi-value yield binds the whole pair" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A single index over a multi-value yield binds the WHOLE pair.
@@ -1013,7 +1013,7 @@ describe "Control: control flow" do
   end
 
   it "for walks a live Array, so what the body appends is reached" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # The Array is live: what the body appends is walked.
@@ -1043,7 +1043,7 @@ describe "Control: control flow" do
   end
 
   it "for answers the collection when it runs out, and a break supplies its own value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # Running out answers the collection; a `break` supplies its own.
@@ -1071,7 +1071,7 @@ describe "Control: control flow" do
   end
 
   it "a raise inside a for body leaves the loop's own state behind cleanly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A raise inside the body leaves the loop's own state behind cleanly.
@@ -1112,7 +1112,7 @@ describe "Control: control flow" do
   end
 
   it "an ensure the for jump crosses runs its clause, and the jump goes on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # An `ensure` the jump crosses runs its clause and the jump goes on.
@@ -1141,7 +1141,7 @@ describe "Control: control flow" do
   end
 
   it "redo in a native loop steps nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `redo` in a native loop steps nothing.
@@ -1169,7 +1169,7 @@ describe "Control: control flow" do
   end
 
   it "redo in a block re-enters past the bindings, so the parameter keeps its value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `redo` in a block re-enters PAST the bindings, so the parameter keeps
@@ -1192,7 +1192,7 @@ describe "Control: control flow" do
   end
 
   it "an ensure in the way of a redo runs each time round" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # ...and an `ensure` in the way runs each time round.
@@ -1216,7 +1216,7 @@ describe "Control: control flow" do
   end
 
   it "a block-local starts nil on every invocation and never touches the outer name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A block-local starts nil every invocation and never touches the name
@@ -1239,7 +1239,7 @@ describe "Control: control flow" do
   end
 
   it "a block-local survives a redo, exactly as a parameter does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # It survives a redo, exactly as a parameter does.
@@ -1260,7 +1260,7 @@ describe "Control: control flow" do
   end
 
   it "for over paren collection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parenthesized collection in a for loop must iterate like the bare form.
       sum = 0
       for i in (0..4)
@@ -1295,7 +1295,7 @@ describe "Control: control flow" do
   end
 
   it "gated builtin name is free until required" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A require-gated builtin's constant does not exist until its feature is
       # required -- so a program that never requires `json` is free to define its
       # own `class JSON`, exactly as CRuby is.
@@ -1318,7 +1318,7 @@ describe "Control: control flow" do
   end
 
   it "heterogeneous tuple return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def kv(s)
         return nil, nil if s.empty?
         return s, s
@@ -1365,7 +1365,7 @@ describe "Control: control flow" do
   end
 
   it "if expr multi stmt body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # When an `if` expression's value is consumed (assignment, return,
       # ternary slot, etc.) and a branch holds multiple statements,
       # compile_if_expr previously kept only the last statement of each
@@ -1464,7 +1464,7 @@ describe "Control: control flow" do
   end
 
   it "logical value return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def assert_equal(expected, actual)
         if expected != actual
           raise "logical value return mismatch"
@@ -1486,7 +1486,7 @@ describe "Control: control flow" do
   end
 
   it "loop and redo" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       i = 0
       result = loop do
         i += 1
@@ -1515,7 +1515,7 @@ describe "Control: control flow" do
   end
 
   it "loop break value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A valued break out of Kernel#loop is the value of the loop -- and, when the
       # loop is a method's tail expression, of the method.
       def factor; i = 0; loop { i += 1; break i * 10 if i >= 3 }; end
@@ -1537,7 +1537,7 @@ describe "Control: control flow" do
   end
 
   it "loop control" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `break` and `next` inside a loop are the LOOP's, whether the loop is
       # written in a method or inside a block; only a jump with no loop around
       # it is the block's.
@@ -1656,7 +1656,7 @@ describe "Control: control flow" do
   end
 
   it "loop enum with index find" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless Kernel#loop yields an infinite Enumerator; with_index over a
       # generator-backed enum is lazy, and Enumerator#find drives via #next so
       # infinite sources terminate on the block's break and finite sources
@@ -1681,7 +1681,7 @@ describe "Control: control flow" do
   end
 
   it "loop in value position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `while`/`until`/`loop`/`for` written where a value is READ: the loop
       # itself is worth nil (`for` its collection), and a `break v` its own.
       r = while true
@@ -1726,7 +1726,7 @@ describe "Control: control flow" do
   end
 
   it "loop return frame pop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` from inside `loop { }` has to pop the handler frame that loop
       # opened (it rescues StopIteration through a setjmp). Without the accounting
       # the frame stack grew by one per call and, past its 64 slots, the writes ran
@@ -1779,7 +1779,7 @@ describe "Control: control flow" do
   end
 
   it "loop stopiteration result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       e001 = [1, 2].each
       r001 = loop { e001.next }
       p r001
@@ -1798,7 +1798,7 @@ describe "Control: control flow" do
   end
 
   it "multi return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def divmod(a, b)
         [a / b, a % b]
       end
@@ -1851,7 +1851,7 @@ describe "Control: control flow" do
   end
 
   it "multi return bare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `return a, b` materializes as a fixed-arity tuple struct, preserving
       # heterogeneous element types unboxed.
 
@@ -1952,7 +1952,7 @@ describe "Control: control flow" do
   end
 
   it "next in proc and yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next` leaves the BLOCK with its value. Three emission contexts: a _proc_N
       # function body (next = the proc's return), a yield-inlined block splice
       # (next = leave the do{}while(0) wrapper with the value), and a genuine loop
@@ -1988,7 +1988,7 @@ describe "Control: control flow" do
   end
 
   it "next in then block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def pick(n)
         n.then do |v|
           next [] if v.zero?
@@ -2048,7 +2048,7 @@ describe "Control: control flow" do
   end
 
   it "next value each index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next <value>` through each.with_index collectors: map contributes the value,
       # select/reject decide inclusion, the scalar terminals read the value.
       p [10, 20, 30].each_with_index.map { |x, i| next 0 if i == 1; x + i }       # [10, 0, 32]
@@ -2070,7 +2070,7 @@ describe "Control: control flow" do
   end
 
   it "next value flat map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next [..]` inside a flat_map block flattens its array, exactly like the tail.
       p [1, 2, 3].flat_map { |x| next [0] if x == 2; [x, x] }        # [1, 1, 0, 3, 3]
       p [1, 2, 3].flat_map { |x| [x, x * 10] }                       # [1, 10, 2, 20, 3, 30]
@@ -2085,7 +2085,7 @@ describe "Control: control flow" do
   end
 
   it "next value map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next <value>` inside a map block contributes that value, rather than
       # dropping the element as a bare `continue` would.
       p [1, 2, 3].map { |x| next x * 2 }                                  # [2, 4, 6]
@@ -2124,7 +2124,7 @@ describe "Control: control flow" do
   end
 
   it "a return inside a block exits the method the block was written in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` inside a block exits the method the BLOCK was written in, however
       # many frames it has to unwind through. Every method it passes on the way is
       # just a relay: one that catches a `Signal::Return` of its own -- because it has
@@ -2144,7 +2144,7 @@ describe "Control: control flow" do
   end
 
   it "a return travels out through two nested blocks and an explicit &b" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Through two nested blocks and an explicit `&b`.
       def two(&b)
         [1, 2].each { |x| [3, 4].each { |y| b.call(x * y) } }
@@ -2161,7 +2161,7 @@ describe "Control: control flow" do
   end
 
   it "a return travels out through an Enumerator and through a lazy chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Through an Enumerator, and through a lazy chain.
       def three
         Enumerator.new { |y| y << 1; y << 2 }.each { |v| yield v }
@@ -2178,7 +2178,7 @@ describe "Control: control flow" do
   end
 
   it "a return travels out of a block a builtin yielded to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def lazily
         [1, 2, 3].lazy.map { |x| x * 2 }.each { |v| yield v }
         :fell
@@ -2194,7 +2194,7 @@ describe "Control: control flow" do
   end
 
   it "a return passes a relay whose begin has an ensure but no return of its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Through a relay that has a `begin`/`ensure` -- no `return` of its own, so it
       # has nothing to catch.
       def ensured
@@ -2216,7 +2216,7 @@ describe "Control: control flow" do
   end
 
   it "a return passes several relays and still reaches its home" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def rescued
         yield 8
       rescue StandardError
@@ -2235,7 +2235,7 @@ describe "Control: control flow" do
   end
 
   it "a relay's own return inside a begin returns the relay, not the home method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Through a relay that has a `return` of its own INSIDE the begin: it really
       # does catch, and must still tell the two apart.
       def both
@@ -2259,7 +2259,7 @@ describe "Control: control flow" do
   end
 
   it "a return travels out through several frames" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Through several frames, and through `__send__`.
       def deep3(&b) = deep2(&b)
       def deep2(&b) = deep1(&b)
@@ -2278,7 +2278,7 @@ describe "Control: control flow" do
   end
 
   it "a return travels out through __send__" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Relay
         def go(&b)
           begin
@@ -2301,7 +2301,7 @@ describe "Control: control flow" do
   end
 
   it "a return whose home has already unwound raises LocalJumpError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` whose home has already unwound is a LocalJumpError, not a jump
       # into a dead frame.
       def escapee = proc { return :gone }
@@ -2319,7 +2319,7 @@ describe "Control: control flow" do
   end
 
   it "a lambda's return is its own and never leaves the caller" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda's `return` is its own, and never leaves the caller.
       def lam
         l = lambda { return :from_lambda }
@@ -2334,7 +2334,7 @@ describe "Control: control flow" do
   end
 
   it "or return expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fetch006(h006, k006)
         v006 = h006[k006] or return
         v006
@@ -2390,7 +2390,7 @@ describe "Control: control flow" do
   end
 
   it "times" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2426,7 +2426,7 @@ describe "Control: control flow" do
   end
 
   it "Array#each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2462,7 +2462,7 @@ describe "Control: control flow" do
   end
 
   it "while" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2500,7 +2500,7 @@ describe "Control: control flow" do
   end
 
   it "until" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2538,7 +2538,7 @@ describe "Control: control flow" do
   end
 
   it "for-in over range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2574,7 +2574,7 @@ describe "Control: control flow" do
   end
 
   it "for-in over array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2610,7 +2610,7 @@ describe "Control: control flow" do
   end
 
   it "Kernel#loop (uses break to terminate)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2649,7 +2649,7 @@ describe "Control: control flow" do
   end
 
   it "Integer#upto" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2685,7 +2685,7 @@ describe "Control: control flow" do
   end
 
   it "Integer#downto" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2721,7 +2721,7 @@ describe "Control: control flow" do
   end
 
   it "Integer#step" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2757,7 +2757,7 @@ describe "Control: control flow" do
   end
 
   it "Array#each with index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2793,7 +2793,7 @@ describe "Control: control flow" do
   end
 
   it "Array#each cons" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2829,7 +2829,7 @@ describe "Control: control flow" do
   end
 
   it "Array#each slice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2865,7 +2865,7 @@ describe "Control: control flow" do
   end
 
   it "Array#each with object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2897,7 +2897,7 @@ describe "Control: control flow" do
   end
 
   it "Array#zip iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2933,7 +2933,7 @@ describe "Control: control flow" do
   end
 
   it "Array#cycle (with count to terminate)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -2970,7 +2970,7 @@ describe "Control: control flow" do
   end
 
   it "Nested redo (mixed loop kinds) — exercises label-stack uniqueness" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RedoNode coverage — `redo` re-runs the current iteration of the
       # enclosing loop without re-evaluating the guard or advancing the
       # iterator. Spinel emits a labeled goto back to the iteration top.
@@ -3017,7 +3017,7 @@ describe "Control: control flow" do
   end
 
   it "redo keeps the block parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `redo` re-runs the block BODY; it does not re-yield, so the block's
       # parameters and block-locals keep the values the body gave them.
       n = 0
@@ -3062,7 +3062,7 @@ describe "Control: control flow" do
   end
 
   it "redo reruns the current iteration without retesting" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       i = 0
       attempts = 0
       while i < 3
@@ -3080,7 +3080,7 @@ describe "Control: control flow" do
   end
 
   it "return inside while" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def first_over(limit)
         i = 0
         while true
@@ -3114,7 +3114,7 @@ describe "Control: control flow" do
   end
 
   it "return nil call scalar return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose return type is a concrete scalar (here mrb_int, pinned by the
       # `42` branch) but one branch's value is a call that resolves to nil through a
       # nil/unresolved receiver. That call is emitted as a poly nil-box
@@ -3146,7 +3146,7 @@ describe "Control: control flow" do
   end
 
   it "return table across methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Factoring a table of int arrays out into its own method is the ordinary way
       # to write this, and the caller's `rows = build(n)` has to reach the same
       # storage the callee built. Without a slot for the method's value that write
@@ -3183,7 +3183,7 @@ describe "Control: control flow" do
   end
 
   it "return unify int vs pointer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #581 (Sam Ruby). When a function's explicit `return X` and
       # implicit final-expression return disagree on the value-vs-
       # pointer axis (here int param early return + hash literal
@@ -3232,7 +3232,7 @@ describe "Control: control flow" do
   end
 
   it "return unify isa early return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #585 (Sam Ruby). Sibling shape of #581. A method that early-
       # returns the param when `value.is_a?(Hash)` is false, then falls
       # through to a pointer-shaped value, declared its return type as
@@ -3268,7 +3268,7 @@ describe "Control: control flow" do
   end
 
   it "return void and nullable object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: a method returning nil in every path is typed `void`, so an
       # explicit `return nil` must emit a bare `return;` rather than `return <value>;`
       # from a void C function. And a method returning a nullable object with an early
@@ -3346,7 +3346,7 @@ describe "Control: control flow" do
   end
 
   it "unless with else" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       n = 5
       unless n < 0
         puts :non_negative
@@ -3359,7 +3359,7 @@ describe "Control: control flow" do
   end
 
   it "until and an unless guard never send a programs bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `until` and an `unless` guard test truthiness as a branch does, so a
       # class that defines `!` cannot turn them. `x&.!` is a safe call of `!`.
       class Always
@@ -3400,7 +3400,7 @@ describe "Control: control flow" do
   end
 
   it "value object nil loop reset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-type object local assigned inside a block loop is reset with a
       # zeroed struct, not NULL -- a method returning the object on some paths
       # and (implicit) nil on others is still a value type (#3267).
@@ -3430,7 +3430,7 @@ describe "Control: control flow" do
   end
 
   it "valued break" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `break <v>` inside a block makes the iterator call return <v> (CRuby's
       # TAG_BREAK). It works across value-producing iterators (map/select/reduce/...)
       # and self-returning ones (each/each_with_index). Bare `break` returns nil; a
@@ -3523,7 +3523,7 @@ describe "Control: control flow" do
   end
 
   it "valued break proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # break inside a lambda returns from the LAMBDA (CRuby); break inside an
       # explicitly created non-lambda proc raises LocalJumpError "break from
       # proc-closure" when called -- even while the creating iterator is live.
@@ -3572,7 +3572,7 @@ describe "Control: control flow" do
   end
 
   it "valued break recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Self-returning iterators with an IMPURE receiver: the receiver expression is
       # evaluated exactly once (spilled to a temp used as both the loop source and
       # the no-break result).
@@ -3633,7 +3633,7 @@ describe "Control: control flow" do
   end
 
   it "valued break tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A break-carrying iterator in a method's TAIL (return) position: its value --
       # the break value, or the normal result when no break is taken -- IS the
       # method's return value. (A plain iteration call at tail is a side-effect
@@ -3720,7 +3720,7 @@ describe "Control: control flow" do
   end
 
   it "valued break yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `break <v>` inside a block propagates through user methods that yield
       # (CRuby's TAG_BREAK): the CALL that received the block returns <v>, however
       # deep the yield sits -- inside the method's own loops or nested iterators.
@@ -3790,7 +3790,7 @@ describe "Control: control flow" do
   end
 
   it "while break value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A valued break from a while used in value position yields that value.
       def s(x); x; end
       n = s(0)
@@ -3814,7 +3814,7 @@ describe "Control: control flow" do
   end
 
   it "while tail return type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def find(x)
         while true
           return "hit" if x > 0
@@ -3857,7 +3857,7 @@ describe "Control: control flow" do
   end
 
   it "while until" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       i = 0
       sum = 0
       while i < 10
@@ -3889,7 +3889,7 @@ describe "Control: control flow" do
   end
 
   it "while until as value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A while/until loop used in value position evaluates to nil (CRuby semantics).
       # (A valued `break` would change this, but that is a separate gap and is
       # rejected at compile time rather than silently yielding nil.)

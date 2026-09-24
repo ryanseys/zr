@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: defining and naming methods" do
   it "alias and alias method including inherited sources" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same-class and inherited sources, both spellings, chained across levels.
 
       class Base
@@ -38,7 +38,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias and names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `alias` names a method wherever it is written -- the definee is `self`
@@ -111,7 +111,7 @@ describe "Methods: defining and naming methods" do
   it "alias binds a body from another stream" do
     files = beside("alias_other_stream/lib/thing_core.rb", "alias_other_stream/lib/thing_ext.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # `alias_method :eql?, :==` in one file, `def ==` in another. The alias must
       # bind that `==`, so two equal values are `eql?` and `Array#-` subtracts them.
       #
@@ -151,7 +151,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias binds the body that exists when it runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class T1
         alias_method :eql?, :==
       end
@@ -193,7 +193,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias captures earlier def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An alias captures the definition in effect where it appears. Aliases were a
       # name mapping resolved at the end, so when the target was redefined later in
       # the same body the alias answered the NEW definition.
@@ -244,7 +244,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias creates a second callable name for the same method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def hello
           "hi"
@@ -260,7 +260,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias frame names the method it was born as" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The two halves of an alias's identity, which pull in opposite directions.
       #
       # A FRAME names the method it was BORN as: CRuby labels it from
@@ -351,7 +351,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias global" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # AliasGlobalVariableNode -- `alias $copy $orig`.
       #
       # Compile-time only: Spinel registers $copy as a name pointing to
@@ -378,7 +378,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias inherited method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias` can reference a method inherited from an ancestor, not just one
       # defined directly on the class. The alias snapshots the inherited body.
       class Parent
@@ -409,7 +409,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias keyword definee" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `alias` KEYWORD in expression position aliases on the frame's DEFAULT
       # DEFINEE, which is not `self`: the receiver's singleton under
       # `instance_exec` (rspec's top-level DSL pairs `def shared_examples` with
@@ -447,7 +447,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias method dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak(n); "sound" + n.to_s; end
         alias_method :vocalize, :speak
@@ -473,7 +473,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Both the `alias` keyword and `alias_method` create a second name for an
       # existing method, snapshotting its current body. The source method can be
       # defined in the same class or inherited from an ancestor.
@@ -518,7 +518,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias of a builtin binds the body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias new old` captures the METHOD, not the name: a later `def old`
       # replaces the original without disturbing the alias.
       #
@@ -587,7 +587,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias of a builtin keeps the old body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias_method :old, :m` on a BUILTIN class, followed by `def m`, keeps
       # `old` on the ORIGINAL body -- the standard monkeypatch-wrap idiom, which
       # Net::HTTP debugging, test doubles and a great deal of gem code are written
@@ -634,7 +634,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias of a runtime method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias_method` names a method the class body itself just created. bundler's
       # `Runtime` is the shape: a `define_method` wrapper called five times, then
       # `alias_method :gems, :specs`. The source only exists once the body has run,
@@ -702,7 +702,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias of a superseded method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The classic alias-chaining idiom: reopen a class, alias the old body, then
       # redefine the method to call the alias. `analyze::add_own_method` keeps one
       # row per name (the reopened body replaces the original in `own_methods`), and
@@ -748,7 +748,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias of inherited method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class P1; def greet; "P"; end; end
       class Q1 < P1
         alias_method :old_greet, :greet
@@ -808,7 +808,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias preserves the original methods own parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Calc
         def add(a, b)
           a + b
@@ -822,7 +822,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias under modifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         def original = 1
         alias aliased original if true        # statically true: the alias is created
@@ -865,7 +865,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias whose source resolves nowhere is a name error at program start" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias_method :foo, :nope_missing`: real Ruby raises NameError when the
       # class body EXECUTES (runtime, not compile time) -- mirrored by
       # `validate_aliases` at startup, with CRuby's message.
@@ -887,7 +887,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "arg forwarding to rest callee" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `...` into a callee with `*rest` / `**kwrest` keeps positionals and keywords apart.
       def h1(*a, **k) = [a, k]
       def h10(...) = h1(...)
@@ -942,7 +942,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "call splat positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Call-site positional splat `f(*args)`: a single trailing splat expands an
       # array across a method's fixed parameters. Previously rejected at compile time
       # (the callee was left untyped and dead-code-eliminated, or the splat arg failed
@@ -1022,7 +1022,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "callee through alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A1
         def a; __callee__; end
         alias b a
@@ -1080,7 +1080,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "class method alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An alias inside `class << self` whose source is a BUILTIN class method.
       #
       # `class << self; alias [] new; end` is the `Klass[...]` constructor shorthand,
@@ -1177,7 +1177,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "const alias method call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant aliasing a class (`A = M::N`) works as a method-call receiver:
       # the alias receiver is rewritten to the underlying class so `A.foo`
       # dispatches like the direct `M::N.foo`.
@@ -1210,7 +1210,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "def reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def twice(n)
         n * 2
       end
@@ -1229,7 +1229,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method accepts a method object body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method(name, method_obj)` / `define_singleton_method(name,
       # method_obj)` with a `Method`/`UnboundMethod` body (not a Proc): aliases
       # within a class, an UnboundMethod copied into a subclass, a bound Method
@@ -1285,7 +1285,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method and send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method definition and dispatch at run time: the binary carries the method
       # tables and the reflection paths that build them.
       class Calculator
@@ -1310,7 +1310,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method block closes over the class body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method(:m) { ... }` in a class or module body desugars to a plain
       # method -- and a method is a function of its own, so it cannot reach a
       # local living on the enclosing class-body frame. rubygems writes exactly that
@@ -1382,7 +1382,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method body frame label" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `define_method` body is a BLOCK, and ruby labels its frame as one --
       # `block in <class:Named>` -- because that is literally what it is. zeo labels
       # it after the method it installs, so the frame claims a method scope ruby
@@ -1434,7 +1434,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method call allocates nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method define_method makes allocates nothing per call: its body runs
       # as a stack image of the block under the receiver, and the block the
       # call was given reaches it through the frame.
@@ -1523,7 +1523,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method from a proc is strict" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method defined from a plain proc still checks METHOD arity when called
       # (`define_method` hardens proc semantics); zeo keeps the proc's lenient
       # binding and pads with nil. The lambda-sourced form already agrees.
@@ -1542,7 +1542,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method from module unbound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method(name, SomeModule.instance_method(:m))` -- a MODULE-owned
       # UnboundMethod binds into any class (CRuby's rule; a CLASS-owned one still
       # requires a descendant). rack installs ERB::Escape#html_escape into
@@ -1560,7 +1560,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         define_method(:inc) { |a, b = 5| a + b }
       end
@@ -1582,7 +1582,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method under private" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class V1
         private
         define_method(:a) { :a }
@@ -1596,7 +1596,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "define method with a proc body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method(name, &value)` -- the body is a value the program computes, so
       # there is no block to desugar into a `def`. Every gem that builds methods in a
       # loop uses it; zeo rejected it at compile time even though the runtime
@@ -1628,7 +1628,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "send with a name held in a variable reaches a method defined by define_method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         define_method(:hello) do
           puts :hi
@@ -1643,7 +1643,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "dynamic define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class BadDynamicDefineMethod
         name = "bad"
         define_method(name) { 1 }
@@ -1654,7 +1654,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "forward args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `...` forwarding for positional arguments (#1288): the compiler synthesizes
       # concrete params from the call sites and forwards them directly -- no rest
       # array / splat. Free function, instance method, class method, multiple sites.
@@ -1737,7 +1737,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "issue method vs callee alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # __method__ returns the name the method was DEFINED with, __callee__ the name
       # it was CALLED through -- the two diverge for an aliased method.
       class CalleeTest
@@ -1753,7 +1753,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "issue undef method dynamic class body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # undef_method called inside a `Class.new { ... }` / `#class_eval { ... }`
       # block raises NoMethodError instead of undefining the method -- it only
       # works in a literal `class ... end` body. This breaks bare `require
@@ -1780,7 +1780,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "issue229 uncalled cls method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #229: an unused class method whose body has bare `new(args)`
       # against a defining class with different `initialize` arity used to
       # emit a body that wouldn't C-compile. Sister to issue #224 (which
@@ -1867,7 +1867,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "kwarg name matches positional param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A keyword key binds by name only to a parameter that IS a keyword. A
       # positional parameter merely sharing the name takes the whole hash
       # positionally, the way any other unconsumed keyword hash does. Matching on the
@@ -1938,7 +1938,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "main using in a method names the rule" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `using` called from a method body activates nothing: ruby raises
       # RuntimeError "main.using is permitted only at toplevel", whether the
       # module is anonymous or a constant a refinement actually lives in.
@@ -1983,7 +1983,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "method named self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose name is `self`. Ruby allows it: `def self(token)` with an
       # argument list defines an ordinary instance method called `self`, reachable
       # through `send`. The `parser` gem's AST builder does this.
@@ -2005,7 +2005,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "module instance method unbound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#instance_method builds an unbound method object; #bind supplies the
       # self and the result behaves as an ordinary bound Method (#2676).
       class Animal
@@ -2032,7 +2032,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "nonliteral define method each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class BadDefineMethodEach
         names = [:one, :two]
 
@@ -2046,7 +2046,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "per object undef retires the method for that object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef_method` through an OBJECT's singleton class retires the name for that
       # one object. zeo recorded nothing: the class still defined the name, so every
       # lookup found it and the call answered where ruby raises.
@@ -2112,7 +2112,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "ruby2 keywords marks a define method method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         def m(a = nil, k: :default) = [a, k]
       end
@@ -2146,7 +2146,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "runtime alias binds the body that exists when it runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias_method` copies the method entry that exists WHEN IT RUNS, so a `def`
       # written below it does not reach the alias. The row is concealed until the
       # `def`'s own line, which is also what makes the name undefined above it.
@@ -2227,7 +2227,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "runtime alias method covers user and builtin sources" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Runtime `Module#alias_method` (computed names, ostruct's bulk-`!` loop
       # shape): aliases of user methods, of builtins (`dup`/`class`), snapshot
       # semantics against a later runtime redefinition, the Symbol return value,
@@ -2296,7 +2296,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "runtime class alias of inherited method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Class.new(Base)` where `Base` is a COMPILED class cannot run any method
       # it inherits: the process aborts with "class_id guarantees this downcast".
       # `alias_method` is only the shape that reaches it first.
@@ -2363,7 +2363,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "runtime define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Runtime metaprogramming (#97): define_method with a computed name, inside a
       # class-body loop whose block captures the loop variable, plus an
       # explicit-receiver define_method and define_singleton_method.
@@ -2410,7 +2410,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "runtime undef method on a module reaches its includers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#undef_method` called at RUNTIME -- from inside a `def self.x` body,
       # where `self` is the module -- retires the name for every class that already
       # includes the module. zeo keeps answering with the original body.
@@ -2460,7 +2460,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "singleton body visibility cursor reaches define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `private` in a `class << self` body is a CURSOR that persists across a
       # block: methods `define_method` installs after it are PRIVATE singleton
       # methods. Oracle-verified -- `Vis.hidden` raises NoMethodError.
@@ -2496,7 +2496,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "undef method on a module reaches its includers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A runtime `undef_method` on a MODULE retires the name for every includer.
       # zeo materializes an included method onto each includer's own flattened
       # table, so the tombstone -- which sits on the module -- was somewhere the
@@ -2554,7 +2554,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "undef method reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef_method` on a runtime class is a lookup TERMINATOR, not a deletion:
       # every probe that walks the MRO has to stop at it rather than answering from
       # a still-live ancestor definition.
@@ -2617,7 +2617,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def run
           self.helper + implicit_helper
@@ -2701,7 +2701,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "wrong arity" do
-    result = ze0(<<~'RUBY', path: "ze0/wrong_arity.rb")
+    result = zr(<<~'RUBY', path: "zr/wrong_arity.rb")
       def two(a, b)
         a + b
       end
@@ -2710,20 +2710,20 @@ describe "Methods: defining and naming methods" do
     RUBY
 
     _(result).must_answer "3\n", stderr: <<~'ERR', status: 1
-      ze0/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)
+      zr/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)
 
-          caller: ze0/wrong_arity.rb:5
+          caller: zr/wrong_arity.rb:5
           | puts two(1)
                  ^^^
-          callee: ze0/wrong_arity.rb:1
+          callee: zr/wrong_arity.rb:1
           | def two(a, b)
                 ^^^
-      	from ze0/wrong_arity.rb:5:in '<main>'
+      	from zr/wrong_arity.rb:5:in '<main>'
     ERR
   end
 
   it "zsuper in define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `super` inside a `define_method` body is an error in ruby:
       #
       #     RuntimeError: implicit argument passing of super from method defined by
@@ -2777,7 +2777,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "a def of required positionals alone has a direct entry the site calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The def reads its arguments out of registers when the site hands
       # it exactly its count (rt/kernel/class.rb, MEntry.direct); every
       # other road -- send, Method#call, an alias, a hook, a wrong count,
@@ -2879,7 +2879,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "__method__ in a define_method body answers the name it was defined as" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         define_method(:dm) { __method__ }
         define_method(:nest) { [1].map { __method__ }.first }

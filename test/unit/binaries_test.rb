@@ -8,16 +8,16 @@ require "support/binaries"
 # for byte, holds only what is the program's own, and a kept file that
 # cannot come back whole is a miss rather than a wrong binary.
 class BinariesTest < Minitest::Test
-  Binaries = Ze0::Spec::Binaries
+  Binaries = Zr::Spec::Binaries
   SOURCE = "S = Struct.new(:a, :b)\nputs S.new(1, 2).inspect\n"
 
   def setup
-    skip "a native link on this host only" unless Ze0::Target.default.link
-    @work = File.realpath(Dir.mktmpdir("ze0-binaries-"))
+    skip "a native link on this host only" unless Zr::Target.default.link
+    @work = File.realpath(Dir.mktmpdir("zr-binaries-"))
     File.write(File.join(@work, "p.rb"), SOURCE)
-    @program = Dir.chdir(@work) { Ze0::Native::Build.lower(SOURCE, "p.rb") }
+    @program = Dir.chdir(@work) { Zr::Native::Build.lower(SOURCE, "p.rb") }
     @bin = File.join(@work, "p")
-    why = Ze0::Native::Build.program(@program, @bin, work: @work)
+    why = Zr::Native::Build.program(@program, @bin, work: @work)
     raise why if why
   end
 
@@ -41,7 +41,7 @@ class BinariesTest < Minitest::Test
     Binaries.keep(kept, @bin, @program, @work)
 
     assert_operator File.size(kept), :<, 1 << 20, "a kept binary is under a megabyte"
-    holes = Binaries.cuts(File.binread(@bin), Ze0::Native::Build.prelink(Binaries.objects_of(@program)))
+    holes = Binaries.cuts(File.binread(@bin), Zr::Native::Build.prelink(Binaries.objects_of(@program)))
     assert_equal %i[text data symbols strings], holes.map(&:last)
     assert_operator holes.sum { |_, size, _| size }, :>, File.size(@bin) - (1 << 20)
   end
@@ -61,9 +61,9 @@ class BinariesTest < Minitest::Test
     FileUtils.mkdir_p(File.join(@work, "lib"))
     File.write(File.join(@work, "lib/helper.rb"), "module Helper\n  def self.answer = __FILE__\nend\n")
     File.write(File.join(@work, "q.rb"), source)
-    program = Dir.chdir(@work) { Ze0::Native::Build.lower(source, "q.rb") }
+    program = Dir.chdir(@work) { Zr::Native::Build.lower(source, "q.rb") }
     bin = File.join(@work, "q")
-    raise why if (why = Ze0::Native::Build.program(program, bin, work: @work))
+    raise why if (why = Zr::Native::Build.program(program, bin, work: @work))
     kept = File.join(@work, "kept")
 
     Binaries.keep(kept, bin, program, @work)

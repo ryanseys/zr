@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "RubyGems programs" do
   it "bundler registers its thor commands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MILESTONE: bundler's whole command table, which Thor builds through
       # `method_added`.
       #
@@ -65,7 +65,7 @@ describe "RubyGems programs" do
   end
 
   it "computed require of a bundled gem" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x = ["json", ""].first; require x` loads json, exactly as the same require
       # spelled literally does.
       #
@@ -112,7 +112,7 @@ describe "RubyGems programs" do
   end
 
   it "gemspec loads from yaml" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MILESTONE: a real `Gem::Specification` comes back out of YAML.
       #
       # This is the shape a `.gem` archive carries in its `metadata.gz`, and reading
@@ -201,7 +201,7 @@ describe "RubyGems programs" do
   end
 
   it "is there before the first line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby loads rubygems before a program's first line: Gem answers without
       # a require, `require "rubygems"` answers false, and Kernel#require and
       # #gem are rubygems' own. A String compares with a Gem::Version through
@@ -229,7 +229,7 @@ describe "RubyGems programs" do
   end
 
   it "require rubygems under a guard" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MILESTONE: `require "rubygems" unless defined?(Gem)` loads RUBYGEMS.
       #
       # The idiom `bundler/rubygems_ext.rb:3` opens with, and the shape that made
@@ -273,7 +273,7 @@ describe "RubyGems programs" do
   end
 
   it "requiring rubygems then bundler installs the monkeypatches without a warning ruby does not print" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MILESTONE: `require "rubygems"` then `require "bundler"`, and the bundler
       # monkeypatches over RubyGems that the second require installs.
       #
@@ -346,7 +346,7 @@ describe "RubyGems programs" do
   end
 
   it "a specification reads its date from the frozen source date epoch" do
-    result = ze0(<<~'RUBY', env: { "SOURCE_DATE_EPOCH" => "86400" })
+    result = zr(<<~'RUBY', env: { "SOURCE_DATE_EPOCH" => "86400" })
       require "rubygems"
       e = Gem.source_date_epoch
       p e.frozen?, e.utc.equal?(e)

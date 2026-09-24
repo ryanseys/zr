@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "../../lib/ze0/ir"
+require_relative "../../lib/zr/ir"
 
-module Ze0
+module Zr
   module Native
     # Every opcode `Backend::Aarch64::Codegen` lowers, each in the smallest function that
     # can hold it: the operands arrive as parameters and the result is

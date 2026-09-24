@@ -398,7 +398,7 @@ end
 # where the program called it. In CRuby that form is a C frame, which
 # carries the self, the name and the owner but no place of its own, so
 # `rb_tracearg_path` walks out to the nearest Ruby frame for the place.
-# These forms (rt/ext/ze0/eval/forms.rb) are ordinary Ruby, so the two
+# These forms (rt/ext/zr/eval/forms.rb) are ordinary Ruby, so the two
 # frames are this one and the one before it, and each half is read from
 # the frame CRuby reads it from: `1.instance_eval("...")` answers 1,
 # `:instance_eval` and BasicObject, at the line that called it.

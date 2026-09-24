@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: searching and matching" do
   it "assoc and rassoc match each pair's first or second slot, and a self-referential array terminates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -76,7 +76,7 @@ describe "Array: searching and matching" do
   end
 
   it "set ops, mutators, the sort family, flatten, join, fetch and the in-place filters all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Array Tier A surface: set ops, mutators, sort family, flatten/
       # compact/uniq, join/to_h, fetch/dig/zip/rotate/values_at, and the
       # in-place filters' self-or-nil contract.
@@ -191,7 +191,7 @@ describe "Array: searching and matching" do
   end
 
   it "grep and grep_v collect by pattern ===, taking a Range, a Class or a Regexp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#grep(pattern) / #grep_v(pattern) without a block: collect the
       # elements matching (or not matching) the pattern via `pattern ===`.
       # Supported: Range over an int array, primitive Class over a poly array,
@@ -219,7 +219,7 @@ describe "Array: searching and matching" do
   end
 
   it "grep and grep_v on an empty literal match nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#grep / #grep_v on an empty array literal match nothing and return an
       # empty array (the bare literal has no element type to dispatch from).
       p([].grep(Integer))
@@ -237,7 +237,7 @@ describe "Array: searching and matching" do
   end
 
   it "a[i] &&= v writes only where the slot is already truthy, whatever the element kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # arr[i] &&= v across array element kinds (IndexAndWriteNode, statement + expr).
       # &&= writes only when the slot is already truthy/present. Per-type helpers keep
       # each receiver's concrete array type (a shared helper would widen to poly).
@@ -276,7 +276,7 @@ describe "Array: searching and matching" do
   end
 
   it "index with a block finds the first element the block accepts, like find_index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#index { |x| cond } finds the first index whose element satisfies the
       # block (an alias for #find_index in this form); returns nil on no match.
       # Receivers route through a per-kind identity method to exercise the typed path.
@@ -311,7 +311,7 @@ describe "Array: searching and matching" do
   end
 
   it "an out-of-range negative write raises IndexError, and a write past the end grows the array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       begin
         a[-10] = :x
@@ -331,7 +331,7 @@ describe "Array: searching and matching" do
   end
 
   it "a write past the end fills the gap with nil on a poly array too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An index write past the end grows the array, filling the gap with nil, the
       # way every typed array already did. The poly array silently dropped the write.
       a = []
@@ -368,7 +368,7 @@ describe "Array: searching and matching" do
   end
 
   it "a[i] += with a right-hand side only known at run time keeps the slot's element kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Compound index assignment on a typed array with a poly right-hand side:
       # `float_array[i] += b[0]` where b is a heterogeneous (poly) array. The
       # emitter added the boxed sp_RbVal straight to the unboxed slot
@@ -451,7 +451,7 @@ describe "Array: searching and matching" do
   end
 
   it "a[i] ||= v writes only where the slot is nil, so a stored 0 is kept" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # arr[i] ||= v across array element kinds (IndexOrWriteNode, statement + expr).
       # Each receiver is routed through a per-type helper so its concrete array type
       # survives (one shared helper would unify every kind to a boxed poly value).
@@ -508,7 +508,7 @@ describe "Array: searching and matching" do
   end
 
   it "[] takes a Range held in a variable, endless, beginless or out of range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[] with a Range held in a variable/parameter (not a literal RangeNode)
       # routes to the slice path instead of the scalar integer-index accessor, which
       # previously passed an sp_Range to an mrb_int parameter and failed to compile.
@@ -563,7 +563,7 @@ describe "Array: searching and matching" do
   end
 
   it "an index that is not an Integer raises TypeError from values_at, at, [], fetch and first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Array#[]= on a frozen array raises TypeError for the bad index before
       # FrozenError for the frozen receiver; ruby checks frozenness first.
@@ -630,7 +630,7 @@ describe "Array: searching and matching" do
   end
 
   it "compact!, rotate! and a pattern match answer beside the Symbol and String predicates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, nil, 2, nil].compact!
       p [1, 2].compact!
       a = [1, 2, 3, 4]; a.rotate!(2); p a
@@ -654,7 +654,7 @@ describe "Array: searching and matching" do
   end
 
   it "a brace-less hash as an array literal's last element is one ordinary Hash element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A brace-less hash as the last element of an ARRAY literal. Ruby collapses it
       # into one ordinary Hash element, the same value the braced form builds --
       # `[1, k: 2]` is `[1, {k: 2}]`, two elements, not three.
@@ -708,7 +708,7 @@ describe "Array: searching and matching" do
   end
 
   it "member? answers on an empty array held in a variable, not only on the literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#member? (an alias of include?) works on an empty array held in a
       # variable, not only on the empty literal.
       a = []
@@ -729,7 +729,7 @@ describe "Array: searching and matching" do
   end
 
   it "the IndexError for a too-small negative index names the minimum the array allows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #839: an extreme negative index on []= raises IndexError
       # per MRI. Spinel previously silently no-op'd when the index after
       # `+= len` was still negative.
@@ -764,7 +764,7 @@ describe "Array: searching and matching" do
   end
 
   it "take and drop refuse a negative count, and insert refuses an index below the minimum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array size/index operations validate their argument: a negative count to
       # take/drop raises ArgumentError, and an out-of-range negative insert index
       # raises IndexError. Spinel previously proceeded silently (drop even returned a
@@ -809,7 +809,7 @@ describe "Array: searching and matching" do
   end
 
   it "values_at truncates a Float index toward zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2].values_at(1.5))
       p([1, 2, 3].values_at(0.9))
       p([1, 2, 3].values_at(-1.5))
@@ -836,7 +836,7 @@ describe "Array: searching and matching" do
   end
 
   it "dig multi step typeerror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A multi-step dig stops at nil and raises TypeError on a step that cannot be
       # dug; chaining index reads answered the scalar the first step found (#3825).
       begin; p [1].dig(0, 0); rescue TypeError => e; p e.class; end
@@ -863,7 +863,7 @@ describe "Array: searching and matching" do
   end
 
   it "enumerable grep zip and minmax by" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..10).grep(3..5)
       p [1, "a", 2, "b"].grep(Integer)
       p [1, "a", 2, "b"].grep(Integer) { |x| x * 10 }
@@ -891,7 +891,7 @@ describe "Array: searching and matching" do
   end
 
   it "hash dig into array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#dig must descend into whatever the previous key returned -- an
       # Array element, a nested Hash, etc. -- dispatching each sub-key on the
       # runtime receiver. Previously a symbol-keyed hash forced every sub-key
@@ -925,7 +925,7 @@ describe "Array: searching and matching" do
   end
 
   it "index operands take any integer in long range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An index or a size reads as NUM2LONG reads it: any Integer that fits a
       # signed 64-bit word, a fixnum or not, and CRuby's RangeError past one. A
       # length past the end reads to the end, and an index past either end
@@ -982,7 +982,7 @@ describe "Array: searching and matching" do
   end
 
   it "int array array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array of int-arrays (TY_INT_ARRAY_ARRAY): a monomorphic array whose elements
       # are themselves int arrays is stored unboxed (sp_PtrArray of sp_IntArray*),
       # so indexing yields a typed int array with no per-element boxing.
@@ -1055,7 +1055,7 @@ describe "Array: searching and matching" do
   end
 
   it "int array foreign values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A homogeneous int array widens when a foreign value arrives through
       # unshift/insert/concat (like push already did), a gap left by an
       # out-of-range index write reads as nil, and delete of an absent value
@@ -1100,7 +1100,7 @@ describe "Array: searching and matching" do
   end
 
   it "rand float bound is integer and digits radix messages" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rand(Float) truncates the bound and draws an Integer (CRuby 4.0.6);
       # Integer#digits distinguishes a negative radix from a 0/1 radix.
 
@@ -1119,7 +1119,7 @@ describe "Array: searching and matching" do
   end
 
   it "three level array outer index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[a, b, c, d].map { (0...M).map { (0..N).map { ... } } }` builds a
       # 3-level Array<Array<IntArray>>. The outer .map's receiver is an
       # array literal; spinel's compile_map_expr stored that receiver in a

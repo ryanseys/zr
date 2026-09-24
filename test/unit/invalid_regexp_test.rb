@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/hir"
+require_relative "../../lib/zr/hir"
 require "stringio"
 
 # A pattern the engine will not compile.
 #
 # ruby reads a regexp literal as it compiles the string around it, so
-# such a pattern is a syntax error and not a run-time one. ze0 asks the
+# such a pattern is a syntax error and not a run-time one. zr asks the
 # host's engine the same question, and answers with
 # `Hir::Hir::Invalid`: a build reports it as a refusal and names the
 # line, and a program that compiles the pattern while it runs sees the
@@ -15,7 +15,7 @@ require "stringio"
 #
 # ruby 4.0.6 is the oracle for every message below.
 class InvalidRegexpTest < Minitest::Test
-  Hir = Ze0::Hir
+  Hir = Zr::Hir
 
   def test_a_pattern_the_engine_refuses_is_named_at_its_line
     error = assert_raises(Hir::Invalid) { build("p 1\np(/[z-a]/)\n") }
@@ -94,7 +94,7 @@ class InvalidRegexpTest < Minitest::Test
 
   # The HIR of `source`, built as the eval road builds one: no road
   # carried, and the loader in the mode a run-time compile uses.
-  def build(source) = Ze0::Hir.build(source, "pattern.rb", road: false)
+  def build(source) = Zr::Hir.build(source, "pattern.rb", road: false)
 
   def capturing_stderr
     said = StringIO.new

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: substitution" do
   it "gsub bang without a replacement answers an enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       e = (+"hello world").gsub!(1)
       p e.class
       class P < String; end
@@ -31,7 +31,7 @@ describe "String: substitution" do
   end
 
   it "poly delete upcase chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#delete then #upcase on a value that widened to poly, in a program
       # where a user class (the bundled Set) also defines `delete`: the poly delete
       # must keep the string possibility (unify with the class dispatch) instead of
@@ -83,7 +83,7 @@ describe "String: substitution" do
   end
 
   it "str delete count negation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#delete and String#count with ^-negated charset
       # ^ at the start inverts the charset meaning.
 
@@ -113,7 +113,7 @@ describe "String: substitution" do
   end
 
   it "str squeeze arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#squeeze with charset argument
       # The argument restricts which characters get squeezed.
       # "a" squeezes only 'a', "^a" squeezes everything except 'a'.
@@ -146,7 +146,7 @@ describe "String: substitution" do
   end
 
   it "str tr negation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#tr / tr_s with ^-negation in from-set
       # ^ at the start of from-set inverts which chars get translated.
 
@@ -168,7 +168,7 @@ describe "String: substitution" do
   end
 
   it "swapcase, delete_prefix and delete_suffix each answer a new string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#swapcase, #delete_prefix, and #delete_suffix return new strings. Each
       # has a runtime helper already; this exercises the typed-String dispatch arms and
       # the inferred String return type (so the results chain and print). Receivers go
@@ -210,7 +210,7 @@ describe "String: substitution" do
   end
 
   it "a backslash in a tr or count character set escapes the next character rather than opening a range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A character-set escape in a String method argument is not expanded, so
       # the range collapses.
@@ -245,7 +245,7 @@ describe "String: substitution" do
   end
 
   it "delete_prefix! and delete_suffix! change the receiver, and a frozen literal raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # String#delete_prefix! / delete_suffix! on a mutable_str mutate in
       # place and return the receiver. On a frozen string literal they
@@ -288,7 +288,7 @@ describe "String: substitution" do
   end
 
   it "a blockless gsub is an Enumerator, and each_line takes any separator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless String#gsub(/re/) is an Enumerator over the matches, and
       # each_line(sep) / lines(sep) split on an arbitrary separator (kept on
       # each segment) like CRuby.
@@ -310,7 +310,7 @@ describe "String: substitution" do
   end
 
   it "replace, prepend, insert and clear change the string a local holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#replace / prepend / insert / clear mutate a string held in a
       # local variable. The analyzer widens such a local to a mutable_str
       # (or, for clear, reassigns it), so these match CRuby instead of being
@@ -359,7 +359,7 @@ describe "String: substitution" do
   end
 
   it "squeeze shrinks the header, so length and bytes report what is left" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #921: String#squeeze shrinks the heap-string header
       # so length / bytes report the post-squeeze size, not the
       # pre-squeeze allocation.
@@ -384,7 +384,7 @@ describe "String: substitution" do
   end
 
   it "tr! answers nil when nothing moved, and the receiver when something did" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (+"Hello").tr!("l", "l")
       p (+"Hello").tr!("z", "y")
       p (+"Hello").tr!("l", "L")
@@ -398,7 +398,7 @@ describe "String: substitution" do
   end
 
   it "a character repeated in tr's from takes its last corresponding to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A char repeated in `from` takes its LAST corresponding `to` char
       # (CRuby's rule) -- previously the FIRST mapping wrongly won.
 
@@ -415,7 +415,7 @@ describe "String: substitution" do
   end
 
   it "sub and gsub read a replacement in its own encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sub and gsub read a replacement's backslashes as CRuby's rb_reg_regsub
       # reads them: a character at a time in the replacement's own encoding,
       # so UTF-16 and UTF-32 replacements fill in their groups and a
@@ -547,7 +547,7 @@ describe "String: substitution" do
   end
 
   it "tr family counts characters not bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # tr, tr_s, count, delete and squeeze read a spec as characters, so a
       # multibyte character is one member of the set and one place in the
       # replacement. A range spans codepoints.
@@ -610,7 +610,7 @@ describe "String: substitution" do
   end
 
   it "tr squeeze negation split block and chomp paragraph" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `^`-negated tr/squeeze sets, split's block form (yields fields, returns
       # the receiver), and chomp("") paragraph mode.
 

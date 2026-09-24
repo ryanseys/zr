@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable: blocks and yields" do
   it "an enumerable block can re enter its own driver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The enumerable drivers accumulate into state the block can reach again: a
       # block that calls the SAME method on the SAME receiver runs a second driver
       # while the first is mid-element. Pinned because the accumulator moved from a
@@ -56,7 +56,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "anonymous struct is enumerable and keeps its method block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A native anonymous struct is Enumerable and honours a class-body method
       # block, exactly like the synthesized constant form.
 
@@ -79,7 +79,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "block autosplat minmax group" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # min_by / max_by / minmax_by / group_by auto-splat a poly array's sub-array
       # elements across a 2+-param block, like map/sort_by. The winning element (or
       # grouped element) is the whole sub-array; a single param keeps it intact.
@@ -131,7 +131,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "custom enumerable bare yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def each
@@ -156,7 +156,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "find calls the ifnone callable when nothing in the source matches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -182,7 +182,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "an each that yields two values packs them into one element, and a lone for target drops the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Imported from the spinel corpus at c55d9bdb.
       # `each` yielding more than one value per element. Enumerable packs them into
       # one array element, so `map`/`to_a`/`sort_by` see pairs.
@@ -335,7 +335,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "enumerator block driving" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A materialized Enumerator (from a blockless each / reverse_each / each_char)
       # drives its block-taking Enumerable methods off its element array:
       # enum.map { } behaves as enum.to_a.map { }. Index-producing enumerators
@@ -413,7 +413,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "sum empty block body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `sum {}` has no statements, so the fold that lowers a block sum found no tail
       # to type and refused the call, which then reached the run-time dispatch and
       # raised NoMethodError. An empty body answers nil for every element: an empty
@@ -459,7 +459,7 @@ describe "Enumerable: blocks and yields" do
   end
 
   it "zero arg resume binds nil block params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = Fiber.new { |x| x.nil? }
       puts f.resume
     RUBY

@@ -7,7 +7,7 @@
 #
 #   rake gen:description             rt/ext/os/<os>/zr_description.rb
 #   rake 'gen:description[wasm32-wasi]'
-#   rake gen:libsystem               lib/ze0/obj/macho/libsystem.rb
+#   rake gen:libsystem               lib/zr/obj/macho/libsystem.rb
 #   rake gen:prism_generate          rt/ext/prism/ruby/*.rb
 #   rake gen:prism_encoding_tables   rt/ext/prism/ruby/encoding_tables.rb
 #
@@ -15,7 +15,7 @@
 # run them, and the tasks here run the same scripts the same way:
 # `test/unit/description_test.rb`, `libsystem_test.rb` and
 # `prism_test.rb` are the ones that fail when a file has gone stale, and
-# `ZE0_BLESS=1 rake test:unit N=/Description/` is the other way to write
+# `ZR_BLESS=1 rake test:unit N=/Description/` is the other way to write
 # the first two again.
 
 module Snapshots
@@ -36,14 +36,14 @@ end
 namespace :gen do
   desc "Write rt/ext/os/<os>/zr_description.rb: rake 'gen:description[wasm32-wasi]'"
   task(:description, [:triple]) do |_, args|
-    require_relative "../lib/ze0/zr"
-    target = args[:triple] ? (Ze0::Target.fetch(args[:triple]) || abort("no target #{args[:triple]}")) : Ze0::Target.default
-    ze0_write("rt/ext/os/#{target.os_layer}/zr_description.rb") { |io| io.print Snapshots.run("description", target.triple) }
+    require_relative "../lib/zr/zr"
+    target = args[:triple] ? (Zr::Target.fetch(args[:triple]) || abort("no target #{args[:triple]}")) : Zr::Target.default
+    zr_write("rt/ext/os/#{target.os_layer}/zr_description.rb") { |io| io.print Snapshots.run("description", target.triple) }
   end
 
-  desc "Write lib/ze0/obj/macho/libsystem.rb"
+  desc "Write lib/zr/obj/macho/libsystem.rb"
   task(:libsystem) do
-    ze0_write("lib/ze0/obj/macho/libsystem.rb") { |io| io.print Snapshots.run("libsystem") }
+    zr_write("lib/zr/obj/macho/libsystem.rb") { |io| io.print Snapshots.run("libsystem") }
   end
 
   desc "Write rt/ext/prism/ruby/*.rb: rake 'gen:prism_generate[--check]'"

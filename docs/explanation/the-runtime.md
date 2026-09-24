@@ -1,8 +1,8 @@
 # The runtime
 
-Every program ze0 builds carries a runtime: the heap and collector,
+Every program zr builds carries a runtime: the heap and collector,
 method dispatch, exceptions, fibers, and all of Ruby's core classes. In
-most Ruby implementations this part is C. In ze0 it is Ruby, in three
+most Ruby implementations this part is C. In zr it is Ruby, in three
 layers.
 
 | Layer | Directory | Written in |
@@ -18,7 +18,7 @@ allocate objects to do its work. A method call cannot itself make a
 method call to find its method. Code at this level needs addresses,
 fixed-width integers and struct layouts.
 
-The usual answer is C. ze0 takes the answer of Squeak's Slang, RPython
+The usual answer is C. zr takes the answer of Squeak's Slang, RPython
 and Jikes RVM instead: write the low level in a restricted form of the
 high-level language. A `machine def` has Ruby's syntax, but every local
 has a machine type, a struct is a layout, and a call is a machine call:
@@ -45,7 +45,7 @@ tries, and which error each method raises. That code is clearest in
 Ruby. CRuby itself moves in this direction: `array.rb`, `kernel.rb`
 and `numeric.rb` are Ruby with `Primitive` calls.
 
-ze0 follows the same idiom. `rt/core/string.rb` is plain Ruby, and it
+zr follows the same idiom. `rt/core/string.rb` is plain Ruby, and it
 reaches the kernel through `Primitive`:
 
 ```ruby
@@ -72,7 +72,7 @@ write are hidden from the program, as a C struct's fields are.
 
 ## Why extensions are Ruby too
 
-A gem such as `json` or `digest` has a Ruby half and a C half. ze0
+A gem such as `json` or `digest` has a Ruby half and a C half. zr
 vendors the Ruby half unedited (`vendor/ext/<gem>/lib`) and writes the
 C half as Ruby (`rt/ext/<name>.so.rb`). The gem's own Ruby code then
 runs exactly as it does on CRuby, over a native half that answers the

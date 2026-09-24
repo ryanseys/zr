@@ -1,9 +1,9 @@
 # Add your first spec
 
-In this tutorial, we work in a checkout of ze0. We add one example that
-holds ze0 to ruby: we write a small Ruby program, ask ruby what it
-says, and assert that what ze0 compiles says the same. This is the loop
-behind almost every change to ze0.
+In this tutorial, we work in a checkout of zr. We add one example that
+holds zr to ruby: we write a small Ruby program, ask ruby what it
+says, and assert that what zr compiles says the same. This is the loop
+behind almost every change to zr.
 
 You need an Apple Silicon Mac with ruby 4.0.6, the Xcode Command Line
 Tools, and git.
@@ -13,16 +13,16 @@ Tools, and git.
 Clone the repository and install the development gems:
 
 ```console
-$ git clone https://github.com/ryanseys/ze0.git
-$ cd ze0
+$ git clone https://github.com/ryanseys/zr.git
+$ cd zr
 $ bundle install
 ```
 
 Check that the command works:
 
 ```console
-$ exe/ze0 version
-ze0 0.1.0
+$ exe/zr version
+zr 0.1.0
 ```
 
 ## Ask ruby first
@@ -51,7 +51,7 @@ Add this example inside the file's `describe` block:
 
 ```ruby
 it "groups words by their length" do
-  result = ze0(<<~'RUBY')
+  result = zr(<<~'RUBY')
     words = %w[ruby compiles to native code]
     puts words.map(&:capitalize).join(" ")
     puts words.group_by(&:size).transform_values(&:count).inspect
@@ -64,7 +64,7 @@ it "groups words by their length" do
 end
 ```
 
-`ze0` compiles the program with ze0, runs the binary, and hands back
+`zr` compiles the program with zr, runs the binary, and hands back
 what it said. `must_answer` holds the **whole** answer: stderr must be
 empty and the exit status zero unless the example says otherwise. A
 program that also wrote a backtrace has not matched.
@@ -111,9 +111,9 @@ test/spec/lang/misc/enumeration_test.rb    12 asked,  0 skipped, 0 apart
 `0 apart` is the point of the whole exercise: the literal in the file
 is ruby's word, not yours.
 
-## When ze0 does not answer it yet
+## When zr does not answer it yet
 
-An example whose program uses a form ze0 does not compile **skips**,
+An example whose program uses a form zr does not compile **skips**,
 naming the form. That is the roadmap, not a failure — only a wrong
 answer, a crash or a timeout fails. If you find one, leave the example
 where it belongs and say what it waits on:
@@ -125,12 +125,12 @@ it "converts through the carrier's own UTF-8" do
 end
 ```
 
-The day ze0 answers it, the line comes off, and nothing had to move.
+The day zr answers it, the line comes off, and nothing had to move.
 
 ## What you did
 
 You asked ruby, wrote an example that compiles the same program with
-ze0, watched all four parts of the answer hold, and had ruby check your
+zr, watched all four parts of the answer hold, and had ruby check your
 literal afterwards.
 
 Next steps:

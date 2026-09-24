@@ -1,6 +1,6 @@
 # zlib's checksums: adler32.c and crc32.c, as zlib 1.3.1 writes them.
 # A sum is a 32-bit value carried in a Word; the C's unsigned long is
-# 64 bits on every host ze0 builds for, so nothing here overflows where
+# 64 bits on every host zr builds for, so nothing here overflows where
 # the C did not. Derived from zlib; the license is in rt/kernel/zlib.rb.
 ADLER_BASE = 65521
 ADLER_NMAX = 5552

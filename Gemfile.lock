@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    ze0 (0.1.0)
+    zr (0.1.0)
       abbrev (= 0.1.2)
       base64 (= 0.3.0)
       benchmark (= 0.5.0)
@@ -198,7 +198,7 @@ DEPENDENCIES
   minitest-reporters (~> 1.8)
   rake (~> 13.0)
   vernier (~> 1.0)
-  ze0!
+  zr!
 
 CHECKSUMS
   aarch64 (3.0.0) sha256=44b6358a7b8d8eb1c00f41f0ce66051e2e611d895ba34f03419fbcb108970625
@@ -275,7 +275,7 @@ CHECKSUMS
   uri (1.1.1) sha256=379fa58d27ffb1387eaada68c749d1426738bd0f654d812fcc07e7568f5c57c6
   vernier (1.11.0) sha256=ffc3859da1d53df96a109c6609892dab9f1d96ffbdd77cf13fa4d74032331216
   weakref (0.1.4) sha256=6cb8852f0367a630ecfbf8e0caf296cb2d8a9cd5318fab01ce4c06d6540a335b
-  ze0 (0.1.0)
+  zr (0.1.0)
 
 BUNDLED WITH
   4.0.20

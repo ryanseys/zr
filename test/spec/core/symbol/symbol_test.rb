@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Symbol programs" do
   it "keeps its encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Symbol is its bytes and the encoding they are in. Binary bytes past
       # ASCII make another Symbol than the same bytes as UTF-8, ASCII bytes
       # make the same one, and bytes invalid in their encoding make none.
@@ -38,7 +38,7 @@ describe "Symbol programs" do
   end
 
   it "to proc answers one lambda per symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Symbol#to_proc` and `&:name` answer the same lambda for a symbol
       # every time, as ruby keeps one per symbol; it is a lambda, not
       # frozen, and it keeps what a program puts on it.

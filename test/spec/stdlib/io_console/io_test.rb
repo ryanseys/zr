@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO::console: reading and writing" do
   it "closed io refuses every console row" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every `io/console` row runs `GetOpenFile` first, so a CLOSED stream is
       # `IOError: closed stream` and no syscall happens.
       #
@@ -63,7 +63,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "console row survives an earlier io call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `io/console` rows are gated on the require, and touching an IO BEFORE
       # that require must not close the gate for the rest of the program.
       #
@@ -108,7 +108,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "terminal modes, echo control and the cursor escapes answer, and a pipe raises ENOTTY" do
-    result = ze0(<<~'RUBY', path: "io_console.rb")
+    result = zr(<<~'RUBY', path: "io_console.rb")
       # `io/console` -- terminal modes, echo control, and the cursor escapes. CRuby
       # ships it as a require-gated extension; zeo's rows hang unconditionally off
       # the IO table, so the require is ceremony (`docs/EXTENSIONS.md`).
@@ -210,7 +210,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "raw! with a non-numeric min:, an unknown keyword or a stray positional raises instead of ending the process" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `io/console` argument guards, all of them io-console's own.
       #
       # The worst of these was `min:`: a non-numeric went through an "unchecked"
@@ -286,7 +286,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "the io/console methods answer respond_to?, not only a call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # io/console's methods answer to reflection, not just to calls -- webrick and
       # friends feature-test with `respond_to?(:raw)` before touching the terminal.
       require "io/console"
@@ -297,7 +297,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "io/console/size is its own require, and IO.console_size reads the environment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "io/console/size"` is its own require in ruby -- `io/console`
       # alone does NOT define `IO.console_size` -- and it was a LoadError here, so
       # irb, debug and power_assert all failed on their first line.
@@ -344,7 +344,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "a Symbol timeout, a huge read, a zero-capacity ioctl buffer and an i64 overflow all raise, not abort" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every one of these ended a zeo process instead of raising.
       #
       # `io.wait(:read)` panicked: the Symbol lands in the timeout slot, which went
@@ -426,7 +426,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "tty? is isatty on the handle's descriptor, not a test of which standard stream it is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO#tty?` is `isatty(2)` on the handle's descriptor, not a test of which
       # standard stream this is.
       #
@@ -470,7 +470,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "tty? and winsize reach the IO arm through a handle the program carries as poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO#tty? and IO#winsize on a poly-carried handle.
       #
       # Both names reach the IO arm only when the receiver is statically typed IO.
@@ -552,7 +552,7 @@ describe "IO::console: reading and writing" do
   end
 
   it "require io console winsize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # require-gate: `require "io/console"` enables the IO console surface
       # (IO#winsize). Without the require, winsize is unresolved under
       # SPINEL_REQUIRE_GATE (matching CRuby's NoMethodError); with it, the

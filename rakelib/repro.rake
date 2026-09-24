@@ -2,7 +2,7 @@
 
 # The same program, built from two copies of the tree at two paths
 # under another home, clock zone, locale and job count, with one path
-# root (`ze0 build --path-root`), must come out as the same bytes: a
+# root (`zr build --path-root`), must come out as the same bytes: a
 # build is a function of its sources and its flags, never of where it
 # ran.
 #
@@ -16,12 +16,12 @@ require "fileutils"
 require "open3"
 require "rbconfig"
 require "tmpdir"
-require_relative "../lib/ze0/paths"
-require_relative "../lib/ze0/native/parallel"
+require_relative "../lib/zr/paths"
+require_relative "../lib/zr/native/parallel"
 
 module Repro
-  ROOT = Ze0::Paths::ROOT
-  PATH_ROOT = "/ze0"
+  ROOT = Zr::Paths::ROOT
+  PATH_ROOT = "/zr"
 
   # A main file that requires a file of its own and names both, and a
   # backtrace through the two.
@@ -45,12 +45,12 @@ module Repro
   module_function
 
   def run
-    work = Dir.mktmpdir("ze0-repro-")
+    work = Dir.mktmpdir("zr-repro-")
     puts "work (kept if this fails): #{work}"
-    copies = [File.join(work, "a/ze0"), File.join(work, "b/other/place/ze0")]
+    copies = [File.join(work, "a/zr"), File.join(work, "b/other/place/zr")]
     copies.each { |copy| copy_tree(copy) }
     wasm = ENV["REPRO_WASM"] == "1"
-    at_once = Ze0::Native::Parallel.machine_bytes >= 12 * (1 << 30)
+    at_once = Zr::Native::Parallel.machine_bytes >= 12 * (1 << 30)
     outs = copies.each_with_index.map { |copy, i| [copy, i] }.then do |pairs|
       if at_once
         pairs.map { |copy, i| Thread.new { build(copy, i, wasm) } }.map(&:value)
@@ -93,14 +93,14 @@ module Repro
   def build(copy, index, wasm)
     home = File.join(copy, "..", "home").then { |dir| FileUtils.mkdir_p(dir) && File.expand_path(dir) }
     tmp = File.join(home, "tmp").tap { |dir| FileUtils.mkdir_p(dir) }
-    env = { "HOME" => home, "TMPDIR" => tmp, "ZE0_CACHE" => File.join(home, "cache"), "RUBYOPT" => nil, "RUBYLIB" => nil,
-            "TZ" => %w[UTC Asia/Tokyo][index], "LANG" => %w[C en_CA.UTF-8][index], "ZE0_JOBS" => %w[2 3][index],
+    env = { "HOME" => home, "TMPDIR" => tmp, "ZR_CACHE" => File.join(home, "cache"), "RUBYOPT" => nil, "RUBYLIB" => nil,
+            "TZ" => %w[UTC Asia/Tokyo][index], "LANG" => %w[C en_CA.UTF-8][index], "ZR_JOBS" => %w[2 3][index],
             "BUNDLE_GEMFILE" => nil }
     outs = { "binary" => "main", "object" => "main.o" }
     outs["wasm module"] = "main.wasm" if wasm
     outs.to_h do |what, out|
       emit = { "main.o" => %w[--emit obj], "main.wasm" => %w[--emit wasm] }.fetch(out, [])
-      command = [RbConfig.ruby, File.join(copy, "exe/ze0"), "build", "repro/main.rb", "-o", "repro/#{out}", *emit,
+      command = [RbConfig.ruby, File.join(copy, "exe/zr"), "build", "repro/main.rb", "-o", "repro/#{out}", *emit,
                  "--path-root=#{PATH_ROOT}"]
       puts "#{copy}: #{what}"
       text, status = Open3.capture2e(env, *command, chdir: copy)

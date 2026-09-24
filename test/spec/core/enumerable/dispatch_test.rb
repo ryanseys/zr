@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable: dispatch" do
   it "poly array map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `compile_map_expr` had no `poly_array` recv branch — a
       # heterogeneous-element array (`[1, "two", :three]`) called
       # `.map { ... }` and the dispatch fell through to the `"0"`
@@ -55,7 +55,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly array push handlers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `compile_call_expr` and `compile_mutating_call_stmt` had no `<<`
       # / `push` arms for poly_array recv. The expr-context fall-through
       # produced raw C `<<` on `sp_PolyArray *` (gcc error: "invalid
@@ -88,7 +88,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test heterogeneous Hash
 
       h = {name: "Alice", age: 30, active: true}
@@ -119,7 +119,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "primitive is a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # is_a? / kind_of? / instance_of? on primitive receivers — answer
       # decided at compile time based on Ruby's class hierarchy.
 
@@ -221,7 +221,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly each with index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_with_index on a POLY receiver - an array reached as a boxed sp_RbVal (a
       # def parameter, or an element of a nested array) - went through poly dispatch
       # that lacked each_with_index and raised NoMethodError, though plain `each` had a
@@ -283,7 +283,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly element methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array-reduction methods (sum / min / max / first / last / length) called on the
       # elements of a poly array whose elements are themselves arrays -- e.g. the runs
       # produced by chunk_while. The element type is erased to poly, so the method is
@@ -341,7 +341,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly fdiv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       rings = [[[[-63.1269583, 46.2338358], [-63.1260111, 46.234436]]]]
       array = rings.flat_map { |ring| ring.first.map &:first }
       p array.sum
@@ -364,7 +364,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly find index block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find_index / index / rindex WITH A BLOCK on a poly receiver.
       #
       # The block form is emitted by the typed-array path, which is keyed on the
@@ -434,7 +434,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly recv arg iterators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_slice / each_cons / zip / cycle with a block, on a receiver only known
       # to be a container at run time. The blockless forms re-dispatched as the array
       # ones; the block forms had no arm and fell to the loud NoMethodError.
@@ -486,7 +486,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly recv find chunk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find / detect answer the winning ELEMENT of a receiver only known to be a
       # container at run time, and the chunk family answers an Enumerator unless a
       # .to_a terminal materializes the runs. Both had no arm for a poly receiver and
@@ -534,7 +534,7 @@ describe "Enumerable: dispatch" do
   end
 
   it "poly recv map join" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #654: `arr.map { ... }.join(sep)` on a poly-typed
       # receiver (e.g. parameter with `= nil` default that widens to
       # sp_RbVal) silently emitted `sp_StrArray * _t = 0` for the map

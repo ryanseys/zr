@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Timeout programs" do
   it "ends a wait on a descriptor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Timeout.timeout reaches a thread that waits on a descriptor: the wait
       # parks, so the timer thread runs and its raise ends the wait.
       require "timeout"
@@ -32,7 +32,7 @@ describe "Timeout programs" do
   end
 
   it "regexp timeout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Regexp.timeout` is the process-wide match limit in seconds and `timeout:`
       # a pattern's own; past either, a match raises `Regexp::TimeoutError`. The
       # limit is a Float or nil, must be positive, and a pattern's own value is what

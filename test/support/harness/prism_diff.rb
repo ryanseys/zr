@@ -3,9 +3,9 @@
 require "fileutils"
 require "prism"
 require_relative "child"
-require_relative "../../../lib/ze0/record"
+require_relative "../../../lib/zr/record"
 
-module Ze0
+module Zr
   module Harness
     # The pure-Ruby prism (rt/ext/prism/ruby) held to ruby's
     # own C prism, file by file, with ruby as the only oracle.
@@ -22,10 +22,10 @@ module Ze0
       CHECKOUT = File.expand_path("~/dev/prism")
       # test_helper.rb's SYNTAX_VERSIONS.
       SYNTAX_VERSIONS = %w[3.3 3.4 4.0 4.1].freeze
-      # ze0's own Ruby, parsed under the latest syntax.
+      # zr's own Ruby, parsed under the latest syntax.
       OWN = %w[rt lib test vendor].freeze
 
-      class Case < Ze0::Record
+      class Case < ::Zr::Record
         FIELDS = %i[name source options].freeze
         attr_accessor :name, :source, :options
 
@@ -58,10 +58,10 @@ module Ze0
       end
 
       # The directory whose prism/prism.rb stands in for the C extension.
-      RUBY_BACKEND = File.join(ROOT, "lib/ze0/prism_backend")
+      RUBY_BACKEND = File.join(ROOT, "lib/zr/prism_backend")
 
       # A test file's counts as test-unit reports them.
-      class TestRun < Ze0::Record
+      class TestRun < ::Zr::Record
         FIELDS = %i[file tests assertions failures errors pendings omissions output].freeze
         attr_accessor :file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output
 
@@ -129,7 +129,7 @@ module Ze0
 
       # The cases of each corpus: `fixtures` and `errors` are prism's own,
       # each under every syntax version its directory names; `rt`, `lib`,
-      # `test` and `vendor` are ze0's .rb files. `only` is a glob over the
+      # `test` and `vendor` are zr's .rb files. `only` is a glob over the
       # case names.
       def cases(corpora, only: nil)
         corpora.flat_map do |corpus|

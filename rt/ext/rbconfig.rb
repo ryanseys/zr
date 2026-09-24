@@ -6,8 +6,8 @@
 # `String#replace`. A frozen literal here is a `FrozenError` before any
 # extension is configured.
 #
-# ze0's own `rbconfig`. Ruby generates this file at build time from its
-# build configuration; ze0 has no such build, so the facts come from the
+# zr's own `rbconfig`. Ruby generates this file at build time from its
+# build configuration; zr has no such build, so the facts come from the
 # running program instead. It carries the keys rubygems and bundler read:
 # version, platform, and the install layout.
 #
@@ -33,22 +33,22 @@ module RbConfig
   # The two linkers spell `DLDFLAGS` differently -- see the key below.
   undefined_flag = darwin ? "-Wl,-undefined,dynamic_lookup" : "-Wl,--allow-shlib-undefined"
 
-  # The install layout is ze0's own: a directory under the home
-  # directory that ze0 owns, which rubygems may create, unless the
+  # The install layout is zr's own: a directory under the home
+  # directory that zr owns, which rubygems may create, unless the
   # environment names another. It is never the layout of the ruby that
   # compiled the program: a binary carries nothing read off the machine
   # that built it, so the same source builds the same bytes anywhere.
-  prefix = ENV["ZE0_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".ze0")
+  prefix = ENV["ZR_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".zr")
 
-  # Where MRI's headers live for a C extension build. ze0 builds no C
+  # Where MRI's headers live for a C extension build. zr builds no C
   # extension yet, so these name the cache a later one would fill.
-  hdrdir = ENV["ZE0_CEXT_HDRDIR"] || "#{prefix}/include/ruby-#{ruby_version}"
-  archhdrdir = ENV["ZE0_CEXT_ARCHHDRDIR"] || "#{hdrdir}/#{RUBY_PLATFORM}"
+  hdrdir = ENV["ZR_CEXT_HDRDIR"] || "#{prefix}/include/ruby-#{ruby_version}"
+  archhdrdir = ENV["ZR_CEXT_ARCHHDRDIR"] || "#{hdrdir}/#{RUBY_PLATFORM}"
 
   # `RbConfig.ruby` is `bindir` plus `ruby_install_name`, and rubygems
-  # spawns exactly that string. The interpreter is ze0.
-  ze0_bindir = ENV["ZE0_BINDIR"] || "#{prefix}/bin"
-  ze0_ruby_name = ENV["ZE0_RUBY_INSTALL_NAME"] || "ze0"
+  # spawns exactly that string. The interpreter is zr.
+  zr_bindir = ENV["ZR_BINDIR"] || "#{prefix}/bin"
+  zr_ruby_name = ENV["ZR_RUBY_INSTALL_NAME"] || "zr"
 
   CONFIG = {
     "MAJOR" => "4",
@@ -57,8 +57,8 @@ module RbConfig
     "PATCHLEVEL" => "5",
     "ruby_version" => ruby_version,
     "RUBY_SO_NAME" => "ruby.4.0",
-    "ruby_install_name" => ze0_ruby_name,
-    "RUBY_INSTALL_NAME" => ze0_ruby_name,
+    "ruby_install_name" => zr_ruby_name,
+    "RUBY_INSTALL_NAME" => zr_ruby_name,
     "RUBY_BASE_NAME" => "ruby",
 
     # Platform / host triple.
@@ -88,7 +88,7 @@ module RbConfig
     # `Gem.default_specifications_dir` hangs off that in turn.
     "prefix" => prefix,
     "exec_prefix" => prefix,
-    "bindir" => ze0_bindir,
+    "bindir" => zr_bindir,
     "libdir" => "#{prefix}/lib",
     "rubylibprefix" => "#{prefix}/lib/ruby",
     "rubylibdir" => "#{prefix}/lib/ruby/#{ruby_version}",
@@ -124,7 +124,7 @@ module RbConfig
 
     # --- The keys `mkmf` reads. -------------------------------------------
     #
-    # ze0 has no build tree, so the header directories name the cache a C
+    # zr has no build tree, so the header directories name the cache a C
     # extension build would fill.
     "topdir" => hdrdir,
     "hdrdir" => hdrdir,

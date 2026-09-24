@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: formatting and inspection" do
   it "class singleton def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #719. `class << self; def X; ...; end; end` inside a class
       # body defines a singleton method on the enclosing class, equivalent
       # to `def self.X`. spinel used to leave the SingletonClassNode
@@ -43,7 +43,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "explicit receiver honours a singleton visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The explicit-receiver barrier does not read a per-object singleton's
       # visibility, so `obj.hidden` runs a method CRuby refuses.
       #
@@ -105,7 +105,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "extended module is not the singletons own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.extend(M)` files M's rows as the singleton class's OWN methods, where
       # CRuby puts M in the singleton's SUPER chain. So
       # `obj.singleton_class.instance_methods(false)` lists names that belong to the
@@ -161,7 +161,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "object methods report their own singletons" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Object#methods` and `#public_methods` report only what the receiver's CLASS
       # chain carries, so a method installed on the OBJECT is missing from both --
       # and a private one wrongly shows up in `public_methods`.
@@ -220,7 +220,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "self named but not sent to in a singleton body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A statement inside `class << self` that consults `self` only by NAMING it --
       # never by sending to an implicit receiver -- needs no compile-time singleton
       # class at all. The `self` just has to evaluate to the right object, and
@@ -321,7 +321,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "a receiverless call in a class << X body reaches a private singleton method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every shape where a `class << X` body's receiverless call reaches a method
       # that is private on the singleton class. Ruby runs those with no receiver, so
       # no visibility barrier applies -- zeo rebinds them onto a synthesized
@@ -425,7 +425,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "a visibility directive in a compiled class << obj body leaves every method public" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A compiled `class << obj` body's visibility directives never reach the
       # object, so every method it writes installs PUBLIC.
       #
@@ -537,7 +537,7 @@ describe "Singleton: formatting and inspection" do
   end
 
   it "a singleton class reports every per-object row as public, whatever mark the object carries" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A singleton class's instance-method reflection reports every per-object row
       # as PUBLIC, whatever mark the object carries.
       #

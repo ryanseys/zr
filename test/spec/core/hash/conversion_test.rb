@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: conversion" do
   it "empty hash receiver call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare empty-hash literal as a receiver coerces to the same str-keyed poly
       # hash the emitter builds for {}, so direct calls dispatch.
       p({}.size)
@@ -22,7 +22,7 @@ describe "Hash: conversion" do
   end
 
   it "an Integer-keyed, Integer-valued hash nests, boxes and reads back through a poly access" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer-keyed Integer-valued hash: nesting, boxing, poly access (KieranP #2345)
       p({ 1 => { 2 => 3 } })
       p({ 1 => { 2 => 3 }, 4 => { 5 => 6 } })
@@ -59,7 +59,7 @@ describe "Hash: conversion" do
   end
 
   it "method to proc curry stored" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Method stored in a local, then .to_proc.curry'd, still resolves the
       # target's arity/return through the assignment chain (#3244).
       def greet(a, b) = "#{a},#{b}"
@@ -77,7 +77,7 @@ describe "Hash: conversion" do
   end
 
   it "polypoly hash assoc to proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # PolyPolyHash's order[] holds slot indexes, and its keys are sp_RbVal on the
       # proc poly side-channel: Hash#assoc/#rassoc value reads and Hash#to_proc key
       # lookups must use the right access (they emitted sp_PolyPolyHash_get(h, index)
@@ -111,7 +111,7 @@ describe "Hash: conversion" do
   end
 
   it "struct to h" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct#to_h builds a symbol-keyed hash of member name => value.
       # Checked by lookup + length (inspect format varies across Ruby).
       Person = Struct.new(:name, :age, :city)
@@ -131,7 +131,7 @@ describe "Hash: conversion" do
   end
 
   it "to h maps elements through its block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [[1, 2], [3, 4]].to_h
       p [[1, 2], [3, 4]].to_h { |a, b| [b, a] }
       p({ a: 1, b: 2 }.to_h { |k, v| [v, k] })
@@ -147,7 +147,7 @@ describe "Hash: conversion" do
   end
 
   it "to h on boxed hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#to_h is the identity, so a BOXED receiver keeps the variant it really
       # holds. Narrowing it to the symbol-keyed one raised on a String-keyed hash
       # reached through a defaulted parameter (#3972), and an array of pairs whose
@@ -185,7 +185,7 @@ describe "Hash: conversion" do
   end
 
   it "to h with block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array/Enumerable#to_h with a block maps each element to a [key, value] pair
       # and collects the pairs into a hash.
       p [1, 2, 3].to_h { |x| [x, x * x] }

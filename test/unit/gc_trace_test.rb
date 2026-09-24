@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/native/build"
 
 # `ZR_GC_TRACE=1` makes a binary's collector print one line to stderr a
 # collection, as it ends; without it the collector prints nothing. The
@@ -22,11 +22,11 @@ class GcTraceTest < Minitest::Test
   RUBY
 
   def test_every_collection_prints_one_line_under_zr_gc_trace
-    Dir.mktmpdir("ze0-gc-trace-") do |dir|
+    Dir.mktmpdir("zr-gc-trace-") do |dir|
       rb = File.join(dir, "trace.rb")
       File.write(rb, PROGRAM)
       bin = File.join(dir, "trace")
-      assert_nil Ze0::Native::Build.program(Ze0::Zr.program(PROGRAM, rb), bin, work: dir)
+      assert_nil Zr::Native::Build.program(Zr::Zr.program(PROGRAM, rb), bin, work: dir)
 
       out, err = capture({}, bin)
       assert_equal "", err, "the collector printed with no ZR_GC_TRACE"
@@ -41,7 +41,7 @@ class GcTraceTest < Minitest::Test
   end
 
   def capture(env, bin)
-    Dir.mktmpdir("ze0-gc-trace-err-") do |dir|
+    Dir.mktmpdir("zr-gc-trace-err-") do |dir|
       err = File.join(dir, "err")
       out = IO.popen(env, [bin], err: [err, "w"], &:read)
       assert_equal 0, $?.exitstatus, "exited #{$?.exitstatus}: #{out}#{File.read(err)}"

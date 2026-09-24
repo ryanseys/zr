@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
-# How long does ze0 take to compile, and where does the time go?
+# How long does zr take to compile, and where does the time go?
 #
 #   rake compile                     every rung, three runs each
 #   rake 'compile[--runs 5]'         five runs each
 #   rake 'compile[hello bundler]'    the rungs whose name holds a word
 #   rake 'compile[--write]'          write the table to tmp/bench/compile.txt
-#   rake 'compile[--ze0]'            the compiler ze0 compiled, beside ruby
+#   rake 'compile[--zr]'            the compiler zr compiled, beside ruby
 #
 # `rake bench` times what a binary does; this times what it costs to
 # make one. The rungs are a ladder of require graphs, from a program
 # with no require at all to the whole of bundler, and each row is one
-# phase of `Ze0.clock` -- so a change that moves the total says which
+# phase of `Zr.clock` -- so a change that moves the total says which
 # phase it moved.
 #
-# The runtime is warm, as it is for everyone who is not building ze0
+# The runtime is warm, as it is for everyone who is not building zr
 # itself for the first time: the first run of each rung is a warmup and
 # is thrown away, and the row kept is the run whose total is the median.
 # What this measures is therefore the program's own compile, which is
 # what Phase 1 is about.
 #
-# `--ze0` first builds the compiler with ruby, from the tree as it is,
+# `--zr` first builds the compiler with ruby, from the tree as it is,
 # and times each rung under both, the compiled one's column named with
 # a `*`, and a last row of what it took against ruby. It keeps a cache
 # of its own, seeded with links to the runtime ruby built: a runtime is
@@ -35,21 +35,21 @@ require "fileutils"
 require "optparse"
 require "rbconfig"
 require "tmpdir"
-require_relative "../lib/ze0/paths"
+require_relative "../lib/zr/paths"
 
 module CompileBench
-  ROOT = Ze0::Paths::ROOT
+  ROOT = Zr::Paths::ROOT
   DIR = File.join(ROOT, "benchmark/compile")
   # Where `--write` keeps the table: under `tmp`, beside `rake bench`'s
   # own report, and not committed.
   RESULTS = File.join(ROOT, "tmp/bench/compile.txt")
   RUNS = 3
   # The compiled compiler and its cache, under `tmp`.
-  COMPILED = File.join(ROOT, "tmp/compile/ze0")
+  COMPILED = File.join(ROOT, "tmp/compile/zr")
   COMPILED_CACHE = File.join(ROOT, "tmp/compile/cache")
 
-  # The line `Ze0.clock` writes: a label padded to 40, then the seconds.
-  LINE = /\Aze0: (.+?)\s+([\d.]+)s(?:\s|\z)/
+  # The line `Zr.clock` writes: a label padded to 40, then the seconds.
+  LINE = /\Azr: (.+?)\s+([\d.]+)s(?:\s|\z)/
 
   module_function
 
@@ -61,7 +61,7 @@ module CompileBench
       o.banner = "usage: rake 'compile[--runs N --write <filter>...]'"
       o.on("--runs N", Integer) { |v| runs = v }
       o.on("--write") { write = true }
-      o.on("--ze0") { compiled = true }
+      o.on("--zr") { compiled = true }
     end.parse!(argv)
     abort("rake compile: --runs takes a count of one or more") if runs < 1
 
@@ -83,10 +83,10 @@ module CompileBench
   # under "" -- measured here rather than summed, since the phases do
   # not cover the process's own start.
   def build(rb, out, compiled: false)
-    env = { "ZE0_TIMING" => "1", "ZE0_GC" => "0" }
-    command = [RbConfig.ruby, File.join(ROOT, "exe/ze0")]
+    env = { "ZR_TIMING" => "1", "ZR_GC" => "0" }
+    command = [RbConfig.ruby, File.join(ROOT, "exe/zr")]
     if compiled
-      env["ZE0_CACHE"] = COMPILED_CACHE
+      env["ZR_CACHE"] = COMPILED_CACHE
       command = [COMPILED]
     end
     lines = status = nil
@@ -107,7 +107,7 @@ module CompileBench
   # `runs` builds after a warmup, and the one whose whole build is the
   # median of them.
   def median(rb, runs, compiled: false)
-    Dir.mktmpdir("ze0-compile-") do |work|
+    Dir.mktmpdir("zr-compile-") do |work|
       out = File.join(work, "out")
       print "#{File.basename(rb, ".rb")}#{"*" if compiled} ... "
       build(rb, out, compiled: compiled)
@@ -120,16 +120,16 @@ module CompileBench
   # links every runtime-wide entry of ruby's own: `rung` builds first
   # with ruby, so the runtime of this tree is there to link.
   def compiled!(rung)
-    Dir.mktmpdir("ze0-compile-") { |work| build(rung, File.join(work, "out")) }
+    Dir.mktmpdir("zr-compile-") { |work| build(rung, File.join(work, "out")) }
     print "the compiled compiler ... "
     took = Benchmark.realtime do
-      system({ "ZE0_GC" => "0" }, RbConfig.ruby, File.join(ROOT, "exe/ze0"), "build", File.join(ROOT, "exe/ze0"),
+      system({ "ZR_GC" => "0" }, RbConfig.ruby, File.join(ROOT, "exe/zr"), "build", File.join(ROOT, "exe/zr"),
              "-o", COMPILED, out: File::NULL, chdir: ROOT) or abort("rake compile: the compiler did not build")
     end
     puts format("%.1fs", took)
     FileUtils.mkdir_p(COMPILED_CACHE)
-    Dir.children(Ze0::Paths.cache).each do |name|
-      from = File.join(Ze0::Paths.cache, name)
+    Dir.children(Zr::Paths.cache).each do |name|
+      from = File.join(Zr::Paths.cache, name)
       to = File.join(COMPILED_CACHE, name)
       next if name.start_with?("unit-") || !File.file?(from) || File.exist?(to)
 
@@ -162,12 +162,12 @@ module CompileBench
     at = `git -C #{ROOT} rev-parse --short HEAD`.strip
     FileUtils.mkdir_p(File.dirname(RESULTS))
     File.open(RESULTS, "w") do |f|
-      f.puts "# ze0 compile cost, the median of #{runs} run(s) at #{at}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+      f.puts "# zr compile cost, the median of #{runs} run(s) at #{at}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
       table(rows, f)
     end
     warn "wrote #{RESULTS}"
   end
 end
 
-desc "How long does ze0 take to compile, and where? rake 'compile[--write]'"
+desc "How long does zr take to compile, and where? rake 'compile[--write]'"
 task(:compile, [:filters]) { |_, args| CompileBench.run(args[:filters].to_s.split) }

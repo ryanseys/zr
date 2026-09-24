@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Float programs" do
   it "parsing and shortest-round-trip printing both link into the binary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float parsing and shortest-round-trip printing, both linked into the binary.
       puts 0.1 + 0.2
       puts 1.0 / 3
@@ -25,7 +25,7 @@ describe "Float programs" do
   end
 
   it "mixed Integer and Float arithmetic answers a Float, and inspect prints the shortest round trip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 1.5 + 2
       puts 2 * 3.0
       puts 7.0 / 2
@@ -51,7 +51,7 @@ describe "Float programs" do
   end
 
   it "int operand refuses what a c int cannot hold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A digits or exponent operand is a C int: CRuby's NUM2INT refuses one
       # past it by name instead of clamping it.
       def t = yield rescue [$!.class, $!.message]

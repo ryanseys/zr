@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process: raising and rescuing" do
   it "at exit handler raise reports" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception inside an at_exit handler is reported immediately, and the
       # remaining handlers still run (CRuby's rule; the status becomes 1).
       at_exit { puts "h-after" }
@@ -23,7 +23,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "at exit handler that raises sets status 1" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The handler's error is reported, the next handler still runs, and the
       # program ends with status 1.
       at_exit { puts :second }
@@ -41,7 +41,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "class bodies execute at their document position and rerun per reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real Ruby runs a class/module body WHERE IT APPEARS, interleaved
       # with surrounding top-level code, re-executing each reopen's body at
       # its own site; a rescued raise inside a module body shows the
@@ -90,7 +90,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "failed exec names the program" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         exec("/no/such/program-zeo")
       rescue SystemCallError => e
@@ -102,7 +102,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "instance exec no block error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless instance_exec is LocalJumpError; blockless instance_eval (no
       # source string either) is the arity ArgumentError. Both oracle shapes.
       o = Object.new
@@ -125,7 +125,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "the CPU-time clock ids resolve to Integers, whatever the platform numbers them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The CPU-time clock ids resolve to Integers. Their exact value is the
       # platform's own clock id (it differs between Linux and macOS), so assert the
       # type, not the value. Regression for #2666.
@@ -144,7 +144,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "signal module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Signal module and the SignalException/Interrupt hierarchy: name<->number
       # resolution (signame/list), trap as a validated no-op returning the prior
       # handler, and #signo/#signm on the exception objects.
@@ -189,7 +189,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "trap quotes the signal name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `trap`'s unsupported-signal ArgumentError uses straight quotes in ruby 4
       # ("unsupported signal 'SIGNOPE'"); zeo still uses the old backtick form.
       # (Found by the 2026-08-24 probe sweep.)
@@ -204,7 +204,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught exceptions still exit nonzero through the coroutine boundary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The top-level uncaught-raise contract (message on stderr, exit 1) must
       # survive the main body's Result crossing back to the OS main thread.
 
@@ -217,7 +217,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught interrupt is reported and ends by sigint" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Interrupt, unlike the other signals, is reported before the process
       # ends by SIGINT.
       at_exit { puts :handler }
@@ -231,7 +231,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught no method error exits via the ordinary top level handler" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Plain
       end
       Plain.new.send(:missing)
@@ -246,7 +246,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught raise with no rescue anywhere exits with the message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       raise "boom"
     RUBY
 
@@ -254,7 +254,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught signal exception ends by its signal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The handlers run, nothing is reported, and the process ends by the
       # signal itself.
       at_exit { puts :handler, $!.class }
@@ -266,7 +266,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "unrescued definition raise aborts where ruby aborts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The other half of `a_definition_ruby_raises_on_raises`: with nothing to
       # catch it, the program runs up to the definition and then dies exactly where
       # ruby dies -- same message, same backtrace line, same exit status. The

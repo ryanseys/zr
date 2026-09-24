@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: regressions" do
   it "unshift and prepend on an empty literal, reduce with a seed, and fetch_values with a fallback block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array conformance (KieranP #2364-#2368)
       p([].unshift(1))                              # #2364 empty-literal unshift
       p([].prepend(2, 3))
@@ -44,7 +44,7 @@ describe "Array: regressions" do
   end
 
   it "product, flatten, combination and permutation over the typed array kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#product (block form and no-arg), flatten/flatten! with a depth,
       # and value-captured block forms of the combination/slice family
       # (all return self per Ruby >= 3.1).
@@ -149,7 +149,7 @@ describe "Array: regressions" do
   end
 
   it "array2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test additional Array methods
 
       arr = (1..10).to_a
@@ -223,7 +223,7 @@ describe "Array: regressions" do
   end
 
   it "array3" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test additional array methods
 
       arr = Array.new
@@ -269,7 +269,7 @@ describe "Array: regressions" do
   end
 
   it "difference removes one occurrence for each occurrence in the argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#- / Array#difference must preserve LHS duplicates that
       # aren't in the RHS. CRuby semantics:
       #   [1, 1, 2, 3] - [3]  → [1, 1, 2]   (NOT [1, 2])
@@ -309,7 +309,7 @@ describe "Array: regressions" do
   end
 
   it "fill takes a value, a start, and a length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#fill: 1-arg, 2-arg, 3-arg forms.
       # Previously the 2-/3-arg forms silently ignored start/length and
       # filled the entire array.
@@ -398,7 +398,7 @@ describe "Array: regressions" do
   end
 
   it "an array literal answers length, subscript, sort, sum, min and max" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test array literals as IntArray/StrArray
 
       # Integer array literal
@@ -493,7 +493,7 @@ describe "Array: regressions" do
   end
 
   it "an array literal built from a widened local holds the value, not the box" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `compile_array_literal`'s int-array fallback pushed elements
       # verbatim, including poly-typed ones. When a local was widened to
       # poly via cross-branch assignments and then wrapped in an `[x]`
@@ -523,7 +523,7 @@ describe "Array: regressions" do
   end
 
   it "Array#* repeats the array, and times one is a copy the source cannot reach" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#* (repeat). Works uniformly across every typed array kind
       # is_array_type() recognises (int / float / str / sym / poly).
 
@@ -600,7 +600,7 @@ describe "Array: regressions" do
   end
 
   it "Array.new with a block calls it once an index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array.new(N) { |i| ... }: block form with index parameter.
       # Previously returned an empty IntArray (the block was ignored).
 
@@ -637,7 +637,7 @@ describe "Array: regressions" do
   end
 
   it "an array of arrays subscripts and iterates two levels deep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array of arrays (2-level nesting)
       a = [[1, 2], [3, 4], [5, 6]]
       puts a.length
@@ -679,7 +679,7 @@ describe "Array: regressions" do
   end
 
   it "inspect prints a nested array of every element type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #169: p / inspect on nested arrays whose element type is one
       # of the four built-in T_array shapes (int/str/float/sym).
 
@@ -713,7 +713,7 @@ describe "Array: regressions" do
   end
 
   it "push appends to an array of any element type and answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#push across typed-array variants.
       # Previously push only dispatched for IntArray and StrArray; FloatArray
       # and SymArray (and PtrArray) silently fell through to a no-op expression.
@@ -794,7 +794,7 @@ describe "Array: regressions" do
   end
 
   it "a subscript takes a range, or a start and a length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IntArray slicing: a[range] and a[start, len].
       # Previously a[1..2] failed with `incompatible type for argument 2 of
       # 'sp_IntArray_get'` (Range passed where mrb_int was expected), and
@@ -865,7 +865,7 @@ describe "Array: regressions" do
   end
 
   it "replace swaps the contents and keeps the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#replace: mutating in-place copy from another array.
       # Previously a silent no-op for arrays; only String/MutableString worked.
 
@@ -919,7 +919,7 @@ describe "Array: regressions" do
   end
 
   it "reverse! reverses in place, for every element type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#reverse! across typed-array variants.
       # Previously only IntArray dispatched; SymArray, StrArray, FloatArray
       # silently fell through.
@@ -979,7 +979,7 @@ describe "Array: regressions" do
   end
 
   it "the set operators keep the receiver's element type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#&, Array#-, Array#| all dispatch to typed-array intersect /
       # difference / union helpers. Each operator's per-shape coverage
       # (int / str / float / sym / variable receiver / chained) is
@@ -1038,7 +1038,7 @@ describe "Array: regressions" do
   end
 
   it "<< appends one element and answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr << x` used in expression context (not a top-level statement)
       # fell through to a literal C `<<` (bit shift). The stmt-level path
       # already lowered `arr << x` to push for typed arrays; the operator/
@@ -1089,7 +1089,7 @@ describe "Array: regressions" do
   end
 
   it "shuffle keeps the length of a symbol or mixed array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#shuffle / Array#shuffle! used to skip sym_array and poly_array.
       # For sym_array the dispatcher silently fell through (bin output empty);
       # for poly_array the runtime had no shuffle helper at all.
@@ -1107,7 +1107,7 @@ describe "Array: regressions" do
   end
 
   it "a three-argument []= replaces that many elements with the ones given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr[i, n] = src` (Array#[]= with three args) replaces n
       # elements of `arr` starting at index i with the elements of
       # `src`. Same-length only — n must equal `src.length`; resize
@@ -1140,7 +1140,7 @@ describe "Array: regressions" do
   end
 
   it "sort! orders in place, for every element type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sort! across typed-array variants.
       # Previously only IntArray and SymArray dispatched; StrArray and
       # FloatArray silently fell through.
@@ -1199,7 +1199,7 @@ describe "Array: regressions" do
   end
 
   it "a splat inside an array literal spreads the whole range or array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[*0..n]` and `[*arr]` are array literals with a SplatNode element.
       # Without SplatNode handling in compile_array_literal, the splat was
       # lowered to a single default value (e.g., just the range's lower
@@ -1240,7 +1240,7 @@ describe "Array: regressions" do
   end
 
   it "take_while and drop_while cut where the block first says no" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#take_while and Array#drop_while for int_array (the common case).
       # take_while collects elements from the front while the block stays
       # truthy; drop_while skips them and returns the rest.
@@ -1289,7 +1289,7 @@ describe "Array: regressions" do
   end
 
   it "tally counts each symbol's occurrences" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#tally for sym_array. str_array#tally already shipped — this
       # extends it to symbol arrays via a sp_SymArray_tally runtime helper
       # that produces a sym_int_hash mapping each unique element to its
@@ -1331,7 +1331,7 @@ describe "Array: regressions" do
   end
 
   it "transpose turns rows into columns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #156: transpose for nested int arrays.
       # Inspect of nested arrays still prints "#<Object>" (separate issue),
       # so each test reads element-wise to keep the comparison meaningful.
@@ -1385,7 +1385,7 @@ describe "Array: regressions" do
   end
 
   it "empty poly array reassignment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       items = [0, ""]
       items = []
       items.push(1)
@@ -1404,7 +1404,7 @@ describe "Array: regressions" do
   end
 
   it "minmax answers the smallest and the largest at once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [3,1,4,1,5,9,2,6].minmax
       p [3,1,2].minmax
       # Float-array minmax returns tuple:float,float — exercises the
@@ -1420,7 +1420,7 @@ describe "Array: regressions" do
   end
 
   it "dig walks a nested array by the indices it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [10, 20, 30]
       # In-bounds — first / middle / last.
       p a.dig(0)
@@ -1446,7 +1446,7 @@ describe "Array: regressions" do
   end
 
   it "difference removes every element the argument holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#difference for typed arrays (int/sym/str/float).
       # Mirrors Array#intersection (c31b618) and Array#union — keep only
       # elements of self NOT present in other (deduplicated).
@@ -1499,7 +1499,7 @@ describe "Array: regressions" do
   end
 
   it "intersection keeps only the elements both arrays hold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # int_array
       a = [1, 2, 3, 4]
       b = [3, 4, 5, 6]
@@ -1606,7 +1606,7 @@ describe "Array: regressions" do
   end
 
   it "union keeps each element once, in first-seen order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#union for typed arrays (int/sym/str/float).
       # Mirrors Array#intersection (c31b618). Returns a new array with all
       # unique elements from `self` followed by unique elements from `other`.
@@ -1659,7 +1659,7 @@ describe "Array: regressions" do
   end
 
   it "at is the subscript, append is push, and chomp! writes in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method aliases / shapes from #619 puzzles 8 / 9 / 10:
       #   Array#at(n)      -> Array#[n]
       #   Array#append(x)  -> Array#push(x), returning self (the array)
@@ -1683,7 +1683,7 @@ describe "Array: regressions" do
   end
 
   it "an array of integers never equals an array of symbols" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[0,0,0] == %i[a a a]` must answer FALSE -- CRuby compares element
       # classes too, so int 0 != sym :a even when their encoded ids match.
       # Spinel's sym_array storage shares the sp_IntArray layout with
@@ -1731,7 +1731,7 @@ describe "Array: regressions" do
   end
 
   it "index answers nil when nothing matches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#index(x)` / `#find_index(x)` / `#rindex(x)` return
       # Integer | nil in CRuby (nil when not found). spinel previously
       # returned the raw -1 sentinel from `sp_*Array_index`, which
@@ -1777,7 +1777,7 @@ describe "Array: regressions" do
   end
 
   it "an array used as a Hash key matches another with the same contents" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array-keyed Hash. `entries[[a, b]] ||= ...` was broken because
       # spinel's PolyPolyHash defaulted to pointer-identity comparison
       # for SP_TAG_OBJ keys — every fresh `[a, b]` literal allocated a
@@ -1820,7 +1820,7 @@ describe "Array: regressions" do
   end
 
   it "an array of nils reads nil at every index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[nil, nil, ...].first` / `.last` returns nil. Pre-fix the
       # array-literal lowering pushed each NilNode as `sp_IntArray_push(_t, 0)`
       # (the int_array default) and `.first` returned int 0, so `.nil?`
@@ -1844,7 +1844,7 @@ describe "Array: regressions" do
   end
 
   it "Array.new with a count and no block fills with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array.new(n)` (single arg, no fill value, no block) is CRuby
       # shorthand for `Array.new(n, nil)`: an array of n nils, NOT an
       # empty array. Pre-fix the single-arg lowering returned
@@ -1867,7 +1867,7 @@ describe "Array: regressions" do
   end
 
   it "Array.new fills with nil, and the slots compare equal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array.new(n, nil)` -- the fill value is the nil singleton, so
       # MRI fills each slot with `nil` and `.inspect` prints
       # "[nil, nil, ...]". Spinel previously lowered the call to an
@@ -1894,7 +1894,7 @@ describe "Array: regressions" do
   end
 
   it "sum takes a seed that decides the answer's type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sum's init argument was silently dropped on the IntArray /
       # FloatArray dispatch paths -- spinel emitted sp_IntArray_sum(rc)
       # (no init parameter) and the block-form accumulator in
@@ -1980,7 +1980,7 @@ describe "Array: regressions" do
   end
 
   it "group_by then each over an array of hashes reaches the grouped rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#group_by + Hash#each chain on a poly_array of sym_poly_hashes.
       # spinel fuses `<arr>.group_by(blk).each |k, rows|` into a single emit
       # that builds a sp_PolyPolyHash keyed by the block's return value, with
@@ -2013,7 +2013,7 @@ describe "Array: regressions" do
   end
 
   it "a symbol write through a subscripted element reaches the Hash it holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Chained `[]=` / `[]op=` on a poly_array element that is a
       # boxed SymIntHash: `arr[i][:k] = v` and `arr[i][:k] += v`.
       #
@@ -2071,7 +2071,7 @@ describe "Array: regressions" do
   end
 
   it "the two arrays partition answers survive a collection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: Array#partition (block form) returns a tuple holding two
       # inner arrays. The tuple's sp_gc_alloc was emitted with scan=NULL, so
       # the inner arrays were swept while the tuple was still alive, and a
@@ -2102,7 +2102,7 @@ describe "Array: regressions" do
   end
 
   it "Array#+ concatenates arrays of different element types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #662: Array#+ concatenating arrays of different element
       # types. Previously the codegen assumed both operands had the same
       # array prefix and used the lhs's *_get / *_length / *_push for
@@ -2144,7 +2144,7 @@ describe "Array: regressions" do
   end
 
   it "push takes an element of a type the array did not hold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #663: Array#<< with heterogeneous element types on an
       # initially-empty array. Previously the type inference latched
       # onto the first push's element type (transitioning int_array ->
@@ -2178,7 +2178,7 @@ describe "Array: regressions" do
   end
 
   it "int array each with index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each_with_index on an int_array. The element block param must
       # shadow an outer same-named local of a different C type, and the
       # index block param must be block-local mrb_int (not leak the outer
@@ -2203,7 +2203,7 @@ describe "Array: regressions" do
   end
 
   it "int array each with object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each_with_object on an int_array. The element block param
       # must shadow an outer same-named local of a different C type, and
       # the accumulator block param must take the C type of the seed
@@ -2230,7 +2230,7 @@ describe "Array: regressions" do
   end
 
   it "int array reduce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#inject and Array#reduce share compile_reduce_block but have
       # distinct dispatch entries. Cover both so a divergence at either
       # entry surfaces. The block param `i` must also shadow an outer
@@ -2255,7 +2255,7 @@ describe "Array: regressions" do
   end
 
   it "int array reject" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#reject on an int_array. The block param must shadow an outer
       # same-named local of a different C type. Body uses a constant
       # predicate so this isolates the shadow case from the separate
@@ -2284,7 +2284,7 @@ describe "Array: regressions" do
   end
 
   it "int array select" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#select on an int_array. The block param must shadow an outer
       # same-named local of a different C type. Body uses a constant
       # predicate so this isolates the shadow case from the separate
@@ -2313,7 +2313,7 @@ describe "Array: regressions" do
   end
 
   it "int array zip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#zip with a block on int_arrays. Both block params must shadow
       # outer same-named locals of a different C type. Body uses a counter
       # so this isolates the scope-shadow case from any param-read path.
@@ -2337,7 +2337,7 @@ describe "Array: regressions" do
   end
 
   it "bsearch finds the first element the block accepts, or nil when none is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#bsearch (find-minimum mode) on a sorted typed array: returns the
       # first element for which the block is truthy, or nil when none is.
       p [1, 3, 5, 7, 9].bsearch { |x| x >= 5 }
@@ -2359,7 +2359,7 @@ describe "Array: regressions" do
   end
 
   it "each_index yields every index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each_index { |i| } yields each index (0..length-1). Works on
       # any typed array; only the index is bound, no element.
       [10, 20, 30].each_index { |i| puts i }
@@ -2384,7 +2384,7 @@ describe "Array: regressions" do
   end
 
   it "find_index answers the first index the block accepts, or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #864: Enumerable#find_index with block returns the index
       # of the first element where the block is truthy, nil otherwise.
       # Pre-fix the block form wasn't dispatched (warn + emit 0).
@@ -2396,7 +2396,7 @@ describe "Array: regressions" do
   end
 
   it "group_by buckets the elements by the block's value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#group_by — standalone (no fused .each) returns a hash
       # keyed by the block result with arrays of matching elements.
       # Backed by poly_poly_hash + boxed poly_array values; key insertion
@@ -2412,7 +2412,7 @@ describe "Array: regressions" do
   end
 
   it "join calls to_s on each element of a mixed array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#join on a mixed-element (poly) array: each element is to_s'd and
       # joined with the separator. Homogeneous int_array/str_array have their
       # own join; these literals are heterogeneous so they use poly storage.
@@ -2431,7 +2431,7 @@ describe "Array: regressions" do
   end
 
   it "member? is include?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#member? is the documented alias of #include?. Both
       # need dispatching on typed arrays so the alias doesn't fall
       # through to the unresolved-call path.
@@ -2450,7 +2450,7 @@ describe "Array: regressions" do
   end
 
   it "product pairs every element with every element of the other array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#product with a single array argument of a different element type
       # yields a poly_array of [recv_elem, arg_elem] pairs. Two int arrays keep
       # the homogeneous result.
@@ -2471,7 +2471,7 @@ describe "Array: regressions" do
   end
 
   it "repeated_combination lists the combinations that may reuse an element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#repeated_combination(k) on an int array: k-element combinations
       # allowing repeats, materialised as an array of arrays via .to_a.
       p [1, 2].repeated_combination(2).to_a
@@ -2489,7 +2489,7 @@ describe "Array: regressions" do
   end
 
   it "int array fetch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [10, 20, 30]
       p a.fetch(0)
       p a.fetch(2)
@@ -2509,7 +2509,7 @@ describe "Array: regressions" do
   end
 
   it "int array one arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#one?(x) — true iff exactly one element equals x.
       # The block form was already supported; the no-block / arg-form
       # fell through to unresolved-call.
@@ -2530,7 +2530,7 @@ describe "Array: regressions" do
   end
 
   it "int array reduce init sym" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#reduce(init, :op) — explicit init plus a symbol
       # operator. Single-arg sym form was already wired; the 2-arg form
       # (init + op-sym) fell through to unresolved-call.
@@ -2551,7 +2551,7 @@ describe "Array: regressions" do
   end
 
   it "poly array zip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#zip on heterogeneous (poly_array) receivers — result is a
       # poly_array_ptr_array (array of poly_array pairs). The result type
       # was being misclassified as int_array_ptr_array, leaving inspect
@@ -2569,7 +2569,7 @@ describe "Array: regressions" do
   end
 
   it "scan with a block collects the matches, and without one the captures" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = []
       "a(b)c(d)".scan(/[()]/) { |t| r << t }
       p r
@@ -2587,7 +2587,7 @@ describe "Array: regressions" do
   end
 
   it "a parameter defaulted to an empty array answers every Array method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method returning a default-valued array parameter: the empty `[]` default
       # types the param (and the method's return) as a poly array, so the result
       # responds to Array methods.
@@ -2614,7 +2614,7 @@ describe "Array: regressions" do
   end
 
   it "an array a method appended to takes elements of another type afterwards" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def m(order)
         order << :sym
       end
@@ -2639,7 +2639,7 @@ describe "Array: regressions" do
   end
 
   it "a string written through a subscript is the object the caller holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f(word)
         word[0] = "z"
         word
@@ -2666,7 +2666,7 @@ describe "Array: regressions" do
   end
 
   it "a method that returns two arrays built side by side keeps them apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def crash
         numbers, strings = [], []
         numbers << 1
@@ -2680,7 +2680,7 @@ describe "Array: regressions" do
   end
 
   it "a closure that appends to a captured string appends to the one the caller holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shared-mutable strings captured by closures (P6): the handle rides a
       # typed-pointer cell, so capture+mutation and capture+rebinding both share.
       s = +"cap"
@@ -2722,7 +2722,7 @@ describe "Array: regressions" do
   end
 
   it "start_with? and end_with? take several candidates on a string read out of a chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A multi-argument String#start_with? / #end_with? on a poly string (a String
       # element read out of an each_line -> each_with_object chain) must dispatch on
       # the string tag, ORing the candidates, not raise NoMethodError.
@@ -2739,7 +2739,7 @@ describe "Array: regressions" do
   end
 
   it "sum, reduce and inject fold a column that transpose produced" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       cols = [[1, 2], [3, 4]].transpose
       p cols[0].sum
       r1 = (cols[0].reduce(0) { |a, x| a + x } rescue $!.class); p r1
@@ -2756,7 +2756,7 @@ describe "Array: regressions" do
   end
 
   it "zip on an empty array answers empty, whatever it is zipped with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([].zip(["a"]))
       p([].zip([1]))
       p([].zip([1.5]))
@@ -2781,7 +2781,7 @@ describe "Array: regressions" do
   end
 
   it "push, append, concat, unshift and prepend with no argument leave the array alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a001 = [1, 2]
       p a001.push
       p a001

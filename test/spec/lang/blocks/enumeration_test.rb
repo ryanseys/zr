@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: enumeration" do
   it "block and proc argument semantics" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2 }
       h.each { |pair| p pair }
       h.each { |k, v| puts "#{k}=#{v}" }
@@ -48,7 +48,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block escaping from inside another escaping block works" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The original blanket rejection of Proc-within-Proc was LIFTED
       # (`Thread.new { m.synchronize { } }` is the canonical threading
       # idiom): method-level captures are shared cells that compose through
@@ -74,7 +74,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block forward map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method taking a block (&blk) can forward it to an array's #map /
       # #collect: each element is mapped through the caller's block and the
       # results are collected. The forwarded `&blk` is a BlockArgumentNode
@@ -141,7 +141,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block forward proc param type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fwd_map(&b)  = ["a", "bb"].map(&b)
       def fwd_sel(&b)  = ["a", "bb"].select(&b)
       def fwd_sort(&b) = ["a", "bb"].sort_by(&b)
@@ -184,7 +184,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block local fresh cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block-local captured by a nested proc gets a FRESH cell per block
       # invocation (#3230): each iteration's closure keeps its own binding.
       # Within one iteration the closure and the block body still share the
@@ -213,7 +213,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block local widens map result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Local types are recomputed from scratch each inference round, in node order.
       # A local assigned inside an iterator block sits at a higher node id than the
       # write that receives the iterator's value, so that write derived its type with
@@ -248,7 +248,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block tail empty literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       [].then { [] }.tap { p 0 }
 
       p([].then { [] })
@@ -302,7 +302,7 @@ describe "Blocks: enumeration" do
   end
 
   it "block2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test block_given? and optional blocks
 
       def maybe_yield(x)
@@ -345,7 +345,7 @@ describe "Blocks: enumeration" do
   end
 
   it "yield, block_given?, break, next and a closure over a local all answer" do
-    result = ze0(<<~'RUBY', path: "ze0/blocks_and_closures.rb")
+    result = zr(<<~'RUBY', path: "zr/blocks_and_closures.rb")
       def each_twice
         yield 1
         yield 2
@@ -480,15 +480,15 @@ describe "Blocks: enumeration" do
       [1, 2]
       [3, 6]
     OUT
-      ze0/blocks_and_closures.rb:92:in 'block in Object#boom': inside (RuntimeError)
-      	from ze0/blocks_and_closures.rb:92:in 'Array#each'
-      	from ze0/blocks_and_closures.rb:92:in 'Object#boom'
-      	from ze0/blocks_and_closures.rb:94:in '<main>'
+      zr/blocks_and_closures.rb:92:in 'block in Object#boom': inside (RuntimeError)
+      	from zr/blocks_and_closures.rb:92:in 'Array#each'
+      	from zr/blocks_and_closures.rb:92:in 'Object#boom'
+      	from zr/blocks_and_closures.rb:94:in '<main>'
     ERR
   end
 
   it "a method yields to its block, and a proc carries the enclosing scope wherever it is called" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def each_num(a, b, c)
           yield a
@@ -582,7 +582,7 @@ describe "Blocks: enumeration" do
   end
 
   it "curry block and zero arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       add001 = ->(a, b) { a + b }.curry[10]
       p [1, 2, 3].map(&add001)
       p(->() { 5 }.curry.call)
@@ -605,7 +605,7 @@ describe "Blocks: enumeration" do
   end
 
   it "empty literal block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unused block parameter over an empty literal has no element type to infer
       # from, so it is pruned and has no C declaration: the binding must be skipped
       # rather than name an undeclared variable (#3853).
@@ -631,7 +631,7 @@ describe "Blocks: enumeration" do
   end
 
   it "empty literal unused block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([].map { |x| 1 })
 
       p([].each_with_object([]) { |x, a| a })     # Ruby: []    Spinel: undeclared identifier 'lv_x'
@@ -682,7 +682,7 @@ describe "Blocks: enumeration" do
   end
 
   it "enum each family receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable/Struct each-family block calls (reverse_each, each_with_index)
       # return the receiver, not the intermediate member array, and the synthesized
       # __enum_to_a bridge stays invisible to reflection while user methods do not.
@@ -729,7 +729,7 @@ describe "Blocks: enumeration" do
   end
 
   it "escaping proc captures value self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An escaping proc that reads its enclosing instance's ivars must capture self.
       # For a value-type (by-value) class, self is captured by value in the proc's
       # capture struct (a real sp_X field), not by pointer.
@@ -811,7 +811,7 @@ describe "Blocks: enumeration" do
   end
 
   it "filter map poly receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # filter_map on a receiver known only at run time -- a hash value, a nested
       # array element, a container read. Every other collector in the family has an
       # arm for a poly receiver; filter_map had none, so the call fell past all of
@@ -876,7 +876,7 @@ describe "Blocks: enumeration" do
   end
 
   it "forwarded block to iterator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def run001(&b001); [1, 2].map(&b001); end
       tri001 = ->(x001) { x001 * 3 }
       p run001(&tri001)
@@ -912,7 +912,7 @@ describe "Blocks: enumeration" do
   end
 
   it "it has no name in parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p proc { it }.parameters, lambda { it }.parameters
       p proc { _1 }.parameters, lambda { _1 }.parameters
       p proc { it }.arity, lambda { it }.arity
@@ -942,7 +942,7 @@ describe "Blocks: enumeration" do
   end
 
   it "it works through a real escaping proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def each_num(a, b)
           yield a
@@ -956,7 +956,7 @@ describe "Blocks: enumeration" do
   end
 
   it "lambda escaping inside an escaping block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda literal nested inside a stored (escaping) block used to be
       # rejected at compile time; it now composes through the capture analysis
       # like any other escaping closure.
@@ -988,7 +988,7 @@ describe "Blocks: enumeration" do
   end
 
   it "lambda in escaping block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda defined INSIDE an escaping block (a stored Proc) -- previously
       # rejected at compile time, now composes through the capture analysis.
 
@@ -1024,7 +1024,7 @@ describe "Blocks: enumeration" do
   end
 
   it "map result widened by composition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local assigned a `map` whose block value type widens LATE. Composing the
       # same method with `>>` widens its parameters to poly -- the composition's
       # intermediate value is only known at run time -- so its return widens too and
@@ -1071,7 +1071,7 @@ describe "Blocks: enumeration" do
   end
 
   it "multi yield map param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Pairs
         include Enumerable
         def each; yield :a, 1; yield :b, 2; end
@@ -1102,7 +1102,7 @@ describe "Blocks: enumeration" do
   end
 
   it "named block param can be forwarded to another call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `c` is a `New`-assigned LOCAL inside `go`, not a parameter or an
       # implicit-self call target -- see the self-capture test's comment for
       # why (both are separate, pre-existing, unrelated gaps).
@@ -1128,7 +1128,7 @@ describe "Blocks: enumeration" do
   end
 
   it "nested block captures own local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested escaping closure that captures the ENCLOSING block's own local
       # (not just the block param). That local must become a shared cell, declared
       # once -- previously the own-locals prelude also fresh-declared it, shadowing
@@ -1157,7 +1157,7 @@ describe "Blocks: enumeration" do
   end
 
   it "numbered params work through a real escaping proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def each_num(a, b)
           yield a
@@ -1171,7 +1171,7 @@ describe "Blocks: enumeration" do
   end
 
   it "poly map empty block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({1 => [2]}.map { |k, g| g.map {} })
 
       box = [[2, 3]]
@@ -1193,7 +1193,7 @@ describe "Blocks: enumeration" do
   end
 
   it "proc as block arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def run001(&b001); b001.call(3); end
       tri001 = ->(x) { x * 3 }
       p run001(&tri001)
@@ -1234,7 +1234,7 @@ describe "Blocks: enumeration" do
   end
 
   it "proc source location" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#source_location returns [file, line] for a proc literal. Assert the
       # structure and types (the file path is invocation-dependent, and the exact
       # line requires the line map, which the test harness disables). Regression #2649.
@@ -1254,7 +1254,7 @@ describe "Blocks: enumeration" do
   end
 
   it "proc source location var" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#source_location resolves through a local whose sole write is a proc
       # literal (#2720). --no-line-map zeroes lines, so assert structure only.
       a = ->(x) { x }
@@ -1272,7 +1272,7 @@ describe "Blocks: enumeration" do
   end
 
   it "runs inside the source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "[3,1,2].sort.map { |x| x * x }"
       p eval(src)
     RUBY
@@ -1281,7 +1281,7 @@ describe "Blocks: enumeration" do
   end
 
   it "singleton class object yields inside class shift obj" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       obj = Object.new
       class << obj
         def each_pair
@@ -1300,7 +1300,7 @@ describe "Blocks: enumeration" do
   end
 
   it "splat map lambda into rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splatting an inline map-of-lambdas into a *args method whose vararg is
       # captured by a returned closure (#3242): the rest-consumed splat is not
       # hoisted as a normal arg (ill-typed dead temp + double evaluation), and a
@@ -1322,7 +1322,7 @@ describe "Blocks: enumeration" do
   end
 
   it "top level def self singletons can call each other and yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def self.outer
         "o:#{inner { 1 }}"
       end
@@ -1336,7 +1336,7 @@ describe "Blocks: enumeration" do
   end
 
   it "yield inside a nested block literal drives the enclosing methods block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `yield`/`block_given?` lexically inside a block literal refers to the
       # ENCLOSING METHOD's own block (a block has no implicit block of its
       # own): `analyze::scan_bare_block_use` counts it, so the method gets its

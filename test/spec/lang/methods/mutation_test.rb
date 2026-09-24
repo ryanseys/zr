@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: changing in place" do
   it "anon double splat forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Anonymous `**` forwards keyword arguments the same way a named `**kw` does:
       # `def m(**) = target(**)` threads the caller's kwargs through to target.
       def target(a:, b:, c:) = [a, b, c]
@@ -39,7 +39,7 @@ describe "Methods: changing in place" do
   end
 
   it "bang operator override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!` is an ordinary overridable method in ruby (`BasicObject#!`), and a class
       # that defines it decides its own truthiness under `!`. zeo folds `!x` to a
       # truthiness test and never dispatches, so the override is ignored.
@@ -80,7 +80,7 @@ describe "Methods: changing in place" do
   end
 
   it "bare sibling cls method call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #405. A bare call to a sibling `def self.X` inside another
       # `def self.Y` body in the same module/class used to emit a
       # `cannot resolve call to 'X' on (no receiver) (emitting 0)`
@@ -159,7 +159,7 @@ describe "Methods: changing in place" do
   end
 
   it "call arg int to obj cast" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #379: when a method returns `obj_<C> | nil` and Spinel
       # collapses the union to `mrb_int` upstream, the local catching
       # the call ends up declared `mrb_int`. Use sites that need the
@@ -221,7 +221,7 @@ describe "Methods: changing in place" do
   end
 
   it "method object under prepend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Method` or `UnboundMethod` names ONE entry in the chain. Under `prepend`,
       # zeo loses which one:
       #
@@ -290,7 +290,7 @@ describe "Methods: changing in place" do
   end
 
   it "operations with the receiver as their own argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s + s` hands the SAME Arc<Mutex<..>> in as both receiver and argument.
       # parking_lot's Mutex is not reentrant, so any implementation taking both
       # guards in one expression deadlocks -- the process hangs with no output
@@ -335,7 +335,7 @@ describe "Methods: changing in place" do
   end
 
   it "safe nav with splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `recv&.meth(*args)` / `recv&.meth(**opts)` -- safe navigation on a call the
       # splat path handles. A nil receiver skips the arguments as well as the call,
       # and the receiver itself is evaluated exactly once either way. This is the
@@ -394,7 +394,7 @@ describe "Methods: changing in place" do
   end
 
   it "self argument operations" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Operations whose argument IS their receiver. These pass one shared mutable
       # object in twice, so an implementation that takes both locks at once hangs
       # the process -- a silent failure that shows up only as a timeout.
@@ -439,7 +439,7 @@ describe "Methods: changing in place" do
   end
 
   it "straight line append accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An accumulator appended to by straight-line statements takes the growable
       # handle the same way one appended to inside a loop does -- a template
       # compiler emits one `io << chunk` per literal chunk with no loop, and a

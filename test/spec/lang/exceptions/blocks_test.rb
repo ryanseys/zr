@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: blocks and yields" do
   it "block body rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = [1, 2].map do |i|
         raise ArgumentError, "x" if i == 1
         i
@@ -33,7 +33,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "block jump leaves an outer rescue its exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `break`/`return` out of a block arms a signal and unwinds through the
       # landing chain, which pops `$!` itself -- the jump must not pop it too.
       def helper
@@ -72,7 +72,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "block tail rescue modifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A GNU statement-expression's value is its last statement only when that
       # statement is an EXPRESSION. The statement form of a `rescue` modifier is an
       # if/else over setjmp whose two arms compute the value and drop it, so a block
@@ -119,7 +119,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "coercion type errors name nil true false as literals not class names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby renders nil/true/false in a coercion TypeError as those words, not
       # `NilClass`/`TrueClass`/`FalseClass`; every other object uses its class
       # name (`Integer`, `Symbol`).
@@ -154,7 +154,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "exception introspection accessors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Carried-state introspection accessors: KeyError#key/#receiver,
       # NameError/NoMethodError#receiver/#args/#private_call?, FrozenError#receiver,
       # LocalJumpError#reason/#exit_value, UncaughtThrowError#tag/#value,
@@ -219,7 +219,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "proc return ensure raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception raised inside an `ensure` that runs during a proc-return unwind
       # supersedes the return: it must propagate as a real exception, not be swallowed
       # while the abandoned non-local return is silently resumed.
@@ -244,7 +244,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "proc return nested ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested non-local return that itself runs an ensure -- and so completes a
       # full unwind -- while executing inside an outer proc-return's ensure must not
       # discard the outer return. The outer `return "outer-value"` runs its ensure,
@@ -278,7 +278,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "proc return rescue modifier escape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same home-escape-via-exception case as proc_return_escape_localjump, but the
       # exception is caught by an *expression-form* `rescue` modifier (a distinct
       # codegen path). The home node must still be dropped as the exception unwinds,
@@ -303,7 +303,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "proc unknown tail raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc whose tail is an sp_RbVal- or sp_Class-valued raising expression
       # (unresolved-call gate / NameError constant read) must coerce into the proc's
       # mrb_int return carrier instead of returning the mismatched C type raw.
@@ -331,7 +331,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "raise in an argument keeps the block unbuilt" do
-    result = ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
 
       # A literal block's proc is MOVED to the callee, so no landing can release
       # it: on every path but the raise the callee has already taken the value
@@ -399,7 +399,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "raise kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise` accepts several operand shapes: a message string raises a
       # RuntimeError, an exception class (with an optional message) raises an
       # instance of it, and any NON-exception value is a TypeError.
@@ -438,7 +438,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "raise non exception typeerror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise <non-exception>` is CRuby's TypeError, not a value smuggled into
       # the message slot (a C type error for scalars, garbage for the rest).
       def try
@@ -488,7 +488,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "raise with a splat argument reraises the class and message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise(*exc)` -- a splat whose element count is a runtime value -- routes
       # through the runtime `Kernel#raise` (optparse's `{|*exc| raise(*exc)}`),
       # rather than the static 0..3-arg form.
@@ -510,7 +510,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "recursion ten thousand deep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bounded recursion 10_000 deep -- plain, mutual, through a lambda, and on a
       # spawned thread -- answers rather than raising. CRuby's default VM stack
       # takes this depth; zeo's frames are native frames on a 64 MiB stack
@@ -544,7 +544,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "rescue bind in lambda proc body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue => e` inside a lambda / proc body binds `e` as a body-local
       # exception. Before the fix the binding leaked to the enclosing scope so
       # the closure referenced an undeclared `lv_e`, and infer_type recomputed
@@ -572,7 +572,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "vcall miss is a name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A VCALL is a bare identifier ruby could have read as a local (`foo`, never
       # `foo()` or `self.foo`). The lookup is an ordinary send; the MISS is not.
       # Ruby cannot tell which the writer meant, so it says "undefined local
@@ -633,7 +633,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "yield no block raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unguarded yield in a method called with no block raises LocalJumpError.
       # A block_given?-guarded yield does not.
       def run
@@ -683,7 +683,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "yielding call in rescue expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def wrap001
         yield
       end

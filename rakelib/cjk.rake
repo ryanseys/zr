@@ -12,7 +12,7 @@
 # below 128 stand for themselves in every one of them.
 
 require "set"
-require_relative "../lib/ze0/record"
+require_relative "../lib/zr/record"
 
 module Gen
   module Cjk
@@ -129,7 +129,7 @@ module Gen
     # `partial` says the walk stopped short of the whole encoding, which
     # GB18030's four-byte characters make it do, and `irregular` that it
     # found a shape these rules cannot hold.
-    class Walk < Ze0::Record
+    class Walk < Zr::Record
       FIELDS = %i[trails lengths partial irregular].freeze
       attr_accessor :trails, :lengths, :partial, :irregular
 
@@ -146,7 +146,7 @@ module Gen
     # What a conversion out of an encoding needs: the code point of every
     # character its converter reads, the few characters one code point is
     # not enough for, and the rows both are written from.
-    class Rows < Ze0::Record
+    class Rows < Zr::Record
       FIELDS = %i[rows mapped multi partial].freeze
       attr_accessor :rows, :mapped, :multi, :partial
 

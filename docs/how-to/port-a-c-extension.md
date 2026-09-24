@@ -1,12 +1,12 @@
 # How to port a C extension
 
 This guide shows you how to make a gem with a C extension work in
-programs ze0 compiles. ze0 never compiles C, so the C half of the
+programs zr compiles. zr never compiles C, so the C half of the
 extension becomes Ruby. To learn why, read
-[Why ze0 has no C](../explanation/why-ze0-has-no-c.md).
+[Why zr has no C](../explanation/why-zr-has-no-c.md).
 
 A gem with no C needs no port: pin it, as
-[How to change the version of a library ze0 carries](bump-a-library.md)
+[How to change the version of a library zr carries](bump-a-library.md)
 shows.
 
 ## 1. Vendor the gem's Ruby half
@@ -22,9 +22,9 @@ vendor/ext/digest/
   lib/digest/...
 ```
 
-Never edit these files. If the gem does not work, fix ze0.
+Never edit these files. If the gem does not work, fix zr.
 
-Add the gem's name to `GEMS` in `lib/ze0/hir/build.rb`, so that a
+Add the gem's name to `GEMS` in `lib/zr/hir/build.rb`, so that a
 `require` finds it. Add a row for it to `THIRD_PARTY_NOTICES.md`.
 
 ## 2. Write the C half in Ruby
@@ -54,7 +54,7 @@ calls. A program can call any method of the extension.
 
 For a large C half, write the port so that it also runs on CRuby. It can
 then be compared with the real extension on the host, in one process and
-object for object, before ze0 compiles it: `test/unit/prism_test.rb` and
+object for object, before zr compiles it: `test/unit/prism_test.rb` and
 `regexp_diff_test.rb` do this for prism and Onigmo, each over a
 committed sample.
 

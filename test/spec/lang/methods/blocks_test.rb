@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: blocks and yields" do
   it "class in a define method block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby rejects the `class` keyword inside a `def`, and accepts it inside a
       # BLOCK -- so `define_method(:x) { module M; end }` is legal, and the module
       # takes the block's own lexical cref. zeo desugars a literal-symbol
@@ -108,7 +108,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "class method open class call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `infer_call_type`'s class-body fallback used to short-circuit on
       # any call inside a class body — including those with a receiver.
       # A `recv.method(...)` whose method isn't on the enclosing class
@@ -150,7 +150,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "defined yield outside a method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?(yield)` at the top level makes zeo emit a program that does not
       # compile: `__blk` is not in scope.
       #
@@ -178,7 +178,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "escaping block capturing self via explicit self dot method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Before `HirNode::SelfRef` existed, an escaping block could only ever
       # capture `self` implicitly via a bare `@ivar` reference --
       # `self.method_name` is another way a block needs the same capture (see
@@ -212,7 +212,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "issue method name def in block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `__method__` inside a `def` written in a BLOCK. Such a def installs at
       # runtime, as a method-body lambda, so the name has to be carried into the
       # body: reading it off the enclosing scope answers whatever encloses the
@@ -234,7 +234,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "lambda default reads its sibling parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda written as a parameter DEFAULT closes over the parameters bound
       # before it: the default is evaluated in the callee's frame, so `dest` and
       # `out` are that frame's locals and the lambda captures them like any block
@@ -271,7 +271,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "later def on a builtin reaches back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A later `def` reopening a BUILTIN class used to reach BACK: a call written
       # above the reopen answered with the reopened body.
       #
@@ -313,7 +313,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "lifted block class method self cls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class method that carries the receiving class must still carry it into a
       # lifted block: a sibling class-method call there used an identifier the
       # proc's signature does not have.
@@ -369,7 +369,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "massign splat rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat on the RHS of a multiple assignment (`*a = *x`), rest-only targets
       # under a scalar RHS (`*a = 5` -> [5]), and nil splats contributing nothing.
       *a = *[1, 2]
@@ -407,7 +407,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "method defined in a block frame label" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method DEFINED inside a block carries the block's nesting in its frame
       # label, so `caller` and `caller_locations` name it wrongly:
       #
@@ -449,7 +449,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "method param destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # def m((a, b)) destructures an array argument across the parenthesized
       # parameter, like block parameters do.
       def m((a, b))
@@ -477,7 +477,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "method params destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # METHOD params destructure too, not just block params.
       #
       # `r##"..."##`: the body contains `"#{a}`, which would close an `r#"..."#`.
@@ -498,7 +498,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "parameter default assigns a method local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def fetch(name, default = (no_default = true))` is the idiom for "was an
       # argument actually passed?" -- and the local the default assigns belongs to the
       # WHOLE method, not to the default expression. It is nil when the default did
@@ -605,7 +605,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "post params fill from the front when underfull" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Post params fill left-to-right from whatever the lead/optional/rest slots
       # left behind, nil-padding the tail -- they are anchored to the END of the
       # argument list only when there are enough values to reach them.
@@ -626,7 +626,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc compose method operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#>> / #<< with a Method operand composes through Method#to_proc, whose
       # trampoline publishes its boxed result -- composing the raw method object
       # mis-typed the intermediate (#2692).
@@ -649,7 +649,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc destructured parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(->((a, b)) {}.parameters)
       p(proc { |(a, b)| }.parameters)
       p(->(x, (a, b)) {}.parameters)
@@ -673,7 +673,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc installed as a method checks its shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method` HARDENS proc semantics: the installed method arity-checks
       # like a `def`, and an undeclared keyword is an error. The block binder
       # underneath is lenient on both counts -- it pads a missing positional with
@@ -778,7 +778,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc method wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pr = proc { |a, b = 1, *c, d:, e: 2, **f, &g| }
       p pr.parameters
       la = ->(a, b = 1) {}
@@ -847,7 +847,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#parameters reflects the block/lambda signature. A proc reports required
       # positionals as :opt (it doesn't enforce arity); a lambda reports them as :req.
       p proc { |x| }.parameters
@@ -884,7 +884,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc parameters lambda keyword forces the reporting view" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `parameters(lambda:)` forces the view: true reports plain positionals as
       # :req, false as :opt, nil follows the receiver. A defaulted positional
       # stays :opt in every view; a bound method's to_proc keeps the method arity.
@@ -910,7 +910,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc parameters lambda kw" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#parameters(lambda:) forces the reporting view (#2693): true reports
       # plain positionals as :req, false as :opt, nil follows the receiver's own
       # nature. Defaulted positionals stay :opt in every view, and rest/key/block
@@ -946,7 +946,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc parameters reflect the signature" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p proc { |x, y| }.parameters
       p lambda { |x, y| }.parameters
       p proc { |a, b = 1, *c, d, k:, m: 2, **n, &blk| }.parameters
@@ -966,7 +966,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "proc parameters source names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Proc#parameters` reports the names the PROGRAM wrote. Three things leaked
       # the compiler's own names instead (#4045).
       #
@@ -1009,7 +1009,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "a recursive method that yields reaches its block at every depth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1036,7 +1036,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "an instance method recurses and yields the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1071,7 +1071,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "a top-level def recurses and yields the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1104,7 +1104,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "a declared &block beside a literal yield in the body recurses too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1139,7 +1139,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "recursion through a receiver's own yielding method walks a tree" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1191,7 +1191,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "a real proc passed by the caller is reached at every depth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1219,7 +1219,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "a captured local mutated through the recursion holds every write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1247,7 +1247,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "a yield-method inlined inside the recursive method keeps its own yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
       # instead of hitting the inline depth cap: the &block param rides as an
@@ -1293,7 +1293,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "redefinition timeline edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The positional-redefinition timeline (`analyze::redefs`) beyond the two
       # promoted gap shapes: each call must see the body installed AT THAT MOMENT.
 
@@ -1395,7 +1395,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "splat value positions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat in value positions: `break *x` / `next *x` build an array (nil -> [],
       # array -> itself, scalar -> [v]); `when *arr` is membership of the splatted
       # array (literal or variable), on both statement and value-position cases.
@@ -1444,7 +1444,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "yield inside a constructor block belongs to the method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Hash.new { ... }` lowers to its own `HirNode::New`, not to an ordinary
       # call, and the block hangs off that node. Two walks that decide whether a
       # method needs its `__blk` parameter used to match `New { args, .. }` and so
@@ -1496,7 +1496,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "yield method call in method body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Calling a yield-using method on implicit self from inside another
       # instance method's body used to drop the literal block — the call
       # site emitted `sp_C_run(self, "foo")` against a signature that
@@ -1566,7 +1566,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "yield self method return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         def self.go
           yield
@@ -1602,7 +1602,7 @@ describe "Methods: blocks and yields" do
   end
 
   it "yield value returns from method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f
         yield
       end

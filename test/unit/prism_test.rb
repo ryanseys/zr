@@ -11,7 +11,7 @@ require "stringio"
 # the parser's dumps equal to the C's, and the C extension's entry points
 # answering as the C's do, object for object.
 class PrismTest < Minitest::Test
-  PrismDiff = Ze0::Harness::PrismDiff
+  PrismDiff = Zr::Harness::PrismDiff
 
   def test_the_generated_files_are_current
     out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/oracle/prism_generate.rb"), "--check"], err: %i[child out], &:read)
@@ -43,7 +43,7 @@ class PrismTest < Minitest::Test
 
   def self.upstream_cases(...) = PrismDiff.upstream && PrismDiff.cases(...)
 
-  compare("the_writer_writes_ze0s_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
+  compare("the_writer_writes_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
@@ -62,9 +62,9 @@ class PrismTest < Minitest::Test
   end
 
   # The Ruby parser: Prism::Ruby.dump equal to Prism.dump byte for byte, on
-  # ze0's own Ruby and on every fixture and error file under each syntax
+  # zr's own Ruby and on every fixture and error file under each syntax
   # version.
-  compare("the_parser_dumps_ze0s_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
+  compare("the_parser_dumps_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
@@ -187,8 +187,8 @@ end
   # answers tokens -- and syntax_suggest, which ruby's report for a file
   # that does not parse goes through, lexes with exactly that call.
   def test_lex_compat_answers_the_tokens_the_gems_prism_answers
-    source = File.read(File.join(ROOT, "lib/ze0/clock.rb"))
-    tokens = lexed(source, "ze0/prism")
+    source = File.read(File.join(ROOT, "lib/zr/clock.rb"))
+    tokens = lexed(source, "zr/prism")
 
     assert_operator tokens.lines.size, :>, 50
     assert_equal lexed(source, "prism"), tokens
@@ -199,7 +199,7 @@ end
   # What a fresh ruby that loaded `feature` lexes `source` into.
   def lexed(source, feature)
     program = "require #{feature.inspect}\nputs Prism.lex_compat(ARGV[0]).value.map(&:inspect)\n"
-    said = IO.popen(Ze0::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", program, source],
+    said = IO.popen(Zr::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", program, source],
                     unsetenv_others: true, err: %i[child out], &:read)
     assert_predicate $?, :success?, "the child did not lex with #{feature}: #{said}"
     said

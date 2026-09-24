@@ -3,10 +3,10 @@
 require "minitest/autorun"
 
 # The checks hold ruby's own road; a compiled compiler of the tree runs
-# only where a check asks for it (lib/ze0/self_host.rb).
-ENV["ZE0_SELF"] ||= "0"
+# only where a check asks for it (lib/zr/self_host.rb).
+ENV["ZR_SELF"] ||= "0"
 
-require_relative "../lib/ze0/target"
+require_relative "../lib/zr/target"
 require_relative "support/fork_pool"
 require_relative "support/harness/unbundled"
 require "tmpdir"
@@ -15,7 +15,7 @@ require "fileutils"
 # What earlier tiers left under the system's temporary directory when
 # they were killed, or made in a worker that ended in `exit!`.
 require_relative "support/scratch"
-Ze0::Test::Scratch.sweep
+Zr::Test::Scratch.sweep
 
 # Every example runs in a forked worker rather than in a thread: what
 # these tests do is the compiler's own Ruby, and the GVL lets one
@@ -25,7 +25,7 @@ Ze0::Test::Scratch.sweep
 # process, and one compile here grows a heap ruby never gives back --
 # which every later worker then inherits, because a fork starts from
 # whatever this process has become. The parent stays a dispatcher.
-Minitest.parallel_executor = Ze0::Test::ForkPool.new
+Minitest.parallel_executor = Zr::Test::ForkPool.new
 require_relative "support/slow"
 require_relative "support/progress"
 Minitest::Test.parallelize_me!
@@ -62,12 +62,12 @@ module Checks
   # The memory is watched rather than asked for: wasmtime's own
   # `max-memory-size` bounds the module's linear memory and not what the
   # process resides in, which is what runs the machine out.
-  LIMIT = Integer(ENV.fetch("ZE0_LIMIT", 60))
-  RESIDENT = Integer(ENV.fetch("ZE0_RESIDENT", 2048))
+  LIMIT = Integer(ENV.fetch("ZR_LIMIT", 60))
+  RESIDENT = Integer(ENV.fetch("ZR_RESIDENT", 2048))
 
   module_function
 
-  def wasmtime? = Ze0::Harness::Wasmtime.installed?
+  def wasmtime? = Zr::Harness::Wasmtime.installed?
 
   # Why a check that builds a module for wasm32-wasi cannot run, or nil
   # with that target's caches loaded into this process. wasm is not
@@ -75,9 +75,9 @@ module Checks
   # check that finds it missing skips by name rather than builds.
   def wasm_missing
     return "wasmtime is not installed" unless wasmtime?
-    return "wasm32-wasi is not built: run rake build:wasm" unless Ze0::Test::Built.built?(Ze0::Target::WASM32_WASI)
+    return "wasm32-wasi is not built: run rake build:wasm" unless Zr::Test::Built.built?(Zr::Target::WASM32_WASI)
 
-    Ze0::Test::Built.load(Ze0::Target::WASM32_WASI)
+    Zr::Test::Built.load(Zr::Target::WASM32_WASI)
     nil
   end
 
@@ -88,7 +88,7 @@ module Checks
   # The child runs outside this bundle; `Harness::Unbundled` says why.
   def bounded(env, argv, err:, chdir: Dir.pwd)
     why = nil
-    out = IO.popen(Ze0::Harness::Unbundled.env(env), argv, err: err, chdir: chdir,
+    out = IO.popen(Zr::Harness::Unbundled.env(env), argv, err: err, chdir: chdir,
                    unsetenv_others: true) do |io|
       watchdog = Thread.new { why = watch(io.pid) }
       io.read.tap { watchdog.kill }

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "URI programs" do
   it "the vendored gem loads, parses a URI into its parts and builds one back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "uri"` -- the vendored gem loads and parses. Covers `module Kernel;
       # def URI(u); module_function :URI`, whose two halves share one generated
       # container; `defined?(::URI::Parser)` guarding the `const_set` that creates it;

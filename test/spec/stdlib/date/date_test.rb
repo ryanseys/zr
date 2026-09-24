@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Date programs" do
   it "allocated native object refuses what ruby refuses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blank instance is a legal RECEIVER, and answers exactly what ruby's does.
       #
       # Making `allocate` work is only half the job. Ruby draws a line between an
@@ -136,7 +136,7 @@ describe "Date programs" do
   end
 
   it "cwday, cweek and cwyear answer the ISO commercial date" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -155,7 +155,7 @@ describe "Date programs" do
   end
 
   it "ctime and asctime answer the C-library form of the date at midnight" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -170,7 +170,7 @@ describe "Date programs" do
   end
 
   it "require \"date\" defines Date::Error and Date::Infinity in the gem's Ruby half" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "date"` defines two classes the native half cannot: `Date::Error`
       # (an ArgumentError subclass every invalid-date raise uses) and
       # `Date::Infinity`. A feature-gated native class cannot register a
@@ -250,7 +250,7 @@ describe "Date programs" do
   end
 
   it "jd, mjd, ld, ajd, amjd and day_fraction answer the day numbers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -273,7 +273,7 @@ describe "Date programs" do
   end
 
   it "a Range of Dates iterates through succ" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Range of Dates iterates via #succ (`to_a`, `each`, `step`); zeo
       # raises TypeError "can't iterate from Date". (Found by the 2026-08-24
       # probe sweep.)
@@ -287,7 +287,7 @@ describe "Date programs" do
   end
 
   it "monday? through sunday? answer for the day the Date names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "date"
 
       d = Date.new(2024, 2, 29)
@@ -308,7 +308,7 @@ describe "Date programs" do
   end
 
   it "a class that inherits from Module is a factory whose instances are real modules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -380,7 +380,7 @@ describe "Date programs" do
   end
 
   it "a user instance method runs against the minted module, and its ivars persist" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -424,7 +424,7 @@ describe "Date programs" do
   end
 
   it "including a minted module runs the user included hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -483,7 +483,7 @@ describe "Date programs" do
   end
 
   it "reflection on the factory itself answers Module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -538,7 +538,7 @@ describe "Date programs" do
   end
 
   it "an ivar set from outside reaches the store the method bodies use" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -594,7 +594,7 @@ describe "Date programs" do
   end
 
   it "a self.new override may answer something that is not a module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -690,7 +690,7 @@ describe "Date programs" do
   end
 
   it "a proxy built that way reports its own class and its target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -769,7 +769,7 @@ describe "Date programs" do
   end
 
   it "a subclass of the proxy is still a Module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -856,7 +856,7 @@ describe "Date programs" do
   end
 
   it "a factory that writes no initialize takes no arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -952,7 +952,7 @@ describe "Date programs" do
   end
 
   it "a class that inherits from ObjectSpace::WeakMap is a real weak map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1073,7 +1073,7 @@ describe "Date programs" do
   end
 
   it "the weak map's own rows answer through the subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1185,7 +1185,7 @@ describe "Date programs" do
   end
 
   it "a class that inherits from DateTime carries its own ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1333,7 +1333,7 @@ describe "Date programs" do
   end
 
   it "a Date subclass with no ivar storage of its own still holds one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1467,7 +1467,7 @@ describe "Date programs" do
   end
 
   it "every inherited constructor tags with the receiver, new included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1616,7 +1616,7 @@ describe "Date programs" do
   end
 
   it "Date and DateTime themselves are untouched by the subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1758,7 +1758,7 @@ describe "Date programs" do
   end
 
   it "a class that inherits from Proc is a real Proc, not a payload wrapper" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -1922,7 +1922,7 @@ describe "Date programs" do
   end
 
   it "the Proc subclass answers map and the other rows that take a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -2078,7 +2078,7 @@ describe "Date programs" do
   end
 
   it "the Proc subclass passes as a block with &" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -2243,7 +2243,7 @@ describe "Date programs" do
   end
 
   it "Proc itself is untouched by the subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Module` -- a module FACTORY, whose instances are real modules.
       #
       # This is NOT the value-subclass payload shape and must not become it: a
@@ -2405,7 +2405,7 @@ describe "Date programs" do
   end
 
   it "range walks anything with succ" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Range#each` falls through to `succ` for ANY value that answers it --
       # CRuby's `range_each` does exactly that test, which is what makes a Date
       # range iterable and what any user class with `succ` and `<=>` gets free.
@@ -2490,7 +2490,7 @@ describe "Date programs" do
   end
 
   it "strftime case flags" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `%#` changes a field's case as a whole -- all-uppercase becomes lowercase,
       # anything else becomes uppercase -- rather than swapping it per character.
       # Per-character swapcase turned "January" into "jANUARY" where CRuby answers
@@ -2525,7 +2525,7 @@ describe "Date programs" do
   end
 
   it "strftime directive surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The whole `strftime` directive table for both engines. `Time` and `date`
       # share one renderer, and differ in exactly two places: `date` adds `%Q`/`%+`,
       # and a trailing incomplete directive is an ArgumentError for Time where
@@ -2587,7 +2587,7 @@ describe "Date programs" do
   end
 
   it "strftime modifiers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t001 = Time.utc(2024, 2, 29, 5, 7, 9, 123456)
       p t001.strftime("%Ey %EY %Od %Om %OH")
       p t001.strftime("%6L")
@@ -2612,7 +2612,7 @@ describe "Date programs" do
   end
 
   it "strftime week and pad directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Four `strftime` directives are not implemented and pass through as their own
       # literal text -- `%U`, `%W`, `%V` and `%G` -- so a format string asking for a
       # week number gets the two characters back instead:
@@ -2655,7 +2655,7 @@ describe "Date programs" do
   end
 
   it "strftime zone offset flags" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `%z` ignores the `-` and `_` pad flags. zeo answers the plain `%z` string
       # for all three spellings; ruby answers something else for each:
       #
@@ -2700,7 +2700,7 @@ describe "Date programs" do
   end
 
   it "time strftime directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30) + 0.123456789
       p t.strftime("%P")   # lowercase am/pm
       p t.strftime("%L")   # milliseconds
@@ -2725,7 +2725,7 @@ describe "Date programs" do
   end
 
   it "time strftime directives 2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `strftime`'s directive table, including Ruby's `-`/`_` padding flags and
       # the verbatim-unknown-directive rule.
 
@@ -2756,7 +2756,7 @@ describe "Date programs" do
   end
 
   it "time strftime epoch zone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.strftime("%z")   # zone offset
       p t.strftime("%s")   # seconds since epoch
@@ -2771,7 +2771,7 @@ describe "Date programs" do
   end
 
   it "time strftime z minimal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # %:::z collapses the UTC offset to the minimal precision that loses nothing
       # (#2713); a fixed-offset time (Time.at in:) reports its own offset.
       t = Time.utc(2026, 7, 16, 13, 45, 30)
@@ -2802,7 +2802,7 @@ describe "Date programs" do
   end
 
   it "yaml date time scalars are gated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare date or timestamp scalar is a TYPED value psych gates behind
       # `permitted_classes` -- plain `safe_load` RAISES Psych::DisallowedClass
       # for `2001-12-14`, and with `[Time]` permitted the timestamp loads as a
@@ -2830,7 +2830,7 @@ describe "Date programs" do
   end
 
   it "yaml dump styles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Psych's emitter styles: a multiline string dumps as a literal block
       # (`|` / `|-`), binary as `!binary`, unicode plain (unquoted), infinity
       # as `.inf`, Time/Date as native scalars, a Range with its `!ruby/range`

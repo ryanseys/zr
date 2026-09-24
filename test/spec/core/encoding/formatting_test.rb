@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Encoding: formatting and inspection" do
   it "broken and binary strings inspect with hex escapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A byte that isn't a character in the string's encoding renders as
       # \xNN, and the cross-encoding equality rule keeps ASCII-only strings
       # equal across encodings. Cross-checked against ruby 4.0.6.
@@ -27,7 +27,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "carrier character reads as more than one code point" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The carriers' own encodings hold characters that stand for more than
       # one code point: a flag is two regional letters, and a keycap is a digit
       # with a mark after it. One character in, two out, so a table of code
@@ -48,7 +48,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "compatible takes every object that carries an encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Encoding.compatible? takes a String, a Symbol, a Regexp, an IO or an
       # Encoding, as enc_compatible_p does, and anything else answers nil.
       p Encoding.default_external
@@ -96,7 +96,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "encode decorators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#encode`'s decorators, and where they land in a NON-ascii target.
       # The replacement text and the XML markup are both rendered INTO the target,
       # so a UTF-16 result gets whole code units rather than stray ASCII bytes --
@@ -143,7 +143,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "encode to the same encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `str.encode(enc)` where str is ALREADY in enc is a no-op in ruby -- no byte
       # validation happens, invalid bytes ride through untouched. zeo runs the
       # transcoder anyway and raises InvalidByteSequenceError on the bad bytes.
@@ -164,7 +164,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "the encoding tables link, so transcoding, byte inspection and the registry all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The encoding tables are linked: transcoding, byte inspection and the
       # encoding registry all answer in the binary.
       s = "héllo wörld"
@@ -188,7 +188,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "Encoding::Converter converts a piece at a time, and stops where each kind of break demands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The stateful face of the same engine `String#encode` runs on -- one
       # `Encoding::Converter`, fed a piece at a time. Note the wording of this
       # first line: `# Encoding::Converter` would read as a magic comment, since
@@ -465,7 +465,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "primitive_convert cuts where CRuby cuts under a dst_bytesize limit, and drains the rest next" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A converter's `#primitive_convert` cuts at CRuby's own point under a
       # `dst_bytesize` limit. (This first line avoids naming the class outright:
       # ruby would read `coding:` inside it as a magic comment.)
@@ -508,7 +508,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "the multibyte tables convert exactly as CRuby converts, and the gaps are gaps in ruby too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The multibyte mapping tables landed, so the rows below convert exactly as
       # CRuby does: EUC-KR, GB18030, GB2312, CP949, Big5-HKSCS, UTF8-MAC, eucJP-ms
       # and CP51932 all round-trip here.
@@ -568,7 +568,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "interpolation, format, pack and the justify family all pick the result encoding by rb_enc_check" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The encoding a derived String carries, across the four places that build
       # one out of two others: interpolation, `%`/`format`, `Array#pack` and the
       # `ljust`/`rjust`/`center` family.
@@ -680,7 +680,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "format binary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # "%b" / "%B" binary conversion in String#% / format / sprintf. Previously the
       # binary conversion was unsupported and emitted the literal spec (e.g. "%b").
       def s(x); x; end
@@ -814,7 +814,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "format binary precision and twos complement negatives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # %b honors precision (min digits, disabling the 0-flag) and renders
       # negatives in CRuby's infinite two's-complement ".." notation, switching
       # to signed magnitude under a sign flag.
@@ -846,7 +846,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "gb18030 cesu 8 and ibm037 follow their rules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GB18030's four-byte characters count through Unicode in order, CESU-8
       # writes a character past the BMP as two surrogates of three bytes each,
       # and IBM037 holds ISO-8859-1's bytes in EBCDIC order. UTF-7 and
@@ -904,7 +904,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "issue symbol loses encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Symbol remembers the encoding of the String it came from, so
       # `str.to_sym.to_s` answers that encoding and those bytes.
       #
@@ -935,7 +935,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "multibyte string walks every lead byte as onigmo does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String in a legacy multibyte encoding finds where each character
       # ends by the lead-byte lengths and state tables of CRuby's enc/*.c:
       # GB18030's four-byte characters all through their range, EUC-TW's
@@ -1232,7 +1232,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "open encoding option warns or raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The two rules an open-time encoding argument follows, which are not the same
       # rule and are not derivable from each other.
       #
@@ -1335,7 +1335,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "open mode string carries its encodings" do
-    result = ze0(<<~'RUBY', files: {"open_mode/sample.txt" => "hello\n"})
+    result = zr(<<~'RUBY', files: {"open_mode/sample.txt" => "hello\n"})
       # A mode string is `access[:extenc[:intenc]]`, and everything after the first
       # `:` names encodings rather than access.
       #
@@ -1385,7 +1385,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "regexp flag letter picks an encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Regexp literal's trailing letter may name an ENCODING -- `/n`, `/e`, `/s`,
       # `/u` -- and that is observable three ways at once: `#options` reports it as a
       # bit, `#encoding` names it, and `#fixed_encoding?` answers whether the pattern
@@ -1481,7 +1481,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "__ENCODING__ is an Encoding value, so it compares and keys a hash as one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #843. `__ENCODING__` should behave like an Encoding value,
       # not a plain String.
 
@@ -1517,7 +1517,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "string encoding preserved" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A derived string keeps the RECEIVER's encoding and its raw bytes.
       #
       # The strip/pad/chop/tr/delete/squeeze family used to compute over
@@ -1669,7 +1669,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "string inspect invalid utf8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#inspect escapes a byte that is not part of a valid UTF-8 sequence as
       # \xNN, the way CRuby renders it. Passing the raw byte through made the inspect
       # output itself invalid UTF-8, so a terminal drew U+FFFD -- inspect lost the one
@@ -1724,7 +1724,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "string lshift int codepoint" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #882: `s << int` appends the UTF-8 character with that
       # codepoint (per MRI). Previously appended the integer's decimal
       # digits.
@@ -1743,7 +1743,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "string scrub" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#scrub replaces invalid UTF-8 bytes with the given
       # replacement (or U+FFFD by default).
       puts "\xff".scrub("?")
@@ -1762,7 +1762,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "symbol inspect nonascii" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p :café
       p :café.inspect
       v = :café; p v
@@ -1789,7 +1789,7 @@ describe "Encoding: formatting and inspection" do
   end
 
   it "inspect of a lone Shift_JIS lead byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       %w[Shift_JIS Windows-31J SJIS-DoCoMo MacJapanese EUC-JP].each do |enc|
         p [enc, "\xA4".b.force_encoding(enc).inspect, "a\x81".b.force_encoding(enc).inspect]
       end

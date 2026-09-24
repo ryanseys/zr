@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/hir"
+require_relative "../../lib/zr/hir"
 
 # A program that evals is built twice: once to learn that it evals, and
 # once over the road, where every file the road holds is named by its
@@ -28,9 +28,9 @@ class RoadAheadTest < Minitest::Test
     def activations = 0
   end
 
-  VENDOR = Ze0::Hir::Build.pure
-  HELD = (Dir[File.join(VENDOR, "rubygems/**/*.rb")] + Ze0::Hir::Build.rubygems_files +
-          Dir[File.join(ROOT, "lib/ze0/**/*.rb")] + Dir[File.join(ROOT, "rt/ext/**/*.rb")]).sort.freeze
+  VENDOR = Zr::Hir::Build.pure
+  HELD = (Dir[File.join(VENDOR, "rubygems/**/*.rb")] + Zr::Hir::Build.rubygems_files +
+          Dir[File.join(ROOT, "lib/zr/**/*.rb")] + Dir[File.join(ROOT, "rt/ext/**/*.rb")]).sort.freeze
 
   # The files the loader parses, by path, through the one road a parse
   # takes.
@@ -45,8 +45,8 @@ class RoadAheadTest < Minitest::Test
 
   def test_a_build_that_learns_it_evals_names_the_roads_files_from_then_on
     Counting::PARSED.clear
-    Ze0.singleton_class.prepend(Counting) unless Ze0.singleton_class < Counting
-    program = Ze0::Hir::Build.program("require \"rubygems\"\nputs Gem::VERSION\n", "probe.rb", road: Road.new(HELD))
+    Zr.singleton_class.prepend(Counting) unless Zr.singleton_class < Counting
+    program = Zr::Hir::Build.program("require \"rubygems\"\nputs Gem::VERSION\n", "probe.rb", road: Road.new(HELD))
     assert program.evals, "rubygems evals"
 
     parsed = Counting::PARSED.keys.select { |path| path.start_with?(File.join(VENDOR, "rubygems")) }

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: control flow" do
   it "empty hash method return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose value is an element-less hash -- a bare `{}` or `Hash.new` /
       # `Hash.new(default)` -- witnesses no element types in its body, so its return
       # inferred TY_UNKNOWN and codegen emitted a `void` C function; the caller's
@@ -61,7 +61,7 @@ describe "Hash: control flow" do
   end
 
   it "empty hash takes return type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `{}` literal defaults to a StrPolyHash, but when a hash-returning
       # method (or a hash-typed ternary) has another branch of a different hash
       # variant, the empty branch must take that variant -- otherwise the StrPolyHash*
@@ -96,7 +96,7 @@ describe "Hash: control flow" do
   end
 
   it "for loop destructures each pair" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       for aa, bb in [[1, 2], [3, 4]]
         puts aa + bb
       end
@@ -106,7 +106,7 @@ describe "Hash: control flow" do
   end
 
   it "select! answers nil when it removed nothing, and keep_if always answers self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#select! / #filter! / #reject! return nil when nothing was removed and
       # self otherwise; #keep_if / #delete_if always return self. These now work in
       # expression position (as an argument to `p`), not only as a bare statement.
@@ -159,7 +159,7 @@ describe "Hash: control flow" do
   end
 
   it "h[k] &&= and h[k] ||= ask has_key, so a stored 0 stays truthy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # h[k] &&= and h[k] ||= on int-valued hashes must use has_key
       # for the truthy check, not the raw _get return. C treats 0 as
       # falsy but Ruby treats 0 as truthy, so the old _get guard
@@ -205,7 +205,7 @@ describe "Hash: control flow" do
   end
 
   it "a method answering Hash.new(default) takes the int-keyed, float-valued shape its caller pins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method returning Hash.new(default) where the caller pins the int-keyed,
       # float-valued shape (PolyPolyHash): the backprop exclusion this variant
       # needed before PolyPolyHash_new_with_default existed is gone.
@@ -225,7 +225,7 @@ describe "Hash: control flow" do
   end
 
   it "int keyed hash variant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty hash literal takes the variant its key selects, and that mark is
       # permanent -- it only ever widens afterwards. For a String key the rule reads
       # the slot's own `h[k] = v` writes so a concrete value type is not thrown away;
@@ -273,7 +273,7 @@ describe "Hash: control flow" do
   end
 
   it "next value hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next <value>` through hash map/select/reject: map contributes the value;
       # select/reject decide inclusion by the (next-aware) block value.
       p({ a: 1, b: 2, c: 3 }.map { |k, v| next 0 if v == 2; v * 10 })         # [10, 0, 30]
@@ -293,7 +293,7 @@ describe "Hash: control flow" do
   end
 
   it "nullable hash recv bracket" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Router
         def self.match_pattern(s)
           return nil if s == ""
@@ -337,7 +337,7 @@ describe "Hash: control flow" do
   end
 
   it "unless return path hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #449: `unless cond; return {hash}; end; nil` — the function's
       # return type used to ignore the unless-arm's `return {hash}` and
       # infer mrb_int (the trailing nil), failing C compile. Now the

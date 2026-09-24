@@ -13,9 +13,9 @@
 # shrank. Every run writes `tmp/codesize.tsv`, which is what a later one
 # is given to compare against.
 
-require "ze0/zr"
-require "ze0/backend/aarch64/codegen"
-require "ze0/ir/passes"
+require "zr/zr"
+require "zr/backend/aarch64/codegen"
+require "zr/ir/passes"
 
 module Codesize
   module_function
@@ -24,13 +24,13 @@ module Codesize
     all = argv.delete("--all")
     was = argv.shift
 
-    runtime = Ze0::Zr.runtime
-    functions = Ze0::IR::Passes.inline(runtime.functions).each { |f| Ze0::IR::Passes.prepare(f) }
+    runtime = Zr::Zr.runtime
+    functions = Zr::IR::Passes.inline(runtime.functions).each { |f| Zr::IR::Passes.prepare(f) }
     defined = functions.map(&:name).to_set
 
     began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     sizes = functions.to_h do |f|
-      [f.name, Ze0::Backend::Aarch64::Codegen.new(f, defined: defined).compile.bytes.bytesize / 4]
+      [f.name, Zr::Backend::Aarch64::Codegen.new(f, defined: defined).compile.bytes.bytesize / 4]
     end
     took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - began
 

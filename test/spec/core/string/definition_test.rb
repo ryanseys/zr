@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: defining and naming methods" do
   it "alias supports the symbol spelling of both names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def hello
           "hi"
@@ -18,7 +18,7 @@ describe "String: defining and naming methods" do
   end
 
   it "define method with a symbol to proc block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_method(:name, &:other)`. In CRuby the `&` conversion happens at
       # the CALL SITE, before rb_mod_define_method runs (proc.c:2872, which
       # rejects a bare Symbol as its second positional arg), so the body is the
@@ -46,7 +46,7 @@ describe "String: defining and naming methods" do
   end
 
   it "int element alias not string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `b0 = bytes[i]` where bytes holds Integers, in a method that also appends to a
       # String: the mutator table is name-keyed, so `b0 << 4` (an integer shift) read
       # as a string append and the element was bound to a string handle (#3971).
@@ -88,7 +88,7 @@ describe "String: defining and naming methods" do
   end
 
   it "interpolated undef is a runtime tombstone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef :"#{name}"` (immutable_struct_ex strips Struct writers in a loop)
       # has no compile-time spelling: it desugars to a runtime `undef_method` on
       # the default definee, in class-body order.
@@ -142,7 +142,7 @@ describe "String: defining and naming methods" do
   end
 
   it "mutable str alias uaf" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mutable String (String.new + <<) owns its internal buffer, freed by
       # the object's finalizer. Boxing/coercing/returning that buffer as an
       # immutable string must copy it, not alias it: otherwise a GC that
@@ -216,7 +216,7 @@ describe "String: defining and naming methods" do
   end
 
   it "send with a non literal target binds keyword args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The G2 trailing-kwargs-hash convention: `send`'s truly-dynamic
       # fallback (non-literal target name) carries kwargs as one trailing
       # Hash; the callee's trampoline pops and binds it.
@@ -234,7 +234,7 @@ describe "String: defining and naming methods" do
   end
 
   it "shared string reference links" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The same String written twice is a `@`-link the second time, so a
       # mutation through one alias is visible through the other after load.
 
@@ -248,7 +248,7 @@ describe "String: defining and naming methods" do
   end
 
   it "a String reached through an accessor is the object the container holds, as through [] it is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String reached through an ACCESSOR call is the same object the container
       # holds, exactly as one reached through `[]` is. The shared-mutable-string
       # analysis keyed only off `[]`, so the accessor route handed out a copy: the
@@ -326,7 +326,7 @@ describe "String: defining and naming methods" do
   end
 
   it "a String read out of a container into a local aliases the element, so a mutation shows in both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading a mutable String out of a container into a local aliases the
       # element: an in-place mutation through the local must show in the container,
       # and `equal?` must answer true. The local used to hold a COPY (#3941).

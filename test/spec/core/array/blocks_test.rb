@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: blocks and yields" do
   it "combination with a block yields each combination without building them all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#combination(k) with a block iterates each combination
       # without materialising a giant intermediate array.
 
@@ -22,7 +22,7 @@ describe "Array: blocks and yields" do
   end
 
   it "fill's block form takes the index span positionally and the value from the block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#fill's block form takes NO value argument: the positional args are the
       # index span (start[, length] or a range) and the value at each index comes from
       # the block, invoked with the index. Spinel previously treated the first arg as
@@ -76,7 +76,7 @@ describe "Array: blocks and yields" do
   end
 
   it "flat_map with a scalar block value is exactly map, and an array value splices" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # flat_map whose block value is statically scalar is exactly map (CRuby
       # appends non-array values as-is); array/poly block values keep the
       # splicing emitters.
@@ -102,7 +102,7 @@ describe "Array: blocks and yields" do
   end
 
   it "minmax honours a two-parameter comparator block instead of < and >" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#minmax with a 2-param comparator block honours the block's
       # ordering instead of the default < / >.
       p [3, 1, 2].minmax { |a, b| b <=> a }   # reversed: [3, 1]
@@ -132,7 +132,7 @@ describe "Array: blocks and yields" do
   end
 
   it "Array.new(n) { Array.new(m, 0) } is a table of integer arrays, not a boxed one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `t = Array.new(n) { Array.new(m, 0) }` is a table of int arrays, but the
       # narrowing pass that gives an array of int-arrays its typed representation
       # only classified pushes and literals -- a generator block killed the slot, so
@@ -187,7 +187,7 @@ describe "Array: blocks and yields" do
   end
 
   it "Array.new takes a size, a default and a block, and a bare call is empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The block form has to reach the runtime allocator, so `Array.new`
       # joins the block-keeping set in lowering -- routing it through
       # `HirNode::New` (which has no block slot) silently answered nils.
@@ -207,7 +207,7 @@ describe "Array: blocks and yields" do
   end
 
   it "the blockless predicates read a value-typed array, where no element is nil or false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # any?/all?/none?/one? with NO block on value-typed arrays. Elements are never
       # nil/false, so all? is always true, any? is non-empty, none? is empty, one? is
       # a single element. Covers symbol, int, and string arrays.
@@ -240,7 +240,7 @@ describe "Array: blocks and yields" do
   end
 
   it "a predicate's block may take no parameter at all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # any?/all?/none?/one? with a block that takes NO parameter. The synthetic
       # iteration slot must not be bound (an empty block can't reference the yielded
       # value), otherwise codegen emits an undeclared `lv__x` write. Covers empty and
@@ -272,7 +272,7 @@ describe "Array: blocks and yields" do
   end
 
   it "sum with a Float initial value answers a Float, even over an integer array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sum with a Float initial value returns a Float, even for an integer
       # array: CRuby accumulates in floating point. Spinel had truncated the float
       # initial value through the integer sum (returning an Integer). Distinct
@@ -315,7 +315,7 @@ describe "Array: blocks and yields" do
   end
 
   it "sum over floats compensates, so 0.1 + 0.2 + 0.3 is 0.6" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sum on floats must use Kahan-Babuska-Neumaier compensated
       # summation, matching CRuby: a naive left-fold of these values drifts
       # (0.1+0.2+0.3 -> 0.6000000000000001), the compensated sum yields 0.6.
@@ -347,7 +347,7 @@ describe "Array: blocks and yields" do
   end
 
   it "to_h builds a hash from pairs, and sort! sorts in place by its comparator block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #1224 I1: Array#to_h builds a hash from [key, value] pairs. Verified
       # via lookups + length (Spinel's hash #inspect format is a separate,
       # pre-existing concern and would only make this test fragile).
@@ -391,7 +391,7 @@ describe "Array: blocks and yields" do
   end
 
   it "block auto splats a lone array across its positional params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's `has_lead && !ambiguous_param0` rule.
 
       def one(v)
@@ -418,7 +418,7 @@ describe "Array: blocks and yields" do
   end
 
   it "block that changes its array sees crubys walk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block that grows, shrinks, replaces or freezes the Array it runs
       # over sees each element where CRuby's walk has it: select!, reject!,
       # delete_if and keep_if keep the Array's length until the walk ends,
@@ -474,7 +474,7 @@ describe "Array: blocks and yields" do
   end
 
   it "bsearch rejects a non numeric block result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#bsearch`'s block must answer numeric, true, false or nil; any
       # other type is a TypeError naming the class. zeo treats a String result as
       # a truthy find-minimum hit and answers an element. (Found by the
@@ -490,7 +490,7 @@ describe "Array: blocks and yields" do
   end
 
   it "bsearch without block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 3].bsearch.class
       p [1, 2, 3].bsearch_index.class
       p (1..5).bsearch.class
@@ -504,7 +504,7 @@ describe "Array: blocks and yields" do
   end
 
   it "combination chain in destructured block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A combination / each_cons chain whose receiver is an Array bound by
       # destructuring a Hash iteration's block parameter compiles and folds like
       # the same chain on a plain local Array.
@@ -522,7 +522,7 @@ describe "Array: blocks and yields" do
   end
 
   it "dig raises typeerror through non diggable intermediate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array/Hash#dig recurse through each intermediate's OWN #dig (CRuby's
       # rb_obj_dig), so digging past a non-diggable (an Integer) raises
       # TypeError rather than silently indexing its bits via Integer#[].
@@ -549,7 +549,7 @@ describe "Array: blocks and yields" do
   end
 
   it "empty array tap block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       [].tap do |rings|
         rings = [].take 1000
       end
@@ -581,7 +581,7 @@ describe "Array: blocks and yields" do
   end
 
   it "find block poly array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find / detect { |x| cond } over a poly array (mixed element types, or an array
       # of user objects) returns the first matching element, or nil when none match.
       # The typed-array forms already worked; array_kind is NULL for a poly array, so
@@ -623,7 +623,7 @@ describe "Array: blocks and yields" do
   end
 
   it "proc call array autosplat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#call with a single Array on a multi-parameter non-lambda proc auto-splats
       # the array across the parameters; passing the exact args is unchanged.
       fmt = proc { |a, b, c| "#{a}-#{b}-#{c}" }
@@ -651,7 +651,7 @@ describe "Array: blocks and yields" do
   end
 
   it "proc lambda array of param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # proc/lambda returning an array built from a block param must carry the
       # param's real type through .call, not leak it as a raw pointer-int (#1372).
       f = proc { |t| [t] }
@@ -680,7 +680,7 @@ describe "Array: blocks and yields" do
   end
 
   it "zip block tuples" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#zip with a block: a SOLO param receives the boxed [e1, e2] tuple,
       # two params auto-splat it, and the block form returns nil (value position
       # included).
@@ -705,7 +705,7 @@ describe "Array: blocks and yields" do
   end
 
   it "asks a question of the elements themselves, whatever the criterion names them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
 
       # A pattern's ===, the block, or an element's own truth: rb_ary_any_p

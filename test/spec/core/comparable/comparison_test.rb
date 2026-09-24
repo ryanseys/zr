@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Comparable: comparison and equality" do
   it "bigint compare object operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj == 2**64` must dispatch the object's own `==`: the bigint comparison arm
       # fired whenever EITHER side was a bignum, so the receiver pointer was coerced
       # through sp_bigint_new_int and the address was compared instead (#3975 sweep).
@@ -44,7 +44,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "collections compare element wise and objects default to identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts [1, [2, 3]] == [1, [2, 3]]
       puts({ a: 1, b: [2] } == { a: 1, b: [2] })
       puts({ a: 1 } == { a: 2 })
@@ -68,7 +68,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "the operators and clamp read a Float <=> result by its sign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable operators/clamp validate the user <=> result type: a Float
       # result compares by sign. A statically non-Integer/nil <=> result (String,
       # Array, ...) is a protocol violation caught at compile time (#2961), not a
@@ -102,7 +102,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "a base-class <=> that calls a name only its descendants write types as the unify of their returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A base-class method calling a name defined ONLY in descendants (here
       # Comparable's <=> reading `area`) types as the unify of the descendant
       # returns; it previously stayed unknown and emit_boxed discarded the
@@ -134,7 +134,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "a <=> that answers nil for a mixed operand raises, naming the operand by its inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable <,>,<=,>=,between?,clamp on a class whose `<=>` returns nil
       # for an incomparable (mixed-type) operand. The operators route through the
       # checked boxed comparator even for a VALUE-TYPE class (the direct inline
@@ -189,7 +189,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "an incomparable pair raises for the operators and between?, while == is false without raising" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object <, <=, >, >=, ==, != and between? via a user <=> that can return nil:
       # an incomparable pair raises the Comparable ArgumentError for the operators
       # and between?, while == is false (and != true) without raising, and identity
@@ -278,7 +278,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "a user <=> drives Comparable, and its result is validated the way rb_cmpint validates one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The comparison protocol: a user `<=>` drives Comparable, and its result is
       # validated the way CRuby's `rb_cmpint` does.
 
@@ -347,7 +347,7 @@ describe "Comparable: comparison and equality" do
   end
 
   it "no block cmp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # No-block sort/min/max/clamp over a user class that mixes in Comparable must
       # dispatch the user `<=>` (not the built-in poly comparator). A nil `<=>` result
       # (incomparable operands) raises ArgumentError, matching CRuby. Receivers are
@@ -457,7 +457,7 @@ describe "Comparable: comparison and equality" do
     LINUX
   end
     it "two Strings compare through the core's own <=> until a class or String itself writes another" do
-      result = ze0(<<~'RUBY')
+      result = zr(<<~'RUBY')
         p ["a" < "b", "b" <= "b", "c" > "b", "a" >= "b", "abc".between?("abb", "abd"), "z".clamp("a", "m")]
         p ["\xff".b < "a", "é" > "e", "a".encode("UTF-16LE") >= "a"]
         class Loud < String

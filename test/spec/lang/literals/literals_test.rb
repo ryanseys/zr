@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Literals programs" do
   it "hash literal with a splat raises from a later keys hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash literal that carries `**` stores its other pairs one by one;
       # a key whose `hash` raises must raise from the literal, not leave the
       # literal with no value.
@@ -32,7 +32,7 @@ describe "Literals programs" do
   end
 
   it "an interpolated pattern, a bignum and the exact numeric towers are built at run time" do
-    result = ze0(<<~'RUBY', path: "ze0/literals.rb")
+    result = zr(<<~'RUBY', path: "zr/literals.rb")
       # frozen_string_literal: true
 
       # The literals whose value only the RUN TIME can build: an interpolated
@@ -134,7 +134,7 @@ describe "Literals programs" do
   end
 
   it "range of integer literals is one frozen object per site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def ids = 3.times.map { yield.object_id }.uniq.size
 
       p ids { (1..2) }
@@ -179,7 +179,7 @@ describe "Literals programs" do
   end
 
   it "a range of two String literals is one object where CRuby folds it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby folds two String literals and newrange into one static
       # Range unless a label stands before the first string: a block's
       # body, a loop's body, an if's else arm, an unless's then arm and a
@@ -279,7 +279,7 @@ describe "Literals programs" do
   end
 
   it "never reads a regexp whose value nothing takes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby compiles nothing for an expression whose value nothing
       # takes, so it never reads a regexp written there -- and a
       # pattern the engine refuses is a SyntaxError only where the

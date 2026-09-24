@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: encodings" do
   it "core string answers in us ascii" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The strings the core library builds from plain ASCII -- a number's
       # digits, nil's and true's names, an empty collection's inspect -- are
       # US-ASCII, not UTF-8, as rb_usascii_str_new makes them; a symbol's name
@@ -61,7 +61,7 @@ describe "String: encodings" do
   end
 
   it "encode asks its fallback for an undefined character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `fallback:` answers for each character the target has no room for:
       # a Hash, a Proc, a Method or anything that answers `[]`, given the
       # character in the encoding of the step that stopped.
@@ -108,7 +108,7 @@ describe "String: encodings" do
   end
 
   it "grapheme clusters takes an invalid byte as a cluster" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # grapheme_clusters matches \X from each place in turn, so a byte no
       # character holds is a cluster by itself; UTF-16 and UTF-32 cluster as
       # UTF-8 does, and an encoding that is not Unicode has characters alone.
@@ -152,7 +152,7 @@ describe "String: encodings" do
   end
 
   it "small string rules follow ruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Small String rules, each as ruby answers it.
       def t = yield rescue [$!.class, $!.message]
 
@@ -186,7 +186,7 @@ describe "String: encodings" do
   end
 
   it "the unicode case-mapping and normalization tables reach the binary's data" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Unicode case mapping and normalization tables reach the binary's data.
       puts "straße".upcase
       puts "İSTANBUL".downcase
@@ -206,7 +206,7 @@ describe "String: encodings" do
   end
 
   it "dump writes a re-parseable literal and undump reads it back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#dump: a re-parseable literal; String#undump: its inverse.
 
       # Named control escapes and quoting.
@@ -277,7 +277,7 @@ describe "String: encodings" do
   end
 
   it "String's own methods read wide and legacy text one character at a time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String's own methods read wide and legacy text a character at a time:
       # length and each_char, reverse and slicing, justification, strip and
       # chomp with the encoding's own spaces and newlines, squeeze, count,
@@ -682,7 +682,7 @@ describe "String: encodings" do
   end
 
   it "String.new builds a fresh mutable buffer, copying a source's contents and encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String.new` builds a fresh, mutable String. With no argument it is an empty
       # ASCII-8BIT buffer; given a source string it copies that string's contents and
       # encoding, and an `encoding:` keyword overrides the result's encoding.
@@ -715,7 +715,7 @@ describe "String: encodings" do
   end
 
   it "capacity: and encoding: are hints, so the positional content survives them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The capacity: and encoding keyword arguments to String.new are hints that do
       # not change the value -- the content is the leading positional argument. Spinel
       # previously dropped the content whenever a keyword argument was present,
@@ -756,7 +756,7 @@ describe "String: encodings" do
   end
 
   it "a chained append evaluates each link once and lands every one on the base" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # chained string appends (`s << a << b`) evaluate each link exactly once and
       # every append lands on the base. The tail form used to re-run the inner
       # links when emitting the return value (doubling the appended text, and
@@ -831,7 +831,7 @@ describe "String: encodings" do
   end
 
   it "try_convert asks only to_str, answers nil for anything else, and refuses a lying one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String.try_convert(obj)` -- the `to_str` check-conversion, exposed. Unlike
       # `String(obj)` it never falls back to `to_s` and never raises for an object
       # that simply isn't string-like; a lying `to_str` is the one error case.
@@ -912,7 +912,7 @@ describe "String: encodings" do
   end
 
   it "length, bytesize and slicing read the header's byte count, not up to the first NUL" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Spinel-allocated strings encode their byte length in the heap
       # header (sp_str_hdr.len), but several runtime helpers and one
       # codegen `bytesize` emit walked the buffer via NUL-terminated
@@ -982,7 +982,7 @@ describe "String: encodings" do
   end
 
   it "unicode_normalize reached through a Symbol block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p ["é", "Å"].map(&:unicode_normalize)
       p ["é"].map(&:unicode_normalized?)
       p ["é"].map { |s| s.public_send(:"unicode_#{"normalize"}", :nfd) }.map(&:length)

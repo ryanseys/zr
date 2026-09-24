@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric programs" do
   it "bignum integers promote demote and interoperate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bignum end-to-end: overflow promotion + demotion round trips, big
       # literals (decimal/hex/binary/underscored), interpolation, hash keys,
       # Enumerable, is_a?, and the i64::MIN / -1 overflow edge.
@@ -56,7 +56,7 @@ describe "Numeric programs" do
   end
 
   it "bignum receiver bitwise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bitwise ops with a bignum receiver (a value > Integer 63-bit) -- the 64-bit
       # unsigned masking idiom used by PRNGs/hashes. The receiver, the mask, and the
       # result can all exceed int64, so they must use arbitrary-precision bitwise,
@@ -99,7 +99,7 @@ describe "Numeric programs" do
   end
 
   it "bitwise operators on integers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = 12
       b = 10
       puts a & b
@@ -121,7 +121,7 @@ describe "Numeric programs" do
   end
 
   it "case in range pattern covers float poly and open bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A range pattern is Range#=== (rb_case_eq/range_covers), so a Float or
       # Poly scrutinee, an exclusive bound, and a beginless/endless range all
       # work -- an as_int_unchecked path would panic on non-Int scrutinees.
@@ -160,13 +160,13 @@ describe "Numeric programs" do
   end
 
   it "complex polar constructor" do
-    result = ze0("p Complex.polar(2, 0)\n")
+    result = zr("p Complex.polar(2, 0)\n")
 
     _(result).must_answer "(2+0.0i)\n"
   end
 
   it "complex rational class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # .class on Complex/Rational values (variables and literal calls).
       a = Complex(2, 3)
       p a.class
@@ -183,7 +183,7 @@ describe "Numeric programs" do
   end
 
   it "complex rect arg polar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Complex.rect / .rectangular constructors, instance #arg (#angle/#phase),
       # instance #polar and #rect component pairs.
       def a1(c) = c.arg
@@ -223,7 +223,7 @@ describe "Numeric programs" do
   end
 
   it "dir and file mutation round trips" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Dir.mkdir`/`rmdir` round-trip, and `File.rename`/`delete`.
 
       dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_mut_#{Process.pid}")
@@ -257,7 +257,7 @@ describe "Numeric programs" do
   end
 
   it "eval dynamic arithmetic honours precedence" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       code = "1 + 2 * 3"; puts eval(code)
     RUBY
 
@@ -265,7 +265,7 @@ describe "Numeric programs" do
   end
 
   it "eval value is usable in the surrounding expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = "6"; b = "7"; puts(eval(a) * eval(b))
     RUBY
 
@@ -273,7 +273,7 @@ describe "Numeric programs" do
   end
 
   it "float adjacent representable values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 1.0.next_float > 1.0
       p 1.0.prev_float < 1.0
       p 1.0.next_float.prev_float == 1.0
@@ -289,7 +289,7 @@ describe "Numeric programs" do
   end
 
   it "float limit constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #1253: Float::MAX / MIN / EPSILON compiled to undeclared C
       # identifiers (Float_MAX) instead of the <float.h> DBL_* macros.
       # Issue #1252: Integer has no public constants in CRuby (it is
@@ -318,7 +318,7 @@ describe "Numeric programs" do
   end
 
   it "float numerator denominator on non finite" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Infinity/NaN have no rational form, so `numerator` returns the float
       # itself and `denominator` returns 1 -- CRuby never raises here.
 
@@ -340,7 +340,7 @@ describe "Numeric programs" do
   end
 
   it "immediate and numeric subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Subclassing immediates and the abstract Numeric (D3).
       #
       # An immediate subclass (Integer/Float/Symbol/NilClass/TrueClass/FalseClass) is
@@ -404,7 +404,7 @@ describe "Numeric programs" do
   end
 
   it "implicit self call between sibling class methods dispatches correctly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Found while testing `class << self`: `current_class` is
       # `None` inside a class method's own `Ctx` (no concrete `self` receiver
       # exists there), so a no-receiver call to a SIBLING class method
@@ -441,7 +441,7 @@ describe "Numeric programs" do
   end
 
   it "include math bare names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # include Math exposes bare functions and PI/E constants.
       include Math
       p sqrt(16)
@@ -459,7 +459,7 @@ describe "Numeric programs" do
   end
 
   it "int bits bignum mask" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#allbits?/#anybits?/#nobits? with a Bignum mask: an int receiver
       # cannot cover a mask that exceeds int64 (allbits? is false); anybits?/nobits?
       # test the mask's low 64 bits.
@@ -487,7 +487,7 @@ describe "Numeric programs" do
   end
 
   it "int sentinel class nilclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # .class on an int/float slot holding the nil sentinel (a nil-returning
       # <=>, Complex#infinite? on a finite value) reports NilClass, matching
       # how p prints it -- not the slot's static Integer/Float.
@@ -500,7 +500,7 @@ describe "Numeric programs" do
   end
 
   it "integer bit predicates float argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 42.allbits?(1.5)
       p 42.anybits?(1.5)
       p 42.nobits?(1.5)
@@ -514,7 +514,7 @@ describe "Numeric programs" do
   end
 
   it "integer chr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#chr: no argument yields a single byte; an Encoding encodes the
       # codepoint into that encoding.
 
@@ -558,7 +558,7 @@ describe "Numeric programs" do
   end
 
   it "integer chr char table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Integer#chr` allocated a 1-byte string per call -- 64% of a chr loop was
       # malloc, free and the GC sweep walking what they left. The static table that
       # now serves 1-byte slices serves this too, so nothing is allocated.
@@ -674,7 +674,7 @@ describe "Numeric programs" do
   end
 
   it "integer numeric projection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 3.9.to_int
       p((-3.9).to_int)
       p 5.abs2
@@ -726,7 +726,7 @@ describe "Numeric programs" do
   end
 
   it "integer rational complex ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer ** Complex (and a complex exponent) evaluate to Complex; Integer#fdiv
       # and #div with a Rational argument are exact. (** with a Rational exponent is
       # a Float by design -- see docs/limitations.md.)
@@ -747,7 +747,7 @@ describe "Numeric programs" do
   end
 
   it "integer times as expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #877: Integer#times / #upto / #downto in expression
       # position return self (per MRI). Pre-fix, the expression form
       # emitted 0; the statement form already iterated correctly.
@@ -767,7 +767,7 @@ describe "Numeric programs" do
   end
 
   it "interp call arg root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for #1498: a module_function whose String return is inferred
       # nilable, called with a string-literal arg from inside a string interpolation
       # that is passed to Regexp.new/compile. The embedded call roots its own arg, and
@@ -798,7 +798,7 @@ describe "Numeric programs" do
   end
 
   it "interp diverging part" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An uninitialized constant inside interpolation compiles to the NameError raise
       # spinel's warning promises -- but the raise closes its expression with a dead
       # placeholder of the node's type, and the arm the interpolation picks comes from
@@ -845,7 +845,7 @@ describe "Numeric programs" do
   end
 
   it "interp method widening" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method called only inside string interpolation should still anchor its
       # parameter type. Pre-fix: scan_features didn't visit EmbeddedStatementsNode
       # bodies, so `cap(name)` inside `"#{...}"` was the only call site for `cap`,
@@ -896,7 +896,7 @@ describe "Numeric programs" do
   end
 
   it "interp mixin method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Interpolating a method whose type is known only through the including module:
       # the module method is analyzed with an unknown self, so the call types as
       # unknown; codegen re-resolves it against the class being emitted.
@@ -919,7 +919,7 @@ describe "Numeric programs" do
   end
 
   it "interp single buffer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 42
       y = -7
       name = "matz"
@@ -1011,7 +1011,7 @@ describe "Numeric programs" do
   end
 
   it "introspection constant path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `is_a?` / `kind_of?` / `instance_of?` with a qualified-constant
       # argument (ConstantPathNode like `Mod::Klass`). The dynamic-arg
       # branch in compile_introspection_expr previously excluded only the
@@ -1092,7 +1092,7 @@ describe "Numeric programs" do
   end
 
   it "kernel complex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Complex(re, im) builds a Complex value (imaginary part defaults
       # to 0). Previously the no-receiver Complex() call fell through to the
       # integer 0 fallback.
@@ -1115,7 +1115,7 @@ describe "Numeric programs" do
   end
 
   it "kernel integer float convert" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Integer() with a Hash argument raises instead of answering nil under
       # exception: false.
@@ -1165,7 +1165,7 @@ describe "Numeric programs" do
   end
 
   it "math constants and kernel conversions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math module functions + Math::DomainError + the Float constants, and
       # the Kernel conversion functions with CRuby's exact failure shapes.
 
@@ -1258,7 +1258,7 @@ describe "Numeric programs" do
   end
 
   it "negative zero phase" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (-0.0).angle
       p (-0.0).arg
       p (-0.0).phase
@@ -1276,7 +1276,7 @@ describe "Numeric programs" do
   end
 
   it "nil rationalize variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # NilClass#rationalize (and #to_r) return (0/1), including when the nil is
       # held in a variable (a nil-only local widens to a boxed poly value).
       r = nil
@@ -1293,7 +1293,7 @@ describe "Numeric programs" do
   end
 
   it "nil to r rational" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # NilClass#to_r returns Rational(0, 1), not float zero.
       p nil.to_r                       # (0/1)
       p nil.to_r == Rational(0, 1)     # true
@@ -1308,7 +1308,7 @@ describe "Numeric programs" do
   end
 
   it "Integer#size, Float#rationalize and the Rational and Complex constructors all stay exact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numeric-tower exactness: Integer#size, Float#rationalize, Rational/Complex.
 
       # Integer#size: 8 bytes up to a machine word, then the magnitude byte-width.
@@ -1371,7 +1371,7 @@ describe "Numeric programs" do
   end
 
   it "a Symbol range succeeds by name, and Integer iteration and Float() hold their long tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range, Integer iteration, and Float() long-tail behaviors.
 
       # A Symbol range iterates by name succession, yielding Symbols.
@@ -1436,7 +1436,7 @@ describe "Numeric programs" do
   end
 
   it "step takes by: and to: as keywords, and the same bounds positionally" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       1.step(by: 2, to: 10) { |i| print i, " " }
       puts
       1.step(10, 2) { |i| print i, " " }
@@ -1451,7 +1451,7 @@ describe "Numeric programs" do
   end
 
   it "step mixes a positional limit and step with the by: and to: keywords" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numeric#step accepts positional (limit, step) and/or keyword (by:, to:) forms.
       1.step(by: 2, to: 9) { |i| print i, " " }
       puts
@@ -1478,7 +1478,7 @@ describe "Numeric programs" do
   end
 
   it "a subclass that writes only <=>, -, /, *, to_f, to_i, to_r and coerce inherits the rest of Numeric" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Numeric`'s generic implementations -- the ones a user subclass inherits.
       # They know nothing but `<=>`, `-`, `/`, `*`, `to_f`, `to_i`, `to_r` and
       # `coerce`, so a class that defines only those gets the rest for free. Every
@@ -1629,7 +1629,7 @@ describe "Numeric programs" do
   end
 
   it "a Numeric subclass carries ivars, and Comparable drives < and min off its own <=>" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Numeric` subclass (D3) is an ordinary ivar-carrying object: it defines its
       # own `<=>`/state, and `Comparable` (inherited through `Numeric`) drives
       # `<`/`>`/`min` off that `<=>`.
@@ -1662,7 +1662,7 @@ describe "Numeric programs" do
   end
 
   it "Numeric#i over a subclass raises ruby's ArgumentError, naming Comparable#< and the frames under it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # WAITING ON `builtin_frames_in_a_backtrace`. Complex now holds a user
       # `Numeric` subclass and dispatches every component operation, so this file
       # raises ruby's ArgumentError from ruby's line with ruby's message -- what is
@@ -1707,7 +1707,7 @@ describe "Numeric programs" do
   end
 
   it "polyarray insert delete at" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#insert / #delete_at on a poly array (heterogeneous elements): insert
       # shifts boxed slots and boxes the inserted value; delete_at returns the
       # removed element.
@@ -1738,7 +1738,7 @@ describe "Numeric programs" do
   end
 
   it "rational i to complex" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational#i -> Complex(0, self). spinel's Complex is float-backed, so the
       # imaginary part renders as a Float where CRuby keeps the exact Rational
       # (docs/limitations.md "Rational precision and Complex components").
@@ -1769,7 +1769,7 @@ describe "Numeric programs" do
   end
 
   it "reduce numeric promotion" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fold accumulator seeded with an int but reassigned to a float each
       # iteration must accumulate float, not truncate. The seed type alone used to
       # fix both the reduce return type and the C accumulator type, so an int seed
@@ -1819,7 +1819,7 @@ describe "Numeric programs" do
   end
 
   it "sort by rational key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sort_by / min_by / max_by list the key types they can order. A Rational and a
       # Bignum are comparable numbers carried as pointers, and the keys are boxed and
       # compared with the poly ordering anyway -- which already orders both, since
@@ -1868,7 +1868,7 @@ describe "Numeric programs" do
   end
 
   it "value obj boxing clamp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Ver139
         include Comparable
         attr_reader :n

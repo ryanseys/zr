@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Prime programs" do
   it "Prime.first, Integer#prime? and prime_division each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "prime"
 
       p Prime.first(5)

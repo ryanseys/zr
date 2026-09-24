@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Constants: slicing" do
   it "bare call prefers self over toplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A receiverless call is a call on self, so self's own methods come first: the
       # enclosing class's singleton chain inside a class method, its instance chain
       # inside an instance method. A top-level def is a private method on Object and
@@ -69,7 +69,7 @@ describe "Constants: slicing" do
   end
 
   it "bare constant resolution walks the lexical chain innermost first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       X = "top"
       module Outer
         X = "outer"
@@ -96,7 +96,7 @@ describe "Constants: slicing" do
   end
 
   it "constant read answers from its cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant read answers from its site's cell while the cref and the
       # constant stamp hold: a constant set, removed or reopened
       # after the first read is seen by the same site, and a site inside a
@@ -178,7 +178,7 @@ describe "Constants: slicing" do
   end
 
   it "reassigned constant warning" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Assigning a constant that already has a value warns TWICE on stderr -- once
       # at the new assignment, once naming where the previous one was. zeo assigns
       # silently, so the one diagnostic that catches a constant clobbered by a
@@ -225,7 +225,7 @@ describe "Constants: slicing" do
   end
 
   it "scoped names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class` or `module` may name the scope it goes in. The name is the
       # path, and the class is the SAME one a nested body would have declared.
       module Outer
@@ -296,7 +296,7 @@ describe "Constants: slicing" do
       p Outer::Nested.name
 
       # Sorted: a class row is registered before the first statement runs, so
-      # the ORDER `constants` answers in is ze0's registration order and not
+      # the ORDER `constants` answers in is zr's registration order and not
       # ruby's assignment order.
       p Outer.constants.sort
       p Outer::Inner.constants.sort
@@ -322,7 +322,7 @@ describe "Constants: slicing" do
   end
 
   it "self call beats toplevel def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A receiverless call resolves against the enclosing definition's self. A
       # top-level `def` is a private method on Object, so it sits at the BOTTOM of
       # every ancestry -- last, not first.
@@ -391,7 +391,7 @@ describe "Constants: slicing" do
   end
 
   it "shareable constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # shareable_constant_value: literal
       # ShareableConstantNode — the `# shareable_constant_value:` magic comment.
       #
@@ -408,7 +408,7 @@ describe "Constants: slicing" do
   end
 
   it "top level def last def wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def v
         1
       end
@@ -422,7 +422,7 @@ describe "Constants: slicing" do
   end
 
   it "top level defs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` is a PRIVATE instance method of Object -- so it is
       # callable by implicit self from anywhere (top level, any method body, any
       # class body), invisible to `respond_to?`, and reachable through `send`.
@@ -566,7 +566,7 @@ describe "Constants: slicing" do
   end
 
   it "top level scoped constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `::Name` top-level anchor resolves to the builtin (or top-level) class in
       # every position -- CRuby represents top-level constants as living on Object,
       # so `::Integer` is `Object::Integer` is the `Integer` class.

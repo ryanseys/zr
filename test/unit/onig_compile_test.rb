@@ -11,7 +11,7 @@ require_relative "../support/harness/regexp_diff"
 # median compile time is printed, since StringScanner and String
 # methods given a String compile per call.
 class OnigCompileTest < Minitest::Test
-  Diff = Ze0::Harness::RegexpDiff
+  Diff = Zr::Harness::RegexpDiff
   Pattern = Regexp.const_get(:Pattern)
 
   def patterns

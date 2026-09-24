@@ -7,16 +7,16 @@ require_relative "../support/built"
 # by the tiers. What this pins is the asking -- which targets, what
 # counts as built, and that a tier stops rather than builds.
 class BuiltTest < Minitest::Test
-  Built = Ze0::Test::Built
+  Built = Zr::Test::Built
 
-  # `ZE0_BUILT=0` on the command that runs this file would make `ready!`
+  # `ZR_BUILT=0` on the command that runs this file would make `ready!`
   # ask for nothing; the asking is what is pinned here.
   def setup
-    @built = ENV.delete("ZE0_BUILT")
+    @built = ENV.delete("ZR_BUILT")
   end
 
   def teardown
-    ENV["ZE0_BUILT"] = @built if @built
+    ENV["ZR_BUILT"] = @built if @built
   end
 
   def test_a_tier_stops_at_once_where_a_target_is_not_built
@@ -32,26 +32,26 @@ class BuiltTest < Minitest::Test
       standing_in(:load, ->(target) { loaded << target }) { Built.ready! }
     end
 
-    assert_equal [Ze0::Target.default], loaded
+    assert_equal [Zr::Target.default], loaded
   end
 
   def test_the_unit_tier_asks_for_wasm_beside_this_host_where_wasmtime_is
-    standing_in(:targets, [Ze0::Target.default, Ze0::Target::WASM32_WASI]) do
+    standing_in(:targets, [Zr::Target.default, Zr::Target::WASM32_WASI]) do
       loaded = []
       standing_in(:built?, true) do
         standing_in(:load, ->(target) { loaded << target }) { Built.ready!(wasm: true) }
       end
 
-      assert_equal [Ze0::Target.default, Ze0::Target::WASM32_WASI], loaded
+      assert_equal [Zr::Target.default, Zr::Target::WASM32_WASI], loaded
     end
   end
 
   # The mark is the build's last write, not its runtime object: the
   # prelink and the road follow the object by minutes.
   def test_every_target_is_marked_built_by_its_build_under_its_digest
-    assert_match(/built-\h+\.ok\z/, Built.mark(Ze0::Target.default))
-    assert_match(/built-\h+\.ok\z/, Built.mark(Ze0::Target::WASM32_WASI))
-    refute_equal Built.mark(Ze0::Target.default), Built.mark(Ze0::Target::WASM32_WASI)
+    assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target.default))
+    assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target::WASM32_WASI))
+    refute_equal Built.mark(Zr::Target.default), Built.mark(Zr::Target::WASM32_WASI)
   end
 
   private

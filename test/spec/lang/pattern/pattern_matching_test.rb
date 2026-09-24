@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Pattern: pattern matching" do
   it "case in alternation pattern matches any member" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case 3
       in 1 | 2 | 3
         puts "small"
@@ -23,7 +23,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in bare bind pattern matches anything" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case 42
       in x
         puts "bound: #{x}"
@@ -34,7 +34,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in begin value position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `case/in` whose value is the tail of a `begin` block. The matched arm falls
       # through there rather than returning, so it ran straight into the no-match
       # raise that follows the arms -- every such case/in answered
@@ -107,7 +107,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in capture of a bare bind can write the same subject to two names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A real latent hazard this test guards against: `Capture(Bind(x), y)`
       # writes the SAME scrutinee into two different locals -- if either write
       # MOVED instead of CLONED the scrutinee, the second write would fail to
@@ -124,7 +124,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case/in against a custom #deconstruct (array pattern).
       class Pt; def deconstruct; [1, 2]; end; end
       r = case Pt.new
@@ -137,7 +137,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in deconstruct absent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An array pattern against an object with no #deconstruct never matches; the
       # arm fails closed and the else branch is taken (as in CRuby).
       class NoDe; end
@@ -152,7 +152,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in deconstruct keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case/in against a custom #deconstruct_keys (hash pattern).
       class Qt; def deconstruct_keys(k); {x: 1, y: 2}; end; end
       r = case Qt.new
@@ -165,7 +165,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in find pattern locates a matching window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2, 3, 4, 5]
       in [*, Integer => a, Integer => b, *]
         puts "#{a} #{b}"
@@ -182,7 +182,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in mixed result type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A case/in expression whose clauses return different types unifies to a poly
       # value, so a binding arm keeps its own type instead of being coerced to a
       # sibling arm's type. The scrutinee flows through a helper to defeat folding.
@@ -245,7 +245,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in nil true false literal patterns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case nil
       in nil
         puts "was nil"
@@ -268,7 +268,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in object with no deconstruct falls through to else" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An array pattern asks `#deconstruct` at run time; a class without
       # one simply does not match (no raise), so the `else` arm runs.
 
@@ -287,7 +287,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case in pin pattern matches only the pinned value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       case 10
       in ^x
@@ -301,7 +301,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "class pattern user object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base; end
       class Sub < Base; end
 
@@ -378,7 +378,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case/in, expr in pattern and expr => pattern each match the same patterns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `case/in`, `expr in pattern` and `expr => pattern`. A pattern is a
@@ -447,7 +447,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a class that writes both protocols answers an array pattern and a hash pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A class with the two protocols answers both an array and a hash
@@ -483,7 +483,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a Struct matches by brackets, by parentheses and through a scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A Struct, and one named through a scope.
@@ -513,7 +513,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a pin matches a value the pattern cannot spell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A pin matches a value the pattern cannot spell, and any object whose
@@ -542,7 +542,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a guard is its own reason, so a matched pattern with a false guard does not match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A guard is its own reason: the pattern matched and the condition did
@@ -578,7 +578,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a pattern's bindings reach the scope around the case" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # The bindings reach the scope around the `case`.
@@ -598,7 +598,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an arm with no body answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # An arm with no body answers nil.
@@ -627,7 +627,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "every refusal names the reason the runtime's own raise names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # Every refusal names the same reason the runtime's own raise does.
@@ -735,7 +735,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "find pattern poly scrutinee" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A find pattern (`in [*head, x, y, *tail]`) against a poly scrutinee -- a value
       # not statically known to be an array (a recursive parameter, or one unified with
       # a scalar). It is coerced to a poly array at runtime; a non-array (or nil) never
@@ -775,7 +775,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "find pattern tries each place afresh" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A find pattern tries its middle at each place in turn, and a nested
       # pattern there asks `deconstruct` of that place's element, not of the
       # first one it met.
@@ -806,7 +806,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "names the core classes whatever the program names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # What a pattern and a numeric literal build on is the core's own Array,
       # Hash, TypeError and Kernel, not whatever the program's scope names so,
       # and a class with no Kernel still makes `3r` and `2i`.
@@ -860,7 +860,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "one line in deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class N
         def deconstruct_keys(keys) = { kind: :binop, n: 1 }
       end
@@ -916,7 +916,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "oneline in pattern bind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A one-line boolean `expr in pattern` binds the pattern's captured locals in
       # the enclosing scope on a successful match (like `value => pattern`, but
       # returning a boolean instead of raising).
@@ -953,7 +953,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "parenthesized pattern is the pattern inside" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(A | B)` in pattern position is just the alternation inside -- prism
       # wraps it in a ParenthesesNode, and the pattern walk must unwrap it both
       # where it stands alone and where a capture binds it.
@@ -988,7 +988,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "case/in matches by class, by alternation and by nil, and binds what it matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test pattern matching (case/in)
 
       # Type-based matching
@@ -1046,7 +1046,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an object scrutinee is asked to deconstruct itself, by value or by pointer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user object used as a pattern-match scrutinee must be asked to deconstruct
       # itself: #deconstruct for an array pattern, #deconstruct_keys for a hash
       # pattern -- including value-type objects, which the lowering previously
@@ -1140,7 +1140,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a class, alternation or range guard checks an element, and a find pattern binds inside its window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Element sub-pattern checks and binding descent in container patterns:
       # class/alternation/range guards on array elements, nested hash patterns
       # under hashes and arrays, find patterns nested in hash values, and
@@ -1234,7 +1234,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a hash pattern passes deconstruct_keys just the keys it names, and nil only when it takes them all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two pattern-matching reports.
       #
       # A hash pattern naming specific keys calls `#deconstruct_keys` with an
@@ -1325,7 +1325,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a capture binds the value the pattern matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case 5
       in Integer => n
         puts n + 1
@@ -1339,7 +1339,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an array pattern binds each element it names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2, 3]
       in [Integer => a, *rest]
         puts a
@@ -1355,7 +1355,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a leading splat binds everything ahead of the fixed tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2, 3, 4, 5]
       in [*pre, 3, *post]
         puts pre.length
@@ -1371,7 +1371,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a pin compares against the value the local already holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       case 10
       in ^x
@@ -1388,7 +1388,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a range pattern matches by cover, and binds nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case 3
       in 1 | 2 | 3
         puts "small"
@@ -1404,7 +1404,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a case/in inside a method classifies by class and by value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Classifier
         def classify(v)
           case v
@@ -1434,7 +1434,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an alternative pattern binds the arm that matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2, c: 3 }
       case h
       in { a: Integer => av, **rest }
@@ -1451,7 +1451,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an exact-length array pattern refuses a longer array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case { a: 1 }
       in { a: 1, **nil }
         puts "exact match"
@@ -1465,7 +1465,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a middle splat binds what lies between the fixed head and tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case [1, 2, 3, 4, 5]
       in [*, Integer => mid1, Integer => mid2, *]
         puts "#{mid1} #{mid2}"
@@ -1479,7 +1479,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a range pattern inside a hash pattern matches the value under its key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case 5
       in 1..10
         puts "in range"
@@ -1493,7 +1493,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a constant pattern with a bracket list deconstructs what the constant names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x, y)
           @x = x
@@ -1526,7 +1526,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a lambda used as a pattern matches whatever it answers truthy for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       if [1, 2] in [Integer, Integer]
         puts "matched predicate"
       end
@@ -1539,7 +1539,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a find pattern binds the run it found" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2]
       arr => [first, second]
       puts first
@@ -1554,7 +1554,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a nil pattern matches nil alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case nil
       in nil
         puts "was nil"
@@ -1567,7 +1567,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an under-supplied call raises in value position, beside **rest, **nil and a Method object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Under-supplied calls raise at runtime in value position, `Class => var`
       # bindings in typed-array patterns, hash-pattern **rest / **nil, Method
       # objects over builtin receivers, **hash degrading into *args, char-range
@@ -1650,7 +1650,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an array pattern binds what deconstruct returns, whatever kind each element is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An array pattern over an object binds what its #deconstruct returns: the
       # elements used to default to Integer, so a Symbol element bound its boxed bits
       # as a small int (#3954).
@@ -1717,7 +1717,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a pin matches the scrutinee by == against a local, an ivar or an expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pattern matching: PinnedExpressionNode + PinnedVariableNode.
       #
       # Pin patterns match the scrutinee by `==` against the value of an
@@ -1841,7 +1841,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "a binding against an untyped scrutinee stays boxed, rest slice and all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array-pattern bindings against a poly/untyped VALUE scrutinee must be boxed
       # (poly), not int. A helper widened to an untyped return by extra call sites
       # used to type the rest slice / required element as int and reinterpret the
@@ -1881,7 +1881,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "an array or find pattern binds the fixed elements that come after the splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array and find patterns must bind fixed elements that come AFTER a splat.
       #
       # The array-pattern lowering handled `requireds` (before the splat) and `rest`
@@ -1993,7 +1993,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "expr => pattern destructures with splats, posts and **rest, as a one-line in does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rightward pattern assignment (`expr => pattern`) with splats, posts, and
       # **rest captures, plus one-line `in` hash patterns carrying value
       # sub-patterns (literals, ranges, alternations).
@@ -2101,7 +2101,7 @@ describe "Pattern: pattern matching" do
   end
 
   it "rightward assign object deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj => pattern` on a class that defines #deconstruct_keys / #deconstruct binds
       # through the method, as case/in already did: the object used to fall to the
       # untyped path, where every binding was skipped and stayed nil (#3955).

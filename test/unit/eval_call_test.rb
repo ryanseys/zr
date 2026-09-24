@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/hir"
+require_relative "../../lib/zr/hir"
 
-# `Ze0::Hir::Build.eval_call?` answers one question that two callers ask:
+# `Zr::Hir::Build.eval_call?` answers one question that two callers ask:
 # whether a call compiles ruby that runs in the frame the call stands in.
 # The loader asks it to decide whether the program carries the compiler,
 # and `Build#evals?` asks it to decide whether the method the call sits in
@@ -13,7 +13,7 @@ require_relative "../../lib/ze0/hir"
 # interpreter first, and `test/spec/lang/eval/eval_test.rb` holds the
 # answers end to end.
 class EvalCallTest < Minitest::Test
-  Build = Ze0::Hir::Build
+  Build = Zr::Hir::Build
 
   def test_eval_always_counts_whatever_its_receiver
     assert Build.eval_call?(:eval, argc: 1)
@@ -75,15 +75,15 @@ class EvalCallTest < Minitest::Test
   # leaves the compiler out: the question is what the front end decides,
   # and carrying the road would build its two hundred units for each row.
   def armed?(body)
-    program = Ze0::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", road: false)
+    program = Zr::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", road: false)
     defs(program.body).find { |d| d.name == :m }.evals
   end
 
   # Every `Hir::Def` in a body, nested ones included.
   def defs(node)
-    return [] unless node.is_a?(Ze0::Record)
+    return [] unless node.is_a?(Zr::Record)
 
-    rows = node.is_a?(Ze0::Hir::Def) ? [node] : []
+    rows = node.is_a?(Zr::Hir::Def) ? [node] : []
     rows + node.to_a.flatten.flat_map { |child| defs(child) }
   end
 end

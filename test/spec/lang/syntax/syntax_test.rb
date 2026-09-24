@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Syntax programs" do
   it "argv is seeded from the command line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # No args in this harness: ARGV exists and is empty (CRuby startup
       # parity; argv-carrying coverage lives in the conformance corpus).
 
@@ -16,7 +16,7 @@ describe "Syntax programs" do
   end
 
   it "bang op ruby truthy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #703: !0 / !:foo are false in Ruby (only nil/false are
       # falsy). spinel previously used C's `!` directly, treating 0
       # as falsy.
@@ -41,7 +41,7 @@ describe "Syntax programs" do
   end
 
   it "bang result through shared handle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bang mutator on a String read out of a container answers the receiver on a
       # change and nil on none. The "did it change?" test compared the receiver's old
       # text against the new -- but the old text is the LIVE payload of a shared
@@ -106,7 +106,7 @@ describe "Syntax programs" do
   end
 
   it "bigint literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An integer literal wider than int64 is an arbitrary-precision Bignum in every
       # overflow mode (CRuby semantics), not a saturated int. Underscores are allowed.
       puts 100000000000000000000
@@ -131,7 +131,7 @@ describe "Syntax programs" do
   end
 
   it "bool logical operators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # TrueClass / FalseClass #& #| #^ return a boolean, not an int.
       p (true & true)
       p (true | false)
@@ -156,7 +156,7 @@ describe "Syntax programs" do
   end
 
   it "branch empty literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `[]` / `{}` caches TY_UNKNOWN because it has no ELEMENT type until
       # something supplies one -- not because it has no value. Every branch emitter
       # read that as "value-less tail", ran the literal for effect and left the slot
@@ -233,7 +233,7 @@ describe "Syntax programs" do
   end
 
   it "case empty literal branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `[]`/`{}` literal as a `case` branch value, merged with a branch
       # of the same container kind, must build a real empty container rather than
       # a null pointer statically typed as one.
@@ -290,7 +290,7 @@ describe "Syntax programs" do
   end
 
   it "empty literal operand coercion" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `[]` / `{}` used as a receiver, argument, or interpolation takes
       # its kind from that use.
 
@@ -492,7 +492,7 @@ describe "Syntax programs" do
   end
 
   it "empty literal receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Methods on a bare empty-array literal receiver: the ntype pin serves
       # product/reduce/inject (a literally-empty reduce IS its init, nil
       # without one), alongside the flatten/first arms.
@@ -515,7 +515,7 @@ describe "Syntax programs" do
   end
 
   it "return, break and next with several values each answer an array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Expression shapes that were previously clean compile rejections:
       # multi-value return/break/next, parenthesized statement sequences, the
       # fuller interpolation forms, and top-level instance variables.
@@ -572,7 +572,7 @@ describe "Syntax programs" do
   end
 
   it "a parenthesized statement sequence answers its last statement" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Expression shapes that were previously clean compile rejections:
       # multi-value return/break/next, parenthesized statement sequences, the
       # fuller interpolation forms, and top-level instance variables.
@@ -622,7 +622,7 @@ describe "Syntax programs" do
   end
 
   it "every interpolation form builds the string it reads as" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Expression shapes that were previously clean compile rejections:
       # multi-value return/break/next, parenthesized statement sequences, the
       # fuller interpolation forms, and top-level instance variables.
@@ -662,7 +662,7 @@ describe "Syntax programs" do
   end
 
   it "a top-level @x belongs to main and reads back there" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Expression shapes that were previously clean compile rejections:
       # multi-value return/break/next, parenthesized statement sequences, the
       # fuller interpolation forms, and top-level instance variables.
@@ -698,7 +698,7 @@ describe "Syntax programs" do
   end
 
   it "infinite generators iterate lazily" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An INFINITE generator proves the fiber suspend is real: `next`/`peek`
       # advance lazily, and `take`/`first` terminate via the Break-based early
       # exit (internal iteration restarts from scratch each time -- CRuby).
@@ -729,7 +729,7 @@ describe "Syntax programs" do
   end
 
   it "the transforming bang mutators show through a container that holds the string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shared-mutable strings: container-held aliases observe the in-place
       # transforming mutators, not just <<.
       m = "low"
@@ -789,7 +789,7 @@ describe "Syntax programs" do
   end
 
   it "issue236 chain empty literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #236 follow-up to #234: chained `@a = @b = {}` (or `[]`)
       # with slots promoted to a typed container (e.g. `str_str_hash`)
       # emitted a default `sp_StrIntHash *` temp and assigned it to both
@@ -888,7 +888,7 @@ describe "Syntax programs" do
   end
 
   it "leaves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The smaller corners of Ruby's syntax: the last-match globals, BEGIN/END,
       # undef, the alias forms, hash shorthand, interpolated symbols, and the
       # places a splat can appear.
@@ -1165,7 +1165,7 @@ describe "Syntax programs" do
   end
 
   it "line anchors are always line based even without the m flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real Ruby's `^`/`$` ALWAYS match at line boundaries -- there is no
       # separate opt-in the way most other regex flavors need one. `/m`
       # instead makes `.` match a newline too (verified against real `ruby`
@@ -1186,7 +1186,7 @@ describe "Syntax programs" do
   end
 
   it "map bang empty receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty receiver leaves the block's tail nothing to widen against, so a
       # statically typed tail (`0`) reached the poly slot raw where a boxed value is
       # what it holds.
@@ -1226,7 +1226,7 @@ describe "Syntax programs" do
   end
 
   it "map bang widens element type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # map! REPLACES every element, so a block answering a value the receiver's
       # element type cannot hold has to widen the receiver -- the same reasoning a
       # push of a foreign element already gets. Without it the typed setter took the
@@ -1270,7 +1270,7 @@ describe "Syntax programs" do
   end
 
   it "map bang with index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # map!.with_index / collect!.with_index: collect like map.with_index,
       # then write the result back into the receiver in place; the chain
       # evaluates to the mutated receiver.
@@ -1292,7 +1292,7 @@ describe "Syntax programs" do
   end
 
   it "mutator value forms bang nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String mutators as expressions (with lvalue write-back and the
       # nil-when-unchanged bang contract), Array#insert with several values
       # (negative index normalized once), Array#flatten!/uniq!/compact! as
@@ -1379,7 +1379,7 @@ describe "Syntax programs" do
   end
 
   it "nomethod message shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The NoMethodError a gated (unresolved) call raises names the receiver the
       # way CRuby does: nil/true/false read as themselves, everything else as
       # "an instance of <Class>" from the runtime value -- not the lattice name
@@ -1424,7 +1424,7 @@ describe "Syntax programs" do
   end
 
   it "or empty container literal type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The empty literal on the right of `||` / `&&` was emitted with its own
       # default representation (an Integer array, whatever the left held), so the C
       # conditional mixed sp_StrArray * with sp_IntArray *. The arm has to take the
@@ -1470,7 +1470,7 @@ describe "Syntax programs" do
   end
 
   it "paren receiver shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Parentheses around a receiver carry no meaning, but they hid the receiver
       # from every shape check that asks what it IS: the scan for a Hash.new used as
       # a receiver, the anonymous-struct receiver scan, the empty-literal receiver
@@ -1517,7 +1517,7 @@ describe "Syntax programs" do
   end
 
   it "parenthesized multi statement expression answers its last statement" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(a; b)` introduces NO scope: `a` below is still readable afterwards,
       # which is why this lowers to a plain `Seq` rather than anything that
       # pushes a scope.
@@ -1555,7 +1555,7 @@ describe "Syntax programs" do
   end
 
   it "parser long ast record" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for spinel_parse text-AST records longer than 4096 bytes.
       #
       # The parser's array field emitter already builds a growable string, but
@@ -1698,7 +1698,7 @@ describe "Syntax programs" do
   end
 
   it "poly operator builtin operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's operator with a BUILTIN operand is served by the runtime
       # operator, so it must not bind a same-named user method's parameter: doing so
       # pinned the bundled Set#superset?'s `other` to Time and made set.rb itself
@@ -1753,7 +1753,7 @@ describe "Syntax programs" do
   end
 
   it "poly recv user operator arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An operator reached through a poly receiver goes out to the runtime's
       # user-binop dispatch, which hands the argument over boxed. Typed from the one
       # call site the compiler could resolve -- the `1 / box` coercion, whose
@@ -1811,7 +1811,7 @@ describe "Syntax programs" do
   end
 
   it "program that does not parse prints rubys report" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby reports a program that does not parse, and exits 1 without
       # running any of it.
       puts "never printed"
@@ -1840,7 +1840,7 @@ describe "Syntax programs" do
   end
 
   it "ruby engine identifies as ruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The north star is byte-for-byte MRI parity, so the engine-identity
       # constants report CRuby's own: RUBY_ENGINE == "ruby", RUBY_ENGINE_VERSION
       # == RUBY_VERSION, and RUBY_DESCRIPTION takes version.c's exact banner
@@ -1861,7 +1861,7 @@ describe "Syntax programs" do
   end
 
   it "unary minus on negative literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `-(-7)` puts the two signs side by side in the generated C, where `--7LL`
       # reads as a pre-decrement of a literal and the C compiler rejects it. Routing
       # the inner value through a local first always worked, which is what isolates
@@ -1911,7 +1911,7 @@ describe "Syntax programs" do
   end
 
   it "unary operator methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Unary operator methods `def -@` / `def +@` must mangle to valid C
       # identifiers and dispatch on `-obj` / `+obj`. Found via the spinelgems
       # harness (latinum, as-duration negate via `-@`).
@@ -1941,7 +1941,7 @@ describe "Syntax programs" do
   end
 
   it "unary operators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       puts(-x)
       puts(+x)
@@ -1956,7 +1956,7 @@ describe "Syntax programs" do
   end
 
   it "user bang value object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user-defined #! on an object with ivars: the receiver is passed the way
       # its layout says, by value for a value type, and the cast to a pointer did
       # not even compile (#3819).
@@ -1989,7 +1989,7 @@ describe "Syntax programs" do
   end
 
   it "defined? of an empty expression answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p defined?(())
       p defined?(begin; end)
       p defined?((nil))
@@ -2005,7 +2005,7 @@ describe "Syntax programs" do
   end
 
   it "a syntax error is reported once, after the warnings of the parse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 1 if "lit"
       def f
         break

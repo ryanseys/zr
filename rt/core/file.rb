@@ -58,7 +58,7 @@ class File < IO
   # path as ruby's does.
   def self.data(source, at, path)
     Primitive.attr! :hidden
-    name = File.join(ENV.fetch("TMPDIR", "/tmp"), "ze0-data-#{Process.pid}-#{rand(1 << 32)}")
+    name = File.join(ENV.fetch("TMPDIR", "/tmp"), "zr-data-#{Process.pid}-#{rand(1 << 32)}")
     file = File.new(name, File::RDWR | File::CREAT | File::EXCL, 0o600)
     File.unlink(name)
     file.write(source)

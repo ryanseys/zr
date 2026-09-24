@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/native/build"
 require_relative "../support/harness/answer"
 
 # Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs
@@ -14,7 +14,7 @@ require_relative "../support/harness/answer"
 # switches -- and only the native road runs it. The directory says so,
 # so nothing here reads a comment back out of a program.
 #
-# `ZE0_STRESS=1` adds the collect-at-every-allocation column.
+# `ZR_STRESS=1` adds the collect-at-every-allocation column.
 #
 # Compiling a program peaks high, and ruby grows its heap to the peak
 # and does not give the pages back: over eight programs the live slots
@@ -37,7 +37,7 @@ class ProgramsTest < Minitest::Test
   # Each is a program whose native road is right and whose wasm road is
   # not, and each skips with what it does instead.
   #
-  # `ZE0_WASM_DEFECTS=0` runs them anyway. A row here is a claim about
+  # `ZR_WASM_DEFECTS=0` runs them anyway. A row here is a claim about
   # what the road does today, and a claim goes stale: the only way to
   # find out that one has is to ask, and asking should not mean editing
   # this file. A row that passes under it comes out, with what it now
@@ -50,7 +50,7 @@ class ProgramsTest < Minitest::Test
   # a bound is killed, and its status says which bound rather than
   # nothing, so the check fails and names the program.
   def capture(env, argv)
-    Dir.mktmpdir("ze0-programs-err-") do |dir|
+    Dir.mktmpdir("zr-programs-err-") do |dir|
       err = File.join(dir, "err")
       out, why = Checks.bounded(env, argv, err: err)
       [out, File.read(err), why ? "killed at #{why}" : $?.exitstatus]
@@ -62,7 +62,7 @@ class ProgramsTest < Minitest::Test
   end
 
   def scrub(text, rb)
-    Ze0::Harness::Normalize.bytes(text, rb, File.dirname(rb))
+    Zr::Harness::Normalize.bytes(text, rb, File.dirname(rb))
   end
 
   def check(name, env, argv, want, rb)
@@ -79,12 +79,12 @@ class ProgramsTest < Minitest::Test
     name = File.basename(rb, ".rb")
     define_method("test_#{name}") do
       want = oracle(rb)
-      program = Ze0::Zr.program(File.read(rb), rb)
-      Dir.mktmpdir("ze0-programs-") do |dir|
+      program = Zr::Zr.program(File.read(rb), rb)
+      Dir.mktmpdir("zr-programs-") do |dir|
         bin = File.join(dir, name)
-        assert_nil Ze0::Native::Build.program(program, bin, work: dir)
+        assert_nil Zr::Native::Build.program(program, bin, work: dir)
         check(name, {}, [bin], want, rb)
-        stress = ENV["ZE0_STRESS"] == "1" && !NO_STRESS.include?(name)
+        stress = ENV["ZR_STRESS"] == "1" && !NO_STRESS.include?(name)
         check(name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if stress
       end
     end
@@ -93,17 +93,17 @@ class ProgramsTest < Minitest::Test
 
     define_method("test_wasm_#{name}") do
       skip Checks.wasm_missing if Checks.wasm_missing
-      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZE0_WASM_DEFECTS"] != "0"
+      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZR_WASM_DEFECTS"] != "0"
 
       want = oracle(rb)
-      program = Ze0::Zr.program(File.read(rb), rb, target: Ze0::Target::WASM32_WASI)
-      Dir.mktmpdir("ze0-programs-") do |dir|
+      program = Zr::Zr.program(File.read(rb), rb, target: Zr::Target::WASM32_WASI)
+      Dir.mktmpdir("zr-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
-        assert_nil Ze0::Native::Build.wasm_program(program, wasm)
+        assert_nil Zr::Native::Build.wasm_program(program, wasm)
         # The program's directory at its own path, as ruby sees it:
         # error_highlight reads the source line it points at from there.
         here = File.dirname(rb)
-        check(name, {}, Ze0::Harness::Wasmtime.run(wasm, dirs: { here => here }), want, rb)
+        check(name, {}, Zr::Harness::Wasmtime.run(wasm, dirs: { here => here }), want, rb)
       end
     end
   end

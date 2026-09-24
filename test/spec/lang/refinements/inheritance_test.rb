@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Refinements: inheritance and ancestors" do
   it "anonymous refinement module can be activated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `using Module.new { refine C do ... end }` is irb's shape, and the only way to
       # activate a refinement over a class chosen where no constant names the module.
       # The lowering already built the holder and the activation as a PAIR, and a
@@ -52,7 +52,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "issue runtime refinement module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An anonymous refinement module built and used at RUNTIME. Zeo implements
       # refinements as a compile-time lexical rewrite over a NAMED module's `refine`
       # blocks, so `Module.new` produces a plain runtime module with no `refine` on
@@ -82,7 +82,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "operator assignment sends through the refinements in force" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An operator assignment on an attribute or an index -- `recv.name op= v`,
       # `recv[i] op= v`, their `||=` and `&&=`, and `&.` -- reads, writes and
       # operates through the refinements in force, as each send alone would.
@@ -133,7 +133,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refine import methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Helpers
         def helper = :helped
       end
@@ -152,7 +152,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refine in an anonymous module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `refine` is a private method of `Module`, so every module has it -- including
       # one built with `Module.new`. zeo defines it only for a module introduced by a
       # `module` KEYWORD, so the anonymous form raises
@@ -199,7 +199,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refine singleton class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `refine Target.singleton_class` refines Target's CLASS methods: a covered
       # `Target.m` consults the holder, an uncovered one raises as ever, and the
       # refined body runs with the class itself as `self`. The Range pair checks a
@@ -236,7 +236,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refined calls through safe navigation and splats" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `recv&.m` where a `using` covers `m`. The nil test is the only difference
       # from an ordinary refined call: a nil receiver answers nil and evaluates
       # neither the arguments nor the block.
@@ -315,7 +315,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refinement holder names reach codegen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A refinement's holder module is named `#refinement:<Target>` -- deliberately
       # unspellable as a Ruby constant, so it claims no name inside the refining
       # module, and it is the same name CRuby prints for `M.refinements`.
@@ -421,7 +421,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refinement import methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Refinement#import_methods: copies a module's OWN methods into the
       # refinement at their declared visibility; ancestors are not imported.
       module Helpers
@@ -469,7 +469,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "refinement objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#refinements` answered `[]`, so `Refinement#target` had no receiver
       # to be called on at all.
       #
@@ -576,7 +576,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "everything lexically after the using sees the refinement, and dispatch is otherwise ordinary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Refinements (`Module#refine` / `Kernel#using`), every line oracle-checked
       # against ruby 4.0.6 -- several are not what the documentation leads you to
       # expect.
@@ -718,7 +718,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "reflection entry sees the refinements active at it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `send`, `respond_to?` and `method` all honour a refinement in ruby, and all
       # three are ordinary Kernel methods any class may shadow. zeo folded the two
       # questions at compile time, which works only where the receiver's class is
@@ -807,7 +807,7 @@ describe "Refinements: inheritance and ancestors" do
   end
 
   it "using that never runs keeps the refinements before it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module A
         refine(String) { def shout = "A:#{upcase}" }
       end

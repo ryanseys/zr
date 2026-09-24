@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: enumeration" do
   it "each cons each slice argument panic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         [1, 2, 3].each_cons("l")
       rescue TypeError => e
@@ -21,7 +21,7 @@ describe "String: enumeration" do
   end
 
   it "filter map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#filter_map (Ruby 2.7+): map, then drop falsy results, in one pass.
       # The result is a (boxed) array of the kept values; output matches whether the
       # block body is a nilable `expr if cond` or a plain transform.
@@ -51,7 +51,7 @@ describe "String: enumeration" do
   end
 
   it "inject symbol op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # inject/reduce with an arithmetic operator passed as a symbol-to-proc block
       # (inject(&:+)). Previously emitted an empty accumulation loop with an
       # undeclared accumulator. The positional-symbol forms are unchanged. The
@@ -77,7 +77,7 @@ describe "String: enumeration" do
   end
 
   it "inject symbol to proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#inject / #reduce with a symbol-to-proc argument
       # (`inject(&:&)`) and the seedless first-element fold.
       #
@@ -138,7 +138,7 @@ describe "String: enumeration" do
   end
 
   it "inject symbol variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # inject/reduce with the operator Symbol held in a VARIABLE: the sole-
       # assignment lookthrough resolves the op statically, in both the emit and
       # the result-type inference (was: typed as the symbol itself).
@@ -159,7 +159,7 @@ describe "String: enumeration" do
   end
 
   it "lazy each cons slice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator::Lazy#each_cons`/`#each_slice` are lazy: an endless source is
       # workable, and the chain only advances as far as the terminal asks.
       p (1..Float::INFINITY).lazy.each_cons(3).first(2)
@@ -215,7 +215,7 @@ describe "String: enumeration" do
   end
 
   it "poly reduce operator symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `reduce(init, :+)` on a receiver that stayed boxed -- one of the two arrays
       # `partition` answers -- fell through to the Hash/Enumerable face, which
       # converts the receiver to a hash and refuses an Array at run time. The poly
@@ -274,7 +274,7 @@ describe "String: enumeration" do
   end
 
   it "reduce symbol only method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `reduce(:sym)` / `inject(seed, :sym)` names the method by Symbol, which is not
       # a CallNode, so the reachability walk never saw the name and pruned the method.
       # The fold then fell through to the unresolved-call raise -- "undefined method
@@ -322,7 +322,7 @@ describe "String: enumeration" do
   end
 
   it "str array sort by" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sort_by on str_array previously bombed at C compile time:
       # `cannot resolve call to 'sort_by' on str_array`, then the
       # pointer slot got assigned (mrb_int)0. Explicit block and the
@@ -346,7 +346,7 @@ describe "String: enumeration" do
   end
 
   it "each_line, each_byte and each_char all chain with_index, with an offset or without" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Line = Struct.new(:number, :label)
       lines = []
       "a\nb\n".each_line.with_index do |raw, number|
@@ -389,7 +389,7 @@ describe "String: enumeration" do
   end
 
   it "a statically dead branch calling String#each lowers to a runtime stub, not a compile abort" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String|Hash parameter that this program only ever calls with a String.
       # `opts` is therefore monomorphically String, so the `else` (Hash) branch is
       # statically dead. `String#each` is a genuine NoMethodError in Ruby and never

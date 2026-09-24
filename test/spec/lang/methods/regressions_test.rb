@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: regressions" do
   it "int array literal lshift heterogeneous" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<int_array literal> << <non-int>` shape (`[1, 2] << "c"`).
       # Pushing a non-int element onto a literal int_array previously
       # emitted sp_IntArray_push with a pointer-from-int-conversion
@@ -29,7 +29,7 @@ describe "Methods: regressions" do
   end
 
   it "int array replace expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#replace` in *expression* position on an int_array.
       # The stmt-form arm has long supported this; the expr-form was
       # missing — unresolved-call warning + literal `0` emitted.
@@ -67,7 +67,7 @@ describe "Methods: regressions" do
   end
 
   it "int eq nil strict" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Partial fix for #521. In CRuby `0 == nil` is false -- only nil
       # equals nil. Spinel used to emit `(lc op rc)` for `int == nil`,
       # where `rc` was "0" (compile_expr of NilNode); since unboxed ints
@@ -135,7 +135,7 @@ describe "Methods: regressions" do
   end
 
   it "local or and write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `LocalVariableOrWriteNode` (`a ||= b`) and
       # `LocalVariableAndWriteNode` (`a &&= b`) parse as their own
       # AST nodes — distinct from `LocalVariableOperatorWriteNode`
@@ -184,7 +184,7 @@ describe "Methods: regressions" do
   end
 
   it "multi target nested" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MultiTargetNode -- nested LHS in destructuring multi-assign.
       #
       #   a, (b, c), d = 1, [2, 3], 4
@@ -223,7 +223,7 @@ describe "Methods: regressions" do
   end
 
   it "numbered block params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numbered block params (`_1`) and Ruby 3.4 implicit `it`.
       #
       # `_1` was already supported via Prism's NumberedParametersNode + a
@@ -286,7 +286,7 @@ describe "Methods: regressions" do
   end
 
   it "numbered params destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-arg numbered block params (`_1`, `_2`, ...) should destructure
       # the yielded sub-array. Pre-fix: `_1` binds to the whole element
       # (the sp_IntArray pointer) and `_2` is uninitialized -> "<ptr>=0".
@@ -333,7 +333,7 @@ describe "Methods: regressions" do
   end
 
   it "parens multi stmt and local write expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Verify two expression-context constructs:
       # - `(stmt1; stmt2; ...; expr)` — leading statements run for
       #   side effects; the value of the parens is the last expression.
@@ -370,7 +370,7 @@ describe "Methods: regressions" do
   end
 
   it "sort reduce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Array#sort, reduce, min, max, sum
 
       arr = (1..10).to_a
@@ -407,7 +407,7 @@ describe "Methods: regressions" do
   end
 
   it "gc root map accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested map block — outer iteration allocates plenty of inner
       # objects via sp_*_new — can trigger a GC pass between pushes
       # into the outer accumulator. Without rooting the accumulator,
@@ -488,7 +488,7 @@ describe "Methods: regressions" do
   end
 
   it "gc root range and times map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Range#map` and `N.times.map` build a fresh accumulator
       # (IntArray / StrArray / FloatArray) and push each block result.
       # When the block allocates inside (e.g. string interpolation), a
@@ -548,7 +548,7 @@ describe "Methods: regressions" do
   end
 
   it "transpose gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#transpose` codegen creates the result `sp_PtrArray` and
       # inner `sp_IntArray` columns without `SP_GC_ROOT`. With many
       # allocations across the loop, an `sp_gc_collect` triggered by
@@ -576,7 +576,7 @@ describe "Methods: regressions" do
   end
 
   it "utf8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "あいうえお"
 
       puts s.length          # 5
@@ -674,7 +674,7 @@ describe "Methods: regressions" do
   end
 
   it "str nul bound slice bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #657: a string with embedded NUL bytes had two surviving
       # truncation paths:
       #
@@ -724,7 +724,7 @@ describe "Methods: regressions" do
   end
 
   it "str poly hash merge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #426. `Hash#merge` was unresolved on a `str_poly_hash`
       # (mixed-value-type hash literal) -- emit produced `0` and the
       # downstream `m.length` cascaded through int. Same shape on
@@ -785,7 +785,7 @@ describe "Methods: regressions" do
   end
 
   it "kw nil default string call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -805,7 +805,7 @@ describe "Methods: regressions" do
   end
 
   it "optional string param method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -834,7 +834,7 @@ describe "Methods: regressions" do
   end
 
   it "poly box int array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -854,7 +854,7 @@ describe "Methods: regressions" do
   end
 
   it "poly or returns value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -885,7 +885,7 @@ describe "Methods: regressions" do
   end
 
   it "each with object seed shadow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -910,7 +910,7 @@ describe "Methods: regressions" do
   end
 
   it "fetch nil default int lv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -930,7 +930,7 @@ describe "Methods: regressions" do
   end
 
   it "no keywords param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -950,7 +950,7 @@ describe "Methods: regressions" do
   end
 
   it "sym case" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each inner top-level def is renamed with a per-test prefix to
       # avoid cross-test collisions when the bundle is compiled.
 
@@ -983,7 +983,7 @@ describe "Methods: regressions" do
   end
 
   it "a user class that defines length does not make every other class's array parameter poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #266 regression: defining `def length` on a class flipped
       # Spinel's inference for IntArray params on unrelated class methods to
       # poly. Cause was `infer_cls_meth_param_from_body` committing a param
@@ -1053,7 +1053,7 @@ describe "Methods: regressions" do
   end
 
   it "a method writes into the Hash it was handed and the caller sees it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fill(h)
         h[1] = 100
       end
@@ -1074,7 +1074,7 @@ describe "Methods: regressions" do
   end
 
   it "include? and index use ==, where uniq uses eql?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         attr_reader :x
         def initialize(x) = @x = x
@@ -1099,7 +1099,7 @@ describe "Methods: regressions" do
   end
 
   it "reduce folds through a class's own + operator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Money
         attr_reader :cents
         def initialize(c) = @cents = c
@@ -1122,7 +1122,7 @@ describe "Methods: regressions" do
   end
 
   it "a method writes a key it was handed into the Hash it was handed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def mark(h, k)
         h[k] = true
       end
@@ -1145,7 +1145,7 @@ describe "Methods: regressions" do
   end
 
   it "Set membership goes through eql? and hash, so 1 and 1.0 are two members" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Set membership uses #eql?/#hash (like CRuby's Hash-backed Set), so an
       # equal-but-distinct value object is found, and 1 / 1.0 are distinct members.
       require "set"
@@ -1182,7 +1182,7 @@ describe "Methods: regressions" do
   end
 
   it "NoMethodError carries the arguments and whether the call was private" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p NoMethodError.new("m", :nm, [1, 2]).args
       p NoMethodError.new("m", :nm, [1], true).private_call?
       p NoMethodError.new("m", :nm, [1]).private_call?
@@ -1196,7 +1196,7 @@ describe "Methods: regressions" do
   end
 
   it "a keyword parameter after a splat takes only what is written as a keyword" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f(*a, foo: nil); p a; p foo; end
       f("xyz", "bar")
       f("xyz", "bar", foo: 9)
@@ -1221,7 +1221,7 @@ describe "Methods: regressions" do
   end
 
   it "an attr_accessor with no ivar written reads as nil, and a written false reads false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         attr_accessor :b, :i
         def initialize
@@ -1253,7 +1253,7 @@ describe "Methods: regressions" do
   end
 
   it "a reader called inside initialize reaches the ivar it was just given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         attr_reader :arr, :nums
         def initialize
@@ -1286,7 +1286,7 @@ describe "Methods: regressions" do
   end
 
   it "tap on a fresh object writes to that object, not to the next one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Crash
         attr_accessor :foo
         def initialize = @foo = nil
@@ -1301,7 +1301,7 @@ describe "Methods: regressions" do
   end
 
   it "tap inside a method appends to the receiver's own collection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Crash
         attr_reader :foo
 
@@ -1335,7 +1335,7 @@ describe "Methods: regressions" do
   end
 
   it "a collection passed to another method is the same object the reader answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Flag ; end
       class Config
         attr_reader :flags
@@ -1369,7 +1369,7 @@ describe "Methods: regressions" do
   end
 
   it "||= through a Hash parameter writes only the first time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def store(memo, n)
         memo[n] ||= n * 10
       end
@@ -1394,7 +1394,7 @@ describe "Methods: regressions" do
   end
 
   it "a collection handed down two calls deep still collects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Flag; end
       class Crash
         attr_reader :flags
@@ -1418,7 +1418,7 @@ describe "Methods: regressions" do
   end
 
   it "sub and gsub take their pattern and replacement from attribute readers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Config
         attr_accessor :name
       end
@@ -1441,7 +1441,7 @@ describe "Methods: regressions" do
   end
 
   it "a method takes a value that is a String or nil and calls a String method on it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def maybe_string(flag) = flag ? "foo" : nil
       def crash(value) = value.end_with?("o")
       p crash(maybe_string(true))
@@ -1453,7 +1453,7 @@ describe "Methods: regressions" do
   end
 
   it "a shared string stays shared across a method boundary and through a reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shared-mutable strings across method boundaries (P5): a shared handle
       # passed into a string-mutating parameter, and aliases taken through
       # readers outside the class.
@@ -1522,7 +1522,7 @@ describe "Methods: regressions" do
   end
 
   it "every in-place String mutator reaches every binding that holds the string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # mutator × storage 最終確認 matrix
       puts "== local alias =="
       a1=+"x"; a2=a1; a1<<"1"; p a2
@@ -1581,7 +1581,7 @@ describe "Methods: regressions" do
   end
 
   it "a promoted ivar read through reflection or interpolation hands out the current text" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Promoted-ivar reads through reflection and formatting paths hand out safe
       # copies (never the raw handle); instance_variable_set joins the shared set.
       class W
@@ -1626,7 +1626,7 @@ describe "Methods: regressions" do
   end
 
   it "Method#super_method answers the superclass's method, or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def dbl(n) = n * 2
       p method(:dbl) === 5
       p method(:dbl).super_method
@@ -1657,7 +1657,7 @@ describe "Methods: regressions" do
   end
 
   it "iterator? says whether the calling method was given a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def has_block? = iterator?
       p(has_block? { 1 })
       p(has_block?)
@@ -1677,7 +1677,7 @@ describe "Methods: regressions" do
   end
 
   it "an if with an empty then arm answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module TypedStore
         def self.parse(serialized)
           h = {}
@@ -1715,7 +1715,7 @@ describe "Methods: regressions" do
   end
 
   it "+= on an ivar array in initialize keeps what it accumulated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class MyClass
         attr_reader :switches
         def initialize(opts)
@@ -1739,7 +1739,7 @@ describe "Methods: regressions" do
   end
 
   it "a curried Method takes one argument at a time, or several" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def add(a, b) = a + b
       def add3(a, b, c) = a + b + c
       p(method(:add).curry[1][2])
@@ -1766,7 +1766,7 @@ describe "Methods: regressions" do
   end
 
   it "delete_at on an array of strings answers the element, or nil past the end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two bugs from the Rails-emit boot crash: a poly-array receiver had no
       # delete_at arm, and "Set-Cookie" in a string tripped the textual Set
       # auto-require, whose top-of-buffer prepend pushed this file's magic
@@ -1804,7 +1804,7 @@ describe "Methods: regressions" do
   end
 
   it "a parenthesised assignment from shift on an empty array compiles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Slap
         def self.parse(argv = ARGV) = Main.new.parse(argv)
 
@@ -1835,7 +1835,7 @@ describe "Methods: regressions" do
   end
 
   it "box, curry, clone and dup keep a Method's signature" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Method/UnboundMethod reflection tail: `#box` (nil for a method in no
       # namespace), `#curry`, and `#clone`/`#dup` keeping the signature.
       def dbl(n) = n * 2
@@ -1873,7 +1873,7 @@ describe "Methods: regressions" do
   end
 
   it "insert and delete_at on an array of strings place and remove by index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class R
         attr_accessor :cookies
         def initialize
@@ -1913,7 +1913,7 @@ describe "Methods: regressions" do
   end
 
   it "a string reached through two readers is mutated in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Sub
         attr_accessor :topic, :fd, :mode
         def initialize(topic, fd, mode)
@@ -1966,7 +1966,7 @@ describe "Methods: regressions" do
   end
 
   it "clear empties an array that was seeded with one element, and a Hash through a parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Res
         attr_accessor :cookies
         def initialize
@@ -1998,7 +1998,7 @@ describe "Methods: regressions" do
   end
 
   it "Integer#chr and String#chr both answer a one-character string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def hexd(n)
         n < 10 ? ("0".getbyte(0) + n).chr : ("A".getbyte(0) + n - 10).chr
       end
@@ -2025,7 +2025,7 @@ describe "Methods: regressions" do
   end
 
   it "probe arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Differential probe: ARGUMENT VALIDATION.
       #
       # Feeds deliberately-wrong arguments to the reflection and collection

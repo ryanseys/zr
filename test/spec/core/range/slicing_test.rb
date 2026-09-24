@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Range: slicing" do
   it "boolean range outside a condition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `cond..cond` expression is only a flip-flop in a conditional context;
       # anywhere else it builds a Range, and a Range of booleans raises
       # ArgumentError ("bad value for range") the moment it is compared. zeo treats
@@ -31,7 +31,7 @@ describe "Range: slicing" do
   end
 
   it "conv nil and range errors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The exact CRuby error shapes: the special lowercase nil message at
       # NUM2LONG sites, the generic shapes elsewhere, RangeError for
       # out-of-range floats and bignums.
@@ -88,7 +88,7 @@ describe "Range: slicing" do
   end
 
   it "endless and beginless range max min raise rather than hang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `#max` on an endless range and `#min` on a beginless range have no
       # answer -- CRuby raises RangeError instead of iterating (which would loop
       # forever). `(1..).min` still returns the begin (an endless range has a
@@ -112,7 +112,7 @@ describe "Range: slicing" do
   end
 
   it "endless range count hangs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(1..).count` hangs forever. Ruby answers `Infinity`.
       #
       # `Range#count` routes to `enumerable::count_own`, which walks `each`. An
@@ -134,7 +134,7 @@ describe "Range: slicing" do
   end
 
   it "endless range refuses to set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#to_set is Range's own row: an endless range raises before
       # Enumerable's walk would run forever.
 
@@ -159,7 +159,7 @@ describe "Range: slicing" do
   end
 
   it "endless range reverse each is lazy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(1..).reverse_each` answers an Enumerator (the raise comes only when it
       # is iterated); zeo raises TypeError at the call. (Found by the 2026-08-24
       # probe sweep.)
@@ -176,7 +176,7 @@ describe "Range: slicing" do
   end
 
   it "endless source stops at the first answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The short-circuiting Enumerable methods stop the SOURCE, not just their own
       # scan, so they answer over an endless one. Each of these used to collect the
       # whole source first and so never returned.
@@ -265,7 +265,7 @@ describe "Range: slicing" do
   end
 
   it "flip flop operator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The flip-flop operator: `cond1..cond2` used AS a condition is a two-state
       # latch, not a Range. Two dots retest the right operand in the evaluation that
       # turned the latch on; three dots wait for the next one. An omitted side is nil,
@@ -329,7 +329,7 @@ describe "Range: slicing" do
   end
 
   it "integer range fills its array at once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # (a..b).to_a over two Integers is one fill, not a yield per element:
       # the same Array either way, exclusive ends, empty and reversed ranges,
       # entries, and a Range whose ends are not both fixnums still walks each.
@@ -373,7 +373,7 @@ describe "Range: slicing" do
   end
 
   it "lazy range local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Lazy over a range held in a local variable.
       r = (1..9)
       p r.lazy.map { |x| x * x }.first(3)
@@ -384,7 +384,7 @@ describe "Range: slicing" do
   end
 
   it "lazy range method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Lazy over a range returned from a method.
       def src; (1..9); end
       p src.lazy.map { |x| x }.first(3)
@@ -395,7 +395,7 @@ describe "Range: slicing" do
   end
 
   it "one sided range answers min and max without walking" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `min`/`max`/`last` on a one-sided range are answered from the endpoints, not
       # by iterating: an endless range would never finish counting up to its maximum,
       # and a beginless one cannot even start.
@@ -501,7 +501,7 @@ describe "Range: slicing" do
   end
 
   it "print range argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # p / puts / print previously fell through to the unsupported-argument
       # diagnostic when handed a Range. Integer ranges render as "first..last"
       # ("first...last" when the end is excluded). Receivers are exercised both as
@@ -548,7 +548,7 @@ describe "Range: slicing" do
   end
 
   it "Basic Range methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
       # step without block param. Was five separate tests; merged here.
@@ -589,7 +589,7 @@ describe "Range: slicing" do
   end
 
   it "cover? / min / max / count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
       # step without block param. Was five separate tests; merged here.
@@ -651,7 +651,7 @@ describe "Range: slicing" do
   end
 
   it "map over a range collects one value an element, inclusive or exclusive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
       # step without block param. Was five separate tests; merged here.
@@ -680,7 +680,7 @@ describe "Range: slicing" do
   end
 
   it "Inclusive vs exclusive (slicing / for-in / Range#to a / case-when)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
       # step without block param. Was five separate tests; merged here.
@@ -763,7 +763,7 @@ describe "Range: slicing" do
   end
 
   it "=== is true for a value inside the range, endpoints included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
       # step without block param. Was five separate tests; merged here.
@@ -790,7 +790,7 @@ describe "Range: slicing" do
   end
 
   it "step without block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range methods — first / last / include? / to_a / each, cover? /
       # min / max / count, Range#map, inclusive-vs-exclusive distinction,
       # step without block param. Was five separate tests; merged here.
@@ -820,7 +820,7 @@ describe "Range: slicing" do
   end
 
   it "cover?, include? and === answer false for an argument they cannot compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = ((1..5).cover?("x") rescue $!.class)
       p r
 
@@ -856,7 +856,7 @@ describe "Range: slicing" do
   end
 
   it "begin and end are the aliases of first and last" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three small adjacent fixes:
       #   - Range#begin / Range#end (aliases of first / last)
       #   - Array#include? on poly_array
@@ -893,7 +893,7 @@ describe "Range: slicing" do
   end
 
   it "reverse_each walks down from the end, beginless or not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = []; (..5).reverse_each { |x| break if x < 3; r << x }; p r
 
       p((1..5).reverse_each.to_a)   # => [5, 4, 3, 2, 1]
@@ -917,7 +917,7 @@ describe "Range: slicing" do
   end
 
   it "each_slice, each_cons and each_with_index with no block roll a window through an endless range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blockless `each_slice`/`each_cons`/`each_with_index` over an ENDLESS Range
       # answers, because the Enumerator it returns re-invokes the block form, and
       # those roll a buffer through the source instead of materializing it first.
@@ -960,7 +960,7 @@ describe "Range: slicing" do
   end
 
   it "all?, any?, none? and one? take a block, a pattern, or nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1..5).all?)
       p((1..5).any?)
       p((1..5).none?)
@@ -990,7 +990,7 @@ describe "Range: slicing" do
   end
 
   it "=== of a range against a range is false, and cover? of one is true" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1..5) === (2..4))
       p((1..5) === (1..5))
       p((1..5) === 3)
@@ -1014,7 +1014,7 @@ describe "Range: slicing" do
   end
 
   it "a String range answers false for an argument that is not a string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#=== (and cover?/include?) on a String range with a non-String argument
       # returns false, like CRuby, rather than feeding a non-pointer to strcmp (which
       # segfaulted). String-in-string-range and numeric ranges are unaffected.
@@ -1039,7 +1039,7 @@ describe "Range: slicing" do
   end
 
   it "a case arm matches through cover?, not through equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Range#===` IS `#cover?` -- what makes `case x when 1..50` actually
       # match (previously it fell to structural equality and silently never
       # did). Endpoint semantics oracle-verified incl. exclusive ends, floats,
@@ -1073,7 +1073,7 @@ describe "Range: slicing" do
   end
 
   it "the Comparable and slicing methods over char, beginless and endless ranges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range: char-range variables, beginless/endless membership, min(n)/max(n),
       # take/drop/reverse_each/filter_map, % (step), clamp(range) incl. variables,
       # and Comparable between?/clamp on a custom class.
@@ -1173,7 +1173,7 @@ describe "Range: slicing" do
   end
 
   it "min, max and minmax answer nil for a range whose begin is past its end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range conformance (KieranP #2411-#2415)
       a = ("a".."e")
       p a.begin
@@ -1210,7 +1210,7 @@ describe "Range: slicing" do
   end
 
   it "two ranges with the same endpoints are one Hash key and one array element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({ ("a".."c") => :s }[("a".."c")])
       p({ (1..3) => :i }[(1..3)])
       p({ (1.0..2.0) => :f }[(1.0..2.0)])
@@ -1236,7 +1236,7 @@ describe "Range: slicing" do
   end
 
   it "each over a literal range covers its bounds, an exclusive end included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
       # path; this test pins behavioural parity. The perf win shows up in
@@ -1275,7 +1275,7 @@ describe "Range: slicing" do
   end
 
   it "a one-element range yields once and an empty one yields nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
       # path; this test pins behavioural parity. The perf win shows up in
@@ -1321,7 +1321,7 @@ describe "Range: slicing" do
   end
 
   it "the block parameter of a fused range loop belongs to the block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
       # path; this test pins behavioural parity. The perf win shows up in
@@ -1347,7 +1347,7 @@ describe "Range: slicing" do
   end
 
   it "a range whose bounds are expressions iterates over the values they answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
       # path; this test pins behavioural parity. The perf win shows up in
@@ -1379,7 +1379,7 @@ describe "Range: slicing" do
   end
 
   it "break and next inside a fused range loop mean what they mean anywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
       # path; this test pins behavioural parity. The perf win shows up in
@@ -1408,7 +1408,7 @@ describe "Range: slicing" do
   end
 
   it "a fused range loop nests inside another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each over a literal numeric range should fuse to a tight C
       # for-loop with bounds inlined. Output is identical to the unfused
       # path; this test pins behavioural parity. The perf win shows up in
@@ -1434,7 +1434,7 @@ describe "Range: slicing" do
   end
 
   it "each with no block answers an Enumerator of the elements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each without a block returns an Enumerator; spinel materializes
       # the element array so chaining works.
       p((1..3).each.to_a)
@@ -1450,7 +1450,7 @@ describe "Range: slicing" do
   end
 
   it "throw out of a range's each carries its value to the catch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(catch(:n) { (1..2).each { throw :n, 7 } })
       v = catch(:n2) { x = (1..2).each { throw :n2, 7 }; x }; p v
       p(catch(:m) { [1, 2].each { |i| throw :m, i } })
@@ -1466,7 +1466,7 @@ describe "Range: slicing" do
   end
 
   it "take_while, drop_while, a comparator min and max, and bsearch in both modes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range Enumerable forms: take_while/drop_while blocks, comparator min/max,
       # beginless/endless include?/cover?, bsearch find-any vs find-minimum mode,
       # and #to_a on runtime-tagged (poly) receivers including nil.
@@ -1543,7 +1543,7 @@ describe "Range: slicing" do
   end
 
   it "reduce, group_by, find, count, zip and tally over a range held in a local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable methods on a Range that spinel does not handle natively are served
       # by materializing the range to an int array and dispatching the array method:
       # the non-collecting forms (reduce(:sym)/group_by/find/count/zip/tally). The
@@ -1637,7 +1637,7 @@ describe "Range: slicing" do
   end
 
   it "sum, partition, sort_by and chunk_while take their block over a range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block-taking Enumerable methods on an integer Range materialize through
       # the array redispatch: sum with a block (it was silently ignored),
       # partition, each_with_index, sort_by, chunk_while, and inject/reduce
@@ -1670,7 +1670,7 @@ describe "Range: slicing" do
   end
 
   it "select, reject, filter, min_by and max_by over a range that arrived as a parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Finite-range Enumerable coverage: select/reject/filter (the fused-loop forms)
       # and min_by/max_by, which materialize the range to an int array. Receivers go
       # through a method param so the range value reaches the runtime path.
@@ -1702,7 +1702,7 @@ describe "Range: slicing" do
   end
 
   it "== and eql? compare begin, end and exclusivity, and nothing else" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#== / #eql? compare first, last, and exclusivity; a non-range is
       # never equal.
       p((1..5) == (1..5))
@@ -1726,7 +1726,7 @@ describe "Range: slicing" do
   end
 
   it "exclude_end?, size and count read the flag off a range held in a parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Non-literal ranges: passing through a method parameter defeats
       # compile-time constant-folding, so `exclude_end?`/`size`/`count`
       # must read the runtime `excl` flag off the sp_Range struct.
@@ -1769,7 +1769,7 @@ describe "Range: slicing" do
   end
 
   it "an exclusive range held in a local stops one short everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exclusive ranges (`...`) held in a variable carry exclude_end at
       # runtime via the sp_Range struct, so max / include? / to_a / each /
       # map / size / step all stop one short of the end — matching CRuby
@@ -1831,7 +1831,7 @@ describe "Range: slicing" do
   end
 
   it "flat_map over a range flattens one level" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#flat_map maps each element through the block then flattens one level.
       def s(x); x; end
       p s(1..5).flat_map { |x| [x] }
@@ -1847,7 +1847,7 @@ describe "Range: slicing" do
   end
 
   it "last(n) on an endless range raises, where first(n) and min answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `last(n)` on an endless range raises rather than trying to reach a tail that
       # is not there. The guard has to live on Range's own row: `last(n)` answers by
       # materializing, and the `to_a` it used to reach went through Enumerable, which
@@ -1875,7 +1875,7 @@ describe "Range: slicing" do
   end
 
   it "a range literal reports its first, last and exclusivity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = 1..5
       puts(r.first)
       puts(r.last)
@@ -1898,7 +1898,7 @@ describe "Range: slicing" do
   end
 
   it "min_by and max_by take a count and answer that many" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The count form of min_by/max_by over a Range: the Range has to be
       # materialized before it can be indexed (#3860). MatchData#values_at with no
       # arguments selects nothing (#3846).
@@ -1921,7 +1921,7 @@ describe "Range: slicing" do
   end
 
   it "min(n) counts up from begin and max(n) down from end, so one open side is enough" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `min(n)` counts UP from begin and `max(n)` counts DOWN from end, so a range
       # open on the OTHER side still answers. Sorting the whole range instead, as the
       # generic Enumerable path does, never returns on an endless one.
@@ -1952,7 +1952,7 @@ describe "Range: slicing" do
   end
 
   it "a range with one Float endpoint keeps each endpoint's own type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1.5..5).begin)
       p((1.5..5).first)
       p((1.5..5).min)
@@ -1994,7 +1994,7 @@ describe "Range: slicing" do
   end
 
   it "first, last, min and max refuse a negative count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = ((1..5).first(-1) rescue $!.class); p r001
       r002 = ((1..5).last(-1) rescue $!.class); p r002
       r003 = ((1..5).min(-1) rescue $!.class); p r003
@@ -2022,7 +2022,7 @@ describe "Range: slicing" do
   end
 
   it "an explicit nil endpoint is the open end, and Range.new builds the same range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An explicit `nil` endpoint IS the open end: `nil..5` and `..5` are the SAME
       # range. zeo kept the two apart, so `(1..nil).min` read a bounded range and
       # iterated forever, `(nil..5).first` answered nil instead of raising, and the
@@ -2141,7 +2141,7 @@ describe "Range: slicing" do
   end
 
   it "clamp against a range of user objects folds the bounds into the comparison" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable#clamp against a range of user objects: the bounds fold straight
       # into the comparison, so no Range object is built and every inline form works.
       # Materializing such a Range is the part that cannot work (sp_Range has mrb_int
@@ -2173,7 +2173,7 @@ describe "Range: slicing" do
   end
 
   it "the queries that need the missing end raise, and the ones that do not answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((..5).max)
       r001 = ((..5).first rescue $!.class); p r001
       r002 = ((1..).last rescue $!.class); p r002
@@ -2201,7 +2201,7 @@ describe "Range: slicing" do
   end
 
   it "find, detect and take_while over an endless range stop at their answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `find`/`detect`/`take_while` over an endless Range stop at their answer
       # rather than trying to walk the whole range. `find` and `detect` always broke
       # early; `take_while` used to collect the source first, which on `(1..)` never
@@ -2233,7 +2233,7 @@ describe "Range: slicing" do
   end
 
   it "an in clause with a range matches through cover?, whatever the value's type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A range pattern in `case/in` is `Range#===` -- a `#cover?` test that works
       # for any comparable scrutinee (a Float, or a value of unknown static type),
       # an exclusive range, and a beginless/endless range, not just integers.
@@ -2272,7 +2272,7 @@ describe "Range: slicing" do
   end
 
   it "slice_when, chunk_while and the with_index family over a range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator chains over an Integer Range source: the with_index family
       # materializes the range to an int array and runs the array machinery (#3228).
       p((1..10).slice_when { |i, j| j.even? }.to_a)
@@ -2294,7 +2294,7 @@ describe "Range: slicing" do
   end
 
   it "size answers for an integer, endless or Float-ended range and raises for the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#size handles integer, endless, and Float-ended ranges.
       p (1..10).size
       p (1...10).size
@@ -2329,7 +2329,7 @@ describe "Range: slicing" do
   end
 
   it "size, take and first answer for an infinite range reached through a local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#size with a Float::INFINITY (or endless) bound, reached through a
       # local variable: the sole-assignment lookthrough types/serves it like the
       # literal receiver (Float Infinity), and the range VALUE materializes its
@@ -2367,7 +2367,7 @@ describe "Range: slicing" do
   end
 
   it "sum takes a numeric seed, and an endless range has an infinite size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#sum with a numeric init, endless-literal size (Infinity) and
       # take/first(n) (counted prefix), and beginless size raising TypeError.
       p((1..3).sum(10))
@@ -2391,7 +2391,7 @@ describe "Range: slicing" do
   end
 
   it "to_s and inspect print the endpoints the way they were written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = (1..3)
       puts r.to_s
       puts r.inspect
@@ -2414,7 +2414,7 @@ describe "Range: slicing" do
   end
 
   it "a nil or infinite endpoint covers everything on that side" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((nil..5).cover?(-3))
       p((..5).cover?(-3))
       p((nil..5).include?(-3))

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/hir"
+require_relative "../../lib/zr/hir"
 
 # `alias $hit $&`.
 #
@@ -11,7 +11,7 @@ require_relative "../../lib/ze0/hir"
 #
 #   if false; alias $x $&; end; "hello" =~ /ll/; p $x   # nil
 #
-# ze0 cannot carry such a row. `$&` is a register of the frame that last
+# zr cannot carry such a row. `$&` is a register of the frame that last
 # matched and not a global, so the name is resolved as the file is
 # lowered -- which is right as it stands only for an alias the file runs
 # whenever it loads. One written where it may not run sets a flag of its
@@ -49,5 +49,5 @@ class GvarAliasTest < Minitest::Test
 
   private
 
-  def dump(source) = Ze0::Hir::Dump.program(Ze0::Hir.build(source, "alias.rb", road: false))
+  def dump(source) = Zr::Hir::Dump.program(Zr::Hir.build(source, "alias.rb", road: false))
 end

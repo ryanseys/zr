@@ -9,9 +9,9 @@ require_relative "answer"
 require_relative "child"
 require_relative "runner"
 
-module Ze0
+module Zr
   module Harness
-    # `rake bench`: how long the binary ze0 built takes, beside the ruby
+    # `rake bench`: how long the binary zr built takes, beside the ruby
     # that recorded its answer.
     #
     # `benchmark/` holds whole programs the way `test/e2e` does -- a
@@ -52,14 +52,14 @@ module Ze0
       # clock in `real`, and the child's own user and system time as
       # `utime` and `stime`. A row with no time carries `why` instead.
       class Row
-        attr_reader :rb, :bucket, :why, :build, :ze0, :ruby, :yjit
+        attr_reader :rb, :bucket, :why, :build, :zr, :ruby, :yjit
 
-        def initialize(rb, bucket, why = nil, build: nil, ze0: nil, ruby: nil, yjit: nil)
+        def initialize(rb, bucket, why = nil, build: nil, zr: nil, ruby: nil, yjit: nil)
           @rb = rb
           @bucket = bucket
           @why = why
           @build = build
-          @ze0 = ze0
+          @zr = zr
           @ruby = ruby
           @yjit = yjit
         end
@@ -69,10 +69,10 @@ module Ze0
 
         # The CPU the binary spent, apart from the wall clock: what the
         # program cost, with the machine's other work left out of it.
-        def cpu = ze0.total
+        def cpu = zr.total
 
-        # ze0's wall clock over `other`'s, a Tms or nil.
-        def against(other) = timed? && other && other.real.positive? ? ze0.real / other.real : nil
+        # zr's wall clock over `other`'s, a Tms or nil.
+        def against(other) = timed? && other && other.real.positive? ? zr.real / other.real : nil
       end
 
       def initialize(root, runs: RUNS, show: 10, target: Target.default)
@@ -100,11 +100,11 @@ module Ze0
 
       def run(cases, io = $stdout)
         io.sync = true
-        Dir.mktmpdir("ze0-bench-") do |work|
+        Dir.mktmpdir("zr-bench-") do |work|
           cases.map.with_index do |rb, n|
             io.print format("[%d/%d] %s ... ", n + 1, cases.size, File.basename(rb, ".rb"))
             row = one(rb, work)
-            io.puts row.timed? ? format("%.3fs", row.ze0.real) : "#{row.bucket}: #{row.why}"
+            io.puts row.timed? ? format("%.3fs", row.zr.real) : "#{row.bucket}: #{row.why}"
             row
           end
         end
@@ -126,12 +126,12 @@ module Ze0
 
         want = Normalize.answer(recorded, rb, cwd)
         argv, run_env = @runner.run(bin, [], {})
-        got, wrong = medians("ze0", argv, cwd, nil, run_env, rb, want)
+        got, wrong = medians("zr", argv, cwd, nil, run_env, rb, want)
         return Row.new(rb, :diverged, wrong) if wrong
 
         plain, = medians("ruby", [RbConfig.ruby, rel], cwd, nil, {}, rb, nil)
         jit, = medians("yjit", [RbConfig.ruby, "--yjit", rel], cwd, nil, {}, rb, nil)
-        Row.new(rb, :timed, build: build.real, ze0: got, ruby: plain, yjit: jit)
+        Row.new(rb, :timed, build: build.real, zr: got, ruby: plain, yjit: jit)
       end
 
       # The run at the middle of `@runs` wall clocks, as a Tms, and what
@@ -150,7 +150,7 @@ module Ze0
             return [nil, want.apart_from(got)] if got != want
           elsif want.nil? && out.code != 0
             # ruby could not run it -- an old `--yjit`, a gem it wants.
-            # The column stays empty and the row keeps its ze0 time.
+            # The column stays empty and the row keeps its zr time.
             return [nil, nil]
           end
           times << took
@@ -172,14 +172,14 @@ module Ze0
 
       def first_line(out)
         text = out.stderr.empty? ? out.stdout : out.stderr
-        (text.lines.first&.strip || "(no message)").sub(/\Aze0: /, "")
+        (text.lines.first&.strip || "(no message)").sub(/\Azr: /, "")
       end
 
       # The table, the two geometric means, and whether every program
       # answered. A slow row is a result; a wrong row is a failure.
       def report(rows, io = $stdout)
         io.puts
-        io.puts format("%-26s %8s %8s %8s %8s %8s %9s %9s", "program", "build", "ze0", "cpu", "ruby", "yjit", "vs ruby", "vs yjit")
+        io.puts format("%-26s %8s %8s %8s %8s %8s %9s %9s", "program", "build", "zr", "cpu", "ruby", "yjit", "vs ruby", "vs yjit")
         rows.each { |r| io.puts line(r) }
         timed = rows.select(&:timed?)
         io.puts
@@ -188,7 +188,7 @@ module Ze0
           ratios = timed.filter_map { |r| r.against(r.public_send(what)) }
           next if ratios.empty?
 
-          io.puts format("ze0 is %.2fx of %s, geometric mean over %d program(s)", geomean(ratios), what, ratios.size)
+          io.puts format("zr is %.2fx of %s, geometric mean over %d program(s)", geomean(ratios), what, ratios.size)
         end
         io.puts "  wrote #{save(rows)}"
         rows.none? { |r| %i[diverged backend].include?(r.bucket) }
@@ -197,7 +197,7 @@ module Ze0
       def line(row)
         return format("%-26s %8.1f %8s %8s %8s %8s %9s %9s", row.name, row.build || 0, row.bucket, "", "", "", "", "") unless row.timed?
 
-        format("%-26s %8.1f %8.3f %8.3f %8s %8s %9s %9s", row.name, row.build, row.ze0.real, row.cpu,
+        format("%-26s %8.1f %8.3f %8.3f %8s %8s %9s %9s", row.name, row.build, row.zr.real, row.cpu,
                seconds(row.ruby), seconds(row.yjit), times(row.against(row.ruby)), times(row.against(row.yjit)))
       end
 
@@ -242,7 +242,7 @@ module Ze0
       LABEL = "%-8n"
 
       def text(rows, taken = Time.now.utc)
-        lines = ["# ze0 bench, the median of #{@runs} run(s) at #{revision}, #{taken.strftime("%Y-%m-%d %H:%M UTC")}"]
+        lines = ["# zr bench, the median of #{@runs} run(s) at #{revision}, #{taken.strftime("%Y-%m-%d %H:%M UTC")}"]
         rows.each do |r|
           lines << ""
           unless r.timed?
@@ -252,7 +252,7 @@ module Ze0
 
           lines << format("%s  built in %.1f s", r.name, r.build)
           lines << (" " * 8) + Benchmark::CAPTION.chomp
-          %i[ze0 ruby yjit].each do |what|
+          %i[zr ruby yjit].each do |what|
             t = r.public_send(what) or next
             lines << t.format(LABEL + Benchmark::FORMAT).chomp
           end
@@ -262,7 +262,7 @@ module Ze0
 
       # `{ "bm_fib" => 0.1438, ... }`: the wall clock of `label`'s line
       # under each program in a report `save` wrote.
-      def self.reals(text, label = "ze0")
+      def self.reals(text, label = "zr")
         program = nil
         text.each_line.with_object({}) do |line, reals|
           if (m = line.match(/\A(\S+)\s+[\d.]+\s.*\(\s*([\d.]+)\)\s*\z/))

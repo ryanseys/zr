@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array programs" do
   it "Array.try_convert and Hash.try_convert answer nil for what they cannot convert" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Array.try_convert([1, 2])
       p Array.try_convert("no")
       p Hash.try_convert({ a: 1 })
@@ -20,7 +20,7 @@ describe "Array programs" do
   end
 
   it "delete returns the element it found by ==, not the argument it was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Always
         def ==(o) = true
         def inspect = "#<Always>"
@@ -44,7 +44,7 @@ describe "Array programs" do
   end
 
   it "fill reads start and length as offsets and raises TypeError on anything else" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # fill(value, start[, length]): start and length are offsets, and a value with
       # no integer conversion is CRuby's TypeError. They went into the offset slot
       # as-is, so a String start read as a pointer and the fill quietly did nothing.
@@ -67,7 +67,7 @@ describe "Array programs" do
   end
 
   it "fill with a value the element kind cannot hold widens the array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#fill whose value another element kind cannot hold must widen the array,
       # not store the value's raw bits (an int array filled with :a held garbage).
       a = [1, 2, 3]
@@ -97,7 +97,7 @@ describe "Array programs" do
   end
 
   it "every in-place mutator raises FrozenError on a frozen integer, float or string array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array mutating methods on frozen arrays must raise FrozenError.
       # IntArray#pop/#shift already had the guard; FloatArray, StrArray,
       # and the reverse_bang/sort_bang/shuffle_bang/rotate_bang/delete_at
@@ -161,7 +161,7 @@ describe "Array programs" do
   end
 
   it "the FrozenError a mutator raises names the frozen array in its message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every mutating Array method raises FrozenError on a frozen receiver.
 
       a = [1, 2, 3].freeze
@@ -192,7 +192,7 @@ describe "Array programs" do
   end
 
   it "a write past the end fills the gap with nil, not the element kind's zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `a[n] = v` past the end fills the gap with nil, not the element type's zero
       # value (#3836).
       a = ["x"]
@@ -224,7 +224,7 @@ describe "Array programs" do
   end
 
   it "include? and index call the element's own ==, so an exception from it escapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Boom
         def ==(o) = raise("cmp")
       end
@@ -249,7 +249,7 @@ describe "Array programs" do
   end
 
   it "join flattens a nested array under the same separator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#join flattens nested arrays recursively with the same separator.
       p [1, [2, 3], 4].join("-")
       p [[1, 2], [3, 4]].join(",")
@@ -268,7 +268,7 @@ describe "Array programs" do
   end
 
   it "join takes a separator that is only known to be an object at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#join's separator must be a const char*; when the separator widens to
       # poly (an ivar/reader unified to poly across the program), it has to be
       # coerced with sp_poly_to_s rather than passed raw -- otherwise sp_*Array_join
@@ -297,7 +297,7 @@ describe "Array programs" do
   end
 
   it "join reaches three levels down, and delete's not-found block supplies the answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # join flattens nested arrays under the same separator; delete's not-found
       # block supplies the answer.
 
@@ -318,7 +318,7 @@ describe "Array programs" do
   end
 
   it "indexing reads from either end, answers nil past the end, and a splat widens the literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       puts(a[0])
       puts(a[2])
@@ -351,7 +351,7 @@ describe "Array programs" do
   end
 
   it "* by a negative count raises ArgumentError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#* with a negative count raises ArgumentError (was: silently []).
       w = %w[a] * 0
       p w
@@ -366,7 +366,7 @@ describe "Array programs" do
   end
 
   it "Array.new with no argument is an empty, unfrozen array that shift and pop still answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Array.new.frozen?
       p Array.new.class
       p Array.new.size
@@ -396,7 +396,7 @@ describe "Array programs" do
   end
 
   it "Array.new(n, []) stores one shared container in every slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array.new(n, <empty container literal>) fills every slot with ONE
       # shared container object (CRuby aliasing: mutating a[0] shows in a[1]).
       p Array.new(2, [])
@@ -418,7 +418,7 @@ describe "Array programs" do
   end
 
   it "last, rindex, sample, fill and the set-op siblings take their optional and variadic forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The builtin tables used to hardcode a single arity and reject the
       # optional-`n` and variadic forms Ruby accepts: `last(n)`, `sample(n)`,
       # the block form of `rindex`, the fill span forms, and the variadic
@@ -466,7 +466,7 @@ describe "Array programs" do
   end
 
   it "product takes two or more arrays and builds the n-way Cartesian product" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#product with two or more array arguments builds the n-way Cartesian
       # product (one element from each input, in order). Previously only the single
       # argument form had a codegen arm; 2+ arguments were rejected.
@@ -496,7 +496,7 @@ describe "Array programs" do
   end
 
   it "|=, &= and -= desugar to the binary operator and keep the array's element kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array set-operation op-assign: `a |= b` (union), `a &= b` (intersection),
       # `a -= b` (difference) desugar to `a = a OP b`, mirroring the already-working
       # binary operators. Values route through a per-kind identity method so each
@@ -562,7 +562,7 @@ describe "Array programs" do
   end
 
   it "to_h builds a hash from [key, value] pairs whatever kind each pair is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#to_h (pair form) builds a hash from [key, value] sub-arrays. Each pair
       # may itself be a homogeneous typed array (IntArray for [1, 2], StrArray for
       # ["a", "b"]) or a mixed PolyArray, so the element extraction must dispatch on
@@ -593,7 +593,7 @@ describe "Array programs" do
   end
 
   it "begin rescue array body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (begin; a001 = [1].freeze; a001 << 2; rescue FrozenError => e001; e001.class; end)
       p r001
 
@@ -622,7 +622,7 @@ describe "Array programs" do
   end
 
   it "bsearch find any mixed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1..100).bsearch { |x| x*x >= 50 ? x*x - 50 : nil })
       p((0..100).bsearch { |x| 100 - x*x })
       p((1..10).bsearch { |x| x >= 4 })
@@ -644,7 +644,7 @@ describe "Array programs" do
   end
 
   it "call site splat expands an array into positional arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Adder
         def add3(a, b, c)
           a + b + c
@@ -660,7 +660,7 @@ describe "Array programs" do
   end
 
   it "case in value nested array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested-array case/in used in value position (its result assigned).
       def s(x); x; end
       r = case s([1, [2, 3], 4])
@@ -673,7 +673,7 @@ describe "Array programs" do
   end
 
   it "data not diggable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       D = Data.define(:v)
       r = ([D.new(2)].dig(0, :v) rescue $!.class)
       p r
@@ -709,7 +709,7 @@ describe "Array programs" do
   end
 
   it "dig with splat keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # dig(*keys) walks a key list only known at run time, for both Hash and Array
       # receivers and from behind a method boundary.
       h = { server: { host: "x", port: 8080 } }
@@ -740,7 +740,7 @@ describe "Array programs" do
   end
 
   it "empty array const" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant bound to an EMPTY array literal has no element type to read off the
       # literal. That left it typed UNKNOWN, which downstream does not read as
       # "unknown" but as UNDEFINED: every reference reported the constant as defined
@@ -787,7 +787,7 @@ describe "Array programs" do
   end
 
   it "empty array dup slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[].dup` is a copy of nothing, so it is a new empty array -- and it has to be
       # built at the target's type. Emitted as an ordinary call it took the empty
       # literal's own default kind and wrote an sp_IntArray into a poly-array slot,
@@ -830,7 +830,7 @@ describe "Array programs" do
   end
 
   it "empty array literal receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `[]` literal used directly as a receiver has no element type, and
       # the forms below had no arm that would claim it, so the call was refused
       # outright. They join the receivers that settle on an empty poly array.
@@ -875,7 +875,7 @@ describe "Array programs" do
   end
 
   it "empty array push container elem" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rows = []` followed by `rows << <container>` (where the pushed
       # value is a Hash or another Array, not a primitive) used to leave
       # `rows` typed as int_array — sp_IntArray_push then errored with
@@ -917,7 +917,7 @@ describe "Array programs" do
   end
 
   it "enum terminal chunk zip lazy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator terminals over slice/chunk enumerators, string byte enumerator,
       # boolean chunk keys, zip with a Range argument, and lazy take(n).to_a.
       p "hi".each_byte.to_a
@@ -947,7 +947,7 @@ describe "Array programs" do
   end
 
   it "eval collections arrays hashes ranges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts eval("[1, 2, 3, 4].length".dup)
       puts eval("{ a: 1, b: 2 }.length".dup)
       puts eval("(1..5).to_a.inspect".dup)
@@ -961,7 +961,7 @@ describe "Array programs" do
   end
 
   it "exception class array inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception's #class is a real Class object: it inspects bare (not quoted)
       # inside a container, renders as its name via to_s/name, and compares by identity.
       begin
@@ -1017,7 +1017,7 @@ describe "Array programs" do
   end
 
   it "explicit nil size argument converts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `first`, `last`, `pop`, `shift` and `sample` tell an absent count from
       # one given as nil: the absent one takes the whole-receiver form, and an
       # explicit nil goes through the same conversion any other value does.
@@ -1073,7 +1073,7 @@ describe "Array programs" do
   end
 
   it "float round digits cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # `Float#round(n)` with a positive digit count rounds by scaling with a power
@@ -1145,7 +1145,7 @@ describe "Array programs" do
   end
 
   it "float round ndigits return type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#ceil/floor/round/truncate return type is value-based on a
       # literal ndigits, matching CRuby: Integer when ndigits <= 0 (or
       # absent), Float when > 0. (A non-literal ndigits stays Float.) Values
@@ -1191,7 +1191,7 @@ describe "Array programs" do
   end
 
   it "float round truncate ndigits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#round/#truncate/#floor/#ceil with a runtime ndigits argument choose the
       # class the way CRuby does: Integer when ndigits <= 0, Float when ndigits > 0.
       def rnd(x, n); x.round(n); end
@@ -1230,7 +1230,7 @@ describe "Array programs" do
   end
 
   it "gc root elided array slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly local proven to hold only a poly array or nil does not need a GC root:
       # its index read takes the runtime's inline array arm, which neither allocates
       # nor re-enters Ruby, so the element stays reachable from the container it was
@@ -1352,7 +1352,7 @@ describe "Array programs" do
   end
 
   it "hash dig applies the hashs own default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Hash.new(0).dig(:x)
       p Hash.new { |h, k| "blk#{k}" }.dig(:x)
 
@@ -1377,7 +1377,7 @@ describe "Array programs" do
   end
 
   it "int array bracket assign expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr[i] = v` in *expression* position on int_array. The stmt-
       # form is handled by `compile_bracket_assign`; in rvalue chains
       # like `outer = arr[i] = rhs`, the call lands in the expression
@@ -1423,7 +1423,7 @@ describe "Array programs" do
   end
 
   it "int ceil floor round truncate ndigits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#ceil/floor/round/truncate with ndigits argument.
       # Without ndigits these return self; with negative ndigits they
       # round to the nearest 10^(-ndigits). Previously spinel silently
@@ -1460,7 +1460,7 @@ describe "Array programs" do
   end
 
   it "int keyed hash lookup as array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash literal whose keys are the consecutive non-negative
       # integers 0..N-1 lowers to an internal Array. The runtime has no
       # `int_<X>_hash` slot, so a literal like
@@ -1486,7 +1486,7 @@ describe "Array programs" do
   end
 
   it "integer digits accepts a bignum base" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bignum base is valid (the value simply fits in one digit when it is
       # smaller than the base); only radix < 2 is an ArgumentError.
 
@@ -1499,7 +1499,7 @@ describe "Array programs" do
   end
 
   it "interp array container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String interpolation of typed-array containers.
       #
       # `93d04586` fixed Symbol interpolation (`"#{:foo}"` -> `"foo"`).
@@ -1556,7 +1556,7 @@ describe "Array programs" do
   end
 
   it "ivar array filled from outside" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1624,7 +1624,7 @@ describe "Array programs" do
   end
 
   it "ivar array pushed through boxed param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@rows = []` carries no element evidence, so it takes the empty-array
       # default (an int array). A helper that pushes objects into it through a
       # parameter shares that storage, and the ivar has to widen with it -- the
@@ -1695,7 +1695,7 @@ describe "Array programs" do
   end
 
   it "kernel array coercion" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Array(x): nil becomes [], an array passes through (preserving its
       # element type), and any other value is wrapped in a one-element array. The
       # wrapped cases route through the runtime coercion; an argument statically
@@ -1751,7 +1751,7 @@ describe "Array programs" do
   end
 
   it "keyword hash in an array literal is an element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Keywords at the end of an array literal make one Hash element. When
       # they are only `**` splats and come out empty, no element is added.
       p [1, a: 2]
@@ -1776,7 +1776,7 @@ describe "Array programs" do
   end
 
   it "mapped array mutable elements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `["a"].map { |s| s.dup }` fills the array with fresh mutable strings exactly
       # as `["a".dup]` does, and the shared-mutable machinery has to read the two
       # shapes the same way. Only the literal was: the store analysis knew array and
@@ -1839,7 +1839,7 @@ describe "Array programs" do
   end
 
   it "minmax by array key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2].min_by { |x| [x] }
       p [1, 2].max_by { |x| [x] }
       p [[3, 1], [1, 2]].min_by { |a| a }
@@ -1868,7 +1868,7 @@ describe "Array programs" do
   end
 
   it "module const array widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #333: a module-level array constant initialized as an empty
       # literal (`LOG = []`) was typed as `sp_IntArray *`, regardless of
       # how it was used. A later `LOG << some_hash` then emitted
@@ -1911,7 +1911,7 @@ describe "Array programs" do
   end
 
   it "multi write ivar const from array rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `compile_multi_write`'s int_array-returning RHS branch (RHS is a
       # non-literal expression that evaluates to an array, e.g.
       # `.map { ... }`, a method call) only emitted assignments for
@@ -1978,7 +1978,7 @@ describe "Array programs" do
   end
 
   it "non overridden inherited initialize flattens ivars onto the subclass struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Parent
         def initialize(x)
           @x = x
@@ -1996,7 +1996,7 @@ describe "Array programs" do
   end
 
   it "obj array param accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An accumulator array mutated through an INSTANCE-method parameter and read
       # back by element must round-trip its objects intact. The object-array
       # narrowing pass built interprocedural edges only for free functions, so an
@@ -2049,7 +2049,7 @@ describe "Array programs" do
   end
 
   it "open class array builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Built-in class reopens should not be collected as user classes.
       # Array uses the boxed open-class receiver path rather than emitting
       # a fake sp_Array struct.
@@ -2067,7 +2067,7 @@ describe "Array programs" do
   end
 
   it "recursive array flatten overflows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2112,7 +2112,7 @@ describe "Array programs" do
   end
 
   it "recursive array join aborts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2177,7 +2177,7 @@ describe "Array programs" do
   end
 
   it "rest and post params bind a real array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def count(*nums)
           nums.length
@@ -2200,7 +2200,7 @@ describe "Array programs" do
   end
 
   it "splatting a non array follows rubys to a rules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splatting a non-Array is ordinary Ruby, not an error -- it used to
       # PANIC ("expected an Array to splat"), taking down `a, b = *1`.
       # `[*"str"]` is the case worth pinning: it looks like it should split
@@ -2241,7 +2241,7 @@ describe "Array programs" do
   end
 
   it "struct dig missing key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Struct#dig with an unknown member raises NameError where ruby answers nil.
       #
@@ -2278,7 +2278,7 @@ describe "Array programs" do
   end
 
   it "struct dig multi key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Node001 = Struct.new(:val, :kids)
       t001 = Node001.new(1, [Node001.new(2, [])])
       p t001.dig(1, 0, 0)
@@ -2300,7 +2300,7 @@ describe "Array programs" do
   end
 
   it "struct dig paths" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # dig through and into a Struct.
       Leaf = Struct.new(:v)
       Box = Struct.new(:label, :items)
@@ -2352,7 +2352,7 @@ describe "Array programs" do
   end
 
   it "struct empty array member" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # an empty array literal as a Data/Struct member takes the member's type
       P = Data.define(:name, :deps)
       a = P.new(name: "x", deps: ["d1"])
@@ -2380,11 +2380,11 @@ describe "Array programs" do
   end
 
   it "subclass sees only the calls ruby makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which of Array's own methods its methods call on a subclass: every
       # method Array defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       class Probe < Array
@@ -2588,7 +2588,7 @@ describe "Array programs" do
   end
 
   it "value subclass of array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user subclass of `Array` (D3) is the native `ValueSubclass` wrapping an
       # array payload: inherited methods (`push`/`<<`/`size`/`each`/`map`) run
       # against it, self-returning mutators re-wrap to the subclass while a NEW
@@ -2625,7 +2625,7 @@ describe "Array programs" do
   end
 
   it "join warns when $, is set and the deprecated category is on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Warning[:deprecated] = true
       $, = "+"
       p [3, 4].join

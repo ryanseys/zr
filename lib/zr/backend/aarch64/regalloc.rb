@@ -1,0 +1,456 @@
+# frozen_string_literal: true
+
+require_relative "registers"
+
+module Zr
+  module Backend
+    module Aarch64
+      # Which values live in a register for the whole of their life, and
+      # which stay in the frame.
+      #
+      # Linear scan over intervals in block layout order. Every value
+      # keeps the frame home the backend already gives it, so a value this
+      # answers nothing for behaves exactly as it did before: the
+      # allocator can be conservative without ever being wrong, and when
+      # it runs out of registers it spills by leaving a value where it
+      # already was.
+      #
+      # Two pools. A value live across a call takes one of `x19`..`x27`,
+      # which are callee-saved, so it survives the call with no work at
+      # the call site; the frame saves and restores each one the function
+      # uses. A value that crosses no call takes one of `CALLER` first,
+      # which nothing saves: most values in a kernel function are made
+      # and read between two calls, and giving each a callee-saved
+      # register cost every function the saves of all ten. Such a value
+      # takes a callee-saved register only when `CALLER` is empty; a
+      # crossing value never takes a caller-saved one. The argument
+      # registers `x0`..`x7` are in `CALLER`: a call clobbers them, but
+      # a value that crosses no call is dead by then, and the arguments
+      # of the call and the parameters of the function move between
+      # them and their homes as one parallel copy (`Codegen#load_args`,
+      # `#prologue`), so a value may live in the register an argument
+      # wants. `x9`..`x12` are the lowering's scratch, `x16` and `x17`
+      # the linker's, `x18` is reserved on this platform and never
+      # touched, and `x28` holds the gate word for the whole program
+      # (`GATES`): a `gates` value is read out of it and gets no
+      # register of its own.
+      #
+      # Every value, block and instruction is given a number first, and
+      # what follows indexes arrays by those numbers. This is most of what
+      # the backend spends -- compiling the compiler is twenty seconds of
+      # backend against four of everything before it -- and a String key
+      # costs a hash of its bytes at every single use.
+      class Regalloc
+        include Registers
+
+        CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze
+        GATES = X28
+        CALLER = [X0, X1, X2, X3, X4, X5, X6, X7, X8, X13, X14, X15].freeze
+
+        # Whether `reg` is one the callee saves.
+        def self.callee?(reg) = reg.to_i >= 19
+        def self.value?(name) = IR.value?(name)
+
+        # `{ "v3" => X19, ... }` for the values worth a register. `skip`
+        # names values the backend makes where they are read instead, so
+        # they need no register and must not keep one from anything else.
+        # `via` maps a value the backend reads through another to that
+        # other, which is then live at every read of the first.
+        def self.of(function, skip: nil, via: nil) = new(function, skip, via).assign
+
+        def initialize(function, skip = nil, via = nil)
+          @f = function
+          @skip = skip
+          @via = via
+        end
+
+        def assign
+          # A block emitted twice would give one name two places in the
+          # numbering, and every interval below would be nonsense. The
+          # builder does not do it; if it ever does, spill everything.
+          return {} if @f.blocks.map(&:name).uniq.size != @f.blocks.size
+
+          number
+          named(scan(*intervals))
+        end
+
+        # The numbers of the instructions that call: where a value's
+        # register is lost unless the callee saves it.
+        CALLS = %i[call call_indirect].freeze
+        NOTHING = [].freeze
+
+        private
+
+        # A number for every block, every instruction and every value.
+        # `@uses` and `@results` hold value numbers at an instruction's
+        # own number, so nothing below hashes a name or an object again.
+        #
+        # A block's first point is its entry, where its parameters arrive
+        # and a value live into it is already live, and its instructions
+        # follow from the next point. A call at the first instruction then
+        # lies strictly after both, which is what `crosses_call?` asks.
+        #
+        # A value in `skip` gets no number at all: it has no interval, so
+        # it must not make work for the liveness below either. Leaving it
+        # out keeps the others in the order they had, so the numbers that
+        # break ties in `intervals` order them the same way.
+        def number
+          @order = {}
+          @f.blocks.each_with_index { |b, i| @order[b.name] = i }
+          # A Hash that numbers what it is asked for is one lookup where
+          # `@id[name] ||= @id.size` is two.
+          @id = Hash.new { |h, name| h[name] = h.size }
+          @first = []
+          @last = []
+          @uses = []
+          @results = []
+          @params = []
+          @defined_in = []
+          @calls = []
+          at = 0
+          @f.blocks.each_with_index do |b, bi|
+            @first[bi] = at
+            @params[bi] = b.params.filter_map { |v, _| numbered(v) }
+            @params[bi].each { |v| @defined_in[v] = bi }
+            @uses[at] = @results[at] = NOTHING
+            at += 1
+            b.insts.each do |i|
+              @uses[at] = operands(i)
+              @results[at] = i.results.filter_map { |v| numbered(v) }
+              @results[at].each { |v| @defined_in[v] = bi }
+              @calls << at if CALLS.include?(i.op)
+              at += 1
+            end
+            @last[bi] = at - 1
+          end
+          @points = at
+        end
+
+        # `name`'s number, or nil when the backend makes it at its reads.
+        def numbered(name) = (@id[name] unless @skip&.include?(name))
+
+        # The values an instruction reads, by number: its own operands,
+        # and the arguments it carries to a block it branches to.
+        def operands(inst)
+          used = []
+          inst.args.each { |a| (v = read(a)) && used << v }
+          inst.targets&.each { |(_, args)| args.each { |a| (v = read(a)) && used << v } }
+          used
+        end
+
+        # The number of the value a read of `a` keeps live, or nil when
+        # `a` is not a value or is made at its reads.
+        def read(a)
+          return nil unless Regalloc.value?(a)
+
+          a = @via[a] || a if @via
+          numbered(a)
+        end
+
+        def predecessors
+          before = Array.new(@f.blocks.size) { [] }
+          successors.each_with_index { |ss, bi| ss.each { |s| before[s] << bi } }
+          before
+        end
+
+        def successors
+          @successors ||= @f.blocks.map do |b|
+            (b.insts.last&.targets || []).map { |t| @order.fetch(t.first) }
+          end
+        end
+
+        # One interval a value, covering every point it can be read at:
+        # where it is defined, where it is used, and the whole of any
+        # block it is live across. Covering the holes as well is
+        # conservative, and conservative here means correct.
+        #
+        # `[order, from, to, crossing]`: the values that have an interval,
+        # in scan order, where each one begins and ends, and whether a
+        # call lies strictly inside it. Arrays and not a list of tuples,
+        # because a triple a value was a fifth of everything the backend
+        # allocated.
+        def intervals
+          count = @id.size
+          from = Array.new(count)
+          to = Array.new(count)
+          # The blocks each value is read in away from the block that
+          # makes it.
+          away = Array.new(count)
+          @f.blocks.each_index do |bi|
+            first = @first[bi]
+            @params[bi].each { |v| reach(from, to, v, first) }
+            first.upto(@last[bi]) do |point|
+              @results[point].each { |v| reach(from, to, v, point) }
+              @uses[point].each do |v|
+                reach(from, to, v, point)
+                (away[v] ||= []) << bi unless @defined_in[v] == bi
+              end
+            end
+          end
+          live = Array.new(@f.blocks.size)
+          before = predecessors
+          # A value the entry block makes -- every constant is one -- is
+          # live through every block that runs into a block reading it, so
+          # its interval ends where the latest of those does, which one
+          # pass over the blocks answers for all of them at once. A walk a
+          # value was blocks times constants of time.
+          entry = @order.fetch(@f.entry_block.name)
+          latest = before[entry].empty? && away.any? && latest_before(before, entry)
+          away.each_with_index do |blocks, v|
+            next unless blocks
+
+            if latest && @defined_in[v] == entry
+              blocks.each { |bi| reach(from, to, v, latest[bi]) }
+            else
+              blocks.each { |bi| live_into(bi, v, from, to, live, before) }
+            end
+          end
+          # By start, then by end, then by the value's own number. Ruby's
+          # sort is not a stable one, so without that last term which of
+          # two intervals that begin and end together keeps a register
+          # would be the sort's own business. Naming the value settles it
+          # outright, and owes nothing to the order anything above was
+          # walked in. One Integer carries all three.
+          span = @points + 1
+          order = (0...count).select { |v| from[v] }
+          order.sort_by! { |v| (((from[v] * span) + to[v]) * count) + v }
+          crossing = order.to_h { |v| [v, crosses_call?(from[v], to[v])] }
+          refine_crossing(crossing, from, to, away, before)
+          [order, from, to, crossing]
+        end
+
+        # Whether a call sits strictly between `from` and `to`. A value a
+        # call makes begins at it, and one a call reads last ends at it:
+        # neither needs to survive the call.
+        def crosses_call?(from, to)
+          i = @calls.bsearch_index { |c| c > from }
+          !i.nil? && @calls[i] < to
+        end
+
+        # An interval covers its holes, so a call in a hole counts as
+        # crossed by the hull test above, and the value takes a
+        # callee-saved register it needs nowhere: a method's argument
+        # count is read by the arity check and by the call the check
+        # makes when it fails, and the stack check's call lies between
+        # the two in the layout, in a block the count is not live in. A
+        # value is live at a call only where a read of it lies ahead on
+        # some path from the call, so each value the hull test counts
+        # crossing is asked again by the blocks it is live in: the
+        # answer is no where every call in its hull sits in a block it
+        # is not live in, or after its last read in a block it leaves
+        # dead. The register it then takes is safe: nothing reads it
+        # past the call. Bounded, since a walk is a value times the
+        # blocks: a function past the bound keeps the hull's answers.
+        REFINE_BOUND = 1_000_000
+
+        def refine_crossing(crossing, from, to, away, before)
+          candidates = crossing.select { |_, c| c }.keys
+          return if candidates.empty? || candidates.size * @f.blocks.size > REFINE_BOUND
+
+          # The block each call is in, and, for each candidate, the last
+          # point of each block that reads it: one pass over the points.
+          call_block = @calls.map { |c| block_of(c) }
+          last_read = {}
+          candidates.each { |v| last_read[v] = {} }
+          @f.blocks.each_index do |bi|
+            @first[bi].upto(@last[bi]) do |point|
+              @uses[point].each { |v| (reads = last_read[v]) && reads[bi] = point }
+            end
+          end
+          candidates.each do |v|
+            live_in = {}
+            (away[v] || NOTHING).each { |bi| mark_live_in(bi, v, live_in, before) }
+            crossing[v] = crossed?(v, from[v], to[v], live_in, call_block, last_read[v])
+          end
+        end
+
+        # The block holding `point`.
+        def block_of(point)
+          b = @first.bsearch_index { |s| s > point }
+          b.nil? ? @first.size - 1 : b - 1
+        end
+
+        # `{ block => true }` for every block `v` is live into: the block
+        # it is read in away from its definition, and every block that
+        # runs into one of those, back to the block that makes it.
+        def mark_live_in(bi, v, live_in, before)
+          return if live_in[bi]
+
+          live_in[bi] = true
+          work = [bi]
+          until work.empty?
+            b = work.pop
+            before[b].each do |p|
+              next if @defined_in[v] == p || live_in[p]
+
+              live_in[p] = true
+              work << p
+            end
+          end
+        end
+
+        # Whether `v` is live at some call in its hull: in a block it is
+        # live into or defined in, before its last read there, or in one
+        # it leaves live, which is one some successor is live into.
+        def crossed?(v, from, to, live_in, call_block, last_read)
+          i = @calls.bsearch_index { |c| c > from }
+          return false if i.nil?
+
+          while i < @calls.size && @calls[i] < to
+            c = @calls[i]
+            b = call_block[i]
+            i += 1
+            next unless live_in[b] || @defined_in[v] == b
+            return true if successors[b].any? { |s| live_in[s] }
+
+            last = last_read[b]
+            return true if last && c < last
+          end
+          false
+        end
+
+        # `v` is read in block `bi` and made somewhere else, so it is live
+        # into `bi`, and out of every block that runs into one where it is
+        # live, back to the block that makes it. Its interval covers each
+        # of those whole.
+        #
+        # This asks per value rather than keeping the set of live values a
+        # block: a value made in the entry block and read at the end of a
+        # long function sat in the set of every block between, so the sets
+        # grew as blocks times values. `live` says which value last marked
+        # a block live-in; every read of one value is walked before the
+        # next value's, so a block is walked once a value. The walk is a
+        # list rather than recursion, as a chain of blocks is as long as
+        # the function.
+        def live_into(bi, v, from, to, live, before)
+          return if live[bi] == v
+
+          live[bi] = v
+          work = [bi]
+          until work.empty?
+            b = work.pop
+            reach(from, to, v, @first[b])
+            before[b].each do |p|
+              reach(from, to, v, @last[p])
+              next if @defined_in[v] == p || live[p] == v
+
+              live[p] = v
+              work << p
+            end
+          end
+        end
+
+        # For each block, the last point of the latest block that runs into
+        # it or into any block that runs into it, the entry block's own
+        # predecessors aside: how far a value made in the entry block and
+        # read there stays live. A loop raises a block's answer after its
+        # successors have read it, so the pass repeats until nothing moves,
+        # which is once more than the deepest nest of back edges.
+        def latest_before(before, entry)
+          latest = Array.new(@f.blocks.size, -1)
+          moved = true
+          while moved
+            moved = false
+            before.each_with_index do |ps, b|
+              best = latest[b]
+              ps.each do |p|
+                best = @last[p] if @last[p] > best
+                best = latest[p] if p != entry && latest[p] > best
+              end
+              next if best == latest[b]
+
+              latest[b] = best
+              moved = true
+            end
+          end
+          latest
+        end
+
+        # `v` reaches `point`, so its interval holds it.
+        def reach(from, to, v, point)
+          low = from[v]
+          if low.nil?
+            from[v] = point
+            to[v] = point
+            return
+          end
+          from[v] = point if point < low
+          to[v] = point if point > to[v]
+        end
+
+        # Linear scan: hand a register to each interval in start order,
+        # giving back the ones whose values are dead. When the pools an
+        # interval may draw on are empty, the longest-lived interval it
+        # could take a register from loses it, because that one would
+        # hold a register longest for the least.
+        #
+        # The lowest free register goes first. The frame saves and restores
+        # every callee-saved register a function uses, so a function whose
+        # values live a line each should touch two registers, not cycle
+        # through all ten: for a three-line predicate that was twenty of
+        # its sixty-two instructions.
+        def scan(order, from, to, crossing)
+          free = { callee: CALLEE.dup, caller: CALLER.dup }
+          active = []
+          taken = {}
+          arrives = arrival_registers
+          order.each do |value|
+            first = from[value]
+            active.reject! do |other|
+              next false if to[other] >= first
+
+              release(free, taken.fetch(other))
+              true
+            end
+            # A parameter that crosses no call takes the register it
+            # arrives in when that is free: nothing then moves it.
+            reg = free[:caller].delete(arrives[value]) || free[:caller].shift unless crossing[value]
+            reg ||= free[:callee].shift
+            if reg.nil?
+              held = crossing[value] ? active.select { |other| Regalloc.callee?(taken[other]) } : active
+              longest = held.max_by { |other| to[other] }
+              next if longest.nil? || to[value] > to[longest]
+
+              reg = taken.delete(longest)
+              active.delete(longest)
+            end
+            taken[value] = reg
+            active << value
+          end
+          taken
+        end
+
+        # `{ value number => register }` for the integer parameters of
+        # the entry block, by the argument register each arrives in.
+        def arrival_registers
+          arrives = {}
+          ints = 0
+          @f.entry_block.params.each do |v, t|
+            next if t == "f64"
+
+            n = numbered(v)
+            arrives[n] = Registers.x(ints) if n && ints < CALLER.size
+            ints += 1
+          end
+          arrives
+        end
+
+        # `reg` back in its pool, which stays in pool order.
+        def release(free, reg)
+          pool = free[Regalloc.callee?(reg) ? :callee : :caller]
+          at = pool.index { |other| other.to_i > reg.to_i } || pool.size
+          pool.insert(at, reg)
+        end
+
+        # The backend asks by name, so the numbers go back to names here
+        # and nowhere else.
+        def named(taken)
+          return {} if taken.empty?
+
+          names = @id.keys
+          taken.to_h { |v, reg| [names[v], reg] }
+        end
+      end
+    end
+  end
+end

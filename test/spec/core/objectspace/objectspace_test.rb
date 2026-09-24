@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "ObjectSpace programs" do
   it "each object count objects and id2ref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ObjectSpace walks the heap: each_object by class, the singleton classes a
       # walk shows and hides as internal_object_p does, the census by type, and
       # _id2ref for an id a program asked for.
@@ -61,7 +61,7 @@ describe "ObjectSpace programs" do
   end
 
   it "hash param each kv weak default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #408. Two coordinated changes here:
       #
       # 1. Port the per-block-body str-concat collector from codegen.rb
@@ -150,7 +150,7 @@ describe "ObjectSpace programs" do
   end
 
   it "object spaceship default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C; end
       o = C.new
       p(o <=> o)
@@ -167,7 +167,7 @@ describe "ObjectSpace programs" do
   end
 
   it "objspace's reachable_objects_from_root and internal_super_of answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "objspace"
       def t(name)
         p [name, yield]

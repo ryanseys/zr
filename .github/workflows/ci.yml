@@ -31,14 +31,14 @@ jobs:
             tmp/rt/wasm-*.marshal
             tmp/rt/built-*.ok
           key: rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'rt/**', '.ruby-version') }}
-      # Under ZE0_VERIFY=1 every IR function is checked for dominance and
+      # Under ZR_VERIFY=1 every IR function is checked for dominance and
       # operand types before it is assembled, and a pass that changed a
       # function without saying so is refused: the runtime's forty
       # thousand functions on the build, every program's on the tiers.
       - name: Build the runtime for the checks
-        run: ZE0_VERIFY=1 bundle exec rake build
+        run: ZR_VERIFY=1 bundle exec rake build
       - name: Run every test
-        run: ZE0_VERIFY=1 bundle exec rake test
+        run: ZR_VERIFY=1 bundle exec rake test
       # Every hit of the method cache checked against a fresh lookup,
       # over the specs that exercise dispatch.
       - name: Run the dispatch specs with the method cache verified
@@ -47,32 +47,32 @@ jobs:
       # set, and with the clock where not; the commit's own time makes
       # the same commit build the same .gem.
       - name: Build the gem
-        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build ze0.gemspec
+        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec
       # The same install path on both hosts: the runtime carries its
       # source paths, so equal bytes need equal paths.
       - name: Install the gem
         run: |
-          sudo mkdir -p /opt/ze0 && sudo chown "$USER" /opt/ze0
-          GEM_HOME=/opt/ze0/gems gem install --local ./ze0-*.gem
+          sudo mkdir -p /opt/zr && sudo chown "$USER" /opt/zr
+          GEM_HOME=/opt/zr/gems gem install --local ./zr-*.gem
       - name: Smoke-run the installed gem
         run: |
-          mkdir -p /opt/ze0/smoke && cd /opt/ze0/smoke
+          mkdir -p /opt/zr/smoke && cd /opt/zr/smoke
           printf 'puts [1, 2, 3].sum\n' > sum.rb
-          export GEM_HOME=/opt/ze0/gems ZE0_CACHE=/opt/ze0/cache
-          test "$(/opt/ze0/gems/bin/ze0 run sum.rb)" = 6
-          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.wasm --emit wasm
-          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.o --emit obj
+          export GEM_HOME=/opt/zr/gems ZR_CACHE=/opt/zr/cache
+          test "$(/opt/zr/gems/bin/zr run sum.rb)" = 6
+          /opt/zr/gems/bin/zr build sum.rb -o sum.wasm --emit wasm
+          /opt/zr/gems/bin/zr build sum.rb -o sum.o --emit obj
           test "$(wasmtime sum.wasm)" = 6
       - uses: actions/upload-artifact@v4
         with:
           name: gem
-          path: ze0-*.gem
+          path: zr-*.gem
       - uses: actions/upload-artifact@v4
         with:
           name: outputs-macos
           path: |
-            /opt/ze0/smoke/sum.wasm
-            /opt/ze0/smoke/sum.o
+            /opt/zr/smoke/sum.wasm
+            /opt/zr/smoke/sum.o
 
   # The compiler compiled by itself, twice, to the same bytes: the
   # proof that a build is a function of its inputs.
@@ -130,18 +130,18 @@ jobs:
           name: gem
       - name: Install the gem
         run: |
-          sudo mkdir -p /opt/ze0 && sudo chown "$USER" /opt/ze0
-          GEM_HOME=/opt/ze0/gems gem install --local ./ze0-*.gem
+          sudo mkdir -p /opt/zr && sudo chown "$USER" /opt/zr
+          GEM_HOME=/opt/zr/gems gem install --local ./zr-*.gem
       - name: Build wasm and obj, and refuse a native binary
         run: |
-          mkdir -p /opt/ze0/smoke && cd /opt/ze0/smoke
+          mkdir -p /opt/zr/smoke && cd /opt/zr/smoke
           printf 'puts [1, 2, 3].sum\n' > sum.rb
-          export GEM_HOME=/opt/ze0/gems ZE0_CACHE=/opt/ze0/cache
-          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.wasm --emit wasm
-          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.o --emit obj
+          export GEM_HOME=/opt/zr/gems ZR_CACHE=/opt/zr/cache
+          /opt/zr/gems/bin/zr build sum.rb -o sum.wasm --emit wasm
+          /opt/zr/gems/bin/zr build sum.rb -o sum.o --emit obj
           test "$(wasmtime sum.wasm)" = 6
           set +e
-          /opt/ze0/gems/bin/ze0 build sum.rb -o sum
+          /opt/zr/gems/bin/zr build sum.rb -o sum
           status=$?
           set -e
           test "$status" = 3
@@ -149,8 +149,8 @@ jobs:
         with:
           name: outputs-linux
           path: |
-            /opt/ze0/smoke/sum.wasm
-            /opt/ze0/smoke/sum.o
+            /opt/zr/smoke/sum.wasm
+            /opt/zr/smoke/sum.o
 
   # Static aarch64-linux-musl binaries, built and run where musl is the
   # libc. JavaScript actions do not run inside an Alpine container on an
@@ -164,9 +164,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Start ruby 4.0.6 on Alpine
         run: |
-          docker run -d --name alpine -v "$PWD:/ze0" -w /ze0 ruby:4.0.6-alpine sleep infinity
+          docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.6-alpine sleep infinity
           docker exec alpine apk add --no-cache build-base git
-          docker exec alpine git config --global --add safe.directory /ze0
+          docker exec alpine git config --global --add safe.directory /zr
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
       - name: Build the runtime for the checks

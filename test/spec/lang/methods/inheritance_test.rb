@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: inheritance and ancestors" do
   it "bare super gives the method its block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `super` -- no parentheses, no literal block -- forwards the enclosing
       # method's own block to the parent, so the method needs its `__blk` parameter
       # even though nothing in its body says `yield` or `block_given?`.
@@ -79,7 +79,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "bare super in a define method block is refused" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class P; def x(*a) = a; end
 
       class Q < P
@@ -146,7 +146,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "conditionally defined method is visible to reflection and extend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` nested in a `case`/`if` branch (a platform-conditional definition,
       # as in fileutils' StreamUtils_) is registered as an own method, so
       # `instance_methods` and `extend` -- both resolved at compile time in zeo --
@@ -178,7 +178,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "defined super in a module define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?(super)` in a scope with no method NAME of its own, and the bare
       # `super` beside it.
       #
@@ -271,7 +271,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "extend pulls in module instance methods as class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module MathHelpers
         def double(x)
           x * 2
@@ -287,7 +287,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "include method body locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module instance method with body locals, included into a user class.
       # `include` clones the method into a scope owned by the class, but that clone
       # shares the source's body AST and only registers the params -- the body locals
@@ -330,7 +330,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "inherited class method keeps its own cvars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class variable belongs to the class the code was WRITTEN in, never to
       # the receiver that reached it -- an inherited class method still reads and
       # writes its own class's storage.
@@ -369,7 +369,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "inherited method kwarg block self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two fixes from the roundhouse controller-test C-compile cascade
       # (issue #572 follow-up):
       #
@@ -443,7 +443,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "issue239 cls method default args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #239: `def self.method` with default arguments must accept
       # call sites that omit the optional args. The default-arg fill
       # existed for instance-method codegen (`def method(a, b = nil)`
@@ -497,7 +497,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "method added hook arrives through extend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `method_added` reaching a class through `extend`, both standard spellings.
       #
       # The one that used to fail is the ClassMethods idiom: a module's `included`
@@ -547,7 +547,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "method super chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#super_method` walks UP the ancestor chain: it answers the same
       # method as the next ancestor that defines it, re-seated onto that ancestor --
       # so calling the result runs the ancestor's body, not the override it was
@@ -650,7 +650,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "method visibility inherit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Visibility resolves up the ancestor chain: an inherited method keeps its
       # defining class's visibility, and a subclass may re-declare it (private :m /
       # public :m). respond_to? / method_defined? reflect the effective visibility.
@@ -721,7 +721,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "methods and instance methods reflect names with visibility and inheritance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         def helper; end
       end
@@ -766,7 +766,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "module method defined accepts the inherit flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo; def bar; end; end
       p Foo.method_defined?(:bar)
       p Foo.method_defined?(:bar, true)
@@ -781,7 +781,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "module method defined inherit false restricts to own methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `inherit: false` reports only methods the receiver defines directly --
       # its own defs and attr accessors -- skipping the ancestor walk.
 
@@ -804,7 +804,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "module method defined inherited" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal; def breathe; end; end
       class Dog < Animal; def bark; end; end
 
@@ -823,7 +823,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "modules class method is not inherited by an including class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Bag
         def self.macro(n) = define_method(n) { n }
         def self.[](k) = "Bag.[] #{k}"
@@ -848,7 +848,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "per object extend reports the wrong method owner" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.extend(M)` seats M in THAT OBJECT's singleton ancestry, so the method
       # it supplies is owned by M -- the same rule that now holds for a class-level
       # `extend` (see an_extended_modules_row_answers_as_the_modules_own.rb). zeo
@@ -893,7 +893,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "re scoping an inherited method binds it here" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private :inherited_method` does not redefine anything -- it binds the name on
       # THIS class at a new visibility, still running the ancestor's body. Ruby plants
       # a real method entry for it (CRuby's VM_METHOD_TYPE_ZSUPER), which is why the
@@ -958,7 +958,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "runtime subclass inherited class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A runtime subclass (`Class.new(B)`) dispatches an inherited class method
       # through the nearest REGISTERED ancestor's materialized copy -- whose
       # self-sends were re-resolved from that ancestor's viewpoint -- not the
@@ -984,7 +984,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "runtime subclass method reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method`-object reflection on a RUNTIME-minted subclass finds the
       # inherited frozen class methods -- rspec grabs
       # `example_group_class.method(:next_runnable_index_for)` on every
@@ -1006,7 +1006,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "subclass calls a non overridden inherited method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Closes a real, pre-existing latent gap: a class's own LITERAL methods each
       # get a generated method, but `Dog.new.speak` with no override at all has
       # none to call -- generated structs do not inherit each other's methods. MRO
@@ -1027,7 +1027,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super channels" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `super` sends through the same three channels an ordinary call does:
@@ -1131,7 +1131,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super from an extended module method resolves the singleton chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend M` puts M in the receiver's SINGLETON-class chain -- a `super`
       # inside M's method used to panic the compiler ("not found in own
       # ancestors"); it now resolves that chain statically (most recent extend
@@ -1158,7 +1158,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super from an override reaches an included module method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Tagged
         def tag
           "base(#{super})"
@@ -1177,7 +1177,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super in a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `super` resumes the MRO walk above the class the `def` was WRITTEN in.
@@ -1269,7 +1269,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super in an aliased define method body names the original" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` in a method define_method made, reached under an alias, looks
       # up the name the method was defined under, as a def reached under an
       # alias does; `defined?(super)` answers for that name too.
@@ -1300,7 +1300,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super in dynamic define method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` inside a `define_method` whose NAME is not a literal symbol raises
       # `NoMethodError: super called outside of method`. Only the literal form
       # (`define_method(:who) { .. }`) desugars to a `DefMethod` node and so carries
@@ -1350,7 +1350,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super resolves in a class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In Ruby `def self.foo` is an ordinary instance method on the SINGLETON
       # class, and singleton classes form a parallel chain --
       # #<Class:C>.super == #<Class:C.superclass> (make_metaclass,
@@ -1389,7 +1389,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "super site remembers the next method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `super` site keeps the method it reached last, keyed on the chain
       # node it runs from and the name; a redefinition, a new include, a
       # define_method body shared under two names, a module met twice in
@@ -1474,7 +1474,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "toplevel include module method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M004
         def double004(n); n * 2; end
         def greet004; "hi"; end
@@ -1498,7 +1498,7 @@ describe "Methods: inheritance and ancestors" do
   end
 
   it "unbound method from a module binds to anything" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Since ruby 3.0 the bind check reads the OWNER, and a MODULE owner imposes no
       # check at all: the receiver does not have to have the module in its ancestry.
       # zeo read the class the method was FETCHED from and applied the class rule to

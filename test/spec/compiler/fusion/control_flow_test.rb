@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: control flow" do
   it "a times block inlines to a native loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       3.times do |i|
         puts i
       end
@@ -18,7 +18,7 @@ describe "Fusion: control flow" do
   end
 
   it "destructure typed ptr array return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Top-level `y, z = call_returning_pair_of_objs` segfaulted pre-fix:
       # collect_scoped_multi_const pushed every top-level MultiWriteNode
       # into @multi_const_inits, even when no target was a constant. The
@@ -55,7 +55,7 @@ describe "Fusion: control flow" do
   end
 
   it "fused loop binds every block parameter shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `3.times`, `(a..b).each` and `arr.each` fuse into a counted loop when the
       # block takes at most one required parameter. Ruby binds every other shape
       # happily -- `3.times { |a, b| }` gives `b` nil -- so those take the ordinary
@@ -145,7 +145,7 @@ describe "Fusion: control flow" do
   end
 
   it "fused loop binds its names per iteration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `n.times { |i| }` and `(a..b).each { |i| }` on a LITERAL receiver splice
       # into a counted loop with no frame of their own. Ruby still binds the block's
       # names PER INVOCATION, so a closure built in one iteration must keep what it
@@ -259,7 +259,7 @@ describe "Fusion: control flow" do
   end
 
   it "fused loop guard fails at run time" do
-    result = ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
 
       # A fused `arr.each` splice is guarded twice at run time -- the receiver's
       # tag must be Array, and `zeo_rt_iter_inline_ok_for` must still hold -- and
@@ -308,7 +308,7 @@ describe "Fusion: control flow" do
   end
 
   it "inlined loop var capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -385,7 +385,7 @@ describe "Fusion: control flow" do
   end
 
   it "isa guarded return narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Addressable
         class URI
           attr_reader :host
@@ -427,7 +427,7 @@ describe "Fusion: control flow" do
   end
 
   it "next splat typed map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A splat-valued `next` contributes the array value to the map result.
       p (1..3).map { |v| next *[v, v] if v == 2; v }
     RUBY
@@ -436,7 +436,7 @@ describe "Fusion: control flow" do
   end
 
   it "nil time return guard narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method returning `nil | Time` types poly (Time has no first-class
       # nullable slot). A caller branch guarded by `a.nil?` or `a` truthiness
       # narrows reads of the local to Time inside the non-nil arm (read-site
@@ -502,7 +502,7 @@ describe "Fusion: control flow" do
   end
 
   it "safe nav typed receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Combat
         def initialize
           @count = 3

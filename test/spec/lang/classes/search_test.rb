@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: searching and matching" do
   it "case when class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 3 Tier 4 follow-up: `case obj when ClassConst`
       # on a poly receiver. Pre-Tier-4 the lowering left ConstantReadNode
       # arms unimplemented for poly recv (literal cascade only handled
@@ -49,7 +49,7 @@ describe "Classes: searching and matching" do
   end
 
   it "case when class scalar predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `case <scalar> when ClassConst` previously compiled the
       # class-constant when-arm into a strcmp against the sp_Class
       # struct, failing C compile with "incompatible type for argument
@@ -113,7 +113,7 @@ describe "Classes: searching and matching" do
   end
 
   it "case when qualified class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `case obj when Mod::Klass` had two bugs:
       #
       # 1. compile_case_stmt emitted the predicate tmp as `sp_<X> *` even
@@ -167,7 +167,7 @@ describe "Classes: searching and matching" do
   end
 
   it "class literal constructors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array[...]` and `Range.new(...)` are the constructor spellings of the
       # `[...]` and `(a..b)` literals. Both raised NoMethodError while the literal
       # for the same value worked (#3485, #3486). They desugar to the literal, so
@@ -235,7 +235,7 @@ describe "Classes: searching and matching" do
   end
 
   it "class reopen binds to the current scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class Name` statement looks Name up in the CURRENT cref only -- ruby's
       # `vm_define_class` asks the cref's own constant table and mints there on a
       # miss. It never reaches a same-named constant in an enclosing scope, so an
@@ -349,7 +349,7 @@ describe "Classes: searching and matching" do
   end
 
   it "class values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Shape
         def initialize(name)
           @name = name
@@ -399,7 +399,7 @@ describe "Classes: searching and matching" do
   end
 
   it "core helper is in no method list" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A helper the core library keeps for itself, where CRuby has no
       # method at all, shows in no list and answers no respond_to?.
       p Exception.private_instance_methods(false).sort
@@ -432,7 +432,7 @@ describe "Classes: searching and matching" do
   end
 
   it "index op write value position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `h[k] op= v` used as an expression, with a receiver or key that is not a
       # plain variable or literal.
       #
@@ -552,7 +552,7 @@ describe "Classes: searching and matching" do
   end
 
   it "is a answers a class in one step and an open chain by a walk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `is_a?` with a class argument answers from the receiver's list of
       # superclasses; an uninitialized class (Class.allocate) has an open chain,
       # which `Class.new` refuses to inherit and the `class` keyword accepts,
@@ -639,7 +639,7 @@ describe "Classes: searching and matching" do
   end
 
   it "predicate class arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # any?/all?/none?/one? with a Class pattern match by ===; grep(Class)
       # filters, including over typed arrays where the answer is static.
       p [1, 2, 3].all?(Integer)
@@ -669,7 +669,7 @@ describe "Classes: searching and matching" do
   end
 
   it "toplevel def is one body for every class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A definition on the universal spine -- Object, Kernel, BasicObject -- is
       # inherited by every class in the program, and zeo emits its body ONCE rather
       # than once per class. This pins the four things that makes observable.
@@ -746,7 +746,7 @@ describe "Classes: searching and matching" do
   end
 
   it "unknown qualified superclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A superclass naming a constant the program never defines.
       #
       # CRuby evaluates the superclass expression when the definition RUNS, raises

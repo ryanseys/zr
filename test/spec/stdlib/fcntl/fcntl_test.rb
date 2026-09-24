@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fcntl programs" do
   it "Fcntl is a constant table, and the POSIX-fixed values and relationships hold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "fcntl"` -- the Fcntl module is a constant table and nothing else;
       # the operations that use these are `IO#fcntl`, which is IO's.
       #
@@ -80,7 +80,7 @@ describe "Fcntl programs" do
   end
 
   it "fd cloexec" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby marks every descriptor it hands out close-on-exec, so a spawned child
       # inherits only the stdio deliberately given to it -- `IO.pipe` and
       # `File.open` both set `FD_CLOEXEC` at creation. Without it, a pipe write end

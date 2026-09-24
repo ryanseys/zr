@@ -4,10 +4,10 @@ require "spec_helper"
 
 describe "Require: constants" do
   it "autoload" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
-      # `autoload :C, "feature"` names a file that PROVIDES `C`. ze0 has no
+      # `autoload :C, "feature"` names a file that PROVIDES `C`. zr has no
       # lazy units, so the file is spliced in and the constant is there before
       # anything asks for it -- zeo's own stated divergence from CRuby: the
       # file runs at the `autoload` statement rather than at first constant
@@ -33,7 +33,7 @@ describe "Require: constants" do
   end
 
   it "autoload dsl computes its own path" do
-    result = ze0(<<~'RUBY', files: beside("autoload_dsl/mylib/model.rb", "autoload_dsl/mylib.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_dsl/mylib/model.rb", "autoload_dsl/mylib.rb"))
       require_relative "autoload_dsl/mylib"
 
       puts MyLib::Model.hello
@@ -53,7 +53,7 @@ describe "Require: constants" do
                      "autoload_target/autoload_quiet.rb", "autoload_target/autoload_thing.rb",
                      "autoload_target/autoload_widget.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # `defined?` and `const_defined?` announce an `autoload`ed constant the moment
       # the `autoload` is written -- and a NESTED ask loads the file to answer.
       #
@@ -123,7 +123,7 @@ describe "Require: constants" do
   end
 
   it "autoload paths" do
-    result = ze0(<<~'RUBY', files: beside("autoload_paths/base.rb", "autoload_paths/target.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_paths/base.rb", "autoload_paths/target.rb"))
       # frozen_string_literal: true
 
       # An `autoload` target the compile can NAME becomes a lazily linked unit
@@ -169,7 +169,7 @@ describe "Require: constants" do
                      "autoload_target/autoload_quiet.rb", "autoload_target/autoload_thing.rb",
                      "autoload_target/autoload_widget.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # Reading a constant is what RUNS its `autoload`.
       #
       # zeo recorded the target and never ran it, except for the one internal case
@@ -246,7 +246,7 @@ describe "Require: constants" do
   end
 
   it "autoload target that never loads fails at the constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `autoload` registers a hook; it does not touch the file. So a target that is
       # not on the load path is not an error at the declaration -- it is an error
       # when the constant is READ, and most such constants never are. actionpack
@@ -293,7 +293,7 @@ describe "Require: constants" do
   end
 
   it "compact module path keys its autoload" do
-    result = ze0(<<~'RUBY', files: beside("compact_module/target.rb"))
+    result = zr(<<~'RUBY', files: beside("compact_module/target.rb"))
       # `module A::B` -- the COMPACT form -- contributes both segments to the
       # lexical path a constant inside it hangs off. The autoload collector read
       # prism's `name` on that node, which is the LAST segment alone, so it keyed
@@ -333,7 +333,7 @@ describe "Require: constants" do
   end
 
   it "nested autoload names a builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # Two things an `autoload` naming a GATED builtin feature gets wrong.
@@ -361,7 +361,7 @@ describe "Require: constants" do
   end
 
   it "nested read under an autoload runs the target" do
-    result = ze0(<<~'RUBY', files: beside("autoload_nested/ns.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_nested/ns.rb"))
       # An `autoload` names a NAMESPACE far more often than it names the leaf a
       # program reads: net/http writes `autoload :OpenSSL, "openssl"` and then reads
       # `OpenSSL::SSL::SSLContext`. The read has to run the target, so the gate at
@@ -400,7 +400,7 @@ describe "Require: constants" do
   end
 
   it "superclass reference runs its autoload" do
-    result = ze0(<<~'RUBY', files: beside("superclass_reference/base.rb", "superclass_reference/sub.rb"))
+    result = zr(<<~'RUBY', files: beside("superclass_reference/base.rb", "superclass_reference/sub.rb"))
       # `class Sub < Base` READS the constant `Base`, and a read is what runs an
       # `autoload` target. zeo resolves the superclass edge at compile time, so the
       # read had no run-time half at all: `sub.rb` linked to a `Base` whose body had
@@ -426,7 +426,7 @@ describe "Require: constants" do
   end
 
   it "declares the name of an autoload whose feature is loaded already" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A require of a feature already loaded reads no file, so ruby keeps
       # no autoload row for one -- `autoload?` answers nil. It declares
       # the name all the same, and on any module but Object that is
@@ -468,7 +468,7 @@ describe "Require: constants" do
   end
 
   it "a require the autoload did not make stops the row waiting" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby keeps the row and stops counting it: `check_autoload_required`
       # (variable.c:3035) answers 0 once `rb_feature_provided` is true of
       # the feature, so `autoload?` answers nil and `const_defined?`

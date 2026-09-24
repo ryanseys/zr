@@ -2,7 +2,7 @@
 
 require "minitest"
 
-module Ze0
+module Zr
   module Test
     # Where a run stands, written to a file as it goes, so a tier left
     # running in the background can be looked in on: how many examples
@@ -84,4 +84,4 @@ module Ze0
   end
 end
 
-Minitest.register_plugin(Ze0::Test::Progress)
+Minitest.register_plugin(Zr::Test::Progress)

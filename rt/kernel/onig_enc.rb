@@ -1,4 +1,4 @@
-# The encodings Onigmo's matcher reads under ze0, with the helpers of
+# The encodings Onigmo's matcher reads under zr, with the helpers of
 # regenc.c and enc/unicode.c the matcher calls. `enc` is the address
 # of the encoding's descriptor inside the program
 # (Regexp::Onig::Enc::Base#descriptor): its kind picks the primitives

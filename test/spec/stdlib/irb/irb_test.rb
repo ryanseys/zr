@@ -17,7 +17,7 @@ describe "irb" do
   # HOME and XDG_CONFIG_HOME are the program's own directory, which holds
   # no .irbrc, so nothing of the machine's reaches the session.
   it "binding.irb opens a session on the scope that asked" do
-    result = ze0(<<~'RUBY', stdin: "p x + 1\nexit\n", env: { "HOME" => ".", "XDG_CONFIG_HOME" => "." })
+    result = zr(<<~'RUBY', stdin: "p x + 1\nexit\n", env: { "HOME" => ".", "XDG_CONFIG_HOME" => "." })
       x = 41
       binding.irb
       puts "after #{x}"
@@ -41,7 +41,7 @@ describe "irb" do
   end
 
   it "irb is the version ruby carries, and its own method replaces the preludes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The prelude's Binding#irb is a stand-in that loads irb. Requiring irb
       # by hand is that same load, so the method a program calls afterwards is
       # irb's own and not the one it started with.

@@ -4,8 +4,8 @@ require "spec_helper"
 
 describe "Require programs" do
   it "bundled libraries" do
-    result = ze0(<<~'RUBY')
-      # ze0 searches the same library tiers `zeo build` does -- the Ruby halves of
+    result = zr(<<~'RUBY')
+      # zr searches the same library tiers `zeo build` does -- the Ruby halves of
       # the runtime's extensions, the pure-Ruby ports, rubygems and bundler, and
       # the store `Gemfile.lock` resolves -- so a plain `require` of a bundled gem
       # reaches one library on both roads.
@@ -24,7 +24,7 @@ describe "Require programs" do
       end
       p Wrapped.new([1, 2, 3]).size
 
-      Tempfile.create("ze0") do |f|
+      Tempfile.create("zr") do |f|
         f.write("written")
         f.flush
         p File.read(f.path)
@@ -58,7 +58,7 @@ describe "Require programs" do
   end
 
   it "features" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test various Ruby features
 
       # each_with_index
@@ -100,7 +100,7 @@ describe "Require programs" do
     files = beside("symlinked_file/lib/alpha.rb", "symlinked_file/lib/deep/beta.rb", "symlinked_file/lib/fails.rb")
             .merge("symlinked_file/linked" => { symlink: "lib" })
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A require keys a file by its real path too, as CRuby's
       # loaded_features_realpaths does: the same file reached again through a
       # symlinked $LOAD_PATH directory runs no second time, and
@@ -134,7 +134,7 @@ describe "Require programs" do
   end
 
   it "gem ruby retired does not load" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A library ruby retired from its default and bundled gems, and that no
       # gem installs here, does not load: the require raises LoadError, as in
       # ruby. (webrick left the bundled gems too, but a host can install it.)
@@ -158,7 +158,7 @@ describe "Require programs" do
   end
 
   it "issue load path global nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # $LOAD_PATH (and its `$:` alias) should be the Array of require search
       # paths -- zeo leaves it nil instead of populating it.
       p $LOAD_PATH.class
@@ -174,7 +174,7 @@ describe "Require programs" do
   end
 
   it "load with a wrap argument lowers to a runtime loaderror" do
-    result = ze0(<<~'RUBY', files: beside("load_wrap/main.rb", "load_wrap/w.rb"))
+    result = zr(<<~'RUBY', files: beside("load_wrap/main.rb", "load_wrap/w.rb"))
       # `load "file", wrap` needs load-time anonymous-module scoping this compiler
       # lacks, so the wrap form lowers to a runtime `Kernel#load` that raises
       # LoadError (the literal no-wrap form is spliced and executed instead).
@@ -187,7 +187,7 @@ describe "Require programs" do
   end
 
   it "Part 1" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # lrama-required features. Combines what was previously split across
       # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
       # of the same coverage matrix).
@@ -261,7 +261,7 @@ describe "Require programs" do
   end
 
   it "Part 2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # lrama-required features. Combines what was previously split across
       # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
       # of the same coverage matrix).
@@ -356,7 +356,7 @@ describe "Require programs" do
   end
 
   it "Part 3" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # lrama-required features. Combines what was previously split across
       # lrama_features.rb / _2.rb / _3.rb (the sections were "part 1/2/3"
       # of the same coverage matrix).
@@ -397,7 +397,7 @@ describe "Require programs" do
   end
 
   it "reopening via load twice merges cleanly" do
-    result = ze0(<<~'RUBY', files: beside("reopen_via_load/counter.rb", "reopen_via_load/main.rb"))
+    result = zr(<<~'RUBY', files: beside("reopen_via_load/counter.rb", "reopen_via_load/main.rb"))
       Dir.chdir(File.expand_path("reopen_via_load", __dir__))
       require_relative "reopen_via_load/main"
     RUBY
@@ -408,7 +408,7 @@ describe "Require programs" do
   it "require_relative resolves here, splicing the target once however often it is written" do
     files = beside("require_relative/deeper.rb", "require_relative/shared.rb")
 
-    result = ze0(<<~'RUBY', path: "ze0/require_relative.rb", files: files)
+    result = zr(<<~'RUBY', path: "zr/require_relative.rb", files: files)
       # frozen_string_literal: true
 
       # `require_relative` resolves here, not at run time: the target's
@@ -467,8 +467,8 @@ describe "Require programs" do
       [:Deeper, :Helper, :MARK, :VERSION]
       [:boom, :help]
       "from the spliced file"
-      "ze0/require_relative/shared.rb:13:in 'Spliced::Helper.boom'"
-      "ze0/require_relative/shared.rb"
+      "zr/require_relative/shared.rb:13:in 'Spliced::Helper.boom'"
+      "zr/require_relative/shared.rb"
       true
       false
       "JSON"
@@ -481,7 +481,7 @@ describe "Require programs" do
   it "a require_relative inside a def runs when the method runs, and a method never called never loads it" do
     files = beside("require_relative_in_method/counted.rb", "require_relative_in_method/late.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A `require_relative` written inside a `def` runs when the METHOD runs, not
       # where the file that defines it is loaded. So the target's constants are
       # absent until the first call, the first call answers true and the second
@@ -514,7 +514,7 @@ describe "Require programs" do
   end
 
   it "stdlib style feature drops in through an i search root" do
-    result = ze0(<<~'RUBY', files: beside("stdlib_style/main.rb", "stdlib_style/rubylib/shellish.rb"))
+    result = zr(<<~'RUBY', files: beside("stdlib_style/main.rb", "stdlib_style/rubylib/shellish.rb"))
       # stdlib is delivered as ordinary `-I <lib>` load-path roots (no
       # bespoke flag) -- pointing `-I` at a Ruby checkout's `lib` makes each
       # `require "feature"` resolve a real stdlib `.rb`. This models that with a
@@ -532,7 +532,7 @@ describe "Require programs" do
     files = beside("top_level_return/guarded.rb", "top_level_return/nested.rb", "top_level_return/nested_dep.rb",
                    "top_level_return/never_required.rb", "top_level_return/runs.rb", "top_level_return/stops.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # ruby's top-level `return` ends the FILE it is written in; reading
       # resumes in the file that required it. zeo ends `<main>` instead, so
       # everything after the first required file's `return` is lost.
@@ -581,7 +581,7 @@ describe "Require programs" do
     files = beside("two_versions/a/lib.rb", "two_versions/a/version.rb", "two_versions/b/lib.rb",
                    "two_versions/b/version.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # Two compiled-in files can share a basename, and each `require_relative
       # "version"` must load ITS OWN sibling.
       #
@@ -617,7 +617,7 @@ describe "Require programs" do
   end
 
   it "unsupported feature diagnostics" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A deliberately-unsupported feature (docs/limitations.md) names itself rather
       # than dumping compiler internals. A user-defined method of the same name is
       # that method, not the builtin, so it still works (#2652 / #2667 / #2668).
@@ -685,7 +685,7 @@ describe "Require programs" do
   end
 
   it "write payload untyped" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A write payload the analysis types as neither String nor poly: `@wrk.pack("C*")`
       # on a nilable ivar is a C string typed TY_UNKNOWN. Boxing one renders it as
       # "evaluate for effect, yield nil", so the payload slots have to keep the String

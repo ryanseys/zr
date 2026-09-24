@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: dispatch" do
   it "dispatch inline cache invalidation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A dynamic call site remembers what the receiver's class resolved to, so
       # anything that can change that answer has to be seen. Every case below WARMS
       # the site first -- a cache that was never filled would pass these by accident.
@@ -105,7 +105,7 @@ describe "Fusion: dispatch" do
   end
 
   it "implicit alloc site cache helper specialization" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       RowA = Struct.new(:id, :name)
       RowB = Struct.new(:id, :label)
 
@@ -231,7 +231,7 @@ describe "Fusion: dispatch" do
   end
 
   it "inlined accessor takes the ordinary dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The widened sweep behind `an_inlined_accessor_ignores_a_later_redefinition`:
       # every route by which a run-time definition can displace an accessor the
       # compiler folded to an ivar read. Each pair below reads the same accessor
@@ -316,7 +316,7 @@ describe "Fusion: dispatch" do
   end
 
   it "is a against a poly typed method parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method PARAMETER is always `TyKind::Poly` (zeo never infers a
       # param's type from its call sites) -- this exercises the runtime
       # `zeo_rt::is_a` fallback (via the new universal `RubyValue::class_id`)
@@ -341,7 +341,7 @@ describe "Fusion: dispatch" do
   end
 
   it "nil guard narrows int or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #550. Mirror of d3ee2b2 (#493) for the nil-vs-not case on
       # int|nil locals. After `return -1 if h.nil?`, the rest of the
       # scope sees `h` as non-nil; for a local whose writer was a
@@ -394,7 +394,7 @@ describe "Fusion: dispatch" do
   end
 
   it "nil guard param narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def up(s)
         return "nil" if s.nil?
         s.upcase
@@ -463,7 +463,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly arg to typed method param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling to #438. A poly local guarded by `is_a?(String)` passed
       # as a positional arg to a top-level typed-param method: the call
       # site unboxes via `(lv_v).v.s` so the const-char* parameter
@@ -503,7 +503,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly dispatch narrow return type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #549. Followup to #531. The cls_id-switch dispatch's RESULT
       # temp widened to sp_RbVal even when every reachable arm
       # returned the same scalar. The reachable set is computed by
@@ -567,7 +567,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly local is a string narrow in non tail if" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling case to poly_local_is_a_string_narrow_in_tail_if (#612):
       # a poly-typed local narrowed via `if content.is_a?(String) ... end`
       # when the if is NOT in tail position. Before this fix
@@ -613,7 +613,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly local is a string narrow in tail if" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Tail-position `if x.is_a?(C) ... end` now pushes a narrow for `x`
       # inside the body, so a typed callee that consumes `x` unboxes via
       # the matching union field (`.v.s` for string, `.v.i` for int, etc.)
@@ -643,7 +643,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly local is a string narrow in y1 inline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling to #615 (poly_local_is_a_string_narrow_in_non_tail_if):
       # the is_a? narrow + LV-read unbox must also fire inside the y1
       # inlined specialization that block-passing creates. The
@@ -677,7 +677,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly recv dispatch narrow module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #531. Sibling to #513. The poly-recv narrowing in af55659
       # walks the global AST for `<Class>.new(...)` call sites to
       # recover concrete classes seen at a poly ivar slot. The walker
@@ -725,7 +725,7 @@ describe "Fusion: dispatch" do
   end
 
   it "poly slot typed array read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A typed array stored into a poly slot -- a Hash value, here -- has a
       # different layout from the poly array the index read assumed, so every
       # element came back nil.

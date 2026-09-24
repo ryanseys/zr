@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: searching and matching" do
   it "boxs class method is absent from mains reflection" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Reflection agrees with dispatch. A name the box defined must not appear
       # in main's `singleton_methods`, which reads a name set with no box axis of
       # its own.
@@ -21,9 +21,9 @@ describe "Object: searching and matching" do
   end
 
   it "core method owners match" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # The methods each core class and module defines itself, by visibility,
       # and the constants it holds, as ruby 4.0 lists them. Names that rubygems
@@ -65,7 +65,7 @@ describe "Object: searching and matching" do
   end
 
   it "define singleton method in a def installs at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `SomeClass.define_singleton_method(:name) { }` written INSIDE a method
       # body (cannon and `by` retarget class methods mid-run; rails_admin
       # intercepts Object.const_missing this way) is a runtime overlay install,
@@ -123,7 +123,7 @@ describe "Object: searching and matching" do
   end
 
   it "enum chain with index object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # str.each_char.with_index (block form) and enum.each.with_object desugar
       # into the shapes the chain emitters already serve.
       "abc".each_char.with_index { |c, i| print "#{i}#{c}" }
@@ -140,7 +140,7 @@ describe "Object: searching and matching" do
   end
 
   it "is a and instance of answer through class values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
       end
       module Helper
@@ -172,7 +172,7 @@ describe "Object: searching and matching" do
   end
 
   it "is a included module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         def foo; 42; end
       end
@@ -217,7 +217,7 @@ describe "Object: searching and matching" do
   end
 
   it "is a undefined const" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # x.is_a?(NoSuchConst): the is_a?-family arms match the target constant
       # textually and never emit the constant read, so an undefined constant
       # silently answered false where CRuby raises NameError.
@@ -248,7 +248,7 @@ describe "Object: searching and matching" do
   end
 
   it "nil sentinel from index compact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A miss from String#index / #rindex is nil, and every consumer has to agree:
       # an int slot carrying the nil sentinel must box as nil, so compact drops it
       # and filter_map treats it as falsy.

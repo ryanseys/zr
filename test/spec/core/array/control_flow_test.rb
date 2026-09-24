@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: control flow" do
   it "select! answers nil when it removed nothing, and a frozen receiver raises whatever the kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#select! / #filter! / #reject! return nil when nothing was removed and
       # self otherwise; #keep_if / #delete_if always return self. Receivers route
       # through a method param so the runtime (not a folded literal) path runs. Each
@@ -69,7 +69,7 @@ describe "Array: control flow" do
   end
 
   it "unshift prepends its arguments in order and answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#unshift prepends its arguments and returns the (mutated) receiver.
       # The return value was lost (nil) for the assigned/expression form, and the
       # float-array case did not actually prepend. Covers int, string, and float
@@ -115,7 +115,7 @@ describe "Array: control flow" do
   end
 
   it "a push inside a loop over an empty array still grows the array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #412. An empty array literal followed by a `<<` push
       # inside a loop, where the pushed value rides through an
       # intermediate variable, emitted as `sp_IntArray *` even though
@@ -199,7 +199,7 @@ describe "Array: control flow" do
   end
 
   it "a String built in the same shape keeps every row it pushed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #412. An empty array literal followed by a `<<` push
       # inside a loop, where the pushed value rides through an
       # intermediate variable, emitted as `sp_IntArray *` even though
@@ -298,7 +298,7 @@ describe "Array: control flow" do
   end
 
   it "the direct push it is measured against answers the same" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #412. An empty array literal followed by a `<<` push
       # inside a loop, where the pushed value rides through an
       # intermediate variable, emitted as `sp_IntArray *` even though
@@ -391,7 +391,7 @@ describe "Array: control flow" do
   end
 
   it "empty array return via local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty array literal returned from a method through a LOCAL variable lost
       # its container type and settled at String: the method was emitted as
       # `sp_String *lv_a = sp_String_new_shared(sp_IntArray_new())`, and every use of
@@ -494,7 +494,7 @@ describe "Array: control flow" do
   end
 
   it "float to s uses fixed for fractional 16 digit values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby #2593: a 16-digit-integer-part float WITH a fraction prints fixed,
       # while an integer-valued 16-digit double stays scientific.
 
@@ -517,7 +517,7 @@ describe "Array: control flow" do
   end
 
   it "for loop over range and array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Arithmetic on the Range case works through the emitter's numeric
       # lowering and its runtime-checked fallback; an
       # `Array`'s elements aren't tracked per-element (`Poly`), so the
@@ -546,7 +546,7 @@ describe "Array: control flow" do
   end
 
   it "for loop reads the live array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       seen = []
       for x in a
@@ -578,7 +578,7 @@ describe "Array: control flow" do
   end
 
   it "multi assign array underfill" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multiple assignment from a single array RHS with fewer elements than targets:
       # the surplus targets land nil (`a, b, c = [10, 20]` -> c is nil). Previously
       # rejected at compile time ("unsupported multiple assignment"); the surplus
@@ -636,7 +636,7 @@ describe "Array: control flow" do
   end
 
   it "return break and next with several values build an implicit array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A single SPLAT is the case a plain "one argument -> pass it through"
       # rule gets wrong: `return *a` with `a == [1]` is `[1]`, not `1`.
 
@@ -668,7 +668,7 @@ describe "Array: control flow" do
   end
 
   it "return object array across methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that accumulates objects into a local and returns it: the local and
       # the method's value name one storage location, so the caller's slot has to
       # follow the callee's return type. Also covers the shapes the pass must leave

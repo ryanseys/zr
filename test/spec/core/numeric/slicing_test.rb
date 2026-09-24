@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: slicing" do
   it "bignum bit length" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#bit_length on a Bignum (a value larger than int64): the parser lexes
       # the literal into a bigint, and bit_length answers the number of bits, an int.
 
@@ -30,7 +30,7 @@ describe "Numeric: slicing" do
   end
 
   it "bignum range endpoint is an integer range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Range` whose endpoint is a BIGNUM is an integer range like any other.
       #
       # zeo's range machinery narrowed every endpoint to a machine integer and
@@ -122,7 +122,7 @@ describe "Numeric: slicing" do
   end
 
   it "bignum times counts from zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `(10**30).times` counts from 0 like any receiver: ruby yields lazily, so an
       # early `break` works even when the full count is physically unrunnable. A
       # negative receiver yields nothing and answers itself.
@@ -146,7 +146,7 @@ describe "Numeric: slicing" do
   end
 
   it "clamp accepts a range as well as two bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 0.clamp(1..5)
       p 9.clamp(1..5)
       p 3.clamp(1..5)
@@ -172,7 +172,7 @@ describe "Numeric: slicing" do
   end
 
   it "clamp bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # clamp must raise ArgumentError when the minimum bound exceeds the maximum,
       # and Float#clamp must also raise when any operand is NaN (comparisons with
       # NaN are undefined). Receiver and bounds are routed through method params so
@@ -223,7 +223,7 @@ describe "Numeric: slicing" do
   end
 
   it "fdiv and divmod take any operand ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # fdiv divides big Integers before it rounds, so a quotient in range
       # comes out even when each side is past a double; Float#divmod coerces
       # an operand it does not know, as every Float operator does.
@@ -258,7 +258,7 @@ describe "Numeric: slicing" do
   end
 
   it "float operator redefinition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Redefining an operator on the numeric fast-path MRO stands the native
       # fast paths down for that operator (per lane), so the user body wins at
       # statically-typed sites, poly sites, and send alike -- while untouched
@@ -292,7 +292,7 @@ describe "Numeric: slicing" do
   end
 
   it "float range endpoint kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A range is a Float range when EITHER endpoint is one, and its endpoint
       # methods answer the endpoint the caller wrote (#3837).
       p((-Float::INFINITY..5).max)
@@ -316,7 +316,7 @@ describe "Numeric: slicing" do
   end
 
   it "float range minmax" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = ((1.0..5.0).minmax rescue $!.class); p r001
       a002 = (1.0..5.0); r002 = (a002.minmax rescue $!.class); p r002
       p((1.0..5.0).min)
@@ -338,7 +338,7 @@ describe "Numeric: slicing" do
   end
 
   it "integer clamp float bound" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#clamp returns the applied operand unchanged, so a Float bound that
       # clamps yields a Float while an in-range Integer receiver stays an Integer.
       # Receiver and bounds route through a method param so the runtime helper is
@@ -397,7 +397,7 @@ describe "Numeric: slicing" do
   end
 
   it "integer gcd arg check" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Integer#gcd with a non-integer raises the coercion message; ruby raises
       # "not an integer".
@@ -428,7 +428,7 @@ describe "Numeric: slicing" do
   end
 
   it "a Symbol range succeeds by name, a Float range refuses to iterate, and a bignum steps" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol range iterates by name succession.
       p (:a..:e).to_a
       # Float range: O(1) min/max, drift-free step, float bsearch, and each
@@ -468,7 +468,7 @@ describe "Numeric: slicing" do
   end
 
   it "a class Numeric reopen materializes onto Integer and Float, static receiver or poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class Numeric` reopen materializes onto Integer AND Float (the mro
       # machinery) and is found on both static receivers and dynamic Poly ones
       # (the per-ancestor value-method walk).
@@ -492,7 +492,7 @@ describe "Numeric: slicing" do
   end
 
   it "bit_length, fdiv, the type-strict eql? and Math.gamma each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#bit_length, Integer#fdiv / Float#fdiv, Float#eql? (type-strict),
       # and Math.gamma. fdiv always returns a Float; eql? is true only for a Float
       # of equal value (no numeric coercion).
@@ -564,7 +564,7 @@ describe "Numeric: slicing" do
   end
 
   it "Integer#[start, len] reads the bit field, and Math.lgamma answers the log and the sign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numeric tower remainder: Integer#[start, len] (the len-bit field starting at
       # bit `start`) and Math.lgamma (which returns [log(|gamma(x)|), sign]). The
       # integer receiver goes through a method param to exercise the runtime path.
@@ -629,7 +629,7 @@ describe "Numeric: slicing" do
   end
 
   it "random float seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Random.new(Float): CRuby truncates to an integer seed. An out-of-range float
       # must still yield a reproducible generator (a plain C cast would be UB).
       p(Random.new(1e300).rand(1000) == Random.new(1e300).rand(1000))
@@ -649,7 +649,7 @@ describe "Numeric: slicing" do
   end
 
   it "range float begin iterate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin; p (1.0..5.0).sum; rescue TypeError => e; puts "sum: #{e.message}"; end
       begin; (1.0..5.0).each { |x| p x }; rescue TypeError => e; puts "each: #{e.message}"; end
       begin; p (1.0..5.0).to_a; rescue TypeError => e; puts "to_a: #{e.message}"; end
@@ -678,7 +678,7 @@ describe "Numeric: slicing" do
   end
 
   it "range float type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Distinct Float range type (1.0..3.0)
       r = (1.0..3.0)
       p r
@@ -791,7 +791,7 @@ describe "Numeric: slicing" do
   end
 
   it "range size covers endless and float ends" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..5).size
       p (1...5).size
       p (1..).size
@@ -813,7 +813,7 @@ describe "Numeric: slicing" do
   end
 
   it "range step" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #731. `(a..b).step(k)` without a block should return an
       # IntArray of stepped values. spinel used to fall through to the
       # unresolved-call warning, then `.to_a` on the int 0 segfaulted.
@@ -841,7 +841,7 @@ describe "Numeric: slicing" do
   end
 
   it "range step bad stride" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r1 = ((1.0..10.0).step("x").to_a rescue $!.message)
       p r1
       r2 = ((1.0..10.0).step(:s).to_a rescue $!.message)
@@ -921,7 +921,7 @@ describe "Numeric: slicing" do
   end
 
   it "range step endless" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1..10).step(2).to_a)
       p((10..1).step(2).to_a)
       p((1...10).step(3).to_a)
@@ -947,7 +947,7 @@ describe "Numeric: slicing" do
   end
 
   it "range step endless block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = []; (1..).step(3) { |x001| break if x001 > 10; r001 << x001 }; p r001
       a002 = (1..); r002 = []; a002.step(2) { |x002| break if x002 > 5; r002 << x002 }; p r002
       r004 = []; (1..).each { |x004| break if x004 > 5; r004 << x004 }; p r004
@@ -969,7 +969,7 @@ describe "Numeric: slicing" do
   end
 
   it "range step float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#step materialises a typed array -- float when the step or a range bound
       # is float -- and iterates faithfully: no float drift, correct exclusivity,
       # descending negative steps, and ArgumentError on a zero step (CRuby parity).
@@ -1033,7 +1033,7 @@ describe "Numeric: slicing" do
   end
 
   it "range step without argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..3).step.to_a
       p ("a".."e").step(2).to_a
       p ((1..10) % 3).to_a
@@ -1049,7 +1049,7 @@ describe "Numeric: slicing" do
   end
 
   it "rational opassign and destructured range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rational += <boxed>` and a Range bounded by a destructured block parameter.
       b = [Rational(1), Rational(2)]
       acc = Rational(0)

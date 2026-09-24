@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: packing and unpacking" do
   it "file line and dir name the file the code was written in" do
-    result = ze0(<<~'RUBY', files: beside("file_line_dir/helper.rb", "file_line_dir/main.rb"))
+    result = zr(<<~'RUBY', files: beside("file_line_dir/helper.rb", "file_line_dir/main.rb"))
       # The point of the SOURCE_FILE stack: `require` merges every file's
       # statements into one Program, so by codegen time nothing tells them
       # apart -- these have to be resolved at LOWERING time, per file. A
@@ -39,7 +39,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "file read to eof" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File.read / IO#read must read to EOF, not to the size the stream reports.
       #
       # The size was used as the length: a file that reports 0 bytes and still yields
@@ -113,7 +113,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "file size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File.size(path): byte count (stat-based, so embedded NUL bytes are
       # counted, unlike a strlen); a missing path raises Errno::ENOENT, matching
       # MRI and the other stat/open-based File class methods.
@@ -142,7 +142,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "read, write, pread and pwrite repeat the system call until length bytes moved" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO::Buffer#read, #write, #pread and #pwrite make the system call over
       # the rest of the buffer until at least `length` bytes moved, and answer
       # the count or the negative errno.
@@ -198,7 +198,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "STDOUT and $stdout both write, and write answers the byte count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # STDOUT/STDERR (constants) and $stdout/$stderr (globals) must actually write.
       # Previously STDOUT.write / .puts / .print silently produced no output, and
       # $stdout.write was a no-op returning nil. write returns the byte count.
@@ -246,10 +246,10 @@ describe "IO: packing and unpacking" do
   end
 
   it "line of multibyte text reads whole" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # gets and each_line find the separator by bytes, so a line of
       # multibyte characters comes back whole, newline and all.
-      path = "/tmp/ze0_a_line_of_multibyte_text_reads_whole.txt"
+      path = "/tmp/zr_a_line_of_multibyte_text_reads_whole.txt"
       File.write(path, "héllo\nwörld ünïcode\n日本語\nplain\n")
       File.open(path) { |f| f.each_line { |l| p l } }
       File.open(path) { |f| p f.gets, f.gets("ö"), f.gets(nil) }
@@ -270,7 +270,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "select sees the bytes a stream already holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A read takes from the descriptor everything it can and holds what
       # the program did not ask for. Those bytes make the stream ready: a
       # select that asked the descriptor alone would wait for data that is
@@ -302,7 +302,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "stdout survives falling off the end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Output that does NOT end in a newline is the whole point of this file.
       # Stdout is line-buffered, so a newline-terminated program flushes itself
       # on the way through and can never see the bug: an AOT binary RETURNS its
@@ -322,7 +322,7 @@ describe "IO: packing and unpacking" do
   end
 
   it "write waits in the streams own buffer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A stream that is not a terminal holds what a program writes until the
       # buffer fills, the program asks for a flush, or the program ends. CRuby's
       # buffer is 8192 bytes: a write that would fill it writes what waits and

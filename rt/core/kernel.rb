@@ -79,9 +79,9 @@ module Kernel
 
     Kernel.missing(feature, 2) unless path
     mod = wrap.is_a?(Module) ? wrap : Module.new
-    return Primitive.zr_unimplemented(+"load with a wrap module") unless defined?(::Ze0::Eval)
+    return Primitive.zr_unimplemented(+"load with a wrap module") unless defined?(::Zr::Eval)
 
-    code = ::Ze0::Eval.current.compile(File.read(path), path, 1, [], false)
+    code = ::Zr::Eval.current.compile(File.read(path), path, 1, [], false)
     Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver.clone.extend(mod), Primitive.zr_wrap_cref(mod), nil, nil)
     true
   end
@@ -195,9 +195,9 @@ module Kernel
   # program that computes a require carries.
   def self.compile(path)
     Primitive.attr! :hidden
-    return Primitive.zr_unimplemented(+"require of a file the program was not compiled with") unless defined?(::Ze0::Eval)
+    return Primitive.zr_unimplemented(+"require of a file the program was not compiled with") unless defined?(::Zr::Eval)
 
-    ::Ze0::Eval.current.compile_file(path)
+    ::Zr::Eval.current.compile_file(path)
   end
 
   def at_exit(&block)

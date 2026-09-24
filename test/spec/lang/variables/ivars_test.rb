@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables: instance and class variables" do
   it "boxs class ivar and class variable are its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Class ivars and class variables, which live in tables of their own.
 
 
@@ -25,7 +25,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "builtin reopen cvars consts and class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state on a builtin: `@@cvar` + `CONST` in the body (ordinary
       # ownership machinery, owner = the builtin's ClassId), `def self.x` via the
       # generated `__bm_Array` container, and `Array::LIMIT` readable externally.
@@ -61,7 +61,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "class method defined and class variable reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         @@shared = 1
         def inherited_m; end
@@ -91,7 +91,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "class objects answer the instance variable reflection family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class K
         @a = 1
       end
@@ -124,7 +124,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "class shift self methods can read and write class variables" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Counter
         class << self
           def reset
@@ -148,7 +148,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "class variable is shared with a subclass that never declares its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         @@count = 0
         def bump
@@ -176,7 +176,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "a class variable is one slot the whole ancestry shares" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class variable belongs to the class its source is written in, and the
       # storage is ONE slot the whole ancestry shares.
       class Counter
@@ -287,7 +287,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "class variables at module and top level scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@@x` written in a module body and read back through its own `def self.`
       # accessors. Bare at the TOP LEVEL it raises instead -- see
       # `top_level_class_variable_raises` below.
@@ -306,7 +306,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "cvar empty container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `[]` / `{}` assigned to a class variable carries no element or key
       # type, so the slot was declared sp_int (the codegen fallback) while the write
       # emitted a real container -- the C build failed on the store. The variant now
@@ -396,7 +396,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "defined cvar is runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?(@@x)` answers at RUNTIME: nil before the first assignment, then
       # "class variable" -- a static answer breaks every runs-once guard of the
       # shape rspec's ensure_example_groups_are_configured uses.
@@ -424,7 +424,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "defined instance variable reflects assignment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # defined?(@iv) is "instance-variable" only once assigned, else nil.
       # (A never-assigned ivar referenced ONLY inside a class body's defined?
       # hits the documented assigned-nil-vs-never-assigned limitation for
@@ -448,7 +448,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "globals and cvars are mutex protectable across threads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $total = 0
       class Counter
         @@n = 0
@@ -472,7 +472,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "instance variable reflection on objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # get/set/list over a concrete receiver, a poly receiver, missing names,
       # an empty object, and a malformed-name NameError.
 
@@ -508,7 +508,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivar in a class eval nested def targets the instance not the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ivar codegen resolves a RUNTIME `self` ahead of the LEXICAL class context
       # it inherited. A `def` nested in a `class_eval` block sits inside
       # `Gadget`'s body (so `class_self` is set) but runs under a dynamic self, and
@@ -560,7 +560,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivar read of a ractor from another ractor raises isolation error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading an instance variable of a Ractor from a non-main ractor is an
       # IsolationError, and the raise must leave `@peek` with no value at
       # all: the read is a call the runtime checks like any other.
@@ -587,7 +587,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivar site shared by an object and a module writes the modules table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One `@x ||= v` site serves a plain object, then a module and a class that
       # extend the same helper. The object's rows live in its cell; a module's or
       # class's live in its extension, so a site that has learned the object's
@@ -629,7 +629,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivar write on a frozen object raises and leaves the ivar unchanged" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The message carries the receiver's real `#<Pt:0xADDR @x=1>` inspect
       # (address normalized in-program). Semantics oracle-verified: a catchable
       # FrozenError, the ivar keeps its old value, readers still work.
@@ -664,7 +664,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivars from a three level plain inheritance chain are all present on the leaf" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A REAL bug found while adding this test: ivar-flattening originally
       # only scanned the MRO-winning materialized methods, missing any ivar
       # only ever touched through a `super`-reachable (but shadowed, not
@@ -701,7 +701,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "ivars store real per instance state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x)
           @x = x
@@ -719,7 +719,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "module class variable is shared across every including class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Verified against real Ruby first: `@@total` declared inside the
       # MODULE's own body is genuinely owned by the module itself -- every
       # class that includes it (even two entirely unrelated classes) shares
@@ -754,7 +754,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "multi assign to ivar and global targets" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Thing
         attr_reader :x
         def set_both(g)
@@ -771,7 +771,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "reading the same ivar or captured local twice in one expression does not deadlock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRITICAL bug, found via the operator-method test above (`@x * @x`
       # inside `Vector#<=>`): the old emitter's `IvarRead` and
       # captured-`LocalRead` lowerings both emitted a bare, UNNAMED
@@ -810,7 +810,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "top level class variable raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `@@x` outside any class/module body has no owning cref, and ruby
       # 4.0.6 raises `RuntimeError: class variable access from toplevel` for both
       # the write and the read (it was only a warning in older rubies). zeo used
@@ -833,7 +833,7 @@ describe "Variables: instance and class variables" do
   end
 
   it "unrelated class own cvar is independent storage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         @@count = 0
         def count

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: defining and naming methods" do
   it "arity errors attribute to the callee frame like cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby raises wrong-number-of-arguments / missing-keyword INSIDE the
       # callee: the innermost backtrace row is the callee's label at its
       # `def` line, and an `initialize`-less `.new` shows the C-frame shape
@@ -63,7 +63,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "arity keyword argument errors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Statically-detectable argument-shape errors raise ArgumentError at runtime,
       # in CRuby's words: too many positionals, an unknown keyword, and a missing
       # required keyword. An options-hash call (no keyword matches any parameter)
@@ -110,7 +110,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "builtin arity class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at fa06b601.
       #
       # A builtin CLASS method's declared arity is wider than CRuby's, so a call
@@ -166,7 +166,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "builtin arity instance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin instance method called with a count CRuby rejects raises
       # CRuby's own ArgumentError, with its message.
       #
@@ -236,7 +236,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "builtin reopen methods reachable via send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `send` with a literal symbol reaches a reopen method through
       # `send_value`'s value-method-first probe (the generated arity-checked
       # trampoline), same result as the direct static call.
@@ -255,7 +255,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "builtin reopen rest params and respond to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Full `Params` support on a reopen method (required + rest), plus
       # `respond_to?` seeing value methods through the widened registry probe.
 
@@ -284,7 +284,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "class new arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#new must enforce initialize's arity: extra (or missing) positional args
       # raise ArgumentError at the .new site, as in MRI. Previously the surplus args
       # were silently dropped and construction succeeded.
@@ -354,7 +354,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "class value dispatch arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dispatch through a class-valued slot compiles to a switch over cls_id, and
       # each arm calls a different C function with its own parameter list. Passing
       # the caller's argument list verbatim only worked while every candidate took
@@ -425,7 +425,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "class value dispatch mixed arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method called through a variable holding a Class value dispatches on the
       # runtime class id, with one arm per class that defines the name. A candidate
       # whose method cannot take this call's argument count is not a possible
@@ -495,7 +495,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "instance call arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An over- or under-supplied instance call went through with the extra
       # arguments simply dropped, where the free-function path already raised.
       class K
@@ -546,7 +546,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "instance exec lenient arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby block arity is lenient: a direct instance_exec binds each
       # positional param to its arg in order, ignores surplus args, and binds
       # a param with no matching arg to nil. Box has a subclass to stay heap.
@@ -583,7 +583,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method#arity is a compile-time constant derived from the target method's
       # parameter shape, read off the method's DefNode. A method reports its required
       # argument count, unless an optional positional, a rest parameter, a forwarding
@@ -682,7 +682,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method#arity for a builtin-receiver method object comes from a table dumped
       # from CRuby (#2700): the synthesized __bam wrapper's params are ABI plumbing,
       # not the builtin's signature.
@@ -717,7 +717,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity for builtins and accessors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Builtin-receiver method objects read a dumped CRuby arity table; attr and
       # struct accessors derive theirs from the accessor shape (reader 0, writer 1).
 
@@ -745,7 +745,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comprehensive Method#arity / #parameters coverage, byte-diffed against the
       # ruby oracle. Each line prints the code expression next to its result so a
       # zeo-vs-oracle diff points straight at the failing method. Builtin arities
@@ -1039,7 +1039,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method / UnboundMethod — arity, parameters, bind, and bind_call.
 
       class Calc
@@ -1110,7 +1110,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity parameters and unbound bind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         def a(x, y); x + y; end
         def b(x, y=1); end
@@ -1159,7 +1159,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "method arity reflects the keyword shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A required keyword adds one fixed mandatory slot; an optional keyword or
       # keyword-rest with NO required keyword makes the method variadic. An
       # optional positional or rest is variadic; a block never affects arity.
@@ -1185,7 +1185,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "new with the wrong arity raises a rescuable runtime error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Was a COMPILE-TIME panic, from `.new`'s own hand-rolled argument
       # binding. Now that `.new` binds through the same call-argument
       # lowering every other call site uses, it inherits that posture,
@@ -1211,7 +1211,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "numbered param arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The highest _N used is the numbered-param proc's mandatory arity.
       p(-> { _1 }.arity)
       p(-> { _2 }.arity)
@@ -1228,7 +1228,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "reflection universals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Universal reflection, to_set, and Regexp#timeout.
 
       class Point
@@ -1292,7 +1292,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "respond to core class surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A core class object answers the Class/Module surface every class has, but it
       # has no user class entry, so the fold never consulted that list and the probe
       # cannot type a bare `Range.new` -- it is the call that builds a value, not one
@@ -1356,7 +1356,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "splat into fixed arity builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # compile side (#3515): the splat reached the slot expecting a single key
       k001 = [:a]
       p({ a: 1 }.fetch(*k001))
@@ -1442,7 +1442,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "undef method retires a native row" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `undef_method` writes a TOMBSTONE in the overlay -- the only record that a
       # native row was retired, since a builtin's `class_table` is a static list.
       # `respond_to?`/`method_defined?` already read it; dispatch did not, so the
@@ -1508,7 +1508,7 @@ describe "Builtins: defining and naming methods" do
   end
 
   it "value trampoline wrong arity raises a rescuable argument error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `ValueMethodFn` trampoline (`emit_value_trampoline`) backs both a
       # user CLASS method reached dynamically and a reopened-builtin instance
       # method. Its arity guard shared the same `panic!` bug as the dynamic

@@ -1,8 +1,8 @@
 # Benchmarks
 
-Whole programs that `rake bench` builds with ze0 and times beside
+Whole programs that `rake bench` builds with zr and times beside
 `ruby` and `ruby --yjit`. They are not tests -- the tiers under `test/`
-hold ze0 to ruby's answers -- but each carries ruby 4.0.6's recording
+hold zr to ruby's answers -- but each carries ruby 4.0.6's recording
 of its output beside it, and the harness checks that answer before it
 keeps any time: the speed of a wrong answer means nothing.
 

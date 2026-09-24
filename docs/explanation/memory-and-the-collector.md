@@ -6,12 +6,12 @@ are in [Runtime layouts](../reference/runtime-layouts.md).
 
 ## A precise collector
 
-ze0's collector is a mark-sweep collector that does not move objects.
+zr's collector is a mark-sweep collector that does not move objects.
 It is *precise*: it knows every place a live `Value` can be, and it
 reads only those places. It never scans the machine stack for words
 that look like pointers.
 
-A precise collector needs the compiler's help, and ze0 is the compiler,
+A precise collector needs the compiler's help, and zr is the compiler,
 so it can give that help. The alternative, a conservative scan of the
 stack, keeps garbage alive when an integer looks like a pointer, and
 it makes a missed root a rare, random failure. With precise roots, a
@@ -154,10 +154,10 @@ size class out of cells, or the payload past its limit), and
 the arenas held, the live bytes the last collection found and this one
 leaves, the payload against the limit the collection set, and what the
 trace and the sweep took. `GC.stat` holds the same totals
-(`marking_time`, `sweeping_time`, `major_gc_count`), and `ZE0_TIMING=1`
+(`marking_time`, `sweeping_time`, `major_gc_count`), and `ZR_TIMING=1`
 prints them a phase of a build.
 
-## What ze0 does not do
+## What zr does not do
 
 There is no compaction, no parallel marking, and no nursery: a minor
 collection here is the sticky-mark-bit kind, which reaches the young by

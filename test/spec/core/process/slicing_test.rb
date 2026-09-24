@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process: slicing" do
   it "at exit lifo" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # at_exit hooks run in LIFO order after main returns. Spinel used
       # to silently drop the block.
       at_exit { puts "first registered" }
@@ -22,7 +22,7 @@ describe "Process: slicing" do
   end
 
   it "instance exec direct splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A single splat arg to a *direct* instance_exec spreads its source
       # array across the block's params, exactly as passing the array
       # directly does (CRuby auto-splat). The receiver stays heap (Box has a
@@ -69,7 +69,7 @@ describe "Process: slicing" do
   end
 
   it "instance exec trampoline receiverless" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A receiverless call to an instance_exec trampoline splices the literal
       # block with self rebound (previously the block was silently dropped), and
       # a parenthesized value-tail keeps its leading statements ordered ahead of
@@ -120,7 +120,7 @@ describe "Process: slicing" do
   end
 
   it "post execution" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # PostExecutionNode -- `END { ... }`.
       #
       # CRuby runs END blocks at program exit in REVERSE order of
@@ -149,7 +149,7 @@ describe "Process: slicing" do
   end
 
   it "pre execution" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # PreExecutionNode -- `BEGIN { ... }`.
       #
       # CRuby runs all BEGIN blocks in source order, BEFORE any other
@@ -179,7 +179,7 @@ describe "Process: slicing" do
   end
 
   it "Process.exit and Process.abort raise a rescuable SystemExit, and abort writes its message first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.exit / Process.abort are the module-function twins of the Kernel
       # forms: both raise a RESCUABLE SystemExit carrying the status, unwinding
       # through ensure, and abort writes its message to stderr first.
@@ -226,7 +226,7 @@ describe "Process: slicing" do
   end
 
   it "signal trap stub" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # trap / Signal.trap / ::Signal.trap compile to no-ops at every shape;
       # Spinel has no signal-handler runtime, so the block body (if any)
       # never fires. Expression position returns "DEFAULT" -- CRuby's value
@@ -267,7 +267,7 @@ describe "Process: slicing" do
   end
 
   it "spawn and exec take every option" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The spawn options posix_spawn cannot carry go through fork and execve:
       # umask, pgroup and rlimit_*. exec takes an environment and options,
       # every refusal names what rb_execarg_addopt names, and open("|cmd")

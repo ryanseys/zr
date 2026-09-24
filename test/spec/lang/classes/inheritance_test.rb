@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: inheritance and ancestors" do
   it "bare super forwards current arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwards the CURRENT bindings (the reassigned `name`), through
       # required and optional params alike.
 
@@ -29,7 +29,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "bare super forwards rest and keyword params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         def count(*nums)
           nums.length
@@ -63,7 +63,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "bare super forwards the current methods own params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bare `super` (no parens) forwards the CURRENT method's own already-
       # bound parameter values positionally -- also unbound before this fix
       # (same root cause as the explicit-args case above).
@@ -96,7 +96,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "bare super from anonymous splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         def m(a = 1, *rest, k: 2, **kw) = [a, rest, k, kw]
       end
@@ -112,7 +112,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "built in hierarchy extension classes are real and ancestor matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `KeyError < IndexError` -- exercises the extended built-in hierarchy
       # (an addition beyond the original minimal foundation).
 
@@ -127,7 +127,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "builtin subclasses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A user subclass of a builtin. The sidecar names the parent, and the
@@ -213,7 +213,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "class body dsl call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # self in a class body is the class, so a receiver-less call there naming a class
       # method is a real call. It was treated as a declaration macro and skipped, so
       # every declarative class-body DSL recorded nothing and the read afterwards
@@ -290,7 +290,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "class declaration reaches the inherited hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Super.inherited(C)` fires when the class is CREATED -- once per class, in
       # document order, and only for a hook already installed by then.
       class Base
@@ -318,7 +318,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "class reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Classes and modules answer reflection queries about their constants,
       # methods, and class variables.
       module Config
@@ -378,7 +378,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "class reflection builtins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Enumerator.name
       p Enumerator.ancestors
       Pt = Struct.new(:x)
@@ -411,7 +411,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "class subclasses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#subclasses returns the direct, defined subclasses from the compile-time
       # class graph. (The elements are boxed classes; #to_s works, and the poly `.name`
       # on a class element is a separate gap.) Regression toward #2656.
@@ -434,7 +434,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "class subclasses name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class#subclasses hands back boxed classes, so `.map { |c| c.name }` reaches
       # the poly dispatch: a class-tagged value answers #name/#to_s/#inspect with its
       # class name (#2656). The tag is checked ahead of the cls_id switch, since a
@@ -471,7 +471,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "cmethod super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         def self.base
           100
@@ -518,7 +518,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "defined super reports super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?(super)` answers "super" when a super method exists from the
       # current method's position and nil when none does. zeo's defined? fold
       # classifies the super keyword as a plain method reference and answers
@@ -546,7 +546,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "dlx subclass ring attr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -714,7 +714,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "forward args new and super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `...` argument forwarding in the two positions that bypassed the shared
       # call-argument lowering.
       #
@@ -819,7 +819,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "immediate builtin subclass defines but cannot instantiate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user subclass of an IMMEDIATE builtin (D3): the DEFINITION is allowed --
       # `superclass`/`ancestors`/`is_a?` resolve -- but there are no instances, so
       # `MyInt.new` raises CRuby's exact `NoMethodError`.
@@ -847,7 +847,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inheritance super chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak
           puts :generic
@@ -868,7 +868,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited cmethod self class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class method a subclass inherits runs with self = that subclass: CRuby's
       # `def self.bench_name; self.name; end` answers the subclass's name. The
       # defining class's name was folded in at compile time, so a subclass that did
@@ -918,7 +918,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited def is one body for every subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A definition on a superclass is inherited by every subclass, and zeo emits
       # its body ONCE rather than once per subclass. This pins what that makes
       # observable -- the class half of the module rule beside it.
@@ -1017,7 +1017,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited factory cmethod site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         def self.build
           rec = new
@@ -1074,7 +1074,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited frame names the defining class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby labels a backtrace frame with the class the `def` was WRITTEN in, not
       # the class of the receiver it was called on. An inherited method called on a
       # subclass still says `Base#boom`.
@@ -1147,7 +1147,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited hook on runtime class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class.new(Base)` fires Base's `inherited` hook at creation -- before the
       # body block runs and before any constant names the class (the hook sees
       # `name == nil`), exactly as a literal `class Named < Base` does. minitest's
@@ -1173,7 +1173,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited initialize default arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         def some_virtual_method
           1
@@ -1203,7 +1203,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "inherited self boxed class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $o007 = []
 
       class Base007
@@ -1239,7 +1239,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "initialize copy super object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` inside initialize_copy whose only ancestor is Object: Object provides
       # initialize_copy as a no-op copy hook, so super must not raise NoMethodError.
       # clone/dup already deep-copies the struct before the user hook runs, so the
@@ -1271,7 +1271,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "initialize subclass construction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The reroute trap: builtin initialize rows must NOT make subclass
       # construction think a USER initialize exists. Every shape below goes
       # through the value-subclass constructor.
@@ -1313,7 +1313,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "issue224 bare new inherited" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #224: bare `new` inside an inherited class method body must
       # resolve to the *calling subclass*, not the parent class that
       # defined the method. Sister to issue #208 (which fixed cls method
@@ -1391,7 +1391,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "object copy and reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `clone`/`dup` run the object's `initialize_copy` hook after the shallow
       # copy, so a class can un-share a copied member. A bare `super` in that hook
       # reaches Object's default (no-op) copy hook instead of raising.
@@ -1440,7 +1440,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "object initialize super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` reaching the root `initialize`, which every chain bottoms out on.
       # Object#initialize (BasicObject's, really) takes no arguments and does
       # nothing -- it exists so the ordinary `include SomeMixin` + `super` idiom
@@ -1503,7 +1503,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "open class object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #1306: reopening Object must not emit a second Object
       # struct/constructor, and Object methods must dispatch for built-in
       # receivers with the real receiver as `self`.
@@ -1542,7 +1542,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "receiver built subclass skips its own initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A subclass of a builtin whose CONSTRUCTOR takes the receiver class --
       # `ObjectSpace::WeakMap`, `WeakRef` -- is registered with that constructor
       # directly, so `.new` reaches the native builder and the subclass's own
@@ -1577,7 +1577,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "reopened prelude and parent methods resolve on subclass instances" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The dispatch guard tests for the MRO-walk fallback (`lookup_mro`):
       # a reopened exception-prelude class's method visible on rescued
       # subclass instances, late parent reopens and mid-chain module
@@ -1629,7 +1629,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "reopening object dispatches to builtin and user receivers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reopening Object (with an include + a def) makes those methods
       # dispatch on built-in AND user receivers with the real receiver as self.
 
@@ -1663,7 +1663,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "runtime subclass dynamic self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class B
         def self.who
           name
@@ -1723,7 +1723,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "runtime super chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Runtime `super` (#192) across a three-level runtime class chain, a
       # `define_method` body, and a `super` inside a `rescue` -- all resolved through
       # the runtime method-frame stack because each class is minted at runtime.
@@ -1778,7 +1778,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "self class divergent returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #431 (#422 residual). `self.class.<cmeth>` dispatch in a
       # parent-defined instance method now lowers to a cls_id switch
       # even when the base and subclass overrides have divergent
@@ -1850,7 +1850,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "self operator subclass dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #563 (Sam Ruby). `self[k]` and `self[k] = v` from inside a
       # parent-defined method should dispatch to the subclass
       # override at runtime. Sibling of bare_imeth_subclass_dispatch.rb
@@ -1897,7 +1897,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass a runtime class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point < Struct.new(:x, :y)
         def dist2; x * x + y * y; end
       end
@@ -1941,7 +1941,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass of an allocatorless builtin defines but never builds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Binding`, `Encoding`, `Rational` and `MatchData` carry no allocator in
       # CRuby: the class definition is legal -- it registers a real class, takes
       # class methods, and answers `ancestors`/`superclass` -- but `.new` raises
@@ -2006,7 +2006,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass of self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Sub < self` inside a class body names the ENCLOSING class -- a
       # compile-time fact, not a dynamic superclass. optparse gives every argument
       # style this shape (`class NoArgument < self` inside `class Switch`), and
@@ -2097,7 +2097,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass ring dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2277,7 +2277,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass through base slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A slot typed as a class that HAS subclasses is only its STATIC type: an
       # inherited method storing `self` types the slot as the class that DEFINED the
       # method, while the object can be any subclass. The read then refused a method
@@ -2338,7 +2338,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclass via parent accessor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2421,7 +2421,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "subclassing and reopening a runtime class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Point < Struct.new(:x, :y)` -- a superclass that only exists at RUN
       # time (a `Struct`/`Data` class, a `Class.new`, a constant holding either).
       # The subclass can't be one of the statically emitted structs, so it is
@@ -2473,7 +2473,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def initialize(name)
           @name = name
@@ -2524,7 +2524,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super`'s three written shapes mean three different things, and a bare
       # `super` forwards the current method's arguments AS CURRENTLY BOUND --
       # including a parameter that is optional here but required in the parent.
@@ -2699,7 +2699,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super in non initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #401: `super` in a non-`initialize` instance method
       # previously emitted literal `0` instead of a call to the parent
       # method. Compiled cleanly when the method's return type was
@@ -2754,7 +2754,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super object initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super()` from an initialize no ancestor defines reaches Object's, which
       # takes no arguments and does nothing. It was answered with a NoMethodError.
 
@@ -2799,7 +2799,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super qualified superclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module A
         module B
           class Handler
@@ -2823,7 +2823,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super reaches the root initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` reaching the root `initialize` -- what every chain bottoms out on,
       # and what makes the ordinary `include SomeMixin` + `super` idiom work. It
       # used to raise "no superclass method 'initialize'": the runtime `super` walk
@@ -2871,7 +2871,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super runtime fallback" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` with no definition above the defining class.
       #
       # Real Ruby resolves `super` at CALL time against the receiver's live ancestry
@@ -2977,7 +2977,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super with args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # super (bare or with explicit args) must propagate Child param
       # types to Parent params; otherwise spinel infers Parent's params
       # as default int and emits a wrong-type call.
@@ -3014,7 +3014,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super with empty parens passes no arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super()` and bare `super` mean OPPOSITE things: the parens form
       # passes nothing, so the parent's optional takes its default.
 
@@ -3037,7 +3037,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "super with explicit args binds the parents own param names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Before this fix, `emit_super_inline` spliced the parent's body without
       # ever binding its parameter names -- this only "worked" when parent/
       # child happened to share names. Here they deliberately DON'T (`name`
@@ -3072,7 +3072,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "superclass never defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A superclass naming a constant the program never defines. Zeo used to
       # reject the whole compile ("unknown superclass"), which meant a library that
       # subclasses something from a gem it failed to load -- irb's `class CallTracer
@@ -3123,7 +3123,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "superclass reaches an inherited constant alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A superclass clause resolves through the ENCLOSING class's ancestry, and
       # an inherited constant may be an ALIAS of a class defined elsewhere. rss's
       # maker layer is the shape: `AuthorsBase = ChannelBase::AuthorsBase` inside
@@ -3161,7 +3161,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "to enum from a super bridge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `to_enum(:meth)` on the implicit self, inside a method that some subclass
       # reaches with `super`. Such a method is emitted a SECOND time, into a bridge
       # container where `self` arrives as a plain `RubyValue` rather than the usual
@@ -3217,7 +3217,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "undefined allocator holds for subclasses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class whose allocator CRuby undefines refuses `allocate`, and so does
       # a subclass of it, unless the subclass gets an allocator of its own, as
       # the classes Struct.new and Data.define make do. The constructors of
@@ -3295,7 +3295,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "unresolved super value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module whose method calls `super`, never included anywhere, so nothing says
       # what that super answers. The raise emitted for it never returns, so its
       # trailing value only has to type-check in the slot -- and the "0" it used
@@ -3353,7 +3353,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "value builtin subclass c tag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `C`: a subclass of a value builtin (String/Array) marshals its class
       # symbol then the inherited body inline, `I`-wrapped for a string's
       # encoding and any user ivars. Round-trips through the subclass.
@@ -3387,7 +3387,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "value class super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct or Data value class may define a custom `initialize` that calls
       # `super` to set its members -- bare, explicit-positional, or (for Data)
       # keyword super.
@@ -3441,7 +3441,7 @@ describe "Classes: inheritance and ancestors" do
   end
 
   it "value subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # User subclasses of Array/String/Hash are the native ValueSubclass (D3): they
       # wrap a payload of the root kind, inherit its methods through the payload
       # bridge, re-wrap self-returning mutators, and compare/hash by their payload.

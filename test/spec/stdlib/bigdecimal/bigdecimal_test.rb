@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "BigDecimal programs" do
   it "allocate refuses where ruby refuses" do
-    result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
+    result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # `Class#allocate` on a native class zeo has no blank value for must RAISE,
       # not hand back a generic object.
       #
@@ -94,7 +94,7 @@ describe "BigDecimal programs" do
   end
 
   it "the version and the double-precision limits carry the shape upstream gives them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -116,7 +116,7 @@ describe "BigDecimal programs" do
   end
 
   it "a BigDecimal built from a string prints in engineering notation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -148,7 +148,7 @@ describe "BigDecimal programs" do
   end
 
   it "to_s takes F, E, a digit grouping and a leading sign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -173,7 +173,7 @@ describe "BigDecimal programs" do
   end
 
   it "addition, subtraction, multiplication and division answer exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -216,7 +216,7 @@ describe "BigDecimal programs" do
   end
 
   it "a comparison answers against a BigDecimal, an Integer and a Float alike" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -240,7 +240,7 @@ describe "BigDecimal programs" do
   end
 
   it "round takes a half: mode, a digit count and a negative precision" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -264,7 +264,7 @@ describe "BigDecimal programs" do
   end
 
   it "to_i, to_f and to_r convert, and an infinity refuses to_i" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -300,7 +300,7 @@ describe "BigDecimal programs" do
   end
 
   it "BigDecimal() raises ArgumentError for a string that names no number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -340,7 +340,7 @@ describe "BigDecimal programs" do
   end
 
   it "mode and limit are process-wide, and each experiment restores what it touched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -399,7 +399,7 @@ describe "BigDecimal programs" do
   end
 
   it "interpret_loosely reads the leading number and ignores the rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
       # modes, mode/limit state, conversions, and the error shapes.
@@ -416,7 +416,7 @@ describe "BigDecimal programs" do
   end
 
   it "the gem's own Ruby half compiles, so power, sqrt, BigMath and to_d answer to the digit" do
-    result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
+    result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # bigdecimal's RUBY half, compiled from the vendored gem: power/sqrt (in
       # lib/bigdecimal.rb), BigMath (math.rb), and util's to_d family. All of it
       # runs over the native core -- this golden is the north-star check that the
@@ -517,7 +517,7 @@ describe "BigDecimal programs" do
   end
 
   it "round with a digits argument answers a BigDecimal, and only the bare form answers an Integer" do
-    result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
+    result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # `BigDecimal#round` with an explicit digits argument answers a
       # BigDecimal (only the no-argument form answers Integer); zeo answers
       # Integer for the digits form too. (Found by the 2026-08-24 probe
@@ -536,7 +536,7 @@ describe "BigDecimal programs" do
   end
 
   it "json parser class options" do
-    result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
+    result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # JSON.parse's container-class options: `object_class:`/`array_class:`
       # build the parse result out of the given classes, and `decimal_class:`
       # parses floats into it (BigDecimal is the use case). zeo ignores all
@@ -561,7 +561,7 @@ describe "BigDecimal programs" do
   end
 
   it "marshal round trips a native value" do
-    result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
+    result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # `Marshal.load(Marshal.dump(x))` answers an equal `x` for every native value,
       # and writes ruby's own bytes doing it.
       #
@@ -666,7 +666,7 @@ describe "BigDecimal programs" do
   end
 
   it "native object protocol" do
-    result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
+    result = zr(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # Object's universal protocol -- `===`, `==`, `!=`, `equal?`, `eql?`,
       # `frozen?`, `freeze` -- over the native handle and value kinds, promoted
       # from `tests/gaps/` on 2026-08-21.

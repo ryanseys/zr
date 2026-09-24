@@ -3,20 +3,20 @@
 # of ruby, the HIR builder lowers it, and the zr lowering turns it into IR
 # functions over the kernel description the program carries.
 
-require_relative "../../lib/ze0/hir"
-require_relative "../../lib/ze0/zr/lower"
+require_relative "../../lib/zr/hir"
+require_relative "../../lib/zr/zr/lower"
 require_relative "../../rt/ext/os/darwin/zr_description"
 
-desc = Ze0::Machine::Description.parse(Ze0::Machine::Description::KERNEL)
+desc = Zr::Machine::Description.parse(Zr::Machine::Description::KERNEL)
 # Counts change with every kernel change, so the program prints only that
 # each table has rows.
 puts [desc.defs, desc.consts, desc.structs].map(&:any?).inspect
 puts desc.def_for("zr_ary_new").ret
 puts desc.const_for("QNIL")
 
-hir = Ze0::Hir.build("def twice(n) = n * 2\nputs twice(21)", "(eval)")
+hir = Zr::Hir.build("def twice(n) = n * 2\nputs twice(21)", "(eval)")
 puts hir.locals.inspect
-functions, data = Ze0::Zr::Lower.new(hir, desc, Ze0::Machine::Symbols.new, entry: "zr_eval_1").run
+functions, data = Zr::Zr::Lower.new(hir, desc, Zr::Machine::Symbols.new, entry: "zr_eval_1").run
 puts functions.map(&:name).inspect
 puts functions.all? { |f| f.blocks.any? }
 puts data.any?

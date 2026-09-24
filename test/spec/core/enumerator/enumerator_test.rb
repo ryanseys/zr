@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerator" do
   it "gives an enumerator the count its receiver keeps" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every Enumerable method that answers one element an element hands
       # its enumerator the receiver's own count, so `size` answers without
       # walking anything (enum.c, `enum_size`). A receiver with no count to
@@ -33,7 +33,7 @@ describe "Enumerator" do
   end
 
   it "reaches a size the receiver keeps private, and takes what it answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `enum_size` asks with rb_check_funcall, which calls a method the
       # receiver keeps private and takes whatever comes back as it stands.
       class Quiet
@@ -59,7 +59,7 @@ describe "Enumerator" do
   end
 
   it "counts a cycle by the rounds it was asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `enum_cycle_size`: endlessly where no round was named, none where
       # the rounds are none or fewer, and otherwise the count times the
       # rounds. A Struct reaches Enumerable's own cycle and inspects the
@@ -84,7 +84,7 @@ describe "Enumerator" do
   end
 
   it "names only the arguments the call was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rb_scan_args` then RETURN_SIZED_ENUMERATOR(obj, argc, argv): what
       # an enumerator names is what the caller wrote, so a default that was
       # never passed is not one of them.
@@ -110,7 +110,7 @@ describe "Enumerator" do
   end
 
   it "asks the object to start again when it rewinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `enumerator_rewind` calls the object's own `rewind` with
       # rb_check_funcall: anything that knows how to start again is told
       # to, one that does not is left alone, and a private one is reached
@@ -153,7 +153,7 @@ describe "Enumerator" do
     OUT
   end
   it "keeps what a lazy stage owes its neighbours" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # map, select, reject and filter_map go through the kernel's
       # adapter (zr_lazy_stage) rather than a `|*values|` block, which
       # allocated that Array once an element and once a stage. These
@@ -216,7 +216,7 @@ describe "Enumerator" do
   end
 
   it "walks with an index without an Array an element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # with_index, each_with_index and with_object pack what `each` yields
       # as rb_enum_values_pack packs it -- one value through, several as an
       # Array, none as nil -- put the index or the memo beside it, and hand

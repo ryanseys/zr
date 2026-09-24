@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Racc programs" do
   it "a generated parser answers the same under either runtime, and raises ParseError on bad input" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'racc/parser.rb'
       class TinyCalc < Racc::Parser
 

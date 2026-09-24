@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: slicing" do
   it "class object id" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class is an object, so it needs an `object_id` of its own. Every class
       # used to report the same one, which quietly broke anything memoizing on it --
       # a `seen[mod.object_id]` guard would treat the first class it met as every
@@ -55,7 +55,7 @@ describe "Object: slicing" do
   end
 
   it "define singleton method installs a closure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_singleton_method(:literal) { ... }` desugars to a `def self.name`
       # node so the installed method has a compile-time home. The node carries an
       # `is_def` flag saying whether it came from the `def` KEYWORD, and the desugar
@@ -166,7 +166,7 @@ describe "Object: slicing" do
   end
 
   it "define singleton method installs at its position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `C.define_singleton_method(:m) { }` written at STATEMENT position is a
       # runtime event with a place in the program. Lowering desugared it into an
       # inline `def self.m` reopen, and last-`def`-wins then made both call sites
@@ -224,7 +224,7 @@ describe "Object: slicing" do
   end
 
   it "first ivar write appends only a name no row holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One write site shared by classes whose tables order names differently.
       module Setter
         def set_b(v) = (@b = v)
@@ -325,7 +325,7 @@ describe "Object: slicing" do
   end
 
   it "hashing an object hands out its object id" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An object's hash comes from its object_id, which the first hash hands
       # out, as CRuby's objid_hash does: an object put in a Hash takes the next
       # id, and the next object_id asked for counts past it.
@@ -346,7 +346,7 @@ describe "Object: slicing" do
   end
 
   it "module new with only definitions is a real module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Readers = Module.new` (rspec-core writes exactly that) and its block form
       # build a module the rest of the program mixes in -- so zeo compiles the pair
       # to the `module Readers ... end` they are equivalent to, and `include` becomes
@@ -443,7 +443,7 @@ describe "Object: slicing" do
   end
 
   it "parse warning duplicate key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby warns at PARSE time when a literal hash key is written twice: the
       # second value wins silently, so the warning is the only sign. It names the
       # line the surviving value is on, which is not always the line of the key it
@@ -520,7 +520,7 @@ describe "Object: slicing" do
   end
 
   it "Class.new with a superclass and a body mints a real class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class built at runtime runs its body as a block, and its directives are
       # rewritten into the self-sends that block serves (`lower::defs::
       # runtime_directive_spelling`). `tests/runtime_class_body_directives.rb` shows
@@ -608,7 +608,7 @@ describe "Object: slicing" do
   end
 
   it "class Sub < an expression inherits from the class that expression answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class built at runtime runs its body as a block, and its directives are
       # rewritten into the self-sends that block serves (`lower::defs::
       # runtime_directive_spelling`). `tests/runtime_class_body_directives.rb` shows
@@ -734,7 +734,7 @@ describe "Object: slicing" do
   end
 
   it "a Class.new body opens no cref, so a constant written in it stays where it was written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class built at runtime runs its body as a block, and its directives are
       # rewritten into the self-sends that block serves (`lower::defs::
       # runtime_directive_spelling`). `tests/runtime_class_body_directives.rb` shows
@@ -820,7 +820,7 @@ describe "Object: slicing" do
   end
 
   it "singleton class surrogate is a class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A singleton class IS a Class in ruby. zeo's compile-time `#<Class:self>`
       # surrogate -- the class a `class << self` body's constants, `def`s and
       # residual statements register under -- was filed as a MODULE, because holding

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: evaluating a string" do
   it "eval control flow yields last expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "if 1 < 2 then :yes else :no end"; puts eval(src)
     RUBY
 
@@ -12,7 +12,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "eval yield needs a def not a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Invalid yield`: which snippet shapes carry a block channel and which do not.
       # A `def` opens one, so a `yield` under it compiles however deeply it is
       # nested. Nothing else does -- a lambda, an ordinary block, and a
@@ -88,7 +88,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "instance eval block params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # instance_eval block-param shapes: self-bound first arg, extras
       # bind to nil. Lifted sp_ieval_<N> still takes only `self`.
 
@@ -199,7 +199,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "issue eval arg forwarding in proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def m(...)` inside a proc built by `eval` -- forwardable's `def_delegators`
       # generates exactly this and `module_eval`s the result, so every gem that
       # delegates (csv, others) depends on it. The eval-VM's parser rejects the
@@ -223,7 +223,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "nested block needs the binding self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block nested inside another block, in a program that anywhere asks a Proc
       # for its `binding`. The inner Proc's construction carries a Binding of the
       # scope it is WRITTEN in -- the outer block -- and that Binding holds the
@@ -306,7 +306,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "proc binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Proc#binding` answers the scope the block was WRITTEN in -- that scope's
       # `self` and its locals, shared by reference, never the block's own locals
       # (which do not exist until it runs). A proc with no Ruby scope behind it is
@@ -389,7 +389,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "proc recursive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -412,7 +412,7 @@ describe "Blocks: evaluating a string" do
   end
 
   it "runtime eval defines methods and runs blocks" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # The M8 eval-VM tail: `def` inside `eval`/`class_eval`/`instance_eval`
       # (installing on the right definee), optional+rest+keyword params, `return`
       # and `yield` in an eval-defined method, and blocks + auto-splat passed to

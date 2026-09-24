@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: enumeration" do
   it "each with index to h" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Materializing an each_with_index enumerator with to_h builds {element => index}.
       def si(x); x; end
       def ss(x); x; end
@@ -25,7 +25,7 @@ describe "Hash: enumeration" do
   end
 
   it "each with object hash seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each_with_object with an empty `{}` memo builds a general (boxed
       # key/value) hash. The memo param is typed as that hash, so `h[k] = v` inside
       # the block mutates it, and the populated hash is returned. Receivers are routed
@@ -63,7 +63,7 @@ describe "Hash: enumeration" do
   end
 
   it "empty hash blockless enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = ({}.each_slice(2).to_a rescue $!.class)
       p r
       r2 = ({ a: 1 }.each_slice(2).to_a rescue $!.class); p r2
@@ -80,7 +80,7 @@ describe "Hash: enumeration" do
   end
 
   it "empty hash param default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def memo_get(n001, memo001 = {})
         memo001[n001] = n001 * 2
         memo001[n001]
@@ -142,7 +142,7 @@ describe "Hash: enumeration" do
   end
 
   it "a blockless map, select, reject, find or flat_map answers an Enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless Hash Enumerable methods yield an Enumerator (KieranP #2337)
       p({ a: 1, b: 2 }.map.class)
       p({ a: 1, b: 2 }.select.class)
@@ -167,7 +167,7 @@ describe "Hash: enumeration" do
   end
 
   it "each_entry yields one pair at a time and returns the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({}.each_entry { |e| e })
 
       p({ a: 1, b: 2 }.each_entry { |e| e })    # Ruby: {a: 1, b: 2}   Spinel: no output
@@ -192,7 +192,7 @@ describe "Hash: enumeration" do
   end
 
   it "a blockless each or each_pair is an Enumerator over the pairs in insertion order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless Hash#each / Hash#each_pair return a materialized Enumerator over the
       # hash's [key, value] pairs (insertion order), a first-class value supporting
       # to_a / next / peek / size / class. The block form must keep working too.
@@ -262,7 +262,7 @@ describe "Hash: enumeration" do
   end
 
   it "each_key and each_value yield in insertion order whatever the key and value kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#each_key / #each_value with a block across every typed-hash
       # variant spinel offers. Keys and values are yielded in insertion
       # order. Poly (boxed-object) slots are printed via to_s so array
@@ -427,7 +427,7 @@ describe "Hash: enumeration" do
   end
 
   it "next skips an entry, break answers a value, and a delete during each is seen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       { a: 1 }.each do |k, v|
         next
         puts "unreachable"
@@ -465,7 +465,7 @@ describe "Hash: enumeration" do
   end
 
   it "a blockless each_value or each_key is an Enumerator that to_a and map compose with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless Hash#each_value / #each_key return an Enumerator, so .to_a and
       # .map chains compose (each/each_pair already did).
       h = { a: 1, b: 2 }
@@ -489,7 +489,7 @@ describe "Hash: enumeration" do
   end
 
   it "each_with_object binds |(k, v), memo|, and the flat three-parameter form leaves memo nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#each_with_object — iterates k,v pairs and threads `memo`
       # through the block. The destructured form `|(k,v), memo|` matches
       # the MultiTargetNode containing the two names; the flat 3-param
@@ -520,7 +520,7 @@ describe "Hash: enumeration" do
   end
 
   it "an empty literal answers the object queries, and a block returning nil maps to nils" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash conformance (KieranP #2335,#2342,#2343)
       p({}.nil?)                          # #2335 object query on empty hash literal
       p({}.frozen?)
@@ -547,7 +547,7 @@ describe "Hash: enumeration" do
   end
 
   it "a keys.each block param shadows an outer local of another type without taking its slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Follow-up to PR #120: the hash.keys.each fusion path emitted the
       # block param as a bare assignment (`lv_k = hash->order[i]`), so a
       # block param that shadowed an outer same-named local of a different
@@ -604,7 +604,7 @@ describe "Hash: enumeration" do
   end
 
   it "map over a symbol-keyed hash builds an array from the block's value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#map on sym_int_hash with a block. Pre-fix the receiver
       # fell through to a stale `_t = 0` IntArray pointer and crashed
       # on .inspect.
@@ -620,7 +620,7 @@ describe "Hash: enumeration" do
   end
 
   it "merge between two hashes of different key and value kinds keeps both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#merge between incompatible specialized layouts folds through the
       # universal PolyPoly merge instead of reading the argument through the
       # wrong struct (#3261).
@@ -644,7 +644,7 @@ describe "Hash: enumeration" do
   end
 
   it "a hash parameter iterated only by each infers its key and value types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #408 (followup to #397). Hash params iterated solely via
       # `each do |k, v|` got no signal through the existing
       # `narrow_param_hash_types_from_body_writes` pass -- that one only
@@ -722,7 +722,7 @@ describe "Hash: enumeration" do
   end
 
   it "reduce, inject and each_with_index bind |acc, (k, v)| over the materialized pairs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#reduce / #inject / #each_with_index materialize the [k, v] pairs once
       # and re-dispatch through the array emitters (the same shape the range
       # redispatch uses). The |acc, (k, v)| destructure binds the pair's leaves.
@@ -751,7 +751,7 @@ describe "Hash: enumeration" do
   end
 
   it "sum, count, all? and any? reduce the entries to one scalar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#sum / #count / #all? / #any? with a block reduce the entries to a scalar:
       # sum accumulates the block value, count tallies truthy results, all?/any?
       # short-circuit to a boolean. Helpers are monomorphic so the runtime walk is
@@ -792,7 +792,7 @@ describe "Hash: enumeration" do
   end
 
   it "sort_by orders the [key, value] pairs by the block's value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#sort_by yields each |key, value| pair and returns the [key, value] pairs
       # ordered by the block's value. Each helper is monomorphic so the runtime walk
       # is exercised without widening the parameter to poly.
@@ -832,7 +832,7 @@ describe "Hash: enumeration" do
   end
 
   it "sort orders the entries by Array#<=>, key first and then value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#sort returns the entries as an array of [key, value] pairs ordered by
       # Array#<=> (key first, then value). Each receiver goes through a monomorphic
       # method parameter so the runtime path is exercised, not constant-folded.
@@ -872,7 +872,7 @@ describe "Hash: enumeration" do
   end
 
   it "inject(:+) folds the boxed elements that values and map return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # inject/reduce(:sym) folds a poly (boxed-element) array -- Hash#values,
       # Hash#map results -- via the tag-dispatching operators.
       h = { a: 1, b: 2, c: 3 }
@@ -893,7 +893,7 @@ describe "Hash: enumeration" do
   end
 
   it "map to heap objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr.map { Obj.new }` over a typed-array receiver collects the
       # constructed heap objects into a pointer array (previously the
       # accumulator defaulted to IntArray and the sp_<C>* push failed to
@@ -921,7 +921,7 @@ describe "Hash: enumeration" do
   end
 
   it "reduce no init hash merge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reduce / inject with no initial value seeds the accumulator with the first
       # element, so a block whose value has a different shape than that element --
       # a Hash coming back out of #merge over a boxed element -- folds boxed.

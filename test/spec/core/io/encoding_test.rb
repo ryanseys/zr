@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: encodings" do
   it "file closes and stats through io" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File#close, File#stat and File#to_path are IO's rows: a File has no
       # rows of its own for them. IO has no p and no codepoints.
 
@@ -36,7 +36,7 @@ describe "IO: encodings" do
   end
 
   it "full write buffer joins text of any encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A write that fills the buffer joins text in any two encodings: the
       # buffer holds bytes.
       $stdout.write "é".b * 4095
@@ -54,7 +54,7 @@ describe "IO: encodings" do
   end
 
   it "IO::Buffer reads typed values, shares a slice, maps a file and transfers straight to an IO" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO::Buffer: typed value access, slices over shared backing, masks, file
       # mapping, and direct IO transfer. Addresses are scrubbed (the one
       # nondeterminism); PAGE_SIZE is platform-dependent so only its shape prints.
@@ -481,7 +481,7 @@ describe "IO: encodings" do
   end
 
   it "the mode argument of IO.new over a descriptor decides the external encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
@@ -557,7 +557,7 @@ describe "IO: encodings" do
   end
 
   it "external_encoding: and internal_encoding: on IO.new are read, not dropped" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
@@ -637,7 +637,7 @@ describe "IO: encodings" do
   end
 
   it "a mode and an options hash together give irb the handle it opens stdout with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
@@ -698,7 +698,7 @@ describe "IO: encodings" do
   end
 
   it "IO.new refuses a bad access mode and an unknown encoding name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
@@ -771,7 +771,7 @@ describe "IO: encodings" do
   end
 
   it "IO.open over a descriptor yields the handle and closes it after the block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
@@ -829,7 +829,7 @@ describe "IO: encodings" do
   end
 
   it "a write handle built over a descriptor carries its encoding and writes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
       #
@@ -897,7 +897,7 @@ describe "IO: encodings" do
   end
 
   it "IO.write truncates only when no offset says where the write goes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO.write opens with O_WRONLY|O_CREAT and truncates only when no offset
       # says where the write goes, as io_s_write does; binwrite writes binary.
 
@@ -954,7 +954,7 @@ describe "IO: encodings" do
   end
 
   it "mode is checked before the descriptor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby asks whether a handle is OPEN for the direction before it touches
       # the descriptor, so a read of a write-only handle is an `IOError` naming
       # the mode -- never the kernel's `EBADF`, and never a made-up answer.
@@ -1061,7 +1061,7 @@ describe "IO: encodings" do
   end
 
   it "partial read and the path levels follow cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A partial read takes what one read(2) gives rather than waiting for
       # the whole length, which is why a reader of a pipe does not stop until
       # the writer closes it. Beside it: ungetc of an Integer puts that
@@ -1126,7 +1126,7 @@ describe "IO: encodings" do
   end
 
   it "puts of one string writes it and a newline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # puts with one String argument writes its bytes and a newline unless
       # it ends in one, into the same buffer the other forms fill, so the
       # output keeps its order across puts, print, write and $stdout swaps.
@@ -1197,7 +1197,7 @@ describe "IO: encodings" do
   end
 
   it "write converts to the external encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A stream that names an external encoding writes in it, as do_writeconv
       # converts: through UTF-8 to one that is not ASCII-compatible, and not at
       # all where the encoding is binary.

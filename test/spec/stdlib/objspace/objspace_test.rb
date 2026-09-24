@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "ObjectSpace: the objspace library" do
   it "gc weak" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Weak references and finalizers: ObjectSpace::WeakMap (identity-keyed, holding
       # weak references to its keys and values), WeakRef (a delegator that raises
       # once its referent is gone), and ObjectSpace.define_finalizer.
@@ -79,7 +79,7 @@ describe "ObjectSpace: the objspace library" do
   end
 
   it "objspace introspection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `ObjectSpace`'s introspection half. CRuby ships it as `ext/objspace`, which
       # adds these methods to the module `gc.c` already defined, and so does
       # this runtime: `require "objspace"` loads them.
@@ -148,7 +148,7 @@ describe "ObjectSpace: the objspace library" do
   end
 
   it "objspace traces allocations" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ObjectSpace.trace_object_allocations records where each object was made:
       # the file and line of the Ruby code, and the C method it was made in, if
       # any. An object made while tracing is off has no record.

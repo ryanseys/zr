@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: slicing" do
   it "array product block sample and each slice return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # product's block form yields each tuple and returns self; sample(-n) has
       # its own message; each_slice/each_cons block forms return the receiver.
 
@@ -31,7 +31,7 @@ describe "String: slicing" do
   end
 
   it "array slice bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#slice!(from, n) on every typed array. Returns a fresh
       # array of n elements starting at `from`, and mutates the receiver
       # to remove them. IntArray uses its `start` field for an O(1) head
@@ -160,7 +160,7 @@ describe "String: slicing" do
   end
 
   it "array slice bang bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Array#slice! past the end answers [] where ruby answers nil.
       #
@@ -204,7 +204,7 @@ describe "String: slicing" do
   end
 
   it "array slice bang out of range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # slice!(start, len) with a start past the end is nil, not an empty slice --
       # only start == length answers []. The start was clamped to the length, so
       # every out-of-range call answered [].
@@ -236,7 +236,7 @@ describe "String: slicing" do
   end
 
   it "array slice before after" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#slice_before / #slice_after on int_array with a literal
       # int delimiter.
       puts [1, 2, 3, 4, 5].slice_before(3).to_a.inspect
@@ -253,7 +253,7 @@ describe "String: slicing" do
   end
 
   it "array slice sample methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array slicing/sampling coverage: rotate(n), slice(start, len) / [start, len],
       # sample(n), and the n-arg min(n)/max(n) forms across the typed-array kinds and
       # poly arrays. Receivers are routed through per-type method params so each stays
@@ -317,7 +317,7 @@ describe "String: slicing" do
   end
 
   it "array slice start oob nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[start, len] / #slice(start, len) with start outside [-len, len]
       # returns nil like CRuby (start == len is the empty slice; a negative
       # length is nil) -- on typed int/str arrays and poly arrays, through both
@@ -358,7 +358,7 @@ describe "String: slicing" do
   end
 
   it "array slice when chunk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#slice_when and Array#chunk on int_array. Materialises
       # directly (no Enumerator); .to_a is a no-op on the result.
 
@@ -376,7 +376,7 @@ describe "String: slicing" do
   end
 
   it "case when string range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case/when with a String scrutinee and string-range conditions: Range#===
       # is cover? (lexicographic <=>), including exclusive, beginless, endless,
       # and non-literal endpoints, in both statement and value position.
@@ -458,7 +458,7 @@ describe "String: slicing" do
   end
 
   it "clamp string and range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable#clamp — string receiver and Range arg form.
       # 2-arg int form was already supported by #899.
       puts "b".clamp("a", "c")
@@ -488,7 +488,7 @@ describe "String: slicing" do
   end
 
   it "each slice and frozen hash filter error messages" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_slice(0) says "invalid slice size", each_cons(0) just "invalid
       # size"; an in-place Hash filter on a frozen receiver raises FrozenError.
 
@@ -505,7 +505,7 @@ describe "String: slicing" do
   end
 
   it "each slice cons enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless Array#each_slice(n) / Array#each_cons(n) return a materialized
       # Enumerator: a first-class value supporting to_a / next / peek / size / take /
       # first(n). The block and .map/.collect chain forms must keep working too.
@@ -605,7 +605,7 @@ describe "String: slicing" do
   end
 
   it "each slice cons to a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#each_slice(n) / #each_cons(n) without a block return an Enumerator;
       # materializing it with #to_a yields the array of slices / windows. Also the
       # single-param `.map { |s| ... }` chain binds the whole slice (not an element).
@@ -635,7 +635,7 @@ describe "String: slicing" do
   end
 
   it "each slice map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #829: array.each_slice(n).map { |x, y| ... } chains.
       a = [1, 3, 6, 10]
       p a.each_slice(2).map { |x, y| y - x }
@@ -657,7 +657,7 @@ describe "String: slicing" do
   end
 
   it "enum chain splat sliceb wave6" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#slice! statement forms, literal-splat expansion, each_codepoint
       # enumerator, hash comparator min/max, Hash#flat_map single-param pair,
       # chunk/slice enumerator chains (each/select/reject/flat_map),
@@ -717,7 +717,7 @@ describe "String: slicing" do
   end
 
   it "hash shorthand str" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash shorthand with string-valued local variable.
       # Regression: scan_locals's first pass infers the hash literal value type
       # before the local's type lands in @scope_names, so `{first:}` mis-types
@@ -792,7 +792,7 @@ describe "String: slicing" do
   end
 
   it "hash slice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#slice picks the given keys into a fresh hash (missing keys skipped).
       p({ a: 1, b: 2, c: 3 }.slice(:a, :b))
       p({ a: 1 }.slice(:zz))
@@ -810,7 +810,7 @@ describe "String: slicing" do
   end
 
   it "integer bit slice negative start and width" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#[start, len]: a negative start shifts left (5[-1,3] == 2), a
       # negative len keeps the whole shifted value with no mask (5[2,-1] == 1,
       # 255[0,-5] == 255), a zero len selects nothing, and a positive len masks.
@@ -836,7 +836,7 @@ describe "String: slicing" do
   end
 
   it "last paren backreference and adjacent interpolation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$+` is the highest-numbered group that PARTICIPATED, skipping
       # declared-but-unmatched ones (rb_reg_match_last, re.c:2093), and is nil
       # when only group 0 matched -- it never reports the whole match.
@@ -880,7 +880,7 @@ describe "String: slicing" do
   end
 
   it "lazy drop while each slice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..10).lazy.drop_while { |x| x < 3 }.to_a
       p (1..10).lazy.each_slice(2).to_a
       p (1..10).lazy.each_slice(3).to_a
@@ -900,7 +900,7 @@ describe "String: slicing" do
   end
 
   it "negative range slice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #496. `a[1..-2]` returned [] in spinel where CRuby returns
       # [a[1], a[2], a[3]]. Codegen emitted `sp_IntArray_slice(arr, 1,
       # -2 - 1 + 1)` (length = -2), and the runtime's `len <= 0` early
@@ -952,7 +952,7 @@ describe "String: slicing" do
   end
 
   it "poly slice assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `compile_slice_assign` had no `rt == "poly"` arm; the
       # fall-through used arg[1] (the slice length) as the assignment
       # value and silently dropped the rhs entirely.
@@ -989,7 +989,7 @@ describe "String: slicing" do
   end
 
   it "Section 1: ptr array map" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pointer-array (`<obj>_ptr_array`) coverage — typed-obj `[]` map,
       # value-class instances in array literals (and via `push`/`<<`),
       # and slot widening from `[nil] * N` writes. Was four tests; the
@@ -1040,7 +1040,7 @@ describe "String: slicing" do
   end
 
   it "Section 2 + 3: value-class instances in ptr array (literal + push)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pointer-array (`<obj>_ptr_array`) coverage — typed-obj `[]` map,
       # value-class instances in array literals (and via `push`/`<<`),
       # and slot widening from `[nil] * N` writes. Was four tests; the
@@ -1096,7 +1096,7 @@ describe "String: slicing" do
   end
 
   it "Section 4: ptr array slot widening from [nil] * N" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pointer-array (`<obj>_ptr_array`) coverage — typed-obj `[]` map,
       # value-class instances in array literals (and via `push`/`<<`),
       # and slot widening from `[nil] * N` writes. Was four tests; the
@@ -1155,7 +1155,7 @@ describe "String: slicing" do
   end
 
   it "range arguments across string and array slicing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "hello".byteslice(1..3)
       p "hello".byteslice(2..)
       p "hello".byteslice(10..12)
@@ -1178,7 +1178,7 @@ describe "String: slicing" do
   end
 
   it "range each slice answers receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       v = (1..5).each_cons(2) { |s| s }
       p v
 
@@ -1217,7 +1217,7 @@ describe "String: slicing" do
   end
 
   it "range each slice cons" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each_slice / #each_cons: the block form, the blockless
       # Enumerator form (.to_a), and the .map chain all materialize the
       # integer range once and reuse the array emitters (range_enum_redispatch).
@@ -1248,7 +1248,7 @@ describe "String: slicing" do
   end
 
   it "range each slice returns receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p((1..5).each_cons(2) { |s| s })
       p((1..5).each_slice(2) { |s| s })
       p([1, 2, 3].each_cons(2) { |s| s })
@@ -1270,7 +1270,7 @@ describe "String: slicing" do
   end
 
   it "range step walks by succ" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Range#step` over a NON-numeric range walks by `succ`, in both the block
       # and the blockless form.
       #
@@ -1325,7 +1325,7 @@ describe "String: slicing" do
   end
 
   it "range string cover" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#include? / cover? / === on string ranges. Spinel inlines
       # strcmp bounds for literal string-range receivers rather than
       # trying to fit the receiver into the int-only sp_Range struct.
@@ -1349,7 +1349,7 @@ describe "String: slicing" do
   end
 
   it "rational mod cmp slice default wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational %/modulo/remainder/divmod, Complex <=> (real-valued compare,
       # nil otherwise), slice! on literal receivers, and Hash#default after
       # a default= on an un-narrowed empty hash.
@@ -1403,7 +1403,7 @@ describe "String: slicing" do
   end
 
   it "slice before after block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 4, 9, 10, 11, 12, 0].slice_before { |x| x.even? }.to_a
       p [1, 2, 4, 9, 10, 11, 12, 0].slice_after { |x| x.even? }.to_a
       p %w[a bb c dd].slice_before { |s| s.length == 1 }.to_a
@@ -1422,7 +1422,7 @@ describe "String: slicing" do
   end
 
   it "slice length overflow" do
-    result = ze0(<<~'RUBY', argv: ["9223372036854775807"])
+    result = zr(<<~'RUBY', argv: ["9223372036854775807"])
 
       # Ruby hands a slice length straight through from user code, so `a[1, huge]`
       # reaches the clamp with len == INT64_MAX. Written as `start + len > N` the sum
@@ -1464,7 +1464,7 @@ describe "String: slicing" do
   end
 
   it "slice when first class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # int_array.slice_when { |a,b| cond }.to_a returns a first-class array of slices
       # (a new slice starts before b whenever the block is truthy).
       p [1, 2, 4, 5, 7].slice_when { |a, b| b - a > 1 }.to_a
@@ -1492,7 +1492,7 @@ describe "String: slicing" do
   end
 
   it "splat slice keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Hash#slice(*keys)` is variadic, but `slice` sat in the fixed-arity splat
       # expansion table with arity 1, so a splat whose length is not a literal was
       # rewritten to `keys[0]` -- every key after the first silently dropped. A
@@ -1544,7 +1544,7 @@ describe "String: slicing" do
   end
 
   it "a-z in a delete, tr or count charset expands to the codepoint range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #858: `a-z` range notation inside the charset string
       # argument of String#delete / #tr / #tr_s / #count expands to
       # the codepoint range. Previously the range syntax was treated
@@ -1566,7 +1566,7 @@ describe "String: slicing" do
   end
 
   it "crypt answers libc's 13-character DES hash, keeping the salt as its first two characters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#crypt — real libc crypt(3) (traditional DES), matching MRI:
       # 13-char output whose first 2 chars are the salt.
 
@@ -1606,7 +1606,7 @@ describe "String: slicing" do
   end
 
   it "begin, end, first, last, min and max read a string-endpoint range's endpoints" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # begin/end/first/last/min/max on a String-endpoint Range read the endpoints
       # as strings (the int-backed sp_Range stores their pointers), and first(n)/
       # last(n) materialize n elements via string succ.
@@ -1638,7 +1638,7 @@ describe "String: slicing" do
   end
 
   it "each over a string-endpoint range walks the succ sequence" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String-endpoint ranges have no int sp_Range representation. Iterating one
       # with a block (materialized as a succ-sequence) and inspecting a literal now
       # work instead of miscompiling. (Accumulating the yielded strings into an array
@@ -1680,7 +1680,7 @@ describe "String: slicing" do
   end
 
   it "include? walks a string range where cover? only compares the endpoints" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Range#include?` WALKS the range; `Range#cover?` compares endpoints with
       # `<=>`. For a String range the two disagree, and zeo answers `cover?` for both.
       #
@@ -1722,7 +1722,7 @@ describe "String: slicing" do
   end
 
   it "step and % walk a string range every n elements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = []; ("a".."e").step(2) { |s001| r001 << s001 }; p r001
       sr = ("a".."e")
       p sr.step(2).to_a
@@ -1743,7 +1743,7 @@ describe "String: slicing" do
   end
 
   it "to_a expands a single-character string range, inclusive or exclusive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String range to_a — single-char ASCII case (the common subset
       # shape). Multi-char ranges need full String#succ with cross-position
       # carry and are out of scope for now (the runtime helper returns
@@ -1765,7 +1765,7 @@ describe "String: slicing" do
   end
 
   it "index by substring, start_with? with a pattern, sum and unpack1 each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String search/slice coverage: index-by-substring (returns the substring or
       # nil), start_with? with a regex (anchored at index 0), the byte-sum checksum,
       # and unpack1 (the first element of unpack). Receivers go through a method
@@ -1808,7 +1808,7 @@ describe "String: slicing" do
   end
 
   it "slice! answers the part it removed, or nil when it removed nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#slice! in value position returns the removed part (or nil).
       s = "hello world"
       removed = s.slice!(0, 6)
@@ -1839,7 +1839,7 @@ describe "String: slicing" do
   end
 
   it "the nil boundaries of [start, len], casecmp on a non-String, and succ's carry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby contracts for three String surfaces: the [start, len] / [range]
       # nil boundaries, casecmp/casecmp? answering nil for a non-String argument,
       # and the alphanumeric-aware succ carry.
@@ -1938,7 +1938,7 @@ describe "String: slicing" do
   end
 
   it "slice takes an inclusive, exclusive, endless, beginless or negative range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#slice(Range) — decompose the Range and reuse the same
       # runtime helper as String#[](Range). Inclusive, exclusive,
       # endless, beginless and negative endpoints all supported.
@@ -1974,7 +1974,7 @@ describe "String: slicing" do
   end
 
   it "upto walks from one string to another, and numeric strings order by succ" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       z = []
       r = "a".upto("c") { |s| z << s }
       p z
@@ -2018,7 +2018,7 @@ describe "String: slicing" do
   end
 
   it "symbol range enum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # (:a..:e): a symbol-endpoint range enumerates by name succession --
       # the range lowers to a poly array of boxed symbols (to_a/map/each/
       # include?, exclusive ends, multi-char names).
@@ -2043,7 +2043,7 @@ describe "String: slicing" do
   end
 
   it "when string range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `when ("a".."e")`: the parentheses hid the range from the literal check, so
       # the arm declined and the whole when folded to false. A String range held in a
       # variable had no arm at all.

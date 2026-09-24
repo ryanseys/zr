@@ -1,5 +1,5 @@
 # Files, stat, glob and fnmatch under TMPDIR.
-root = "#{ENV["TMPDIR"] || "/tmp"}/ze0_glob_#{Process.pid}"
+root = "#{ENV["TMPDIR"] || "/tmp"}/zr_glob_#{Process.pid}"
 Dir.mkdir(root)
 Dir.mkdir("#{root}/a"); Dir.mkdir("#{root}/a/b"); Dir.mkdir("#{root}/.hid")
 File.write("#{root}/x.rb", ""); File.write("#{root}/y.txt", ""); File.write("#{root}/a/z.rb", ""); File.write("#{root}/a/b/w.rb", ""); File.write("#{root}/.hid/h.rb", ""); File.write("#{root}/.dot.rb", "")

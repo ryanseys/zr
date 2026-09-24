@@ -16,9 +16,9 @@ class RtTest < Minitest::Test
     define_method("test_#{name}") do
       want, status = RtPrograms.expected(rb)
       program = RtPrograms.compile(rb)
-      Dir.mktmpdir("ze0-rt-") do |dir|
+      Dir.mktmpdir("zr-rt-") do |dir|
         bin = File.join(dir, name)
-        assert_nil Ze0::Native::Build.program(program, bin, work: dir)
+        assert_nil Zr::Native::Build.program(program, bin, work: dir)
         [{}, { "ZR_GC_STRESS" => "1" }].each do |env|
           out = IO.popen(env, [bin], err: %i[child out], &:read)
           assert_equal status, $?.exitstatus, "#{name} (#{env}) exited #{$?.exitstatus}: #{out}"

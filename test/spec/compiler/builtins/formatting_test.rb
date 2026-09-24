@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: formatting and inspection" do
   it "allocate rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `allocate` -- a blank instance with no `initialize`. zeo raised
       # "allocator undefined" for `Object`, `BasicObject`, `Range` and every
       # exception class, and `Class.allocate` (ruby declares it on `Class`'s OWN
@@ -95,7 +95,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "a reopened builtin takes fresh methods, overrides, class-level state and protocol hooks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 16.3 -- reopening builtin classes in root: fresh methods, overrides
       # of native methods, class-level state, and protocol overrides all attach to
       # the real builtin classes and win everywhere real Ruby's would.
@@ -213,7 +213,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "builtin reopen to s and inspect drive rendering" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `to_s`/`inspect` overrides on a builtin drive `puts`, interpolation,
       # `p`, CONTAINER inspect (real Ruby's rb_inspect dispatches per element --
       # oracle-verified `[5].inspect` -> `[I]`), and explicit `.to_s`.
@@ -245,7 +245,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "env enumerable and mutator surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV's read-only surface (value?/each_value/min via the Hash snapshot) and
       # the mutators (update/merge!/reject!/delete_if). Uses unique names/values
       # so it never depends on the ambient environment.
@@ -275,7 +275,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "env full surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV's enumeration surface rides a StrStr-hash snapshot (__env_to_h), so the
       # Hash machinery serves keys/each/select/count{}/fetch{}/inspect (#2742, #2744,
       # #2745); direct arms cover identity, copy refusal, mutators, arity and
@@ -329,7 +329,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "format float rounding surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby rounds a float conversion on the SHORTEST round-trip decimal (ties to
       # even), not on the exact binary double -- 2.675 is stored as 2.67499999999999982,
       # so C printf answers 2.67 where ruby answers 2.68, and 2.345 goes the other way.
@@ -377,7 +377,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "kernel intrinsic rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `Kernel` functions the compiler folds straight into the caller, asked
       # for the three ways a fold cannot answer: `send`, `method` and `respond_to?`.
       #
@@ -485,7 +485,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "module reflection rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module`'s reflection surface: the constant hooks, the class-variable
       # removal, the undef listing, and the lexical-nesting query.
 
@@ -627,7 +627,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "nil sentinel receiver surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A miss on a specialized container hands back the element type's own C nil --
       # SP_INT_NIL, a NULL string -- and the receiver arms read it as an ordinary
       # value. #4070 spelled the check out per name (to_s, inspect, to_i, to_f) and
@@ -743,7 +743,7 @@ describe "Builtins: formatting and inspection" do
   end
 
   it "process tms rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Process::Tms` is a Struct in ruby, so its own singleton carries the five
       # names every generated Struct class carries. zeo had three of them; `new` was
       # a NoMethodError and `inspect` came off `Module`.

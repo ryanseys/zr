@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "StringScanner programs" do
   it "loading the compiler leaves string and strscan alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # fileutils defines methods from strings, so the program carries the
       # compiler, and with it prism's polyfills. Each polyfill patches a core
       # class only when a method is missing or reports other parameters than
@@ -41,7 +41,7 @@ describe "StringScanner programs" do
   end
 
   it "regexp subclass is a pattern everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < Regexp` is a ValueSubclass husk wrapping a real Regexp. Unlike a
       # String or Array subclass, ruby has no conversion protocol for it, so every
       # site that takes a pattern has to see through the husk itself.
@@ -176,7 +176,7 @@ describe "StringScanner programs" do
   end
 
   it "an ivar in a method of a reopened builtin belongs to that object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -244,7 +244,7 @@ describe "StringScanner programs" do
   end
 
   it "a fresh instance of the reopened builtin starts with the ivar unset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -284,7 +284,7 @@ describe "StringScanner programs" do
   end
 
   it "reflection reaches the same storage the method bodies use" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -335,7 +335,7 @@ describe "StringScanner programs" do
   end
 
   it "a class object carries its own ivars, keyed by the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -410,7 +410,7 @@ describe "StringScanner programs" do
   end
 
   it "a bare heap value carries an ivar in the identity-keyed side table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -500,7 +500,7 @@ describe "StringScanner programs" do
   end
 
   it "two values of one class keep their ivars apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -600,7 +600,7 @@ describe "StringScanner programs" do
   end
 
   it "a method defined on the reopened builtin reaches the same storage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@ivar` in a method of a reopened builtin.
       #
       # A reopened builtin has no generated struct, so zeo rejected this outright.
@@ -706,7 +706,7 @@ describe "StringScanner programs" do
   end
 
   it "scanner walks wide and legacy text by characters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A StringScanner over UTF-16, UTF-32 or a legacy multibyte text scans
       # with patterns of the text's encoding, steps a character at a time
       # with getch, and reports byte positions and character positions apart.
@@ -827,7 +827,7 @@ describe "StringScanner programs" do
   end
 
   it "string scanner answers the same off either implementation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "strscan"
 
       def t(label)
@@ -1012,7 +1012,7 @@ describe "StringScanner programs" do
   end
 
   it "string scanner matches in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # StringScanner matches its pattern at the scan pointer. CRuby hands the
       # compiled pattern the text and the pointer; here each scan copies the
       # rest of the text and compiles the pattern again behind a \A, so a
@@ -1038,7 +1038,7 @@ describe "StringScanner programs" do
   end
 
   it "strscan bytes and bounds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two StringScanner rows: `get_byte` answers the RAW byte (zeo converts
       # through lossy UTF-8 and answers the replacement character for each
       # half of a multibyte char -- data corruption, the to_utf8_lossy
@@ -1065,7 +1065,7 @@ describe "StringScanner programs" do
   end
 
   it "strscan capture surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "strscan"
 
       s = StringScanner.new("name=zeo; version=4")
@@ -1197,7 +1197,7 @@ describe "StringScanner programs" do
   end
 
   it "strscan lookahead" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "strscan"
 
       s = StringScanner.new("test string")
@@ -1240,7 +1240,7 @@ describe "StringScanner programs" do
   end
 
   it "strscan scans anchored and until" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "strscan"
       sc = StringScanner.new("foo123bar")
       puts sc.scan(/[a-z]+/)
@@ -1259,7 +1259,7 @@ describe "StringScanner programs" do
   end
 
   it "strscan subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A native class can be subclassed when it has a payload shape to inherit --
       # csv's parser is `class Scanner < StringScanner` with a `@keeps` stack of its
       # own on top of the inherited scanning behaviour.

@@ -1,26 +1,26 @@
 # Compile your first program
 
 In this tutorial, we write a small Ruby program and compile it with
-ze0. We run it, we build a native binary from it, and we build a
+zr. We run it, we build a native binary from it, and we build a
 WebAssembly module from the same file. At the end, you have one program
 that runs three ways and prints the same thing each time.
 
 You need an Apple Silicon Mac with ruby 4.0.6. The last step also needs
 [wasmtime](https://wasmtime.dev).
 
-## Install ze0
+## Install zr
 
 Install the gem:
 
 ```console
-$ gem install ze0
+$ gem install zr
 ```
 
 Check that the command is there:
 
 ```console
-$ ze0 version
-ze0 0.1.0
+$ zr version
+zr 0.1.0
 ```
 
 ## Write a program
@@ -51,31 +51,31 @@ Ada writes Analytical Engine
 2 people, 7 letters of names
 ```
 
-## Run it with ze0
+## Run it with zr
 
-Now run the same file with ze0:
+Now run the same file with zr:
 
 ```console
-$ ze0 run greet.rb
+$ zr run greet.rb
 Matz writes Ruby
 Ada writes Analytical Engine
 2 people, 7 letters of names
 ```
 
-The output is the same as ruby's. That is the whole promise of ze0: a
+The output is the same as ruby's. That is the whole promise of zr: a
 program answers what ruby answers.
 
-Notice that `ze0 run` did more than ruby did. It compiled `greet.rb` to
+Notice that `zr run` did more than ruby did. It compiled `greet.rb` to
 machine code, linked a binary, ran it, and then removed it. The very
-first build takes some time, because ze0 compiles its runtime once and
+first build takes some time, because zr compiles its runtime once and
 keeps it in a cache. Every build after that takes less than a second.
 
 ## Build a binary
 
-Now keep the binary. Use `ze0 build` with `-o` to name it:
+Now keep the binary. Use `zr build` with `-o` to name it:
 
 ```console
-$ ze0 build greet.rb -o greet
+$ zr build greet.rb -o greet
 ```
 
 Run the binary directly. No ruby is involved now:
@@ -87,7 +87,7 @@ Ada writes Analytical Engine
 2 people, 7 letters of names
 ```
 
-Look at what ze0 wrote:
+Look at what zr wrote:
 
 ```console
 $ file greet
@@ -106,10 +106,10 @@ A compiled program reads `ARGV` as a script does. Write `hello.rb`:
 puts "Hello, #{ARGV.first || "world"}!"
 ```
 
-With `ze0 run`, the words after the file name go to the program:
+With `zr run`, the words after the file name go to the program:
 
 ```console
-$ ze0 run hello.rb Ruby
+$ zr run hello.rb Ruby
 Hello, Ruby!
 ```
 
@@ -118,10 +118,10 @@ Hello, Ruby!
 Now build `greet.rb` for WebAssembly. Add `--emit wasm`:
 
 ```console
-$ ze0 build greet.rb -o greet.wasm --emit wasm
+$ zr build greet.rb -o greet.wasm --emit wasm
 ```
 
-The first wasm build takes longer, because ze0 prepares the runtime for
+The first wasm build takes longer, because zr prepares the runtime for
 wasm once. The next one is fast again.
 
 Run the module with wasmtime:
@@ -137,15 +137,15 @@ The same three lines again, this time from a WASI module.
 
 ## What you did
 
-You compiled one Ruby file three ways: with `ze0 run`, as a native
+You compiled one Ruby file three ways: with `zr run`, as a native
 binary, and as a WebAssembly module. Each one printed exactly what ruby
 printed.
 
 Next steps:
 
-- To see which targets your machine can build, run `ze0 targets`, or
+- To see which targets your machine can build, run `zr targets`, or
   read [How to build for another target](../how-to/build-for-another-target.md).
-- To help make ze0 answer more programs, follow
+- To help make zr answer more programs, follow
   [Add your first spec](add-your-first-spec.md).
-- To learn why ze0 holds itself to ruby's answers, read
+- To learn why zr holds itself to ruby's answers, read
   [The contract: ruby's answer or a refusal](../explanation/the-contract.md).

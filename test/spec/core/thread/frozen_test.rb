@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread: frozen literals" do
   it "concurrency freeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Mutex, ConditionVariable, Fiber or Thread is an ordinary heap instance
       # and freezes like one; a Queue is the exception Ruby itself makes (freezing
       # one raises, since a frozen queue could never be pushed to again).
@@ -79,7 +79,7 @@ describe "Thread: frozen literals" do
   end
 
   it "deeply frozen object crosses a ractor boundary by reference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize(v)
           @v = v
@@ -108,7 +108,7 @@ describe "Thread: frozen literals" do
   end
 
   it "fiber thread object face" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The concurrency handles are heap instances, so Object's identity face works
       # on them: equal? / eql? / == / != are pointer comparison and frozen? is
       # false.
@@ -184,7 +184,7 @@ describe "Thread: frozen literals" do
   end
 
   it "freeze matrix covers the handle kinds and queue refuses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The frozen flag on the non-collection heap kinds: Proc, Regexp
       # (literals frozen at birth, `Regexp.new` not), MatchData, Fiber,
       # Enumerator, Thread, Mutex (lockable while frozen) -- with the
@@ -284,7 +284,7 @@ describe "Thread: frozen literals" do
   end
 
   it "ractor move" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real Ractor move semantics: `send(obj, move: true)` hands the graph to the
       # receiver and poisons the source -- every later send to a moved object
       # raises Ractor::MovedError. (Sibling-duplicate husking and failed-move
@@ -451,7 +451,7 @@ describe "Thread: frozen literals" do
   end
 
   it "ractor ports" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ruby 4 Ractor port model: Ractor::Port primitives, default-port
       # routing, select, monitor/join/value, locals, and the registry queries.
       $stderr.reopen(IO::NULL) # the experimental warning's file:line is the one nondeterminism
@@ -573,7 +573,7 @@ describe "Thread: frozen literals" do
   end
 
   it "ractor shareable tiering and make shareable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Ractor.shareable?(1)
       puts Ractor.shareable?(:sym)
       puts Ractor.shareable?("mutable")
@@ -598,7 +598,7 @@ describe "Thread: frozen literals" do
   end
 
   it "ractors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ractor -- parallel execution with a frozen-or-copy message boundary
 
       # args cross the boundary and bind to block params
@@ -650,7 +650,7 @@ describe "Thread: frozen literals" do
   end
 
   it "unfrozen object sent across a ractor boundary deep copies" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's rule, now real here too: an unfrozen plain object crosses as
       # a deep copy (dup + ivar rewrite -- `ractor::cross_graph`), so the
       # receiver sees the value and later mutation of the source's graph

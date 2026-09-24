@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "FFI: inheritance and ancestors" do
   it "an integer argument given a String raises TypeError rather than coerce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An FFI integer argument given a non-Integer is a `TypeError`, exactly as the
       # gem raises -- the marshaling is faithful, not a silent coercion.
 
@@ -26,7 +26,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "an inline array field takes its count from an earlier struct's size or alignment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An inline array field whose element COUNT is `OtherStruct.size * N`.
       #
       # zeo laid `OtherStruct` out itself, so its extent is as much a compile-time
@@ -87,7 +87,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "two library modules each bind their own functions out of one shared library" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ported from spinel's ffi_cflags test to the real ffi gem API. ffi_cflags
       # has no gem analogue (the gem links against built libraries, it doesn't
       # compile C), so the surviving intent is the multi-module shape it decorated:
@@ -114,7 +114,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a C flag value is a plain Ruby constant on the library module, combinable with the bit ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ported from spinel's ffi_const to the real ffi gem API: the gem has no
       # ffi_const directive -- C-side flag values are plain Ruby constants on the
       # library module, combinable with the usual Integer bit ops.
@@ -145,7 +145,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a constant in a library module resolves parent-qualified, so a leaf name may collide" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant in an FFI-library module whose leaf name collides with a plain
       # constant in another module must resolve parent-qualified (a leaf-keyed
       # constant table would silently rebind the reference and its type). Ported
@@ -180,7 +180,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "the direct tier marshals every C scalar kind in and out" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The direct tier: every C scalar kind in and out, through the emitted
       # `call_indirect` rather than the libffi engine. Widths and signedness
       # are what the test is about -- a `long` past 32 bits, an `unsigned long`
@@ -236,7 +236,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a string argument's copy is released when a later argument's coercion raises" do
-    result = ze0(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
       # A `:string` argument's NUL-terminated copy is owned by a pooled temp.
       # When a LATER argument's coercion raises, the copy is released on the
       # raise edge like any other temp -- the leak checker is what proves it,
@@ -275,7 +275,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "enum takes a member list the program builds, and the named form needs an Array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `enum` whose MEMBER LIST is not a literal. ethon writes
       # `EasyCode = enum(:easy_code, easy_codes)`, where `easy_codes` is a method on
       # a module it `extend`ed and returns eighty-odd symbols; gir_ffi reads its flag
@@ -344,7 +344,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a self.extended hook can make every module that extends it an FFI library" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module whose `def self.extended(host)` hook runs `host.extend
       # FFI::Library` makes every module that extends IT an FFI library one step
       # removed -- chef's Win32 API modules share one FFI setup this way. The
@@ -394,9 +394,9 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "ffi_lib takes candidates only the running process can name, resolving at class-body time" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # An `ffi_lib` whose candidates zeo cannot fold (an ENV read, a local, a
       # splat) is not a rejection: the expressions evaluate when the class body
@@ -449,7 +449,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a nameless enum registers no type name, and a DataConverter stands for its native type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A NAMELESS `enum [...]` registers no type name and is consumed; a class
       # that `extend FFI::DataConverter` with a `native_type` stands for that
       # native type in later declarations (google-protobuf's Internal::Arena).
@@ -474,7 +474,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "FFI::AutoPointer can be subclassed and inherits the whole pointer read and write surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Handle < FFI::AutoPointer` with a `self.release` is the ffi gem's
       # own idiom for a C handle -- the single biggest subclassing ask in the
       # gem-probe ledger. Both pointer classes are payload roots now, so the
@@ -574,7 +574,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "FFI::Pointer.new(n) makes an integer-valued pointer a :pointer argument takes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sentinel integer-valued pointers, ported to the real ffi gem API. The gem
       # spells an integer-valued pointer as FFI::Pointer.new(n) -- e.g. -1 for
       # sqlite3_bind_text's SQLITE_TRANSIENT destructor sentinel. free(NULL) is a
@@ -606,7 +606,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "the runtime library tier passes a struct by value with the declaration's real field types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A struct passed BY VALUE through the RUNTIME library tier (an ffi_lib only
       # the running process can name): libffi builds the aggregate descriptor from
       # the declaration's real field types, so the classification matches the
@@ -637,7 +637,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a :strptr return answers the decoded String and the raw Pointer together" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `:strptr` is the gem's two-for-one return: the char* decoded as a String
       # AND the raw Pointer beside it, so the caller can still free the buffer.
       # strerror's ENOENT message spells the same on macOS and glibc.
@@ -665,7 +665,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "by_value passes the struct itself, where a bare Struct subclass passes its address" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `.by_value` is the gem's BY-VALUE spelling: `inet_ntoa` takes `struct
       # in_addr` by value on every libc, and the mirror declaration carries the
       # real field types so the C ABI owns the layout.
@@ -705,7 +705,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "an attach_function returning Struct.by_value copies the result into a fresh struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An attach_function whose return type is `Struct.by_value`: the C function
       # hands the struct back in registers/stack per the ABI, and the wrapper
       # copies it into a fresh ruby-owned MemoryPointer viewed through the struct's
@@ -744,7 +744,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "an attached strlen answers the length of the string it is handed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # i1011, ported to the real ffi gem API. The original exercised spinel's
       # ffi_cflags compile-time string folding (__dir__, File.expand_path,
       # String#+), which has no gem analogue; the surviving intent is the strlen
@@ -765,7 +765,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "layoutless struct name still types a signature" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class X < FFI::Struct` whose layout the compiler never saw (ffi_dry's
       # `dsl_layout` builds one at runtime) still NAMES a struct: a signature
       # position only needs the by-reference fact, so `attach_function` typing
@@ -813,7 +813,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "reopened ffi module declares global typedefs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module ::FFI; typedef :ulong, :XID; end` -- self IS the FFI module inside
       # that body, so a bare `typedef` there is the same GLOBAL declaration
       # `FFI.typedef` makes, visible to every library and struct that lowers after
@@ -862,7 +862,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "variadic attach function matches the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ffi"
       module C
         extend FFI::Library

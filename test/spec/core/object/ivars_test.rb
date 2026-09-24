@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: instance and class variables" do
   it "accessor call is the ivar access" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An accessor call on this body's OWN class is replaced by the ivar access
       # itself -- no dispatch, no trampoline, no frame -- at a statically-typed
       # receiver.
@@ -75,7 +75,7 @@ describe "Object: instance and class variables" do
   end
 
   it "accessor call through a cell reads the row its entry guesses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An accessor whose receiver's class this body does not know: the call goes
       # through the site's cell to the runtime's own reader and writer, which read
       # and write the row the entry guesses.
@@ -179,7 +179,7 @@ describe "Object: instance and class variables" do
   end
 
   it "chained ivar write call rhs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Chained `@a = @b = foo` where the rhs is a method call with a side
       # effect. The naive per-slot lowering re-evaluates the rhs once per
       # target, calling foo() N times instead of once. The chain handler
@@ -216,7 +216,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class body ivar write initializes class level state" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `@x = ...` directly in a class body -- the ordinary way
       # class-level state gets seeded. It used to fall through `register_class`'s
       # catch-all arm and be SILENTLY DROPPED, leaving the reader a bare nil
@@ -241,7 +241,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar and an instance ivar of the same name are distinct storage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@x` in a class body/class method and `@x` in an instance method name
       # two completely different slots -- the class object's own, and the
       # instance's. Also exercises the same-name collision across Ruby's two
@@ -261,7 +261,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar in class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-instance-variable accessed inside a class method (def self.x).
       # The emitted C class-method function has no `self`, so `@v` must lower
       # to a per-class static slot rather than `self->iv_v`. Covers the
@@ -346,7 +346,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar is reachable from a block inside a class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The block captures `self` as a plain `RubyValue::Class`, so the ivar
       # resolves through `ivar_get_dyn`/`ivar_set_dyn`'s Class arm rather than
       # the static class-id path -- the two must agree on the same storage.
@@ -365,7 +365,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar not inherited" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level @ivars are NOT inherited: each class holds its own, and an
       # inherited class method binds to the CALLING class's storage.
       class Base
@@ -420,7 +420,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivar slots" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         @reg = "base-ivar"
         @@cv = "base-cvar"
@@ -495,7 +495,7 @@ describe "Object: instance and class variables" do
   end
 
   it "class ivars report assignment order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class#instance_variables` reports names in FIRST-ASSIGNMENT order.
       #
       # The intern table cannot supply that order -- a name is interned the first
@@ -536,7 +536,7 @@ describe "Object: instance and class variables" do
   end
 
   it "default arg ivar value receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An @ivar read in a default-argument value, on a value-type receiver, must
       # dereference the receiver with `.` (value struct), not `->`.
       class C
@@ -554,7 +554,7 @@ describe "Object: instance and class variables" do
   end
 
   it "dup and clone on user objects copy ivars shallowly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         attr_accessor :x, :y
 
@@ -585,7 +585,7 @@ describe "Object: instance and class variables" do
   end
 
   it "an ivar a generated writer may fill is not folded away" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
       # generated setter. emit_if folds a branch away when every program-wide write
@@ -626,7 +626,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a generated writer beside a direct read of the same ivar keeps it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
       # generated setter. emit_if folds a branch away when every program-wide write
@@ -677,7 +677,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a Struct's members count as generated writers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
       # generated setter. emit_if folds a branch away when every program-wide write
@@ -714,7 +714,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a writer inherited from the superclass counts as generated too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
       # generated setter. emit_if folds a branch away when every program-wide write
@@ -765,7 +765,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a hand-written setter is the boundary: its body holds the write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
       # generated setter. emit_if folds a branch away when every program-wide write
@@ -813,7 +813,7 @@ describe "Object: instance and class variables" do
   end
 
   it "with no writer of any kind, an ivar that is never written folds falsy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
       # generated setter. emit_if folds a branch away when every program-wide write
@@ -854,7 +854,7 @@ describe "Object: instance and class variables" do
   end
 
   it "included module method mutates an ivar on the includer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real self/ivar capture for a materialized module method -- proves
       # the module body was re-typechecked against the INCLUDER's own
       # concrete struct, not some shared/aliased representation.
@@ -884,7 +884,7 @@ describe "Object: instance and class variables" do
   end
 
   it "instance variable get poly recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # instance_variable_get with a literal :@name on a receiver whose static
       # type is poly: dispatch the field read over every instantiated class that
       # owns the slot, unifying the declared slot types (mixed types stay poly,
@@ -956,7 +956,7 @@ describe "Object: instance and class variables" do
   end
 
   it "instance variables" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Any object can reflect over its instance variables by name.
       class Point
         def initialize(x, y)
@@ -1014,7 +1014,7 @@ describe "Object: instance and class variables" do
   end
 
   it "instance variables list" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#instance_variables lists the object's ivar names as symbols
       # (the class layout is static, so the list is compile-time known).
       class C
@@ -1043,7 +1043,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar assign and expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@x = expr and rest` parses as `(@x = expr) and rest`; @x must be
       # typed from expr (poly), not the boolean `and` result.
       class C
@@ -1076,7 +1076,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar assignment order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `instance_variables` and the default `inspect` report ivars in the order they
       # were first ASSIGNED, which two instances of one class can disagree about.
       class S
@@ -1155,7 +1155,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar conditional nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unwritten instance variable reads as nil, so a conditional first write
       # (`||=`) sees nil and assigns rather than seeing a typed zero.
       class Counter
@@ -1203,7 +1203,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar definedness" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby distinguishes a never-assigned ivar from one assigned `nil`: both READ
       # as nil, but only the second is `defined?` and only the second appears in
       # `instance_variables`. `@x = {} unless defined? @x` -- observer's idiom --
@@ -1280,7 +1280,7 @@ describe "Object: instance and class variables" do
   end
 
   it "an ivar seeded with an empty array grows from an explicit push" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class B
         def initialize
           @a = []
@@ -1309,7 +1309,7 @@ describe "Object: instance and class variables" do
   end
 
   it "the same slot takes several pushes and reads back in order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class B
         def initialize
           @a = []
@@ -1344,7 +1344,7 @@ describe "Object: instance and class variables" do
   end
 
   it "an empty seed grows for a Symbol, a Float, a boolean and an Integer alike" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class B
         def initialize
           @a = []
@@ -1394,7 +1394,7 @@ describe "Object: instance and class variables" do
   end
 
   it "the desugared and mutating spellings grow the same slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class B
         def initialize
           @a = []
@@ -1446,7 +1446,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a value computed inside the class reaches the same slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class B
         def initialize
           @a = []
@@ -1498,7 +1498,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar name is validated in full" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `instance_variable_get`/`set` validate the whole name: "@@bad" (a class
       # variable spelling) raises NameError "'@@bad' is not allowed as an
       # instance variable name". zeo answers nil for the get. A plain bad name
@@ -1522,7 +1522,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar on a bare value survives address reuse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An ivar written on a bare heap value is filed under the value's ADDRESS,
       # which is unique only while the value lives. The table holds a WEAK reference
       # to every owner so the allocation -- and therefore the address -- stays
@@ -1577,7 +1577,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar or write empty literal variant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `{}` / `[]` has no elements to type it, so inference gives the
       # literal whatever the reads elsewhere suggest. The plain ivar write lends the
       # literal its slot's variant; `||=` did not, so a module registry built one
@@ -1646,7 +1646,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar polymorphic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #130: instance variable assigned different definite-typed values
       # across methods used to either fail to compile (-Wint-conversion under
       # -Werror), silently coerce (Integer→Float when slot won inference as Float),
@@ -1753,7 +1753,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar tail write return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A plain tail instance-variable write is the method's value in Ruby
       # (`def m; @x = v; end` answers v). Returning the statement default instead
       # handed back the slot type's nil: NULL for an Array (the caller segfaulted on
@@ -1866,7 +1866,7 @@ describe "Object: instance and class variables" do
   end
 
   it "an ivar written from a ternary of a String and an Integer holds both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -1901,7 +1901,7 @@ describe "Object: instance and class variables" do
   end
 
   it "an ivar written from a ternary of an Integer and a Float coerces neither" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -1935,7 +1935,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a mixed ternary followed by a concrete write keeps every type it saw" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -1975,7 +1975,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a ternary whose branches share a type leaves the slot that type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -2010,7 +2010,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a ternary of two Strings leaves the slot a String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -2044,7 +2044,7 @@ describe "Object: instance and class variables" do
   end
 
   it "an if written as an expression widens the slot the same as a ternary" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -2083,7 +2083,7 @@ describe "Object: instance and class variables" do
   end
 
   it "a ternary with a nil branch widens the slot to a nullable String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
       # the slot from `infer_ivar_init_type`'s default fallback ("int") and
@@ -2117,7 +2117,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar type per owning class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An ivar's element type must not leak between classes that merely share the
       # ivar's NAME. Ivar slots are per-class, but the two queries that disambiguate
       # `<<` (Array#push vs Integer#<< shift vs a user-defined operator) index writes
@@ -2196,7 +2196,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivar widen poly writer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2234,7 +2234,7 @@ describe "Object: instance and class variables" do
   end
 
   it "ivars on a bare value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby lets you hang an instance variable on almost anything. An Object keeps
       # its ivars in its own struct and a class keeps them in `civars`; a bare
       # Array/String/Hash/Proc has neither, so zeo stores theirs in an
@@ -2365,7 +2365,7 @@ describe "Object: instance and class variables" do
   end
 
   it "masgn ivar empty literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Instance-variable multi-assignment with empty hash/array literals: the
       # element temps adopt the ivar's type (poly ivars take a fresh boxed
       # container), and the assignment boxes from the temp's resolved type (#3280).
@@ -2394,7 +2394,7 @@ describe "Object: instance and class variables" do
   end
 
   it "module def self ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #713. Module class methods (`def self.X`) writing/reading
       # `@ivar` need a module-level `cst_<Mod>_<ivar>` slot or the codegen
       # emits `self->iv_X` against a non-existent `self` in the top-level
@@ -2415,7 +2415,7 @@ describe "Object: instance and class variables" do
   end
 
   it "module ivar nil poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module-level instance variable initialized to nil and later widened
       # to a polymorphic value (it holds nil, an empty [], and a String push)
       # must box the nil initializer as sp_box_nil(), not a bare 0, or the
@@ -2439,7 +2439,7 @@ describe "Object: instance and class variables" do
   end
 
   it "module ivar op write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module-level @ivar referenced inside `def self.X` (the canonical
       # Ruby singleton-state pattern) used to emit as `self->iv_X` in C.
       # The class method has no self parameter -- module class methods
@@ -2503,7 +2503,7 @@ describe "Object: instance and class variables" do
   end
 
   it "module method serves two ivar layouts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One `def` in a module, included into classes that lay their ivars out
       # differently. `codegen::share` emits a widely-inherited body ONCE, over a
       # `RubyValue` receiver, and an ivar access in that body carries the SLOT INDEX
@@ -2582,7 +2582,7 @@ describe "Object: instance and class variables" do
   end
 
   it "module removes its own instance variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `instance_variables` and `remove_instance_variable` have to agree about a
       # CLASS or MODULE receiver, and they did not.
       #
@@ -2675,7 +2675,7 @@ describe "Object: instance and class variables" do
   end
 
   it "multi assign ivar type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@a, @b = x, y` must propagate the param types into the ivars just
       # like separate `@a = x; @b = y` assignments do. Previously the
       # destructuring target wasn't recognized as an assignment, so an
@@ -2707,7 +2707,7 @@ describe "Object: instance and class variables" do
   end
 
   it "nil ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test: nil-initialized ivar type inference
       # When @left/@right are initialized to nil and later assigned Node objects,
       # the compiler should infer them as OBJECT(Node), not NIL.
@@ -2764,7 +2764,7 @@ describe "Object: instance and class variables" do
   end
 
   it "self referential ivar reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -2836,7 +2836,7 @@ describe "Object: instance and class variables" do
   end
 
   it "singleton body ivar lands on the singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `@x = v` inside `class << self` writes an ivar of the SINGLETON class,
       # which is a different object from the class -- so an `attr_accessor` written
       # beside it (a CLASS method, whose self is the class) does not read it back.
@@ -2874,7 +2874,7 @@ describe "Object: instance and class variables" do
   end
 
   it "singleton body ivar reaches the singleton class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An ivar named inside `class << X` belongs to X's SINGLETON CLASS, which is a
       # different object from X. Both spellings of the body have to agree.
 
@@ -2990,7 +2990,7 @@ describe "Object: instance and class variables" do
   end
 
   it "singleton method reads ivars and yields" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       obj = Object.new
       obj.instance_variable_set(:@base, 100)
       def obj.add
@@ -3003,7 +3003,7 @@ describe "Object: instance and class variables" do
   end
 
   it "stdlib class in ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `.new` on a stdlib class Spinel does not implement (Pathname, OpenStruct,
       # IPAddr, ...) used to silently degrade to an inert 0 -- the object's methods
       # then returned nil, so a program that actually used it diverged from CRuby with
@@ -3096,7 +3096,7 @@ describe "Object: instance and class variables" do
   end
 
   it "top level def touching an ivar does not taint builtins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `mro::materialize_methods` collects ivars from every ancestor, but a
       # BUILTIN never materializes Object's methods -- so the ivar loop has to
       # skip Object for builtins exactly as the method loop does. It didn't,
@@ -3120,7 +3120,7 @@ describe "Object: instance and class variables" do
   end
 
   it "top level ivars live on the main object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Was rejected as "the `main` object has no ivar storage". It has some
       # now (`dispatch::Object`'s name-keyed map), so a top-level `@x` -- read
       # or written, at the top level or from a top-level `def`, which is a
@@ -3147,7 +3147,7 @@ describe "Object: instance and class variables" do
   end
 
   it "toplevel ivar opassign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `@ivar ||=` / `@ivar &&=` must emit its store. Previously the
       # top-level slot was unresolved (class_id < 0), so no branch matched and the
       # assignment was silently dropped.
@@ -3176,7 +3176,7 @@ describe "Object: instance and class variables" do
   end
 
   it "toplevel method shares mains ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method written at the TOP LEVEL lands on Object, and its receiver is
       # the runtime `main` object -- name-keyed ivars, the same storage the
       # top-level scope itself writes.
@@ -3206,7 +3206,7 @@ describe "Object: instance and class variables" do
   end
 
   it "unassigned ivar reads nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading an instance variable that is never assigned anywhere in the program
       # is nil in Ruby, not a compile error. A top-level method reading such an ivar
       # gets a nil-valued slot in the Toplevel pseudo-class.
@@ -3235,7 +3235,7 @@ describe "Object: instance and class variables" do
   end
 
   it "uninit ivar returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #712. A read-only @ivar (never assigned anywhere in the class)
       # must read as nil, not fail with "struct has no field iv_x". The scan
       # pass now adds a "nil" slot for any read-only ivar so the struct gets
@@ -3270,7 +3270,7 @@ describe "Object: instance and class variables" do
   end
 
   it "keeps an ivar for a kind that holds no table of its own, and only where one is taken" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String, an Array or a Float has no ivar table in its cell, so
       # an ivar on one is kept beside its arena, as CRuby keeps a
       # generic ivar in a table off to the side. An arena whose cells

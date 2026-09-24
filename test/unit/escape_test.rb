@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/hir"
+require_relative "../../lib/zr/hir"
 
 # `Hir::Escape`: which uses of a `&b` parameter let it stay the block
 # it was given, and which keep its value.
@@ -70,7 +70,7 @@ class EscapeTest < Minitest::Test
 
   def test_an_anonymous_block_forwards_raw
     d = def_of("def f(&) = g(&)")
-    assert Ze0::Hir::Escape.raw_block?(d.body, d.params.block)
+    assert Zr::Hir::Escape.raw_block?(d.body, d.params.block)
   end
 
   private
@@ -78,16 +78,16 @@ class EscapeTest < Minitest::Test
   def raw?(body, head = "def f(x = 1, &b)")
     d = def_of("#{head}\n#{body}\nend")
     defaults = d.params.optional.map(&:last)
-    Ze0::Hir::Escape.raw_block?([d.body, *defaults], :b)
+    Zr::Hir::Escape.raw_block?([d.body, *defaults], :b)
   end
 
   # The one Def a program of `source` holds.
   def def_of(source)
-    program = Ze0::Hir.build(source, "escape.rb")
+    program = Zr::Hir.build(source, "escape.rb")
     find = lambda do |node|
-      return node if node.is_a?(Ze0::Hir::Def)
+      return node if node.is_a?(Zr::Hir::Def)
 
-      node.is_a?(Ze0::Record) ? node.to_a.each { |v| (d = find.call(v)) and return d } && nil : node.is_a?(Array) ? node.each { |v| (d = find.call(v)) and return d } && nil : nil
+      node.is_a?(Zr::Record) ? node.to_a.each { |v| (d = find.call(v)) and return d } && nil : node.is_a?(Array) ? node.each { |v| (d = find.call(v)) and return d } && nil : nil
     end
     find.call(program.body) or raise "no def in #{source}"
   end

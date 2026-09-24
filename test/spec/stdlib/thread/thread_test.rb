@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread: the thread library" do
   it "class level accessors and hooks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three things minitest's own bootstrap needs, none of which worked.
       #
       # `(class << self; self; end).attr_accessor :name` -- an attr defined on a

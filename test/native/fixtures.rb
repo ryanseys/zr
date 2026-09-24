@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "../../lib/ze0/ir"
-require_relative "../../lib/ze0/obj/model"
+require_relative "../../lib/zr/ir"
+require_relative "../../lib/zr/obj/model"
 
-module Ze0
+module Zr
   module Native
     # The native floor: IR written by hand, owing nothing to a Ruby
     # lowering. Each method answers `[functions, data]`; the binary it
@@ -22,10 +22,10 @@ module Ze0
         f = IR::Function.new("main", %w[i32 i64], "i32")
         write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
         exit = f.callee("exit", %w[i32], nil, colocated: false)
-        f.call_val(write, [f.iconst("i32", 1), f.symbol_value(f.symbol("msg")), f.iconst("i64", 12)])
+        f.call_val(write, [f.iconst("i32", 1), f.symbol_value(f.symbol("msg")), f.iconst("i64", 11)])
         f.call(exit, [f.iconst("i32", 0)])
         f.ret(f.iconst("i32", 0))
-        [[f], [Obj::Data.new("msg", :text_const, "hello, ze0!\n", align: 1)]]
+        [[f], [Obj::Data.new("msg", :text_const, "hello, zr!\n", align: 1)]]
       end
 
       # Overflow flags, select, bit operations, wide and negative
@@ -86,7 +86,7 @@ module Ze0
       end
 
       # What the IR says a division by zero, an overflowing division and a
-      # long shift answer, which every backend owes the same (lib/ze0/ir/inst.rb):
+      # long shift answer, which every backend owes the same (lib/zr/ir/inst.rb):
       # `udiv`/`sdiv` by zero answer 0, `urem`/`srem` by zero the dividend,
       # the most negative number divided by -1 wraps to itself, and a shift
       # takes its amount modulo the width. The operands pass through a call,
@@ -125,7 +125,7 @@ module Ze0
         [[same, same32, f], []]
       end
 
-      # What the IR says the bit tricks answer (lib/ze0/ir/inst.rb): a
+      # What the IR says the bit tricks answer (lib/zr/ir/inst.rb): a
       # count of zero's zeros is the width, `popcnt` counts, `bswap`
       # turns the bytes round, each as wide as its operand. The operands
       # pass through a call, so no backend sees a constant it could fold.

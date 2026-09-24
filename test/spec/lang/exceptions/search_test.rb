@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: searching and matching" do
   it "begin rescue as expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #704: begin/rescue used as an expression (puts arg).
       # Three shapes:
       #   - rescue path (raise + rescue + else + ensure)
@@ -31,7 +31,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "definition ruby raises on raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class Foo` after `module Foo`, and a reopen that names a different
       # superclass, are both TypeError in ruby -- a real exception at the definition,
       # not a broken program. zeo used to REFUSE these at compile time whenever no
@@ -91,7 +91,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "hangs 548" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #548. Four shapes that compiled cleanly but hung at runtime.
       # Adam Doppelt's "Puzzles, third edition."
       #
@@ -169,7 +169,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "a raise inside a method that yields stops before the block runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def check(selector, body)
         tag = selector[/\A[a-z]+/]
         raise "no #{selector}" unless tag && body.include?("<#{tag}")
@@ -187,7 +187,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "rescue matches a namespaced exception class by its full path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rescue of a namespaced exception class (rescue M::Err) must match a
       # raised M::Err. Both the raise and the rescue clause need to resolve
       # the ConstantPathNode (M::Err) to the registered class name (M_Err);
@@ -230,7 +230,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "raise branch does not widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # a branch that raises contributes no type to the case/if it sits in
       def enc(o)
         case o
@@ -288,7 +288,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "rescue target may be an attribute or index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue => target` accepts every lvalue Ruby accepts -- including an
       # attribute setter and an index write, which run only when the clause
       # fires (receiver evaluated at that moment, then `attr=`/`[]=` called
@@ -339,7 +339,7 @@ describe "Exceptions: searching and matching" do
   end
 
   it "rescue with a splatted exception list" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ERRS = [ArgumentError, TypeError]
 
       # A constant array of classes.

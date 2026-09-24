@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Time: regressions" do
   it "Time.at keeps the fraction of a Float epoch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       c = Time.at(1_600_000_000.5)
       p c.utc.to_f
     RUBY
@@ -13,7 +13,7 @@ describe "Time: regressions" do
   end
 
   it "Time#deconstruct_keys answers every field, or only the ones asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.deconstruct_keys(nil)
       p t.deconstruct_keys([:zone])
@@ -26,7 +26,7 @@ describe "Time: regressions" do
   end
 
   it "floor, ceil and round take the number of sub-second digits to keep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.at(1234567890.123456789)
       p t.floor(1).nsec
       p t.floor(3).nsec
@@ -56,7 +56,7 @@ describe "Time: regressions" do
   end
 
   it "strftime takes the - and _ flags to trim or pad a field" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6)
       puts t.strftime("%-d/%-m")
       puts t.strftime("%_d")
@@ -72,7 +72,7 @@ describe "Time: regressions" do
   end
 
   it "the Time constructors take a Rational number of seconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.utc(2020,1,1,0,0,0, Rational(1,2)).nsec
       p Time.utc(2020,1,1,0,0,0, Rational(1,4)).nsec
       p Time.gm(2020,1,1,0,0,0, Rational(3,2)).nsec
@@ -90,7 +90,7 @@ describe "Time: regressions" do
   end
 
   it "the Time constructors take a fractional number of microseconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Time.utc(2001,2,3,4,5,6,500.5).nsec
       puts Time.gm(2001,2,3,4,5,6,250000.5).nsec
       puts Time.utc(2001,2,3,4,5,6,500).nsec
@@ -107,7 +107,7 @@ describe "Time: regressions" do
   end
 
   it "getlocal and localtime take an offset as seconds or as +HH:MM" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6)
       puts t.getlocal(3600).utc_offset
       puts t.getlocal(3600).hour
@@ -133,7 +133,7 @@ describe "Time: regressions" do
   end
 
   it "xmlschema takes the number of fractional digits to print" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6, 500000)
       puts t.xmlschema
       puts t.xmlschema(3)
@@ -148,7 +148,7 @@ describe "Time: regressions" do
   end
 
   it "iso8601 takes the number of fractional digits to print" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6, 500000)
       puts t.iso8601
       puts t.iso8601(3)
@@ -168,7 +168,7 @@ describe "Time: regressions" do
   end
 
   it "the Time constructors refuse a field outside its range, but roll a leap second over" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def cls; begin; yield; rescue => e; e.class; end; end
       p(cls { Time.utc(2020,13,1) })
       p(cls { Time.utc(2020,1,32) })
@@ -197,7 +197,7 @@ describe "Time: regressions" do
   end
 
   it "min, sort and sort_by order Times read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Time.new(2026, 1, 2) <=> Time.new(2026, 1, 1))
       a = [Time.new(2026, 1, 2), Time.new(2026, 1, 1)]
       p(a[0] <=> a[1])
@@ -216,7 +216,7 @@ describe "Time: regressions" do
   end
 
   it "a frozen Time answers utc when it is already UTC, and names itself when a change is refused" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.at(0).utc.freeze
       p t.utc.equal?(t), t.gmtime.equal?(t), t.year, t.inspect
       begin; t.localtime; rescue => e; p e.class, e.message; end

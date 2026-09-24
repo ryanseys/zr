@@ -30,16 +30,16 @@ ruby at each step:
 
 ```console
 $ ruby small.rb
-$ exe/ze0 run small.rb
+$ exe/zr run small.rb
 ```
 
 A small program makes the cause easy to see. When you fix it, keep the
 small program as a new example, as in
 [Add your first spec](../tutorials/add-your-first-spec.md).
 
-## Find which part of ze0 is wrong
+## Find which part of zr is wrong
 
-Try these one at a time. Each one takes one part of ze0 out of the
+Try these one at a time. Each one takes one part of zr out of the
 question.
 
 - **The collector.** Run with a collection at every allocation. A
@@ -66,7 +66,7 @@ question.
   built:
 
   ```console
-  $ ZE0_VERIFY=1 exe/ze0 run small.rb
+  $ ZR_VERIFY=1 exe/zr run small.rb
   ```
 
 - **The platform.** Build the same program as a wasm module. If the
@@ -74,7 +74,7 @@ question.
   backend or the darwin layer:
 
   ```console
-  $ exe/ze0 build small.rb -o small.wasm --emit wasm && wasmtime small.wasm
+  $ exe/zr build small.rb -o small.wasm --emit wasm && wasmtime small.wasm
   ```
 
 ## Read a crash in lldb
@@ -91,7 +91,7 @@ $ lldb ./binary
 Read the state at the crash. Do not rebuild the program again and again
 to find the line.
 
-## When ze0 cannot do it yet
+## When zr cannot do it yet
 
 If the fix is large, leave the example where it belongs and say what it
 waits on:
@@ -104,5 +104,5 @@ end
 ```
 
 A skipped example is counted and named at the end of a run, so the gap
-stays visible. The day ze0 answers it, the line comes off -- and nothing
+stays visible. The day zr answers it, the line comes off -- and nothing
 was moved, so nothing has to be moved back.

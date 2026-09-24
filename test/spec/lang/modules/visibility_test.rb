@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: visibility" do
   it "module_function with a name promotes an instance method already defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module_function :name` (argument form) promotes an already-defined
       # instance method to a module (class) method callable as M.name.
       module M
@@ -33,7 +33,7 @@ describe "Modules: visibility" do
   end
 
   it "issue module function dynamic class body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bare `module_function` directive (no args) is supposed to turn
       # subsequently defined methods into module functions, but this only takes
       # effect in a literal `module ... end` body -- inside a `Module.new { ... }`
@@ -52,7 +52,7 @@ describe "Modules: visibility" do
   end
 
   it "module function can call another modules function" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pre-existing gap found by 14.2's cross-package test: module-function
       # bodies live inside a generated `pub mod` (a real child module), so a
       # reference to a sibling top-level module didn't resolve. One file, no
@@ -75,7 +75,7 @@ describe "Modules: visibility" do
   end
 
   it "module function in reopened body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module_function` in a REOPENED module body: only the body recorded as the
       # module's definition was scanned, so a module first named by a version file
       # and then filled in (the shape every gem has) kept its methods instance-level
@@ -130,7 +130,7 @@ describe "Modules: visibility" do
   end
 
   it "module function in runtime branch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module_function` mode applies to a `def` inside a RUNTIME-undecidable
       # branch when the branch executes -- rspec-support's
       # `RubyFeatures.ripper_supported?` sits under `if ripper_requirable`.
@@ -171,7 +171,7 @@ describe "Modules: visibility" do
   end
 
   it "module function include" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module MF
         module_function
         def helper(x); x * 2; end
@@ -235,7 +235,7 @@ describe "Modules: visibility" do
   end
 
   it "module function is callable via its own def self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Utility
         def self.triple(x)
           x * 3
@@ -248,7 +248,7 @@ describe "Modules: visibility" do
   end
 
   it "module function namespace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module_function` in a module body installs the subsequent
       # `def name` as both an instance method (for include-mixin)
       # and a class method (`Mod.name`). Spinel only models the
@@ -317,7 +317,7 @@ describe "Modules: visibility" do
   end
 
   it "module function private receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `module_function` instance copy is PRIVATE, so an explicit receiver must
       # raise -- but codegen folds an explicit-receiver builtin call straight to the
       # table function without consulting visibility, so it answers instead.

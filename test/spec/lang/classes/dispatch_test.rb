@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: dispatch" do
   it "boxed arg int parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value with no static type (an sp_RbVal) reaching a builtin parameter
       # declared mrb_int was emitted with no unbox step, so the generated C did not
       # compile. An empty array literal as a parameter default is the shortest way to
@@ -61,7 +61,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly array clear expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#clear` in *expression* position on a poly_array. The
       # stmt-form was already supported; the expr-form fell through
       # to the unresolved-call warning and emitted literal 0, which
@@ -92,7 +92,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly array eq all nil literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<poly_array> == [nil, nil, ...]` shape. The RHS array literal
       # would otherwise lower to int_array of zeros and fall through to
       # a raw pointer compare. The contextual lift at the == call site
@@ -114,7 +114,7 @@ describe "Classes: dispatch" do
   end
 
   it "class basicobject superclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p BasicObject.superclass
       v = BasicObject.superclass; p v
       p BasicObject.superclass.nil?
@@ -145,7 +145,7 @@ describe "Classes: dispatch" do
   end
 
   it "class object dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class method called on a Class-object value: dispatch on the boxed
       # class id (models Rails' `model.table_name`).
       class A
@@ -191,7 +191,7 @@ describe "Classes: dispatch" do
   end
 
   it "Kernel#method answers a Method that reports its name and calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#method returns a Method object (not Integer 0). .class and
       # .name dispatch; for a top-level user method, .call works too.
       m = method(:puts)
@@ -217,7 +217,7 @@ describe "Classes: dispatch" do
   end
 
   it "mega" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test megamorphic dispatch (3+ types)
 
       class Dog
@@ -267,7 +267,7 @@ describe "Classes: dispatch" do
   end
 
   it "obj class dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #419. `obj.class` was unresolved on an instance -- emitted
       # `cannot resolve call to 'class' on obj_<C> (emitting 0)` and
       # downstream methods cascaded through int -> 0. Sibling to #404
@@ -348,7 +348,7 @@ describe "Classes: dispatch" do
   end
 
   it "object new builds a distinct boxed sentinel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Object.new` emitted `Arc::new(zeo_rt::Object)` -- using the struct
       # `Object` (a private-field struct, not a unit struct) as a value, an
       # E0423 that never compiled. It must be `Object::default()`. Each call is
@@ -369,7 +369,7 @@ describe "Classes: dispatch" do
   end
 
   it "object reopen poly dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method reopened on Object is callable on ANY receiver, including a boxed
       # scalar inside a poly value: the poly dispatch needs it as its default arm
       # (an empty cls_id switch left NULL and segfaulted).
@@ -408,7 +408,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly builtin arm container read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The poly dispatch records what the BUILTIN surface alone would answer, to
       # shape its builtin arm. That re-derivation is defined as "if no user class
       # owned the name", but the helper it went through still took the union with a
@@ -448,7 +448,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly class dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # poly.class — runtime dispatch on the sp_RbVal tag. Heterogeneous
       # array elements were previously emitting "0" through the
       # unresolved-call path.
@@ -474,7 +474,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly container delete" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
 
       # Array#delete on a poly (mixed-element) array: returns the deleted value,
@@ -542,7 +542,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly dispatch long class name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The boxed receiver's cast is built into a fixed buffer that both the call and
       # g_self read. At 64 bytes a long class name truncated
       # `(sp_Long... *)_t2.v.p` to `..._t2.v`, and the C build stopped on an
@@ -593,7 +593,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly dispatch multilevel inheritance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three-level inheritance (Base -> Child -> GrandChild) plus a
       # Sibling. All inherit #greet from Base without overriding it.
       # Calling via a poly-typed parameter must dispatch correctly for
@@ -633,7 +633,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly int bitops auto unify" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same operator-site auto-unbox, but for bit operators (`<<`,
       # `>>`, `&`, `|`, `^`). int recv + poly arg previously failed C
       # compile; the poly arg is now unboxed via .v.i.
@@ -666,7 +666,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly merge arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class owning `merge` replaces the whole poly dispatch with its arms,
       # so a Hash arriving at the same call matched nothing and raised NoMethodError
       # naming its own class. And where that user arm was ALSO dropped because its
@@ -710,7 +710,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly recv to i user" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Money
         def initialize(cents)
           @cents = cents
@@ -771,7 +771,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly sym index with user aref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Defining an instance `[]` must not drop the builtin Hash#[] case from the
       # polymorphic `[]` dispatch: a symbol-keyed Hash indexed through a poly (block
       # param) receiver was lowered to a cls_id switch built only from user `[]`
@@ -801,7 +801,7 @@ describe "Classes: dispatch" do
   end
 
   it "poly2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Phase 2: heterogeneous arrays, bimorphic dispatch
 
       # Heterogeneous array
@@ -852,7 +852,7 @@ describe "Classes: dispatch" do
   end
 
   it "reopening object defines methods reachable everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An Object reopen is top-level `def` by another name: its methods
       # land on arena slot 0, materialize into every user class, and
       # dispatch on the runtime `main` object at top-level call sites.
@@ -875,7 +875,7 @@ describe "Classes: dispatch" do
   end
 
   it "self class cmethod dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `self.class.<class method>` from an instance method dispatches on the runtime
       # class, and that switch broke three ways at once. The base class's copy was
       # DCE'd as a transplanted source once a subclass got a specialization, though
@@ -951,7 +951,7 @@ describe "Classes: dispatch" do
   end
 
   it "user class aset dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #413. A class method `def []=(key, value)` that dispatches
       # on `key` and assigns into ivars of mixed types (Integer #@id,
       # String @name) emitted with the `[]=` body present in C but the

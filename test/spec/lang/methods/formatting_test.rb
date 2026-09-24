@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: formatting and inspection" do
   it "class method knows its own name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `__method__` answers the BARE method name, whichever way the method was
       # defined.
       #
@@ -90,7 +90,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "double splat kwargs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def f(a, **kwargs)` binds extra keyword args into a sym_poly_hash.
       def test(a, **kwargs)
         puts a
@@ -130,7 +130,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "double splat nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `**nil` in a call is ruby's "pass no keywords" spelling -- a no-op, both as
       # a literal and through a nil-valued variable. zeo lowers every `**expr` splat
       # through a to-Hash conversion, so it raises TypeError ("no implicit
@@ -148,7 +148,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "empty method returns nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty method body implicitly returns nil.
       def f; end
       puts f.nil?
@@ -167,7 +167,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a private method answers a receiverless call and self as receiver, and refuses another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
@@ -228,7 +228,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a protected method is reachable where the caller's self is of the same class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
@@ -294,7 +294,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "Kernel's private methods refuse an explicit receiver, as the user's do" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
@@ -355,7 +355,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a class answers respond_to? for the class methods it provides" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
@@ -406,7 +406,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a private class method is checked the same way a private instance method is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
@@ -459,7 +459,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "visibility changed after the fact is read at the call, not at the compile" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby decides visibility from the SHAPE of the call, not from the value the
       # receiver holds. `vm_call_method` runs no check at all for an implicit
       # receiver, for the literal `self` keyword, or for `send` (all FCALL); every
@@ -511,7 +511,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "extended class method keeps its visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `SomeClass.extend(M)` copies M's instance methods in as CLASS methods and
       # loses their visibility marks -- the class-receiver twin of
       # `an_extended_module_keeps_its_visibility`.
@@ -584,7 +584,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "generic sends" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 10.to_s
       puts 10.to_s(2)
       puts 3.7.floor
@@ -618,7 +618,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "instance methods false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.instance_methods(false)` const-folds to a literal symbol array
       # of the class/module's own (non-inherited) instance methods. The set
       # matches method_defined?(name, false): the method table plus attr
@@ -682,7 +682,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "instance methods false chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#/Class#instance_methods(false) returns a real (boxed) poly array of
       # symbols, so chained operations like `.map(&:to_s).sort` iterate it correctly
       # instead of treating an opaque sym-array box as empty.
@@ -710,7 +710,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "isa self in base method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `is_a?` on a receiver whose static type is a BASE class. That type is only an
       # upper bound -- a Base-typed slot legitimately holds a Sub, which is the whole
       # point of a subclass -- so the test has to read the object's runtime class.
@@ -802,7 +802,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "keyword given flag does not travel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby distinguishes "the caller wrote keywords" from "the caller passed a
       # Hash" -- `rb_keyword_given_p`. zeo collapses both into a trailing
       # `RubyValue::Hash` positional the moment a call leaves the static path, so
@@ -861,7 +861,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwarg back propagate callee type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #561 (Sam Ruby). Kwarg passthrough back-propagation: when
       # method outer forwards `inner(name: lvar)` and inner's
       # `name:` is typed (default value or body usage), outer's
@@ -894,7 +894,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwarg only call leading optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The whole-program shape: NO call site anywhere supplies the leading optional
       # positionally, so it stays poly, and the fallthrough handed it the keyword
       # hash -- which the declared keyword had already consumed, binding it twice
@@ -913,7 +913,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwarg only instance leading optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
       # immunise this (#3525).
       class B
@@ -928,7 +928,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwarg only two leading optionals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
       # immunise this (#3525).
       class C
@@ -943,7 +943,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwarg with omitted leading optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A keyword argument supplied while a leading optional positional is omitted:
       # the keyword hash must NOT also land in the positional slot (#3525).
       class A
@@ -1001,7 +1001,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwargs param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # KeywordRestParameterNode -- def f(**kw)
       #
       # Declares a method that captures all keyword arguments into a single
@@ -1034,7 +1034,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwrest does not fill optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method taking `**kwrest` takes every keyword the call passed, so none of
       # them is a positional hash argument: the keywords-only call used to bind the
       # hash to the optional positional as well, and `event.nil?` answered false
@@ -1066,7 +1066,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "kwrest does not type optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def a(x = nil, **kw)
         puts "x=#{x.inspect} kw=#{kw.inspect}"
       end
@@ -1108,7 +1108,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "later default may read an earlier captured param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def fill_breakable(sep = ' ', width = sep.length)` with `sep`
       # captured by a block (prettyprint's shape): `width`'s default reads
       # `sep` through its capture cell, so the cell must exist BEFORE the
@@ -1132,7 +1132,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method added sees the superseded body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def v; end; def v; end` fires `method_added(:v)` twice, and at the FIRST
       # firing ruby has only the first body installed. zeo runs the second.
       #
@@ -1185,7 +1185,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method added watermark" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's definition hook sees a HALF-BUILT class: at `method_added(:a)`,
       # `instance_methods(false)` answers `[:a]` alone, and a `def b` written below is
       # not defined yet.
@@ -1289,7 +1289,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method in container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Calc
         def initialize(b); @b = b; end
         def add(n); @b + n; end
@@ -1325,7 +1325,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method object does not snapshot its definition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Method` or `UnboundMethod` captured before a reopen keeps answering for
       # the definition it was taken from.
       #
@@ -1445,7 +1445,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method object kwargs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Calc
         def kw(a, b: 2); a + b; end
         def opt(a, b = 1); a + b; end
@@ -1488,7 +1488,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method original name aliases" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#original_name` / `UnboundMethod#original_name` answer the name a
       # method was DEFINED under, which differs from `#name` only when it was reached
       # through an alias. `#inspect` shows the same fact in parens: `A#y(x)`.
@@ -1596,7 +1596,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method owner module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Greet
         def hello; "hi"; end
       end
@@ -1620,7 +1620,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method receiver expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Calc
         def initialize(b); @b = b; end
         def add(n); @b + n; end
@@ -1639,7 +1639,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method visibility tracking: private / protected / public affect the
       # reflection (instance_methods family, method_defined? family) and respond_to?.
 
@@ -1733,7 +1733,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "middle splat param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #710. A middle *splat parameter (def f(a, *b, c)) must collect
       # the inner args and leave the trailing fixed param(s) for the args
       # after the splat. Before the fix, the splat greedily ate all the
@@ -1759,7 +1759,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a class named after a builtin type is still the user's class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby names that collide with the compiler's own vocabulary must not leak
       # into the generated program: a class named after a builtin type, a method
       # named after a keyword, and Ruby's `_` local, which the generated program
@@ -1848,7 +1848,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a method named after a compiler keyword is still a method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby names that collide with the compiler's own vocabulary must not leak
       # into the generated program: a class named after a builtin type, a method
       # named after a keyword, and Ruby's `_` local, which the generated program
@@ -1911,7 +1911,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "ruby's _ local takes more than one assignment and still reads back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby names that collide with the compiler's own vocabulary must not leak
       # into the generated program: a class named after a builtin type, a method
       # named after a keyword, and Ruby's `_` local, which the generated program
@@ -1954,7 +1954,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "nullable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test nullable types (T|nil without full poly overhead)
       def find_name(arr, target)
         result = nil
@@ -1987,7 +1987,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "op method shift" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # User-defined << / >> dispatch to the class method, not a raw C shift.
       class Buf
         def initialize
@@ -2028,7 +2028,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "receiver before arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby evaluates a call's receiver before its arguments. Spinel handed both to
       # one C call, where the order among the operands is unspecified: gcc picks
       # right-to-left and clang picks left-to-right, so the same program printed the
@@ -2089,7 +2089,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "recv method splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splatting an array into a user-object method call `obj.f(*args)`. Free-function
       # splat already worked; this covers the receiver-method dispatch path.
       class C
@@ -2138,7 +2138,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a private mark made before a reopen is enforced in the redefinition window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `private` mark made before a reopen is enforced in the REDEFINITION
       # WINDOW, and the reopen clears it -- both channels.
       #
@@ -2184,7 +2184,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a class method's private mark is enforced in its own window the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class CV
         def self.v = "cv1"
         private_class_method :v
@@ -2204,7 +2204,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a protected mark before a reopen behaves as the private one does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The sweep. Each shape below is one a fix could plausibly get wrong.
 
       # `protected` is the third mark, and it rides the same two bits.
@@ -2227,7 +2227,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a bare private running as the default before a reopen marks the same window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The running DEFAULT, rather than a named mark: a bare `private` before the
       # `def` stamps the body the same way.
       class BD
@@ -2249,7 +2249,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "three bodies for one name: a middle install clears the mark and re-marks it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three bodies, so a MIDDLE install has to clear and re-mark.
       class TH
         def m = "t1"
@@ -2276,7 +2276,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "public first and private last leaves the later window private" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The reverse order: public first, private last. The static row says private,
       # so the WINDOW is what a fix has to keep public.
       class RV
@@ -2297,7 +2297,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a mark in a later body naming an earlier body's method reaches that method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mark written in a LATER body, naming a method an EARLIER body defined --
       # the deferred `MethodVisibility` path rather than the in-place retag.
       class LT
@@ -2318,7 +2318,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a method with no redefinition at all keeps the ordinary static path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method with no redefinition at all keeps the ordinary static path.
       class ST
         def a = "a"
@@ -2334,7 +2334,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "remove method on a mixed in module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `remove_method` on a MODULE takes the name away from every class that mixed
       # the module in, and a class's OWN definition survives it.
       #
@@ -2416,7 +2416,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "rest param keyword argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `k: v` argument degrades to one positional hash at a `*rest`
       # parameter's tail. One call path did that and the other dropped it entirely,
       # so an INSTANCE method ran with no arguments at all while the identical
@@ -2470,7 +2470,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "splat new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `*args` positional splat or a `**opts` double-splat at a `.new` call
       # site expands at runtime, dispatching through the class's constructor --
       # the same as any ordinary splat call.
@@ -2504,7 +2504,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "three way method visibility reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Private/public/protected are tracked distinctly: `instance_methods`
       # keeps public+protected, the prefixed queries match exactly one
       # visibility, `respond_to?`'s default skips private AND protected, and a
@@ -2556,7 +2556,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a universal def answers the same on every receiver, counting its ivar per receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
@@ -2701,7 +2701,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "the two paths agree about reflection, which is what a gem reads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
@@ -2805,7 +2805,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "an ivar written through a shared body lands on the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
@@ -2907,7 +2907,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "a class that already held the ivar keeps its own value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
@@ -3005,7 +3005,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "super from a universal def reaches the receiver's own override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` reaches every object, and it must answer the same five
       # questions wherever it is called from.
       #
@@ -3100,7 +3100,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "user defined operator methods can be defined and dispatched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A real, previously-undetected bug: `safe_ident` had no escaping at
       # all for a method name that's a bare operator symbol (`+`, `<=>`,
       # `[]`, ...) -- `def +(other)` aborted at CODEGEN time with a bare
@@ -3148,7 +3148,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "visibility explicit receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's THIRD call mode: an explicit receiver enforces visibility, where a
       # receiverless call does not. A `protected` method is reachable only when the
       # CALLER'S SELF is kind_of the method's owner.

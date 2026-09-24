@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: frozen literals" do
   it "anonymous class is named in messages" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class with no name shows as #<Class:0x...> wherever a message names
       # it: a missing method, inspect, a frozen object, a failed comparison.
       def show(label)
@@ -46,7 +46,7 @@ describe "Classes: frozen literals" do
   end
 
   it "a class naming one the runtime carries reopens it, and the native half is still there" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A `class` or `module` naming one the runtime always carries REOPENS it.
@@ -131,11 +131,11 @@ describe "Classes: frozen literals" do
   end
 
   it "class macros" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # The `Module` verbs a class body calls to change what the class is.
-      # ze0 answers `module_function` at compile time, because the rows it
+      # zr answers `module_function` at compile time, because the rows it
       # writes exist before the body runs; the rest are ordinary sends to the
       # class the body is opening.
 
@@ -317,7 +317,7 @@ describe "Classes: frozen literals" do
   end
 
   it "class reveal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A class row registers its shape before the first statement runs, so
@@ -363,11 +363,11 @@ describe "Classes: frozen literals" do
   end
 
   it "method_added fires at the definition's own position, on a half-built class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # ruby announces every definition to the class it landed on, at the
-      # definition's own position. ze0 installs a declared `def` before the
+      # definition's own position. zr installs a declared `def` before the
       # program runs, so the announcement is made where the statement stands
       # instead -- through a probe, which is one atomic load when nothing
       # hooks it.
@@ -442,7 +442,7 @@ describe "Classes: frozen literals" do
   end
 
   it "definition type errors" do
-    result = ze0(<<~'RUBY', path: "ze0/definition_type_errors.rb")
+    result = zr(<<~'RUBY', path: "zr/definition_type_errors.rb")
       # frozen_string_literal: true
 
       # A definition ruby RAISES on is a definition that runs and raises, not a
@@ -545,8 +545,8 @@ describe "Classes: frozen literals" do
       "Object"
       [1, 2, 3, "Parent"]
       "superclass mismatch for class Kid"
-      "Inner is not a module\nze0/definition_type_errors.rb:43: previous definition of Inner was here"
-      "Mixin is not a class\nze0/definition_type_errors.rb:50: previous definition of Mixin was here"
+      "Inner is not a module\nzr/definition_type_errors.rb:43: previous definition of Inner was here"
+      "Mixin is not a class\nzr/definition_type_errors.rb:50: previous definition of Mixin was here"
       true
       "HI!"
       "superclass mismatch for class String"
@@ -556,7 +556,7 @@ describe "Classes: frozen literals" do
   end
 
   it "frozen class or object refuses every change" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def try = (yield; :ok) rescue [$!.class, $!.message.sub(/0x\h+/, "0x")]
 
       o = Object.new.freeze
@@ -613,7 +613,7 @@ describe "Classes: frozen literals" do
   end
 
   it "frozen class refuses every definition verb" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every verb that would change a frozen class or module says so, and
       # `Regexp.allocate` answers an object with no pattern that names itself
       # at the first read.
@@ -690,7 +690,7 @@ describe "Classes: frozen literals" do
   end
 
   it "initialize containers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The container initialize family, in place -- oracle-pinned semantics
       # including the corners: Hash#initialize touches ONLY the default channel,
       # Set#initialize merges without a frozen check (a 4.0 CoreSet quirk).
@@ -809,7 +809,7 @@ describe "Classes: frozen literals" do
   end
 
   it "initialize handles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The mutable-handle initialize family: re-init genuinely re-seats the
       # receiver (Pathname/Dir/Enumerator family/File::Stat), oracle-pinned.
       def err(label)
@@ -915,7 +915,7 @@ describe "Classes: frozen literals" do
   end
 
   it "initialize value types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value-type and sync-primitive initialize family: for types frozen or
       # one-shot by construction, CRuby's refusals ARE the semantics.
       def err(label)
@@ -1022,7 +1022,7 @@ describe "Classes: frozen literals" do
   end
 
   it "reopened builtins win" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # Integer arithmetic and comparison take an inline fast path, and `puts`
@@ -1073,7 +1073,7 @@ describe "Classes: frozen literals" do
   end
 
   it "runtime class bodies" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A class made at run time has no row, so nothing written in its body can
@@ -1187,7 +1187,7 @@ describe "Classes: frozen literals" do
   end
 
   it "runtime defs" do
-    result = ze0(<<~'RUBY', path: "ze0/runtime_defs.rb")
+    result = zr(<<~'RUBY', path: "zr/runtime_defs.rb")
       # frozen_string_literal: true
 
       # A `def` the declaration pass does not reach has no row: which class it
@@ -1325,7 +1325,7 @@ describe "Classes: frozen literals" do
       [1, 9, [5], true]
       "wrong number of arguments (given 0, expected 1+)"
       "from a runtime def"
-      "ze0/runtime_defs.rb:32:in 'M#boom'"
+      "zr/runtime_defs.rb:32:in 'M#boom'"
       41
       "NameError"
       7
@@ -1343,7 +1343,7 @@ describe "Classes: frozen literals" do
   end
 
   it "runtime superclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `class Foo < <expr>` mints its class while the program runs, so no row
@@ -1477,7 +1477,7 @@ describe "Classes: frozen literals" do
   end
 
   it "small core classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The small classes zeo lacked: `GC::Profiler`, `Thread::Backtrace` (which is
       # what makes the `Location` it namespaces reachable at all), the sibling
       # `ObjectSpace::WeakKeyMap`, the `Random::Base`/`Random::Formatter` rungs
@@ -1657,10 +1657,10 @@ describe "Classes: frozen literals" do
   end
 
   it "superclasses" do
-    result = ze0(<<~'RUBY', path: "ze0/superclasses.rb")
+    result = zr(<<~'RUBY', path: "zr/superclasses.rb")
       # frozen_string_literal: true
 
-      # A superclass is a NAME, written as a bare constant or as a path. ze0
+      # A superclass is a NAME, written as a bare constant or as a path. zr
       # resolves it outward from the class the statement is written in, the way
       # ruby resolves any constant, and hands the backend the fully-qualified
       # name it will assign an id to.
@@ -1768,7 +1768,7 @@ describe "Classes: frozen literals" do
       2
       [:two]
     OUT
-      ze0/superclasses.rb:82:in '<main>': undefined method 'respond_to?' for an instance of Bare (NoMethodError)
+      zr/superclasses.rb:82:in '<main>': undefined method 'respond_to?' for an instance of Bare (NoMethodError)
 
       Bare.new.respond_to?(:to_s)
               ^^^^^^^^^^^^

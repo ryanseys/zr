@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "SecureRandom programs" do
   it "builtin row reports its parameter names" do
-    result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
+    result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       # `Method#parameters` on a native row used to answer the anonymous descriptor
       # derived from its arity -- `[[:req]]` where ruby says `[[:req, :fmt]]`. zeo
       # reported a parameter NAME on no builtin row at all.
@@ -114,7 +114,7 @@ describe "SecureRandom programs" do
   end
 
   it "is cryptographic not a seeded prng" do
-    result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
+    result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       # Two independent draws must differ, and -- unlike Kernel#rand -- srand must
       # NOT make SecureRandom reproducible (it reads the OS CSPRNG, not the seedable
       # generator). A regression to a clock-seeded xorshift would break this.
@@ -138,7 +138,7 @@ describe "SecureRandom programs" do
   end
 
   it "every generator answers the length, format, range and encoding its contract names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SecureRandom: cryptographically secure random values, built on OS entropy
       # (Random.urandom) and the Random::Formatter mixin. Random output can't be
       # printed verbatim, so this prints its OBSERVABLE CONTRACT -- lengths, formats,
@@ -196,7 +196,7 @@ describe "SecureRandom programs" do
   end
 
   it "hex, base64, random_bytes and alphanumeric answer the length and class each promises" do
-    result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
+    result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       puts SecureRandom.hex(8).length          # 2*n
       puts SecureRandom.hex.length             # default n=16
@@ -221,7 +221,7 @@ describe "SecureRandom programs" do
   end
 
   it "random_number answers an Integer, a Float or a value in the Range it is given" do
-    result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
+    result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       puts SecureRandom.random_number(10).class
       puts (0...200).all? { SecureRandom.random_number(10) < 10 }
@@ -246,7 +246,7 @@ describe "SecureRandom programs" do
   end
 
   it "urlsafe_base64 drops the padding by default and keeps it when asked" do
-    result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
+    result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       # Default: no padding, URL/filename-safe alphabet only. n=5 isn't a
       # multiple of 3, so a padded encoding really does carry a trailing '='.
@@ -265,7 +265,7 @@ describe "SecureRandom programs" do
   end
 
   it "uuid and uuid_v4 both answer a well-formed version 4 UUID" do
-    result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
+    result = zr(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       u = SecureRandom.uuid
       puts(u =~ /\A\h{8}-\h{4}-4\h{3}-[89ab]\h{3}-\h{12}\z/ ? "uuid_ok" : "uuid_BAD: #{u}")

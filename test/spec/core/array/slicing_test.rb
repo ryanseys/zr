@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: slicing" do
   it "a blockless cycle, repeated_permutation, slice_before, slice_after and each_entry all materialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless enumerator materialization: cycle(n), repeated_permutation,
       # slice_before/slice_after with a pattern value, and each_entry.
       a = [1, 2]
@@ -37,7 +37,7 @@ describe "Array: slicing" do
   end
 
   it "fill with a value the element type refuses rebuilds the result as a poly array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#fill with a value incompatible with the element type rebuilds the
       # result as a poly array (CRuby just mixes the element in); positional and
       # range spans, and the compatible typed fills keep their arms.
@@ -60,7 +60,7 @@ describe "Array: slicing" do
   end
 
   it "fill over a range counts a negative end from the end, and an endless one stops at the last element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # fill(value, range): a negative end counts from the end and an endless one
       # runs to the last element. Unnormalized, `fill(v, 2..)` grew the array until
       # the process died and `fill(v, 1..-1)` filled nothing.
@@ -95,7 +95,7 @@ describe "Array: slicing" do
   end
 
   it "first and last on an empty array answer nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#first / Array#last on an empty array return nil,
       # not SP_INT_NIL printed as a huge negative number.
       # CRuby returns nil for [].first and [].last.
@@ -123,7 +123,7 @@ describe "Array: slicing" do
   end
 
   it "push and append take any number of arguments and answer the array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#push / #append take any number of arguments and return the
       # array. Both forms previously compiled only the first argument
       # (compile_arg0), so a multi-arg push dropped every element after the
@@ -173,7 +173,7 @@ describe "Array: slicing" do
   end
 
   it "values_at reads a beginless, endless or out-of-range span" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3, 4, 5]
       p a.values_at(2..)
       p a.values_at(2...)
@@ -209,7 +209,7 @@ describe "Array: slicing" do
   end
 
   it "bsearch and empty parens" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#bsearch / Range#bsearch support both CRuby modes, selected by the
       # block's return type. Find-minimum mode (a boolean/nil result) answers the
       # first element for which the block is true; find-any mode (a Numeric
@@ -256,7 +256,7 @@ describe "Array: slicing" do
   end
 
   it "builtin array method capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<int_array>.method(:op)` lowered through a per-(type, op)
       # trampoline matching the Method dispatch ABI. Surfaced via
       # optcarrot's CPU memory-mapping shape
@@ -313,7 +313,7 @@ describe "Array: slicing" do
   end
 
   it "Top-level def, [] passed directly at call site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty `[]` literal as parameter — deferred element-type resolution
       # must converge across caller / param / body. Issues #58 (top-level
       # def + instance method) and #84 (inherited dispatch). Was four
@@ -335,7 +335,7 @@ describe "Array: slicing" do
   end
 
   it "Top-level def, [] stored in local first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty `[]` literal as parameter — deferred element-type resolution
       # must converge across caller / param / body. Issues #58 (top-level
       # def + instance method) and #84 (inherited dispatch). Was four
@@ -362,7 +362,7 @@ describe "Array: slicing" do
   end
 
   it "Instance method receiving [] — same deferred path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty `[]` literal as parameter — deferred element-type resolution
       # must converge across caller / param / body. Issues #58 (top-level
       # def + instance method) and #84 (inherited dispatch). Was four
@@ -456,7 +456,7 @@ describe "Array: slicing" do
   end
 
   it "flatten walks any depth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # flatten walks with a stack of its own, as CRuby's does, so an Array
       # nested far deeper than any call stack flattens; a level stops the walk
       # where it says; an element answering to_ary is asked once; a recursive
@@ -509,7 +509,7 @@ describe "Array: slicing" do
   end
 
   it "float array first last nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # FloatArray#first/#last on an empty array return nil (float? nullable),
       # not 0.0. A non-empty array yields the value as a plain float, and the
       # value flows transparently through arithmetic (the float? rides as a
@@ -545,7 +545,7 @@ describe "Array: slicing" do
   end
 
   it "hash dig" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#dig: nested key traversal across hash variants.
 
       # 1. Single-key form on each hash variant — alias for `[]`.
@@ -684,7 +684,7 @@ describe "Array: slicing" do
   end
 
   it "integer digits base" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#digits(base) returns the digits in the given base, least-significant
       # first. The base argument must reach the runtime instead of being ignored.
       p 255.digits
@@ -718,7 +718,7 @@ describe "Array: slicing" do
   end
 
   it "pointer type miscompiles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shapes whose generated C carried a pointer of the wrong type: each read one
       # struct through another's layout, and each was only a compiler warning before
       # (#3975's second observation -- the build now fails on one).
@@ -767,7 +767,7 @@ describe "Array: slicing" do
   end
 
   it "range and array range args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Cluster of "Range struct passed where mrb_int expected" C errors:
       #   #1247 rand(range) / rand(float)
       #   #1234 Range#cover? with a Range argument
@@ -836,7 +836,7 @@ describe "Array: slicing" do
   end
 
   it "range bsearch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer Range#bsearch in find-minimum mode: the block returns truthy
       # for the upper half; bsearch returns the smallest member where it does,
       # or nil when no member qualifies.
@@ -863,7 +863,7 @@ describe "Array: slicing" do
   end
 
   it "range bsearch float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#bsearch over a float-bounded range bisects the real interval (a
       # float member, or nil) -- previously it crashed with "can't iterate from
       # Float". Integer ranges keep their index bisection.
@@ -888,7 +888,7 @@ describe "Array: slicing" do
   end
 
   it "range overlap array flatten depth" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#overlap? on two numeric ranges, plus Array#flatten(n)
       # with a depth-bounded variant.
 
@@ -925,7 +925,7 @@ describe "Array: slicing" do
   end
 
   it "safe nav array returning" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x&.keys` / `&.values` / `&.to_a` on a receiver that is not statically a Hash
       # typed the whole expression poly, while the guarded call itself lowers to an
       # sp_PolyArray *. The C conditional then had an sp_RbVal nil against a pointer
@@ -963,7 +963,7 @@ describe "Array: slicing" do
   end
 
   it "sp net poll grow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The readiness set grows with the caller's connection count.
       #
       # It used to be a fixed 256-entry array whose overflow answered -1 -- and -1 is
@@ -1013,7 +1013,7 @@ describe "Array: slicing" do
   end
 
   it "stack operations take a count in the kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # pop, shift and unshift are kernel entries with the count of `pop(n)`
       # and `shift(n)` read there, and first and last stay ruby's own Ruby:
       # the same answers, errors in the same order, plain Arrays from a
@@ -1092,7 +1092,7 @@ describe "Array: slicing" do
   end
 
   it "struct dig" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct#dig is variadic. The first key is member access (by symbol /
       # string name or integer position); any further keys dig recursively
       # into the member's value. Previously dig fell through to an unresolved

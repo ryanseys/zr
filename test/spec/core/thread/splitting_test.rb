@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread: splitting and joining" do
   it "blocked thread is asleep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A thread waiting on a blocking primitive is "sleep", not "run". zeo used to
       # answer "run" for every one of them, because only the `Thread.stop` latch
       # said "sleep" -- and that latch cannot be reused, since the stop loop spins
@@ -89,7 +89,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "closing a queue wakes a blocked consumer with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       q = Queue.new
       consumer = Thread.new do
         v = q.pop
@@ -108,7 +108,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "concurrency handle nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `nil?` on a slot typed as a concurrency handle answered a compile-time false,
       # on the reasoning that a live handle is never NULL. The slot holding one can
       # be, though: `@t = nil` then `if @t.nil?` folded to false, so the guarded
@@ -198,7 +198,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "freezing in one thread is visible after join" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Threads share the heap (no Ractor boundary): a freeze in one is the
       # same AtomicBool every other execution context reads.
 
@@ -212,7 +212,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "method that only recurses hands the turn on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A thread that only recurses has no loop, so no back edge of compiled
       # Ruby and no kernel iterator: the poll at each method's entry is where
       # it hands the turn on. The worker's five steps land before the burner
@@ -233,7 +233,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "queue producer consumer rendezvous with close" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # pop blocks the thread until a value or closure arrives; a closed empty
       # queue pops nil (`thread_sync.c:1034`).
 
@@ -260,7 +260,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "sized queue and try lock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SizedQueue back-pressure and Mutex#try_lock on the cooperative scheduler.
 
       # A SizedQueue(2) whose producer pushes 5 items: #push blocks once two are
@@ -318,7 +318,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "sized queue back pressure try lock and thread namespacing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SizedQueue bounds #push; Mutex#try_lock is non-blocking; and the whole
       # Thread::* family reports its CRuby-faithful qualified name.
 
@@ -369,7 +369,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "spinner with no back edge of its own hands the turn on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A thread that only computes hands the turn on wherever it loops: at a
       # `next` or `redo` that jumps back before the loop's end, and inside the
       # runtime's own iterators, whose bodies have no back edge of compiled
@@ -396,7 +396,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "spinning thread cannot starve a sibling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # THE parallel-default headline: a compute-only spinner in one thread
       # cannot starve a sibling, because both run on independent OS threads. The
       # worker computes its value concurrently while the spinner loops; the
@@ -415,7 +415,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "ConditionVariable#wait releases the mutex and parks until a signal wakes it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConditionVariable on the cooperative scheduler: #wait releases the mutex and
       # parks until #signal/#broadcast wakes the waiter, which re-acquires the mutex.
 
@@ -464,7 +464,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "Thread.current, .main and .pass answer, and a thread carries its own locals and status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread.current / .main / .pass
       p Thread.current.class
       p Thread.current == Thread.main
@@ -522,7 +522,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "join and value dispatch on threads read out of an Array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The threads live in an Array, so `join`/`value` dispatch dynamically
       # (the runtime Thread table), not the static codegen fast path.
 
@@ -535,7 +535,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "Thread#[] and #[]= give each thread storage of its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread-local storage (Thread#[] / #[]= / #key?, symbol keys), #status, and
       # Thread.main on the cooperative scheduler. Each thread has its own storage.
 
@@ -579,7 +579,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "synchronize wraps the block in lock and unlock, and the lock predicates answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mutex on the cooperative scheduler: #synchronize wraps the block in lock/unlock,
       # and lock/unlock/locked?/owned?/try_lock behave as in CRuby.
 
@@ -623,7 +623,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "a thread's name is nil until #name= sets it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread#name / #name= name a thread; the default is nil.
       t = Thread.new { 1 }
       p t.name                      # nil
@@ -646,7 +646,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "a blocking pop parks until a push hands it a value, and close drains the poppers with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Queue producer/consumer on the cooperative scheduler (Phase 0). A blocking
       # #pop parks the caller until a #push hands it a value; #close drains remaining
       # poppers with nil. Results are FIFO (deterministic); thread interleaving order
@@ -699,7 +699,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "a push blocks at the queue's capacity until a pop frees a slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SizedQueue on the cooperative scheduler: #push blocks when the queue is at its
       # capacity until a #pop frees a slot. FIFO values are deterministic; thread
       # interleaving order is not asserted.
@@ -739,7 +739,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "value and join dispatch on a thread carried in a container rather than answering nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Thread (modelled as a single-threaded Fiber) carried through a container:
       # #value/#join must dispatch on the boxed Fiber, not degrade to nil (#1261).
       ts = (1..3).map { |i| Thread.new { i * 10 } }
@@ -762,7 +762,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "threads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Thread / Mutex / Queue -- green-thread concurrency
 
       # join-synchronized ordering
@@ -852,7 +852,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "three threads join out of creation order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t1 = Thread.new { 1 }
       t2 = Thread.new { 2 }
       t3 = Thread.new { 3 }
@@ -863,7 +863,7 @@ describe "Thread: splitting and joining" do
   end
 
   it "wait converts its timeout before it parks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every wait reads its timeout before it parks, and two rules apply: a
       # sleep takes a time interval, which refuses a negative one, while a
       # limit (a queue's timeout, a join's) takes what rb_to_float takes and

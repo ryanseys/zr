@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "FileUtils programs" do
   it "the vendored gem compiles from its upstream source, and the core file operations answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # FileUtils -- the vendored pure-Ruby stdlib gem (gems/fileutils), compiled
       # from its real upstream source, not reimplemented. Exercises the core file
       # operations rubygems/bundler rely on; every line is oracle-matched.
@@ -47,7 +47,7 @@ describe "FileUtils programs" do
   end
 
   it "mkdir_p, cp, mv, rm_rf and their siblings all run out of the gem the lock resolves" do
-    result = ze0(<<~'RUBY', files: {"fileutils.rb" => fixture("stdlib/fileutils/fileutils.rb")})
+    result = zr(<<~'RUBY', files: {"fileutils.rb" => fixture("stdlib/fileutils/fileutils.rb")})
       # `require "fileutils"` compiles the real upstream gem the lock resolves,
       # including its load-time module metaprogramming (module_function, extend
       # self, class << self, a platform-conditional StreamUtils_), and the core

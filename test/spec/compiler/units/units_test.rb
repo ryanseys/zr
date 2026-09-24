@@ -7,7 +7,7 @@ describe "Units programs" do
     files = beside("autoload_and_guard/lib/pkg/target.rb", "autoload_and_guard/lib/pkg.rb",
                    "autoload_and_guard/prog.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # One file demanded twice under two different names: an `autoload` naming it
       # on the load path, and a guarded `require_relative` naming it by path. rack
       # writes both, and the second never runs.
@@ -36,7 +36,7 @@ describe "Units programs" do
   it "autoload target compiled as a unit" do
     files = beside("autoload_unit/cmd.rb", "autoload_unit/demo.rb", "autoload_unit/spec.rb", "autoload_unit/thing.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # An `autoload` declared inside a file that is itself compiled as a LOAD-PATH
       # UNIT runs its target when the constant is READ, whichever spelling named it,
       # and whether or not anything else ever requires it.
@@ -70,7 +70,7 @@ describe "Units programs" do
     files = beside("unit_only_target/cmd.rb", "unit_only_target/lib.rb", "unit_only_target/rule.rb",
                    "unit_only_target/spec.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # An `autoload` target is a UNIT-ONLY target: every other require site that
       # names the same file keeps its call and loads the unit, so whichever runs
       # first runs the body once.
@@ -108,7 +108,7 @@ describe "Units programs" do
   end
 
   it "autoloaded units body runs" do
-    result = ze0(<<~'RUBY', files: beside("autoloaded_body/leaf.rb", "autoloaded_body/target.rb"))
+    result = zr(<<~'RUBY', files: beside("autoloaded_body/leaf.rb", "autoloaded_body/target.rb"))
       # A unit reached through `autoload` runs its BODY, so every constant it
       # assigns is defined from there on.
       #
@@ -152,7 +152,7 @@ describe "Units programs" do
   end
 
   it "conditional require units" do
-    result = ze0(<<~'RUBY', files: beside("conditional_require/loud.rb", "conditional_require/second.rb"))
+    result = zr(<<~'RUBY', files: beside("conditional_require/loud.rb", "conditional_require/second.rb"))
       # A require under a runtime-undecidable guard runs only when the guard
       # passes -- CRuby's order of events. The false direction: this env var is
       # never set, so `loud.rb`'s side effect must not appear (an eager splice ran
@@ -173,7 +173,7 @@ describe "Units programs" do
   end
 
   it "def after an undef in a unit" do
-    result = ze0(<<~'RUBY', files: beside("def_after_undef/tracer.rb"))
+    result = zr(<<~'RUBY', files: beside("def_after_undef/tracer.rb"))
       require_relative "def_after_undef/tracer"
       p Module.private_method_defined?(:method_added)
       p Module.private_instance_methods(false).sort.grep(/method_/)
@@ -190,7 +190,7 @@ describe "Units programs" do
   it "glob require units" do
     files = beside("glob_require_units/loader.rb", "glob_require_units/part_a.rb", "glob_require_units/part_b.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A glob-driven require loop -- how a test suite (tzinfo's ts_all.rb) or a
       # plugin registry loads itself. The target strings exist only at runtime, so
       # the demanding file's directory is compiled in as callable units and the
@@ -206,7 +206,7 @@ describe "Units programs" do
   it "guarded def in an earlier unit does not take a later units position" do
     files = beside("guarded_def_unit/guarded.rb", "guarded_def_unit/main.rb", "guarded_def_unit/real.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # The failing shape ACROSS FILES, which is how bundler and rubygems meet:
       # the guarded reopen is a unit walked before the unit holding the real
       # bodies.
@@ -225,7 +225,7 @@ describe "Units programs" do
   it "lazy units" do
     files = beside("lazy_units/counted.rb", "lazy_units/guarded.rb", "lazy_units/nested.rb", "lazy_units/reloaded.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # frozen_string_literal: true
 
       # A `require` the compile-time splice cannot reach -- one an `if`
@@ -302,7 +302,7 @@ describe "Units programs" do
   end
 
   it "method body require relative loads a unit" do
-    result = ze0(<<~'RUBY', files: {"method_body_require/part.rb" => "PART = \"loaded\"\n"})
+    result = zr(<<~'RUBY', files: {"method_body_require/part.rb" => "PART = \"loaded\"\n"})
       # A `require_relative` written in a METHOD body loads its target when the
       # method RUNS, even when some other site has already made that file a unit.
       #
@@ -346,7 +346,7 @@ describe "Units programs" do
   end
 
   it "process clock gettime unit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # clock_gettime honors the clock id and unit. Values are machine time, so
       # assert structure/type (platform-neutral), not exact numbers.
       p(Process.clock_gettime(Process::CLOCK_REALTIME) > 1_000_000_000)
@@ -366,7 +366,7 @@ describe "Units programs" do
   end
 
   it "process clock unit validation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.clock_gettime validates its unit (#2727): an unknown literal symbol
       # is CRuby's ArgumentError, not a silent float_second.
       r = (Process.clock_gettime(Process::CLOCK_MONOTONIC, :bogus) rescue $!.class)
@@ -383,7 +383,7 @@ describe "Units programs" do
   end
 
   it "runtime unit may yield from a singleton body" do
-    result = ze0(<<~'RUBY', files: fixtures("singleton_yield/singleton_yield_target.rb"))
+    result = zr(<<~'RUBY', files: fixtures("singleton_yield/singleton_yield_target.rb"))
       DIR = File.expand_path("../../fixtures/singleton_yield", __dir__)
       $LOAD_PATH.unshift(DIR)
 
@@ -397,7 +397,7 @@ describe "Units programs" do
   end
 
   it "time at unit form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time.at(sec, num, :unit) scales the second argument by the named unit
       # (#2714). CRuby's unit set has no plurals; an unknown one is ArgumentError.
       p Time.at(0, 500, :millisecond).to_f
@@ -424,7 +424,7 @@ describe "Units programs" do
   end
 
   it "time at units matchdata slice and float exponent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData indexes like an array `[full, g1, g2, g3]`, so `md[1, 2]`
       # is `[g1, g2]` and `md[1..]` is `[g1, g2, g3]` (verified against
       # ruby 4.0.6 -- the previous expectation dropped the first capture).
@@ -451,7 +451,7 @@ describe "Units programs" do
   end
 
   it "unit class new dispatches runtime" do
-    result = ze0(<<~'RUBY', files: beside("unit_class/foo/thing.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_class/foo/thing.rb"))
       # `.new` on a class whose `initialize` lives in a lazily-loaded unit is a
       # call site like any other: the name de-optimizes to the dynamic path,
       # which resolves the REAL initialize (the static resolution fell through to
@@ -478,7 +478,7 @@ describe "Units programs" do
   end
 
   it "unit records its own path in loaded features" do
-    result = ze0(<<~'RUBY', files: {"unit_loaded_features/part.rb" => "PART_OK = true\n"})
+    result = zr(<<~'RUBY', files: {"unit_loaded_features/part.rb" => "PART_OK = true\n"})
       # `$LOADED_FEATURES` names the FILE a require loaded, never the spelling the
       # require asked under. CRuby lists absolute paths, and real libraries read that
       # list: rubygems' `already_loaded?` compares `"#{load_path_entry}/#{file}"`
@@ -514,7 +514,7 @@ describe "Units programs" do
   end
 
   it "unit reopen of kernel is positional" do
-    result = ze0(<<~'RUBY', files: beside("unit_reopen/patch.rb", "unit_reopen/pkg.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_reopen/patch.rb", "unit_reopen/pkg.rb"))
       # A reopen of a builtin inside a LAZY UNIT is positional too.
       #
       # A reopen normally gets one `.bss` byte -- `zeo_reopen_flags` -- stored at
@@ -561,7 +561,7 @@ describe "Units programs" do
   end
 
   it "unit requires run lazily" do
-    result = ze0(<<~'RUBY', files: beside("unit_requires/foo/a.rb", "unit_requires/foo/b.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_requires/foo/a.rb", "unit_requires/foo/b.rb"))
       # A require INSIDE a lazily-loaded unit runs when the unit body executes --
       # CRuby's order -- rather than being woven inline into whichever unit the
       # sweep reached first (the cross-unit dedup hazard rbconfig hit inside
@@ -592,7 +592,7 @@ describe "Units programs" do
   end
 
   it "unit toplevel constant is defined from a class body" do
-    result = ze0(<<~'RUBY', files: beside("unit_toplevel/latecomer.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_toplevel/latecomer.rb"))
       # `defined?` on a TOP-LEVEL constant a compiled-in unit assigns, read from
       # inside a class body, answers "constant".
       #
@@ -637,7 +637,7 @@ describe "Units programs" do
   end
 
   it "unit visibility applies at load" do
-    result = ze0(<<~'RUBY', files: beside("unit_visibility/loaded_late.rb", "unit_visibility/never_loaded.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_visibility/loaded_late.rb", "unit_visibility/never_loaded.rb"))
       # Visibility directives in a FEATURE UNIT's body apply when the unit LOADS,
       # not at program start: a never-loaded unit's `private` must not fire, and a
       # late-loaded one applies at its load point (CRuby's positional semantics).
@@ -697,7 +697,7 @@ describe "Units programs" do
   end
 
   it "a method_added hook in a unit nothing required yet is not installed, so no def announces to it" do
-    result = ze0(<<~'RUBY', files: beside("unit_module_hook/tracer.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_module_hook/tracer.rb"))
       # A `class ::Module; def method_added` in a file nothing has required yet is
       # not installed, so nothing announces itself to it.
       #
@@ -751,7 +751,7 @@ describe "Units programs" do
     files = beside("unit_superclass/child.rb", "unit_superclass/root.rb", "unit_superclass/settings.rb",
                    "unit_superclass/zpath.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A unit's `class Child < Path` names a superclass another unit defines, and
       # the compiler walks the two in demand order -- which is not load order.
       #
@@ -799,7 +799,7 @@ describe "Units programs" do
   end
 
   it "the default method_added row stays a no-op until the unit that undefines it loads" do
-    result = ze0(<<~'RUBY', files: beside("unit_undef/tracer.rb"))
+    result = zr(<<~'RUBY', files: beside("unit_undef/tracer.rb"))
       if ARGV.include?("--debug")
         require_relative "unit_undef/tracer"
       end

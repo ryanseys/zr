@@ -2,8 +2,8 @@
 
 require "etc"
 require "test_helper"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/native/build"
 
 # A unit assembled in workers: the answers in item order whatever the
 # bins, the first failure in item order, and the bytes of the kernel's
@@ -12,13 +12,13 @@ class ParallelTest < Minitest::Test
   def test_answers_come_back_in_item_order_for_any_jobs
     items = (1..40).to_a
     [1, 2, 3, 7].each do |jobs|
-      assert_equal items.map { |x| x * x }, Ze0::Native::Parallel.map(items, jobs: jobs, weight: ->(x) { x % 5 }) { |x| x * x }
+      assert_equal items.map { |x| x * x }, Zr::Native::Parallel.map(items, jobs: jobs, weight: ->(x) { x % 5 }) { |x| x * x }
     end
   end
 
   def test_a_failure_raises_the_first_items_error
     error = assert_raises(ArgumentError) do
-      Ze0::Native::Parallel.map((1..30).to_a, jobs: 3, weight: ->(x) { x }) do |x|
+      Zr::Native::Parallel.map((1..30).to_a, jobs: 3, weight: ->(x) { x }) do |x|
         raise TypeError, "late #{x}" if x == 25
         raise ArgumentError, "first #{x}" if x == 11
 
@@ -30,9 +30,9 @@ class ParallelTest < Minitest::Test
 
   def test_the_kernel_object_is_the_same_bytes_from_any_number_of_workers
     one, three = [1, 3].map do |jobs|
-      unit = Ze0::Machine.unit(Ze0::Zr.kernel_files)
-      image = Ze0::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
-      Ze0::Native::Build.writer(Ze0::Target.default).write(image)
+      unit = Zr::Machine.unit(Zr::Zr.kernel_files)
+      image = Zr::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
+      Zr::Native::Build.writer(Zr::Target.default).write(image)
     end
     assert_equal one.bytesize, three.bytesize
     assert one == three, "the kernel object differs between one worker and three"
@@ -62,15 +62,15 @@ class ParallelTest < Minitest::Test
     on_a_machine_of(4) { assert_equal 1, holding(8) { Parallel.afforded(6) } }
   end
 
-  def test_ze0_jobs_overrules_the_memory_bound
-    with_env("ZE0_JOBS" => "6") do
+  def test_zr_jobs_overrules_the_memory_bound
+    with_env("ZR_JOBS" => "6") do
       on_a_machine_of(16) { assert_equal 6, holding(10) { Parallel.afforded(6) } }
     end
   end
 
   private
 
-  Parallel = Ze0::Native::Parallel
+  Parallel = Zr::Native::Parallel
 
   def on_a_machine_of(gigabytes, &block) = standing_in(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block)
 

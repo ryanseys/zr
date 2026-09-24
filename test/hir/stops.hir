@@ -4,7 +4,7 @@
       (const ARGV)
       (str "--build-extension"))
     (seq
-      (stop "mkmf, which writes a C extension's Makefile: ze0 compiles no C, so an extension it configured")
+      (stop "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured")
       (send self p
         (send self have_header
           (str "stdio.h"))))

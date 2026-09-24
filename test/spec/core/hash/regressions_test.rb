@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: regressions" do
   it "empty hash promote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty hash literal whose first []= write pins a different key/value
       # type pair than the str_int_hash default. Pre-fix: declaration ran
       # before any []= so `h = {}; h[1] = "one"` got declared as
@@ -71,7 +71,7 @@ describe "Hash: regressions" do
   end
 
   it "a string-keyed hash answers [], length, each, keys, has_key? and delete" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Hash support
 
       # Hash literal
@@ -113,7 +113,7 @@ describe "Hash: regressions" do
   end
 
   it "delete compacts the insertion order, so keys and values skip the entry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression test: Hash#delete must compact the insertion-order array
       # so that subsequent #keys / #values / each iteration skip the deleted
       # entry. The Robin Hood backing array was being repaired correctly on
@@ -155,7 +155,7 @@ describe "Hash: regressions" do
   end
 
   it "keys.each yields the keys of every hash kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test hash.keys.each fusion for all hash types
 
       # int_str_hash: integer keys
@@ -224,7 +224,7 @@ describe "Hash: regressions" do
   end
 
   it "transform_keys runs the block once per key and rekeys the result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#transform_keys for str_int_hash. The block runs once per key,
       # its return value becomes the new key. Mirrors transform_values'
       # shape (which already shipped) but on the key axis.
@@ -274,7 +274,7 @@ describe "Hash: regressions" do
   end
 
   it "transform_values runs the block once per value and keeps the keys and order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#transform_values across hash variants. The block runs once
       # per value, its return becomes the new value, keys and order
       # preserved. str_int_hash already shipped; this covers int_str_hash
@@ -351,7 +351,7 @@ describe "Hash: regressions" do
   end
 
   it "int str hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test integer-keyed string-valued hash (sp_IntStrHash)
       # Regression: previously segfaulted — codegen emitted sp_StrStrHash,
       # causing sp_str_hash() to dereference integer keys as pointers.
@@ -448,7 +448,7 @@ describe "Hash: regressions" do
   end
 
   it "dup answers a copy for a string-keyed and an integer-keyed hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#dup was missing from the str_str_hash and int_str_hash codegen
       # dispatch tables -- the runtime helpers exist (sp_StrStrHash_dup,
       # sp_IntStrHash_dup) but the codegen arms didn't dispatch to them, so
@@ -498,7 +498,7 @@ describe "Hash: regressions" do
   end
 
   it "an each block's k and v carry the hash's own key and value types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `h.each do |k, v|` previously had its block params typed via
       # elem_type_of_array(recv_type), which only knows about typed
       # arrays — for a hash receiver it fell back to "int" for both
@@ -526,7 +526,7 @@ describe "Hash: regressions" do
   end
 
   it "merge between two hashes whose value types differ widens the result" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #661: Hash#merge across hash variants with different value
       # types. Previously the codegen used the receiver's prefix
       # unconditionally (sp_SymIntHash_merge(h1, h2) where h2 was
@@ -565,7 +565,7 @@ describe "Hash: regressions" do
   end
 
   it "Hash.new(v) gives each instance a default that the misses answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Hash.new(default_value)` per-instance default support.
       #
       # Each hash variant struct (StrIntHash / StrStrHash / IntStrHash /
@@ -677,7 +677,7 @@ describe "Hash: regressions" do
   end
 
   it "h[k] || rhs answers rhs on a miss, not the value type's zero" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #660: `hash[k] || rhs` on a typed-hash receiver must return
       # rhs when the key is missing -- not the value-type zero (0 / "").
       #
@@ -720,7 +720,7 @@ describe "Hash: regressions" do
   end
 
   it "comparable clamp string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #899: Comparable#clamp on a string receiver via strcmp.
       puts "b".clamp("a", "c")
       puts "z".clamp("a", "c")
@@ -735,7 +735,7 @@ describe "Hash: regressions" do
   end
 
   it "file separator constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #891: File::SEPARATOR / PATH_SEPARATOR / ALT_SEPARATOR
       # resolved at compile time as string literals.
       puts File::SEPARATOR
@@ -751,7 +751,7 @@ describe "Hash: regressions" do
   end
 
   it "fetch answers on an integer-keyed hash, with and without a default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#fetch on an int->int specialized hash: plain lookup and the 2-arg
       # default form (the int->int variant previously had #[] but not #fetch).
       h = { 1 => 10, 2 => 20 }
@@ -772,7 +772,7 @@ describe "Hash: regressions" do
   end
 
   it "a lazy select or reject over an endless range answers its first n" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts (1..Float::INFINITY).lazy.select { |x| x.odd? }.first(5).inspect
       puts (1..Float::INFINITY).lazy.select { |x| x % 3 == 0 }.first(4).inspect
       puts (1..Float::INFINITY).lazy.reject { |x| x.even? }.first(5).inspect
@@ -794,7 +794,7 @@ describe "Hash: regressions" do
   end
 
   it "Hash#to_proc answers a proc that looks a key up" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {a: 1, b: 2}
       p = h.to_proc
       puts p.call(:a)
@@ -814,7 +814,7 @@ describe "Hash: regressions" do
   end
 
   it "a proc fills its missing parameters with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p = Proc.new { |a, b| puts "a=#{a.inspect} b=#{b.inspect}" }
       p.call(1)
       p.call(1, 2)
@@ -835,7 +835,7 @@ describe "Hash: regressions" do
   end
 
   it "a String range enumerates by succ, carrying into the next letter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts ("a".."c").to_a.inspect
       puts ("A".."D").to_a.inspect
       puts ("aa".."ac").to_a.inspect
@@ -853,7 +853,7 @@ describe "Hash: regressions" do
   end
 
   it "kernel rand no arg float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#rand without args returns Float in [0.0, 1.0).
       puts rand.class
       puts rand(100).class
@@ -869,7 +869,7 @@ describe "Hash: regressions" do
   end
 
   it "kernel string coercion" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #879: Kernel#String() coercion routes through .to_s for
       # each primitive type. nil -> "". Pre-fix: silently emitted 0.
       puts String(42)
@@ -891,7 +891,7 @@ describe "Hash: regressions" do
   end
 
   it "nil coercion" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #871: NilClass coercion methods. v1 covers to_i / to_f /
       # to_a. to_c, to_r, to_h deferred (Complex, Rational unsupported;
       # typed-Hash empty needs element-type judgement).
@@ -908,7 +908,7 @@ describe "Hash: regressions" do
   end
 
   it "nil to h" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # NilClass#to_h returns an empty hash.
       p nil.to_h
       p nil.to_h.length
@@ -923,7 +923,7 @@ describe "Hash: regressions" do
   end
 
   it "RUBY_VERSION, RUBY_PLATFORM and RUBY_ENGINE are Strings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #890: RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
       # string constants. Format-only check so the test stays stable
       # across platforms — the actual values are runtime-detected.
@@ -942,7 +942,7 @@ describe "Hash: regressions" do
   end
 
   it "sym int hash key value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#key(value) / #value? / #has_value? on sym_int_hash.
       # Missing-key #key returns the empty-sym sentinel since the typed
       # sym slot can't carry nil.
@@ -962,7 +962,7 @@ describe "Hash: regressions" do
   end
 
   it "symbol name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol#name returns the symbol's name as a string (not a pointer
       # value cast as int).
       puts :hello.name
@@ -973,7 +973,7 @@ describe "Hash: regressions" do
   end
 
   it "time subtraction returns float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #901: Time - Time returns Float (elapsed seconds). LV
       # slot inferred as sp_Time on pass 1, refined to float on pass 2
       # once the rhs LV was declared as time. merge_refined_local_type
@@ -988,7 +988,7 @@ describe "Hash: regressions" do
   end
 
   it "the comparison operators, min, max, invert, values_at and default answer on an empty hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash conformance (KieranP #2399,#2406-#2410,#2416,#2417)
       p({} < { a: 1 })
       p({ a: 1 } > {})
@@ -1031,7 +1031,7 @@ describe "Hash: regressions" do
   end
 
   it "any?, none?, one? and count take a pair argument, and a hash serves as a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#any?/none?/one?/count with a pair argument; blockless none? on {} local
       p({ a: 1 }.any?([:a, 1]))
       p({ a: 1 }.any?([:a, 2]))
@@ -1097,7 +1097,7 @@ describe "Hash: regressions" do
   end
 
   it "the blockless predicates, Hash[], deconstruct_keys, a merge conflict block and min_by(n)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash: blockless any?/all?/none?, Hash[kwargs], deconstruct_keys,
       # multi-arg merge with a conflict block, min_by(n)/max_by(n) (hash receivers),
       # compact!, and &hash as a block argument.
@@ -1164,7 +1164,7 @@ describe "Hash: regressions" do
   end
 
   it "a Hash literal whose values are all empty arrays still takes writes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash literal whose only values are empty array literals (element kind
       # unresolved) must still type to a concrete poly-valued hash variant.
       p({ "empty" => [] })
@@ -1185,7 +1185,7 @@ describe "Hash: regressions" do
   end
 
   it "sort, min, max and sort_by answer for a Hash read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash read out of a container keeps #sort / #min / #max / #sort_by --
       # the poly receiver must materialize its pairs, not degrade to NoMethodError/nil.
       h = [{ 20 => 2, 3 => 1 }].first
@@ -1206,7 +1206,7 @@ describe "Hash: regressions" do
   end
 
   it "ENV.update and #merge! take a conflict block, and #delete a not-found block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ENV["SP_A"] = "1"
       ENV.update({ "SP_A" => "2", "SP_B" => "9" }) { |k, o, n| o + n }
       p ENV["SP_A"]
@@ -1231,7 +1231,7 @@ describe "Hash: regressions" do
   end
 
   it "nil.to_h is an empty Hash and compares equal to one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(nil.to_h == {})
       p({} == nil.to_h)
       p({} == {})
@@ -1254,7 +1254,7 @@ describe "Hash: regressions" do
   end
 
   it "bsearch_index answers the index of the first element the block accepts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def ins(arr, v) = arr.insert(0, v)
       sorted = []
       ins(sorted, 5)
@@ -1281,7 +1281,7 @@ describe "Hash: regressions" do
   end
 
   it "transform_values answers a Hash in whatever type the block returns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({ "a" => 85 }.transform_values { |v| v / 10.0 })
       p({ "a" => 1, "b" => 2 }.transform_values { |v| v.to_s })
       p({ "a" => 1 }.transform_values { |v| v * 2 })
@@ -1299,7 +1299,7 @@ describe "Hash: regressions" do
   end
 
   it "a string mutated through a container read shows through, and a Hash key does not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Mutation THROUGH a container read: the element is the shared handle, so
       # the container (and any source local) observes it.
       arr = ["hello", "world"]

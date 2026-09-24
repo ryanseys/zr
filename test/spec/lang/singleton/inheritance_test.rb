@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: inheritance and ancestors" do
   it "class methods are inherited by a subclass with no override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         def self.bump
           1
@@ -19,7 +19,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "class shift self include extends the enclosing class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include M` inside `class << self` == `extend M` on the enclosing class:
       # the module's instance methods become the class's class methods.
 
@@ -38,7 +38,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend a bare value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `value.extend(Mod)` on a bare heap value -- an Array, String or Hash with no
       # object wrapper. optparse's last line is `ARGV.extend(OptionParser::Arguable)`,
       # so every program that reaches rubygems' option parsing runs it.
@@ -107,7 +107,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend and include can be combined on the same class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Ext
         def helper(x)
           x + 1
@@ -130,7 +130,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend class and module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` works on every receiver kind -- ordinary objects, classes, AND
       # modules. Extending a class or module mixes the argument's instance methods in
       # as the receiver's own singleton (class/module) methods, running with the
@@ -200,7 +200,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend class with user module makes class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Greeter
         def hello; "hello from #{name}"; end
       end
@@ -220,7 +220,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend in reopened class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend M` written in a REOPENING of the class: the module's methods are
       # transplanted from every body that defines the class, not only the first
       # (#3802).
@@ -273,7 +273,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend is seated where it stands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rb_extend_object` is `rb_include_module(rb_singleton_class(obj), module)`,
       # so a class body's `extend M` seats M in the singleton chain WHERE THE
       # STATEMENT STANDS. zeo knows the edge at compile time and used to have it in
@@ -398,7 +398,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend layers its first module nearest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.extend(A, B)` layered B nearest the object, where CRuby layers A.
       #
       # CRuby's `rb_obj_extend` (`object.c`) walks its arguments BACKWARDS -- `argc-1`
@@ -457,7 +457,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #721. `class C; extend M; end` should expose M's instance
       # methods as class methods on C. spinel used to silently ignore the
       # extend call; `C.<m>` would fall through to the unresolved-call
@@ -499,7 +499,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend module singleton alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Win
         class << self
           attr_reader :shown
@@ -537,7 +537,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend module super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A super call from a method in an extended module skips the extending
       # object's own definition.
@@ -591,7 +591,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend module with native module installs class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `SomeModule.extend(Comparable)` -- a native module's methods become the
       # receiver's own module methods, running with the module as `self`.
 
@@ -607,7 +607,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend module with user module via runtime call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Sayer
         def say; "said"; end
       end
@@ -621,7 +621,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extended singleton class ancestors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The singleton class of a plain object renders as
       # #<Class:#<Object:0xADDR>>; zeo renders it as the singleton of the object's
       # CLASS (#<Class:Object>) once the object has been extended, losing the
@@ -647,7 +647,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "include skips module class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #714. `class C; include M; end` should NOT drag M's
       # `def self.X` (class methods on the module) into C as instance
       # methods. Doing so co-opted M's @ivar writes into C's ivar table and
@@ -685,7 +685,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "issue object extend runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#extend doesn't actually add the module's instance methods to the
       # receiver's singleton class -- calling the extended method afterward raises
       # NoMethodError.
@@ -703,7 +703,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "issue singleton class include after extend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.extend M` INSTALLS M's methods as class methods rather than splicing
       # M into the class's singleton ancestry, so the singleton class does not report
       # M among its ancestors. Reflection-only: dispatch, `respond_to?` and the
@@ -734,7 +734,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "issue subclass runtime extend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A subclass did not inherit class methods installed by a RUNTIME `extend`.
       # `runtime_extend` writes them into the extended class's own overlay
       # `class_methods`, and both the call and the reflection probed the receiver's
@@ -809,7 +809,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "module copy and extend primitives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three things `require "delegate"` and `require "singleton"` need, none of
       # which worked -- and the first was silently destructive.
       #
@@ -924,7 +924,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "object protocol singleton extend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize; @v = 1; @s = "hi"; end
         def drop; remove_instance_variable(:@v); end
@@ -962,7 +962,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "runtime extend binds the class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.extend M` written as a RUNTIME call, as opposed to `extend M` in the
       # class body. Zeo ran the module's compiled body against a fresh blank
       # instance of the class, one per call -- so `self` was not the class, an
@@ -1037,7 +1037,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "sibling extend super chains resolve in extension order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend A; extend B; extend C` builds the singleton chain most-recent
       # first (#<Class:Host> -> C -> B -> A -> ...), and `super` walks it per
       # POSITION: the flattened class-method table keeps only winners, so
@@ -1085,7 +1085,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "whichever of a runtime singleton edit and a class-body extend runs first finds the empty scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every order a class body can put a run-time singleton edit and a
       # compile-time `extend` in. The rule is CRuby's own: `rb_include_module`
       # searches the whole chain and `rb_prepend_module` only the prepend area, so
@@ -1200,7 +1200,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "define_singleton_method compiles on a local receiver, the same as on a constant one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.define_singleton_method(:m) { }` compiled on a CONSTANT receiver and
       # stopped the build on a LOCAL one -- the same object, the same synthesized
       # singleton subclass, and `def obj.m` on that local works. The emitter
@@ -1259,7 +1259,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "extend changes what the object answers without changing its class, and leaves a sibling alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Bracketed
         def render(text) = "[" + super + "]"
       end
@@ -1418,7 +1418,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "a per-object mixin copies the method table, so super and the module's position are what that costs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two limits of zeo's per-object singleton, both reachable through plain
       # `obj.extend(M)` and therefore PRE-EXISTING -- routing `class << obj; include
       # M` to the same machinery does not create them, it just gives them a second
@@ -1489,7 +1489,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "super from an extended module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` written in a module that a class `extend`s, called on a SUBCLASS of
       # that class. Zeo materializes the module's methods onto every class in the
       # chain, so both `Base` and `Sub` carry their own copy -- and the runtime
@@ -1594,7 +1594,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "super in a constant bearing singleton body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class << self` body holding a CONSTANT registers its `def`s against a
       # singleton surrogate, so a bare `super` inside one looked for its own scope in
       # a pool that never held it and panicked codegen. faker's `Faker::Base` is this
@@ -1629,7 +1629,7 @@ describe "Singleton: inheritance and ancestors" do
   end
 
   it "toplevel extend module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module DSL
         def hello
           "hi"

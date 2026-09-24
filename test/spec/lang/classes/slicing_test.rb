@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes: slicing" do
   it "bare call class before toplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare call inside a method resolves the way CRuby's ancestry does: the
       # enclosing class's own chain answers it before a top-level `def` does, because
       # a top-level def lands on Object, which is BELOW the class. Spinel kept
@@ -76,7 +76,7 @@ describe "Classes: slicing" do
   end
 
   it "class body is its own scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module body is a SEPARATE SCOPE, not a region of the one that
       # encloses it. CRuby says so structurally: `NODE_CLASS` compiles the body with
       # `NEW_CHILD_ISEQ(..., ISEQ_TYPE_CLASS)` (compile.c), a child iseq with its own
@@ -171,7 +171,7 @@ describe "Classes: slicing" do
   end
 
   it "class body is worth its last statement" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class`/`module` is an expression, and its value is the body's last
       # statement -- nil for an empty body, the symbol a trailing `def` answers,
       # and a nested definition's own value when that is what ends the body.
@@ -243,7 +243,7 @@ describe "Classes: slicing" do
   end
 
   it "class def order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #14: classes referenced before their definition must still
       # produce a working struct layout. Earlier classes that embed a
       # value-type instance of a later class need the later class's struct
@@ -323,7 +323,7 @@ describe "Classes: slicing" do
   it "class is not its own superclass" do
     files = beside("own_superclass/abstract.rb", "own_superclass/adapter.rb", "own_superclass/base.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # Ruby evaluates a superclass expression BEFORE it binds the class's own name,
       # so the name being defined is never a candidate for its own superclass -- the
       # lexical search walks straight past it and continues outward. Rails writes
@@ -415,7 +415,7 @@ describe "Classes: slicing" do
   end
 
   it "a class method bumping a shared counter reads it back through the class variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ClassVariableReadNode -- `@@var`, plus expression-form
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
@@ -463,7 +463,7 @@ describe "Classes: slicing" do
   end
 
   it "two unrelated classes with the same class-variable name keep their own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ClassVariableReadNode -- `@@var`, plus expression-form
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
@@ -496,7 +496,7 @@ describe "Classes: slicing" do
   end
 
   it "a class variable given a non-zero value in the class body keeps it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ClassVariableReadNode -- `@@var`, plus expression-form
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
@@ -534,7 +534,7 @@ describe "Classes: slicing" do
   end
 
   it "a class variable updated across many class-method calls accumulates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ClassVariableReadNode -- `@@var`, plus expression-form
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
@@ -575,7 +575,7 @@ describe "Classes: slicing" do
   end
 
   it "a class variable written from an instance method is read by a class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ClassVariableReadNode -- `@@var`, plus expression-form
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
       # path) and several real-world class-var idioms.
@@ -612,7 +612,7 @@ describe "Classes: slicing" do
   end
 
   it "initialize takes the full param shapes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `.new` was the last call site still binding arguments by hand, and it
       # only handled required + optional -- `def initialize(*values)` was a
       # flat compile-time rejection.
@@ -665,7 +665,7 @@ describe "Classes: slicing" do
   end
 
   it "nested reopen resolves enclosing const" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class first defined COMPACT (`class Outer::Widget`) and later reopened
       # NESTED (`module Outer; class Widget`) must resolve a bare constant against the
       # reopen's enclosing nesting (`Outer::Helper`), not just the compact def's own
@@ -694,7 +694,7 @@ describe "Classes: slicing" do
   end
 
   it "poly first last n" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `first(n)` / `last(n)` on a value whose type is only known at run time, in a
       # program where a user class owns the name (which is what routes the call
       # through the dispatch at all).
@@ -750,7 +750,7 @@ describe "Classes: slicing" do
   end
 
   it "pre reopen call sees the final body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A call that executes BEFORE a class is reopened must run the body that
       # exists at that moment. zeo compiles one function per surviving method row
       # (last-def-wins across the whole program), so the first call below already
@@ -780,7 +780,7 @@ describe "Classes: slicing" do
   end
 
   it "reopening a user class adds and replaces methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pre-15.2 this was the codebase's one SILENT-wrongness bug: the second
       # `class Foo` registered a shadowed duplicate, so `b` never dispatched
       # and the original `a` kept winning.

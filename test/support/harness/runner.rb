@@ -2,11 +2,11 @@
 
 require "rbconfig"
 require "tmpdir"
-require_relative "../../../lib/ze0/cli"
-require_relative "../../../lib/ze0/target"
+require_relative "../../../lib/zr/cli"
+require_relative "../../../lib/zr/target"
 require_relative "wasmtime"
 
-module Ze0
+module Zr
   module Harness
     # How a whole program is built for one target and what it built is
     # run, and whose recording the answer is held to. A native binary
@@ -19,12 +19,12 @@ module Ze0
       attr_reader :target
 
       # The target a run builds for: the host's own, or the one
-      # `ZE0_TARGET` names, as the cross-target rows of CI do. A triple
+      # `ZR_TARGET` names, as the cross-target rows of CI do. A triple
       # no target answers to is named here rather than failing later.
       def self.named(triple)
         return Target.default if triple.nil? || triple.empty?
 
-        Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `ze0 targets` names them"
+        Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `zr targets` names them"
       end
 
 
@@ -53,10 +53,10 @@ module Ze0
       end
 
       # The build of `rel` into `out`: ruby without rubygems, which the
-      # compiler never asks for, under the collector tuning `ze0` would
+      # compiler never asks for, under the collector tuning `zr` would
       # otherwise start a second process to get.
       def build_argv(rel, out)
-        [RbConfig.ruby, "--disable-gems", File.join(@root, "exe/ze0"), "zr", "build", rel, "-o", out,
+        [RbConfig.ruby, "--disable-gems", File.join(@root, "exe/zr"), "zr", "build", rel, "-o", out,
          "--target", @target.triple]
       end
 

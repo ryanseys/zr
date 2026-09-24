@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: constants" do
   it "const aliased class reopen include" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening a class through a constant alias (`CONST = SomeClass` or
       # `CONST = expr.class`) reopens that class, and a module included into a
       # reopened built-in becomes dispatchable on the primitive. Regression
@@ -44,7 +44,7 @@ describe "Modules: constants" do
   end
 
   it "const source location of a module constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#const_source_location` answers where a constant was assigned. zeo
       # answers `nil` for a constant written in a module or class body -- the ordinary
       # case -- so the method is only ever right about constants that do not exist.
@@ -89,7 +89,7 @@ describe "Modules: constants" do
   end
 
   it "constant is how ruby spells a module alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby has no separate alias form for a class or module: naming one twice IS
       # assigning its value to a second constant, and the second name then works
       # everywhere the first does -- `include`, a superclass clause, `.new`. oauth2
@@ -150,7 +150,7 @@ describe "Modules: constants" do
   end
 
   it "mixin of a constant holding a runtime module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant the program ASSIGNS a module to, then mixes in. zeo used to
       # refuse this outright: a compiled class dispatches off a static MRO, so an
       # ancestry edit no compile-time name can describe would vanish silently, and a
@@ -242,7 +242,7 @@ describe "Modules: constants" do
   end
 
   it "module const defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         X = 1
         Y = "two"
@@ -267,7 +267,7 @@ describe "Modules: constants" do
   end
 
   it "module const get and const defined reflect the registry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         X = 7
         module N
@@ -296,7 +296,7 @@ describe "Modules: constants" do
   end
 
   it "module constants depth argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Module.constants(0)
       p Module.constants(1)
       p Module.constants(nil)
@@ -310,7 +310,7 @@ describe "Modules: constants" do
   end
 
   it "module constants included modules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#include? / #included_modules / #constants (#2674). The constant
       # registry is a flat namespace, so ownership is recovered from the AST: a
       # class's own constants are the ConstantWriteNodes in its body.
@@ -371,7 +371,7 @@ describe "Modules: constants" do
   end
 
   it "module constants nested" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A nested class or module IS a constant of the enclosing one. `constants`
       # collected only the value-assigning form, so a module holding both reported
       # the value and not the nested module (#4040).
@@ -428,7 +428,7 @@ describe "Modules: constants" do
   end
 
   it "module relative constant path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test: relative ConstantPath class/module definitions inside a module.
 
       module M
@@ -461,7 +461,7 @@ describe "Modules: constants" do
   end
 
   it "module s constants answers for its receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       TOP_LEVEL_MARK = 1
       module M
         IN_M = 2

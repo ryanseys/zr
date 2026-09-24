@@ -4,9 +4,9 @@ require "spec_helper"
 
 describe "Socket: reading and writing" do
   it "carries its exception hierarchy" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `SocketError` and `Socket::ResolutionError` are C classes in CRuby
       # (`ext/socket/init.c`). A feature-gated native class here cannot register a
@@ -42,7 +42,7 @@ describe "Socket: reading and writing" do
   end
 
   it "generic socket class binds listens accepts and transfers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The generic Socket class is implemented over libc: new/bind/listen/accept
       # on a loopback pair, resolving the bound port through Socket.pack/
       # unpack_sockaddr_in and reading it back via #local_address (an Addrinfo).
@@ -77,7 +77,7 @@ describe "Socket: reading and writing" do
   end
 
   it "io select to io" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "socket"
 
       class Wrapper
@@ -138,7 +138,7 @@ describe "Socket: reading and writing" do
   end
 
   it "the Addrinfo constructors fix the family, socktype and protocol the accessors read back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Addrinfo -- a resolved socket address value. The tcp/udp/ip/unix constructors
       # fix the family, socktype, and protocol; the accessors and #inspect read them
       # back. Oracle-verified against ruby 4.0.6 (Darwin family numbers: AF_INET 2,
@@ -214,7 +214,7 @@ describe "Socket: reading and writing" do
   end
 
   it "local_address answers an Addrinfo, and getsockopt answers a Socket::Option" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `BasicSocket#getsockopt` answers a `Socket::Option` object, which is not
       # implemented -- line 29 raises NotImplementedError.
       # Addrinfo and Socket::Option.
@@ -279,7 +279,7 @@ describe "Socket: reading and writing" do
   end
 
   it "do_not_reverse_lookup, sockaddr_un and the ECONNREFUSED message each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three socket-surface rows: `BasicSocket.do_not_reverse_lookup` (the
       # class-level accessor), `Socket.sockaddr_un`/`unpack_sockaddr_un`, and
       # the ECONNREFUSED message shape ('Connection refused - connect(2) for
@@ -309,7 +309,7 @@ describe "Socket: reading and writing" do
   end
 
   it "the socket classes are constants after the require, and Socket::Constants holds the same names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The socket classes are constants once `require "socket"` runs, and a class
       # the compiler recognizes but has not implemented reports the missing METHOD
       # rather than a missing constant.
@@ -382,7 +382,7 @@ describe "Socket: reading and writing" do
   end
 
   it "the socket classes sit in ruby's chain, and a handle answers is_a? from it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The socket classes sit in CRuby's chain, and a handle answers #is_a? from it.
       require "socket"
       # first(5) stops before IO's own mixins: Spinel's IO does not carry
@@ -454,7 +454,7 @@ describe "Socket: reading and writing" do
   end
 
   it "const_defined?(:AF_INET6) folds the IPv6 fallback out on a platform that has it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `unless Socket.const_defined?(:AF_INET6)` drops an IPv6 fallback definition on
       # a platform that already defines it (the rubygems/ipaddr shape). zeo folds the
       # guard at compile time against the seeded Socket constants.
@@ -477,7 +477,7 @@ describe "Socket: reading and writing" do
   end
 
   it "the SOL_, SO_, IPPROTO_ and SOCK_ constants are Integers a setsockopt call takes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "socket"
       p(Socket::SOL_SOCKET.is_a?(Integer))
       p(Socket::SO_KEEPALIVE.is_a?(Integer))
@@ -515,7 +515,7 @@ describe "Socket: reading and writing" do
   end
 
   it "eof? on a socket does not seek, so the rest of the stream is still readable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `eof?` on a SOCKET must not seek: after a partial read, ruby answers
       # false and the rest of the stream is readable. zeo's eof? probe seeks
       # and raises Errno::ESPIPE -- the same root as
@@ -547,7 +547,7 @@ describe "Socket: reading and writing" do
   end
 
   it "a socket is unbuffered and answers addr, where a File is buffered and does not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A socket comes up with `sync` false here. ruby leaves a socket UNBUFFERED
       # (`sync == true`) and only buffers file handles, which is the distinction this
       # test is drawing.
@@ -595,7 +595,7 @@ describe "Socket: reading and writing" do
   end
 
   it "UDP over IPv6 binds and carries, and the Socket class methods answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # UDP over IPv6, and the Socket class methods.
       require "socket"
 
@@ -656,7 +656,7 @@ describe "Socket: reading and writing" do
   end
 
   it "the IO::WaitReadable family and the exception: false markers drive a non-blocking retry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO::WaitReadable` does not exist, so the nonblocking-retry rescue arm cannot
       # resolve -- the same missing marker module as `exception_module_hierarchy`.
       # The non-blocking readiness family: the IO::*Wait* exceptions, the
@@ -731,7 +731,7 @@ describe "Socket: reading and writing" do
   end
 
   it "readpartial returns as soon as any bytes arrive, so a read-then-write server holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO#readpartial returns as soon as ANY bytes are available. It used to be one
       # fread of the full length, which is a different operation: fread keeps calling
       # read(2) until it has the whole request or hits EOF. On a socket that waits for
@@ -787,7 +787,7 @@ describe "Socket: reading and writing" do
   end
 
   it "the socket classes are not constants before the socket library is required" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = (TCPServer.new("127.0.0.1", 0) rescue $!.class)
       p r
       r2 = (TCPSocket.new("127.0.0.1", 1) rescue $!.class)
@@ -798,7 +798,7 @@ describe "Socket: reading and writing" do
   end
 
   it "a TCP pair carries bytes both ways through gets, puts, print and read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "socket"
       server = TCPServer.new("127.0.0.1", 0)
       port = server.addr[1]
@@ -832,7 +832,7 @@ describe "Socket: reading and writing" do
   end
 
   it "a TCP server in a thread reads a request and writes a response the client reads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "socket"
       server = TCPServer.new("127.0.0.1", 0)
       port = server.addr[1]
@@ -861,7 +861,7 @@ describe "Socket: reading and writing" do
   end
 
   it "a datagram socket binds a port, and recvfrom answers the payload with the sender's address" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # UDPSocket over loopback. A datagram socket binds a local port, another
       # connects to it and writes; recvfrom answers the payload plus the sender's
       # [family, port, host, ip] array. (Data is written with IO#write rather than
@@ -906,7 +906,7 @@ describe "Socket: reading and writing" do
   end
 
   it "a connected UDP socket, a UNIX-domain pair and the socket options answer together" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `BasicSocket#getsockopt` answers a `Socket::Option` object, which is not
       # implemented -- line 52 raises NotImplementedError.
       # UDPSocket, the UNIX-domain pair, and the socket-option family.
@@ -986,7 +986,7 @@ describe "Socket: reading and writing" do
   end
 
   it "UNIXServer binds a path, accept mints a connected socket, and addr reports AF_UNIX" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # UNIXServer / UNIXSocket over a filesystem socket. The server binds+listens on
       # a path, a client connects, and #accept mints a connected UNIXSocket; bytes flow
       # both ways over the IO surface, and #addr/#path report the AF_UNIX endpoints.

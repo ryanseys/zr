@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: comparison and equality" do
   it "bsearch with an Integer block follows the comparator protocol, and a float miss answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#bsearch / #bsearch_index find-ANY mode: an Integer-valued block follows
       # the comparator protocol (0 found, negative searches left, positive right),
       # distinct from the boolean find-minimum mode. Also: a float-array bsearch miss
@@ -37,7 +37,7 @@ describe "Array: comparison and equality" do
   end
 
   it "compact's poly result compares equal to a typed literal, in both operand orders" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[1, nil, 2].compact` yields a poly_array, but a literal like `[1, 2]`
       # stays an int_array, so `compact == [1, 2]` compared distinct pointer
       # types and failed the -Werror build. Add a poly_array-vs-typed-array
@@ -71,7 +71,7 @@ describe "Array: comparison and equality" do
   end
 
   it "== compares by value, whatever storage kind each side holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array == compares by value across storage kinds: a splat-rest rebuilds its
       # arguments as a poly array, while the literal it is compared against may box
       # as an int array. Ruby has one Array; storage kinds must not leak into ==.
@@ -93,7 +93,7 @@ describe "Array: comparison and equality" do
   end
 
   it "eql? and uniq compare class-strictly, so 1 and 1.0 stay apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#eql? and Array#uniq compare per element with eql? (class-strict:
       # 1 is == to 1.0 but not eql?), matching CRuby.
       def e(a, b); a.eql?(b); end
@@ -127,7 +127,7 @@ describe "Array: comparison and equality" do
   end
 
   it "object_id answers a stable integer per array, and two arrays never share one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#object_id on typed arrays: a stable per-object integer. (Exact
       # values are pointer-dependent, so check identity/distinctness/type.)
       a = [1, 2, 3]
@@ -153,7 +153,7 @@ describe "Array: comparison and equality" do
   end
 
   it "<=> compares element-wise with a length tiebreak, and terminates on a self-referential array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -219,7 +219,7 @@ describe "Array: comparison and equality" do
   end
 
   it "uniq confirms a hash-equal candidate with eql? before it drops one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Array#uniq` confirms hash-equal candidates with `eql?`.
       #
       # The whole key table used to collapse on the user `hash` alone, so any
@@ -238,7 +238,7 @@ describe "Array: comparison and equality" do
   end
 
   it "bsearch find any mode follows the comparator protocol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Numeric block result selects find-any mode: 0 is a hit, negative
       # searches the lower half, positive the upper; a non-hit answers nil. The
       # boolean find-minimum mode still works alongside it.
@@ -265,7 +265,7 @@ describe "Array: comparison and equality" do
   end
 
   it "container reads its elements by identity first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's rb_equal: an element inside a container is equal to itself
       # before `==` is asked, which is what makes `[nan].include?(nan)` true
       # while `nan == nan` is false.
@@ -298,7 +298,7 @@ describe "Array: comparison and equality" do
   end
 
   it "hash dig and hash key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -359,7 +359,7 @@ describe "Array: comparison and equality" do
   end
 
   it "hash keyed by an array hashes structurally not by identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       h[[1, 2]] = "pair"
       puts h[[1, 2]]
@@ -369,7 +369,7 @@ describe "Array: comparison and equality" do
   end
 
   it "nested array eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#== on an array of arrays/objects (a ptr_array) had no deep
       # comparison -- the dispatch covered int/str/float/poly arrays but not
       # ptr_array, so `[[1]] == [[1]]` fell through to FALSE. Compare
@@ -411,7 +411,7 @@ describe "Array: comparison and equality" do
   end
 
   it "recursive array spaceship overflows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an

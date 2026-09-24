@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exception programs" do
   it "backtrace locations are the raise rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The rows the raise saw, as Location objects: nil before a raise, and
       # unchanged when set_backtrace replaces the strings.
       def inner = raise("x")
@@ -56,7 +56,7 @@ describe "Exception programs" do
   end
 
   it "errno and signal tables are rubys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every Errno name ruby defines, with its errno; a name this platform
       # lacks is another name for NOERROR.
       p Errno.constants.size
@@ -103,7 +103,7 @@ describe "Exception programs" do
   end
 
   it "set backtrace takes locations" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # set_backtrace with an Array of Locations sets backtrace_locations as
       # well as the strings, and a raise keeps them; an eval SyntaxError holds
       # the locations of the eval.
@@ -134,7 +134,7 @@ describe "Exception programs" do
   end
 
   it "takes an instance variable on an exception the runtime raised" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception the runtime raised already holds what the runtime put
       # in it -- a NoMethodError keeps its name, its receiver and its
       # arguments -- so a program's own instance variable is one more than

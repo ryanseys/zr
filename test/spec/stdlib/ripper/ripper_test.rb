@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Ripper programs" do
   it "sexp, lex, slice, a Filter and a subclass's own events all answer over prism" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ripper over prism: sexp and sexp_raw, the tokens lex and tokenize
       # answer, slice, a Filter, a subclass's own events with the position each
       # one stands at, and the errors a broken program reports.

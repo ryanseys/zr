@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable: splitting and joining" do
   it "chunk family enumerator value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # chunk_while / slice_when / chunk with a block, standing on their own
       # (stored in a local, passed to p) rather than chained into .to_a: a
       # first-class Enumerator over the eagerly materialized runs, inspecting as
@@ -44,7 +44,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "chunk first class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # int_array.chunk { |x| key }.to_a returns a first-class array of [key, [members]]
       # pairs (consecutive equal keys grouped), so p/indexing/iteration work.
       p [1, 1, 2, 3, 3].chunk { |x| x }.to_a
@@ -70,7 +70,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "chunk while" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#chunk_while { |a, b| } .to_a groups adjacent elements into runs: a and b
       # stay in the same run while the block is true, and a boundary falls where it is
       # false. Materialized as a first-class array of runs (poly array of int arrays),
@@ -109,7 +109,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "chunk while without block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         [1, 2, 3].chunk_while
       rescue ArgumentError => e
@@ -126,7 +126,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "sort_by, min_by, group_by, partition, flat_map and filter_map all match the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [3, 1, 2].sort_by { |x| -x }
       p [1, 2, 3, 4].min_by { |x| (x - 3).abs }
       p [1, 2, 3, 4].max_by { |x| (x % 3) }
@@ -180,7 +180,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "the chunk family groups consecutive elements by a block-computed key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The chunk family groups CONSECUTIVE elements of an enumerable.
 
       # `chunk` groups runs that share a block-computed key into [key, [run]] pairs.
@@ -210,13 +210,13 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "chunk answers one pair per run, so a repeated key opens a new run" do
-    result = ze0("p [1, 1, 2, 2, 2, 3].chunk { |x| x }.map { |k, v| [k, v.size] }\n")
+    result = zr("p [1, 1, 2, 2, 2, 3].chunk { |x| x }.map { |k, v| [k, v.size] }\n")
 
     _(result).must_answer "[[1, 2], [2, 3], [3, 1]]\n"
   end
 
   it "multiple producers one consumer sum is exact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       q = Queue.new
       p1 = Thread.new { 10.times { q.push 1 } }
       p2 = Thread.new { 10.times { q.push 1 } }
@@ -239,7 +239,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "partition boxed predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A partition block whose value is boxed: `if (rbval)` is not valid C, and
       # Ruby's truthiness is "not nil and not false" anyway. The C would not compile.
       e = [1, nil, 2]
@@ -258,7 +258,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "safe nav chunk family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `v&.chunk_while { }` on a nil receiver answers nil. The lowering that builds
       # the runs walked the receiver without looking at the operator, and the type of
       # the call disagreed with what that lowering renders.

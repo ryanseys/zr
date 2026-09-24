@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Regexp: pattern matching" do
   it "allocated regexp takes a pattern once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Regexp.new` is `Class#new`: `allocate` makes the husk and
       # `initialize` seats the pattern in it. A subclass that builds its
       # source in its own initialize therefore keeps what it gave to `super`.
@@ -66,7 +66,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "array pattern match basic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #669: `case arr in [a, b, c]` pattern matching with
       # LocalVariableTargetNode bindings. Pre-fix, spinel_parse emitted
       # `UnsupportedNode { kind: "ArrayPatternNode" }` and the codegen
@@ -104,7 +104,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "case in matchdata deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash pattern against a MatchData scrutinee matches via
       # MatchData#deconstruct_keys: the regex's named captures become a symbol-keyed
       # hash, so `case md in {name:}` binds the capture. Covers case/in (single,
@@ -159,7 +159,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "case in pattern matching dispatches via real regexp case eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Checker
         def check(x)
           case x
@@ -186,7 +186,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "find pattern match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Find patterns `case arr in [*head, m.., *tail]`: scan for the first window of
       # requireds, binding the leading splat (head), required targets, and trailing
       # splat (tail). Pre-fix the arm matched unconditionally with head/tail nil.
@@ -219,7 +219,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "matchdata array pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # MatchData does not deconstruct for an array pattern in case/in.
       #
@@ -245,7 +245,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "matchdata deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData introspection: begin/end and bytebegin/byteend group positions,
       # match/match_length, inspect, and the pattern-matching deconstruct hooks
       # (deconstruct for arrays, deconstruct_keys for named captures).
@@ -289,7 +289,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "matchdata deconstruct keys type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # MatchData#deconstruct_keys with a bad argument type answers {} where ruby
       # raises TypeError.
@@ -312,7 +312,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "pattern match splat rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #844: array pattern with `*rest` splat target. The rest LV
       # needs to be declared in the surrounding scope; pre-fix it was
       # only handled at codegen-emit, leaving lv_rest undeclared.
@@ -339,7 +339,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "pattern pin regexp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pinned Regexp in a pattern matches via === (Regexp#===), not equality.
       r = /a/
       case 'abc'
@@ -364,7 +364,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "pattern timeout stops every kind of match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A timeout stops a match that backtracks without end (a backreference
       # keeps Onigmo's match cache out), whichever method started it; a
       # pattern the cache makes linear finishes inside the same limit.
@@ -406,7 +406,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "regex pattern through a name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A regex reached through a NAME is as statically visible as the literal
       # itself, and every resolver has to agree about that.
       #
@@ -467,7 +467,7 @@ describe "Regexp: pattern matching" do
   end
 
   it "string patterns to split and gsub now work" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SEMANTICS FLIP: String patterns to split/gsub used to be
       # compile-time rejections ("pass a Regexp literal instead"); the String
       # table rows now implement them for real, so the static regexp path falls

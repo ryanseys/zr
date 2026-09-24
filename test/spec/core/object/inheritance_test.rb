@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: inheritance and ancestors" do
   it "basic object subclass is a blank slate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel is mixed into Object, so it sits BELOW BasicObject in the chain
       # (object.c:4550 -> class.c:1853) and a BasicObject subclass never sees
       # it -- the blank slate is pure chain position, not a special case.
@@ -52,7 +52,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "class body extend is applied before the body runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class-body `extend M` runs where it is WRITTEN, not at class registration.
       #
       # `extend M` is a compile-time ancestry edit, so it used to be applied before
@@ -107,7 +107,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "class level ivars are per class and not inherited" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The defining property of class-level `@x`, and the whole reason it
       # can't share `@@x`'s storage: a subclass gets its OWN slot, starting
       # empty, even though it inherits the method that reads it. Contrast the
@@ -140,7 +140,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "clone runs user initialize copy hook with super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # clone/dup dispatch the user's initialize_copy (deep-copying a
       # shared member), and its bare `super` resolves Object's default no-op
       # hook instead of panicking.
@@ -171,7 +171,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "default arg ivar module subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A default-argument @ivar read, where the method is mixed in via a module and
       # called on a subclass, requires the subclass struct to inherit the ivar field
       # (the parent only gained it from the transplanted module method).
@@ -197,7 +197,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "dynamic is a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 3 Tier 3. Dynamic is_a?(klass) where the
       # klass argument is a sp_Class value (variable or parameter)
       # rather than a ConstantReadNode. Pre-Tier-3 the codegen
@@ -251,7 +251,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "an extended object answers is_a? for the module, and its class does not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -306,7 +306,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "is_a? answers the same through a call, where the receiver is not statically known" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -345,7 +345,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "case/when and a pattern-match in reach the same answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -397,7 +397,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "an extended module carries its own includes with it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -437,7 +437,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "a bare collection, a String and nil each take an extend, where an Integer refuses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -483,7 +483,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "a class takes an extend in its body and after it, and both reach its singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -546,7 +546,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "extend self makes a module's instance methods its own module functions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -589,7 +589,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "two extends layer newest closest, and a repeat is a no-op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -641,7 +641,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "a singleton class asked for before the extend reports the same chain after it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -683,7 +683,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "dup drops the extension, as it drops every singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
       # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
@@ -718,7 +718,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "extend module is a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.extend(Mod)` transplants the module's methods onto a synthesized
       # singleton subclass, but recorded no membership -- so the extended object
       # answered `is_a?(Mod)` with false while already running the module's method.
@@ -779,7 +779,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "extend module ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module ClassMethods
         def label
           @label
@@ -821,7 +821,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "module reopen after include ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #572 follow-up to #573 (Sam Ruby). After 8ca93b4 wired late-
       # reopened module methods into namespaced including classes, the
       # struct-layout side missed: an ivar written by a late-reopened
@@ -861,7 +861,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "remove_instance_variable, singleton_class, singleton_method and extend each reach the object's own table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object/Kernel protocol: remove_instance_variable (value + NameError),
       # singleton_class (on an object and a builtin value), singleton_method, and
       # extend across every module kind -- a user compile-time module and a builtin
@@ -904,7 +904,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "own singleton method outranks an extended module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby ancestry: a receiver's own `def self.x` beats a module it extends.
 
       module Mixin
@@ -921,7 +921,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "runtime include propagates to subclasses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A runtime `include` into a superclass must be visible to subclasses minted
       # EARLIER (CRuby ancestry is shared structure; zeo chains are flat snapshots
       # that the splice now revisits). rspec's runner does exactly this: `describe`
@@ -988,7 +988,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "singleton methods inherit flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The optional `inherit` argument on the singleton-listing family.
       #
       # Narrowing has to reach all three places a class method can live: the
@@ -1086,7 +1086,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "super in a singleton def on a value is a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` inside a `def` in a `class << SOME_VALUE` body raises
       # "super called outside of method". The method itself installs and dispatches
       # correctly -- only `super` is wrong -- so the body is reaching the runtime as
@@ -1142,7 +1142,7 @@ describe "Object: inheritance and ancestors" do
   end
 
   it "super reaches the default inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#inspect` and `Kernel#to_s` AS METHOD BODIES describe the object
       # -- CRuby's `rb_obj_inspect` and `rb_any_to_s`. They must not ask the
       # receiver, or a `super` from an override re-enters the override.

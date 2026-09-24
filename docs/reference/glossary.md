@@ -29,14 +29,14 @@ ruby's recording.
 **Env.** The cell that holds the locals a block captures.
 
 **Example.** One `it` block in a spec file: a Ruby program written
-inline, compiled by ze0, and held to what ruby answered.
+inline, compiled by zr, and held to what ruby answered.
 
 **Frame record.** The block of a function's machine frame that holds
 its Ruby state: self, the line, and every Value it holds. The collector
 reads it. See [Runtime layouts](runtime-layouts.md).
 
-**Gap.** An example ze0 does not answer yet. It stays where it
-belongs and says what it waits on, with `skip "..."`; the day ze0
+**Gap.** An example zr does not answer yet. It stays where it
+belongs and says what it waits on, with `skip "..."`; the day zr
 answers it, the line comes off.
 
 **HIR.** The compiler's tree form of a program: prism's tree, desugared
@@ -60,7 +60,7 @@ IR, or the kernel dialect to IR.
 **OS layer.** The part of the runtime that each operating system
 implements in its own way, under `os/<os>/` directories.
 
-**Oracle.** The source of the right answer. For ze0, that is ruby 4.0.6
+**Oracle.** The source of the right answer. For zr, that is ruby 4.0.6
 and nothing else.
 
 **Poll word.** A word that a timer, a signal or a finalizer sets, and
@@ -73,7 +73,7 @@ call of a kernel def.
 what ruby answered in files beside it. See
 [Whole programs](test-format.md).
 
-**Refusal.** ze0 declines to compile a form it cannot compile correctly.
+**Refusal.** zr declines to compile a form it cannot compile correctly.
 It names the form and its line, and exits with status 3.
 
 **Road.** A path from source to output: the native road, the wasm road,

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "RbConfig programs" do
   it "arch is the cpu and host_os with any -gnu suffix dropped, and both name this platform" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `host_os`/`arch` are the BUILD host's, so pinning them pinned this
       # test to one machine: it read `darwin25`/`arm64-darwin25`, which is
       # wrong on Linux and goes stale on the next macOS release. What the
@@ -31,9 +31,9 @@ describe "RbConfig programs" do
   end
 
   it "sizeof names every C type ruby names, and the same width for each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ruby builds rbconfig/sizeof as a C extension out of its own
-      # limits.h, float.h and stdint.h. ze0 compiles no C, so the file
+      # limits.h, float.h and stdint.h. zr compiles no C, so the file
       # here derives the table from the target's C ABI: the pointer
       # family follows the width of a pointer, and every integer limit
       # follows the width of its type.
@@ -65,7 +65,7 @@ describe "RbConfig programs" do
   end
 
   it "require of rbconfig answers like rubys preloaded one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(require("rbconfig"))
       f = "rbconfig"
       p(require(f))

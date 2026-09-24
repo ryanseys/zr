@@ -1,5 +1,5 @@
 # The middle rung of the compile-cost ladder: an ordinary program that
-# requires a handful of the stdlib ze0 carries. Nothing here is slow to
+# requires a handful of the stdlib zr carries. Nothing here is slow to
 # run; what it times is the require graph an application of a few
 # thousand lines pulls in before its first statement.
 require "set"

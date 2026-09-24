@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Constants programs" do
   it "bare constant searches every enclosing scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby resolves a bare constant by searching every entry of `Module.nesting`
       # outward, then the cref's ancestors, then Object. zeo's emitted lookup jumped
       # straight from the innermost scope to the top, so any name the compile-time
@@ -66,7 +66,7 @@ describe "Constants programs" do
   end
 
   it "bare module constants lists the lexical scopes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module.constants with no argument lists the constants of each lexical
       # scope and of Object, as rb_mod_s_constants does. With an argument it
       # is Module#constants on Module.
@@ -96,7 +96,7 @@ describe "Constants programs" do
   end
 
   it "bare public at top level marks the following defs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def show(label)
         puts format("%-30s %s", label, (yield).inspect)
       rescue => e
@@ -135,7 +135,7 @@ describe "Constants programs" do
   end
 
   it "begin unknown const tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A begin whose body is an unknown constant: the read emits a raise, whose C
       # type is the class struct, and assigning that to the slot the handler's value
       # settled on did not compile. Control never reaches the assignment.
@@ -159,7 +159,7 @@ describe "Constants programs" do
   end
 
   it "big constant table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A large constant table lands in the binary's data section whole.
       SQUARES = (1..64).map { |n| n * n }.freeze
       NAMES = %w[
@@ -181,7 +181,7 @@ describe "Constants programs" do
   end
 
   it "boxs constant is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # The CONSTANT channel, both halves. A box's `Object.const_set` is
       # unreachable from main, and reachable from the box -- which needs its own
       # record for `Object`, since a box's cref chain ends at its surrogate and
@@ -199,7 +199,7 @@ describe "Constants programs" do
   end
 
   it "case when value constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant holding a VALUE (symbol/int/string) used in `when` is an
       # equality test, not a Module#=== class test. Treating it as a class name
       # made every arm compile to `if (0)`, so the whole case fell through.
@@ -283,7 +283,7 @@ describe "Constants programs" do
   end
 
   it "class is not there before its statement runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class` statement CREATES its constant where it stands, so a read above
       # it is a NameError -- the same answer `defined?` gives there.
       begin
@@ -336,7 +336,7 @@ describe "Constants programs" do
   end
 
   it "const added hook" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#const_added` -- ruby announces a constant the moment it becomes
       # readable, on the module it was set on, with the constant's own leaf name.
       #
@@ -435,7 +435,7 @@ describe "Constants programs" do
   end
 
   it "const compound assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Compound assignment to a constant (`A += 2`, `A ||= 2`, `A &&= 2`).
       # The constant slot is mutated at runtime, so its reads must load the
       # live value rather than fold the declaration literal. ||=/&&= follow
@@ -504,7 +504,7 @@ describe "Constants programs" do
   end
 
   it "const defined invalid name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#const_defined? validates the constant name. A defined name answers
       # true, an undefined-but-well-formed name answers false, and a malformed name
       # (lowercase / leading underscore / a non-identifier byte) raises NameError
@@ -553,7 +553,7 @@ describe "Constants programs" do
   end
 
   it "const get builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Float::INFINITY
       r = (Float.const_get(:INFINITY) rescue $!.class); p r
       p Math::PI
@@ -569,7 +569,7 @@ describe "Constants programs" do
   end
 
   it "const get literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module M
         X = 7
         NAME = "spinel"
@@ -604,7 +604,7 @@ describe "Constants programs" do
   end
 
   it "const get on a shadowed namespace head" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Klass.const_get(:NAME)` on a statically-known class folds at compile time.
       # The fold took an already-resolved class and round-tripped it through
       # `fq_name` -- an UNANCHORED string -- then re-resolved that string against the
@@ -684,7 +684,7 @@ describe "Constants programs" do
   end
 
   it "const path compound assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Compound assignment to a constant-path target (`M::X += 2`). Resolves
       # to the qualified constant slot and mutates it at runtime.
       module M
@@ -718,7 +718,7 @@ describe "Constants programs" do
   end
 
   it "a gate on something the program never defines leaves its body unreachable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -746,7 +746,7 @@ describe "Constants programs" do
   end
 
   it "a gate on something the program does define compiles and runs its body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -778,7 +778,7 @@ describe "Constants programs" do
   end
 
   it "the same gate reads a nested path and a plain constant alike" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -808,7 +808,7 @@ describe "Constants programs" do
   end
 
   it "a gate on a value constant, not a class, still answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -847,7 +847,7 @@ describe "Constants programs" do
   end
 
   it "unless defined? is the vendored-shim spelling of the same gate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -874,7 +874,7 @@ describe "Constants programs" do
   end
 
   it "a top-anchored superclass resolves to a target defined later in the program" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -923,7 +923,7 @@ describe "Constants programs" do
   end
 
   it "a ::-anchored name shadows a same-named constant in scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
       #
@@ -951,7 +951,7 @@ describe "Constants programs" do
   end
 
   it "const scope operator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Object` is an ancestor of every class, so an ancestry walk that reads its
       # constant table makes every top-level constant answer as every class's own:
       # `SystemCallError::Errno` found the top-level `Errno` module, and a `FLAGS` a
@@ -1074,7 +1074,7 @@ describe "Constants programs" do
   end
 
   it "constant name is validated before the lookup" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rb_is_const_id` runs BEFORE the lookup: a string that is not a constant
       # name raises `wrong constant name`, carrying the name, rather than reporting
       # an `uninitialized constant` miss. zeo checked only the FIRST character, so
@@ -1160,7 +1160,7 @@ describe "Constants programs" do
   end
 
   it "ARGV reads through a constant path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConstantPath access — covers ARGV (top-level builtin), built-in
       # constructors (::Array.new etc.), nested const reads (A::B::C),
       # class-method dispatch (A::B.create), and the relative-vs-root
@@ -1190,7 +1190,7 @@ describe "Constants programs" do
   end
 
   it "a built-in constructor answers through an absolute constant path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConstantPath access — covers ARGV (top-level builtin), built-in
       # constructors (::Array.new etc.), nested const reads (A::B::C),
       # class-method dispatch (A::B.create), and the relative-vs-root
@@ -1241,7 +1241,7 @@ describe "Constants programs" do
   end
 
   it "a class method dispatches through A::B.create" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConstantPath access — covers ARGV (top-level builtin), built-in
       # constructors (::Array.new etc.), nested const reads (A::B::C),
       # class-method dispatch (A::B.create), and the relative-vs-root
@@ -1272,7 +1272,7 @@ describe "Constants programs" do
   end
 
   it "a constant nested two and three deep reads through its path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConstantPath access — covers ARGV (top-level builtin), built-in
       # constructors (::Array.new etc.), nested const reads (A::B::C),
       # class-method dispatch (A::B.create), and the relative-vs-root
@@ -1334,7 +1334,7 @@ describe "Constants programs" do
   end
 
   it "a top-level constructor answers through ::T" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ConstantPath access — covers ARGV (top-level builtin), built-in
       # constructors (::Array.new etc.), nested const reads (A::B::C),
       # class-method dispatch (A::B.create), and the relative-vs-root
@@ -1363,7 +1363,7 @@ describe "Constants programs" do
   end
 
   it "constant path may be rooted at a value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `::` takes a class or module on its left, and that left side is an ordinary
       # EXPRESSION -- `self`, a parameter, a method call. Only the name after `::` has
       # to be spelled at compile time. So the whole search happens at run time: the
@@ -1559,7 +1559,7 @@ describe "Constants programs" do
   end
 
   it "constant path off a dynamic scope resolves at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `expr::NAME` where the scope is a runtime value (`self.class::Reason`,
       # optparse) resolves the constant off that value at runtime, walking its
       # ancestry -- so a subclass sees its own override.
@@ -1585,7 +1585,7 @@ describe "Constants programs" do
   end
 
   it "constant path write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Mod::X = v` assigns through a constant path. Spinel requires the constant to
       # be declared first (registered by analysis); reassigning it then works, as the
       # `M::X ||= v` / `M::X += v` forms already did. (Output is compared on stdout;
@@ -1666,7 +1666,7 @@ describe "Constants programs" do
   end
 
   it "constant path write undeclared" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested constant assignment to a constant that was NOT pre-declared inside the
       # module body: `Mod::X = v` and the or/and-write forms. The leaf name is
       # registered flat; an or/and-write-only constant defaults to nil so its `||=`
@@ -1719,7 +1719,7 @@ describe "Constants programs" do
   end
 
   it "constant visibility is positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_constant` and `public_constant` are RUN-TIME flags, and each runs
       # where it is written -- a read between two directives sees whichever had
       # run by then. zeo applied the whole program's directives at STARTUP, so a
@@ -1782,7 +1782,7 @@ describe "Constants programs" do
   end
 
   it "a module constant, a top-level one and a nested lookup each resolve" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test module constants and top-level constants
 
       MAX_SIZE = 100
@@ -1847,7 +1847,7 @@ describe "Constants programs" do
   end
 
   it "def takes the definee of its cref not its self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's default definee is a property of the FRAME, inherited by every block
       # the frame opens -- it is not `self`. `module_eval`/`class_eval` replace it
       # with the module, `instance_eval`/`instance_exec` with the receiver's
@@ -1936,7 +1936,7 @@ describe "Constants programs" do
   end
 
   it "defined asks a runtime scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p defined?(Nope)
       p defined?(Nope::Deep)
       p defined?(Nope::Deep::Deeper)
@@ -1976,7 +1976,7 @@ describe "Constants programs" do
   end
 
   it "defined const fallback" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A defined?-guarded constant fallback folds to its live arm in value
       # position: the dead arm may reference the missing constant itself, and it
       # never evaluates (no NameError), matching CRuby.
@@ -2045,7 +2045,7 @@ describe "Constants programs" do
   end
 
   it "definition scoped to the runtime self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class self::Task` / `module self::Base` name their NAMESPACE with the
       # runtime `self`, so there is no compile-time class to register: the
       # constant lands on whichever class the enclosing hook block runs against.
@@ -2115,7 +2115,7 @@ describe "Constants programs" do
   end
 
   it "globals constants and multi assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $counter = 0
       puts $counter
       puts $never_set
@@ -2225,7 +2225,7 @@ describe "Constants programs" do
   end
 
   it "holds shareable values it did not build" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # shareable_constant_value: literal
       # Under `literal`, an Array or Hash literal may hold a value that is not
@@ -2275,7 +2275,7 @@ describe "Constants programs" do
   end
 
   it "defined?(::X) asks about the root namespace, not the enclosing one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Underscore
         module Rails
           if defined?(::Rails)
@@ -2306,7 +2306,7 @@ describe "Constants programs" do
   end
 
   it "issue const defined two arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#const_defined? only supports the single-argument form -- passing the
       # second `inherit` boolean argument raises NoMethodError as if the method
       # didn't exist at all, instead of being accepted with its normal meaning
@@ -2323,7 +2323,7 @@ describe "Constants programs" do
   end
 
   it "kwarg only toplevel leading optional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One shape per file: a companion call that supplies the positional would
       # immunise this (#3525).
       def top(a = nil, k: :default)
@@ -2336,7 +2336,7 @@ describe "Constants programs" do
   end
 
   it "later constant reaches back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Outer
         X = :outer
       end
@@ -2360,7 +2360,7 @@ describe "Constants programs" do
   end
 
   it "leading colon colon skips a shadowing scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `::Widget` means the TOP-LEVEL `Widget`, whatever the enclosing scopes call
       # their own. zeo lowered the anchor to a read scoped to `Object`, and when that
       # found nothing it re-resolved the BARE name -- through the lexical chain,
@@ -2455,7 +2455,7 @@ describe "Constants programs" do
   end
 
   it "masgn constpath target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Constant-path multi-assignment targets (`a, M::X = 1, 2`). Each
       # ConstantPathTargetNode resolves to the qualified constant's slot so
       # the destructured value lands in the right place.
@@ -2481,7 +2481,7 @@ describe "Constants programs" do
   end
 
   it "namespaced constant read via double colon" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         BAR = 42
       end
@@ -2492,7 +2492,7 @@ describe "Constants programs" do
   end
 
   it "namespaces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         DEFAULT = 10
 
@@ -2562,7 +2562,7 @@ describe "Constants programs" do
   end
 
   it "a nested class names itself by its whole path, and its constants resolve in it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -2630,7 +2630,7 @@ describe "Constants programs" do
   end
 
   it "an instance of a nested class answers the methods and constants of its namespace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -2701,7 +2701,7 @@ describe "Constants programs" do
   end
 
   it "a multiple assignment binds each target, splat and nesting included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -2794,7 +2794,7 @@ describe "Constants programs" do
   end
 
   it "a parallel assignment of two locals binds both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -2856,7 +2856,7 @@ describe "Constants programs" do
   end
 
   it "a constant holding a Regexp is used as one wherever it is read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -2927,7 +2927,7 @@ describe "Constants programs" do
   end
 
   it "a constant Hash accumulates through the methods that write it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -2989,7 +2989,7 @@ describe "Constants programs" do
   end
 
   it "a constant holding an object shares that object with every reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         LIMIT = 3
 
@@ -3066,7 +3066,7 @@ describe "Constants programs" do
   end
 
   it "parameter default assigns the scope s own local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def discard(key = (no_arg = true))` is ruby's idiom for "was an argument
       # passed?" -- the default expression assigns a local, and the body reads it.
       # That local belongs to the scope being DEFINED: the default runs in the
@@ -3134,7 +3134,7 @@ describe "Constants programs" do
   end
 
   it "private constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_constant` hides the SCOPE OPERATOR, not the reader: `M::S` raises
       # everywhere -- even inside `M`'s own body -- while a bare `S` resolved through
       # the cref still answers, and so does `M.const_get(:S)`. That split is what
@@ -3261,7 +3261,7 @@ describe "Constants programs" do
   end
 
   it "private constant directive has a value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_constant :Hidden` as the last statement of a module body is where
       # rspec-openapi and three other gems put it -- and a module body is an
       # expression, so something can read what it evaluates to. The directive
@@ -3300,7 +3300,7 @@ describe "Constants programs" do
   end
 
   it "qualified constant writes target the named namespace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Cfg
       end
 
@@ -3312,7 +3312,7 @@ describe "Constants programs" do
   end
 
   it "qualified definition form does not see the namespace lexically" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Store::Cart`'s cref is just [Cart] -- real Ruby raises
       # NameError for `DEFAULT`, naming the cref head's qualified path.
 
@@ -3335,7 +3335,7 @@ describe "Constants programs" do
   end
 
   it "qualified definition sees the scope it is written in" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class A::B` skips the prefix it SPELLS -- its body does not see `A`'s
       # constants lexically -- but it keeps every scope it is written inside.
       # httpx spells `class Connection::HTTP2` inside `module HTTPX` and then
@@ -3423,7 +3423,7 @@ describe "Constants programs" do
   end
 
   it "qualified missing constant value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unresolvable constant raises NameError, and in a value position its raise
       # carries an sp_Class the slot cannot hold, so the tail assignment casts it to
       # the slot's own zero. The list of node kinds that got that treatment named the
@@ -3475,7 +3475,7 @@ describe "Constants programs" do
   end
 
   it "the RUBY_* build constants and the File::SEPARATOR family match the oracle's" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RUBY_* version/build constants and the File::SEPARATOR family that zeo
       # shares with its ruby 4.0.6 oracle. The platform/revision are machine- and
       # build-specific, so this checks the STABLE shared values exactly and the
@@ -3511,7 +3511,7 @@ describe "Constants programs" do
   end
 
   it "runtime names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # A name only the run time builds. Each of these verbs mints its methods
@@ -3582,7 +3582,7 @@ describe "Constants programs" do
   end
 
   it "small namespaces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three namespaces ruby carries that zeo lacked, none of which has a method
       # of its own -- they are names, and a name is the whole contract.
 
@@ -3633,7 +3633,7 @@ describe "Constants programs" do
   end
 
   it "a method keeps its own match, so the caller's is untouched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
       # leaves the caller's match exactly as it found it, and a scope that never
@@ -3675,7 +3675,7 @@ describe "Constants programs" do
   end
 
   it "a class body is a frame, so it holds a match of its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
       # leaves the caller's match exactly as it found it, and a scope that never
@@ -3721,7 +3721,7 @@ describe "Constants programs" do
   end
 
   it "a block shares the match of the frame it runs under" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
       # leaves the caller's match exactly as it found it, and a scope that never
@@ -3768,7 +3768,7 @@ describe "Constants programs" do
   end
 
   it "a class method and a define_method body each hold their own match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
       # leaves the caller's match exactly as it found it, and a scope that never
@@ -3820,7 +3820,7 @@ describe "Constants programs" do
   end
 
   it "an early return leaves the caller's match as it was" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
       # leaves the caller's match exactly as it found it, and a scope that never
@@ -3851,7 +3851,7 @@ describe "Constants programs" do
   end
 
   it "a raise out of a matched scope pops that match with the frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$~` -- and every read that goes through it (`$1`, `$&`, `` $` ``, `$'`,
       # `Regexp.last_match`) -- is FRAME-LOCAL. A scope that matches and returns
       # leaves the caller's match exactly as it found it, and a scope that never
@@ -3883,7 +3883,7 @@ describe "Constants programs" do
   end
 
   it "top level constant read and write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       MAX = 100
       puts MAX
     RUBY
@@ -3892,7 +3892,7 @@ describe "Constants programs" do
   end
 
   it "top level def defines and calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def greet(name, punct = "!")
         "hi #{name}#{punct}"
       end
@@ -3904,7 +3904,7 @@ describe "Constants programs" do
   end
 
   it "top level def used as a value is still private" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` is a PRIVATE instance method of Object. Writing it where a
       # value is read does not change that -- `p(def m; end)` is the same definition,
       # and only the `:m` it answers with is new. zeo registers the bare spelling at
@@ -3957,7 +3957,7 @@ describe "Constants programs" do
   end
 
   it "top level private marks the following defs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `main`'s private singleton methods. CRuby installs eight on the top-level
       # self (`define_method`, `include`, `inspect`, `private`, `public`,
       # `ruby2_keywords`, `to_s`, `using`); each of the mixin ones lands on
@@ -4027,13 +4027,13 @@ describe "Constants programs" do
   end
 
   it "top level self is the main object" do
-    result = ze0("puts self.is_a?(Object)\n")
+    result = zr("puts self.is_a?(Object)\n")
 
     _(result).must_answer "true\n"
   end
 
   it "toplevel def private on object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` lands on Object as a PRIVATE method: CRuby answers an
       # explicit-receiver call with "private method called", never with the method.
       # Spinel counted such a def as owning the name for every receiver dispatch, so
@@ -4085,7 +4085,7 @@ describe "Constants programs" do
   end
 
   it "toplevel def self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def self.name` / `class << self` installs SINGLETON methods on
       # the `main` object (Batch G) -- callable via implicit self at the top level,
       # but not from inside another object (CRuby's asymmetry with a plain top-level
@@ -4126,7 +4126,7 @@ describe "Constants programs" do
   end
 
   it "a runtime-minted constant beside a same-leaf class keeps each namespace its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4208,7 +4208,7 @@ describe "Constants programs" do
   end
 
   it "the same collision in the other order resolves the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4278,7 +4278,7 @@ describe "Constants programs" do
   end
 
   it "a genuine runtime superclass still works beside a same-leaf constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4345,7 +4345,7 @@ describe "Constants programs" do
   end
 
   it "a qualified superclass naming a runtime constant resolves to it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4409,7 +4409,7 @@ describe "Constants programs" do
   end
 
   it "a bare top-level constant does not capture a nested reference to the same leaf" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4475,7 +4475,7 @@ describe "Constants programs" do
   end
 
   it "the same leaf three namespaces deep resolves at each level" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4546,7 +4546,7 @@ describe "Constants programs" do
   end
 
   it "a bare class X reopens its own namespace's X, not an unrelated one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4617,7 +4617,7 @@ describe "Constants programs" do
   end
 
   it "a real reopen of a runtime-minted class still reopens it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4680,7 +4680,7 @@ describe "Constants programs" do
   end
 
   it "defined? and const_get agree with what the reader resolves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4743,7 +4743,7 @@ describe "Constants programs" do
   end
 
   it "a same-leaf module and class stay apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two namespaces may each hold a constant of the same LEAF name, and neither
       # may answer for the other. One row per shape, printed as `name<TAB>result`.
       #
@@ -4806,7 +4806,7 @@ describe "Constants programs" do
   end
 
   it "undefined constant warns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # The uninitialized-constant message is namespaced ("Object::AlsoMissing");
       # ruby names the constant alone.
@@ -4849,7 +4849,7 @@ describe "Constants programs" do
   end
 
   it "unresolved constant frames" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant that resolves nowhere raises NameError where it is READ, and both
       # the message and the backtrace frame depend on where that is.
       module Outer
@@ -4903,7 +4903,7 @@ describe "Constants programs" do
   end
 
   it "writes" do
-    result = ze0(<<~'RUBY', path: "ze0/constant_writes.rb")
+    result = zr(<<~'RUBY', path: "zr/constant_writes.rb")
       # frozen_string_literal: true
 
       # The operator writes a constant takes. `||=` is the one read that
@@ -4966,19 +4966,19 @@ describe "Constants programs" do
       :other
       1
     OUT
-      ze0/constant_writes.rb:14: warning: already initialized constant EMPTY
-      ze0/constant_writes.rb:13: warning: previous definition of EMPTY was here
-      ze0/constant_writes.rb:18: warning: already initialized constant BOTH
-      ze0/constant_writes.rb:17: warning: previous definition of BOTH was here
-      ze0/constant_writes.rb:25: warning: already initialized constant Holder::COUNT
-      ze0/constant_writes.rb:22: warning: previous definition of COUNT was here
-      ze0/constant_writes.rb:31: warning: already initialized constant Holder::COUNT
-      ze0/constant_writes.rb:25: warning: previous definition of COUNT was here
+      zr/constant_writes.rb:14: warning: already initialized constant EMPTY
+      zr/constant_writes.rb:13: warning: previous definition of EMPTY was here
+      zr/constant_writes.rb:18: warning: already initialized constant BOTH
+      zr/constant_writes.rb:17: warning: previous definition of BOTH was here
+      zr/constant_writes.rb:25: warning: already initialized constant Holder::COUNT
+      zr/constant_writes.rb:22: warning: previous definition of COUNT was here
+      zr/constant_writes.rb:31: warning: already initialized constant Holder::COUNT
+      zr/constant_writes.rb:25: warning: previous definition of COUNT was here
     ERR
   end
 
   it "a constant of literals alone is built frozen with no send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # shareable_constant_value: literal
       PATTERNS = [/re/, { p: /q/ }]
       p PATTERNS, PATTERNS.frozen?, PATTERNS[1].frozen?

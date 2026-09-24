@@ -9,7 +9,7 @@
 # compilers that no longer exist.
 #
 # It also gains one `unit-<key>.marshal` per file any program was built
-# from (lib/ze0/unit_cache.rb): small each, thousands after a tier run,
+# from (lib/zr/unit_cache.rb): small each, thousands after a tier run,
 # and every one of them named after the compiler that made it, so a
 # prune takes them with everything else that compiler left.
 #
@@ -27,20 +27,20 @@
 # more than the runtime's digest -- the program's own pending symbols,
 # the files the prelude loaded -- so those two kinds are kept by age
 # alone, and a hard prune costs the next wasm build its prelude.
-require_relative "../lib/ze0/zr"
-require_relative "../lib/ze0/native/build"
+require_relative "../lib/zr/zr"
+require_relative "../lib/zr/native/build"
 
 module Caches
   module_function
 
   # The cache's files, the binaries the spec tier keeps under it, and
-  # the parsed trees (lib/ze0/parse_cache.rb): one a file ever parsed,
+  # the parsed trees (lib/zr/parse_cache.rb): one a file ever parsed,
   # seventy thousand after a season, and named by their source alone,
   # so only age says which are done with.
-  def files = Dir[File.join(Ze0::Zr.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
+  def files = Dir[File.join(Zr::Zr.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
 
   # wasmtime's own cache of compiled modules, which `rake bench` and a
-  # `ze0 run` under Cranelift fill (the tiers run Winch with the cache
+  # `zr run` under Cranelift fill (the tiers run Winch with the cache
   # off): not this cache's to sweep, but worth naming, since it grew to
   # 67 GB on one machine. `wasmtime config new` writes the file that
   # bounds it.
@@ -51,29 +51,29 @@ module Caches
   # prelinked image of each -- the road's own key comes out of its meta,
   # which is the one file that says it.
   def live
-    Ze0::Target.all.flat_map { |target| live_for(target) }.compact.uniq
+    Zr::Target.all.flat_map { |target| live_for(target) }.compact.uniq
   rescue StandardError
     [] # a checkout the compiler will not load from is not one to sweep by
   end
 
   def live_for(target)
-    runtime = Ze0::Zr.runtime(target)
-    object = File.join(Ze0::Zr.cache, "rt-#{runtime.digest}.o")
-    meta = File.join(Ze0::Zr.cache, "road-#{runtime.digest}.json")
+    runtime = Zr::Zr.runtime(target)
+    object = File.join(Zr::Zr.cache, "rt-#{runtime.digest}.o")
+    meta = File.join(Zr::Zr.cache, "road-#{runtime.digest}.json")
     road = road_object(meta)
     images = [prelink([object]), road && prelink([object, road])].compact
     [object, meta, road, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
-      Dir[File.join(Ze0::Zr.cache, "*-#{runtime.digest}.*")]
+      Dir[File.join(Zr::Zr.cache, "*-#{runtime.digest}.*")]
   end
 
   # The road's object, which only its meta names.
   def road_object(meta)
     key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
-    key && File.join(Ze0::Zr.cache, "road-#{key}.o")
+    key && File.join(Zr::Zr.cache, "road-#{key}.o")
   end
 
   # The image `Native::Build.prelink` writes for those objects.
-  def prelink(objects) = Ze0::Native::Build.prelink_path(objects)
+  def prelink(objects) = Zr::Native::Build.prelink_path(objects)
 
   def megabytes(paths) = paths.sum { |path| File.size(path) } / (1 << 20)
 
@@ -116,7 +116,7 @@ namespace :cache do
 
   desc "Sweep the runtime cache: rake 'cache:prune[days]'"
   task :prune, [:days] do |_, args|
-    days = Float(args[:days] || ENV.fetch("ZE0_CACHE_DAYS", 1))
+    days = Float(args[:days] || ENV.fetch("ZR_CACHE_DAYS", 1))
     live = Caches.live
     young = Time.now - (days * 86_400)
     stale = Caches.files.reject { |path| live.include?(path) || File.mtime(path) > young }

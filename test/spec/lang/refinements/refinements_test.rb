@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Refinements programs" do
   it "refine block sees its sibling refinements" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inside a refine block, every refinement the same module holds is in use,
       # the ones written after it too, as rb_mod_refine shares the module's
       # activated refinements. REXML's Array#dclone calls dclone on a Symbol
@@ -37,7 +37,7 @@ describe "Refinements programs" do
   end
 
   it "using covers a byte range of its scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `using M` turns M's refinements on for the rest of the LEXICAL scope that
@@ -145,7 +145,7 @@ describe "Refinements programs" do
   end
 
   it "keeps a refinement in force after an eval loads the compiler" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A program that evals carries the compiler, and the compiler loads
       # on the first eval, running each of its own files. Several of them
       # activate a refinement as they load -- the prism port reaches its
@@ -177,7 +177,7 @@ describe "Refinements programs" do
   end
 
   it "keeps a refinement a snippet activates out of the compiler's own rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The other way round: a snippet numbers rows too, and it is
       # compiled while the program runs, so its rows have to start after
       # every row the program already holds. One that started from zero
@@ -200,7 +200,7 @@ describe "Refinements programs" do
     OUT
   end
   it "names the modules in use, refined class by refined class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module.used_modules` answered [] until the activation row could
       # reach the callee. CRuby reads its cref's refinement table, which
       # is keyed by the refined class, so the order is the classes in the
@@ -264,7 +264,7 @@ describe "Refinements programs" do
     OUT
   end
   it "a site under using takes every road, and a def inside refine closes the gate of the name it stands over" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A site under `using` takes the same roads as any site: the inline
       # fixnum operator, the unary, the `[]`/`<<`/`push` entries, the cell,
       # a block's `call`. Each road is guarded by a gate the runtime closes
@@ -326,7 +326,7 @@ describe "Refinements programs" do
   end
 
   it "a send under using keeps its cells, and every change that moves the stamp is seen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A send written under `using` keeps cells like any other (SEND_USING):
       # the refinements at a site are the site's own, so what the lookup
       # answered under them is the class's and the stamp's at that site. A
@@ -395,7 +395,7 @@ describe "Refinements programs" do
   end
 
   it "interpolation calls a refined to_s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module RS
         refine(Integer) { def to_s = "R" }
         refine(Symbol) { def to_s = "sym" }
@@ -414,7 +414,7 @@ describe "Refinements programs" do
   end
 
   it "a Symbol block reaches a refined method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module RS
         refine(String) { def shout = upcase + "!" }
         refine(Integer) { def to_s = "R" }
@@ -434,7 +434,7 @@ describe "Refinements programs" do
   end
 
   it "using inside a block at the top level refines the rest of the file" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module RS
         refine(Integer) { def to_s = "R" }
       end

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "OpenStruct programs" do
   it "alias reader bool and ostruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct"
       class Flag
         attr_reader :required
@@ -49,7 +49,7 @@ describe "OpenStruct programs" do
   end
 
   it "library only a method body requires loads lazily" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def lazy
         require "ostruct"
         o = OpenStruct.new(x: 1)
@@ -65,7 +65,7 @@ describe "OpenStruct programs" do
   end
 
   it "ostruct nil union to h" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_h on an OpenStruct|nil union value: the poly to_h keeps the boxed value
       # for a poly consumer and handles the OpenStruct member table (#3282).
       require "ostruct"
@@ -91,7 +91,7 @@ describe "OpenStruct programs" do
   end
 
   it "ostruct poly user name clash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An OpenStruct member read through a poly value must work even when a user
       # class defines a method of the same name: the OpenStruct pre-arm keys on
       # cls_id and coexists with the user arms (#3264).
@@ -112,7 +112,7 @@ describe "OpenStruct programs" do
   end
 
   it "an object with plain ivars revives with each ivar set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -179,7 +179,7 @@ describe "OpenStruct programs" do
   end
 
   it "a class that writes init_with revives through it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -246,7 +246,7 @@ describe "OpenStruct programs" do
   end
 
   it "a class that writes yaml_initialize revives through it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -313,7 +313,7 @@ describe "OpenStruct programs" do
   end
 
   it "a class that refuses new revives through allocate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -380,7 +380,7 @@ describe "OpenStruct programs" do
   end
 
   it "a Struct, a Range and the other reviving tags each come back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -489,7 +489,7 @@ describe "OpenStruct programs" do
   end
 
   it "a name nothing defines raises, rather than answering a bare Object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -555,7 +555,7 @@ describe "OpenStruct programs" do
   end
 
   it "safe_load refuses an object tag it was not told to permit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -659,7 +659,7 @@ describe "OpenStruct programs" do
   end
 
   it "naming the class is what lets the object tag through" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than
@@ -735,7 +735,7 @@ describe "OpenStruct programs" do
   end
 
   it "a revived object survives a round trip through the parsed tree" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
       # This is the half of psych that turns a document into OBJECTS rather than

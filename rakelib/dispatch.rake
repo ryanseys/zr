@@ -14,12 +14,12 @@
 #
 # CRuby's C calls a method by dispatch only where it means to -- Hash#each
 # for Enumerable, initialize_copy for dup -- and reaches the rest of its
-# own class through C functions no subclass can replace. ze0's core is
+# own class through C functions no subclass can replace. zr's core is
 # written in Ruby, so a call to `self[k]` in Hash#store is a dispatch, and
 # a subclass whose `[]=` calls `store` recurses forever. Each program wraps
 # every method the class defines in a subclass that logs a call made from
 # inside another, then calls each method once. The recording is exactly the
-# set of calls CRuby makes; ze0 answers with the same set or it diverges.
+# set of calls CRuby makes; zr answers with the same set or it diverges.
 #
 # The call made for each method is found here, by trying argument lists on
 # the real class until one answers without raising, so the programs need
@@ -119,7 +119,7 @@ module Dispatch
       # Which of #{name}'s own methods its methods call on a subclass: every
       # method #{name} defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       #{probe_class(name)}

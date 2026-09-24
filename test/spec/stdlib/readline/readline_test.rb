@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Readline programs" do
   it "line input off a redirected source, the HISTORY object and the attribute surface all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # readline -- line input off a redirected source (the deterministic leg: no
       # terminal, no rendering), the HISTORY object, and the attribute surface.
       #

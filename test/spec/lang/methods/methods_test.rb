@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods programs" do
   it "aliasing a genuinely undefined method is a runtime name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An `alias`/`alias_method` whose source is defined neither in this body
       # nor anywhere in the ancestry COMPILES (the compiler can't distinguish a
       # typo from a runtime-table builtin source, `alias_method :dup!, :dup`)
@@ -26,7 +26,7 @@ describe "Methods programs" do
   end
 
   it "arg forwarding fixed callee" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwarding preserves both channels when the callee mixes a flexible channel
       # with a fixed positional or keyword parameter.
       def rest_and_fixed_kw(*a, k: 0) = [a, k]
@@ -47,7 +47,7 @@ describe "Methods programs" do
   end
 
   it "arg forwarding limits" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exercise the former fixed-size forwarding rewrite buffers.
       def collect(*a) = a.length
 
@@ -128,7 +128,7 @@ describe "Methods programs" do
   end
 
   it "ast translator builds splat lists like parse y" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` maps prism's node kinds onto CRuby's NODE_*
       # names, and the shapes the two disagree about were all one family: a list
       # with a SPLAT in it, and the empty statement CRuby's grammar leaves at the
@@ -923,7 +923,7 @@ describe "Methods programs" do
   end
 
   it "attr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test attr_accessor, attr_reader, attr_writer, class methods, for..in, loop
 
       class Point
@@ -1017,7 +1017,7 @@ describe "Methods programs" do
   end
 
   it "attributes undefined dsl" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The spinel-era compile-time `attributes` DSL does not exist: CRuby (and
       # zeo) raise NoMethodError when the class body executes. Rescued inside
       # the body so the output is path-portable.
@@ -1035,7 +1035,7 @@ describe "Methods programs" do
   end
 
   it "bound method obj recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<obj>.method(:bar)` — bind to a receiver that's not the current
       # `self`. The Method's iv_self_obj must end up holding the
       # receiver, not the *enclosing* class's `self`.
@@ -1088,7 +1088,7 @@ describe "Methods programs" do
   end
 
   it "bound method single eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #215 / Gemini-review-critical: the receiver expression in
       # `<recv>.method(:foo).call(args)` and `<recv>.method(:foo)[args]`
       # must be evaluated exactly once. The Method#call lowering reads
@@ -1137,7 +1137,7 @@ describe "Methods programs" do
   end
 
   it "call op write def writer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.attr op= v` when the writer is a hand-written `def attr=`: Ruby means a
       # reader call and a writer call, and the writer's body has to run (#3809).
       class Rect
@@ -1197,7 +1197,7 @@ describe "Methods programs" do
   end
 
   it "class method site stays correct when the class changes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Target.name` call site caches the class method it resolved. Everything
       # that can make that answer wrong must still win.
 
@@ -1290,7 +1290,7 @@ describe "Methods programs" do
   end
 
   it "constant declared in a superclass resolves from a subclass method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Base
         X = 1
       end
@@ -1306,7 +1306,7 @@ describe "Methods programs" do
   end
 
   it "cvar method first assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         def self.set; @@x = 5; end
         def self.get; @@x; end
@@ -1319,7 +1319,7 @@ describe "Methods programs" do
   end
 
   it "def in the source has a home of its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super`, `yield` and `return` need the enclosing method's identity,
       # block channel and return target -- which a snippet's own level does
       # not have, but a `def` written INSIDE it does: the emitter's
@@ -1346,7 +1346,7 @@ describe "Methods programs" do
   end
 
   it "def tail empty literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
         def items
           []
@@ -1383,7 +1383,7 @@ describe "Methods programs" do
   end
 
   it "defined of a rewritten call is a method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `defined?` never runs its call, so a call the compiler would rewrite
       # (`!x`, `"lit".freeze`, a `require` of a literal name) still answers
       # "method", as any other call to a method that exists does.
@@ -1406,7 +1406,7 @@ describe "Methods programs" do
   end
 
   it "destructure splat underflow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A splat multi-assign with fewer RHS elements than the fixed targets empties
       # the splat and nil-fills the trailing targets, rather than wrapping indices.
       def s(x); x; end
@@ -1439,7 +1439,7 @@ describe "Methods programs" do
   end
 
   it "dotdotdot leading param forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def f(a, ...)` binds the leading param and forwards only the rest; plain
       # `def f(...)` forwards everything.
       def g(b, c) = [b, c]
@@ -1464,7 +1464,7 @@ describe "Methods programs" do
   end
 
   it "eval defined method calls its module siblings" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # A method installed by `module_eval` on a STRING can reach the module's other
       # methods through `self`. i18n's delegators do exactly that -- the eval'd
       # `backend=` calls `writable_config`, a literal `def` two lines above it.
@@ -1540,7 +1540,7 @@ describe "Methods programs" do
   end
 
   it "eval dynamic method call on evaluated receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "[3, 1, 2].sort.inspect"; puts eval(src)
     RUBY
 
@@ -1548,7 +1548,7 @@ describe "Methods programs" do
   end
 
   it "eval return belongs to the enclosing method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` written in a run-time `eval` returns from the METHOD the eval
       # sits in, exactly as one written there would. The signal is unmarked, so it
       # belongs to the nearest catcher -- and the enclosing method only pushes a
@@ -1607,7 +1607,7 @@ describe "Methods programs" do
   end
 
   it "explicit self dot method and bare self as a value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize(v)
           @v = v
@@ -1635,7 +1635,7 @@ describe "Methods programs" do
   end
 
   it "fallible class body constant and method default args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `CONST = <fallible expr>` in a class body and `def m(a = <fallible>)`
       # both previously emitted `?` outside a Result context.
 
@@ -1661,7 +1661,7 @@ describe "Methods programs" do
   end
 
   it "flat map pair index param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { 1 => [1], 2 => [2] }
       n = 0
       h.each_with_index.flat_map { |(k, g), i| n += 1; [k, i] }.each { |v| }
@@ -1684,7 +1684,7 @@ describe "Methods programs" do
   end
 
   it "forward call param type inference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Direct-call form (no caller-class wrapper): a top-level method
       # `apply` is the caller, target is a parameter. Verifies the callee's
       # param widening fires when the call is inside a top-level method
@@ -1714,7 +1714,7 @@ describe "Methods programs" do
   end
 
   it "getter push with user shift" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `dest.list << x` takes its element evidence through the getter's backing
       # ivar. The push was declined outright whenever ANY user class defined `<<`
       # (a bundled csv or a Set-like class is enough), so the ivar kept the empty
@@ -1774,7 +1774,7 @@ describe "Methods programs" do
   end
 
   it "grapheme clusters alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # grapheme_clusters / each_grapheme_cluster alias to the chars/each_char
       # machinery -- equivalent over the supported text domain (no combining
       # sequences).
@@ -1793,7 +1793,7 @@ describe "Methods programs" do
   end
 
   it "an array built by + from two method calls keeps its length across many turns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Item
         def initialize(tag); @tag = tag; end
         attr_reader :tag
@@ -1831,7 +1831,7 @@ describe "Methods programs" do
   end
 
   it "isa scalar arm dead" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x.is_a?(UserClass)` with a numeric receiver is statically false, so the arm
       # is dead -- and it is the only place the call in it comes from. Without
       # dropping it, `Int64.new(0)` (an Integer argument) made the emitter meet
@@ -1883,7 +1883,7 @@ describe "Methods programs" do
   end
 
   it "issue class method owner" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#owner` answered the CLASS for a class method, where ruby answers that
       # class's SINGLETON class -- which is also where `def self.a` actually put it.
       #
@@ -1941,7 +1941,7 @@ describe "Methods programs" do
   end
 
   it "keyword arguments fill their slots in order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A keyword call whose keys are literal and cover the callee's required
       # keywords EXACTLY can fill the parameter slots at the call site. The two
       # orders it has to keep apart:
@@ -2009,7 +2009,7 @@ describe "Methods programs" do
   end
 
   it "keyword flag truthiness" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "ab\n".each_line(chomp: 1).to_a
       p "ab\n".each_line(chomp: nil).to_a
       p "ab\ncd\n".lines(chomp: 1)
@@ -2061,7 +2061,7 @@ describe "Methods programs" do
   end
 
   it "keyword params bind by name regardless of call site order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Kw
         def greet(x:, y: 10)
           x + y
@@ -2086,7 +2086,7 @@ describe "Methods programs" do
   end
 
   it "kwargs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test keyword arguments and splat
 
       def greet(name:, greeting: "Hello")
@@ -2121,7 +2121,7 @@ describe "Methods programs" do
   end
 
   it "kwargs double splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `foo(**h)` — double-splat a sym-keyed hash into the callee's
       # keyword params. Only the single-arg shape is wired here
       # (no positional + splat mixing); the splat hash must be
@@ -2143,7 +2143,7 @@ describe "Methods programs" do
   end
 
   it "kwargs param widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #314 (B): a module class method's required keyword params
       # never widened from the "int" default at scan_new_calls time. The
       # AST presents kwargs as a single trailing KeywordHashNode, and the
@@ -2227,7 +2227,7 @@ describe "Methods programs" do
   end
 
   it "kwrest copies a key without calling its hash again" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `**rest` takes the keywords the method does not declare from a Hash
       # whose keys already have their codes: ruby copies the entries, so a
       # key's own `hash` runs once, at the call, and never for the rest.
@@ -2256,7 +2256,7 @@ describe "Methods programs" do
   end
 
   it "kwsplat forward defaults" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Forwarding **opts into a method with optional keyword parameters must apply
       # the callee's defaults for keys absent from the forwarded hash -- a bare hash
       # lookup returns nil and silently drops the default.
@@ -2292,7 +2292,7 @@ describe "Methods programs" do
   end
 
   it "map shadowed param poly arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-position map whose block param feeds a poly-widened callee param.
       # The param's scope-local rides the fixpoint to poly (its array's element type
       # settles late), and the map emitter then shadow-pins it to the element type
@@ -2363,7 +2363,7 @@ describe "Methods programs" do
   end
 
   it "method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def double(x)
         x * 2
       end
@@ -2398,7 +2398,7 @@ describe "Methods programs" do
   end
 
   it "method at toplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # __method__ is nil at the top level; inside a method it is the method's name.
       p __method__
       def foo; __method__; end
@@ -2415,7 +2415,7 @@ describe "Methods programs" do
   end
 
   it "method call splat args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method#[] / #call with a trailing splat expands the array into the
       # target's declared params at runtime (#3248).
       def add(a, b) = a + b
@@ -2442,7 +2442,7 @@ describe "Methods programs" do
   end
 
   it "method call splat rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Var
         def sum(*a); a.sum; end
       end
@@ -2470,7 +2470,7 @@ describe "Methods programs" do
   end
 
   it "method capture before own def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `K.method(:name)` captured BEFORE `def self.name` in document order binds
       # the INHERITED entry -- CRuby resolves at capture time, so the later
       # override must not be found by the capture (rspec-support's
@@ -2500,7 +2500,7 @@ describe "Methods programs" do
   end
 
   it "method compose container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       fs001 = [->(x001) { x001 + 1 }]
       m001 = 2.method(:*)
       c001 = m001 >> fs001[0]
@@ -2549,7 +2549,7 @@ describe "Methods programs" do
   end
 
   it "method defined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#method_defined?(:sym) — compile-time decided via the
       # class's recorded method table (walks the parent chain, includes
       # attr readers/writers).
@@ -2610,7 +2610,7 @@ describe "Methods programs" do
   end
 
   it "method extended" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal
         def speak(sound) = "#{sound}!"
       end
@@ -2670,7 +2670,7 @@ describe "Methods programs" do
   end
 
   it "method object accessor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # method(:accessor) for auto-generated attr / struct accessors (no real def):
       # reader, writer, name, arity, and to_proc with a correct-arity block.
       class C
@@ -2721,7 +2721,7 @@ describe "Methods programs" do
   end
 
   it "method objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `method(:name)` answers a Method -- a bound (receiver, name) pair whose
       # #call dispatches through the ordinary send machinery.
 
@@ -2842,7 +2842,7 @@ describe "Methods programs" do
   end
 
   it "method out of container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Calc
         def initialize(b); @b = b; end
         def add(n); @b + n; end
@@ -2866,7 +2866,7 @@ describe "Methods programs" do
   end
 
   it "method owner receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method#owner is the defining class (the receiver's class for a builtin
       # method object); #receiver is the bound receiver (#2701).
       m = 5.method(:+)
@@ -2895,7 +2895,7 @@ describe "Methods programs" do
   end
 
   it "method params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def greet(name, greeting = "Hello")
           "#{greeting}, #{name}!"
@@ -2985,7 +2985,7 @@ describe "Methods programs" do
   end
 
   it "method source location" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#source_location` / `UnboundMethod#source_location` -- `[file, line]`
       # for a method written in Ruby, `nil` for one defined natively. The line is the
       # `def` keyword's own, which is why the assertions below name it explicitly
@@ -3063,7 +3063,7 @@ describe "Methods programs" do
   end
 
   it "method visibility attr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Visibility applies to attr_accessor / attr_reader / attr_writer methods
       # declared under a bare private/protected section (writers tracked as "name=").
 
@@ -3125,7 +3125,7 @@ describe "Methods programs" do
   end
 
   it "module level state accumulates across class method calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Counter
         @n = 0
         def self.bump; @n += 1; end
@@ -3141,7 +3141,7 @@ describe "Methods programs" do
   end
 
   it "module method does not shadow the builtin class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening a builtin MODULE and defining a method the including CLASS
       # already defines itself must not shadow the class's own method. `Array`
       # includes `Enumerable`, and `Array#none?`/`Array#size` are defined on `Array`
@@ -3191,7 +3191,7 @@ describe "Methods programs" do
   end
 
   it "module method via class value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `target.seen(x)` where `target` holds a Class value the analysis cannot pin to
       # one class -- a parameter, an element, an untyped slot -- reaches every class
       # method of that name at run time, so every one of them has this call as a
@@ -3247,7 +3247,7 @@ describe "Methods programs" do
   end
 
   it "op method bitwise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # User-defined | & ^ % dispatch to the class method (mangled C name),
       # not a raw C bitwise/modulo op on the struct pointer.
       class Flags
@@ -3293,7 +3293,7 @@ describe "Methods programs" do
   end
 
   it "optional params use the default only when omitted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def greet(name, greeting = "Hello")
           "#{greeting}, #{name}!"
@@ -3308,7 +3308,7 @@ describe "Methods programs" do
   end
 
   it "param default references sibling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parameter default that references an earlier parameter (positional or
       # keyword) must be evaluated with that parameter bound, exactly as CRuby
       # evaluates defaults left-to-right in the callee.
@@ -3372,7 +3372,7 @@ describe "Methods programs" do
   end
 
   it "a parenthesized parameter destructures the argument it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Positional parameter shapes: parenthesized destructuring, the auto-splat
       # rule, post-parameter distribution, and the trailing-comma implicit rest.
 
@@ -3427,7 +3427,7 @@ describe "Methods programs" do
   end
 
   it "a block of several parameters auto-splats one array argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Positional parameter shapes: parenthesized destructuring, the auto-splat
       # rule, post-parameter distribution, and the trailing-comma implicit rest.
 
@@ -3472,7 +3472,7 @@ describe "Methods programs" do
   end
 
   it "a parameter written after a rest takes from the end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Positional parameter shapes: parenthesized destructuring, the auto-splat
       # rule, post-parameter distribution, and the trailing-comma implicit rest.
 
@@ -3502,7 +3502,7 @@ describe "Methods programs" do
   end
 
   it "a trailing comma in a parameter list is an implicit rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Positional parameter shapes: parenthesized destructuring, the auto-splat
       # rule, post-parameter distribution, and the trailing-comma implicit rest.
 
@@ -3521,7 +3521,7 @@ describe "Methods programs" do
   end
 
   it "a block-local declaration after a semicolon shadows the outer local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Positional parameter shapes: parenthesized destructuring, the auto-splat
       # rule, post-parameter distribution, and the trailing-comma implicit rest.
 
@@ -3566,7 +3566,7 @@ describe "Methods programs" do
   end
 
   it "optional, rest, keyword and block parameters bind in every combination" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -3652,7 +3652,7 @@ describe "Methods programs" do
   end
 
   it "Method#parameters names each parameter's kind and name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -3716,7 +3716,7 @@ describe "Methods programs" do
   end
 
   it "a block parameter takes a default, and destructures what it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -3776,7 +3776,7 @@ describe "Methods programs" do
   end
 
   it "a lambda binds its parameters and reports its arity and its parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -3849,7 +3849,7 @@ describe "Methods programs" do
   end
 
   it "a curried lambda binds one argument at a time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -3912,7 +3912,7 @@ describe "Methods programs" do
   end
 
   it "a -> closes over a name the way a block does, sharing one cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -3976,7 +3976,7 @@ describe "Methods programs" do
   end
 
   it "a proc fills a missing parameter with nil and drops a surplus argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -4041,7 +4041,7 @@ describe "Methods programs" do
   end
 
   it "a class's methods take the same parameter shapes, defaults and splats included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -4106,7 +4106,7 @@ describe "Methods programs" do
   end
 
   it "_1, _2 and it are that many required positionals, under their own names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def opt(a, b = 10, c = b + 1)
         [a, b, c]
       end
@@ -4173,7 +4173,7 @@ describe "Methods programs" do
   end
 
   it "poly delete dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `delete` on a boxed receiver dispatches on what the receiver turns out to
       # be: a Hash gives the deleted value, an Array the object, a String the
       # stripped copy. It used to commit to String#delete and stringify the
@@ -4207,7 +4207,7 @@ describe "Methods programs" do
   end
 
   it "redefinition warns under verbose" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Under $VERBOSE true a definition over a method warns as
       # rb_method_entry_make does: not over an alias, an undef, a copy a
       # visibility verb made, or the same definition again.
@@ -4286,7 +4286,7 @@ describe "Methods programs" do
   end
 
   it "repeated optional parameter default writes the name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby compiles an optional parameter's DEFAULT as an assignment to the NAME,
       # not to the slot -- so a repeated `_`'s later default overwrites the local the
       # FIRST `_` owns, which is the one every read answers. zeo bound each slot
@@ -4319,7 +4319,7 @@ describe "Methods programs" do
   end
 
   it "ruby2 keywords method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def target(*a, **k) = [a, k]
       ruby2_keywords def fwd(*a) = target(*a)
       p fwd(1, k: 2)
@@ -4329,7 +4329,7 @@ describe "Methods programs" do
   end
 
   it "runtime defined method knows where it was written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every method of a RUNTIME-minted class answers `source_location`.
       #
       # `parameters` and `arity` were already right, because both are derived from
@@ -4422,7 +4422,7 @@ describe "Methods programs" do
   end
 
   it "same name forwarder union receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose body forwards to the SAME name on a union-typed receiver
       # resolved the call to itself -- the only class defining that name -- so the
       # return type union was the method's own unfinished answer and the whole thing
@@ -4498,7 +4498,7 @@ describe "Methods programs" do
   end
 
   it "self inside a class method is the class object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class method's `self` is the class object (a `RubyValue::Class`
       # value), so `self` and the class constant are interchangeable --
       # including as a receiver for the class's OWN other class methods.
@@ -4526,7 +4526,7 @@ describe "Methods programs" do
   end
 
   it "singleton class instance methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.singleton_methods` finds a `def obj.x`, but the singleton CLASS does not
       # report it: `instance_methods(false)` is empty, `method_defined?` is false and
       # `instance_method` raises `NameError`.
@@ -4568,7 +4568,7 @@ describe "Methods programs" do
   end
 
   it "singleton def labels its frame after the method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def frames
         yield
       rescue => e
@@ -4643,7 +4643,7 @@ describe "Methods programs" do
   end
 
   it "splat heterogeneous call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #666: heterogeneous call sites against a `def f(*args)` method
       # previously left the splat slot at the default `int_array` and packed
       # subsequent string args through `(mrb_int)<char*>` casts. Each was
@@ -4670,7 +4670,7 @@ describe "Methods programs" do
   end
 
   it "splat in a when clause tests every candidate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2]
       case 1
       when *a then puts "hit"
@@ -4705,7 +4705,7 @@ describe "Methods programs" do
   end
 
   it "splat params instance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat parameter (def f(*a)) on instance methods: the call site packs
       # trailing args into the rest array instead of spilling each into its
       # own slot (which produced "too many arguments to function").
@@ -4742,7 +4742,7 @@ describe "Methods programs" do
   end
 
   it "unbound method bind call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # UnboundMethod#bind_call(recv, *args) = bind(recv).call(*args) (#3246).
       class C
         def a(n) = n + 1
@@ -4761,7 +4761,7 @@ describe "Methods programs" do
   end
 
   it "unbound method identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#instance_method yields an UnboundMethod (#2724): #class says so, and
       # calling it without a #bind is CRuby's NoMethodError. Binding restores the
       # ordinary Method behavior.
@@ -4783,7 +4783,7 @@ describe "Methods programs" do
   end
 
   it "user method named eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zeo's divergence: a receiverless `eval(x)` inside a class that DEFINES its
       # own `eval` is taken for Kernel#eval -- the eval recognizer in lower/parse
       # runs before sibling-method resolution -- so the recursive call at line 14
@@ -4843,7 +4843,7 @@ describe "Methods programs" do
   end
 
   it "user method named load is not an eval" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A program that defines its own `load`, `eval` or `require` used to carry the
       # whole embedded run-time compiler -- 14 MB, and all 170 builtin class tables
       # with it -- because the predicate that decides matched the call's NAME and
@@ -4891,7 +4891,7 @@ describe "Methods programs" do
   end
 
   it "variadic and optional args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Many core methods accept more argument shapes than a single fixed arity:
       # an optional count, a variadic list, an alternate block form, or an extra
       # position/limit. The same method name binds several signatures, dispatched
@@ -4968,7 +4968,7 @@ describe "Methods programs" do
   end
 
   it "warn double splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#warn accepts a forwarded keyword-rest (`**opts`) as its options
       # bundle rather than a message. A double-splat made solely of forwarded hashes
       # is evaluated for side effects and otherwise ignored; positional messages
@@ -4993,7 +4993,7 @@ describe "Methods programs" do
   end
 
   it "did_you_mean offers no private method for a call with a receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         Object.new.puts
       rescue NoMethodError => e

@@ -12,21 +12,21 @@ rt/**   ├─ prism ─► HIR ─► IR ─► passes ─┬─► aarch64 bac
         │                                └─► IR interpreter (a second opinion, not a road)
 ```
 
-Every box is Ruby. The only tools outside ze0 are `cc`, to link a
+Every box is Ruby. The only tools outside zr are `cc`, to link a
 Linux binary, and wasmtime, to run modules.
 
 ## Parsing: prism
 
-ze0 parses with prism, the parser ruby itself uses. Using ruby's own
+zr parses with prism, the parser ruby itself uses. Using ruby's own
 parser is the only practical way to accept exactly the programs ruby
 accepts, with the same syntax errors. prism's C is ported to Ruby
 (`rt/ext/prism/ruby`), so the compiler parses with the same code on the
 host and inside a compiled program. See
-[Why ze0 has no C](why-ze0-has-no-c.md).
+[Why zr has no C](why-zr-has-no-c.md).
 
 ## The HIR: the language, made plain
 
-`lib/ze0/hir/` turns prism's tree into the HIR, a tree with one node
+`lib/zr/hir/` turns prism's tree into the HIR, a tree with one node
 class for each kind of construct. It is desugared and name-resolved:
 operator assignment, safe navigation, multiple assignment,
 interpolation, `case`/`when` and `case`/`in`, and the whole parameter
@@ -37,14 +37,14 @@ The HIR exists because the step from Ruby to machine operations is too
 large for one pass. Compilers with more than one target keep a layer
 that speaks the language above a layer that speaks the machine: rustc
 has HIR over MIR, and ZJIT has an SSA HIR over a LIR. The HIR is where
-a form that ze0 cannot compile is refused, by name, at its line.
+a form that zr cannot compile is refused, by name, at its line.
 
 ## The IR: one form for every backend
 
-`lib/ze0/zr/` lowers the HIR to the IR (`lib/ze0/ir/`), a control-flow
+`lib/zr/zr/` lowers the HIR to the IR (`lib/zr/ir/`), a control-flow
 graph in SSA form with block parameters. It has 54 opcodes and four
 types: `i8`, `i32`, `i64` and `f64`. The kernel dialect
-(`lib/ze0/machine/`) lowers to the same IR. So every backend reads one
+(`lib/zr/machine/`) lowers to the same IR. So every backend reads one
 form, whether the code came from a program or from the runtime.
 
 The IR has two firm limits. A function takes at most eight parameters,
@@ -64,14 +64,14 @@ where foreign code enters compiled code.
 
 ## The backends
 
-The **aarch64 backend** (`lib/ze0/backend/aarch64/`) selects
+The **aarch64 backend** (`lib/zr/backend/aarch64/`) selects
 instructions nearly one to one from the IR, and its own assembler
 encodes them. A linear-scan allocator gives values registers from two
 pools: callee-saved registers for values that live across a call, and
 caller-saved registers for the rest. The `aarch64` gem, generated from
 the ARM specification, checks every encoding in the tests.
 
-The **wasm emitter** (`lib/ze0/backend/wasm/`) writes one WASI module.
+The **wasm emitter** (`lib/zr/backend/wasm/`) writes one WASI module.
 Control flow is a loop around a `br_table` over the function's blocks,
 and stack slots live in a shadow stack in linear memory.
 
@@ -83,16 +83,16 @@ is a second answer, so a miscompile shows as a disagreement.
 The backend writes an `Obj`: functions, data, relocations and symbols,
 with no file format. Three writers read it:
 
-- `Obj::MachO::Executable` is ze0's macOS linker. It links a program
+- `Obj::MachO::Executable` is zr's macOS linker. It links a program
   beside a `Prelink`, and writes a complete, signed executable that
   imports only from libSystem.
 - The Mach-O and ELF object writers write objects: the cached runtime,
   `--emit obj`, and the ELF objects that `cc` links for Linux.
 - `Obj::JIT` loads code into the running process, for `eval`.
 
-The runtime is large, so ze0 compiles it once for each version of its
+The runtime is large, so zr compiles it once for each version of its
 sources and keeps the object in the cache (`rt-<digest>.o`). A program's
-build lowers only the program, and ze0's linker links it beside the
+build lowers only the program, and zr's linker links it beside the
 cached runtime.
 A cold build assembles the runtime in parallel worker processes, and
 the result is the same bytes for any number of workers.

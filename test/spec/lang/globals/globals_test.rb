@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Globals programs" do
   it "line number global follows reads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$.` is the number of the line the last read took: 0 before any
       # read, then what `gets` counts on the stream it read from. A write
       # sets it until the next read. `$<` is ARGF.
@@ -39,7 +39,7 @@ describe "Globals programs" do
   end
 
   it "match globals read the registers not matchdata methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       "ab" =~ /(a)(b)/
       p $~.respond_to?(:last_group), $~.respond_to?(:last_group, true)
       p $+, $&, $`, $', $1, $2, $3
@@ -106,7 +106,7 @@ describe "Globals programs" do
   end
 
   it "special global symbol prints bare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Symbol#inspect` prints a special global's name bare, the way ruby's
       # `is_special_global_name` reads it: one punctuation character from a fixed
       # set, `$0`, a run of digits, or `$-` with exactly one alphanumeric after it.
@@ -154,7 +154,7 @@ describe "Globals programs" do
   end
 
   it "an alias of a back-reference reaches the whole program, and reads the frame that asks" do
-    result = ze0(<<~'RUBY', files: { "shouty.rb" => <<~'SHOUTY' })
+    result = zr(<<~'RUBY', files: { "shouty.rb" => <<~'SHOUTY' })
       # `alias $hit $&` is an alias of a global, so it reaches every file the
       # program holds, not only the one that wrote it. What it answers is another
       # matter: `$&` belongs to the frame that last matched, so a method of its
@@ -187,7 +187,7 @@ describe "Globals programs" do
   end
 
   it "an alias of a back reference where it may not run" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       if ARGV.size > 5
         alias $pre $`
       end

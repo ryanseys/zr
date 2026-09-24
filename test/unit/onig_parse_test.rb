@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/zr"
+require_relative "../../lib/zr/zr"
 
 # The core's side of Regexp (rt/core/regexp_pattern.rb and
 # rt/core/regexp/onig/*) under this ruby, against Regexp.new: every
@@ -9,7 +9,7 @@ require_relative "../../lib/ze0/zr"
 # after it, every warning quiet and verbose, the group names, and the
 # ceilings, pattern by pattern. The match side is onig_match_test's and
 # regexp_diff_test's.
-Ze0::Zr.require_onig
+Zr::Zr.require_onig
 require File.join(ROOT, "rt/core/regexp_pattern.rb")
 
 class OnigParseTest < Minitest::Test
@@ -109,8 +109,8 @@ class OnigParseTest < Minitest::Test
     assert_like_ruby("a{100000}")
     assert_like_ruby("a{100001}")
     script = <<~'RUBY'
-      require "./lib/ze0/zr"
-      Ze0::Zr.require_onig
+      require "./lib/zr/zr"
+      Zr::Zr.require_onig
       require "./rt/core/regexp_pattern.rb"
       pattern = Regexp.const_get(:Pattern)
       [4095, 4096, 4097].each do |depth|

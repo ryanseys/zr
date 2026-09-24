@@ -10,12 +10,12 @@ require_relative "harness/child"
 require_relative "harness/runner"
 require_relative "slow"
 require_relative "binaries"
-require_relative "../../lib/ze0/native/build"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/record"
+require_relative "../../lib/zr/native/build"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/record"
 
-module Ze0
-  # What a spec example is: a Ruby program ze0 compiles, runs, and is
+module Zr
+  # What a spec example is: a Ruby program zr compiles, runs, and is
   # held to ruby 4.0.6's answer for.
   #
   # The compile happens in the worker that was handed the example. A
@@ -27,7 +27,7 @@ module Ze0
   module Spec
     # What a compiled program said. `signal` is set and `status` nil
     # when a signal ended it, as a process a signal ends has no status.
-    class Result < Ze0::Record
+    class Result < ::Zr::Record
       FIELDS = %i[stdout stderr status signal].freeze
       attr_accessor :stdout, :stderr, :status, :signal
 
@@ -56,27 +56,27 @@ module Ze0
     # miscompile that loops does not stall the run. A collection at
     # every allocation marks the live set each time, so a stress run
     # gets four times as long.
-    LIMIT = Integer(ENV.fetch("ZE0_LIMIT", 60))
+    LIMIT = Integer(ENV.fetch("ZR_LIMIT", 60))
 
     def self.limit = ENV["ZR_GC_STRESS"] == "1" ? LIMIT * 4 : LIMIT
 
-    # The forms ze0 names as outside its subset. A refusal is not a
+    # The forms zr names as outside its subset. A refusal is not a
     # defect: it is the roadmap, and it skips the example by name.
     REFUSALS = [Machine::Refused, Hir::Refused, Zr::Lower::Refused].freeze
 
     # A stop at run time the program did not rescue: ruby's report of
     # the NotImplementedError or LoadError it raised, or a kernel stop.
-    STOP = /^(?:ze0: |.*?:in '[^']*': )?(.* is not implemented yet)(?: \((?:NotImplementedError|LoadError)\))?$/
+    STOP = /^(?:zr: |.*?:in '[^']*': )?(.* is not implemented yet)(?: \((?:NotImplementedError|LoadError)\))?$/
 
-    # The buckets `ze0 test` counted, added up at the end of a run.
+    # The buckets `zr test` counted, added up at the end of a run.
     #
-    # An example ze0 refused makes no claim about ruby and skips, but
+    # An example zr refused makes no claim about ruby and skips, but
     # which forms it refused is the roadmap. Each one leaves its bucket
     # and the sentence it named in the result's metadata, which minitest
     # carries back from the worker that ran it, and this counts them.
     # It is a minitest plugin, which is how a run gains a report.
     module Census
-      KEY = :ze0_refusal
+      KEY = :zr_refusal
 
       def self.minitest_plugin_init(options)
         Minitest.reporter << Reporter.new(options[:io])
@@ -107,11 +107,11 @@ module Ze0
 
     module_function
 
-    # The target every example is built for. `ZE0_TARGET` names another
+    # The target every example is built for. `ZR_TARGET` names another
     # one, as the cross-target rows of CI do; a triple this host cannot
     # run is refused where it is named rather than at every example.
     def target
-      @target ||= Harness::Runner.named(ENV["ZE0_TARGET"])
+      @target ||= Harness::Runner.named(ENV["ZR_TARGET"])
     end
 
     # The runner that knows how to start what this target builds: a
@@ -124,15 +124,15 @@ module Ze0
     # Whether this machine has what a `#@ needs:` name asked for.
     def need?(name) = Harness::Needs.met?(name, platform)
 
-    # Compile `source` with ze0 and run what it built. `path` is the
+    # Compile `source` with zr and run what it built. `path` is the
     # name the program answers to -- its backtraces carry it -- and is
     # relative to the directory the program runs in. `files` writes the
     # program's own fixtures beside it.
     #
     # `phases` is a row the build's parts add their seconds to, for the
-    # report `ZE0_SLOW` asks for (`Ze0::Test::Slow`).
+    # report `ZR_SLOW` asks for (`Zr::Test::Slow`).
     def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, phases: nil)
-      Dir.mktmpdir("ze0-spec-") do |work|
+      Dir.mktmpdir("zr-spec-") do |work|
         # The resolved path, not the one `mktmpdir` hands back: on macOS
         # `/var` is a link to `/private/var`, and a program that prints a
         # path of its own prints the resolved one. The scrub that turns
@@ -158,7 +158,7 @@ module Ze0
         end
 
         # From the directory the program runs in, under the name it
-        # answers to: `ze0 build` is given a relative path, and what it
+        # answers to: `zr build` is given a relative path, and what it
         # is given is what the binary's backtraces carry. Compiling with
         # an absolute path would name the temporary directory instead.
         # The chdir is safe because a worker is a process of its own and
@@ -201,10 +201,10 @@ module Ze0
     end
 
     def binaries_dir
-      @binaries_dir ||= Dir.mktmpdir("ze0-bins-").tap { |dir| at_exit { FileUtils.rm_rf(dir) } }
+      @binaries_dir ||= Dir.mktmpdir("zr-bins-").tap { |dir| at_exit { FileUtils.rm_rf(dir) } }
     end
 
-    # The program, or `[bucket, why]` when ze0 would not build it.
+    # The program, or `[bucket, why]` when zr would not build it.
     def lower(source, rb, target)
       Native::Build.lower(source, rb, target: target)
     rescue *REFUSALS => e
@@ -213,7 +213,7 @@ module Ze0
       [:backend, e.message]
     rescue SyntaxError => e
       # ruby reports a program that does not parse and exits 1, and so
-      # does the binary, with ruby's own report. `Ze0::CLI.lower` does
+      # does the binary, with ruby's own report. `Zr::CLI.lower` does
       # this the same way, and the two must stay the same way.
       report = syntax_report(rb)
       return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
@@ -242,7 +242,7 @@ module Ze0
     # lib/ruby, 2.0.3 against the gem's 3.0.0, and the two write
     # different sentences for the same program. The recordings were made
     # by a bare ruby, so this asks one, as every other road that asks
-    # "what does ruby say" already does. `Ze0::CLI.lower` asks the ruby
+    # "what does ruby say" already does. `Zr::CLI.lower` asks the ruby
     # it runs under, which for someone building a program is this same
     # bare one.
     def syntax_report(rb)
@@ -285,17 +285,17 @@ module Ze0
       end
     end
 
-    # What a spec example says: `ze0 "puts 1"` answers a Result, or
-    # skips when ze0 refused the program or could not build it.
+    # What a spec example says: `zr "puts 1"` answers a Result, or
+    # skips when zr refused the program or could not build it.
     module DSL
       include Fixtures
 
       ROOT = File.expand_path("../..", __dir__)
 
-      # `ruby:` names flags for the oracle alone, which ze0 has no use
+      # `ruby:` names flags for the oracle alone, which zr has no use
       # for: it is carried so that `rake oracle` can ask ruby the same
-      # question this example asked ze0.
-      def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
+      # question this example asked zr.
+      def zr(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
         phases = (metadata[Test::Slow::KEY] ||= {}) if Test::Slow.asked?
         out = Spec.build_and_run(source, path: path || default_path, argv: argv, env: env,
                                          stdin: stdin, files: files, seconds: seconds, phases: phases)
@@ -318,10 +318,10 @@ module Ze0
       # The sentence a refusal names, with the file and line taken off,
       # so the census counts gaps and not places.
       def shape(why)
-        (why[/(?:line \d+|run time): (.*)\z/, 1] || why).delete_suffix(" is not in ze0's subset")
+        (why[/(?:line \d+|run time): (.*)\z/, 1] || why).delete_suffix(" is not in zr's subset")
       end
     end
   end
 end
 
-Minitest.register_plugin(Ze0::Spec::Census)
+Minitest.register_plugin(Zr::Spec::Census)

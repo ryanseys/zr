@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Digest programs" do
   it "big5 and euc jp encode exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The WHOLE encode repertoire of the two families whose WHATWG table
       # disagrees with CRuby's, as a count and a checksum.
       #
@@ -82,7 +82,7 @@ describe "Digest programs" do
   end
 
   it "byte read keeps its bytes" do
-    result = ze0(<<~'RUBY', files: fixtures("every_byte.bin"))
+    result = zr(<<~'RUBY', files: fixtures("every_byte.bin"))
       # `readpartial`, `sysread`, `read(n, buf)` and `pread` answer BYTES.
       #
       # Each of them used to route the bytes through `String::from_utf8_lossy`,
@@ -158,7 +158,7 @@ describe "Digest programs" do
   end
 
   it "SHA2 refuses an unsupported bit length, and inspect carries the current hexdigest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Digest rows beyond the (matching) core: `Digest::SHA2` (the
       # bit-length-parameterized class) is absent, `Digest::SHA256.file` is
       # absent, and #inspect embeds the current hexdigest. (Found by the
@@ -185,7 +185,7 @@ describe "Digest programs" do
   end
 
   it "a bang form answers the current digest and puts the instance back to empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Digest::Instance`'s three bang forms answer the current digest and then put
       # the instance back to empty; the plain forms leave it alone. rubygems reaches
       # `hexdigest!` for every file it unpacks, so `zeo gem install` needed them.
@@ -226,7 +226,7 @@ describe "Digest programs" do
   end
 
   it "the class form, << and update, and base64digest all answer what ruby answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "digest"
       puts Digest::SHA256.hexdigest("abc")
       puts Digest::MD5.hexdigest("")
@@ -245,7 +245,7 @@ describe "Digest programs" do
   end
 
   it "the ancestry runs Base, Class and Instance, and .file reads a whole file" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "digest"
       def show(l); print l, ": "; p(yield); rescue Exception => e; puts "#{e.class}: #{e.message}"; end
       show("ancestors") { Digest::MD5.ancestors.first(5) }
@@ -290,7 +290,7 @@ describe "Digest programs" do
   end
 
   it "digest_length and block_length answer per algorithm, and == takes a Digest or a String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "digest"
 
       # Digest output and internal block sizes.
@@ -327,7 +327,7 @@ describe "Digest programs" do
   end
 
   it "the extension links, so native code in the binary computes the hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The digest extension links: the hash is computed by native code in the
       # binary.
       require "digest"
@@ -347,7 +347,7 @@ describe "Digest programs" do
   end
 
   it "kernel digest names an algorithm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Digest(name)` -- the function-shaped algorithm lookup CRuby defines in
       # `digest.rb` as a private method of `Object`. It is not a nicety: `pstore`
       # picks its checksum with `%w[SHA512 ... MD5].each { break Digest(algo)
@@ -404,7 +404,7 @@ describe "Digest programs" do
   end
 
   it "require value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # What a `require` answers, and where one may stand. Each line pins CRuby's
       # answer: true when this require is what loaded the library, false when it
       # was already there -- including `require "rational"`/"complex", the default
@@ -481,7 +481,7 @@ describe "Digest programs" do
   end
 
   it "subclass class digest reaches its own override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Digest::Class.hexdigest sends `digest` to the class it was called on,
       # so a subclass that redefines the class method `digest` is reached,
       # as OpenSSL::Digest.hexdigest("SHA1", data) needs. A class method the
@@ -522,9 +522,9 @@ describe "Digest programs" do
   end
 
   it "subclass of any native class" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
+    skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every built-in CLASS can be subclassed. zeo used to keep an opt-in
       # allowlist of "payload roots", so a gem subclassing a native class nobody
       # had added got a compile error naming zeo rather than a program -- eleven
@@ -616,7 +616,7 @@ describe "Digest programs" do
     OUT
   end
     it "SHA-256 answers ruby for every length across a block and for megabytes, whole or in pieces" do
-      result = ze0(<<~'RUBY')
+      result = zr(<<~'RUBY')
         require "digest"
 
         data = (0...4096).map { |i| ((i * 131) + (i >> 5)) & 255 }.pack("C*") * 700

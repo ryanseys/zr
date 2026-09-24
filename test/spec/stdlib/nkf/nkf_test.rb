@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "NKF programs" do
   it "kconv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # kconv -- the Kconv wrapper over NKF (vendored upstream lib/kconv.rb) and
       # its String patches (#tojis/#toeuc/#tosjis/#toutf8/#is*).
       require "kconv"
@@ -46,7 +46,7 @@ describe "NKF programs" do
   end
 
   it "conversion between the Japanese encodings, detection and the text passes all answer by bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # nkf -- Network Kanji Filter over zeo's own encoding engine: conversion
       # between UTF-8/Shift_JIS/EUC-JP/ISO-2022-JP (and the UTF-16/32 forms),
       # encoding detection, and the text passes (MIME words, katakana folding,

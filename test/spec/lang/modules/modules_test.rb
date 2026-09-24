@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules programs" do
   it "bare arg in module body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #512. Inside `module M` body, a bare method-name argument
       # (`M.use(h)` where `h` should resolve to `M.h`) used to infer
       # as `int` (the default for unresolved bare calls) and propagate
@@ -40,7 +40,7 @@ describe "Modules programs" do
   end
 
   it "class shift self works inside a module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module MyMath
         class << self
           def double(x)
@@ -55,7 +55,7 @@ describe "Modules programs" do
   end
 
   it "codegen class in module with explicit parent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for the `String#rindex` nil-guard in
       # `collect_class_with_prefix`. A `class Sub < Parent` written
       # inside a single-level `module M` triggers the parent-resolution
@@ -77,7 +77,7 @@ describe "Modules programs" do
   end
 
   it "included, extended, prepended and inherited each fire after the edit they report" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#included`/`#extended`/`#prepended` and `Class#inherited` -- the four
       # hooks a mixin or a subclass fires as it is written. The extend-on-include
       # idiom below (a module giving its host class-side methods) is what
@@ -210,7 +210,7 @@ describe "Modules programs" do
   end
 
   it "dynamic new skips modules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `k.new` where k is a Class value switches over the classes that could be
       # there. A MODULE has no `new` and no constructor is emitted for one, so the
       # arm called a function nothing defined and the program failed to link (#3965).
@@ -260,7 +260,7 @@ describe "Modules programs" do
   end
 
   it "Comparable gives <, >, between? and sort to a class that defines <=>" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user #<=> returning a non-Integer/nil value (Array/String/...) is a
       # protocol violation rejected at compile time (#2961); this guards that valid
       # Comparable usage still compiles and runs.
@@ -287,7 +287,7 @@ describe "Modules programs" do
   end
 
   it "between? and clamp work on Comparable objects inside a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Money
         include Comparable
         attr_reader :cents
@@ -309,7 +309,7 @@ describe "Modules programs" do
   end
 
   it "a module method extended into a class calls the class's own new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Factory
         def create(a, b)
           build(a, b)
@@ -337,7 +337,7 @@ describe "Modules programs" do
   end
 
   it "Comparable orders by an array of parts, and to_s prints through interpolation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Version
         include Comparable
         attr_reader :parts
@@ -361,7 +361,7 @@ describe "Modules programs" do
   end
 
   it "replace, prepend, concat, clear, gsub! and sub! reach a string through a container read" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-place mutators through a poly (container-read) receiver: replace,
       # prepend, concat, clear swap or extend the shared buffer.
       arr = [+"abc"]
@@ -391,7 +391,7 @@ describe "Modules programs" do
   end
 
   it "macro module installs before the def that wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Macro
         def self.included(base) = base.send(:attr_accessor, :m)
       end
@@ -470,7 +470,7 @@ describe "Modules programs" do
   end
 
   it "mixin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test include (mixin)
 
       module Printable
@@ -536,7 +536,7 @@ describe "Modules programs" do
   end
 
   it "mixin of a module that defines methods at runtime" do
-    result = ze0(<<~'PROGRAM')
+    result = zr(<<~'PROGRAM')
       # A static `include`/`extend` folds the module's methods into the target's
       # table where the mixin is written, which is only sound when that table is
       # COMPLETE. i18n's delegators are a string eval in a loop:
@@ -623,7 +623,7 @@ describe "Modules programs" do
   end
 
   it "mixin primitive override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include`/`prepend`/`extend` are the PUBLIC verbs. Each is defined in terms of
       # a private primitive that does the actual work -- `append_features`,
       # `prepend_features`, `extend_object` -- and calls the notification hook after:
@@ -775,11 +775,11 @@ describe "Modules programs" do
   end
 
   it "mixins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `include`, `extend` and `prepend` are ordinary sends to the class the
-      # body is running on. ze0 registers a class statically, but nothing about
+      # body is running on. zr registers a class statically, but nothing about
       # a mixin is static: the runtime answers where a method lands and what
       # `ancestors` reports.
 
@@ -863,7 +863,7 @@ describe "Modules programs" do
   end
 
   it "module accessor delete chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #518. `M.accessor.delete` previously emitted a "cannot resolve
       # call to 'adapter' on class" warning even after #511. Root: the
       # statement-level `delete` handler in compile_call_stmt called
@@ -902,7 +902,7 @@ describe "Modules programs" do
   end
 
   it "module accessor nil check" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `.nil?` on a module-singleton accessor whose value type is a
       # class constant: the call must check whether the slot has been
       # assigned, NOT dispatch a class method `.nil?` on the resolved
@@ -949,7 +949,7 @@ describe "Modules programs" do
   end
 
   it "module case conformance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Module#=== / ancestors ordering includes a module ruby leaves out of the
       # match.
@@ -1024,7 +1024,7 @@ describe "Modules programs" do
   end
 
   it "module case eq mixin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class U; end
       r001 = (Comparable === U.new rescue $!.class)
       p r001
@@ -1051,7 +1051,7 @@ describe "Modules programs" do
   end
 
   it "module class body side effects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Side-effecting statements in a module/class body run at definition
       # time (top-to-bottom), like CRuby. Before, only def/const declarations
       # were processed and statements such as `puts` were silently dropped.
@@ -1098,7 +1098,7 @@ describe "Modules programs" do
   end
 
   it "module class new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test: class defined inside module and instantiated through M::C.new
 
       module M
@@ -1126,7 +1126,7 @@ describe "Modules programs" do
   end
 
   it "module comparison" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class/module is ordered against another by the ancestry relation: `<` is a
       # proper subclass, `<=` allows equality, `>`/`>=` are the reverse, and an
       # unrelated pair is `nil` (not false). `<=>` folds the four into -1/0/1/nil.
@@ -1202,7 +1202,7 @@ describe "Modules programs" do
   end
 
   it "module const root path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Well-known module constants reached through a root-qualified / nested path
       # (::Float::MAX, ::Math::PI) infer their real type (Float) just like the plain
       # Float::MAX form, so methods called on them compile instead of failing on a
@@ -1223,7 +1223,7 @@ describe "Modules programs" do
   end
 
   it "module cvars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression: class variables (`@@var`) declared at module scope or
       # top-level scope generate references to a `cvar_Toplevel_X` C
       # global, but the declaration walker (`collect_cvars`) used to only
@@ -1272,7 +1272,7 @@ describe "Modules programs" do
   end
 
   it "module def is one body for every includer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A definition on a module is inherited by every class that includes it, and
       # zeo emits its body ONCE rather than once per includer. This pins what that
       # makes observable.
@@ -1389,7 +1389,7 @@ describe "Modules programs" do
   end
 
   it "module dispatch param widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #304: module-dispatch ternary call sites
       # (`Disp.adapter.method(args)` where Disp.adapter resolves to N
       # candidate classes via the module-singleton-accessor table) used
@@ -1451,7 +1451,7 @@ describe "Modules programs" do
   end
 
   it "module included class and toplevel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module included BOTH into a class and at toplevel is compiled twice, and
       # the two instantiations do not agree on the return type of a method that
       # constructs an object. One of them degrades to `int`, so the emitted C does
@@ -1512,7 +1512,7 @@ describe "Modules programs" do
   end
 
   it "module included modules self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Comparable.included_modules
       p Enumerable.included_modules
       module M1; end
@@ -1527,7 +1527,7 @@ describe "Modules programs" do
   end
 
   it "module new refuses an argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       [
         -> { Module.new(1) },
         -> { Module.new(1, 2) },
@@ -1555,7 +1555,7 @@ describe "Modules programs" do
   end
 
   it "nested class module const resolution" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # When a class lives inside a module and another class in the same
       # module is referenced via a bare name from one of its method bodies,
       # the inferred type of the resulting ivar/local must carry the same
@@ -1600,7 +1600,7 @@ describe "Modules programs" do
   end
 
   it "poly user include value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include?` on a poly receiver whose class defines its own: the dispatch
       # accumulates the user arm and the builtin ones in one C temp, and the temp was
       # typed from the builtin -- a bool. The method's value came back through it as
@@ -1659,7 +1659,7 @@ describe "Modules programs" do
   end
 
   it "reflection methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # methods / instance_methods reflection — names as Symbols, honoring
       # visibility and inheritance.
 
@@ -1741,7 +1741,7 @@ describe "Modules programs" do
   end
 
   it "runtime class body carries nested classes mixins aliases and visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class with a DYNAMIC superclass (`class Foo < base`, base a method) is
       # built at runtime; its body can now hold a nested class, `include`, a
       # constant, `alias`, and a visibility directive -- each rewritten to the
@@ -1776,7 +1776,7 @@ describe "Modules programs" do
   end
 
   it "shared parent body reaches the right slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One emitted body serves a parent and every descendant, and it indexes
       # `@x` by the slot the PARENT gave it. That is only sound because
       # `analyze::mro` lays each class out as `ivars(parent) ++ its own new
@@ -1848,7 +1848,7 @@ describe "Modules programs" do
   end
 
   it "a send of its own does not take the core's hook, inject or member calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module or an object with a `send` of its own: the core's own calls
       # of a hook, of inject's operator and of a struct member's writer go by
       # name, as rb_funcall goes, and never through it.

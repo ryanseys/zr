@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: enumeration" do
   it "rotate, sum, product, inject and fill raise on a bad argument instead of refusing to compile" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = ([1, 2].rotate("a") rescue $!.class)
       p r
 
@@ -33,7 +33,7 @@ describe "Array: enumeration" do
   end
 
   it "dup and sort keep an unnamed receiver rooted across the allocation the copy makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#dup and Array#sort copy the receiver into a freshly allocated array.
       # That allocation can trigger a collection, so the receiver must stay rooted
       # across it -- otherwise a receiver that is only reachable as the call's
@@ -65,7 +65,7 @@ describe "Array: enumeration" do
   end
 
   it "map! transforms in place, answers the receiver, and holds a typed array to its element type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#map! / #collect! transform each element in place and return the
       # (mutated) receiver. Typed arrays are homogeneous, so the block must
       # keep the element type; poly arrays accept any result.
@@ -108,7 +108,7 @@ describe "Array: enumeration" do
   end
 
   it "minmax_by answers the pair in one pass, and bsearch_index the leftmost index or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array reduction/search coverage: minmax_by (one-pass [min, max] by a block
       # key) and bsearch_index (find-minimum binary search returning an index or nil).
       # Receivers go through per-type method params so each stays a concrete typed
@@ -161,7 +161,7 @@ describe "Array: enumeration" do
   end
 
   it "sort_by! orders in place and answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [3, 1, 2]
       r = a.sort_by! { |x| -x }
       p a
@@ -195,7 +195,7 @@ describe "Array: enumeration" do
   end
 
   it "sort_by calls the key block once per element, in order, stably, and leaves the receiver alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sort_by lowers to a Schwartzian transform: the key block runs exactly ONCE per
       # element, in element order (not once per comparison like a naive sort), the sort
       # is stable, and the receiver is left unmodified.
@@ -263,7 +263,7 @@ describe "Array: enumeration" do
   end
 
   it "zip with no argument wraps each element in a one-element array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#zip with nothing to zip against: each element alone in a one-element
       # array. Every zip arm was written for at least one argument, so this was
       # refused as an unsupported call.
@@ -290,7 +290,7 @@ describe "Array: enumeration" do
   end
 
   it "combination returns enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2, 3].combination(2).class)
       p([1, 2, 3].permutation(2).class)
       p([1, 2, 3].repeated_combination(2).class)
@@ -315,7 +315,7 @@ describe "Array: enumeration" do
   end
 
   it "enumerator chain product and lazy size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Chain over held (not flattened) sources, Enumerator.product's
       # rightmost-fastest ordering, and Lazy#size folding ops without iterating.
 
@@ -362,7 +362,7 @@ describe "Array: enumeration" do
   end
 
   it "enumerator chain product lazy size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator::Chain (Enumerator#+ / Enumerable#chain), Enumerator.product,
       # and Enumerator::Lazy#size -- all of which answer without iterating.
 
@@ -433,7 +433,7 @@ describe "Array: enumeration" do
   end
 
   it "enumerator product block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Enumerator.product with a block returns the Enumerator::Product instead
       # of running the block over each tuple.
@@ -453,7 +453,7 @@ describe "Array: enumeration" do
   end
 
   it "map obj array poly field" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # map over an array of objects where the block returns a polymorphic
       # field (sp_RbVal) must collect into a PolyArray, not a PtrArray that
       # casts the sp_RbVal element through (void *).
@@ -493,7 +493,7 @@ describe "Array: enumeration" do
   end
 
   it "reduce array accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `acc + elem` on an array accumulator answers a BOXED array -- the concat runs
       # through the poly adder -- which cannot be assigned to the array pointer the
       # accumulator slot holds, so the C would not compile at all.
@@ -527,7 +527,7 @@ describe "Array: enumeration" do
   end
 
   it "sort by array key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sort_by with an array-returning block (the multi-key sort idiom) orders
       # element-wise through the boxed-key comparator.
       p [[1, 2], [1, 1], [0, 5]].sort_by { |a, b| [a, b] }
@@ -548,7 +548,7 @@ describe "Array: enumeration" do
   end
 
   it "zip argument each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `zip`'s arguments must respond to :each. The emitters read every argument as
       # a container regardless of its type, so a nil quietly became a column of nils
       # and an Integer or a String stopped the C build -- found verifying the gaps
@@ -616,7 +616,7 @@ describe "Array: enumeration" do
   end
 
   it "zip poly operands" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `ai.zip(tj) { }` where both rows are elements of a poly table: neither side
       # is a statically typed array. The block form handed the sp_RbVal straight to
       # the typed array accessor (invalid C), and with a poly RECEIVER the call fell

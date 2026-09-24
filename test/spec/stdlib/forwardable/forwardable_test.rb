@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Forwardable programs" do
   it "def_delegator forwards to an ivar and to a method, under a new name or its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "forwardable"
 
       class Wrapped
@@ -64,7 +64,7 @@ describe "Forwardable programs" do
   end
 
   it "singleton body macro calls" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `class << self` body whose statements are CALLS: they run with the singleton
       # class as self, so the macros they invoke define class methods of the enclosing
       # class. The `extend Forwardable` + `def_delegators` pair is the corpus's most

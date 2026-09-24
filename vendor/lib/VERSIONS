@@ -1,7 +1,7 @@
 # The files of ruby 4.0.6's library that no gem ships, copied from ruby
 # 4.0.6 and never edited. A file that does not run names a runtime
 # feature we owe, not a file to change. Every other library a program
-# requires is a gem ze0.gemspec pins (lib/ze0/libraries.rb).
+# requires is a gem zr.gemspec pins (lib/zr/libraries.rb).
 bundled_gems.rb ruby-4.0.6 (lib)
 cgi.rb, cgi/ ruby-4.0.6 (lib)
 coverage.rb ruby-4.0.6 (ext/coverage/lib)

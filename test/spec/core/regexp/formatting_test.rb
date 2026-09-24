@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Regexp: formatting and inspection" do
   it "bare property escape warns" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(label)
         r = begin
           yield.inspect
@@ -30,7 +30,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "group name holds any character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(label)
         r = begin
           yield.inspect
@@ -51,7 +51,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "an escape byte is written \\033, \\e or \\x1b and matches the same either way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "a\e[31mred\e[0mb"
       puts s.gsub(/\033\[[0-9;]*[A-Za-z]/, "")
 
@@ -72,7 +72,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "MatchData reports each group's text, offsets, pre_match and post_match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = /(\w+)(\s+)(\w+)/.match("hello world")
       puts m.offset(0).inspect
       puts m.offset(1).inspect
@@ -122,7 +122,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "inspect to s and errors show the pattern as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp#inspect, #to_s and a RegexpError's message show the pattern as
       # rb_reg_expr_str writes it: a bare `/` escaped, a control byte as \xHH,
       # a character past ASCII as \uXXXX when the reader's encoding is not the
@@ -184,7 +184,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "matchdata in container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a001 = ["aa".match(/a/), "bb".match(/b/)]
       p a001[0][0]
       p a001.map { |m001| m001[0] }
@@ -212,7 +212,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "matchdata inspect shows groups and regexp string methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "hello".match(/l(l)o/)
       p "2024-01".match(/(?<y>\d+)-(?<m>\d+)/)
       p "hello".start_with?(/he/)
@@ -232,7 +232,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "matchdata methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData reflection/pattern methods (#2499, #2500, #2501, #2503, #2530, #2532)
       md = "abc".match(/(a)(b)(c)/)
       p md.inspect
@@ -267,7 +267,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "matchdata value varargs symstr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # MatchData as a first-class value (p/inspect/.class); String#index with a
       # variable Regexp and String#[] with a variable Range; Symbol's string-
       # flavored methods (regex match/slice, comparisons) through the name text.
@@ -310,7 +310,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "named captures disable numbered groups" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # When a regexp contains a named group, ruby stops plain `(...)` groups from
       # capturing at all (onig's dont-capture-group behavior): group 1 of
       # /(\d+)(?<tail>\w+)/ is `tail`, and `captures` holds only the named one. zeo
@@ -342,7 +342,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "regex backref oob nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #848: out-of-range / unmatched backreference ($3 when
       # the regex has 2 captures) returns nil, not "". Codegen now
       # returns sp_re_captures[N] directly (NULL for unset) so
@@ -368,7 +368,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "regex unanchored class seq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #909. Unanchored class-sequence patterns (e.g. /\w\w/, /(.)(.)/ )
       # used to skip position 0 because a later-starting Pike VM thread
       # overwrote the earlier-starting match's captures. Now the MATCH
@@ -395,7 +395,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "a pattern wider than the match registers hold is refused rather than truncated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A pattern wider than the match registers hold is refused rather than
       # truncated. It used to compile and lose everything past the thirty-first
       # group: `m.size` answered 32 where CRuby answers 41, and m[32] onward were
@@ -455,7 +455,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "a [ inside a character class opens a POSIX bracket or a nested class, never itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A '[' inside a character class never stands for itself in CRuby: it opens a
       # POSIX bracket, a collating element, an equivalence class, or a class nested
       # in this one. Only the bracket was read here and the rest taken as members, so
@@ -507,7 +507,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "a group name that is not a name raises RegexpError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(label)
         r = begin
           yield.inspect
@@ -548,7 +548,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "Regexp.new's second argument is option bits, nil or false for none, anything else truthy for /i" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp.new's second argument is an Integer of option bits, or nil/false for
       # none, or anything else truthy for IGNORECASE -- a choice CRuby makes from the
       # VALUE. Where the analyzer could not see the type statically the choice was
@@ -608,7 +608,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "Regexp.new takes its options as a string of flag letters, and refuses an unknown one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def show(o)
         r = Regexp.new("a", o)
         puts "#{o.inspect} => #{r.options} #{r.inspect}"
@@ -664,7 +664,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "an octal escape is the byte it names, not a backreference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Ruby octal escape `\033` is the ESC byte, not a group-0 backreference;
       # it must compile and match rather than raising "Invalid back reference".
 
@@ -677,7 +677,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "^ and $ are line anchors, and a trailing newline opens no line after it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby-specific regex semantics backed by the real Oniguruma engine.
 
       # `^`/`$` are line anchors, but a trailing newline does not open a new line,
@@ -711,7 +711,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "source, inspect, to_s and options answer through a variable and inside a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regexp values render: #source/#inspect/#to_s/#options work through a
       # variable (the literal-resolution arm read node attributes the variable
       # lacks), p/puts print a Regexp, and boxed Regexps render inside containers.
@@ -753,7 +753,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "the escapes onig adds beyond ruby's documented set each answer or raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def t(label)
         r = begin
           yield.inspect
@@ -802,7 +802,7 @@ describe "Regexp: formatting and inspection" do
   end
 
   it "string nul regexp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "a\0b\0c"
       def r(l); v = yield; puts "#{l}: #{v.inspect}"; end
 

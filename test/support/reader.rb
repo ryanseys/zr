@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
 require_relative "fixtures"
-require_relative "../../lib/ze0/record"
+require_relative "../../lib/zr/record"
 
-module Ze0
+module Zr
   # Reads a spec file without compiling anything.
   #
   # A spec example is a program and the answer ruby gave for it. Running
-  # one costs a ze0 compile; reading one costs nothing, and reading is
+  # one costs a zr compile; reading one costs nothing, and reading is
   # enough for every question that is about the file rather than about
   # the compiler -- what a file asserts, whether a literal is still
   # ruby's word, how many examples an area holds.
   #
   # The file is loaded against a stand-in world: `describe` and `it`
-  # collect, `ze0` records what it was handed, and `_(x).must_answer y`
+  # collect, `zr` records what it was handed, and `_(x).must_answer y`
   # records the answer. Nothing compiles, nothing runs, and a guard that
   # asks about the machine is answered here rather than by the compiler.
   module Reader
@@ -23,7 +23,7 @@ module Ze0
     # defaults the DSL would have filled in. A tool that rewrites a spec
     # reasons about `given` -- it is the only place an explicit `path:`
     # can be told apart from one this reader supplied.
-    class Example < Ze0::Record
+    class Example < ::Zr::Record
       FIELDS = %i[name about source kwargs given want].freeze
       attr_accessor :name, :about, :source, :kwargs, :given, :want
 
@@ -66,10 +66,10 @@ module Ze0
       end
 
       # The keys are named rather than swept up in `**kwargs`, and they
-      # are `Ze0::Spec::DSL#ze0`'s keys exactly. A reader that took
+      # are `Zr::Spec::DSL#zr`'s keys exactly. A reader that took
       # anything would record a misspelled keyword happily, and
       # `rake oracle` would pass a spec that no run could compile.
-      def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
+      def zr(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
         given = { path: path, argv: argv, env: env, stdin: stdin, files: files,
                   seconds: seconds, ruby: ruby }.reject { |k, v| v == DEFAULTS[k] }
         @current.source = source
@@ -86,7 +86,7 @@ module Ze0
                    seconds: nil, ruby: [] }.freeze
 
       # `_(result.stdout)` hands back the stream the chain already
-      # named; `_(ze0(...).stdout)` is the same chain in one line.
+      # named; `_(zr(...).stdout)` is the same chain in one line.
       def _(value) = value.is_a?(Recorder) ? value : Recorder.new(@current, value)
 
       def skip(why = nil)
@@ -146,7 +146,7 @@ module Ze0
     # into a filename. It is the file now, so a sentence is free to be a
     # sentence, and renaming one cannot move a program.
     #
-    # `Ze0::Spec::DSL#default_path` is the other caller, and the two must
+    # `Zr::Spec::DSL#default_path` is the other caller, and the two must
     # agree or a program's own path differs between the run and the
     # oracle. `reader_conformance_test.rb` holds them together.
     def path_for(spec_file)

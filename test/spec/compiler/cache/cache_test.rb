@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Cache programs" do
   it "const cache invalidation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       WHICH = "first"
 
       def read_which = WHICH
@@ -90,7 +90,7 @@ describe "Cache programs" do
   end
 
   it "special constant receivers hit the site's cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One site, receivers of five classes in turn: nil, true, false, a
       # symbol and a String. The site finds each class itself and its
       # cells answer; a method defined or redefined after the site ran
@@ -130,7 +130,7 @@ describe "Cache programs" do
   end
 
   it "struct members are read and written at the site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One reader site and one writer site over a Struct, a keyword
       # Struct, a Data, an attr_accessor object and a subclass that
       # redefines the reader: the cell's shape says which the site does
@@ -198,7 +198,7 @@ describe "Cache programs" do
   end
 
   it "frozen nul literal cache" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # `fresh_receiver.delete("\0")` must not corrupt the receiver. Before the fix
       # the frozen "\0" literal was re-allocated on every call, and that allocation
@@ -252,7 +252,7 @@ describe "Cache programs" do
   end
 
   it "raise names the snippet and the eval site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       src = "raise 'boom'"
       begin
         eval(src)
@@ -268,7 +268,7 @@ describe "Cache programs" do
   end
 
   it "snippet reaches its callers block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `yield`, `block_given?` and a bare `super` written at a snippet's own
       # level belong to the method the `eval` was called from -- CRuby reads them
       # off the caller's control frame. zeo publishes the home from every scope
@@ -383,7 +383,7 @@ describe "Cache programs" do
   end
 
   it "snippet refines and uses at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # Refinements are a compile-time decision in a program: a `refine` mints a
       # holder the compiler registers, and a `using` rewrites the call sites in
@@ -459,7 +459,7 @@ describe "Cache programs" do
   end
 
   it "snippets regexp literal has its own site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-interpolated regexp literal is ONE frozen object per site, cached in
       # the runtime under an emitter-assigned id. A program's ids are dense from
       # zero and minted by one compile; a run-time `eval` is compiled by a FRESH

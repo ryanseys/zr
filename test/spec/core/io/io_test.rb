@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO programs" do
   it "argf class no args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ARGF has its own pseudo-IO class; with no file args its filename is "-".
       puts ARGF.class
       puts ARGF.filename
@@ -14,7 +14,7 @@ describe "IO programs" do
   end
 
   it "argf reads args" do
-    result = ze0(<<~'RUBY', argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
+    result = zr(<<~'RUBY', argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
 
       # ARGF reads the files named in ARGV (here one file passed as an arg),
       # line by line; ARGF.filename names the current file.
@@ -33,7 +33,7 @@ describe "IO programs" do
   end
 
   it "armed gvl holder blocked on a full pipe write does not stall its siblings" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The write-side twin (the `write_rio` seam): 200KB overflows the
       # kernel pipe buffer, so the writer blocks mid-`write_all` until main
       # drains the pipe -- which main can only do if the writer released
@@ -52,7 +52,7 @@ describe "IO programs" do
   end
 
   it "armed gvl holder blocked on a pipe read does not stall its siblings" do
-    result = ze0(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
       # The io-family without_gvl probe, in ZEO_GVL=1 fidelity mode: the
       # reader parks on an EMPTY pipe while main sleeps, so without the
       # release at the `with_file` seam the reader would block INSIDE the
@@ -71,7 +71,7 @@ describe "IO programs" do
   end
 
   it "autoload feature composes dir and expand path" do
-    result = ze0(<<~'RUBY', files: beside("autoload_dir_expand/sub/also.rb", "autoload_dir_expand/sub/target.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_dir_expand/sub/also.rb", "autoload_dir_expand/sub/target.rb"))
       # An `autoload` target's feature text is folded at compile time from three
       # forms: a string literal, an interpolation whose computed part is `__dir__`,
       # and a whole `File.expand_path("<literal>", __dir__)`. They now COMPOSE --
@@ -119,7 +119,7 @@ describe "IO programs" do
   end
 
   it "autoload with file expand path dir resolves a sibling file" do
-    result = ze0(<<~'RUBY', files: beside("autoload_sibling/main.rb", "autoload_sibling/mirror.rb"))
+    result = zr(<<~'RUBY', files: beside("autoload_sibling/main.rb", "autoload_sibling/mirror.rb"))
       # The dominant stdlib/bundler idiom: `autoload :C, File.expand_path("c",
       # __dir__)` -- a computed sibling path. Resolved at compile time from the
       # requiring file's directory.
@@ -131,7 +131,7 @@ describe "IO programs" do
   end
 
   it "backtick captures stdout and sets child status" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `` `cmd` `` lowers to a `Kernel#\`` fcall: it captures the child's
       # stdout as a String and leaves the wait status in `$?`.
 
@@ -155,7 +155,7 @@ describe "IO programs" do
   it "boxs required file patches a shared class privately" do
     files = beside("box_required_file/main.rb", "box_required_file/patch.rb")
 
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
+    result = zr(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # A box loading a FILE (rather than an eval'd string) isolates the same
       # way. The two routes reach the compiler differently -- a literal
       # `box.eval` is spliced at compile time and a `require_relative` brings in
@@ -173,7 +173,7 @@ describe "IO programs" do
   end
 
   it "break inside begin rescue targets the enclosing native loop" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `break`/`next`/`redo` inside a `begin`/`rescue`/`else` clause
       # targeting a native loop OUTSIDE the `begin`. The `begin`
       # expression is spliced INLINE in the loop body, so its final settling
@@ -202,7 +202,7 @@ describe "IO programs" do
   end
 
   it "descriptor wait sees data and hang up" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Waiting on one descriptor: a pipe with nothing in it is not readable,
       # data makes it readable but not priority-readable, and a closed write
       # end makes it readable too (a read then answers EOF). A pipe's write
@@ -242,7 +242,7 @@ describe "IO programs" do
     files = beside("diamond_requires/liba.rb", "diamond_requires/libb.rb", "diamond_requires/main.rb",
                    "diamond_requires/shared.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       require_relative "diamond_requires/main"
     RUBY
 
@@ -255,7 +255,7 @@ describe "IO programs" do
   end
 
   it "dir exist" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts Dir.exist?(".")
       puts Dir.exist?("no_such_dir_xyz123")
     RUBY
@@ -264,7 +264,7 @@ describe "IO programs" do
   end
 
   it "dir glob semantics" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Dir.glob`: `*` within a segment, `**` across them, `?`, `{a,b}`
       # alternation, and Ruby's hidden-file rule (a leading `.` is invisible to a
       # wildcard).
@@ -311,7 +311,7 @@ describe "IO programs" do
   end
 
   it "dir handle argf binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir.new/Dir.open handles, ARGF's literally-named class and default "-"
       # filename (run with no file arguments), and binding.local_variable_get reading
       # an in-scope local -- including a reserved-word parameter.
@@ -370,7 +370,7 @@ describe "IO programs" do
   end
 
   it "dir listing distinguishes entries from children" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Dir` listing: `entries` includes `.`/`..`, `children` does not.
 
       dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_list_#{Process.pid}")
@@ -407,7 +407,7 @@ describe "IO programs" do
   end
 
   it "directory and a descriptor answer their own numbers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A directory is an open descriptor of its own: #fileno answers the
       # same number every time, and a closed directory answers nothing at
       # all. A stream answers the flags fcntl reads from its descriptor, and
@@ -455,10 +455,10 @@ describe "IO programs" do
   end
 
   it "dying program orders its output and its report" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The report of an uncaught exception goes through the `$stderr` OBJECT, so
       # the order it lands in follows each stream's own buffer rather than any
-      # flush of ze0's choosing.
+      # flush of zr's choosing.
       #
       # With both streams sent to one place, the report queues behind whatever the
       # program already wrote, so the output comes first -- and an at_exit handler
@@ -485,7 +485,7 @@ describe "IO programs" do
   end
 
   it "env select shadowed by kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ENV["ZEO_PROBE_X"] = "1"
       p ENV.select { |k, v| k == "ZEO_PROBE_X" }
       p ENV.reject { |k, v| k != "ZEO_PROBE_X" }
@@ -500,7 +500,7 @@ describe "IO programs" do
   end
 
   it "eval file and line arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `eval`'s 3rd and 4th arguments name the snippet, and a snippet is a real
       # scope: it gets a frame of its own, under the label of the BINDING it runs
       # in -- not the caller's -- and each statement stamps its own line, counted
@@ -560,9 +560,9 @@ describe "IO programs" do
   end
 
   it "fcntl takes a struct in a string" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # IO#fcntl passes a String as the struct a command reads and fills, as a
       # file lock does, and refuses a frozen one.
@@ -591,7 +591,7 @@ describe "IO programs" do
   end
 
   it "file and line report the eval site" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = "__FILE__"
       p eval(f)
       l = "__LINE__"
@@ -605,7 +605,7 @@ describe "IO programs" do
   end
 
   it "file basename gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # sp_file_basename used to return `path + offset` — a pointer into
       # the input path. Without keeping the underlying buffer rooted, the
       # GC could free the path string, leaving the held basename dangling.
@@ -671,7 +671,7 @@ describe "IO programs" do
   end
 
   it "file constants module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The open/lock/fnmatch flags are a MODULE that `IO` includes, not a bag of
       # constants on `File`. That is what makes `IO::APPEND` and `File::APPEND` the
       # same constant and what puts `File::Constants` in `IO.ancestors` -- a program
@@ -727,7 +727,7 @@ describe "IO programs" do
   end
 
   it "file dir methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #892: File.extname / .basename / .dirname / Dir.pwd.
       puts File.extname("hello.rb")
       puts File.basename("/home/user/file.rb")
@@ -754,7 +754,7 @@ describe "IO programs" do
   end
 
   it "file errors are real errno classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A missing path raises the right `Errno::*`, with CRuby's message shape --
       # and it is catchable by its PARENT (`SystemCallError`), which is what the
       # prelude hierarchy buys.
@@ -788,7 +788,7 @@ describe "IO programs" do
   end
 
   it "file expand path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File.expand_path: pure-string absolute-path expansion. Only absolute
       # bases/paths are exercised so the result is independent of cwd/HOME.
       puts File.expand_path("test", "/tmp")
@@ -814,7 +814,7 @@ describe "IO programs" do
   end
 
   it "file foreach separator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |d|
@@ -832,7 +832,7 @@ describe "IO programs" do
   end
 
   it "file ftype foreach and dir foreach" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
       Dir.mktmpdir do |dir|
         File.write(File.join(dir, "a.txt"), "one\ntwo\nthree\n")
@@ -860,7 +860,7 @@ describe "IO programs" do
   end
 
   it "file join collapses separators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File.join` collapses a separator at the seam rather than doubling it, and
       # flattens a nested Array argument.
 
@@ -887,7 +887,7 @@ describe "IO programs" do
   end
 
   it "file join poly component" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly component of File.join (here: an element read from a heterogeneous
       # array) initializes a `const char *` slot in the sp_file_join argument list,
       # so it must be coerced with sp_poly_to_s rather than land its sp_RbVal raw
@@ -903,7 +903,7 @@ describe "IO programs" do
   end
 
   it "file open block form and positioned reads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File.open`: the block form closes on every exit path and answers the
       # block's value. A LENGTHED read at EOF is nil where a whole-rest read is
       # `""` -- the asymmetry a `while chunk = f.read(n)` loop relies on.
@@ -962,7 +962,7 @@ describe "IO programs" do
   end
 
   it "file open closes even when the block raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File.open`'s block form closes the file even when the block RAISES --
       # that ensure is the whole reason the idiom exists.
 
@@ -991,7 +991,7 @@ describe "IO programs" do
   end
 
   it "file predicates answer rather than raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `File.<predicate>?` family answers false for a missing path rather
       # than raising -- and `size?` is nil for a missing OR empty file, though
       # `size` is 0 for an empty one.
@@ -1037,7 +1037,7 @@ describe "IO programs" do
   end
 
   it "file predicates times and fnm constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File-type/permission predicates, time accessors, and the FNM_* flag
       # constants, exercised on a file the test writes.
 
@@ -1067,7 +1067,7 @@ describe "IO programs" do
   end
 
   it "file pure path family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File`'s pure-path family: string work that never touches the disk. Every
       # expectation oracle-read from ruby 4.0.6 -- including the two that read
       # like off-by-ones (a TRAILING dot IS an extension, a LEADING one is not).
@@ -1105,7 +1105,7 @@ describe "IO programs" do
   end
 
   it "file unlink rename" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       filename = "test_unlink_rename_temp.txt"
       renamed = "test_unlink_rename_temp2.txt"
       File.write(filename, "file op test")
@@ -1124,7 +1124,7 @@ describe "IO programs" do
   end
 
   it "for fd takes the mode the descriptor has" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A descriptor opened for writing alone becomes a stream with no mode
       # given, and read_nonblock says EAGAIN once in its message.
       r, w = IO.pipe
@@ -1147,7 +1147,7 @@ describe "IO programs" do
   end
 
   it "if else void branch value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An if/else used in value position whose branches have mismatched value
       # types -- a typed branch vs a void/nil branch like `$stdout.puts` -- must
       # emit valid C. The puts branch is emitted as a single comma expression
@@ -1179,7 +1179,7 @@ describe "IO programs" do
   end
 
   it "IO::Buffer.new answers its size and prints no experimental warning" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       b = IO::Buffer.new(8)
       p b.size
     RUBY
@@ -1190,7 +1190,7 @@ describe "IO programs" do
   end
 
   it "a buffered read leaves the descriptor where ruby consumed to, not where the read-ahead reached" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Line and character reads buffer ahead, so every operation that observes or
       # moves the file position has to see the descriptor where RUBY consumed to,
       # never where the read-ahead left it.
@@ -1306,7 +1306,7 @@ describe "IO programs" do
   end
 
   it "copy_stream and rewind dispatch on the runtime class of a parameter that unions StringIO and File" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO.copy_stream / #rewind through a param that unions StringIO and File
       # dispatch on the runtime stream class (#3257). Uses temp files it creates.
       require 'stringio'
@@ -1334,7 +1334,7 @@ describe "IO programs" do
   end
 
   it "reading a write-only handle raises IOError before the syscall, not Errno::EBADF" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading a write-only IO (or writing a read-only one) is an IOError ("not
       # opened for reading"/"not opened for writing") -- ruby checks the mode
       # before touching the fd. zeo lets the syscall fail and raises
@@ -1355,7 +1355,7 @@ describe "IO programs" do
   end
 
   it "IO.pipe answers a reader and a writer, and the reader reads what the writer wrote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r, w = IO.pipe
       puts r.class
       puts w.class
@@ -1372,7 +1372,7 @@ describe "IO programs" do
   end
 
   it "popen replaces the child's stdin, stdout or both, and the handle knows its pid and reaps it into $?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO.popen -- a subprocess with a pipe replacing its stdout ("r"), its stdin
       # ("w"), or both ("r+"), the handle knowing its child: #pid answers it and
       # #close reaps it into $?.
@@ -1424,7 +1424,7 @@ describe "IO programs" do
   end
 
   it "STDOUT answers tty?, chains <<, and reports its fileno" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO#tty?/#isatty, IO#<< (chainable), and IO#fileno on STDOUT/STDERR. The 12-gem
       # "unsupported call: tty?/<</winsize on STDOUT/STDERR" cluster (#1605): STDOUT
       # types as a concrete IO, so these IO methods must be modelled rather than
@@ -1446,7 +1446,7 @@ describe "IO programs" do
   end
 
   it "ioctl fills the buffer its command names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO#ioctl`. rb_io_ctl reads its argument as setup_narg does: nil and false
       # stand for 0, true for 1, an Integer for itself, and a String is the buffer
       # the command fills -- grown to the length the command names (the IOCPARM
@@ -1507,7 +1507,7 @@ describe "IO programs" do
   end
 
   it "kernel dir" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #878: Kernel#__dir__ returns the dirname of the source
       # file at compile time. The parser emits SOURCE_FILE <path> near
       # the AST head so the codegen can compute dirname without needing
@@ -1523,7 +1523,7 @@ describe "IO programs" do
   end
 
   it "kernel puts override takes effect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user `def puts` on `Kernel` or `Object` answers every receiver-less
       # `puts` in the program.
       #
@@ -1563,7 +1563,7 @@ describe "IO programs" do
   end
 
   it "moved stderr takes warnings and the report" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Once $stderr names another stream, warnings, abort's message and the
       # report of an uncaught exception all go there.
       $stderr = $stdout
@@ -1586,7 +1586,7 @@ describe "IO programs" do
   end
 
   it "multi assign targets follow the textual block local rule" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A multi-assign target is a plain outer assignment for Ruby's textual
       # block-local rule, positioned at its own statement. Before: `level` here
       # counted its RE-assignment inside the loop as the scope's first, demoting
@@ -1618,7 +1618,7 @@ describe "IO programs" do
   end
 
   it "next value select" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next <cond>` inside a select/reject block decides the element's inclusion,
       # instead of being dropped as a bare skip.
       p [1, 2, 3, 4].select { |x| next true if x == 2; x > 2 }          # [2, 3, 4]
@@ -1652,7 +1652,7 @@ describe "IO programs" do
   end
 
   it "pipe read to eof does not seek" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `read` (to EOF) and `eof?` on a PIPE must not seek: with the write end
       # closed, ruby answers "" and true. zeo's eof probe seeks and raises
       # Errno::ESPIPE ("Illegal seek"). (Found by the 2026-08-24 probe sweep.)
@@ -1670,7 +1670,7 @@ describe "IO programs" do
   end
 
   it "poly io handle methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An IO handle read back out of a poly container.
       #
       # A stream in a container is boxed, so the receiver's type is only known at run
@@ -1736,7 +1736,7 @@ describe "IO programs" do
   end
 
   it "print field and record separators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $, = "-"
       $\ = "!"
       print "a", "b"
@@ -1749,7 +1749,7 @@ describe "IO programs" do
   end
 
   it "puts class value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `puts` on a value-type sp_Class (from `obj.class`) should render
       # the class name, not `printf("%lld", (long long)struct_value)`.
       class Counter
@@ -1766,7 +1766,7 @@ describe "IO programs" do
   end
 
   it "puts compound arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # STDOUT/STDERR (constants) .puts/.print with a COMPOUND-expression argument --
       # a call that lowers to a C compound literal / statement-expression
       # (format/sprintf/Array#join, array literals). Previously the constant
@@ -1829,7 +1829,7 @@ describe "IO programs" do
   end
 
   it "puts in case value arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Renderer
         attr_accessor :skip_background_fill
 
@@ -1871,7 +1871,7 @@ describe "IO programs" do
   end
 
   it "puts nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `puts nil` (a nil literal) and `puts nil.itself` print a single empty
       # line, not `0`. (A nil-*typed* method/ivar that carries a real value is
       # deliberately left on the value path, so this gates on the syntactic
@@ -1889,7 +1889,7 @@ describe "IO programs" do
   end
 
   it "puts object to s poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # puts/print/interpolation of an object whose to_s unions a String with
       # another branch type (returns a boxed sp_RbVal) must route through
       # sp_poly_to_s instead of a pointer cast (#3266).
@@ -1912,7 +1912,7 @@ describe "IO programs" do
   end
 
   it "ruby version build constants and file separators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Stable values plus a self-consistency check that RUBY_DESCRIPTION is
       # composed from its parts exactly as CRuby's version.c does (portable
       # across build hosts; RUBY_PLATFORM is build-target-derived via build.rs).
@@ -1938,7 +1938,7 @@ describe "IO programs" do
   end
 
   it "select on a subclass with its own send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO.select asks each stream whether it holds buffered bytes, through
       # Kernel#send as CRuby's C would. A stream whose class defines its own
       # `send`, as BasicSocket does for send(2), must not take that call:
@@ -1965,7 +1965,7 @@ describe "IO programs" do
   end
 
   it "select waits on every list while threads run" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO.select parks the thread that asks, so a thread that writes later
       # still runs; a reader with bytes in its buffer is ready at once.
       r, w = IO.pipe
@@ -1997,7 +1997,7 @@ describe "IO programs" do
   end
 
   it "self referential collections print recursion markers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pre-15.2 both of these self-deadlocked on the collection's own
       # non-reentrant payload Mutex.
       #
@@ -2022,7 +2022,7 @@ describe "IO programs" do
   end
 
   it "self test block in a required file" do
-    result = ze0(<<~'RUBY', files: beside("self_test_block/lib.rb"))
+    result = zr(<<~'RUBY', files: beside("self_test_block/lib.rb"))
       # `if __FILE__ == $0` -- the self-test block every second library file ends
       # with. In a file something else REQUIRED it is false whatever `$0` holds: the
       # entry point is, by definition, a different file. The definitions it guards
@@ -2041,7 +2041,7 @@ describe "IO programs" do
   end
 
   it "source file" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # SourceFileNode -- the `__FILE__` keyword.
       #
       # Spinel inlines `require`/`require_relative` at parse time, so call
@@ -2094,7 +2094,7 @@ describe "IO programs" do
   end
 
   it "stderr reassigned to stdout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$stderr = $stdout` has to be honoured by reads of $stderr.
       #
       # A program that reassigns one of the standard streams already gets a real
@@ -2128,7 +2128,7 @@ describe "IO programs" do
   end
 
   it "stdin io" do
-    result = ze0(<<~'RUBY', stdin: "hello\nworld\n")
+    result = zr(<<~'RUBY', stdin: "hello\nworld\n")
 
       # $stdin / STDIN are IO handles over the C stdin stream: gets (nil at EOF),
       # read, each_line, eof?, tty? route through the ordinary TY_IO surface.
@@ -2150,7 +2150,7 @@ describe "IO programs" do
   end
 
   it "stdout is discarded by exit bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `exit!` is CRuby's `_exit(2)`: no `at_exit` handler, and whatever stdio
       # still holds is DISCARDED. So this program prints NOTHING, where the same
       # text through `exit` prints all 300 bytes. A native `exit` runs the
@@ -2165,7 +2165,7 @@ describe "IO programs" do
   end
 
   it "stdout survives exit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `exit` raises SystemExit, so the buffer is written on the way out and the
       # `at_exit` handler runs first -- the same return-to-C-`main` path as
       # falling off the end, reached through the exception.
@@ -2180,7 +2180,7 @@ describe "IO programs" do
   end
 
   it "thread file gets" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       File.write("tfg.tmp", "line1\nline2\n")
       f = File.open("tfg.tmp")
       t = Thread.new do
@@ -2197,7 +2197,7 @@ describe "IO programs" do
   end
 
   it "user defined puts wins over the kernel function" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user-defined sibling `puts` WINS over the Kernel function (real Ruby's
       # rule).
 
@@ -2219,7 +2219,7 @@ describe "IO programs" do
   end
 
   it "warn after stderr reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $stderr.reopen(IO::NULL)
       warn "w1"
       puts "survived"
@@ -2229,7 +2229,7 @@ describe "IO programs" do
   end
 
   it "warn and stderr writes land on stderr not stdout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `warn`, `$stderr.puts`, and `STDERR.write` all go to the error stream;
       # `$stdout.puts` stays on stdout. The two streams are asserted separately,
       # so a leak in either direction fails the test.
@@ -2246,7 +2246,7 @@ describe "IO programs" do
   end
 
   it "IO#advise names an advice it does not know" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       File.open(__FILE__) do |f|
         begin
           f.advise(:bogus)

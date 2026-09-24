@@ -2,13 +2,13 @@
 
 require "test_helper"
 require "tmpdir"
-require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/zr/native/build"
 
 # A file's machine code may not depend on what was compiled before it.
 #
 # Two programs that both require the same file must write the same
 # names for it, then the same code, then the same data. That is what
-# makes a unit cache possible at all (lib/ze0/unit_cache.rb): a cached
+# makes a unit cache possible at all (lib/zr/unit_cache.rb): a cached
 # unit would otherwise carry names, symbol ids and literal slots that
 # only the program it was first compiled in agrees with.
 class UnitBytesTest < Minitest::Test
@@ -48,7 +48,7 @@ class UnitBytesTest < Minitest::Test
   RUBY
 
   def test_the_same_file_writes_the_same_names_code_and_data_in_two_programs
-    Dir.mktmpdir("ze0-unit-bytes-") do |dir|
+    Dir.mktmpdir("zr-unit-bytes-") do |dir|
       File.write(File.join(dir, "shared.rb"), SHARED)
       File.write(File.join(dir, "earlier.rb"), BEFORE)
       alone = unit_of(dir, "alone.rb", %(require_relative "shared"\np UnitBytesProbe::SHAPE\n))
@@ -69,7 +69,7 @@ class UnitBytesTest < Minitest::Test
   # The same file compiled twice in a row: the second build reads the
   # unit back from the cache, and must write what the first one wrote.
   def test_a_build_that_reads_a_unit_back_writes_what_the_first_build_wrote
-    Dir.mktmpdir("ze0-unit-cache-") do |dir|
+    Dir.mktmpdir("zr-unit-cache-") do |dir|
       File.write(File.join(dir, "shared.rb"), SHARED)
       main = %(require_relative "shared"\np UnitBytesProbe.new(1).named(kind: :k)\n)
       cold = unit_of(dir, "cold.rb", main, data: true)
@@ -90,7 +90,7 @@ class UnitBytesTest < Minitest::Test
   def unit_of(dir, main, source, data: false)
     path = File.join(dir, main)
     File.write(path, source)
-    program = Ze0::Native::Build.lower(source, path)
+    program = Zr::Native::Build.lower(source, path)
     body = program.functions.map(&:name).grep(/UnitBytesProbe/).first
     prefix = body&.slice(/zr_u[0-9a-f]+/) or return {}
 

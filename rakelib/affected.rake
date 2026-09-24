@@ -36,10 +36,10 @@ module Affected
     case file
     when %r{\Atest/spec/.*_test\.rb\z} then [file]
     when %r{\Atest/spec/} then [File.dirname(file)]
-    when %r{\Alib/ze0/}, %r{\Art/kernel/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile", %r{\Arakelib/} then :all
+    when %r{\Alib/zr/}, %r{\Art/kernel/}, %r{\Atest/(support|test_helper|spec_helper)}, "Rakefile", %r{\Arakelib/} then :all
     when %r{\Art/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
     when %r{\Art/ext/([^/.]+)}, %r{\Avendor/lib/([^/.]+)} then library($1)
-    when "Gemfile.lock", "ze0.gemspec" then :all
+    when "Gemfile.lock", "zr.gemspec" then :all
     else []
     end
   end

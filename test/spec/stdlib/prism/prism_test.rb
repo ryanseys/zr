@@ -4,9 +4,9 @@ require "spec_helper"
 
 describe "Prism programs" do
   it "the parser ruby itself uses compiles into the binary and parses a program" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # native only: a program that requires prism carries the compiler, which the wasm road does not build
-      # prism, the parser ruby itself uses: its Ruby half over ze0's Ruby port of
+      # prism, the parser ruby itself uses: its Ruby half over zr's Ruby port of
       # its C, compiled into the binary like any other Ruby.
 
       require "prism"
@@ -42,7 +42,7 @@ describe "Prism programs" do
   end
 
   it "store prism gem takes the ffi road" do
-    result = ze0(<<~'RUBY', env: {"ZEO_DISABLE_BUILTIN" => "prism"})
+    result = zr(<<~'RUBY', env: {"ZEO_DISABLE_BUILTIN" => "prism"})
       # `require "prism"` out of the gem store reaches `prism/ffi.rb` even though
       # zeo builds and loads the gem's C extension: the DEBUG log shows
       # `load C extension .../ext/prism/prism.bundle`, and `Prism.parse` still

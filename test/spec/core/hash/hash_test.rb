@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash programs" do
   it "braced hash in the open mode slot is a mode" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash written with BRACES is a positional argument; only keywords are
       # options.
       #
@@ -84,7 +84,7 @@ describe "Hash programs" do
   end
 
   it "class frozen false hash delete block and default record separator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class (and a core class) reports frozen? == false. Hash#delete
       # calls its block when the key is absent. $/ defaults to "\n".
 
@@ -107,7 +107,7 @@ describe "Hash programs" do
   end
 
   it "class ivar save restore" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A capture-style save/restore of a class-ivar whose type widens to poly under
       # whole-program pressure. @query_log is written a bare `[]` (poly-array), pushed
       # strings (str-array), and restored from `prev`; those heterogeneous writes merge
@@ -144,7 +144,7 @@ describe "Hash programs" do
   end
 
   it "crashers 536" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #536. Three crashers:
       #
       # 1. `[].sample` on an empty IntArray emitted `rand() %
@@ -188,7 +188,7 @@ describe "Hash programs" do
   end
 
   it "data hash key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       p({ P.new(1, 2) => "a" }[P.new(1, 2)])
       h = { P.new(1, 2) => "a" }; p(h[P.new(1, 2)])
@@ -201,7 +201,7 @@ describe "Hash programs" do
   end
 
   it "dir chdir block form restores the previous directory" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Dir.chdir`'s block form restores the previous directory afterwards.
 
       dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_chdir_#{Process.pid}")
@@ -221,7 +221,7 @@ describe "Hash programs" do
   end
 
   it "empty hash const value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty hash literal as a receiver ({}.freeze) types as the same str-keyed
       # poly hash codegen emits for a bare {} -- without it the constant was dropped
       # from codegen entirely (reads raised "uninitialized constant", and a typed
@@ -251,7 +251,7 @@ describe "Hash programs" do
   end
 
   it "empty hash int int no widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `h = {}; h[parts[0]] = v` where `parts` comes from a `split` result
       # (or any expression that returns str_array). Two pre-fix shapes
       # combined:
@@ -309,7 +309,7 @@ describe "Hash programs" do
   end
 
   it "empty hash key context" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty Hash literal bound to a local takes its variant from the key it is
       # indexed with, not the StrPolyHash fallback.
       h = {}
@@ -347,7 +347,7 @@ describe "Hash programs" do
   end
 
   it "empty hash nonscalar key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `{}` takes the hash variant its KEY selects. The rule knew Symbol,
       # String, Integer and poly keys; every other kind fell through to the
       # StrPolyHash default, which put the key straight into a `const char *` slot
@@ -431,7 +431,7 @@ describe "Hash programs" do
   end
 
   it "find ifnone tally hash and min max by count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 3].find(-> { -1 }) { |x| x > 10 }
       p [1, 20, 3].find(-> { -1 }) { |x| x > 10 }
       p [1, nil, 3].find(-> { :fallback }) { |x| x.nil? }
@@ -464,7 +464,7 @@ describe "Hash programs" do
   end
 
   it "for over hash and bigint when" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # for over a hash iterates [key, value] pairs in insertion order; a Bignum
       # scrutinee matches a Bignum when-literal by value.
       k = 0
@@ -494,7 +494,7 @@ describe "Hash programs" do
   end
 
   it "frozen literal hash key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # A frozen source literal carries a real string header (the 0xf1 marker
       # promises one for the hash cache); baked onto bare rodata the cached-hash
@@ -522,7 +522,7 @@ describe "Hash programs" do
   end
 
   it "a Hash takes an Array as a key, and is_a? answers for every builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       h[:a] = 1
       h[:b] = 2
@@ -589,7 +589,7 @@ describe "Hash programs" do
   end
 
   it "Hash[] builds from a flat list, an array of pairs or another Hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Hash[]
       p Hash[1, 2, 3, 4]
       p Hash[[[:a, 1], [:b, 2]]]
@@ -605,7 +605,7 @@ describe "Hash programs" do
   end
 
   it "clear empties a Hash of any key and value type, and it takes writes again" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h1 = { a: 1, b: 2, c: 3 }
       h1.clear
       puts h1.size
@@ -668,7 +668,7 @@ describe "Hash programs" do
   end
 
   it "an operator assignment through [] reads, applies and writes back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#[] op= for string-valued and poly-valued typed hashes.
 
       # sym_str_hash: += str → concat.
@@ -701,7 +701,7 @@ describe "Hash programs" do
   end
 
   it "the Hash constructor, a multi-argument merge, and the transform methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Hash[] constructor, multi-argument merge/merge!, Array#clone's frozen
       # flag, inline Hash.new(default) arguments, Array#slice!(i)/(range),
       # transform_values!/transform_keys! and transform_keys(mapping), and
@@ -755,7 +755,7 @@ describe "Hash programs" do
   end
 
   it "Hash.new takes a default value that is not stored, or a block that may store one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Hash.new` accepts a per-instance default that a missing key falls back to.
 
       # A default VALUE: every missing key reads back as it (without being stored).
@@ -791,7 +791,7 @@ describe "Hash programs" do
   end
 
   it "fetch raises KeyError with no default, and answers the default with one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #914: Hash#fetch without a default raises KeyError on
       # a missing key, not 0.
       h = {a: 1}
@@ -826,7 +826,7 @@ describe "Hash programs" do
   end
 
   it "adding a key during each raises, where writing an existing one does not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby forbids adding a new key to a Hash while iterating it: RuntimeError
       # "can't add a new key into hash during iteration". zeo's Hash#each takes no
       # iteration borrow, so the insert silently succeeds. Updating an EXISTING key
@@ -852,7 +852,7 @@ describe "Hash programs" do
   end
 
   it "invert swaps every key with its value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#invert — swap keys and values.
       # str_int_hash → poly_poly_hash, str_str_hash → str_str_hash,
       # sym_int_hash → poly_poly_hash, int_str_hash → str_str_hash.
@@ -880,7 +880,7 @@ describe "Hash programs" do
   end
 
   it "itself answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1 }
       p h.itself
       e = [1, 2, 3].each
@@ -897,7 +897,7 @@ describe "Hash programs" do
   end
 
   it "a key computed through an intermediate local keeps the value's type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling to #443. `h[pp[1..]] = ap` where pp/ap are intermediate
       # locals (themselves split-result elements) had the hash inferred
       # as str_int_hash instead of str_str_hash. Root cause: the
@@ -936,7 +936,7 @@ describe "Hash programs" do
   end
 
   it "a literal reads by key, takes new keys and reports its size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2 }
       puts(h[:a])
       puts(h[:b])
@@ -963,7 +963,7 @@ describe "Hash programs" do
   end
 
   it "merge! and update write into the receiver and answer it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-place Hash#merge! / #update mutate the receiver and return it.
       # Per-variant helpers keep each receiver's concrete hash type (a single shared
       # helper would unify every variant to a poly-valued hash).
@@ -1024,7 +1024,7 @@ describe "Hash programs" do
   end
 
   it "merge and except take their arguments splatted from an array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       hs001 = [{ b: 2 }]
       p({ a: 1 }.merge(*hs001))
       ks002 = [:a]
@@ -1042,7 +1042,7 @@ describe "Hash programs" do
   end
 
   it "merge! and update take several hashes splatted from an array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       hs = [{ b: 2 }]
       h = { a: 1 }
       h.merge!(*hs)
@@ -1072,7 +1072,7 @@ describe "Hash programs" do
   end
 
   it "merge answers a Hash whatever the key and value types are, and the argument wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#merge on poly_poly, int_int, and int_str hash variants (str-keyed already
       # worked). Frozen-constant receivers infer as poly_poly; ints exercise int-keyed
       # variants. A trailing flat_map mirrors the originating gem's use.
@@ -1109,7 +1109,7 @@ describe "Hash programs" do
   end
 
   it "a Hash of one key type takes a key of another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h1 = { a: 1 }
       h1["x"] = 9
       p h1
@@ -1192,7 +1192,7 @@ describe "Hash programs" do
   end
 
   it "a parameter defaulted to Hash.new gets a fresh Hash each call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f001(n001, memo001 = Hash.new)
         memo001[n001] = n001
         memo001
@@ -1216,7 +1216,7 @@ describe "Hash programs" do
   end
 
   it "values_at, assoc, compact, shift, select! and the subset operators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2, c: 3 }
       p h.values_at(:a, :c)
       p h.assoc(:b)
@@ -1244,7 +1244,7 @@ describe "Hash programs" do
   end
 
   it "the { x:, y: } shorthand takes each value from the local of that name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash shorthand `{ x:, y: }` (Ruby 3.1+): an AssocNode whose value is
       # implicit. Prism wraps the implicit value in a PM_IMPLICIT_NODE that
       # carries the actual LocalVariableReadNode (or MethodCallNode for an
@@ -1295,7 +1295,7 @@ describe "Hash programs" do
   end
 
   it "a Hash literal survives the allocations between building it and using it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #689: Hash temporaries created from `{}` literals must be GC-rooted
       # before subsequent allocations, otherwise GC may reclaim them mid-
       # expression and the consuming call reads NULL+offset.
@@ -1328,7 +1328,7 @@ describe "Hash programs" do
   end
 
   it "flat_map, filter_map, partition and group_by build from the key and value pairs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#flat_map / #filter_map / #partition / #group_by build collections from
       # the |key, value| pairs: flat_map concatenates the per-entry arrays,
       # filter_map keeps truthy block values, partition splits into matching and
@@ -1367,7 +1367,7 @@ describe "Hash programs" do
   end
 
   it "transform_keys! and transform_values! write back into the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#transform_keys! / transform_values! on a direct literal (KieranP #2355)
       p({ a: 1, b: 2 }.transform_keys!(&:to_s))       # key type sym -> str
       p({ a: 1, b: 2 }.transform_keys! { |k| k.to_s })
@@ -1388,7 +1388,7 @@ describe "Hash programs" do
   end
 
   it "values_at answers nil for a missing key where fetch_values raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#values_at / #fetch_values on typed hashes. Each key is looked up
       # and the values collected into an array; values_at yields nil for a
       # missing key, fetch_values raises KeyError. Results box into a
@@ -1426,7 +1426,7 @@ describe "Hash programs" do
   end
 
   it "compact, flatten, each_with_object and chunk through a method's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash methods flowing through user-method returns: compact, flatten,
       # each_with_index, each_with_object with an empty {} seed, Hash[pairs]
       # with a non-literal argument, and chunk grouping consecutive pairs.
@@ -1486,7 +1486,7 @@ describe "Hash programs" do
   end
 
   it "int hash missing nil check" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Consumption-site nil-awareness for int-valued hashes (#801): a missing
       # key is nil in Ruby. The read stays typed `int` (making it int? cascades
       # through the self-host compiler), but at direct nil-check sites the
@@ -1535,7 +1535,7 @@ describe "Hash programs" do
   end
 
   it "int int hash keys values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#keys / #values on an Integer=>Integer hash (the IntIntHash variant had no
       # keys/values runtime helper: keys link-failed and values was a codegen reject).
       def id(x) = x
@@ -1596,7 +1596,7 @@ describe "Hash programs" do
   end
 
   it "int int hash literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Int-keyed, int-valued hash literals build a native IntIntHash
       # (previously misrouted to StrIntHash, passing int keys as char* and
       # crashing). Reads, []= writes, and length all work.
@@ -1624,7 +1624,7 @@ describe "Hash programs" do
   end
 
   it "kernel hash frozen conformance" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # Hash#all?/any?/none?/one? with a CLASS pattern is a kind-of test over the
       # [key, value] pairs; comparing the pair to the class value by equality
@@ -1709,7 +1709,7 @@ describe "Hash programs" do
   end
 
   it "module ivar empty hash reset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module class method that resets a module-level hash ivar back to
       # `{}` used to emit the default `sp_StrIntHash_new()` regardless of
       # the slot's actual variant. When the slot was promoted to e.g.
@@ -1788,7 +1788,7 @@ describe "Hash programs" do
   end
 
   it "module ivar hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #303: a module ivar initialized to an empty hash literal
       # (`@slots = {}`) used to freeze its inferred type as `str_int_hash`
       # (the empty-hash default) even when the module's class methods
@@ -1864,7 +1864,7 @@ describe "Hash programs" do
   end
 
   it "respond to honours a singleton visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `respond_to?` and `defined?(obj.m)` answer true for a PRIVATE per-object
       # singleton method, where CRuby answers false and nil.
       #
@@ -1921,7 +1921,7 @@ describe "Hash programs" do
   end
 
   it "runtime empty double splat contributes no trailing hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `foo(1, **h)` with an empty `h` passes just `1` -- the trailing hash
       # is pushed only when non-empty. This is about a RUNTIME-empty hash, not
       # the literal `**{}`, so it can't be decided at lowering time. Pushing
@@ -1951,7 +1951,7 @@ describe "Hash programs" do
   end
 
   it "splat forward keeps hash positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def sink(a = 1, *rest, k: 2, **kw) = [a, rest, k, kw]
 
       def capture(*args) = args
@@ -1965,11 +1965,11 @@ describe "Hash programs" do
   end
 
   it "subclass sees only the calls ruby makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which of Hash's own methods its methods call on a subclass: every
       # method Hash defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       class Probe < Hash
@@ -2179,7 +2179,7 @@ describe "Hash programs" do
   end
 
   it "super missing hash slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Rec
         def as_json
           h = super
@@ -2199,7 +2199,7 @@ describe "Hash programs" do
   end
 
   it "thread value hash tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The tail expression of a Thread body is boxed into the thread's yielded_value
       # through an open/close pair that knew the scalars, the arrays and the objects
       # and NOT the hashes -- so a body whose value is a Hash#each emitted a bare
@@ -2246,7 +2246,7 @@ describe "Hash programs" do
   end
 
   it "trailing keywords become a positional hash when the callee has no keyword params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's keywords-to-positional-hash conversion, still true in 3+: with
       # no keyword params and no `**kwrest` declared, trailing keywords are
       # not keywords at all -- they are one positional Hash. This is what
@@ -2281,7 +2281,7 @@ describe "Hash programs" do
   end
 
   it "transform keys symproc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#transform_keys whose block changes the key to a Symbol must produce a
       # symbol-keyed hash, not keep the receiver's string-keyed variant.
       #
@@ -2323,7 +2323,7 @@ describe "Hash programs" do
   end
 
   it "uniq user eql hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#uniq dedups by the user-defined eql?/hash (like CRuby), not by identity;
       # a class without eql? still dedups by identity, and == is unaffected.
       class P
@@ -2355,7 +2355,7 @@ describe "Hash programs" do
   end
 
   it "value subclass of hash with super initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Hash` subclass with a `super` in `initialize` (D3): `super(0)` seeds the
       # default value on the payload, and inherited `[]`/`[]=`/`size` work.
 
@@ -2386,7 +2386,7 @@ describe "Hash programs" do
   end
 
   it "value type hash id" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = Complex(2, 3)
       p(a.hash == a.hash)
       p(a.hash == Complex(2, 3).hash)
@@ -2412,7 +2412,7 @@ describe "Hash programs" do
   end
 
   it "map and find hand a pair to a lambda of two parameters as two arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2 }
       p h.map(&lambda { |k, v| [v, k] })
       p h.find(&lambda { |k, v| v == 2 })

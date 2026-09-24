@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Shellwords programs" do
   it "the vendored gem compiles, and split, escape and join all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shellwords -- the pure-Ruby stdlib gem the lock resolves, compiled
       # from its real upstream source. Its module methods are defined with
       # `module_function`, then aliased to shorter names inside `class << self`
@@ -43,7 +43,7 @@ describe "Shellwords programs" do
   end
 
   it "an alias written inside class << self resolves against the singleton table" do
-    result = ze0(<<~'RUBY', files: {"shellwords.rb" => fixture("stdlib/shellwords/shellwords.rb")})
+    result = zr(<<~'RUBY', files: {"shellwords.rb" => fixture("stdlib/shellwords/shellwords.rb")})
       # shellwords defines its module methods (`module_function`) then aliases
       # them inside `class << self` (`alias split shellsplit`) -- a class-method
       # alias that resolves against the singleton table, not instance methods.

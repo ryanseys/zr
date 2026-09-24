@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/hir"
+require_relative "../../lib/zr/hir"
 
 # Whether a program needs `:line` events.
 #
@@ -25,7 +25,7 @@ class TraceNamesTest < Minitest::Test
     end
   end
 
-  # A name ze0 cannot read through still arms it: the cost of arming a
+  # A name zr cannot read through still arms it: the cost of arming a
   # program that does not trace is time, and the cost of missing one is
   # a wrong answer.
   def test_a_name_reached_through_a_string_still_arms_it
@@ -35,7 +35,7 @@ class TraceNamesTest < Minitest::Test
   private
 
   def traces?(source)
-    loader = Ze0::Hir::Build::Loader.new([])
+    loader = Zr::Hir::Build::Loader.new([])
     loader.unit("names.rb", source)
     loader.traces?
   end

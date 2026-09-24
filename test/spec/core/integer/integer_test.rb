@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Integer programs" do
   it "arithmetic and compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 1 + 2
       puts 7 - 10
       puts 6 * 7
@@ -50,7 +50,7 @@ describe "Integer programs" do
   end
 
   it "bignum math" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Arbitrary-precision integers: the bignum library is linked and the results
       # are exact.
       puts (2**200).to_s
@@ -68,7 +68,7 @@ describe "Integer programs" do
   end
 
   it "bit operators bignum bounds and float ids" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bit operator coerces as CRuby's bit_coerce does and names a Float
       # by inspect; upto and downto walk toward a Bignum bound; a Float's
       # object_id is an Integer whatever word it has.
@@ -104,19 +104,19 @@ describe "Integer programs" do
   end
 
   it "division by zero" do
-    result = ze0(<<~'RUBY', path: "ze0/division_by_zero.rb")
+    result = zr(<<~'RUBY', path: "zr/division_by_zero.rb")
       puts 6 / 3
       puts 6 / 0
     RUBY
 
     _(result).must_answer "2\n", stderr: <<~'ERR', status: 1
-      ze0/division_by_zero.rb:2:in 'Integer#/': divided by 0 (ZeroDivisionError)
-      	from ze0/division_by_zero.rb:2:in '<main>'
+      zr/division_by_zero.rb:2:in 'Integer#/': divided by 0 (ZeroDivisionError)
+      	from zr/division_by_zero.rb:2:in '<main>'
     ERR
   end
 
   it "overflow to bignum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 9223372036854775807
       puts x + 1
       puts x * 2
@@ -133,7 +133,7 @@ describe "Integer programs" do
   end
 
   it "shift by 64 or more moves every bit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A shift count past the word moves every bit out; the machine's own
       # shift would take the count mod 64.
       p 5 << -64, -5 << -64, 5 << -63, -5 << -63, 5 << -62, 8 << -2, 1 << -1

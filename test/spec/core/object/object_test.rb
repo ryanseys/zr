@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object programs" do
   it "binding copy keeps the scope and its own new locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Binding#dup and #clone name the same scope, but a local set on the copy
       # is its own, as binding_copy makes it. A Binding inspects as Kernel does.
 
@@ -41,7 +41,7 @@ describe "Object programs" do
   end
 
   it "bool is a true false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(true.is_a?(Object))
       p(true.is_a?(TrueClass))
       p(true.is_a?(FalseClass))
@@ -64,7 +64,7 @@ describe "Object programs" do
   end
 
   it "boolean and or return the operand not a bool" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's `&&`/`||` return the actual operand, not a coerced bool --
       # `false && x` is `false`, but `5 && x` is `x`, not `true`.
 
@@ -89,7 +89,7 @@ describe "Object programs" do
   end
 
   it "break from a block passed to a singleton method returns from it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `break` in the block yields the method's return value -- the method-body
       # lambda's terminal arm folds `Signal::Break` into an `Ok` return, exactly
       # as an ordinary method does.
@@ -108,7 +108,7 @@ describe "Object programs" do
   end
 
   it "can write an ivar on self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         def initialize
           eval("@x = 42")
@@ -124,7 +124,7 @@ describe "Object programs" do
   end
 
   it "class method prepend is invisible to singleton ancestors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `prepend M` inside `class << self` DISPATCHES correctly -- M's instance
       # methods shadow the class's own `def self.x`, and `super` reaches the
       # original. Only reflection disagrees: the module is absent from
@@ -164,7 +164,7 @@ describe "Object programs" do
   end
 
   it "class shift self at top level defines singleton methods on main" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class << self` at the top level reopens `main`'s singleton:
       # it desugars to `self.define_singleton_method(...)`, `self` being `main`,
       # so each inner `def` installs on `main` and is callable via implicit self.
@@ -181,7 +181,7 @@ describe "Object programs" do
   end
 
   it "collection display" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array and Hash rendering: `to_s`/`print`/interpolation all use the bracketed
       # inspect form; only `puts` flattens an array onto separate lines.
 
@@ -222,7 +222,7 @@ describe "Object programs" do
   end
 
   it "constant announces itself to const added" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby announces a constant the moment it becomes readable: after the
       # write, on the module it was set on, once per assignment -- and a class
       # or module declaration announces its own name the same way.
@@ -259,7 +259,7 @@ describe "Object programs" do
   end
 
   it "constant inside class of an object resolves in its singleton methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class << obj; MAX = ...; def m; MAX; end; end` -- a constant on an
       # object's singleton class (tmpdir's `class << RANDOM`). zeo hoists the
       # constant to the enclosing lexical scope, where the singleton method
@@ -279,7 +279,7 @@ describe "Object programs" do
   end
 
   it "define singleton method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `define_singleton_method` adds a method to a single class's own singleton --
       # in practice, a class method. It works from inside the class body and from
       # outside on a class constant, including a namespaced one.
@@ -312,7 +312,7 @@ describe "Object programs" do
   end
 
   it "define singleton method forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-body (bare and self), external constant receiver (with a param),
       # and a namespaced receiver all define a class method.
 
@@ -340,7 +340,7 @@ describe "Object programs" do
   end
 
   it "define singleton method literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         define_singleton_method(:hello) { "hi" }                 # no receiver: the enclosing class
         self.define_singleton_method(:hello_self) { "hi self" }  # self receiver
@@ -372,7 +372,7 @@ describe "Object programs" do
   end
 
   it "define singleton method on a class does not reach back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Later.define_singleton_method(:mode)` must replace the compiled
       # `def self.mode` only from the point it RUNS. zeo answers `:runtime` for the
       # call written before it, so the redefinition reaches backwards in time.
@@ -399,7 +399,7 @@ describe "Object programs" do
   end
 
   it "definition in expression position sends to self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def` / `define_method` / `define_singleton_method` written where a VALUE
       # is expected (inside a method body, a block, an argument list) compiles to a
       # runtime install. Codegen used to name the ENCLOSING CLASS as the target for
@@ -476,7 +476,7 @@ describe "Object programs" do
   end
 
   it "enum with object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator#with_object with no block -> an Enumerator (#2540)
       e = [1, 2, 3].each.with_object([])
       p(e.class)
@@ -493,7 +493,7 @@ describe "Object programs" do
   end
 
   it "exc is a constant path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module PG
         class Error < StandardError; end
         class UndefinedTable < Error; end
@@ -522,7 +522,7 @@ describe "Object programs" do
   end
 
   it "failed iteration propagates then restarts" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mid-iteration exception propagates out of `next`; the NEXT `next`
       # re-inits the dead fiber and RESTARTS the iteration (CRuby's
       # get_next_values rule, oracle-verified).
@@ -548,7 +548,7 @@ describe "Object programs" do
   end
 
   it "flat map identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `flat_map { |x| x }` over an array of arrays is a one-level flatten (it is
       # exactly `flatten(1)`): each sub-array is concatenated and scalars pass through.
       # Distinct per-type helpers keep each nested element type monomorphic; receivers
@@ -592,7 +592,7 @@ describe "Object programs" do
   end
 
   it "initialize dup and clone hooks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class WithHooks
         def initialize_copy(o) = (super; @copied = :copy)
         def initialize_dup(o) = (super; @dup = :dup)
@@ -609,7 +609,7 @@ describe "Object programs" do
   end
 
   it "is a builtin classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.now
       p t.is_a?(Time)
       p t.is_a?(Comparable)
@@ -642,7 +642,7 @@ describe "Object programs" do
   end
 
   it "is a for nil true and false against their own singleton classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts nil.is_a?(NilClass)
       puts true.is_a?(TrueClass)
       puts false.is_a?(FalseClass)
@@ -658,7 +658,7 @@ describe "Object programs" do
   end
 
   it "is a toplevel scoped const" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 5.is_a?(::Integer)
       p "x".is_a?(::String)
       p [1].is_a?(::Array)
@@ -681,7 +681,7 @@ describe "Object programs" do
   end
 
   it "an ivar string mutated in place is the same object every alias holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Shared-mutable strings, ivar slots (P4): an in-place-mutated ivar string
       # shares its handle with local aliases and containers; multiple instances
       # stay independent; external attr reads are safe copies.
@@ -750,7 +750,7 @@ describe "Object programs" do
   end
 
   it "ivar append accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Doc
         attr_reader :out
 
@@ -800,7 +800,7 @@ describe "Object programs" do
   end
 
   it "map to value type objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr.map { Obj.new }` where Obj is a value-type-candidate class (no
       # subclass, immutable scalar ivars) used to build-fail: detect_value_types
       # never saw the map result as a ptr_array store, so Obj stayed value-typed
@@ -841,7 +841,7 @@ describe "Object programs" do
   end
 
   it "module metaprogramming" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C001
         attr :x
         def initialize; @x = 5; end
@@ -881,7 +881,7 @@ describe "Object programs" do
   end
 
   it "next from a block passed to a singleton method is its yield value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       obj = Object.new
       def obj.run
         a = yield 1
@@ -895,7 +895,7 @@ describe "Object programs" do
   end
 
   it "nil predicate works universally" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `.nil?` on Poly, builtin, and Object receivers, with a user override
       # winning.
 
@@ -921,7 +921,7 @@ describe "Object programs" do
   end
 
   it "the default to_s and inspect name the class and dump the ivars, and raise refuses a non-exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Default Object#to_s / #inspect for user objects, and raising a
       # non-exception object. puts obj was an unsupported argument, obj.inspect
       # answered the "[]" last-resort, and `raise obj` smuggled the pointer into
@@ -985,7 +985,7 @@ describe "Object programs" do
   end
 
   it "object_id is stable for one object and differs between two" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#object_id — unique stable id per object value.
       # Int uses the MRI tagged formula (2*n+1), string uses the pointer
       # bit pattern, symbol uses its interned id scaled to avoid collision.
@@ -1020,7 +1020,7 @@ describe "Object programs" do
   end
 
   it "nil, false and true carry fixed, distinct object_ids" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The immediate values nil, false and true have fixed, distinct object_ids.
       p nil.object_id
       p false.object_id
@@ -1043,7 +1043,7 @@ describe "Object programs" do
   end
 
   it "__callee__ names the method, String#clone copies, and NilClass#itself answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Small built-in method gaps (#1222): __callee__ (resolves like
       # __method__ to the current method name), String#clone (like dup), and
       # NilClass#itself (returns nil).
@@ -1081,7 +1081,7 @@ describe "Object programs" do
   end
 
   it "objectspace each object is declined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ObjectSpace.each_object is DECLINED: zeo has no heap enumeration (objects
       # are native values with no global registry), and the row raises a
       # NotImplementedError saying so. The divergence is stepped around here -- the
@@ -1098,7 +1098,7 @@ describe "Object programs" do
   end
 
   it "p of immediates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p nil
       p true
       p false
@@ -1132,7 +1132,7 @@ describe "Object programs" do
   end
 
   it "qualified class paths work in patterns and is a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         class Item
           def initialize(n)
@@ -1166,7 +1166,7 @@ describe "Object programs" do
   end
 
   it "safe navigation on a non nil receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Only proves `&.` doesn't regress a normal, statically-typed dispatch --
       # a receiver that's *actually* nil at runtime needs a nilable/union type
       # the compiler's `TyKind` doesn't have yet (every `New` is unconditionally
@@ -1190,7 +1190,7 @@ describe "Object programs" do
   end
 
   it "a def on a constant receiver installs on that object alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton methods on a constant/local that statically holds one object:
       # synthesized as an anonymous subclass that masquerades as its parent.
       class Config
@@ -1232,7 +1232,7 @@ describe "Object programs" do
   end
 
   it "a singleton method overrides its class's and reaches it through super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton methods on a constant/local that statically holds one object:
       # synthesized as an anonymous subclass that masquerades as its parent.
       class Config
@@ -1285,7 +1285,7 @@ describe "Object programs" do
   end
 
   it "a def on a local receiver installs on that object alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton methods on a constant/local that statically holds one object:
       # synthesized as an anonymous subclass that masquerades as its parent.
       class Config
@@ -1327,7 +1327,7 @@ describe "Object programs" do
   end
 
   it "define_singleton_method installs the same way a def on the object does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton methods on a constant/local that statically holds one object:
       # synthesized as an anonymous subclass that masquerades as its parent.
       class Config
@@ -1365,7 +1365,7 @@ describe "Object programs" do
   end
 
   it "extend transplants a module's methods onto the object's singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton methods on a constant/local that statically holds one object:
       # synthesized as an anonymous subclass that masquerades as its parent.
       class Config
@@ -1425,7 +1425,7 @@ describe "Object programs" do
   end
 
   it "singleton methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Per-object singleton methods (#97): `def obj.foo`, `class << obj`,
       # `define_singleton_method`, and the immediate-receiver TypeError.
 
@@ -1471,7 +1471,7 @@ describe "Object programs" do
   end
 
   it "singleton methods on objects constants and modules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Singleton methods on an ordinary object. Three things that were broken
       # together: `super` inside a `class << obj` body (it panicked the compiler with
       # "`super` outside a method", since a per-object singleton has no compile-time
@@ -1520,7 +1520,7 @@ describe "Object programs" do
   end
 
   it "tap param unread slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = {1 => []}.each_with_index.map do |(k, v), _i|
         v.tap { |_| }
       end
@@ -1550,7 +1550,7 @@ describe "Object programs" do
   end
 
   it "tap then expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#tap and Object#then/#yield_self in expression position. tap runs the
       # block for a side effect and yields the (unchanged) receiver; then yields the
       # block's value. Both work across receiver types, not just a bare statement.
@@ -1587,7 +1587,7 @@ describe "Object programs" do
   end
 
   it "top level def is a private method of object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Callable by implicit self everywhere, invisible to `respond_to?`,
       # reachable via `send`, and a NoMethodError with an explicit receiver.
 
@@ -1626,7 +1626,7 @@ describe "Object programs" do
   end
 
   it "weakmap full api and identity keying" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = ObjectSpace::WeakMap.new
       p m.class
       k1 = "a"; k2 = "b"
@@ -1673,7 +1673,7 @@ describe "Object programs" do
   end
 
   it "weakmap iteration and inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = ObjectSpace::WeakMap.new
       a = Object.new; b = Object.new
       m[a] = 1

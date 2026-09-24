@@ -56,9 +56,9 @@ class RubyVM
 
       def compile(source, file = +"<compiled>", path = file, line = 1, options = nil)
         source = source.read if source.is_a?(IO)
-        return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Ze0::Eval)
+        return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Zr::Eval)
 
-        code = ::Ze0::Eval.current.compile(source, file, line, [])
+        code = ::Zr::Eval.current.compile(source, file, line, [])
         Primitive.zr_box_compiled(code[1])
         iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
         Primitive.zr_hidden_set(iseq, :__source__, source)
@@ -202,12 +202,12 @@ class RubyVM
     class Location; end
 
     # The translator a program that names this module carries
-    # (rt/ext/ze0/ast.rb), loaded ahead of the program's first line by
-    # rt/ext/ze0/syntax_tree.rb. It defines the two classes above, so a
+    # (rt/ext/zr/ast.rb), loaded ahead of the program's first line by
+    # rt/ext/zr/syntax_tree.rb. It defines the two classes above, so a
     # program that only names one of them finds it whole.
     def self.translator
       Primitive.attr! :hidden
-      ::Ze0::AST
+      ::Zr::AST
     end
     private_class_method :translator
 

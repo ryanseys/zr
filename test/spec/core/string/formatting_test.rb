@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: formatting and inspection" do
   it "byref string param instance method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def add(buf, i); buf << ...; end` is ordinary Ruby: the append lands in the
       # caller's string. Only free functions and class methods took the out-param
       # ABI, so an INSTANCE method appended to a copy and the caller's buffer stayed
@@ -51,7 +51,7 @@ describe "String: formatting and inspection" do
   end
 
   it "empty symbol literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The empty symbol literal `:""` is a real SymbolNode whose content is
       # "". collect_sym_names skipped "" (its shared helper guards param-name
       # callers against a blank), so the symbol got no table entry and
@@ -91,7 +91,7 @@ describe "String: formatting and inspection" do
   end
 
   it "env nil string to s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       v = ENV["SPINEL_NO_SUCH_1664"].to_s
       puts v == ""
       puts v.length
@@ -117,7 +117,7 @@ describe "String: formatting and inspection" do
   end
 
   it "kwrest non symbol keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `**kwrest` parameter captures keyword arguments with ANY key, not just
       # symbols -- the options-hash idiom `method CONST => :value` (Thor's
       # `map HELP_MAPPINGS => :help`) passes a non-symbol key, which real Ruby routes
@@ -154,7 +154,7 @@ describe "String: formatting and inspection" do
   end
 
   it "literal string markers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every string spinel hands back to Ruby carries a marker byte at [-1].
       # sp_gc_mark reads it to decide whether a rooted pointer is a literal to skip
       # or a heap object whose mark word it should write, so a runtime arm that
@@ -233,7 +233,7 @@ describe "String: formatting and inspection" do
   end
 
   it "method name symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method#name returns a Symbol (not a String), matching CRuby. The method
       # object is also routed through a param so the `.name` runs on a non-folded
       # TY_METHOD value.
@@ -282,7 +282,7 @@ describe "String: formatting and inspection" do
   end
 
   it "numeric string argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A numeric method with a String argument raises TypeError where ruby
       # raises ArgumentError.
@@ -357,7 +357,7 @@ describe "String: formatting and inspection" do
   end
 
   it "str array uniq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#uniq (non-bang) on a str_array — returns a fresh array with
       # duplicates removed, first occurrence kept, order preserved. The
       # receiver stays a str_array. Routed through an identity method to
@@ -389,7 +389,7 @@ describe "String: formatting and inspection" do
   end
 
   it "str int hash missing key nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {"a" => 1, "b" => 2}
       # Missing-key reads are value-level nil (#801).
       p h["miss"]
@@ -423,7 +423,7 @@ describe "String: formatting and inspection" do
   end
 
   it "a NUL is a byte of the string for length, bytes, == and a Hash key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "a\0b"
       puts s.length
       puts s.bytes.inspect
@@ -469,7 +469,7 @@ describe "String: formatting and inspection" do
   end
 
   it "repeat, +@, the justify family and the character walk all keep a NUL and what follows it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A NUL is an ordinary byte in a Ruby String, but repeat, unary plus, the
       # justify family and the character walk all sized themselves with strlen and
       # so dropped the NUL and everything after it. #3473.
@@ -517,7 +517,7 @@ describe "String: formatting and inspection" do
   end
 
   it "a blockless each_char or each_line answers an Enumerator stamped with the string and the method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless String#each_char / each_line / each_byte / each_codepoint
       # return Enumerators stamped with the ORIGINAL string receiver and creating
       # method, so #inspect shows #<Enumerator: "abc":each_char> -- not the
@@ -547,7 +547,7 @@ describe "String: formatting and inspection" do
   end
 
   it "inspect and dump escape an interpolation, a global, an ivar and a non-ASCII character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "a\#{x}".inspect
       p "a#b".dump
       p "é".dump
@@ -573,7 +573,7 @@ describe "String: formatting and inspection" do
   end
 
   it "undump is the inverse of dump, so the pair round-trips" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#undump is the inverse of String#dump. Round-tripping a string
       # through dump then undump returns the original (each engine round-trips
       # its own dump format, so the comparison is version-independent).
@@ -597,7 +597,7 @@ describe "String: formatting and inspection" do
   end
 
   it "struct inspect labels non identifier members as symbols" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct/Data member whose name isn't a plain identifier prints with a
       # leading colon in inspect (`:verbose?=`), while a plain one stays bare.
 
@@ -614,7 +614,7 @@ describe "String: formatting and inspection" do
   end
 
   it "symbol embedded nul" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A symbol's NAME may hold a NUL. Everything downstream of the parser lost it:
       # the compiler interned by strdup/strcmp, the emitted name table measured with
       # strlen, and the runtime intern compared with strcmp. The node table always
@@ -695,7 +695,7 @@ describe "String: formatting and inspection" do
   end
 
   it "symbol id2name ruby desc minmax" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #1249 Symbol#id2name: the symbol's name as a String (alias of to_s).
       p :hello.id2name
       p :foo_bar.id2name
@@ -723,7 +723,7 @@ describe "String: formatting and inspection" do
   end
 
   it "symbol inspect quoting" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A symbol prints unquoted when its name is a plain identifier (incl. a
       # constant), an @ivar/@@cvar/$gvar, a name ending in ? ! =, or a known operator
       # method name; otherwise it is quoted like a string. Hash symbol keys use the
@@ -848,7 +848,7 @@ describe "String: formatting and inspection" do
   end
 
   it "user to s and inspect drive puts interpolation and p" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Named
         def initialize(n)
           @n = n

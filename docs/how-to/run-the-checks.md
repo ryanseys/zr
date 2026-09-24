@@ -1,6 +1,6 @@
 # How to run the checks
 
-This guide shows you how to run ze0's own tests in a checkout: the
+This guide shows you how to run zr's own tests in a checkout: the
 units, the specs, the end-to-end programs and the bootstrap. Run the
 smallest set that covers your change, and the full set before you
 merge.
@@ -24,7 +24,7 @@ that build modules skip by name, and say so.
 The spec tier keeps what it builds. Each example's binary is kept
 under the cache, named by everything its bytes came from, and the next
 run of an example nothing has changed takes the binary and runs it: a
-directory of specs reruns in a third of the time. `ZE0_BINARIES=0`
+directory of specs reruns in a third of the time. `ZR_BINARIES=0`
 turns that off; `rake cache:size` says how much is kept.
 
 After an edit, `rake affected` runs the specs the edit can reach --
@@ -38,7 +38,7 @@ Three tiers, in the order you reach for them:
 
 | Tier | Holds | Costs |
 |---|---|---|
-| `rake test:unit` | ze0's own internals | minutes |
+| `rake test:unit` | zr's own internals | minutes |
 | `rake test:spec` | Ruby held to ruby, one compile an example | minutes |
 | `rake test:e2e` | whole programs through a real link | a minute |
 
@@ -66,10 +66,10 @@ the background can be looked in on.
 
 One process loads every file in the tier and then hands each example
 to a forked worker, several at a time. Forking is what makes this
-parallel at all -- a ze0 compile is the compiler's own Ruby, and the
+parallel at all -- a zr compile is the compiler's own Ruby, and the
 GVL lets one thread at a time hold it -- and it is also what bounds
 memory, because ruby never gives heap pages back. A worker that grows
-past `ZE0_RECYCLE_MB` is closed and another is forked in its place.
+past `ZR_RECYCLE_MB` is closed and another is forked in its place.
 
 `MT_CPU` says how many workers. The default is one per core, or one per
 2 GB of the machine's memory when that is fewer: a compile and the
@@ -122,10 +122,10 @@ or `rake build:wasm` has not run, and names which.
 Some checks compare against a file in the repository: the HIR dumps,
 the disassembly listing, the eval descriptions and the libSystem list.
 When your change is meant to change one of these, write it again with
-`ZE0_BLESS=1`, then read the diff:
+`ZR_BLESS=1`, then read the diff:
 
 ```console
-$ ZE0_BLESS=1 rake test:unit N=/Description/
+$ ZR_BLESS=1 rake test:unit N=/Description/
 $ git diff rt/ext/os/
 ```
 
@@ -185,7 +185,7 @@ $ rake oracle
 ## Rewrite a spec file safely
 
 Editing a spec by hand is easy to get subtly wrong, and a wrong edit looks
-like a passing run. `Ze0::Reader` reads a file without compiling or running
+like a passing run. `Zr::Reader` reads a file without compiling or running
 anything, so what each example *is* — its sentence, its program, its
 keywords, the answer it claims — can be compared before and after:
 
@@ -248,7 +248,7 @@ memory, so run it alone. To learn why these matter, read
 
 ```console
 $ bundle exec rake                       # every test
-$ bundle exec rake test:unit             # ze0's internals
+$ bundle exec rake test:unit             # zr's internals
 $ bundle exec rake test:spec             # Ruby held to ruby
 $ bundle exec rake test:spec N=/string/
 $ bundle exec rake test:spec GC=stress

@@ -6,7 +6,7 @@ describe "IO: formatting and inspection" do
   it "argf walk reads every named file" do
     files = beside("argf_walk/a.txt", "argf_walk/b.txt")
 
-    result = ze0(<<~'RUBY', argv: ["core/io/argf_walk/a.txt", "core/io/argf_walk/b.txt"], files: files)
+    result = zr(<<~'RUBY', argv: ["core/io/argf_walk/a.txt", "core/io/argf_walk/b.txt"], files: files)
 
       # ARGF is one stream over the files ARGV names: each opens as the walk
       # reaches it, the line numbers run on across the whole set, and ARGV
@@ -47,7 +47,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "call operand lifetime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every operand of a call stays alive until the call runs. An operand that is a
       # fresh allocation is reachable from nothing until the callee stores it, so a
       # sibling operand evaluated afterwards can collect it -- the argument-position
@@ -111,7 +111,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "case mapping options and unprintable inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's case-mapping OPTIONS -- `:ascii`, `:turkic`, `:lithuanian`, `:fold`
       # -- and the acceptance rules around them, which follow from nothing but
       # CRuby's `check_case_options`: `:turkic` and `:lithuanian` may be given
@@ -190,7 +190,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "created file takes its permissions less the umask" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File.open and IO.sysopen create a file with open(2): the permissions
       # given, less the umask, and O_EXCL for "x".
       require "tmpdir"
@@ -247,7 +247,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "dir entries children" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       root = "/tmp/spinel_dir_entries_t"
       Dir.mkdir(root) unless Dir.exist?(root)
       File.write("#{root}/b.txt", "x")
@@ -272,12 +272,12 @@ describe "IO: formatting and inspection" do
   end
 
   it "failed fcntl names the stream" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rb_sys_fail_path: a failing `IO#fcntl` names the call that set up its
       # argument and the stream it was made on -- "... @ finish_narg - /etc/hosts"
       # -- and a stream that carries no path, as a pipe end does, names neither.
       #
-      # ze0 wrote "@ io_fcntl" for every stream and never named one.
+      # zr wrote "@ io_fcntl" for every stream and never named one.
       require "fcntl"
 
       def refusal
@@ -319,7 +319,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "file io predicates and inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The real-uid stat predicates (`File.readable_real?` and its siblings) are
       # missing, so the program dies on line 10. ruby answers them from `stat(2)`
       # against the REAL uid/gid rather than the effective one.
@@ -382,7 +382,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "file read count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO#read(n) reads up to n bytes from the current position, advancing it,
       # and returns nil at EOF. The no-arg form reads the rest of the file.
       path = "file_read_count_tmp.dat"
@@ -414,7 +414,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "reopen makes a missing file, truncates where the mode says to, and dup2s one handle onto another" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       DIR = Dir.tmpdir
@@ -483,7 +483,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "kernel gets reads the files argv names" do
-    result = ze0(<<~'RUBY', argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
+    result = zr(<<~'RUBY', argv: ["core/io/argf_input.txt"], files: {"argf_input.txt" => "hello\nworld\nfin\n"})
 
       # A bare `gets` reads ARGF, not standard input: the files ARGV names,
       # one after another, with $. counting the lines across all of them.
@@ -514,7 +514,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "print puts expression and kinds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # print renders Array/Hash/objects via to_s (it compile-errored on an Array
       # and printed blank for objects); puts/print compose as expressions
       # returning nil, like p.
@@ -546,7 +546,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "puts nested inspect container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # puts flattens nested arrays recursively; a custom #inspect is honored for
       # elements inside containers (arrays, hashes), same as when inspected directly.
       puts [1, [2, [3]]]
@@ -582,7 +582,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "puts object nested new arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # puts/print of an object expression whose evaluation constructs nested
       # instances: the argument's hoisted declarations must land as complete
       # statements before the result temp's declaration.
@@ -610,7 +610,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "raw descriptor carries the mode it was opened with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `IO.sysopen(path, mode, perm)` opens and hands back the raw fd. zeo read the
       # path and dropped everything after it, so the descriptor always came back
       # read-only and `IO.new(fd, "w").write` raised EBADF on a file the program had
@@ -696,7 +696,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "splat print builtins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat into the print builtins and format expands the array elements.
       a = [1, 2, 3]
       puts(*a)
@@ -726,7 +726,7 @@ describe "IO: formatting and inspection" do
   end
 
   it "ungetc reaches every reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `#ungetc` pushed a byte onto a stack only `#getbyte` knew about, so
       # `f.ungetc("Z"); f.getc` answered the stream's next character and the pushed
       # byte was simply LOST -- the exact failure the comment on `peeked_read`

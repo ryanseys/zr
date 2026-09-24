@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: formatting and inspection" do
   it "basicobject blank slate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A BasicObject subclass is a blank slate (#2703): it answers only
       # BasicObject's own methods (==, equal?, instance_eval, ...) and what the user
       # defined; the Object/Kernel surface raises NoMethodError.
@@ -40,7 +40,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "begin else value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value of `begin ... rescue ... else ... end`: the else clause's on
       # success (including an empty else), the rescue arm's on an exception, in
       # expression and method-tail position and inside a block. CRuby generated
@@ -101,7 +101,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "call arg valueless" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An argument with no value -- an unresolved call, which lowers to a raise --
       # sitting in a non-final position beside another side-effecting argument. The
       # argument-sequencing pass has nothing to sequence it into: a valueless
@@ -124,7 +124,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "case when qualified exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception carries its fully qualified Ruby name at run time, but a
       # `when Mod::Klass` pattern node holds only the last segment. Comparing that
       # directly never matched, so the branch was silently skipped -- the case fell
@@ -181,7 +181,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "current exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$!` is the exception currently being handled -- inside any rescue,
       # including the one-line modifier form, it refers to the caught exception,
       # and is nil outside a rescue.
@@ -217,7 +217,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "definition hook defaults" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby tells a class what was just defined in it, through eight private hooks.
       # This file covers only their DEFAULTS -- that they exist, that they are
       # private, that `super` reaches them, and that the three mix-in primitives
@@ -294,7 +294,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "diverging receiver still compiles" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A receiver can DIVERGE -- `raise("x").foo`, or a `const_get` whose literal
       # name folds at compile time to a NameError. Such an expression has no value
       # type at all, and a dynamic send wants a receiver to borrow. So the whole
@@ -362,7 +362,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "env dup clone freeze raise type error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV overrides Kernel#dup/#clone/#freeze to raise (copy it via ENV.to_h).
       # These must route through dispatch, not the universal value fast paths,
       # which would silently shallow-copy/freeze the singleton instead.
@@ -389,7 +389,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "error protocol edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby error-protocol edges:
       # - float modulo by zero raises ZeroDivisionError (int or float divisor);
       #   the divisor-sign result rule is preserved for nonzero divisors
@@ -426,7 +426,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception cause ensure reraise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (begin
         begin
           raise ArgumentError, "orig"
@@ -459,7 +459,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception empty message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (begin; raise; rescue RuntimeError => e001; [e001.class.to_s, e001.message]; end); p r001
       p RuntimeError.new.message
       r2 = (begin; raise "x"; rescue => e; e.message; end); p r2
@@ -477,7 +477,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception full message without backtrace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `full_message` renders through CRuby's `rb_error_write0`: the head line, the
       # `from` trail, then the cause chain. An exception carrying NO backtrace hangs
       # the head off the CALLER's own position under the reporting method's name,
@@ -576,7 +576,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class SubIns < StandardError; end
       p(SubIns.new("m").inspect)
       i = SubIns.new("m").inspect
@@ -604,7 +604,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception inspect empty message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class SubIns < StandardError; end
       p(SubIns.new("m").inspect)
       i001 = SubIns.new("m").inspect; p i001
@@ -629,7 +629,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception message override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user exception's #message / #to_s override must drive the reported message.
       # Ruby's Exception#message calls #to_s, so overriding either changes #message,
       # while overriding only #message leaves #to_s at the default (the class name).
@@ -687,7 +687,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception new nil message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Exception.new(nil)`: nil is not a message, so the class name answers, the
       # way the no-argument form does; an empty String is a message (#3812).
       p RuntimeError.new(nil).message
@@ -720,7 +720,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception nonstring message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class TS < StandardError
         def to_s; :sym; end
       end
@@ -754,7 +754,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception nonstring to s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class TS < StandardError
         def to_s; :sym; end
       end
@@ -774,7 +774,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception object methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception variable methods bound by `rescue => e`:
       # .message returns the message string
       # .class returns the class name string
@@ -897,7 +897,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception own to s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception subclass that defines its own to_s answers whatever that method
       # answers -- a Symbol, say. The call went through the message helper instead,
       # whose result is a string, and the Symbol came back empty.
@@ -933,7 +933,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "exception real objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception is a real object: $! and `rescue => e` bind the same object, its
       # #class is a real Class (usable in ==, case, printing), and `p` inspects it.
 
@@ -1026,7 +1026,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "isa namespaced exception collision" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `is_a?` against a namespaced exception class answered false when another
       # module held a class of the same leaf name. Two things had to line up:
       #
@@ -1100,7 +1100,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "modifier rescue standard error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A modifier rescue catches StandardError and its descendants only, the way the
       # full begin/rescue form does. This arm caught everything, so a subclass of
       # Exception was swallowed.
@@ -1138,7 +1138,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "native exception reopen adds and overrides" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reopening a NATIVE exception class (D3): a reopen `def` ADDS a method that
       # reaches every subclass, and OVERRIDES an existing native method everywhere.
       # The native message lives in a hidden slot, so a reopened `message` reading
@@ -1177,7 +1177,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "nomethod scalar slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unresolved method on a poly receiver whose call type is a concrete scalar
       # must yield that scalar (a raising comma-expr), not the sp_RbVal raise token,
       # so it fits a typed slot rather than failing the C compile (#2451). The
@@ -1206,7 +1206,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "raise with a bare class runs the classs own initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise E` must CONSTRUCT via `E.new` -- running defaults and `super`
       # -- rather than short-cutting the message to the class name. The
       # class-name default lives in the prelude's `Exception#to_s`.
@@ -1242,7 +1242,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "rescue operand validation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (begin; begin; raise "x"; rescue 5; :matched; end; rescue TypeError => e001; e001.class.to_s; end); p r001
       empty002 = []
       r002 = (begin; begin; raise ArgumentError, "a"; rescue *empty002; :matched; end; rescue ArgumentError => e002; e002.message; end); p r002
@@ -1262,7 +1262,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "rescue widens nil local to exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def f
         raised = nil
         begin
@@ -1280,7 +1280,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "uncaught exception message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An uncaught exception's tail format. In a --debug build the raising frame and
       # its callers are printed in front of it (#3974); an ordinary build has no frame
       # symbols, so the message alone is what it says.
@@ -1311,7 +1311,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "unresolved call raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def id(x); x; end
       begin
         id({}).no_such_method_xyz
@@ -1336,7 +1336,7 @@ describe "Exceptions: formatting and inspection" do
   end
 
   it "void value in value position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that unconditionally raises has a C `void` return type. Using its
       # (never-produced) result in value position -- assigned to a local or passed
       # as an argument -- must still compile: the use is unreachable because the

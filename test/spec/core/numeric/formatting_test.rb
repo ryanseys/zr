@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: formatting and inspection" do
   it "bignum rational basic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_r / rationalize / quo on a Bignum build a boxed big Rational (numerator
       # exceeds mrb_int); construction, inspect/to_s/puts, to_f, class, and == are
       # wired. Arithmetic and <=> on a big Rational are follow-up work. The by-value
@@ -50,7 +50,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "bignum recv int ord float toi" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bignum-receiver conveniences (digits/to_s(base)/even?/odd?/abs),
       # Integer#ord/#integer?, and Float#to_i beyond int64 raising loudly
       # (Bignum promotion for statically-int results is tracked on #2024).
@@ -95,7 +95,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "complex component class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Complex components carry their CRuby class (Integer vs Float): rendering,
       # real/imaginary, abs/abs2, and arithmetic propagation.
       def ts(c) = c.to_s
@@ -181,7 +181,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "complex component class abs and division" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Complex#abs keeps the Integer class when a component is zero and both are
       # integers (Complex(0,2).abs == 2), else Float. Dividing by a real scalar
       # is componentwise: a Float 0.0 divisor yields Infinity, an Integer 0
@@ -214,7 +214,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "complex division" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Complex#/ by a real scalar divides each component. Boxing the real into c+0i
       # and running the conjugate formula produced NaN at a zero divisor; MRI divides
       # componentwise, so a Float zero yields Infinity and an Integer zero raises
@@ -260,7 +260,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "complexes keep component classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Complex: imaginary literals, component-class preservation (exact
       # Integer/Rational components incl. the den==1 demotion inside complex
       # division), formatting (`(2/25)*i`), polar surface, and coercion errors.
@@ -313,7 +313,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "conv float truncation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Floats truncate at NUM2LONG index sites (CRuby's rule).
       p "ab" * 2.9
       p [1, 2] * 2.9
@@ -354,7 +354,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "float scientific notation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#to_s switches to scientific notation when the shortest-decimal point
       # position leaves -3..15 -- i.e. |x| >= 1e15 or |x| < 1e-4 -- matching CRuby.
       puts 999999999999999.0       # 999999999999999.0  (decpt 15, fixed)
@@ -380,7 +380,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "float to s fixed 1e15" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#to_s uses plain decimal (not scientific) for a fractional value whose
       # integer part is 16 digits (1e15..1e16), matching CRuby (#2593).
       puts 4503599627370495.5
@@ -405,7 +405,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "float to s scientific notation threshold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fixed for decpt in -3..=15, else scientific -- matches CRuby's Float#to_s.
 
       puts 999999999999999.0
@@ -425,7 +425,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "int opt p inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `p` and inspect on a nullable int (int?) print "nil" for the
       # missing/zero-sentinel case, not blank or the raw sentinel.
       p 0.nonzero?
@@ -446,7 +446,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "integer extra methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issues #875 #876 #873 #860 #894:
       # Integer methods that were not dispatched - magnitude (alias for abs),
       # modulo (alias for %), remainder (truncated division remainder, differs
@@ -474,7 +474,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "kernel float integer strict" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Float / #Integer strictness, CRuby-parity edges:
       # - digit-separating underscores parse ("1_000.5"); misplaced ones raise
       # - an embedded NUL is invalid (a C-string scan would parse the prefix)
@@ -533,7 +533,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "the divmod, rounding, gcd, predicate and iteration families all match the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Numeric/Integer/Float Tier A breadth: divmod matrices, the rounding
       # families, gcd/lcm/digits/chr/ord, predicates, step/times/upto/downto,
       # exact Float#to_r, and bignum-capable Float#to_i.
@@ -647,7 +647,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "an Integer operation given nil raises TypeError rather than ending the process" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # An Integer operation with a nil argument PANICS the runtime
       # (crates/zeo-rt/src/builtins/integer.rs) instead of raising TypeError.
@@ -713,7 +713,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "rect, polar, rationalize and the collection leaf rows each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 5.rect
       p 5.polar
       p((-5).polar)
@@ -751,7 +751,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "the bignum Integer, Rational, Complex, coercion, Math and conversion rows all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 17.1 -- the numeric tower: full-bignum Integer, Rational, Complex,
       # the CRuby-exact coercion matrix, Math, and Kernel conversions.
 
@@ -846,7 +846,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "p bignum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `p` of a bignum-producing expression must print the integer, just as
       # `puts`/`print` already do (Integer#inspect == #to_s). Previously the
       # `p` argument emitter had no TY_BIGINT case and rejected these.
@@ -867,7 +867,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "rational complex literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issues #840 #841 #872: Imaginary, Rational literals + Integer#quo.
       # Both surface as value-type structs (sp_Complex, sp_Rational).
       # Integer#quo returns a Rational. v1 scope: literal forms +
@@ -914,7 +914,7 @@ describe "Numeric: formatting and inspection" do
   end
 
   it "truncate module method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #314: a user-defined module method named `truncate` was
       # matched by `infer_method_name_type`'s Float#truncate(n) → Float
       # arm purely on the method name, ignoring the receiver. Result: a

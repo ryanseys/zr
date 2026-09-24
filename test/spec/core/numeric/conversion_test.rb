@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: conversion" do
   it "bignum downto upto to a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bignum#downto / #upto materialized with .to_a (KieranP #2305)
       big = 2 ** 100
       p big.downto(big - 3).to_a
@@ -24,7 +24,7 @@ describe "Numeric: conversion" do
   end
 
   it "bignum query to i" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       big = 2 ** 100
       p big.zero?
       p big.positive?
@@ -58,7 +58,7 @@ describe "Numeric: conversion" do
   end
 
   it "bignum to f" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#to_f on a value beyond 63 bits. The conversion narrowed the bignum to
       # a low 64-bit limb before the Float cast, so anything past int64 read as 0.0 or
       # garbage. It now folds every limb into the double directly.
@@ -90,7 +90,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce error value spelling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby names the offending value in a coercion TypeError by its CLASS, except
       # nil / true / false, which it spells as themselves. spinel used the class name
       # for all of them, so `[[]].sum {}` reported "NilClass can't be coerced into
@@ -168,7 +168,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce factory and explicit call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The coerce route emits two calls that have no node of their own: the
       # operator, and #coerce itself. Nothing bound coerce's parameter, so it stayed
       # unknown until a late backstop -- too late to widen the factory it feeds, and
@@ -245,7 +245,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce factory param types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class whose #coerce is never reached through a numeric operator in this
       # program still has to type the chain the parameter feeds. `other` holds
       # whatever the numeric protocol hands it, so binding it only where a `3 * obj`
@@ -292,7 +292,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce non numeric argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Integer#coerce` / `Float#coerce` raise `Float()`'s own errors.
       #
       # Ruby's `num_coerce` is literally `[Float(y), Float(x)]`, so a failure
@@ -372,7 +372,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce operator param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `3 + q` reaches the user operator through #coerce: Ruby asks q.coerce(3),
       # which answers [Q(3), q], and calls `+` on the first with the SECOND as its
       # argument -- the user object itself. Only the direct call site has a call
@@ -438,7 +438,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce poly operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `5 + obj` runs the numeric coerce protocol from the argument side. The static
       # path takes it when the object's class is known at the call site; an operand
       # that only reads poly (here from a factory whose ternary widens) reached the
@@ -491,7 +491,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce result reader local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading an ivar off a coerce-only operator result and assigning it to a local
       # aborted the C build: the reader was typed from the ivar slot as the analysis
       # had it partway through, while the slot itself finished poly, so the emitted
@@ -598,7 +598,7 @@ describe "Numeric: conversion" do
   end
 
   it "data with poly member coerce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly (sp_RbVal) value assigned to a CONCRETE record member via Data#with was
       # passed straight into the generated constructor's typed slot (const char* /
       # mrb_int / mrb_float / ...) with no coercion -- a C type error at compile time --
@@ -631,7 +631,7 @@ describe "Numeric: conversion" do
   end
 
   it "float clamp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def norm(a) = a.to_f.clamp(0.0, 1.0)
 
       # receiver routed through a method param to exercise the runtime path, not a fold
@@ -660,7 +660,7 @@ describe "Numeric: conversion" do
   end
 
   it "float coerce typeerror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float arithmetic coerces its operand, and a value with no coercion is a
       # TypeError -- the rule Integer already enforced. The Float side had no guard
       # at all: `1.5 + nil` evaluated to nil and `1.5 + "s"` emitted double + char *.
@@ -693,7 +693,7 @@ describe "Numeric: conversion" do
   end
 
   it "float step to a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#step without a block materialises into an array.
       # Previously SEGV'd because the call fell through to the
       # unresolved-call int path (emitting 0), then `.to_a` was
@@ -731,7 +731,7 @@ describe "Numeric: conversion" do
   end
 
   it "float to r" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Float#to_r (exact) and Float#rationalize(eps) / rationalize.
       # Route the receiver through a param to exercise the runtime path, not a fold.
       def id(x) = x
@@ -792,7 +792,7 @@ describe "Numeric: conversion" do
   end
 
   it "int to enum times" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#to_enum(:times) / #enum_for(:times) (and String#to_enum(:each_byte))
       # retarget to the blockless builtin form, so .to_a / .map materialize.
       p 3.to_enum(:times).to_a
@@ -810,7 +810,7 @@ describe "Numeric: conversion" do
   end
 
   it "integer 0d prefix" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Integer() rejects the 0d decimal prefix.
       #
@@ -844,7 +844,7 @@ describe "Numeric: conversion" do
   end
 
   it "integer conversion ducks through to i" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Integer(Time.at(5))
       p format("%011o", Time.at(0))
       p format("%d", Time.at(42))
@@ -891,7 +891,7 @@ describe "Numeric: conversion" do
   end
 
   it "integer shift float and coerce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#<< / #>> accept a Float count (truncated via to_int); the bitwise
       # &/|/^ and the arithmetic ops with a non-coercible argument raise TypeError.
       p(5 << 2.0)
@@ -923,7 +923,7 @@ describe "Numeric: conversion" do
   end
 
   it "kernel integer float strict nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Integer / Kernel#Float are STRICT: nil or a non-numeric object raises
       # TypeError, an unparseable String raises ArgumentError. They must not coerce
       # nil to 0 the way the lenient nil.to_i / nil.to_f do.
@@ -973,7 +973,7 @@ describe "Numeric: conversion" do
   end
 
   it "math fn nil typeerror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math.<fn> accepts only a real Numeric: nil, a String, a Symbol, or any other
       # non-numeric argument raises TypeError (Math does not parse strings). Spinel
       # previously coerced nil to 0.0 and a String cast was a C compile error.
@@ -1009,7 +1009,7 @@ describe "Numeric: conversion" do
   end
 
   it "a built-in number asks a user object to coerce when the object is the right operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The coerce protocol lets a user numeric type take part in arithmetic even
       # when it is the RIGHT operand of a built-in number. When `5 + obj` finds that
       # `obj` isn't a built-in number, it asks `obj.coerce(5)` for a `[a, b]` pair in
@@ -1075,7 +1075,7 @@ describe "Numeric: conversion" do
   end
 
   it "coerce, ceildiv, i, finite? and div each answer on Integer and on Float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p 7.coerce(2)
       p 7.coerce(2.0)
       p 7.ceildiv(2)
@@ -1105,7 +1105,7 @@ describe "Numeric: conversion" do
   end
 
   it "a class that writes coerce and + takes part in 5 + obj" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Money
         attr_reader :cents
         def initialize(c); @cents = c; end
@@ -1129,7 +1129,7 @@ describe "Numeric: conversion" do
   end
 
   it "the Rational and Complex leaf rows and the rect and polar family all answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational and Complex leaf methods, plus the Numeric rect/polar family.
 
       # Rational predicates, coercion, floored division, imaginary lift.
@@ -1206,7 +1206,7 @@ describe "Numeric: conversion" do
   end
 
   it "a class that writes abs takes over that name's poly dispatch, and an Integer still finds its arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class defining `abs` (or `round`, `succ`) takes over that name's poly
       # dispatch. An Integer arriving there had no arm, so a boxed ivar holding one
       # raised "undefined method 'abs' for an instance of Integer" -- and where the
@@ -1254,7 +1254,7 @@ describe "Numeric: conversion" do
   end
 
   it "step with a zero stride raises, and every non-zero stride walks to its limit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (1.step(10, 0) { |i001| break } rescue $!.class); p r001
       r002 = (1.0.step(2.0, 0.0) { |i002| break } rescue $!.class); p r002
       v003 = 1; w003 = 0; r003 = (v003.step(10, w003) { |i003| break } rescue $!.class); p r003
@@ -1284,7 +1284,7 @@ describe "Numeric: conversion" do
   end
 
   it "promote xorshift mask" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The masked-xorshift idiom under --int-overflow=promote: a value past 2^63
       # stays a positive bignum, so `.to_f / 2**64` lands in [0,1) and `>>` shifts a
       # non-negative value -- the stream matches CRuby draw for draw. (#3371)
@@ -1332,7 +1332,7 @@ describe "Numeric: conversion" do
   end
 
   it "rational coerce user object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Rational(3, 2) * money`, where money defines #coerce, refused to compile at
       # all -- an "unsupported arithmetic" abort that took the whole program down
       # even when the expression sat behind a rescue. The coerce protocol was wired
@@ -1386,7 +1386,7 @@ describe "Numeric: conversion" do
   end
 
   it "rational complex numeric leaf methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = Rational(3, 2)
       p r.finite?
       p r.infinite?
@@ -1438,7 +1438,7 @@ describe "Numeric: conversion" do
   end
 
   it "rational from sum rounding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Rational that arrives boxed -- the result of Array#sum or reduce(:+) over
       # Rational elements -- answers the rounding surface and converts back through
       # Kernel#Rational like a statically typed one.
@@ -1499,7 +1499,7 @@ describe "Numeric: conversion" do
   end
 
   it "rational to i from sum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_i on a Rational that arrives boxed (from sum / inject) truncates toward
       # zero like the statically typed one.
       r = [Rational(7, 2)].sum
@@ -1530,7 +1530,7 @@ describe "Numeric: conversion" do
   end
 
   it "rationals are exact and oracle faithful" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Rational: literals, reduction, exact arithmetic across the Int lane,
       # `2 ** -2`, `quo`, Float promotion, rounding family, and the
       # ZeroDivisionError channel.
@@ -1591,7 +1591,7 @@ describe "Numeric: conversion" do
   end
 
   it "splat coerces via to a" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A call-site/yield splat coerces its operand the way ruby does -- `to_a`
       # when it responds (rspec splats its own Set into `register_listener`),
       # wrap otherwise, nil to nothing -- never a bare Array unwrap.
@@ -1620,7 +1620,7 @@ describe "Numeric: conversion" do
   end
 
   it "user coerce op ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Vec
         attr_reader :x
         def initialize(x); @x = x; end

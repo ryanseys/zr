@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: substitution" do
   it "dir glob base keyword" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |dir|
@@ -25,7 +25,7 @@ describe "IO: substitution" do
   end
 
   it "dir glob recursive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir.glob with a recursive `**` component walks the subtree; the text before
       # `**` is preserved in each result and a cwd-anchored pattern yields bare
       # relative paths, sorted (Ruby 3.0+). Uses a cwd-relative tree so it works
@@ -62,7 +62,7 @@ describe "IO: substitution" do
   end
 
   it "dir handle objects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir.new/Dir.open handles: #read/#each/#each_child/#children/#entries/
       # #path/#rewind/#close, the block form, and Errno::ENOENT on a missing path.
       dir = "/tmp/sp_dirh"
@@ -108,7 +108,7 @@ describe "IO: substitution" do
   end
 
   it "dir methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Dir singleton methods: mkdir / rmdir / exist? round-trip, glob (sorted
       # in Ruby 3.0+), and home. Uses a cwd-relative directory (not /tmp) so it
       # works on the Windows MinGW build too; the test runs in a fresh temp cwd
@@ -135,7 +135,7 @@ describe "IO: substitution" do
   end
 
   it "file dir extended" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       base = "/tmp/zeo_w1i_example"
 
       # Start clean without external requires: remove any leftover entries.
@@ -184,7 +184,7 @@ describe "IO: substitution" do
   end
 
   it "file mtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       filename = "test_mtime_temp.txt"
       File.write(filename, "mtime test")
       begin
@@ -201,7 +201,7 @@ describe "IO: substitution" do
   end
 
   it "file path predicates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p File.join("a/", "b")
       p File.join("a", "", "b")
       p File.join("a", "/b")
@@ -267,7 +267,7 @@ describe "IO: substitution" do
   end
 
   it "file seek tell rewind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "spinel_file_seek_test_#{Process.pid}.txt"
       File.open(path, "w") do |f|
         f.write("HELLOWORLDABCDEF")
@@ -311,7 +311,7 @@ describe "IO: substitution" do
   end
 
   it "file stat io pipe and io read family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File::Stat (class + readers), File.stat/File#stat, IO.pipe
       # (a plain-IO reader/writer pair), the IO instance read family
       # (gets separator/limit/chomp, getc/getbyte, lineno), IO class methods
@@ -362,7 +362,7 @@ describe "IO: substitution" do
   end
 
   it "file stat io read family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File::Stat, IO.pipe, the IO instance read family, IO class methods, and
       # FileTest -- the file/IO surface. Output is path-independent so the golden is
       # stable.
@@ -424,7 +424,7 @@ describe "IO: substitution" do
   end
 
   it "file whole file io" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Whole-file read/write/readlines, including `chomp: true`.
 
       dir = File.join(ENV.fetch("TMPDIR", "/tmp"), "zeo_e2e_rw_#{Process.pid}")
@@ -454,7 +454,7 @@ describe "IO: substitution" do
   end
 
   it "file write at tail position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Followup to #549. File.write recognized at expression level
       # (alongside binwrite). Statement-context calls to File.write
       # were already routed through compile_control_call_stmt and
@@ -477,10 +477,10 @@ describe "IO: substitution" do
   end
 
   it "gets limit keeps a whole character" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gets limit that falls inside a character reads on to that
       # character's end, so a line never ends in half a character.
-      path = "/tmp/ze0_a_gets_limit_keeps_a_whole_character.txt"
+      path = "/tmp/zr_a_gets_limit_keeps_a_whole_character.txt"
       File.write(path, "alpha\nbéta\n日本語\n")
       File.open(path) { |f| p f.gets(nil, 8), f.gets(3), f.gets(1), f.gets(4), f.gets }
       File.open(path) { |f| p f.gets("\n", 7), f.gets(2), f.gets(5) }
@@ -500,7 +500,7 @@ describe "IO: substitution" do
   end
 
   it "glob directory trailing slash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |d|
@@ -513,7 +513,7 @@ describe "IO: substitution" do
   end
 
   it "a file written, closed and read back answers its lines, then nil at the end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "i1006_tmp.txt"
       File.delete(path) if File.exist?(path)
 
@@ -549,7 +549,7 @@ describe "IO: substitution" do
   end
 
   it "select, the wait family, IO.for_fd and Dir.for_fd all answer or raise as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # IO readiness and Dir-from-descriptor coverage, all implemented: IO.select
       # over pipes with a zero timeout, IO#wait_readable/_writable/_priority/#wait,
       # IO.for_fd, Dir.for_fd/fchdir errors, and a Dir singleton NoMethodError.
@@ -615,7 +615,7 @@ describe "IO: substitution" do
   end
 
   it "IO.new(fd).stat reads the descriptor through fstat, and the accessors survive a local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby has no File.fstat / IO.fstat; the way to a File::Stat from a descriptor
       # is IO.new(fd).stat, which needed three things. IO.new(fd) is the descriptor
       # form of IO.for_fd. A handle opened that way has no path, so its stat has to
@@ -670,7 +670,7 @@ describe "IO: substitution" do
   end
 
   it "wave followups 2833" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Wave follow-ups: File.foreach return values (#2833), Dir.open block
       # children (#2834), boolean operator Method objects (#2835), deferred
       # handler captures (#2836), NoMethodError#args (#2837), find_index

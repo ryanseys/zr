@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "IO: regressions" do
   it "file binread directory error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         File.binread(".")
         puts "binread string succeeded"
@@ -31,7 +31,7 @@ describe "IO: regressions" do
   end
 
   it "file class methods int recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File.readable?` and `File.binwrite` — class-method stubs in
       # the `rcname == "File"` dispatch block, plus `IntArray#pack("C*")`
       # which is the symmetric inverse of `String#bytes`.
@@ -66,7 +66,7 @@ describe "IO: regressions" do
   end
 
   it "file directory predicates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "spinel_file_predicate_test.txt"
       File.write(path, "x")
 
@@ -93,7 +93,7 @@ describe "IO: regressions" do
   end
 
   it "file read directory error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         File.read(".")
         puts "read succeeded"
@@ -107,7 +107,7 @@ describe "IO: regressions" do
   end
 
   it "file write binary string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "spinel_file_write_binary_string.bin"
 
       payload = "A" + 0.chr + "B"
@@ -136,7 +136,7 @@ describe "IO: regressions" do
   end
 
   it "file write directory error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         File.write(".", "hello")
         puts "write succeeded"
@@ -150,7 +150,7 @@ describe "IO: regressions" do
   end
 
   it "file binread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `File.binread(path).bytes` — sp_str_bytes uses null-termination
       # and stops at the first 0x00 byte, so for binary data (e.g. .nes
       # ROM files where 0x00 appears mid-file) we need a dedicated
@@ -205,7 +205,7 @@ describe "IO: regressions" do
   end
 
   it "fileio" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test basic File I/O.
       # Uses cwd-relative paths so the harness (which runs each test from
       # the project root) and the CRuby reference both write to the same
@@ -241,7 +241,7 @@ describe "IO: regressions" do
   end
 
   it "fileopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test File.open with block.
       # Uses a cwd-relative path for the same reason as test/fileio.rb.
 
@@ -276,7 +276,7 @@ describe "IO: regressions" do
   end
 
   it "fileops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts File.join("home", "user")      # home/user
       puts File.basename("/path/to/file") # file
       puts "".empty?                      # true
@@ -304,7 +304,7 @@ describe "IO: regressions" do
   end
 
   it "system" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test system features needed for ccm
 
       # system()
@@ -342,7 +342,7 @@ describe "IO: regressions" do
   end
 
   it "system expr" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ok = system("echo hello_from_expr")
       puts ok
       puts($? == 0)
@@ -361,7 +361,7 @@ describe "IO: regressions" do
   end
 
   it "process clock gettime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process.clock_gettime(Process::CLOCK_MONOTONIC) returns a Float.
       # We can't assert an exact value, but we can verify the call lowers
       # correctly (returns a float, monotonic non-decreasing across two
@@ -381,7 +381,7 @@ describe "IO: regressions" do
   end
 
   it "time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.now
       puts t.to_f - t.to_i > 0.0
       puts t.to_i > 1_000_000_000
@@ -447,7 +447,7 @@ describe "IO: regressions" do
   end
 
   it "Dir#seek answers the Dir, and #fileno an Integer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       d = "/tmp/sp_dir_2967_#{Process.pid}"
       Dir.mkdir(d) unless Dir.exist?(d)
       dd = Dir.new(d)
@@ -461,7 +461,7 @@ describe "IO: regressions" do
   end
 
   it "Dir#pos= answers the position it was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       d = "/tmp/sp_dir_2968_#{Process.pid}"
       Dir.mkdir(d) unless Dir.exist?(d)
       dd = Dir.new(d)
@@ -474,7 +474,7 @@ describe "IO: regressions" do
   end
 
   it "File.birthtime answers a Time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "/tmp/spinel_issue_2985.txt"
       File.write(path, "hello")
       t = File.birthtime(path)
@@ -487,7 +487,7 @@ describe "IO: regressions" do
   end
 
   it "lstat reports the link itself where stat follows it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p001 = "sp_issue_2986.tmp"
       File.write(p001, "xyz")
       s001 = File.lstat(p001)
@@ -514,7 +514,7 @@ describe "IO: regressions" do
   end
 
   it "File.absolute_path? is true only for a path that starts at the root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p File.absolute_path?("/a/b")
       p File.absolute_path?("a/b")
       p File.absolute_path?("./x")
@@ -528,7 +528,7 @@ describe "IO: regressions" do
   end
 
   it "the FileTest predicates answer for a file just written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = "/tmp/sp_ft_2997_#{Process.pid}"
       File.write(f, "hi")
       p FileTest.owned?(f)
@@ -553,7 +553,7 @@ describe "IO: regressions" do
   end
 
   it "the File predicates, symlink, link, utime and umask over one file" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       dir = "/tmp/sp_issue_3005_#{Process.pid}"
       Dir.mkdir(dir) unless File.directory?(dir)
       f = File.join(dir, "f")
@@ -618,7 +618,7 @@ describe "IO: regressions" do
   end
 
   it "the IO tail: readbyte, ungetbyte, pread, pwrite, advise and each_codepoint" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pth = "sp_issue_3038.tmp"
       File.write(pth, "hi\n")
       File.open(pth) do |f|
@@ -658,7 +658,7 @@ describe "IO: regressions" do
   end
 
   it "IO#stat answers a File::Stat with the file's size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p001 = "/tmp/sp_io_stat_repro.txt"
       File.write(p001, "hello world\n")
       File.open(p001) { |f| p f.stat.class }
@@ -680,7 +680,7 @@ describe "IO: regressions" do
   end
 
   it "IO#chown with nil for both owner and group leaves the file alone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "/tmp/spinel_issue_3104.txt"
       File.write(path, "x")
       File.open(path) { |f| p f.chown(nil, nil) }
@@ -691,7 +691,7 @@ describe "IO: regressions" do
   end
 
   it "warn writes each of its arguments to $stderr on its own line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "stringio"
       out = StringIO.new
       $stderr = out
@@ -705,7 +705,7 @@ describe "IO: regressions" do
   end
 
   it "File.mkfifo creates a named pipe that File.exist? finds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p001 = "/tmp/sp_mkfifo_3118_#{Process.pid}"
       File.delete(p001) if File.exist?(p001)
       r = begin; File.mkfifo(p001); rescue => e; e.class; end
@@ -725,7 +725,7 @@ describe "IO: regressions" do
   end
 
   it "IO#fcntl answers the flags the descriptor holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p001 = "sp_io_3130.tmp"
       File.write(p001, "hi")
       File.open(p001) { |f| r001 = (f.fcntl(1, 0) rescue $!.class); p r001 }
@@ -736,7 +736,7 @@ describe "IO: regressions" do
   end
 
   it "binmode, autoclose=, pread with a buffer and reopen on an open File" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p001 = "sp_io_3131.tmp"
       File.write(p001, "hi")
       File.open(p001) { |f| f.binmode; p f.binmode? }
@@ -756,7 +756,7 @@ describe "IO: regressions" do
   end
 
   it "IO.copy_stream copies from the source's current position and answers the count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'stringio'
 
       def http_resp(dst, src)
@@ -786,7 +786,7 @@ describe "IO: regressions" do
   end
 
   it "IO.copy_stream copies between a StringIO and a File either way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'stringio'
       io = StringIO.new("hello world")
       File.open("/tmp/spinel_issue_3217_out.txt", "w") do |f|
@@ -810,7 +810,7 @@ describe "IO: regressions" do
   end
 
   it "Dir#inspect names the path it was opened on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Dir.new(".").inspect)
       p(Dir.new(".").to_path)
       d = Dir.new(".")
@@ -825,7 +825,7 @@ describe "IO: regressions" do
   end
 
   it "extname, basename and dirname take a path that may be nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def content_type(path)
         File.extname(path)
       end
@@ -847,7 +847,7 @@ describe "IO: regressions" do
   end
 
   it "$LOAD_PATH is already an array when the program's first statement runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `$LOAD_PATH` is still nil when the program's first statement runs: zeo's
       # preamble initializes it after user code rather than before it, so `unshift`
       # raises on a nil receiver. ruby has it populated before line 1 executes.
@@ -862,7 +862,7 @@ describe "IO: regressions" do
   end
 
   it "a reopened Dir takes a constant and a singleton method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Dir
         VERSION = '1.0.0'
         def self.dot?(name)
@@ -882,7 +882,7 @@ describe "IO: regressions" do
   end
 
   it "read and pread answer the bytes even when the output buffer is frozen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       path = "/tmp/sp_frozen_outbuf.txt"
       File.write(path, "hello world")
       File.open(path) { |f| b = ""; r = (f.read(3, b) rescue $!.class); p r }
@@ -897,7 +897,7 @@ describe "IO: regressions" do
   end
 
   it "sysread and readpartial fill the buffer they are given and answer it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A read given an explicit output-buffer argument returns the data but leaves
       # the supplied buffer empty. ruby fills that buffer in place and returns the
       # same object, so the caller can read the bytes back out of it.

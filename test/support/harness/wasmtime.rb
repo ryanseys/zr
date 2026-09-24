@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Ze0
+module Zr
   module Harness
     # The one place the checks spell a `wasmtime` command, so every tier
     # runs a module the same way: the executable `WASMTIME` names, the
@@ -8,7 +8,7 @@ module Ze0
     #
     # The checks compile under Winch, wasmtime's baseline compiler, and
     # not Cranelift, its optimising one. A test wants the answer and not
-    # the speed, and a ze0 module is nearly all runtime -- 35 to 130 MB
+    # the speed, and a zr module is nearly all runtime -- 35 to 130 MB
     # that Cranelift compiles again for every program, since its cache
     # keys on the whole module's bytes. Measured on 2026-09-21, wasmtime
     # 48.0.2, this machine: a 35 MB module took 17.6 s of CPU under
@@ -16,9 +16,9 @@ module Ze0
     # eval road, 70 s against 12 s. stdout, stderr and the exit status
     # were the same under both, on every module tried. `rake bench`
     # keeps Cranelift, since there the speed is the answer, and
-    # `ZE0_WASM_COMPILER=cranelift` asks a tier for it.
+    # `ZR_WASM_COMPILER=cranelift` asks a tier for it.
     #
-    # None of this reaches `lib`: `ze0 run` starts wasmtime as wasmtime
+    # None of this reaches `lib`: `zr run` starts wasmtime as wasmtime
     # is, and these names are the checks' own.
     module Wasmtime
       COMPILERS = %w[winch cranelift].freeze
@@ -28,12 +28,12 @@ module Ze0
       def executable = ENV.fetch("WASMTIME", "wasmtime")
 
       def compiler
-        ENV.fetch("ZE0_WASM_COMPILER", "winch").tap do |name|
-          raise ArgumentError, "ZE0_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(' and ')}" unless COMPILERS.include?(name)
+        ENV.fetch("ZR_WASM_COMPILER", "winch").tap do |name|
+          raise ArgumentError, "ZR_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(' and ')}" unless COMPILERS.include?(name)
         end
       end
 
-      def memory = Integer(ENV.fetch("ZE0_WASM_MEMORY", 1 << 30))
+      def memory = Integer(ENV.fetch("ZR_WASM_MEMORY", 1 << 30))
 
       def installed? = system(executable, "--version", out: File::NULL, err: File::NULL)
 

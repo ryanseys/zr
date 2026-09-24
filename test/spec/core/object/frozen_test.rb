@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: frozen literals" do
   it "bareword freeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bareword freeze (implicit self) inside an instance method sets the
       # instance's GC-header frozen bit and returns self, so the defensive-freeze
       # idiom carries real state (frozen? reads it back; mutation raises).
@@ -33,7 +33,7 @@ describe "Object: frozen literals" do
   end
 
   it "bool nil immediate edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Immediate-receiver edges: <=> between equal bools/nils is 0 (#2733), a bool
       # has no #=~ so !~ raises (#2732), TrueClass/FalseClass/NilClass have no
       # allocator (#2751), and clone(freeze: false) cannot unfreeze an immediate
@@ -69,7 +69,7 @@ describe "Object: frozen literals" do
   end
 
   it "class clone dup are anonymous" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#dup`/`#clone` on a CLASS return the SAME OBJECT in zeo --
       # `K.dup.equal?(K)` is true where ruby answers false. So the name is not
       # merely wrong, it is `K`'s own: renaming the copy would rename `K`.
@@ -109,7 +109,7 @@ describe "Object: frozen literals" do
   end
 
   it "class dup and clone are real copies" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class#dup`/`#clone` mint an ANONYMOUS class sharing the source's superclass
       # and mixins and carrying copies of its own rows, constants and class-level
       # state. Handing back the same handle made `K.dup.equal?(K)` true, so naming
@@ -197,7 +197,7 @@ describe "Object: frozen literals" do
   end
 
   it "clone honors the freeze keyword" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = "hi".freeze
       p a.clone.frozen?
       p a.clone(freeze: false).frozen?
@@ -217,7 +217,7 @@ describe "Object: frozen literals" do
   end
 
   it "core rows live on the class ruby defines them on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby writes some rows on a class of its own even where they share the
       # function Kernel's row uses: `===` on nil, true, false and Symbol,
       # `freeze` on String, Array, Hash and Module, `dup` and `clone` on Proc
@@ -279,7 +279,7 @@ describe "Object: frozen literals" do
   end
 
   it "dup and clone on collections follow the frozen rule" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # dup: fresh unfrozen payload (mutable even when the source is
       # frozen, and mutating it leaves the source untouched); clone:
       # carries the frozen flag.
@@ -302,7 +302,7 @@ describe "Object: frozen literals" do
   end
 
   it "empty literal freeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[].freeze` is the frozen-empty-array idiom: the call must not be dropped,
       # and the array must be built at the slot's type (#3828).
       p [].freeze.frozen?
@@ -338,7 +338,7 @@ describe "Object: frozen literals" do
   end
 
   it "freeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # .freeze / .frozen? -- shallow freezing with catchable FrozenError
 
       a = [1, 2, 3]
@@ -431,7 +431,7 @@ describe "Object: frozen literals" do
   end
 
   it "freeze is shallow so a frozen containers elements stay mutable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       inner = [1, 2]
       b = [inner]
       b.freeze
@@ -444,7 +444,7 @@ describe "Object: frozen literals" do
   end
 
   it "freeze user object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # freeze / frozen? on user instances: the bareword self-freeze idiom sets
       # real state, frozen? reads it back, and mutation after freeze raises
       # FrozenError with CRuby's message (address-normalized for comparison).
@@ -543,7 +543,7 @@ describe "Object: frozen literals" do
   end
 
   it "frozen and object identity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object identity and freezing across the linked runtime's allocator.
       a = "mutable".dup
       b = a.dup
@@ -573,7 +573,7 @@ describe "Object: frozen literals" do
   end
 
   it "frozen class reopen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Fz; end
       Fz.freeze
       begin
@@ -595,7 +595,7 @@ describe "Object: frozen literals" do
   end
 
   it "frozen collection mutator matrix matches cruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The full String/Array/Hash mutator matrix against a frozen receiver
       # -- every row's outcome (FrozenError, or legal like `str * 2`) is
       # verbatim ruby 4.0.6. Guard-ordering nuances included: `setbyte`
@@ -759,7 +759,7 @@ describe "Object: frozen literals" do
   end
 
   it "frozen mutation arg eval order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby evaluates a mutator's arguments before the call runs, so a
       # side-effecting argument (and an op-assign RHS) must still execute even when
       # the receiver is frozen and the mutation ultimately raises FrozenError. Each
@@ -789,7 +789,7 @@ describe "Object: frozen literals" do
   end
 
   it "frozen predicate flips after freeze and freeze returns self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1]
       puts a.frozen?
       b = a.freeze
@@ -805,7 +805,7 @@ describe "Object: frozen literals" do
   end
 
   it "generic object freeze clone and immutable unfreeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object.new instances track frozen state (freeze/frozen?/clone-preserves);
       # clone(freeze: false) on an always-frozen immediate raises ArgumentError.
 
@@ -835,7 +835,7 @@ describe "Object: frozen literals" do
   end
 
   it "method object freezes its entry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Method`/`UnboundMethod` COPIES the method entry when it is taken, so a
       # later redefinition cannot change what it calls. That single fact is what makes
       # the wrap-and-redefine idiom terminate -- the canonical thing a `method_added`
@@ -929,7 +929,7 @@ describe "Object: frozen literals" do
   end
 
   it "module of module diamond dispatches and is a resolves transitively" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The exact shape zeo's OWN reflection gets wrong (verified by
       # running a repro against zeo's own binary): `D` included via two
       # separate paths (`B`/`C`, both including `D`) must be deduped to a
@@ -968,7 +968,7 @@ describe "Object: frozen literals" do
   end
 
   it "freeze marks the object, and frozen? answers it for a plain object and for a Struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C; end
       o = C.new
       puts o.frozen?
@@ -993,7 +993,7 @@ describe "Object: frozen literals" do
   end
 
   it "a Proc and an Enumerator carry a freeze state, and is_a? sees the builtin modules they include" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # freeze state on Proc/Enumerator; is_a? for included builtin modules
       # (KieranP #2362, #2363)
       a = ->(x) { x }
@@ -1041,7 +1041,7 @@ describe "Object: frozen literals" do
   end
 
   it "repeated freeze is a silent no op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       c = "hi"
       c.freeze
       c.freeze
@@ -1052,7 +1052,7 @@ describe "Object: frozen literals" do
   end
 
   it "self freeze inside a method freezes the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Lockable
         def initialize
           @v = 1
@@ -1086,7 +1086,7 @@ describe "Object: frozen literals" do
   end
 
   it "user defined freeze override wins over the builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `freeze`/`frozen?` are ordinary overridable Kernel methods in real
       # Ruby -- a class's own definition must win over the universal dispatch.
 
@@ -1102,7 +1102,7 @@ describe "Object: frozen literals" do
   end
 
   it "user object freeze frozen and custom freeze returning self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `freeze_user_object` scenario end to end: a bareword self-`freeze`
       # in `initialize` sets real state, `frozen?` reads it back, mutation
       # after freeze raises FrozenError, and a user `def freeze = (@log =
@@ -1150,7 +1150,7 @@ describe "Object: frozen literals" do
   end
 
   it "user value object freeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # freeze on a user-defined VALUE-type instance (a small immutable scalar-ivar
       # class represented by value, sp_X, not a heap pointer). Stateful freeze reaches
       # for the object's GC-header bit, which a value struct does not carry; the mono
@@ -1193,7 +1193,7 @@ describe "Object: frozen literals" do
   end
 
   it "value type frozen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = Complex(2, 3)
       p a.frozen?
       a.freeze
@@ -1223,7 +1223,7 @@ describe "Object: frozen literals" do
   end
 
   it "a frozen error met again while it inspects its receiver shows ' ...' and ends" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         def inspect
           @memo ||= "a C"

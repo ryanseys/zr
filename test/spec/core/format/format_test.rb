@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Format programs" do
   it "percent r literal syntax" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = %r{foo/bar}
       puts r.match?("xxfoo/barxx")
       puts r.source

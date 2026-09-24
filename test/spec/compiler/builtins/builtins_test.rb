@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins programs" do
   it "accessor devirtualized surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method whose whole body is one ivar access reaches the field directly
       # from the dynamic dispatch table (`zeo_tramp!`'s `rd`/`wr` heads) instead of
       # downcasting and calling the generated method. Everything OBSERVABLE about
@@ -136,7 +136,7 @@ describe "Builtins programs" do
   end
 
   it "arithmetic sequence rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator::ArithmeticSequence` -- what a blockless `Range#step`,
       # `Range#%` or `Numeric#step` over a numeric receiver answers, its thirteen
       # own methods, and the strided `Array#[]` that reads one.
@@ -400,7 +400,7 @@ describe "Builtins programs" do
   end
 
   it "boxed receiver enumerable surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Enumerable and Integer names a boxed receiver shares with its typed self:
       # a value that only reads poly (a container element, a widened local) had no arm
       # for these and raised NoMethodError naming the very class that defines them.
@@ -470,7 +470,7 @@ describe "Builtins programs" do
   end
 
   it "builtin method parameter names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Method#parameters` on a BUILTIN row names the parameters ruby names, and
       # names nothing where ruby names nothing.
       #
@@ -528,7 +528,7 @@ describe "Builtins programs" do
   end
 
   it "builtin protected rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A BUILTIN row declared `protected` read as public. The DSL parsed
       # `private`/`protected` in front of a `def`, but the generated method table
       # carried ONE bit -- `is_private` -- so `protected` collapsed into public: the
@@ -602,7 +602,7 @@ describe "Builtins programs" do
   end
 
   it "builtin reopen string blank dispatches everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Box docs' motivating example shape: a fresh method on `class String`,
       # dispatching statically ("".blank?), dynamically through a Poly ivar
       # (@s.blank?), and calling a NATIVE builtin method (`length`) implicitly on
@@ -639,7 +639,7 @@ describe "Builtins programs" do
   end
 
   it "builtin reopen with matching superclass clause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin reopen may RESTATE the class's real superclass (`class String <
       # Object`); the methods attach exactly as a clauseless reopen (D3).
 
@@ -655,7 +655,7 @@ describe "Builtins programs" do
   end
 
   it "builtin row claims the name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A NATIVE row on a class claims its name in the MRO exactly as a `def` does.
       # `Array#none?` and `Array#size` are native builtins with no user scope, so
       # materialization used to fall through to the first ancestor that DID have one
@@ -754,7 +754,7 @@ describe "Builtins programs" do
   end
 
   it "class new dispatch arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-object `.new` dispatch (zero-arg) only builds classes whose initialize
       # takes no required args; an arg-requiring constructor is omitted (its runtime
       # cls_id lands in the nil default, matching MRI's ArgumentError), and a
@@ -801,7 +801,7 @@ describe "Builtins programs" do
   end
 
   it "comparable and kernel rows reach builtin values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable's operators and Kernel's universals reach builtin values
       # dynamically: `"abc" < "abd"` resolves String(no `<`) -> Comparable(`<`
       # drives `<=>`) -> `String#<=>`; itself/tap/then/frozen?/eql?/equal? are
@@ -841,7 +841,7 @@ describe "Builtins programs" do
   end
 
   it "comparable clamp parity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Comparable#clamp parity for user classes: reversed bounds raise, nil bounds
       # clamp one-sided, the range form accepts Integer endpoints (a clamped result
       # IS that endpoint), an exclusive range raises, and a poly receiver routes
@@ -938,7 +938,7 @@ describe "Builtins programs" do
   end
 
   it "comparator block arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A comparator block that takes ONE parameter still gets both elements, so it
       # compares the first against nothing and answers a value unrelated to the pair.
       # Every pair then ties or contradicts, and the order that comes out is the sort
@@ -969,7 +969,7 @@ describe "Builtins programs" do
   end
 
   it "const env defined parity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Constant ||= typing, toplevel ivar op-assign, defined?(implicit method),
       # and ENV parity: fetch KeyError, nil-deletes, non-String TypeError, size.
 
@@ -1048,7 +1048,7 @@ describe "Builtins programs" do
   end
 
   it "const int rows destructure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly-array CONSTANT whose rows are all int-array literals (a frozen
       # direction table) destructures its 2+ block params as ints, so methods
       # called with the destructured values keep typed int params -- one such
@@ -1098,7 +1098,7 @@ describe "Builtins programs" do
   end
 
   it "Array.[] builds an array from its arguments, and an empty one from none" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1119,7 +1119,7 @@ describe "Builtins programs" do
   end
 
   it "attached_object answers the object a singleton class belongs to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1144,7 +1144,7 @@ describe "Builtins programs" do
   end
 
   it "Encoding.aliases maps an alias to its name, and locale_charmap answers a String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1172,7 +1172,7 @@ describe "Builtins programs" do
   end
 
   it "lazy.eager answers an Enumerator that forces the chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1193,7 +1193,7 @@ describe "Builtins programs" do
   end
 
   it "GC#garbage_collect is listed among GC's own instance methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1212,7 +1212,7 @@ describe "Builtins programs" do
   end
 
   it "ruby2_keywords_hash marks a Hash, and ruby2_keywords_hash? reads the mark" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1234,7 +1234,7 @@ describe "Builtins programs" do
   end
 
   it "Marshal.restore reads back what Marshal.dump wrote" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1253,7 +1253,7 @@ describe "Builtins programs" do
   end
 
   it "Random.seed answers an Integer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1272,7 +1272,7 @@ describe "Builtins programs" do
   end
 
   it "Regexp.timeout reads and writes the global timeout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1302,7 +1302,7 @@ describe "Builtins programs" do
   end
 
   it "compare_by_identity switches a Set to identity and answers the Set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1326,7 +1326,7 @@ describe "Builtins programs" do
   end
 
   it "unicode_normalize! normalizes the receiver in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1348,7 +1348,7 @@ describe "Builtins programs" do
   end
 
   it "Symbol.all_symbols answers an Array of the symbols in use" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1369,7 +1369,7 @@ describe "Builtins programs" do
   end
 
   it "Warning.categories names the categories, and Warning#warn is listed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1390,7 +1390,7 @@ describe "Builtins programs" do
   end
 
   it "Process::Tms names its four members" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1419,7 +1419,7 @@ describe "Builtins programs" do
   end
 
   it "Process::Status.wait answers a Status for the child it waited on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1446,7 +1446,7 @@ describe "Builtins programs" do
   end
 
   it "a Queue answers num_waiting, clear and size" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1484,7 +1484,7 @@ describe "Builtins programs" do
   end
 
   it "a SizedQueue answers num_waiting and clear as a Queue does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1507,7 +1507,7 @@ describe "Builtins programs" do
   end
 
   it "Mutex#sleep answers nil and leaves the mutex locked" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1531,7 +1531,7 @@ describe "Builtins programs" do
   end
 
   it "ThreadGroup#enclose marks the group, and enclosed? reads the mark" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1557,7 +1557,7 @@ describe "Builtins programs" do
   end
 
   it "the top-level Queue, Mutex and SizedQueue are the Thread:: ones" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1586,7 +1586,7 @@ describe "Builtins programs" do
   end
 
   it "Dir#chdir with a block returns to where it was, and chroot raises EPERM" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The long tail: one row apiece across Array, Class, Dir, Encoding,
 
       # Enumerator::Lazy, GC, Hash, Marshal, Process, Random, Regexp, Set, String,
@@ -1615,7 +1615,7 @@ describe "Builtins programs" do
   end
 
   it "dynamic dispatch wrong arity raises a rescuable argument error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `send` routes through `emit_dynamic_trampoline`, whose arity guard used
       # to `panic!` -- a process abort where Ruby raises a RESCUABLE
       # ArgumentError. Now it emits `return Err(raise_error("ArgumentError",
@@ -1650,7 +1650,7 @@ describe "Builtins programs" do
   end
 
   it "encoding error rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The two conversion errors carry the encoding pair and the offending input on
       # the exception, not only inside the message.
 
@@ -1769,7 +1769,7 @@ describe "Builtins programs" do
   end
 
   it "encoding surface reports transcodes and raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Encoding engine: a string is bytes + an encoding, queryable and
       # transcodable, with the Encoding class and its constants. `__ENCODING__`
       # answers the script encoding (UTF-8). Cross-checked against ruby 4.0.6.
@@ -1830,7 +1830,7 @@ describe "Builtins programs" do
   end
 
   it "enumerator callee and size surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An Enumerator records the ALIAS actually called (CRuby captures
       # `__callee__`), and its size comes from the size function the METHOD supplies
       # -- so `[1, 2].each.size` is 2 while `[1, 2].to_enum(:each).size` is nil.
@@ -1908,7 +1908,7 @@ describe "Builtins programs" do
   end
 
   it "enumerator chain product rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator::Chain` and `::Product` add no behaviour of their own -- what
       # they answer comes down the chain from `Enumerator`. ruby OWNS these four on
       # each subclass all the same, which is what these rows make true.
@@ -1968,7 +1968,7 @@ describe "Builtins programs" do
   end
 
   it "env hash and enumerable surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `ENV`'s own singleton rows and the Enumerable half its singleton class
       # includes. Both matter for dispatch: ENV's class IS `Object`, so a row it
       # does not declare falls through to `Object`/`Kernel` -- which is how
@@ -2055,7 +2055,7 @@ describe "Builtins programs" do
   end
 
   it "env mutation surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV follow-ups (#2831, #2832): predicate arity, the wider Enumerable
       # surface, and the mutators (update/merge!/clear/shift/delete_if family).
       ENV['ZZ_A'] = '1'
@@ -2121,9 +2121,9 @@ describe "Builtins programs" do
   end
 
   it "errno full surface" do
-    skip "runs only on macos" unless ["macos"].include?(Ze0::Spec.platform)
+    skip "runs only on macos" unless ["macos"].include?(Zr::Spec.platform)
 
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Errno` is generated from one table (`zeo_abi::ERRNO_CLASSES`), so every name
       # the platform errno list carries exists -- not just the dozen the runtime
@@ -2238,7 +2238,7 @@ describe "Builtins programs" do
   end
 
   it "exception private rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Exception` declares three private rows of its own, not one. zeo had only
       # `#initialize`, so `method_missing` and `respond_to_missing?` reported
       # `BasicObject` and `Kernel` as their owners and went missing from
@@ -2321,7 +2321,7 @@ describe "Builtins programs" do
   end
 
   it "gc fiber binding rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `GC`, `Fiber` and `Binding` rows for facts a refcounted heap with no fiber
       # scheduler can state truthfully. Values that describe MRI's own heap (slot
       # counts, build options) are asserted by shape; the rest match outright.
@@ -2438,7 +2438,7 @@ describe "Builtins programs" do
   end
 
   it "kernel autoload rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Kernel#autoload`/`#autoload?` -- the receiverless spellings, which ruby
       # files as private instance methods AND public singleton methods of `Kernel`.
       # zeo answered `Kernel.autoload` off `Module`, so the call worked but every
@@ -2485,7 +2485,7 @@ describe "Builtins programs" do
   end
 
   it "marshal private surfaces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The census-visible marshal privates: Marshal's module_function dump,
       # Complex/Rational marshal_dump hooks, Random's full state family.
       p Marshal.private_instance_methods(false)
@@ -2541,7 +2541,7 @@ describe "Builtins programs" do
   end
 
   it "method reflection surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Method/UnboundMethod reflection: ==/eql?, original_name, parameters,
       def dbl(n) = n * 2
       class C
@@ -2572,7 +2572,7 @@ describe "Builtins programs" do
   end
 
   it "module aliases a kernel row" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias` inside a bare MODULE finds a method of `Object`.
       #
       # A module's ancestry is itself alone, so a `Kernel` row is not in it -- and
@@ -2633,7 +2633,7 @@ describe "Builtins programs" do
   end
 
   it "module function surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module_function` gives a name TWO copies: a public singleton method on the
       # module, and a PRIVATE instance method that `include` carries into a class.
       # Kernel, Process, FileTest, ObjectSpace and Signal are all built this way in
@@ -2753,7 +2753,7 @@ describe "Builtins programs" do
   end
 
   it "nested container array surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An Array read out of an Array(Array) or a Hash value is carried in a poly
       # slot. It answered Array to #class but only part of Array's surface worked:
       # a Range index fell through the poly [] as index 0 and returned element 0,
@@ -2870,7 +2870,7 @@ describe "Builtins programs" do
   end
 
   it "object defaults parity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object defaults on user classes: is_a?/kind_of? against universal
       # ancestors, default to_s / inspect rendering, and clone(freeze:).
 
@@ -2948,7 +2948,7 @@ describe "Builtins programs" do
   end
 
   it "owner rows class new on builtins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Hash.singleton_methods(false).include?(:new)
       p Range.singleton_methods(false).include?(:new)
       p Regexp.singleton_methods(false).include?(:new)
@@ -2964,7 +2964,7 @@ describe "Builtins programs" do
   end
 
   it "owner rows enumerable on array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Array.instance_methods(false).include?(:chain)
       p Array.instance_methods(false).include?(:member?)
       p Array.instance_method(:chain).owner
@@ -2980,7 +2980,7 @@ describe "Builtins programs" do
   end
 
   it "owner rows numeric on integer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Integer.instance_methods(false).include?(:+@)
       p Integer.instance_methods(false).include?(:i)
       p Integer.instance_methods(false).include?(:finite?)
@@ -3000,7 +3000,7 @@ describe "Builtins programs" do
   end
 
   it "owner rows object methods on builtins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Thread.instance_methods(false).include?(:==)
       p Fiber.instance_methods(false).include?(:equal?)
       p Encoding.instance_methods(false).include?(:hash)
@@ -3018,7 +3018,7 @@ describe "Builtins programs" do
   end
 
   it "poly hash surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Hash/Enumerable surface on a value that arrives boxed: a seedless
       # Array#reduce result, a Fiber#resume value, a container read. The receiver's
       # runtime class is unknown at the call site, so each line pins either an arm
@@ -3167,7 +3167,7 @@ describe "Builtins programs" do
   end
 
   it "poly string surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The String surface on a value that arrives boxed: a Fiber#resume result, a
       # Queue#pop, a Thread#value. Every one of these answers on a plain String
       # local, so each line that disagrees is a missing or wrong arm on the boxed
@@ -3336,7 +3336,7 @@ describe "Builtins programs" do
   end
 
   it "poly time surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Time that arrives boxed -- read out of a container, or narrowed out of an
       # untyped value by is_a?(Time) -- reached a poly surface that had only the
       # scalar accessors on it. Everything that answers a Time, a boolean, an offset,
@@ -3454,7 +3454,7 @@ describe "Builtins programs" do
   end
 
   it "process identity and scheduling surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process ids/scheduling against libc, plus the PRIO_* selector constants.
 
       p [Process.uid.class, Process.gid.class, Process.euid.class, Process.egid.class]
@@ -3478,7 +3478,7 @@ describe "Builtins programs" do
   end
 
   it "Process::Sys, UID and GID are modules, each naming its own singleton rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3531,7 +3531,7 @@ describe "Builtins programs" do
   end
 
   it "the Sys readers answer what Process already answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3582,7 +3582,7 @@ describe "Builtins programs" do
   end
 
   it "from_name resolves a passwd or group name, and passes an Integer straight through" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3639,7 +3639,7 @@ describe "Builtins programs" do
   end
 
   it "re-asserting an id the process already holds is the one change it may make" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3698,7 +3698,7 @@ describe "Builtins programs" do
   end
 
   it "a request for an id this process does not hold is refused with EPERM" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3756,7 +3756,7 @@ describe "Builtins programs" do
   end
 
   it "setresuid and setresgid raise NotImplementedError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3792,7 +3792,7 @@ describe "Builtins programs" do
   end
 
   it "re_exchangeable? answers for the platform, and UID and GID agree" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
 
       # `Process::Sys`, `Process::UID` and `Process::GID` -- the identity surface.
       #
@@ -3835,7 +3835,7 @@ describe "Builtins programs" do
   end
 
   it "process surface batch1" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Process syscall-wrapper surface (batch 1): pgid/session queries, resource
       # limits, and the non-effectful setters that return stable values. Output is
       # written as relational/type assertions so it stays byte-identical to CRuby
@@ -3891,7 +3891,7 @@ describe "Builtins programs" do
   end
 
   it "ractor make shareable freezes a proc through the dynamic rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Ractor.make_shareable` on a Proc freezes it in place (returns the same
       # object) and `shareable?` reports the frozen state -- the ostruct
       # `new_ostruct_member!` shape (`nil.instance_eval { Proc.new { ... } }`
@@ -3922,7 +3922,7 @@ describe "Builtins programs" do
   end
 
   it "refinement import methods surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Refinement#import_methods` copies a module's OWN method entries into the
       # refinement. The runtime did the copying and reported them in
       # `instance_methods(false)`, but two halves were missing: a String receiver has
@@ -4004,7 +4004,7 @@ describe "Builtins programs" do
   end
 
   it "require gated builtin row is always present" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # zeo registers a builtin's require-gated rows unconditionally, so a method
       # that ruby only grows after `require "io/console"` (or `"io/nonblock"`)
       # answers `respond_to?` and appears in `instance_methods(false)` in a program
@@ -4047,7 +4047,7 @@ describe "Builtins programs" do
   end
 
   it "require gated row waits for its require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `io/console` and `io/nonblock` are require-gated extensions in ruby. zeo
       # implements them natively, so their rows sit in `IO`'s own table -- one
       # class owns one table -- and used to be answerable before the require.
@@ -4089,7 +4089,7 @@ describe "Builtins programs" do
   end
 
   it "safe nav poly builtin surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every builtin name a `&.` can carry on a boxed receiver. The point is not the
       # values: it is that the program BUILDS and that a nil receiver answers nil.
       # The safe-navigation guard has to box a value arm the poly runtime renders as
@@ -4426,7 +4426,7 @@ describe "Builtins programs" do
   end
 
   it "signal module surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Signal module surface: list/signame, trap validation and previous-handler
       # return, handler firing via Process.kill, the EXIT pseudo-signal hook, the
       # Signal constant itself, and SignalException/Interrupt objects.
@@ -4520,7 +4520,7 @@ describe "Builtins programs" do
   end
 
   it "symbol to proc arity and io fcntl" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # :name.to_proc reports arity -2 (receiver + optional args); IO#fcntl runs
       # the raw syscall (F_GETFD reads the close-on-exec flag on the open file).
 
@@ -4540,7 +4540,7 @@ describe "Builtins programs" do
   end
 
   it "thread group surface matches the default group model" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The always-on `ThreadGroup` surface the timeout gem needs:
       # `Thread#group` answers the shared `ThreadGroup::Default`, which is
       # never enclosed, accepts `#add`, and type-checks its argument.
@@ -4569,7 +4569,7 @@ describe "Builtins programs" do
   end
 
   it "thread surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Thread`'s scheduling, storage and interrupt surface. Values that differ from
       # run to run (a native thread id, a backtrace's own paths) are asserted by
       # SHAPE, so the file is byte-identical under both engines.
@@ -4673,7 +4673,7 @@ describe "Builtins programs" do
   end
 
   it "time new is a class method row" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.method(:new).owner
       p Time.singleton_methods(false).sort
       p [Regexp.method(:new).owner, Hash.method(:new).owner, Range.method(:new).owner]
@@ -4689,7 +4689,7 @@ describe "Builtins programs" do
   end
 
   it "tracepoint reflection rows" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `TracePoint` rows that read nothing off the frame: the reentry guard,
       # the per-VM statistics, and the four accessors a `:line` event refuses in
       # CRuby too.

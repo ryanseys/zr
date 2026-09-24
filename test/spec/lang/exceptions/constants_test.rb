@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: constants" do
   it "compact definition with an absent container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class A::B` evaluates `A` when the definition RUNS. If nothing defines it,
       # ruby raises NameError right there and the class never comes into being --
       # it is not a load-time error, and the rest of the file is unaffected until
@@ -67,7 +67,7 @@ describe "Exceptions: constants" do
   end
 
   it "const path deep nesting" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Stress test: ConstantPathNode resolution at depths beyond what
       # typical Ruby code reaches. const_ref_flat_name and
       # resolve_const_ref_name now have a depth=32 guard; this test
@@ -104,7 +104,7 @@ describe "Exceptions: constants" do
   end
 
   it "const self ref raises name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #646: a top-level const assigned via `<CONST> = <Class>.
       # new(...)` whose initialize body (or any method transitively
       # called from initialize) reads <CONST> now raises NameError at
@@ -159,7 +159,7 @@ describe "Exceptions: constants" do
   end
 
   it "exception class constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Builtin exception classes as first-class values: referencing the constant
       # (raise_error matchers, e.class comparisons, superclass walks) works like any
       # other builtin class object; raise/rescue position already resolved by name.
@@ -196,7 +196,7 @@ describe "Exceptions: constants" do
   end
 
   it "missing qualified constant raises name error with the full path" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
       end
 
@@ -211,7 +211,7 @@ describe "Exceptions: constants" do
   end
 
   it "module const get resolves or raises name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo; BAR = 42; end
       p Foo.const_get(:BAR)
       p Foo.const_get("BAR")
@@ -228,7 +228,7 @@ describe "Exceptions: constants" do
   end
 
   it "nameerror name for constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module CM
         A = 1
       end
@@ -248,7 +248,7 @@ describe "Exceptions: constants" do
   end
 
   it "raise class value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise` given the exception CLASS as a VALUE -- a local, an element of a
       # table of error classes, a retry list -- rather than as a syntactically
       # literal constant name. Codegen builds the literal form directly and hands
@@ -303,7 +303,7 @@ describe "Exceptions: constants" do
   end
 
   it "raising an undefined constant with a message raises name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `raise UndefinedConst, "msg"` -- CRuby evaluates the constant (and
       # raises NameError) before the message is ever consulted.
 
@@ -319,7 +319,7 @@ describe "Exceptions: constants" do
   end
 
   it "rescue naming an undefined constant raises name error when matched" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # When the body DOES raise, evaluating the undefined rescue constant is a
       # runtime NameError (which replaces the original exception) -- exactly
       # CRuby's behavior.
@@ -339,7 +339,7 @@ describe "Exceptions: constants" do
   end
 
   it "rescue undefined constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `rescue` clause naming an undefined constant compiles cleanly: CRuby only
       # evaluates the clause's class while matching an actually-raised exception.
 
@@ -368,7 +368,7 @@ describe "Exceptions: constants" do
   end
 
   it "rescued missing constant quiet" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Referencing a constant the program never defines, on purpose, behind a rescue
       # that catches the NameError is how a program probes for one -- ruby/spec does
       # exactly this. CRuby says nothing about it at any stage, and spinel's
@@ -415,7 +415,7 @@ describe "Exceptions: constants" do
   end
 
   it "undefined constant deferred raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An undefined constant used in class position raises a runtime NameError,
       # never a compile-time failure -- shown across a pattern, a scoped constant
       # write, and `raise Const, msg`.
@@ -452,7 +452,7 @@ describe "Exceptions: constants" do
   end
 
   it "uninit const raises nameerror" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Uninitialised constant reads raise NameError instead of
       # silently returning 0.
 
@@ -477,7 +477,7 @@ describe "Exceptions: constants" do
   end
 
   it "unset constant raises a name error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts UNDEFINED_CONST
       rescue NameError => e

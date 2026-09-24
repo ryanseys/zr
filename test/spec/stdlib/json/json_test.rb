@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "JSON programs" do
   it "dead loaderror rescue dropped" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `begin; require "x"; rescue LoadError; <fallback def>` guard: when the
       # require RESOLVES (a builtin/shim/file satisfied it), the rescue is DEAD --
       # CRuby's behavior when the extension IS present -- so its fallback definitions
@@ -29,7 +29,7 @@ describe "JSON programs" do
   end
 
   it "gems ruby half supplies the exception class its native half raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A gem's Ruby half can reopen its feature-gated NATIVE half and nest an
       # exception class inside it, which the native half then raises by name.
       # This is what retires the `StringScanner::Error` -> `RuntimeError`
@@ -57,7 +57,7 @@ describe "JSON programs" do
   end
 
   it "hash variant eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hashes compare by VALUE across storage variants, like arrays: Ruby has one
       # Hash, and a runtime-built poly hash (JSON.parse) equals the same pairs
       # written as a typed literal. Previously poly==typed-hash and mixed-variant
@@ -93,7 +93,7 @@ describe "JSON programs" do
   end
 
   it "JSON and StringIO work inside a thread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "json"
       require "stringio"
 
@@ -111,7 +111,7 @@ describe "JSON programs" do
   end
 
   it "issue hash to json missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "json"` adds `#to_json` to the core classes, so a Hash serializes
       # through the method as well as through the explicit `JSON.generate` and
       # `JSON.dump` entry points.
@@ -123,7 +123,7 @@ describe "JSON programs" do
   end
 
   it "json/add revives a class innermost first, and load turns create_additions on where parse leaves it off" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `json/add/*` teaches a core class to serialize itself, and `create_additions`
       # is what reads it back: a parsed object naming a class under `JSON.create_id`
       # becomes that class's `json_create` of itself. INNERMOST FIRST, so an
@@ -252,7 +252,7 @@ describe "JSON programs" do
   end
 
   it "parse keeps an integer beyond f64 exact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `JSON.parse` keeps an integer beyond f64 EXACT (a Bignum); zeo's
       # serde_json path converts it to Float and silently loses precision --
       # wrong DATA, the sharpest kind. (Found by the 2026-08-24 probe sweep.)
@@ -265,7 +265,7 @@ describe "JSON programs" do
   end
 
   it "generate on a self-referential array raises JSON::NestingError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -293,7 +293,7 @@ describe "JSON programs" do
   end
 
   it "generate refuses NaN and Infinity unless allow_nan: says otherwise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "json"
 
       begin
@@ -317,7 +317,7 @@ describe "JSON programs" do
   end
 
   it "generate refuses a string that is not valid UTF-8" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # JSON.generate refuses what is not valid UTF-8: an invalid-UTF-8 string
       # raises JSON::GeneratorError ("source sequence is illegal/malformed
       # utf-8"), and a binary string raises on the transcode. zeo lossy-
@@ -343,7 +343,7 @@ describe "JSON programs" do
   end
 
   it "indent, space, ascii_only, script_safe and max_nesting each change what generate writes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # JSON.generate's option surface is ignored wholesale: indent/object_nl/
       # array_nl/space (so pretty_generate != generate with those opts),
       # space_before, ascii_only (must \u-escape), script_safe (must escape /),
@@ -376,7 +376,7 @@ describe "JSON programs" do
   end
 
   it "dump takes a depth limit and an IO, and load takes nil, a proc and allow_nan:" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # JSON.dump/load surface: dump with a LIMIT raises ArgumentError beyond
       # it; dump to an IO WRITES to it (zeo returns "" and writes nothing --
       # silent data loss); load(nil) answers nil; load's proc argument visits
@@ -413,7 +413,7 @@ describe "JSON programs" do
   end
 
   it "input nested too deep raises JSON::NestingError, and max_nesting: bounds the parse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # JSON's depth control: too-deep input raises JSON::NestingError (a
       # distinct class rescue code depends on), and `max_nesting:` bounds the
       # parse. zeo raises ParserError with serde's text for the first and
@@ -440,7 +440,7 @@ describe "JSON programs" do
   end
 
   it "generate, parse and pretty_generate answer what ruby's json answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "json"
       puts JSON.generate({"a" => 1, "b" => [2, 3.5, nil, true]})
       puts JSON.parse('{"x":[1,2,3]}').inspect
@@ -460,7 +460,7 @@ describe "JSON programs" do
   end
 
   it "parse with freeze: true freezes the containers, the strings and the keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "json"
 
       a = JSON.parse('[1, "s", {"k": "v"}]', freeze: true)
@@ -479,7 +479,7 @@ describe "JSON programs" do
   end
 
   it "a document handed straight to parse stays rooted for the whole walk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The parser walks its input in place while allocating every container and
       # string it builds, so a document handed straight in -- `JSON.parse
       # File.read(path)`, or any expression whose result nothing else holds -- has to
@@ -528,7 +528,7 @@ describe "JSON programs" do
   end
 
   it "every hostile document answers a value or raises something a program can rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every hostile shape the JSON parser has to survive, as ANSWERS rather than
       # as a promise. The point of the file is that none of these ends the process:
       # each row is either a value or a Ruby exception, and the golden pins which.
@@ -781,7 +781,7 @@ describe "JSON programs" do
   end
 
   it "-0 parses as Integer, and a trailing comma and a trailing comment are accepted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three parser rows where ruby's json is LOOSER or differently typed
       # than zeo's serde path: `-0` parses as INTEGER 0 (zeo: Float -0.0),
       # `allow_trailing_comma: true` admits `[1,]`, and trailing `// c` after
@@ -805,7 +805,7 @@ describe "JSON programs" do
   end
 
   it "tens of thousands of generated documents each answer or raise, and none ends the process" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The GENERATED half of the parser's safety net: tens of thousands of
       # inputs nobody wrote by hand, checked for the one property that matters at
       # this scale -- the program is still running afterwards.
@@ -963,7 +963,7 @@ describe "JSON programs" do
   end
 
   it "a generate and parse round trip holds, and symbolize_names: keys the result by symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The json extension links into the binary: generation and parsing both run
       # native code the link line has to carry.
       require "json"
@@ -989,7 +989,7 @@ describe "JSON programs" do
   end
 
   it "requiring json gives every object to_json, not only the JSON.generate entry point" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require "json"` gives every object a `#to_json`, not just the explicit
       # `JSON.generate`/`JSON.dump` entry points.
       require "json"
@@ -1036,7 +1036,7 @@ describe "JSON programs" do
   end
 
   it "native half still works through its ruby half" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Loading the Ruby half must not cost the native half: `require "strscan"`
       # resolves `crates/zeo-rt/ext/strscan/lib/strscan.rb`, which pulls the
       # native half in with `require "strscan.so"` -- CRuby's loader idiom.
@@ -1057,7 +1057,7 @@ describe "JSON programs" do
   end
 
   it "poly each returns receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `each` answers the receiver, and a boxed receiver is no different -- but the
       # call was typed only when the analyzer could prove the value carried a
       # container, so a JSON.parse result (a native call returning an untyped value)
@@ -1111,7 +1111,7 @@ describe "JSON programs" do
   end
 
   it "probe roundtrip" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1451,7 +1451,7 @@ describe "JSON programs" do
   end
 
   it "require in conditional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` is a compile-time directive in Spinel; one that survives into
       # codegen -- indented inside an `if`, a method body, or used in value position
       # -- is a runtime no-op rather than an "unsupported CallNode" hard error.
@@ -1474,7 +1474,7 @@ describe "JSON programs" do
   end
 
   it "require modifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare-string `require` followed by a trailing modifier (`rescue`,
       # `if`, ...) used to strand the modifier during require preprocessing and
       # produce a parse error ("unexpected 'rescue'"). The require now degrades
@@ -1497,7 +1497,7 @@ describe "JSON programs" do
   end
 
   it "require same line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Regression for #1150 bug 1: `require "x"; code` on one line truncated the
       # trailing code (the whole line was replaced). The code after the require
       # must survive.
@@ -1509,7 +1509,7 @@ describe "JSON programs" do
   end
 
   it "require unsupported lib" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` of a natively-provided lib (json) is a no-op and the module still
       # works (under SPINEL_REQUIRE_GATE the require also records the feature, enabling
       # JSON). An unsupported stdlib like tmpdir would instead be a compile-time
@@ -1523,7 +1523,7 @@ describe "JSON programs" do
   end
 
   it "require works in non top level positions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "ostruct" if RUBY_VERSION
       def make_struct
         require "ostruct"
@@ -1557,7 +1557,7 @@ describe "JSON programs" do
   end
 
   it "resumable parser takes its source in pieces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # JSON::ResumableParser takes its source in pieces: a token a piece cuts
       # is read again once the rest comes, partial_value closes the containers
       # still open, and each whole document waits in value.
@@ -1638,7 +1638,7 @@ describe "JSON programs" do
   end
 
   it "user to json nested" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A user object nested in a JSON structure is rendered by inspect rather
       # than its own to_json.

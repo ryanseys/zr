@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: changing in place" do
   it "appends and splices keep what a scan found only while it holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `<<` and `bytesplice` keep a String's known-ASCII state across a change
       # of plain ASCII, and lose it for a byte past ASCII: ascii_only?, index
       # and the encoding answer from the bytes as they are after each change.
@@ -82,7 +82,7 @@ describe "String: changing in place" do
   end
 
   it "array op assign concat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr += other` on a typed array local — operator-assignment with `+`,
       # which is `arr = arr + other` (a fresh concatenation). Previously only
       # Int/Float/String/object locals had an op-assign path; a typed array
@@ -132,7 +132,7 @@ describe "String: changing in place" do
   end
 
   it "array sum concat init" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#sum with a String or Array initial value folds by concatenation.
       p ["a", "b", "c"].sum("")
       p ["b", "c"].sum("a:")
@@ -153,7 +153,7 @@ describe "String: changing in place" do
   end
 
   it "class shovel self attr accessor backs onto class level ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class << self; attr_accessor :x; end` is THE idiomatic way to declare
       # class-level state, and it works by generating `def self.x; @x; end` --
       # so it only works once class-level `@x` has real storage.
@@ -189,7 +189,7 @@ describe "String: changing in place" do
   end
 
   it "concat boxed source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A boxed source for #concat: the element read out of a poly array is an array
       # at run time, and reading it as the receiver's C type did not compile (#3850).
       g = [[1, 2], [3, 4]]
@@ -213,7 +213,7 @@ describe "String: changing in place" do
   end
 
   it "concat chain operand gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A chained string concat `a + b + c` lowers to sp_str_concat3 (and
       # `a+b+c+d` to sp_str_concat4). The operands must be rooted before the
       # call: argument evaluation order is unspecified, so a fresh GC string
@@ -241,7 +241,7 @@ describe "String: changing in place" do
   end
 
   it "concat print poly unbox" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Conditional-assign of a poly value (e.g. nullable hash lookup
       # fused with a nil-guard fallback) leaves the local typed sp_RbVal
       # even when both branches produce strings. Downstream concat and
@@ -373,7 +373,7 @@ describe "String: changing in place" do
   end
 
   it "concat source evaluated once" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $calls = 0
 
       def src
@@ -422,7 +422,7 @@ describe "String: changing in place" do
   end
 
   it "element assignment splices in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = +"héllo wörld"
       s[1] = "E"; p s
       s[0, 3] = "日本"; p s, s.encoding, s.valid_encoding?
@@ -478,7 +478,7 @@ describe "String: changing in place" do
   end
 
   it "empty parens are nil and concat snapshots its sources" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `()` is nil (falsy as a condition, a nil value in expression position);
       # `Array#concat` copies all sources before appending, so a self-aliasing
       # `a.concat(a, a)` terminates at 6 elements rather than feeding itself.
@@ -502,7 +502,7 @@ describe "String: changing in place" do
   end
 
   it "hash default array fetch concat wave9" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash store/default reader+writer/Hash.new(default) literal folds,
       # Array concat value form, fetch with default or block, repeated_permutation.
       p({ a: 1 }.store(:b, 2))
@@ -582,7 +582,7 @@ describe "String: changing in place" do
   end
 
   it "incompatible concatenation raises the compatibility error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two differently-encoded NON-7-bit strings; CRuby's exact message,
       # receiver's encoding first in its `inspect` form. `<<` past 255 on a
       # byte-encoded receiver is the RangeError, not a promotion.
@@ -612,7 +612,7 @@ describe "String: changing in place" do
   end
 
   it "poly concat chain rooted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A chained poly `+` whose later operand allocates.
       #
       # `a + b + c` on poly operands compiles to sp_poly_add(sp_poly_add(a, b), c).
@@ -677,7 +677,7 @@ describe "String: changing in place" do
   end
 
   it "str append accumulator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An append accumulator -- a string local appended to inside a loop -- rides
       # the growable handle so each `<<` is amortized O(1) rather than a copy of the
       # whole accumulation. The representation change must be invisible: what these
@@ -770,7 +770,7 @@ describe "String: changing in place" do
   end
 
   it "str array min max" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#min / #max / #minmax (no block) on String arrays, by String#<=> (byte
       # comparison). Previously rejected for String arrays while Integer/Float arrays
       # worked. Receivers route through a per-kind identity method so the typed
@@ -823,7 +823,7 @@ describe "String: changing in place" do
   end
 
   it "str chomp paragraph mode" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#chomp edge cases: no-arg strips ONE separator,
       # paragraph mode (chomp("")) strips trailing \r\n/\n sequences
       # but not standalone \r.
@@ -856,7 +856,7 @@ describe "String: changing in place" do
   end
 
   it "str concat raise operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String-returning method unresolved on a poly value, used as a String#+
       # operand, must raise NoMethodError at run time -- not fail C compilation with a
       # sp_RbVal-into-const-char* mismatch (#2457 Family 2).
@@ -884,7 +884,7 @@ describe "String: changing in place" do
   end
 
   it "str str hash nullable bracket assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Silent-elision regression: `<str_str_hash?>[k] = v` previously
       # fell through every arm of compile_bracket_assign with no emit, so
       # the assignment vanished. The two missing entry points were the
@@ -936,7 +936,7 @@ describe "String: changing in place" do
   end
 
   it "<< through a helper grows the receiver, an ivar buffer included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fill(str, n)
         n.times { |i| str << "ab" << i.to_s }
         str
@@ -1007,7 +1007,7 @@ describe "String: changing in place" do
   end
 
   it "gsub!, sub!, tr!, delete! and slice! change the receiver in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-place gsub!/sub!/tr!/delete!/slice! reassign the transformed value
       # (statement position; the nil-when-unchanged return is not modeled, like
       # the other bang methods).
@@ -1050,7 +1050,7 @@ describe "String: changing in place" do
   end
 
   it "upcase! answers nil when nothing changed, and sum and chr read the bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "abc"; p s.upcase!; p s; p s.upcase!
       t = "  hi  "; t.strip!; p t
       u = "hello"; u.reverse!; p u
@@ -1074,7 +1074,7 @@ describe "String: changing in place" do
   end
 
   it "a bang mutator on an empty string answers the receiver, not nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (+"").reverse!
       p (+"").succ!
       p (+"").next!
@@ -1090,7 +1090,7 @@ describe "String: changing in place" do
   end
 
   it "chomp! writes back to the receiver, and a frozen literal raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #859: String#chomp! on a mutable_str mutates in place.
       # Pre-fix, chomp! was a no-op (recursed into chomp which produces
       # a new string but doesn't write back to the receiver).
@@ -1122,7 +1122,7 @@ describe "String: changing in place" do
   end
 
   it "concat takes any number of arguments, and an Integer appends its codepoint" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "a"
       s.concat("b", "c", "d")
       puts s
@@ -1144,7 +1144,7 @@ describe "String: changing in place" do
   end
 
   it "concat mixes strings and codepoints, and no argument at all is a no-op" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#concat accepts any number of arguments (appended left to right);
       # `<<` is the single-argument operator spelling.
       s = "a"
@@ -1179,7 +1179,7 @@ describe "String: changing in place" do
   end
 
   it "lines splits on a given separator, and prepend inserts every argument in order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#lines / #each_line take an optional separator and a chomp: keyword.
       p "one\ntwo\nthree".lines
       p "one\ntwo\nthree".lines(chomp: true)
@@ -1207,7 +1207,7 @@ describe "String: changing in place" do
   end
 
   it "lines with chomp: strips a CRLF, and each_line yields the same lines to a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "a\nb\nc".lines
       p "a\nb\nc".lines(chomp: true)
       p "a\r\nb\r\nc\r\n".lines(chomp: true)
@@ -1231,7 +1231,7 @@ describe "String: changing in place" do
   end
 
   it "strip nul" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # strip/lstrip/rstrip remove the NUL byte (CRuby strips "\0\t\n\v\f\r ").
       # Embedded NUL needs a heap string (literals truncate at \0); build via pack.
       s = [0, 104, 105, 0].pack("C*")          # "\0hi\0"
@@ -1260,7 +1260,7 @@ describe "String: changing in place" do
   end
 
   it "volatile strip skips coerced arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #700 secondary shape: cast_away_volatile_arg was wrapping a
       # coerced call-arg value with the LV's declared type, producing
       # `(sp_SymPolyHash *)sp_StrPolyHash_from_sym_poly_hash(lv_form_attrs)`
@@ -1297,7 +1297,7 @@ describe "String: changing in place" do
   end
 
   it "appends a code point without cutting a String to hold it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s << byte` writes the byte where it goes when the receiver's
       # characters are bytes, and spells a code point in UTF-8 when they are
       # not. rb_str_concat keeps the plain-ASCII flag, turns a US-ASCII

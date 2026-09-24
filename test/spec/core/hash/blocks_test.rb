@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: blocks and yields" do
   it "block forward hash iterators" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fwd_map(&b)   = ({ a: 1, b: 2 }).map(&b)
       def fwd_sel(&b)   = ({ a: 1, b: 2 }).select(&b)
       def fwd_rej(&b)   = ({ a: 1, b: 2 }).reject(&b)
@@ -47,7 +47,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "empty hash block result key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty `{}` local whose `[]=` key is a block's return value.
       #
       # The key-context pass runs during the fixpoint, where a key that is a block
@@ -157,7 +157,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "empty hash key through tap" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `tap` / `then` block parameter is another name for the call's own receiver,
       # so a key operation written through it says the same thing about the literal
       # that one written directly on it does. The rule that gives a bare `{}` the
@@ -218,7 +218,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "empty hash yield wrapper seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty {} passed as a yield-wrapper's accumulator seed: the callee builds
       # it through its block (acc = yield(acc, x)), so the param/return can't settle
       # from the wrapper body (the precise index-write widening can't reach it).
@@ -262,7 +262,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "fetch block supersedes default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby warns "block supersedes default value argument" wherever a `fetch`-like
       # takes BOTH a positional default and a block, and the block is the one that
       # wins. Six sites carry the same wording (`Hash#fetch`, `Array#fetch`,
@@ -331,7 +331,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "forwarded block stored" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $p007 = nil
       def store007(&b007); $p007 = b007; end
       def outer007(&b007); store007(&b007); end
@@ -367,7 +367,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "map, transform_values, select and reject take a block whatever the key and value types are" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash block methods (map / each_value / transform_values / select /
       # reject) across the typed-hash variants. sym_int variants already
       # worked; this fills in the str_int / sym_str / str_str arms that
@@ -402,7 +402,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "default_proc answers the Hash.new block as a Proc, or nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#default_proc wraps the stored Hash.new{} block as a first-class Proc
       # (nil for a hash without one); calling it drives the original block. Proc
       # inspect carries a heap address, so the pin checks nil-ness, callability,
@@ -449,7 +449,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "default_proc= takes a lambda and a miss then calls it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#default_proc= with a lambda literal (KieranP #2371)
       h = {}
       h.default_proc = ->(hh, k) { k.to_s }
@@ -474,7 +474,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "default_proc= answers the proc, the way any assignment answers its right side" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An assignment's value is the right-hand side: `h.default_proc = p` answers
       # the proc. Answering the hash put an sp_XHash* into a Proc* slot (#3833).
       h = {}
@@ -496,7 +496,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "default with a key runs the default block, and without one answers the stored default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#default(key) invokes the default_proc with (self, key) when the hash
       # was built with a block; default() with no key, or a value-default hash,
       # returns the stored default object.
@@ -517,7 +517,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "the block methods over an empty Hash answer empty" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block-taking methods on an empty hash (KieranP #2336)
       h = {}
       p(h.select { |k, v| true })
@@ -552,7 +552,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "fetch runs its block only on a miss" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h_si = { a: 1, b: 2 }
       puts h_si.fetch(:a) { 99 }
       puts h_si.fetch(:missing) { 99 }
@@ -604,7 +604,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "fetch yields the key it looked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#fetch(key) { |k| ... } yields the looked-up key to the block on a
       # miss; on a hit it returns the stored value and the block is not run.
       # (int-keyed hashes; the param is the int key.)
@@ -625,7 +625,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "the key fetch yields arrives as the Hash's own key type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#fetch(key) { |k| ... } yields the missing key to the block.
       # The block param must be typed as the hash's KEY type (sym / string /
       # int), not the default int, so block-body uses like k.to_s / k + "!"
@@ -677,7 +677,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "none? and one? take a block over an integer-keyed Hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#none? / #one? with a block on an Integer-keyed hash (KieranP #2346)
       p({ 1 => 10, 2 => 20 }.none? { |k, _v| k > 5 })
       p({ 1 => 10, 2 => 20 }.none? { |_k, v| v > 5 })
@@ -702,7 +702,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "merge resolves a conflicting key through its block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#merge with a conflict-resolution block. For colliding keys
       # the block sees (key, this-value, other-value); spinel's int
       # variant supports it.
@@ -723,7 +723,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "the conflict block sees the receiver's default for a key it does not hold" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#merge with a conflict block returns a fresh hash, which must inherit
       # the receiver's default value and default proc.
       left = { "a" => 1, "b" => "left" }
@@ -763,7 +763,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "min, max, min_by, max_by and find over the pairs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#min_by / #max_by / #find / #detect yield each |key, value| pair and
       # return the winning [key, value] pair (or nil when nothing qualifies). Each
       # helper is monomorphic (one hash variant) so the runtime walk is exercised
@@ -811,7 +811,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "a default block whose value is an empty container compiles and stores" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash.new with a block whose body assigns a container default used to
       # miscompile: the empty `[]`/`{}` literal infers as an untyped value, so the
       # emitted default-proc declared `void _t = sp_IntArray_new()`. The value is
@@ -854,7 +854,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "a default-block Hash keeps each key's own type through inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash.new { |h,k| ... } must preserve the key type on inspect: a symbol key
       # renders as `a:`, a string key as `"a"=>`, an integer key as `1=>`. The
       # default-block hash is polymorphic by nature, so keys round-trip faithfully.
@@ -914,7 +914,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "a default block ending in a write stores and answers the value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash.new with a default block whose final expression is a value-producing
       # `h[k] = v` must store and return the assigned value (Ruby: `(h[k]=v)` => v).
       h = Hash.new { |hash, k| hash[k] = 0 }
@@ -944,7 +944,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "default_proc is nil for a Hash built with a value rather than a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = (Hash.new(0).default_proc rescue $!.class); p r001
       p(Hash.new.default_proc)
       p(Hash.new("x").default_proc)
@@ -966,7 +966,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "a value default is not stored where a block default may store" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = Hash.new(0)
       h[:a] += 1
       h[:a] += 1
@@ -988,7 +988,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "select, reject and find take a block whose body is nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The nil-block-body family on a HASH receiver. The array arms were fixed with
       # the empty-block desugar (#4006), but a Hash reaches its own emitters, and
       # they had the same holes:
@@ -1055,7 +1055,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "||= through a subscript does not evaluate its right side for a key already there" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -1113,7 +1113,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "a one-parameter block takes the pair, except on select and reject which take the key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A SOLO block param on Hash Enumerables receives what CRuby yields it:
       # the [k, v] PAIR for each/each_pair/map/find/sort_by/group_by/sum (their
       # each yields one pair, auto-splat serves 2-param blocks), but the KEY for
@@ -1147,7 +1147,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "sum with no block needs a seed the pairs can add to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#sum without a block on a variable receiver: an empty hash returns the
       # init value (0 by default); a non-empty hash raises TypeError (init + [k,v]).
       h = {}
@@ -1169,7 +1169,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "keyword params on a block bind from a trailing yielded hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def emit
           yield x: 1, y: 2
@@ -1182,7 +1182,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "new forwarded block stored" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A forwarded `&proc` into a class whose `initialize` stores the block
       # (`def initialize(&blk); @blk = blk; end`) threads the proc value into the
       # constructor, and a later `@blk.call` returns the right value for every body
@@ -1274,7 +1274,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "stored block call returns value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block stored into an ivar (`@blk = blk`) is type-erased into a generic
       # sp_Proc*; a later `@blk.call` reads the boxed poly return slot
       # (_sp_proc_poly_ret). The block must therefore use the poly return ABI even
@@ -1300,7 +1300,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "struct to h block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct#to_h with a block yields each (member_symbol, value) pair and
       # builds a hash from the [k, v] arrays the block returns. Values are
       # asserted via key lookup rather than Hash#inspect so the test does not
@@ -1348,7 +1348,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "struct to h block composite" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P001 = Struct.new(:x, :y)
       p(P001.new(1, 2).to_h { |k001, v001| [k001, [v001]] })
       P002 = Struct.new(:a)
@@ -1372,7 +1372,7 @@ describe "Hash: blocks and yields" do
   end
 
   it "struct to h block key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct#to_h { |k, v| [nk, nv] } whose new key is neither a Symbol nor a
       # String fell back to a string-keyed hash, so the key went into a const char *
       # slot and the C did not compile.

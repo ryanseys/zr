@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: control flow" do
   it "ackermann" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def ack(m, n)
         if m == 0
           n + 1
@@ -22,7 +22,7 @@ describe "Methods: control flow" do
   end
 
   it "class method int table arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A namespace module whose methods are all `self.` ones passes a table of int
       # arrays between two of them. Emission resolves `M.consume(...)` through the
       # class-method chain, so the narrowing pass has to resolve it the same way --
@@ -55,7 +55,7 @@ describe "Methods: control flow" do
   end
 
   it "fib" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def fib(n)
         if n < 2
           n
@@ -70,7 +70,7 @@ describe "Methods: control flow" do
   end
 
   it "module singleton new user method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `module M; def self.new(x); ...; end; end` defines a user-level
       # class method, NOT a constructor (modules can't be instantiated).
       # Pre-fix the call `M.new(args)` hit compile_constructor_expr's
@@ -100,7 +100,7 @@ describe "Methods: control flow" do
   end
 
   it "nonlocal return from proc unwinds the home method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-lambda Proc's `return` returns from its creating method (live
       # home), including through builtin iterators and `yield`; a lambda's is
       # local.
@@ -145,7 +145,7 @@ describe "Methods: control flow" do
   end
 
   it "param inference if predicate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #314 (A): `infer_cls_meth_param_from_body`'s walker missed
       # IfNode predicates and else-branches when collecting param method
       # usages, leaving the param at the "int" default and routing
@@ -246,7 +246,7 @@ describe "Methods: control flow" do
   end
 
   it "splat return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `return *x` returns the splat-to-array of x: a scalar wraps in a one-element
       # array, an array stays itself, nil becomes []. Spinel previously emitted C
       # whose return type (the splat's element type) conflicted with the array value.
@@ -301,7 +301,7 @@ describe "Methods: control flow" do
   end
 
   it "tak" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def tak(x, y, z)
         if y < x
           tak(tak(x - 1, y, z), tak(y - 1, z, x), tak(z - 1, x, y))

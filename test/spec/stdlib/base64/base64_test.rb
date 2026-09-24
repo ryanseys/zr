@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Base64 programs" do
   it "encode64 wraps at sixty characters, strict_encode64 does not, and every decoder is the inverse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "base64"
 
       puts Base64.encode64("hello world")
@@ -29,7 +29,7 @@ describe "Base64 programs" do
   end
 
   it "feature with no ruby half falls through to the static ext table" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A feature with no Ruby half falls through to the static-ext table, which is
       # the ordinary case for most extensions.
 
@@ -41,7 +41,7 @@ describe "Base64 programs" do
   end
 
   it "gated constant appears at its require" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A require-gated builtin's CONSTANT does not exist until its `require` runs.
       # zeo registers the class for the whole program (a feature no file requires
       # registers nothing at all), and `HirNode::FeatureLoaded` reveals it at the
@@ -91,7 +91,7 @@ describe "Base64 programs" do
   end
 
   it "in tree base64 over two args raises argument error at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The in-tree Base64 ext checks arity at runtime (a rescuable
       # ArgumentError) via `arity!`.
 
@@ -107,7 +107,7 @@ describe "Base64 programs" do
   end
 
   it "pack base64" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#pack base64 ("m") and quoted-printable ("M") directives.
 
       # m0: single base64 string, "=" padding, no line breaks
@@ -170,7 +170,7 @@ describe "Base64 programs" do
   end
 
   it "pack base64 count controls wrapping" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `m0` is one unbroken run with no trailing newline (RFC 4648); a bare `m`
       # wraps at 45 input bytes / 60 columns with a trailing newline; empty
       # input yields "" for both.
@@ -194,7 +194,7 @@ describe "Base64 programs" do
   end
 
   it "random seed range base64 pad" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Random.new auto-seeding (two instances differ), Random#rand(Range), and
       # Base64.urlsafe_encode64's padding: keyword.
       require "base64"
@@ -242,7 +242,7 @@ describe "Base64 programs" do
   end
 
   it "require of a builtin feature works from any position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `require` of a natively-provided feature is a compile-time act, so it
       # works from any position -- and it has CRuby's real return value, true the
       # first time and false thereafter (`load.c:1413`).
@@ -271,7 +271,7 @@ describe "Base64 programs" do
   end
 
   it "require positions and paths" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `require` behaviors that follow from CRuby's load.c, in the two places
       # zeo's compile-time resolver used to reject outright.
 
@@ -333,7 +333,7 @@ describe "Base64 programs" do
   end
 
   it "sp crypto basic" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ported from spinel's bundled sp_crypto.c FFI surface. Those C symbols are
       # spinel-private, so the port keeps the same deterministic vectors through
       # Ruby's own primitives: HMAC-SHA256 built from Digest::SHA256 (RFC 2104
@@ -398,7 +398,7 @@ describe "Base64 programs" do
   end
 
   it "sp crypto sha1" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ported from spinel's bundled sp_crypto.c SHA-1 FFI surface. Those C
       # symbols are spinel-private, so the port keeps the same deterministic
       # vectors through Digest::SHA1 + Base64.
@@ -428,7 +428,7 @@ describe "Base64 programs" do
   end
 
   it "nil and a boolean in an Integer slot raise with the from-nil wording" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -530,7 +530,7 @@ describe "Base64 programs" do
   end
 
   it "an rb_to_int slot raises with the of-nil wording instead" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -577,7 +577,7 @@ describe "Base64 programs" do
   end
 
   it "nil, a boolean and a wrong class in a String slot each raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -642,7 +642,7 @@ describe "Base64 programs" do
   end
 
   it "a slot expecting a pattern raises with the wrong-argument-type wording" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -701,7 +701,7 @@ describe "Base64 programs" do
   end
 
   it "the Array-operand slots raise for an operand they cannot convert" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -742,7 +742,7 @@ describe "Base64 programs" do
   end
 
   it "a MatchData index raises for a value it cannot convert" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -784,7 +784,7 @@ describe "Base64 programs" do
   end
 
   it "the native bindings and the module functions check their slots too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -840,7 +840,7 @@ describe "Base64 programs" do
   end
 
   it "a slot where CRuby accepts nil goes on accepting it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -887,7 +887,7 @@ describe "Base64 programs" do
   end
 
   it "a named-capture match against a nil subject, and fill's negative length, each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message
@@ -941,7 +941,7 @@ describe "Base64 programs" do
   end
 
   it "super(nil) into a builtin exception keeps CRuby's class-named message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
       # Four rules, each spelled where CRuby spells it: a `Check_Type` message

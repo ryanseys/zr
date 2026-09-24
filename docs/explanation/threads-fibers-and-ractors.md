@@ -1,6 +1,6 @@
 # Threads, fibers and ractors
 
-This page explains how ze0 runs concurrent Ruby code, and why every
+This page explains how zr runs concurrent Ruby code, and why every
 kind of concurrency runs on one kind of task.
 
 ## One building block: the task
@@ -9,9 +9,9 @@ A *task* is a machine stack with its own Ruby state: the frame chain,
 the pending signal, the thread and fiber locals. A switch between two
 tasks is a small stub, `zr_switch`, that saves the callee-saved
 registers and the stack pointer of one task and loads those of the
-other. It is machine code that ze0's own assembler writes.
+other. It is machine code that zr's own assembler writes.
 
-Ruby frames are native frames in ze0, so a task's stack must be large:
+Ruby frames are native frames in zr, so a task's stack must be large:
 10,000 frames of a plain method need about 36 MiB. The stack is
 reserved in full, and the OS gives it pages only as it grows.
 

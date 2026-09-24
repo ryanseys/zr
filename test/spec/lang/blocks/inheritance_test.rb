@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: inheritance and ancestors" do
   it "bare super in a block forwards the methods block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `super` written inside a BLOCK forwards the enclosing method's block
       # to the parent, exactly as one written directly in the method body does.
       # zeo forwards the method's PARAMETERS through this shape correctly -- see
@@ -70,7 +70,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "bare super inside a block forwards the methods params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `super` forwards the enclosing method's parameters as currently
       # bound. Inside a BLOCK that is invisible to any walk of the block's own
       # syntax: the forwarding argument list is synthesized when the call is emitted,
@@ -169,7 +169,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "include inside a class new block mixes the module at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class.new { include M }` mixes M's instance methods into the runtime
       # class's ancestry, so instances dispatch them (and reflection sees M).
       # Last-included wins on a name collision, matching CRuby's ancestry.
@@ -201,7 +201,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "lambda inference chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Stress test: lambda parameter inference through a chain of top-level
       # methods. infer_lambda_param_types runs a fixed-point loop that
       # discovers `g`-as-lambda one hop at a time: f1's g is detected from
@@ -249,7 +249,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "runtime super in blocks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `super` inside a method defined in a NON-const `Struct.new` / `Data.define`
       # block, or a `Class.new` block, resolves at runtime (#192): the class is minted
       # at runtime, so there is no compile-time defining class to splice -- `super`
@@ -302,7 +302,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "super forward block given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bare `super` (implicit argument forwarding) inside a `block_given?` branch.
       # When a method body references block_given?, calling it with a block inlines
       # the body and renames the param locals for the capture context; bare super's
@@ -367,7 +367,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "super forwards positional splat double splat and block pass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super(first, *rest)`, `super(**opts)`, and `super(*args, &block)` all
       # forward through the runtime arg vector -- the splat/double-splat/block-
       # pass shapes a plain call carries, now available at a `super` site too.
@@ -396,7 +396,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "super into yielding parent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `super` reaching a parent that yields. A yielding method has no standalone
       # function -- it is inlined at every call site -- so the child has to be
       # inlined too, carrying its caller's block down to the parent. Before this the
@@ -520,7 +520,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "super with a literal block drives the parents yield" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Parent
         def run
           yield
@@ -550,7 +550,7 @@ describe "Blocks: inheritance and ancestors" do
   end
 
   it "toplevel extend block param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A module method declaring &block, reached through a top-level extend, is
       # called with the block argument: it used to be dropped, and the emitted C
       # did not compile (#3803).

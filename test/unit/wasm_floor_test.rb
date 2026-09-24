@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/backend/wasm"
+require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/backend/wasm"
 
 # A libc call with no wasm form does not stop the build: the module
 # carries a function of that name which stops by name when it is called
@@ -21,7 +21,7 @@ require_relative "../../lib/ze0/backend/wasm"
 # all, so all 54 of ProgramsTest's wasm rows exited 134 before their
 # first line. The whole tier found it. This finds it in a second.
 class WasmFloorTest < Minitest::Test
-  TARGET = Ze0::Target.fetch("wasm32-wasi")
+  TARGET = Zr::Target.fetch("wasm32-wasi")
 
   # What runs whatever the program is: the heap as it starts, as it
   # hands out a cell, and as it collects.
@@ -60,7 +60,7 @@ class WasmFloorTest < Minitest::Test
 
       seen[f.name] = true
       f.callees.each do |c|
-        next if c.from || Ze0::Backend::Wasm.floor.include?(c.symbol)
+        next if c.from || Zr::Backend::Wasm.floor.include?(c.symbol)
 
         by_name.key?(c.symbol) ? queue << c.symbol : found << [c.symbol, f.name]
       end
@@ -73,6 +73,6 @@ class WasmFloorTest < Minitest::Test
   # is named, so a build anywhere earlier in the process would leave
   # this test no call graph to walk.
   def by_name
-    @by_name ||= Ze0::Zr::Runtime.new(TARGET).functions.to_h { |f| [f.name, f] }
+    @by_name ||= Zr::Zr::Runtime.new(TARGET).functions.to_h { |f| [f.name, f] }
   end
 end

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: changing in place" do
   it "clear answers the emptied array in expression position, whatever its element kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#clear in expression position was only implemented for
       # poly_array; on a typed array (`[1,2,3].clear`) it fell through to the
       # unresolved-call path, returning int 0 and mis-typing the result. The
@@ -48,7 +48,7 @@ describe "Array: changing in place" do
   end
 
   it "rfind, fetch_values, try_convert, deconstruct and the prepend and append aliases answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array conformance: rfind, fetch_values (+IndexError), Array.try_convert,
       # empty-literal sample, deconstruct/to_ary identity, prepend/append aliases.
       p [1, 2, 3, 4].rfind { |x| x.even? }
@@ -90,7 +90,7 @@ describe "Array: changing in place" do
   end
 
   it "eql? and uniq are class-strict, and an array compares 0 with itself without deadlock" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # insert past the end pads with nil; eql?/uniq are class-strict (1 != 1.0);
       # <=> of an array with itself (incl. a cycle) is 0 without deadlock.
       #
@@ -122,7 +122,7 @@ describe "Array: changing in place" do
   end
 
   it "insert with no values leaves the array alone, whatever its element kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2, 3].insert(1)
       w = [1, 2, 3].insert(1); p w
       p [1, 2, 3].insert(1, 9)
@@ -143,7 +143,7 @@ describe "Array: changing in place" do
   end
 
   it "insert past the end pads the gap with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#insert beyond the length pads with nils like CRuby, on typed
       # int/str arrays (nil sentinel / NULL) and poly arrays.
       b = [1, 2, 3]
@@ -169,7 +169,7 @@ describe "Array: changing in place" do
   end
 
   it "append and prepend widen the local when the value its element kind cannot hold arrives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#append / #prepend are exact aliases for #push / #unshift. Pushing or
       # prepending a value a typed-array local cannot hold (e.g. nil onto an int
       # array) must widen the local to a poly array, same as #push / #unshift --
@@ -215,7 +215,7 @@ describe "Array: changing in place" do
   end
 
   it "capturing a self-returning mutator that widens reads the receiver at its new layout" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Capturing a self-returning Array mutator that widens the element type
       # (#3523): the receiver widened to a poly array and the capture kept the
       # pre-widening type, so it read the same object at the wrong layout.
@@ -263,7 +263,7 @@ describe "Array: changing in place" do
   end
 
   it "rotate! turns every element kind, wrapping counts and the empty and single-element edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rotate! over every element kind, including the wrap-around counts and the
       # empty / single-element edges: the block-move form has to agree with the
       # rotation it replaced.
@@ -319,7 +319,7 @@ describe "Array: changing in place" do
   end
 
   it "select!, filter!, keep_if, reject! and delete_if filter in place and answer the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#select! / #filter! / #keep_if / #reject! / #delete_if filter the
       # array in place and return the receiver. Elements keep their type.
       a = [1, 2, 3, 4, 5]
@@ -369,7 +369,7 @@ describe "Array: changing in place" do
   end
 
   it "element site reads and writes in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `a[i]` and `a[i] = v` with a fixnum index in range are read and written
       # in place at the site; every other case still reaches Array's methods, and
       # a redefinition of `[]`, `[]=`, `/` or `%` turns the site back into a call.
@@ -451,7 +451,7 @@ describe "Array: changing in place" do
   end
 
   it "int array uniq bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#uniq! on int_array — mutates in place. Returns the
       # receiver (CRuby returns self when something was removed and nil
       # otherwise; the typed int_array can't carry nil so we always
@@ -477,7 +477,7 @@ describe "Array: changing in place" do
   end
 
   it "reverse bang reverses in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reverse! swaps the elements where they are and answers the receiver;
       # reverse, reverse_each and a subclass read a plain reversed copy.
       a = [1, 2, 3, 4, 5]

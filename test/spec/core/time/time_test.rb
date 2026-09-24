@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Time programs" do
   it "allocated time is uninitialized" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Time.allocate` answers a Time whose instant was never set, and every row
       # that reads the instant refuses it -- CRuby's `uninitialized Time`.
       #
@@ -67,7 +67,7 @@ describe "Time programs" do
   end
 
   it "compile time define method direct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class CompileTimeDirectDefineMethod
         define_method(:answer) { 42 }
         define_method("greeting") { "hello" }
@@ -82,7 +82,7 @@ describe "Time programs" do
   end
 
   it "compile time define method int" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class CompileTimeIntMethods
         [1, 2].each do |n|
           define_method("value_#{n}") { n }
@@ -98,7 +98,7 @@ describe "Time programs" do
   end
 
   it "compile time define method strings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class CompileTimeStringMethods
         ["red", "blue"].each do |name|
           define_method("label_#{name}") { name }
@@ -114,7 +114,7 @@ describe "Time programs" do
   end
 
   it "cond poly truthy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # a Range value is always truthy in condition position
       def range_truthy(r) = r ? "yes" : "no"
       puts range_truthy(1..3)
@@ -165,7 +165,7 @@ describe "Time programs" do
   end
 
   it "every eval is a run time one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal `eval("...")` was once SPLICED: parsed at compile time and run
       # as ordinary code in the enclosing scope. That was an optimization with a
       # price, and every part of the price is visible from Ruby -- `__FILE__` and
@@ -227,7 +227,7 @@ describe "Time programs" do
     files = beside("never_saw/boom.rb", "never_saw/cycle_a.rb", "never_saw/cycle_b.rb", "never_saw/deep/inner.rb",
                    "never_saw/top.rb")
 
-    result = ze0(<<~'RUBY', files: files)
+    result = zr(<<~'RUBY', files: files)
       # A file the compiler never saw is compiled and run where it is FOUND.
       #
       # Whole-program AOT resolves an ordinary `require` at compile time and
@@ -315,7 +315,7 @@ describe "Time programs" do
   end
 
   it "have i got this library constant is decided at compile time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `CONST = begin; require "x"; true; rescue LoadError; end` reads like a
       # runtime value and is not one: a whole-program compiler already knows which
       # requires it can satisfy. hexapdf gates a whole file on `HARFBUZZ_AVAILABLE`
@@ -380,7 +380,7 @@ describe "Time programs" do
   end
 
   it "keeps a float epoch exactly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Float epoch is stored EXACTLY (Ruby keeps the double's true rational,
       # denominator a power of two), and `nsec` is a TRUNCATED VIEW of it. This is
       # observable: `Time.at(10.8) - 0.9` is nsec 900000000, which a `(sec, nsec)`
@@ -412,7 +412,7 @@ describe "Time programs" do
   end
 
   it "kernel callee putc and public method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def who = [__method__, __callee__]
       p who
       putc 72
@@ -449,7 +449,7 @@ describe "Time programs" do
   end
 
   it "numeric and time fractional and rounding coercions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Correctness fixes: Time.utc/local accept a fractional-microsecond 7th
       # argument (Float/Rational) and keep the sub-microsecond nanoseconds;
       # Rational#round honors the `half:` keyword (:up/:even/:down); Float
@@ -488,7 +488,7 @@ describe "Time programs" do
   end
 
   it "poly hash with time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same heap-box pattern as Range applied to Time. sp_Time is wider
       # than sp_RbVal's union (8 bytes), so a Time value in a poly slot
       # (heterogeneous hash / array) used to fall through
@@ -536,7 +536,7 @@ describe "Time programs" do
   end
 
   it "proc range time return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc/lambda returning a Range or Time (by-value structs that don't fit the
       # mrb_int proc-ABI carrier) boxes through the poly return slot; the call site
       # dereferences the boxed heap copy back to the value. Step-ranges (downto)
@@ -568,7 +568,7 @@ describe "Time programs" do
   end
 
   it "putc writes one byte of an integer and one character of a string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `0x1B4` truncates to its low byte; a BINARY string contributes its
       # first BYTE (never a UTF-8 promotion of it).
 
@@ -582,7 +582,7 @@ describe "Time programs" do
   end
 
   it "regexp introspection linear time and class backrefs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # linear_time? is false only for a real (non-class) backreference. A
       # `\1`/`\k` INSIDE a character class is octal/literal, not a backref, and
       # must compile; a forward backref (`/[\]]\1(a)/`) constructs (never matches).
@@ -610,7 +610,7 @@ describe "Time programs" do
   end
 
   it "regexp linear time value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(Regexp.linear_time?(/(a)\1/))
       a001 = /(a)\1/; p(Regexp.linear_time?(a001))
       p(Regexp.linear_time?("(a)\\1"))
@@ -630,7 +630,7 @@ describe "Time programs" do
   end
 
   it "reports its dst flag" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Time#isdst`/`#dst?` report the broken-down time's DST flag; a UTC time is
       # never in DST.
 
@@ -643,7 +643,7 @@ describe "Time programs" do
   end
 
   it "require of a boot preloaded feature is false even the first time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `set` and `monitor` are already loaded before a CRuby program's first
       # line, so even their FIRST require answers false.
 
@@ -655,7 +655,7 @@ describe "Time programs" do
   end
 
   it "the argument's type picks: plus a number is a Time, minus a Time is a Float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `t + n` answers a Time; `t - other_time` answers a Float of seconds; `t -
       # n` answers a Time. The argument's type picks.
 
@@ -677,7 +677,7 @@ describe "Time programs" do
   end
 
   it "asctime and ctime print the same fixed-width form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.asctime
       p t.ctime
@@ -690,7 +690,7 @@ describe "Time programs" do
   end
 
   it "asctime, to_a, to_r, round, xmlschema and deconstruct_keys over one instant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.at(1_700_000_000.5).utc
       puts t.asctime
       p t.to_a
@@ -711,7 +711,7 @@ describe "Time programs" do
   end
 
   it "Time.at refuses a Hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         Time.at({})
       rescue TypeError => e
@@ -723,7 +723,7 @@ describe "Time programs" do
   end
 
   it "Time.at takes in: as the display offset without shifting the instant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Time.at(epoch, in: offset)` attaches a display utc_offset to the
       # absolute instant (no shift, unlike Time.new's local components).
 
@@ -740,7 +740,7 @@ describe "Time programs" do
   end
 
   it "Time.at with in: shows the same instant at the named offset" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.at(0, in: "+09:00").utc_offset
       p Time.at(0, in: "-05:00").utc_offset
       p Time.at(1_600_000_000, in: "+09:00").hour
@@ -754,7 +754,7 @@ describe "Time programs" do
   end
 
   it "Time.at takes the unit of its fractional argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time.at with a unit-scaled fractional second (:millisecond/:microsecond/
       # :nanosecond); the default unit is microseconds.
       p Time.at(0, 500, :millisecond).to_f
@@ -789,7 +789,7 @@ describe "Time programs" do
   end
 
   it "Time.at takes the sub-second part as microseconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.at(1_600_000_000, 500_000).usec
       p Time.at(0, 500_000).subsec
       p Time.at(100, 250_000).nsec
@@ -803,7 +803,7 @@ describe "Time programs" do
   end
 
   it "between? and clamp order Times" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 1, 1); a = Time.utc(2000, 1, 1); b = Time.utc(2030, 1, 1)
       p t.between?(a, b)
       p t.clamp(a, b).year
@@ -813,7 +813,7 @@ describe "Time programs" do
   end
 
   it "a civil field outside its range raises, and one that overflows rolls forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Out-of-range civil fields raise ArgumentError; in-range values that
       # overflow (Feb 30, the 23:59:60 leap second) roll forward instead.
 
@@ -837,7 +837,7 @@ describe "Time programs" do
   end
 
   it "comparing a Time with anything else answers nil rather than raising" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p(t == 5); p(t != 5); p(t <=> 5); p(t == "x")
       a = Time.utc(2000,1,1); b = Time.utc(2030,1,1)
@@ -859,7 +859,7 @@ describe "Time programs" do
   end
 
   it "deconstruct_keys answers the fields it is asked for" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.deconstruct_keys([:year, :month, :day])
       p t.deconstruct_keys([:hour, :min, :sec])
@@ -869,7 +869,7 @@ describe "Time programs" do
   end
 
   it "Comparable falls out of <=>, and equality and hash go by instant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time includes Comparable, so the whole ordering surface falls out of
       # `<=>`. Equality is by INSTANT, so a Time equals its own UTC copy and they
       # hash alike (which is what makes a Time usable as a Hash key).
@@ -903,7 +903,7 @@ describe "Time programs" do
   end
 
   it "an out-of-range component names the field it was, and Time plus Time says so" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time's argument errors carry CRuby's exact texts: an out-of-range
       # component names the FIELD ("mon out of range", "mday out of range"), and
       # `Time + Time` says "time + time?". zeo answers generic messages. (Found
@@ -927,7 +927,7 @@ describe "Time programs" do
   end
 
   it "a fixed-offset Time has an offset but no zone name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fixed-offset Time has no zone NAME: CRuby answers nil where the empty
       # string the broken-down form leaves behind came back.
       p Time.utc(2020, 6, 15, 12, 0, 0).getlocal("+05:30").zone
@@ -953,7 +953,7 @@ describe "Time programs" do
   end
 
   it "the civil constructors take a Rational number of seconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.utc(2020, 1, 1, 0, 0, Rational(3, 2)).subsec
       p Time.utc(2020, 1, 1, 0, 0, Rational(3, 2)).sec
       p Time.local(2020, 1, 1, 0, 0, Rational(5, 4)).subsec
@@ -967,7 +967,7 @@ describe "Time programs" do
   end
 
   it "a hash pattern matches a Time through deconstruct_keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t001 = Time.utc(2024, 2, 29, 12, 0, 0)
       p t001.deconstruct_keys([:year])
       case t001
@@ -994,7 +994,7 @@ describe "Time programs" do
   end
 
   it "a Time read out of a container answers to_i, to_f and ==" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Time read back out of a container is a boxed value, and the poly readers
       # had no arm for it: to_i and to_f answered 0 and equality compared boxes.
       a = [Time.utc(2020, 1, 2)]
@@ -1042,7 +1042,7 @@ describe "Time programs" do
   end
 
   it "interpolating a Time calls the Time's own to_s" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Time interpolates via its own `to_s` -- it is an Object with a runtime
       # table, not a registry class, so `call_user_method` has to find the row.
 
@@ -1060,7 +1060,7 @@ describe "Time programs" do
   end
 
   it "interpolation prints a Time the way to_s does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time value in string interpolation calls #to_s (KieranP #2358)
       t = Time.at(0).utc
       puts "at '#{t}'"
@@ -1077,7 +1077,7 @@ describe "Time programs" do
   end
 
   it "Time.local reads the offset the named zone had at that instant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ENV["TZ"] = "America/Los_Angeles"
       p Time.local(0).utc_offset
       p Time.local(2024, 1, 1).utc_offset
@@ -1087,7 +1087,7 @@ describe "Time programs" do
   end
 
   it "mktime, local and utc are the three names of the civil constructors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time.mktime / Time.local / Time.utc — all three name the local
       # (and gm/utc) constructor. Time.now and Time.new were already
       # wired; this test covers the aliases plus the UTC variant that
@@ -1132,7 +1132,7 @@ describe "Time programs" do
   end
 
   it "the month may be a three-letter English abbreviation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Time.utc does not accept a month NAME ("feb") in the month position.
       #
@@ -1168,7 +1168,7 @@ describe "Time programs" do
   end
 
   it "Time.new takes in: as the offset, the same as the seventh positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time.new(..., in: <off>): the keyword is the utc_offset, like the 7th
       # positional (#2718). Literal "+HH:MM" resolves at compile time; an Integer
       # expression passes through; missing civil fields default.
@@ -1189,7 +1189,7 @@ describe "Time programs" do
   end
 
   it "Time.new takes a zone as a name, an offset string or a number of seconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.new(2020, 1, 1, 0, 0, 0, "UTC").utc?
       p Time.new(2020, 1, 1, 0, 0, 0, "Z").utc?
       p Time.new(2020, 1, 1, 0, 0, 0, "+0900").utc_offset
@@ -1214,7 +1214,7 @@ describe "Time programs" do
   end
 
   it "a negative Float epoch floors, so the sub-second part stays positive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A negative epoch floors: second -1 plus a POSITIVE sub-second remainder,
       # never second 0 minus half.
 
@@ -1231,7 +1231,7 @@ describe "Time programs" do
   end
 
   it "the civil constructors read a numeric string as a number" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.utc("2020", "3", "4").year
       p Time.utc("2020", "3", "4").month
       p Time.local("2021", "5").year
@@ -1245,7 +1245,7 @@ describe "Time programs" do
   end
 
   it "adding a Rational moves the sub-second part" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p (t + Rational(1, 2)).subsec
       p (t - Rational(1, 2)).subsec
@@ -1260,7 +1260,7 @@ describe "Time programs" do
   end
 
   it "the weekday predicates, eql? and getgm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)   # Thursday
       p t.sunday?; p t.thursday?; p t.saturday?
       p t.eql?(t); p t.eql?(Time.utc(2020,1,1)); p t.eql?(5)
@@ -1279,7 +1279,7 @@ describe "Time programs" do
   end
 
   it "respond_to? knows Time's own readers and no others" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.respond_to?(:no_such_method)
       p t.respond_to?(:succ)
@@ -1294,7 +1294,7 @@ describe "Time programs" do
   end
 
   it "round, floor and ceil with no argument answer whole seconds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Time.at(1.5).round.to_i
       p Time.at(1.9).floor.to_i
       p Time.at(1.1).ceil.to_i
@@ -1310,7 +1310,7 @@ describe "Time programs" do
   end
 
   it "round, floor and ceil refuse a negative digit count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Time#round with negative digits rounds where ruby raises ArgumentError.
       #
@@ -1338,7 +1338,7 @@ describe "Time programs" do
   end
 
   it "shifting a Time by anything but a number raises TypeError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time shifts by a number of seconds. Anything else is CRuby's TypeError; it
       # was read as an integer instead, so a String shifted the clock by zero and a
       # nil by whatever the slot held.
@@ -1366,7 +1366,7 @@ describe "Time programs" do
   end
 
   it "Time.new reads each part of a time string in base ten" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time.new reads each part of a time string in base ten, so 08 and 09
       # are the eighth and ninth, and its helpers leave no backtrace row and
       # no private method a program can list.
@@ -1398,7 +1398,7 @@ describe "Time programs" do
   end
 
   it "xmlschema prints the instant as an ISO 8601 UTC stamp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.xmlschema
     RUBY
@@ -1407,7 +1407,7 @@ describe "Time programs" do
   end
 
   it "utc, gmtime and localtime write back to the receiver where the get forms do not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Time#utc / #gmtime / #localtime mutate the receiver (#2637): sp_Time is a
       # value struct, so an lvalue receiver (local, ivar) takes a write-back
       # assignment. The get* flavors stay non-destructive. (Aliasing two variables to

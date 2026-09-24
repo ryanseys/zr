@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: searching and matching" do
   it "empty hash enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a005 = {}
       o005 = []
       a005.each_entry { |e005| o005 << e005 }
@@ -47,7 +47,7 @@ describe "Hash: searching and matching" do
   end
 
   it "map.with_index and each.with_index ride the pair array, and a nil-tailed block keeps its side effects" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # hash.map.with_index / hash.each.with_index interpose to_a and ride the
       # pair-array chain; a nil-typed block tail (puts) keeps its side effects
       # through the boxed collect (it used to be folded to a bare nil).
@@ -68,7 +68,7 @@ describe "Hash: searching and matching" do
   end
 
   it "(h[k] = v) mutates the hash and answers the assigned value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Expression-form hash `[]=`: Ruby's `(h[k] = v)` mutates the hash and
       # evaluates to the assigned value. Covers str / sym keys and int / string
       # values, including a poly-valued hash where the result keeps its scalar type.
@@ -105,7 +105,7 @@ describe "Hash: searching and matching" do
   end
 
   it "h[k] ||= a container picks the hash variant from the key, a parameter key included" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # h[k] ||= <container> picks the hash variant from the key, param keys included
       def build(k)
         h = {}
@@ -144,7 +144,7 @@ describe "Hash: searching and matching" do
   end
 
   it "nil is an ordinary key that no lookup finds until something stores it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       NAMED = { "navy" => "#000080", "red" => "#ff0000" }
 
       def valid?(color)
@@ -191,7 +191,7 @@ describe "Hash: searching and matching" do
   end
 
   it "a callee that widened its hash slot to poly widens its caller's slot to the same variant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash-typed parameter back-propagation from callee slot:
       # `def outer(into); inner(into); end` where `inner` already
       # widened its `into` slot to a poly variant (via body
@@ -241,7 +241,7 @@ describe "Hash: searching and matching" do
   end
 
   it "to_a and entries answer the pairs in insertion order, for every typed-hash variant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#to_a / #entries materialize entries as an array of [key, value] pairs,
       # preserving insertion order, across every typed-hash variant. Each receiver
       # goes through a monomorphic method parameter so the runtime path is exercised
@@ -292,7 +292,7 @@ describe "Hash: searching and matching" do
   end
 
   it "index or write empty hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # h[k] ||= v / &&= / op= on a hash parameter passed in empty ({} infers as an
       # unresolved element type): the index-or-write usage now seeds the parameter's
       # hash variant from the key and value types, so the method's return type
@@ -334,7 +334,7 @@ describe "Hash: searching and matching" do
   end
 
   it "user hash that collides" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user `hash` is a BUCKET, not an identity. Ruby does not require it to
       # be unique -- two distinct keys may collide -- so a table that keys on it
       # alone loses entries and reads back the wrong value.

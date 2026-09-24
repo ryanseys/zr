@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Numeric: searching and matching" do
   it "bignum index answers nil instead of raising" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `[1, 2][1..2**70]` and `"ab"[1..2**70]` answer `nil` where ruby raises
       # `RangeError: bignum too big to convert into 'long'`.
       #
@@ -53,7 +53,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "index op write nested" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Compound assignment to a nested (2-D) indexed slot: `m[a][c] OP= v`.
       # The receiver `m[a]` is a poly-typed index expression, so the op-write
       # goes through the poly-receiver arm of IndexOperatorWriteNode with an
@@ -139,7 +139,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "int bracket skip sym idx" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #314 (Roundhouse warnings family): `Integer#[idx]` codegen
       # fired for ANY `[]` call on an int-typed receiver, including the
       # common shape:
@@ -192,7 +192,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "integer bit index clamped" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer#[i] with an out-of-range bit index: the emitted C shift is
       # clamped (sp_int_bit), so i >= 64 reads the sign fill and a negative
       # index is 0 -- the literal-folded form was an undefined C shift that
@@ -225,7 +225,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "integer operator redefinition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Integer lane of the operator fast-path suppression: a reopened
       # Integer#== wins at literal sites and poly sites; + and include? keep
       # their native paths.
@@ -248,7 +248,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "math extended" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Math hyperbolic/inverse-hyperbolic, gamma/lgamma, erf/erfc, frexp/ldexp --
       # backed by the same system libm CRuby's Math uses, so values match exactly.
       rd = ->(x) { x.round(10) }
@@ -309,7 +309,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "math hyperbolic gamma and frexp family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Backed by the system libm CRuby also calls, so values match exactly;
       # gamma uses an exact factorial table + ±0/±inf/negative-integer rules.
 
@@ -338,7 +338,7 @@ describe "Numeric: searching and matching" do
   end
 
   it "operator reopened above integer still wins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The operator fast path stands down when a user reopen redefines the
       # operator on the fast-path MRO, and BOTH numeric lanes gate the one
       # decision: the boxed shape tests both tags, so a site cannot know which arm

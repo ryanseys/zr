@@ -17,9 +17,9 @@ module Prism
     # the node's own readers inflate it to a Location.
     #
     # The readers and writers are plain methods rather than attr_accessor:
-    # in a ze0 binary the runtime's own attributes name its hidden fields,
+    # in a zr binary the runtime's own attributes name its hidden fields,
     # while these name the gem's instance variables (VISIBLE_IVARS in
-    # lib/ze0/hir/build.rb).
+    # lib/zr/hir/build.rb).
     module Mutation
       # Packed locations.
       module Location

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Delegate programs" do
   it "class nested in a runtime minted namespace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class SecretKeys::Encryptor` where `SecretKeys` itself came from
       # `class SecretKeys < DelegateClass(Hash)` -- a namespace no compile-time class
       # backs, because its own superclass is only computed when the program RUNS.
@@ -102,7 +102,7 @@ describe "Delegate programs" do
   end
 
   it "weakref is not a delegator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's `WeakRef < Delegator`. zeo's is a native class under `Object`, so
       # the superclass, the ancestry and `is_a?(Delegator)` all answer differently,
       # and a `rescue`/`case`/guard written against `Delegator` never matches.

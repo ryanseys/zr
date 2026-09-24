@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: substitution" do
   it "env fetch default value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV.fetch with a default of every kind (String, nil, Integer, Symbol,
       # Array, Hash), with a block, when the variable is set and when it is not,
       # and the KeyError of the bare form. CRuby generated the expectations.
@@ -57,7 +57,7 @@ describe "Hash: substitution" do
   end
 
   it "env is an object with hash shaped methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `ENV` is an Object with Hash-shaped methods, NOT a Hash (`ENV.class` is
       # `Object` -- oracle-verified), and it reads the LIVE environment.
 
@@ -97,7 +97,7 @@ describe "Hash: substitution" do
   end
 
   it "delete_if, select! and reject! change the receiver in place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#delete_if / #select! / #reject! on typed hashes mutate
       # the receiver in place.
 
@@ -128,7 +128,7 @@ describe "Hash: substitution" do
   end
 
   it "delete answers the value it removed, and the element kind's zero for a miss" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h_si = { a: 1, b: 2, c: 3 }
       v1 = h_si.delete(:a)
       puts v1
@@ -165,7 +165,7 @@ describe "Hash: substitution" do
   end
 
   it "fetch_values and delete take a block for a miss, and the subset operators compare" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#fetch_values with a block for missing keys, Hash#delete with a block,
       # hash subset/superset comparison operators, and Enumerable none?/one?/find_all
       # on a hash receiver (plus plain-array find_all).
@@ -228,7 +228,7 @@ describe "Hash: substitution" do
   end
 
   it "the delete family and shift answer on an integer-keyed hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer-keyed Hash delete-family + Hash#shift (KieranP #2344,#2349,#2353)
       p({ 1 => "a", 2 => "b" }.delete(1))         # #2344 delete
       p({ 1 => 10, 2 => 20 }.delete(2))
@@ -264,7 +264,7 @@ describe "Hash: substitution" do
   end
 
   it "a key string mutated in place has its cached hash dropped, so a later lookup still finds it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Guards the cached-key-hash optimization: a heap string used as a hash
       # lookup key caches its hash in the string header. If the string is then
       # mutated in place, the cached hash must be invalidated, or a later lookup
@@ -308,7 +308,7 @@ describe "Hash: substitution" do
   end
 
   it "a local widened past its initializer's hash variant is converted, not reinterpreted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local the analysis widened past its initializer's hash variant. The
       # variants are separate C structs, so the pointer went into the slot with no
       # conversion and the C build stopped.
@@ -388,7 +388,7 @@ describe "Hash: substitution" do
   end
 
   it "adding a key during each raises, while deleting or rewriting one does not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h001 = { a: 1, b: 2 }
       r001 = (h001.each { |_k001, _v001| h001[:c] = 3 } rescue $!.class)
       p r001
@@ -416,7 +416,7 @@ describe "Hash: substitution" do
   end
 
   it "replace empties the receiver, copies the other's entries in order, and answers itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#replace on the 4 common typed-hash variants — empty
       # receiver and copy entries from `other` in original-key order.
       # Returns the receiver.
@@ -447,7 +447,7 @@ describe "Hash: substitution" do
   end
 
   it "new hash takes cruby shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A new Hash takes the shape CRuby gives it. Hash[] builds the
       # receiver's class and keeps neither the identity flag nor the default;
       # select, reject, slice, except and transform_values keep the identity
@@ -501,7 +501,7 @@ describe "Hash: substitution" do
   end
 
   it "sym hash cross variant merge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #515. Cross-variant Hash#merge between sym_str_hash and
       # sym_poly_hash (sibling to #510) used to fail in both directions:
       #
@@ -552,7 +552,7 @@ describe "Hash: substitution" do
   end
 
   it "sym int hash merge" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #546. Sibling of #510 -- merge / dup / delete dispatch was
       # missing on sym_int_hash (Symbol-key, Int-value). #510 fixed
       # the same surface for sym_str_hash and sym_poly_hash. Spinel

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Builtins: blocks and yields" do
   it "a block-carrying call checks its arity the same as the blockless spelling" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -59,7 +59,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "the rows Method#arity never reported still check their own arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -96,7 +96,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "a receiver outside the original arity map checks its rows too" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -145,7 +145,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "a user object falls back to Object's universal rows for its arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -190,7 +190,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "an attr and a Struct reader take no argument, where Struct's [] and dig want one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -244,7 +244,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "a native-class instance and a Mutex check the rows a probe found on them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -281,7 +281,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "a constructor and a renamed class-method row each check their own arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -324,7 +324,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "an attribute named like an Object method is the attribute, and its arity says so" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
       # to 0..2 under a block), zero-arity readers, Struct member access, native
@@ -372,7 +372,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "container read builtin methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Methods on values read back out of containers (poly-typed receivers whose
       # runtime kind is a builtin): map! writes back to the original typed array,
       # Range sums/covers, Time subtracts, sum takes a seed, Integer#gcdlcm works
@@ -402,7 +402,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "curry arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Proc#curry with an arity larger than the proc's own returns a Proc where
       # ruby raises ArgumentError.
@@ -430,7 +430,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "enumerable and proc surface" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # find/detect take an optional ifnone callable, invoked (no args) only when
       # nothing matches; a match -- even a nil element -- ignores it.
       p [1, 2, 3].find(-> { -1 }) { |x| x > 10 }
@@ -480,7 +480,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "lambda enforces strict arity via argument error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = ->(x, y) { x + y }
       begin
         f.call(1)
@@ -494,7 +494,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "lambda never auto splats and checks its arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       strict = ->(a, b) { [a, b] }
       p strict.call(1, 2)
       begin
@@ -508,7 +508,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "lambda strict arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-lambda Proc is lenient: extra args are dropped, no raise.
       pr = proc { |x| x }
       puts pr.call(1, 2)
@@ -535,7 +535,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc arity and curry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#arity / #lambda? / #curry all read facts about a proc's PARAMETERS,
       # which a compiled closure can't answer about itself -- the compiler
       # records them from the block/lambda's static signature at construction.
@@ -673,7 +673,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc arity and lambda p report the blocks own signature" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p ->(a, b) {}.arity
       p ->(a, b = 1) {}.arity
       p proc { |a, b = 1| }.arity
@@ -697,7 +697,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc arity keywords" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A proc's arity: only a rest parameter makes it negative. Optional keywords
       # and a keyword rest were treated as negative for a proc too, so
       # `proc { |**kw| }.arity` answered -1 where CRuby answers 0.
@@ -722,7 +722,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc arity nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block/proc param past the supplied argument count binds nil, not the
       # typed zero (CRuby fills missing params with nil).
       f = proc { |a, b| p b }
@@ -765,7 +765,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc arity opt rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc#arity encodes a signature with an optional, rest, or post parameter as
       # -(required + 1); a required-only signature stays the positive count.
       p ->(a, b = 1) {}.arity
@@ -824,7 +824,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc curry arity arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(->(a, b, c) { a + b + c }.curry(3)[1][2][3])
       add = ->(a, b) { a + b }
       p(add.curry(2)[10][20])
@@ -834,7 +834,7 @@ describe "Builtins: blocks and yields" do
   end
 
   it "proc forward arity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inline `&->(...)` lambdas and multi-param procs forwarded into iterators.
       # Direct clone-param typing (an inline lambda's params are typed from the
       # forwarded call site) plus arity-matched calling (a 1-param callable receives a

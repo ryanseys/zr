@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread: blocks and yields" do
   it "a module method's &blk parameter is captured by the Thread.new block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -30,7 +30,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "an instance method's &blk parameter is captured through a thread the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -56,7 +56,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "a positional parameter ahead of &blk is forwarded into the thread with it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -82,7 +82,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "Fiber.new captures the &blk parameter as Thread.new does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -108,7 +108,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "a &blk assigned to a local and called later still reaches the thread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -135,7 +135,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "a value-returning &blk sums across two invocations inside threads" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -160,7 +160,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "a &blk read inside a block lifted to a standalone proc still resolves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -190,7 +190,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "a class method reached through a module singleton accessor passes its &blk on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -225,7 +225,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "an accessor written with two distinct constants passes each one's &blk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
       # fiber stack, so the method must keep a heap-materialized &blk (not be
@@ -269,7 +269,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber driven entirely inside a thread" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The fiber table is per-OS-thread; a fiber created and resumed inside
       # one Thread works because both operations run on that same OS thread.
 
@@ -289,7 +289,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber nested block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Fiber / Enumerator.new body may contain a nested block (3.times { |i| },
       # arr.each { |x| }, destructuring { |a, b| }). The body lowers to a flat C
       # function and the nested block is inlined into it, so the block's parameters
@@ -356,7 +356,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber nested block capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A capture assigned inside a NESTED block within a Fiber / proc body now
       # propagates to the enclosing scope. Capture detection (a_collect_used /
       # proc_collect_used) descends into nested blocks, so an enclosing local
@@ -417,7 +417,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber new with proc arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Fiber.new(&proc)` -- the block arriving as a proc argument rather than a
       # literal block, the same conversion Thread.new already makes.
       stepper = proc do
@@ -446,7 +446,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber reassign capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Fiber / proc body that REBINDS a captured heap object (String / Array /
       # Hash / object) to a new value now propagates that reassignment to the
       # enclosing scope, matching value-type captures. Heap captures ride a typed-
@@ -517,7 +517,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber shared capture" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Fiber (or Enumerator.new) block that assigns an enclosing value-type local
       # now shares it: the write reaches the outer scope (a heap cell, like an escaping
       # proc captures), so it is no longer silently lost. A captured heap object is
@@ -600,7 +600,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber works inside a ractor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The fiber table is thread-pinned and a Ractor is its own OS thread --
       # create and drive entirely within it.
 
@@ -622,7 +622,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber yield at the root raises a fiber error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         Fiber.yield(1)
       rescue FiberError => e
@@ -634,7 +634,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber yield from a deep method call stack" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The zeo-fiber shim's raison d'etre: suspension from inside a chain
       # of ordinary compiled method frames that never saw a yielder.
 
@@ -656,7 +656,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber yield through a real escaping block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The hardest suspension shape: Fiber.yield fires inside a real Proc
       # (the block each_twice invokes), unwinding through the Proc's closure
       # frame AND each_twice's own method frame to the resumer.
@@ -687,7 +687,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber yields values in order then returns the body value and dies" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = Fiber.new do
         Fiber.yield 1
         Fiber.yield 2
@@ -710,7 +710,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "mutex synchronize returns the block value and always unlocks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       mu = Mutex.new
       r = mu.synchronize { 42 }
       puts r
@@ -732,7 +732,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "proc concurrent call poly ret" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Concurrent Proc#call return values are not corrupted across threads. A
       # poly-returning proc stashes its boxed result in the _sp_proc_poly_ret slot
       # (and poly arguments ride _sp_proc_poly_args); those slots were
@@ -778,7 +778,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "proc return fiber isolation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc-return home chains are per-fiber: interleaving non-local returns across
       # the main fiber and a Fiber must not corrupt either chain. Each `worker` call
       # is a self-contained non-local return; the fiber yields between them while the
@@ -804,7 +804,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "proc return home survives fiber suspension" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The ec-swap's home-stack slice, oracle-verified: a method running
       # inside a fiber suspends mid-body, and after resumption its
       # return-proc still unwinds to it (the home stayed alive across the
@@ -842,7 +842,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "ractor" do
-    result = ze0(<<~'RUBY', path: "ze0/ractor.rb")
+    result = zr(<<~'RUBY', path: "zr/ractor.rb")
       # `Ractor.new` is decided by the SITE: the block is the ractor's body and
       # is moved in whole, so it never reaches the send road. The isolation
       # verdict rides on the Proc, which is why a captured name refuses here and
@@ -895,12 +895,12 @@ describe "Thread: blocks and yields" do
       can not isolate a Proc because it accesses outer variables (outer).
       must be called with a block
     OUT
-      ze0/ractor.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.
+      zr/ractor.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.
     ERR
   end
 
   it "ractor block isolates at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Ractor.new { ... }` -- isolation is CRuby's runtime verdict, not zeo's
       # compile-time one.
       #
@@ -991,7 +991,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "ractor block reading an enclosing ivar raises inside the ractor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby isolates the Proc and rebinds its `self` to the RACTOR, so `@n` is
       # an ivar of a shareable object -- `Ractor::IsolationError` in the ractor,
       # surfacing as `Ractor::RemoteError` at `#value`. zeo used to refuse to
@@ -1017,7 +1017,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "ractor new with proc arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Ractor.new(&proc)` -- a dynamic proc converts like any `&` block
       # argument, and its isolability is decided at Ractor.new TIME with CRuby's
       # plain ArgumentError (only a literal block gets zeo's earlier static
@@ -1084,7 +1084,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "shareable proc copies only what cannot change" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Ractor.shareable_proc` copies the outer locals its block reads, so it
       # holds only locals that cannot change: each one bound once in its own
       # scope, and holding a shareable value. It refuses a block that writes an
@@ -1277,7 +1277,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "Thread.new(&proc) converts the block argument the way every other call site converts one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Thread.new(&proc)` -- drb starts its main loop that way. The block argument
       # converts exactly as it does at every other call site.
       def worker(n) = (puts "worker #{n}")
@@ -1321,7 +1321,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "value answers the block's result, and the arguments bind to the block's parameters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       v = Thread.new(20, 22) { |a, b| a + b }.value
       puts v
     RUBY
@@ -1330,7 +1330,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "a Mutex yielded to a block inside Thread.new survives the proc ABI and the ensure funnel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Mutex yielded to a block from inside Thread.new. Two separate faults met
       # here: the proc ABI packs arguments into an mrb_int[] and only knew how to
       # launder strings, arrays, hashes and objects through it -- every runtime
@@ -1375,7 +1375,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "yield inside thread body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # yield inside a Thread body sees the enclosing method's block
       def run
         t = Thread.new { yield 5 }

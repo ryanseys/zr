@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: pattern matching" do
   it "case in hash binding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # case/in in value position with hash-pattern `=> name` bindings must bind.
       def s(x); x; end
       r = case s({name: "x", age: 5})
@@ -24,7 +24,7 @@ describe "Hash: pattern matching" do
   end
 
   it "case in hash pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash pattern in `case/in` binds each value target (shorthand `{k:}`, `{k: v}`,
       # and capture `{k: Class => v}`) and matches only when the scrutinee is a hash
       # holding every key with each value matching its sub-pattern. Previously the
@@ -90,7 +90,7 @@ describe "Hash: pattern matching" do
   end
 
   it "case in hash pattern binds value and rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2, c: 3 }
       case h
       in { a: Integer => av, **rest }
@@ -103,7 +103,7 @@ describe "Hash: pattern matching" do
   end
 
   it "case in hash pattern no more keys rejects extra keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case { a: 1 }
       in { a: 1, **nil }
         puts "exact match"
@@ -120,7 +120,7 @@ describe "Hash: pattern matching" do
   end
 
   it "case in hash pattern object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash-pattern deconstruction in case/in: Struct/Data scrutinees route
       # through the synthesized deconstruct_keys, and the pattern-bound locals
       # carry usable types (boxed for object members, the variant's value type
@@ -190,7 +190,7 @@ describe "Hash: pattern matching" do
   end
 
   it "all?, any?, none? and one? take a pattern argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#all?/any?/none?/one? with a pattern argument (KieranP #2338)
       p({ a: 1 }.all?([:a, 1]))
       p({ a: 1, b: 2 }.all?([:a, 1]))
@@ -213,7 +213,7 @@ describe "Hash: pattern matching" do
   end
 
   it "a hash pattern over a union of two classes reads each through its own deconstruct_keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash pattern whose subject is a UNION of two user classes. The match reads
       # the subject through the runtime to_h hook, which knew only Struct and Data --
       # a user-defined #deconstruct_keys had no arm there, so no pattern matched and
@@ -305,7 +305,7 @@ describe "Hash: pattern matching" do
   end
 
   it "oneline in hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # One-line `expr in pattern` with a hash pattern and a class-checked capture.
       def s(x); x; end
       data = s({x: 5})
@@ -324,7 +324,7 @@ describe "Hash: pattern matching" do
   end
 
   it "oneline in hash presence" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `k:` in a one-line hash pattern is a presence-only test (no value
       # constraint); a `k: Class` check still constrains the value.
       def s(x); x; end

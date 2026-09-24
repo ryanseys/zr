@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Struct: frozen literals" do
   it "anonymous data define mints a native immutable class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Data.define` outside a constant assignment mints a native immutable data
       # class -- keyword construction, `with`, frozen, byte-exact `inspect`.
 
@@ -27,7 +27,7 @@ describe "Struct: frozen literals" do
   end
 
   it "anonymous struct runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Struct.new` / `Data.define` OUTSIDE a constant assignment mints a native
       # class at runtime (Batch E), so a struct can be an anonymous local, used
       # inline, or built in a loop -- not only `Name = Struct.new(...)`. The constant
@@ -94,7 +94,7 @@ describe "Struct: frozen literals" do
   end
 
   it "data constructs positionally or by keyword" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Data.define(:x, :y)
       a = Point.new(1, 2)
       b = Point.new(x: 1, y: 2)
@@ -121,7 +121,7 @@ describe "Struct: frozen literals" do
   end
 
   it "data dup clone frozen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Data instance is frozen by construction and stays so through every copy:
       # dup and clone(freeze: false) both return a frozen value in CRuby (#2716).
       # Struct copies keep the ordinary rules (dup never freezes).
@@ -148,7 +148,7 @@ describe "Struct: frozen literals" do
   end
 
   it "data freezes inside its own initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `Data` instance freezes inside `Data#initialize`, which is where CRuby
       # freezes it (`rb_data_initialize_m`) -- not after the constructor returns.
       # The difference is visible from a subclass:
@@ -229,7 +229,7 @@ describe "Struct: frozen literals" do
   end
 
   it "data instance frozen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       p(P.new(1, 2).frozen?)
       a = P.new(1, 2); p(a.frozen?)
@@ -239,7 +239,7 @@ describe "Struct: frozen literals" do
   end
 
   it "data new with no arguments passes no keywords" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Data.new` zips its positionals into a hash and hands it to `initialize`
       # AS KEYWORDS (`rb_class_new_instance_kw` + `RB_PASS_KEYWORDS`), so a user
       # `initialize(max: 256, live: [])` binds them by name -- and, as with any
@@ -288,7 +288,7 @@ describe "Struct: frozen literals" do
   end
 
   it "data positional construction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Data.define values construct positionally or by keyword, are frozen, and
       # validate unknown/missing members.
       Point = Data.define(:x, :y)
@@ -321,7 +321,7 @@ describe "Struct: frozen literals" do
   end
 
   it "a literal member list compiles to a real class, and the whole protocol still answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `NAME = Struct.new(:a, :b)` with a literal member list compiles to a real
       # class whose members are slots rather than an overlay minted at runtime. What
       # the program can observe must not change, so this pins the whole protocol

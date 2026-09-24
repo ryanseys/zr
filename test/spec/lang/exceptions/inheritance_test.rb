@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: inheritance and ancestors" do
   it "bare rescue standard error only" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `rescue` matches only StandardError and its subclasses. An Exception
       # or NotImplementedError (which is a ScriptError, not a StandardError) falls
       # through to a later `rescue Exception`.
@@ -41,7 +41,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "core exception tree is nameable and rescuable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `Exception`-direct classes (uncaught by a bare `rescue`) and the
       # refined `StandardError`-branch classes all register with the right
       # superclass and can be raised/rescued by name.
@@ -71,7 +71,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception classes work across namespaces" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Subclassing a nested error class from outside, raising with a
       # qualified path, and rescue-matching through the shared ancestor.
 
@@ -100,7 +100,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception detailed message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Exception#detailed_message returns "message (ClassName)". (The core method;
       # the optional error_highlight gem's source-snippet augmentation, which applies
       # to a few argument-style errors, is a separate concern and not reproduced.)
@@ -152,7 +152,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception exception subclass copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class SimpleError < StandardError
         attr_reader :code
         def initialize(code); @code = code; super("simple"); end
@@ -178,7 +178,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception namespaced default message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #692: namespaced exception class default message must use Ruby's
       # `::` module separator, not the C-mangled `_` form spinel uses
       # internally.
@@ -218,7 +218,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user exception subclass is backed by the native RubyException (D3): custom
       # ivars, `super` into the native initialize (hidden message slot), multi-level
       # inheritance, class methods, and rescue-by-ancestry all match CRuby.
@@ -295,7 +295,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass accessors" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class SubX < StandardError; end
       p(SubX.new("m").cause)
       p(SubX.new("m").backtrace)
@@ -319,7 +319,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass custom method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user-defined method (or attr_reader) on an exception subclass dispatches:
       # the instance keeps its concrete class instead of collapsing to the base
       # exception type, while message/class/is_a? still route through the
@@ -363,7 +363,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass eq exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class SubX < StandardError; end
       p(SubX.new("t") == StandardError.new("t"))
 
@@ -387,7 +387,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass instance is a boxed value everywhere" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `EE.new` for a user `class EE < Exception` constructs a native-backed
       # `RubyValue` (no generated struct exists) -- but registration-time type
       # inference consulted the not-yet-linearized `ancestors` and typed the
@@ -413,7 +413,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass ivar" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class MyError < StandardError
         attr_reader :record
         def initialize(record)
@@ -433,7 +433,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass ivar reraise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class PlainErr < StandardError; end
       class DataErr < StandardError
         attr_reader :data
@@ -476,7 +476,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass p inspect" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `p` on a user exception subclass renders like #inspect does, not as the
       # object default (#3813).
       class E1 < StandardError; end
@@ -503,7 +503,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass raise 2arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class RecordInvalid < StandardError
         attr_reader :record
         def initialize(record)
@@ -523,7 +523,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception subclass result slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception subclass with ivars must reserve the StopIteration#result slot in
       # its generated struct (mirroring sp_Exception's cls_name/parent_cls_name/msg/
       # cause/result prefix). Without it `result` -- being wider than a pointer --
@@ -561,7 +561,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception super message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user Exception subclass with a custom initialize that forwards to super must
       # carry the resolved message when raised WITHOUT an explicit message argument.
       # Previously `raise E` skipped the custom initialize and defaulted the message to
@@ -619,7 +619,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "exception user subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # User subclasses of built-in exception classes should also lower
       # to first-class sp_Exception * with cls_name = subclass name.
       class MyError < StandardError
@@ -672,7 +672,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "extending a non module raises type error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         Object.new.extend(42)
       rescue TypeError => e
@@ -684,7 +684,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "module superclass raises rubys own type error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every built-in CLASS is subclassable (`zeo_abi::NOT_PAYLOAD_ROOTS` is a
       # denylist of the shapes that are not payload wrappers, not an allowlist
       # of the ones that are). What is left is the two superclasses RUBY
@@ -712,7 +712,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescue builtin module include" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `include IO::WaitReadable` -- a BUILTIN module named through its path -- was
       # dropped on the floor: the include recorder looked the name up in the class
       # table, found nothing (a builtin module has no user class), and skipped it
@@ -788,7 +788,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescue matches an included module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Alertable; end
       class AppError < StandardError
         include Alertable
@@ -804,7 +804,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescue var subclass method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A rescue arm binds its variable to the named exception subclass when that
       # class has state or behaviour of its own. Only ivars counted, so a subclass
       # whose body is a method was typed as the plain exception and the method could
@@ -876,7 +876,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescue walks class hierarchy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rescue ParentClass => e` should catch a raised subclass
       # instance, and `e.is_a?(AncestorClass)` should walk the class
       # hierarchy. Pre-fix sp_exc_is_a only strcmp'd the class name,
@@ -928,7 +928,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "rescuing a middle class catches a raised leaf subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class AppError < StandardError
       end
       class ValidationError < AppError
@@ -945,7 +945,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "runtime exception subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class MINTED at runtime from an exception root is an exception like any
       # other: `.new` builds the native instance every inherited `Exception` method
       # reads, `raise` accepts it in all three of its shapes, and a `rescue` clause
@@ -1039,7 +1039,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "super with no definition above raises at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Real Ruby has no definition-time check for `super`: it resolves against
       # the receiver's live ancestry at CALL time and raises NoMethodError only
       # if that walk comes up empty (vm_search_super_method / vm_eval.c). So a
@@ -1064,7 +1064,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "user exception subclass class method constructs via runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def self.x` on an exception subclass emits into a `pub mod` (no struct to
       # attach an `impl` to), and a bare `new` inside it constructs via the runtime
       # (D3) -- `Self.new` there yields the native `RubyException`, not a `new_handle`.
@@ -1088,7 +1088,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "user exception subclass keyword initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An exception subclass whose `initialize` takes KEYWORD arguments (D3): the
       # runtime construction path (`construct_by_class_id`) must carry keywords as
       # the trailing-Hash the trampoline expects, or `code:` would default. Two
@@ -1128,7 +1128,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "user exception subclass super chain and inherited initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user exception subclass with NO `initialize` inherits the native default:
       # `Plain.new(msg)` stores the message in the hidden slot, so `#message`
       # returns it and `instance_variables` is empty. Multi-level `super` chains
@@ -1173,7 +1173,7 @@ describe "Exceptions: inheritance and ancestors" do
   end
 
   it "user exception subclass uses native representation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A USER exception subclass is backed by the native `RubyException` (D3): a
       # custom ivar, `super` into the native `initialize` (which stores the message
       # in its hidden slot), and reflection all match CRuby -- `instance_variables`

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: regressions" do
   it "io call in proc body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `puts` / `print` / `printf` reached in expression context — the
       # last statement of a `proc { ... }` body. The expression-context
       # dispatcher previously had no path for these no-recv IO methods,
@@ -50,7 +50,7 @@ describe "Blocks: regressions" do
   end
 
   it "local hash cross type widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Cross-type `[]=` write on a non-empty hash literal should widen the
       # LV's hash type so the store accepts the new value via boxing.
       # Before this fix, `m = {"a" => "1"}; m["k"] = 42` lowered to
@@ -118,7 +118,7 @@ describe "Blocks: regressions" do
   end
 
   it "map block string new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #522. Sibling to #519. The literal-array path `[String.new]` was
       # fixed in #519 to infer as `mutable_str_ptr_array` (a sp_PtrArray
       # of sp_String*). The `.map { String.new }` path didn't share the
@@ -147,7 +147,7 @@ describe "Blocks: regressions" do
   end
 
   it "reduce composes an array of lambdas into one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       fns = [->(x) { x + 1 }, ->(x) { x * 2 }]
       composed = fns.reduce(->(x) { x }) { |acc, f| ->(x) { f.call(acc.call(x)) } }
       p composed.call(5)
@@ -166,7 +166,7 @@ describe "Blocks: regressions" do
   end
 
   it "reduce(:>>) and reduce(:<<) compose an array of lambdas either way round" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       fns = [->(x) { x + 1 }, ->(x) { x * 2 }]
       combined = fns.reduce(:>>)
       p combined.call(3)
@@ -185,7 +185,7 @@ describe "Blocks: regressions" do
   end
 
   it "a lambda read out of an array calls with the argument it is handed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       callbacks = []
       callbacks << ->(e) { p e }
       callbacks << ->(e) { p e * 10 }
@@ -205,7 +205,7 @@ describe "Blocks: regressions" do
   end
 
   it "Array#last and #first are receivers a call can be chained onto" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Calling a Proc obtained via Array#last: `.last` must be a self-contained
       # expression (not a g_pre decl) so it works as the receiver of a following
       # `.call`.
@@ -224,7 +224,7 @@ describe "Blocks: regressions" do
   end
 
   it "reduce over a class that includes Enumerable folds through its each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Tags
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -239,7 +239,7 @@ describe "Blocks: regressions" do
   end
 
   it "sum over an Enumerable answers a Float whatever seed it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -258,7 +258,7 @@ describe "Blocks: regressions" do
   end
 
   it "all?, any?, none? and one? take a pattern over an Enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -285,7 +285,7 @@ describe "Blocks: regressions" do
   end
 
   it "each_slice, each_cons and each_with_index answer the receiver when given a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -313,7 +313,7 @@ describe "Blocks: regressions" do
   end
 
   it "reduce over an Enumerable widens to Float when the block does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Nums
         include Enumerable
         def initialize(*xs); @xs = xs; end
@@ -338,7 +338,7 @@ describe "Blocks: regressions" do
   end
 
   it "next inside a proc answers with the value it is given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(proc { next 5 }.call)
       p(proc { |x| next x * 2 }.call(4))
       p([1,2,3].map { |x| next x + 1 })
@@ -357,7 +357,7 @@ describe "Blocks: regressions" do
   end
 
   it "a duped or cloned Proc is a new object that shares the closure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pr = proc { |x| (x || 0) + 1 }
       d = pr.dup
       p d.equal?(pr)
@@ -387,7 +387,7 @@ describe "Blocks: regressions" do
   end
 
   it "composing a lambda with a proc makes a lambda only when the left one is" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = proc { |x| x + 1 }
       g = proc { |x| x * 2 }
       l = lambda { |x| x + 10 }
@@ -416,7 +416,7 @@ describe "Blocks: regressions" do
   end
 
   it "Symbol#to_proc answers a lambda of arity -2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p :upcase.to_proc.arity
       p :+.to_proc.arity
       s = :upcase
@@ -439,7 +439,7 @@ describe "Blocks: regressions" do
   end
 
   it "a parenthesised proc or lambda passes as a block through &" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       blk = proc { |x| x * 2 }
       p [1, 2].map(&(blk))
       p [1, 2, 3].select(&(proc { |x| x.odd? }))
@@ -457,7 +457,7 @@ describe "Blocks: regressions" do
   end
 
   it "a composed lambda passes as a block through &" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2, 3].map(&(->(x) { x + 1 } >> ->(x) { x * 2 })))
       p([1, 2, 3].map(&(->(x) { x + 1 } << ->(x) { x * 2 })))
       f = ->(x) { x + 1 }
@@ -478,7 +478,7 @@ describe "Blocks: regressions" do
   end
 
   it "tap yields the receiver and answers with it, through a yield and directly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Crash
         def hi = "hi"
       end
@@ -504,7 +504,7 @@ describe "Blocks: regressions" do
   end
 
   it "a value read out of a container keeps every method its class has" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       ranges = [(1..3)]
       p ranges[0].to_a
       p [->(x) { x }].map(&:arity)                     # Ruby [1]        Spinel: NoMethodError 'arity' (Proc)
@@ -527,7 +527,7 @@ describe "Blocks: regressions" do
   end
 
   it "a duped Proc is == to the original, and two identical literals are not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       l = ->(a) { a }
       p l.dup == l
       p l.clone == l
@@ -553,7 +553,7 @@ describe "Blocks: regressions" do
   end
 
   it "a recursive method passes its block down with &" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def hanoi(n, from, to, via, &block)
         return if n.zero?
         hanoi(n - 1, from, via, to, &block)
@@ -570,7 +570,7 @@ describe "Blocks: regressions" do
   end
 
   it "a composed lambda built by reduce calls and passes as a block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pl = [->(x) { x * x }, ->(x) { x + 1 }].reduce(:>>)
       p pl.call(3)
       p [1, 2, 3].map(&pl)
@@ -589,7 +589,7 @@ describe "Blocks: regressions" do
   end
 
   it "a lambda that returns a local written inside its own block answers the String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def seq(parsers)
         ->(s) {
           rest = s
@@ -611,7 +611,7 @@ describe "Blocks: regressions" do
   end
 
   it "a splatted array fills a lambda's parameters, through a Hash and through a block store" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -643,7 +643,7 @@ describe "Blocks: regressions" do
   end
 
   it "a bare & forwards the block to another constructor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         def initialize = @hash = {}
         def empty? = @hash.empty?
@@ -660,7 +660,7 @@ describe "Blocks: regressions" do
   end
 
   it "a lambda with an early return of a different type answers both ways" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A lambda with an early (non-local) return whose type diverges from the
       # fall-through tail must publish the wider boxed return value.
       f = ->(items) {
@@ -687,7 +687,7 @@ describe "Blocks: regressions" do
   end
 
   it "each block keeps its own _1 across a yield that is spliced inline" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Numbered block params across a yield-inline boundary: the callee's tap
       # block and the caller's block both use _1 with different types; each must
       # keep its own variable (the splice must not capture the caller's _1 with
@@ -737,7 +737,7 @@ describe "Blocks: regressions" do
   end
 
   it "a lambda may reassign its own parameter, even to another type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       f = ->(s) { s = s[1..]; s }
       p f.call("abc")
       f2 = ->(a, b) { a = a + 1; b = b * 2; [a, b] }
@@ -754,7 +754,7 @@ describe "Blocks: regressions" do
   end
 
   it "a block whose tail is a local answers the object that local holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A; def id; 1; end; end
       class B; def id; 2; end; end
       def txn; r = yield; r; end

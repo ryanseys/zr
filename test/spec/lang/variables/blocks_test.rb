@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables: blocks and yields" do
   it "block local resets to nil on every invocation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The part that makes a block-local more than a naming convention, and
       # the reason it can't be hoisted out of the per-call prologue: `total`
       # is nil again at the top of EVERY call, so this never accumulates.
@@ -22,7 +22,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "block locals shadow an enclosing local and never write back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       sum = 99
       [1].each { |x; sum| sum = x }
       p sum
@@ -53,7 +53,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "block locals work on the times inline path and in lambdas" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `n.times { }` on an integer literal is spliced inline as a native
       # loop rather than becoming a real Proc, so it binds its params at its
       # own site and needs the block-local declaration applied there too.
@@ -78,7 +78,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "block params are reassignable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       1.upto(2) { |n| n = n + 10; puts n }
       3.times { |i| i = i * 2; print i }
       puts
@@ -92,7 +92,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "escaping block can mutate a captured enclosing local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def each_num(a, b, c)
           yield a
@@ -109,7 +109,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "inlined times block local is captured by a nested block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `.times` block-LOCAL (`|i; n|`) captured by a nested escaping block is
       # cell-wrapped for the same reason as its param (H1).
 
@@ -131,7 +131,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "local write in a runtime class body gets its own scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class X < <expression>` builds the class at runtime, so its body runs as a
       # block -- and a construct only the static class path can emit has no runtime
       # spelling. Reaching codegen with one used to abort the compiler with an
@@ -169,7 +169,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "massign cell captured target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-assign targets captured by a later lambda live in heap cells, so the
       # target write must go through the cell (doom's draw_automap min_x/max_y,
       # closed over by the to_sx/to_sy procs, were written as undeclared lv_ names).
@@ -197,7 +197,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "nested block captures the outer blocks own local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The INNER block reads the OUTER block's own param `n`. The outer
       # block promotes `n` to a shared cell, so the
       # inner closure captures it -- previously a clean rejection,
@@ -222,7 +222,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "nested block reading outer cells and writing its own locals composes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Four levels deep, mixing: a method-level captured local (`total`),
       # an outer block's cell-promoted local (`row`), block params read from
       # two levels down, and inner-only locals. Oracle-verified.
@@ -252,7 +252,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "nested closure captures enclosing blocks own local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A name that is both an enclosing block's own local AND captured by a
       # nested escaping closure must be declared once (as a shared cell), not
       # also fresh-declared by the own-locals prelude.
@@ -278,7 +278,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "ordinary method yield with no block raises rescuable local jump error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The same LocalJumpError path an ordinary method has always needed -- it
       # used to abort the process instead of raising.
 
@@ -297,7 +297,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "ractor block capturing an outer local is rejected where ruby rejects it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's `ArgumentError`, raised by `Ractor.new` itself and catchable
       # there -- not the compile error zeo used to report. The verdict rides on
       # the Proc value (`RProc::with_outer_capture`), so a literal block and a
@@ -321,7 +321,7 @@ describe "Variables: blocks and yields" do
   end
 
   it "singleton method yield with no block raises rescuable local jump error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `yield` reached with no block is a RESCUABLE LocalJumpError, not a
       # process abort -- including for a singleton method, whose block is
       # threaded through the call site.

@@ -11,14 +11,14 @@ class OpenSSLTest < Minitest::Test
   PROGRAM = <<~RUBY
     begin
       require "openssl"
-      puts OpenSSL::Digest.hexdigest("SHA256", "ze0")
+      puts OpenSSL::Digest.hexdigest("SHA256", "zr")
     rescue LoadError => e
       puts "LoadError: \#{e.message}"
     end
   RUBY
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
   def test_a_missing_library_raises_load_error_at_require
@@ -28,9 +28,9 @@ class OpenSSLTest < Minitest::Test
   end
 
   def test_the_host_library_answers_when_present
-    skip "libssl 3 is not installed" unless Ze0::Harness::Needs.met?("libssl", "macos")
+    skip "libssl 3 is not installed" unless Zr::Harness::Needs.met?("libssl", "macos")
 
-    assert_equal "#{`printf ze0 | shasum -a 256`.split.first}\n", run_program({})
+    assert_equal "#{`printf zr | shasum -a 256`.split.first}\n", run_program({})
   end
 
   private
@@ -47,12 +47,12 @@ class OpenSSLTest < Minitest::Test
   end
 
   def build
-    dir = Dir.mktmpdir("ze0-openssl-")
+    dir = Dir.mktmpdir("zr-openssl-")
     Minitest.after_run { FileUtils.rm_rf(dir) }
     rb = File.join(dir, "require_openssl.rb")
     File.write(rb, PROGRAM)
     bin = File.join(dir, "require_openssl")
-    out = IO.popen([RbConfig.ruby, "--disable-gems", File.join(ROOT, "exe/ze0"), "zr", "build", rb, "-o", bin],
+    out = IO.popen([RbConfig.ruby, "--disable-gems", File.join(ROOT, "exe/zr"), "zr", "build", rb, "-o", bin],
                    err: %i[child out], &:read)
     assert $?.success?, "the build failed: #{out}"
     bin

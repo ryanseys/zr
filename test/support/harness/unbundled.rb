@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Ze0
+module Zr
   module Harness
     # The environment this process was started in, before bundler.
     #

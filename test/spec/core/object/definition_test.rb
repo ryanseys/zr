@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: defining and naming methods" do
   it "alias inside class self is a class method alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias new old` inside `class << self` aliases a SINGLETON method: it
       # must resolve against the class-method table and register `new` as a class
       # method, not an instance method.
@@ -28,7 +28,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "alias of a method touching an ivar works through either name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Counter
         def initialize
           @count = 0
@@ -52,7 +52,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "basic object method missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `BasicObject` subclass's `method_missing` is never reached: zeo raises
       # `NoMethodError` from the send instead of calling it.
       #
@@ -100,7 +100,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "basicobject send missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A blank-slate receiver has no #send / #public_send -- only __send__ is
       # BasicObject's own (#2725). The send desugar leaves such calls unretargeted
       # and the blank-slate gate raises CRuby's NoMethodError; __send__ dispatches.
@@ -135,7 +135,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "class method method missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `method_missing` defined as a CLASS method is never consulted: zeo raises
       # NoMethodError for the missing class method instead of routing to it. Both
       # spellings are affected -- `def self.method_missing` and a `method_missing`
@@ -180,7 +180,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "define singleton method on object and class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A per-object singleton (only that object responds) and a
       # class-level singleton method (a class method).
 
@@ -201,13 +201,13 @@ describe "Object: defining and naming methods" do
   end
 
   it "dup dispatches dynamically through send" do
-    result = ze0("puts [1, 2].send(:dup).length\n")
+    result = zr("puts [1, 2].send(:dup).length\n")
 
     _(result).must_answer "2\n"
   end
 
   it "dup drops singleton" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `#dup` drops the singleton methods, so the copy is an instance of the class
       # Ruby sees. The copy is made by assigning the whole struct, which carried the
       # ORIGINAL's cls_id -- for a singleton receiver that is the synthesized
@@ -265,7 +265,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "dup drops singleton methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class T; def base; 1; end; end
       o = T.new
       def o.extra; 99; end
@@ -292,7 +292,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "dynamic send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `recv.send(name)` / `__send__` / `public_send` with a NON-literal name dispatches
       # over the method names that appear as symbol/string literals in the program. The
       # receiver's type bounds which names resolve; the argument count selects the arm.
@@ -349,7 +349,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "dynamic send carries a block through to a yield using method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def each_num(a, b, c)
           yield a
@@ -366,7 +366,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "issue method missing dynamic class body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # method_missing defined inside a `Class.new { ... }` block isn't wired up as
       # the receiver's dispatch fallback; zeo raises NoMethodError for the unknown
       # method instead of routing it to method_missing.
@@ -382,7 +382,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "issue respond to private default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Object#respond_to?(:name) (the one-argument form) should return false for
       # a private method -- only the two-argument form (`respond_to?(:name,
       # true)`) should include private methods. zeo returns true in both cases,
@@ -400,7 +400,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "method missing explicit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # method_missing is not honored as a missing-method hook (spinel resolves every
       # call statically), but a class may still define and call it explicitly like any
       # other method. Defining it emits a compile-time warning to stderr.
@@ -423,7 +423,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "method missing fallback on a total miss" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def method_missing(name)
           puts :missing
@@ -437,7 +437,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "mixin in the source is the send ruby writes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A whole-program compile records `include M` as a compile-time
       # ancestry EDIT and emits no statement for it. A snippet has no class
       # table to edit into, so analyze must leave the marker alone and the
@@ -468,7 +468,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "nested send dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Dispatcher
         def greet; "hi"; end
       end
@@ -488,7 +488,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "notimplement stub respond to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `respond_to?` answered TRUE for a method ruby installs as a not-implemented
       # stub, where ruby answers false.
       #
@@ -567,7 +567,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "public send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #735. `recv.public_send(:meth, args)` should be identical to
       # `recv.send(:meth, args)` in spinel (visibility is not modeled in
       # static dispatch). The parser textually rewrites `.send(:foo)` and
@@ -591,7 +591,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "public send enforces visibility at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `public_send` is stricter than an ordinary explicit-receiver call: it
       # rejects private AND protected, with no self-relatedness relaxation,
       # because CRuby implements it by passing `Qundef` as the caller's self
@@ -641,7 +641,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "public send keeps the barrier up" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `send`/`__send__` are deliberately visibility-blind. `public_send` is not:
       # ruby resolves the target and refuses a non-public one with a rescuable
       # NoMethodError, with NONE of the relaxations an ordinary explicit-receiver
@@ -712,7 +712,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "public send still enforces visibility unlike send" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Same intent as when this asserted a compile-time panic, now asserting
       # the CORRECT mechanism: real Ruby resolves visibility at call time
       # (`rb_method_call_status`, vm_eval.c:837) and raises a rescuable
@@ -741,7 +741,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "public send visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # public_send dispatches only public methods: a private or protected target
       # raises NoMethodError with CRuby's message, while send/__send__ stay
       # visibility-blind.
@@ -812,7 +812,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to class builtins" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class/module object responds to the builtin Class/Module methods it
       # inherits (:name, :new, :instance_methods, :superclass, ...), not only its
       # user-defined singleton methods.
@@ -849,7 +849,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to core class and module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # respond_to? on a core class or module had no user class entry to consult, so
       # the fold left the call unresolved: it raised NoMethodError at runtime, and on
       # Thread / Mutex / Fiber the front end rejected it outright. The analyze-time
@@ -913,7 +913,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to def self method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # def self.m singleton methods must be visible to respond_to? on the
       # class constant, and module_function methods on the module constant.
       class Foo
@@ -939,7 +939,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to missing and method missing protocol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `respond_to_missing?` is wired into the whole `respond_to?` surface
       # (the codegen folds and the Kernel row), `method(:dyn)` succeeds when the
       # hook admits the name (its Method dispatches through `method_missing`),
@@ -997,7 +997,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to module singleton accessor" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # class << self; attr_accessor :x on a module must be visible to
       # respond_to? for both the reader and the writer.
       module Foo
@@ -1018,7 +1018,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to nil slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # respond_to? on a nil that arrived through a slot: the literal receiver
       # folded at compile time, the slot did not, and answered a flat false (#3815).
       a = nil
@@ -1047,7 +1047,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # respond_to?(:m) on a poly receiver must answer per runtime value, not from a
       # union-wide static approximation.
       #
@@ -1114,7 +1114,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to primitive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #716. `<primitive>.respond_to?(name)` should answer true for
       # the common method set, not just for obj-typed receivers. The compile-
       # time approximation uses a conservative allowlist of universal methods.
@@ -1136,7 +1136,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to primitives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # respond_to? on built-in (primitive) receivers, answered at compile time by
       # probing spinel's own method resolution -- no hand-maintained method list.
       # Per-type helpers keep each receiver's concrete type (a single shared helper
@@ -1236,7 +1236,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to sees class and module singleton methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # respond_to? on a class/module value must see user `def self.x`,
       # module_function, and class<<self accessors, plus inherited builtin
       # Class methods -- but a module never responds to :new.
@@ -1279,7 +1279,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "respond to walks the mro" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `respond_to?` walks the real MRO now: Enumerable names answer true on
       # arrays, Comparable names on strings, and Kernel privates stay invisible.
 
@@ -1300,7 +1300,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "send bypasses visibility entirely" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         private
 
@@ -1316,7 +1316,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "send dead code" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A runtime-name send in an unreachable method must NOT abort compilation.
       # Dead code is pruned before codegen, so the send is never emitted; only a
       # send that codegen actually emits is diagnosed. This mirrors a real program
@@ -1341,7 +1341,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "send literal and user" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A literal-name send/public_send is rewritten to a direct call, so it keeps
       # working. A class that defines its own `send` is dispatched normally and is
       # never mistaken for Kernel#send (even with a runtime argument), so the
@@ -1381,7 +1381,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "send reaches toplevel def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `def` is Object's PRIVATE instance method, so an explicit receiver
       # cannot reach it -- except through #send, whose whole point is to ignore
       # visibility. Spinel retargets `x.send(:m)` to a plain `x.m` in the analyzer,
@@ -1471,7 +1471,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "send traceable name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The statically-traceable send names must keep compiling and running after the
       # genuinely-computed names are loud-rejected. A name is traceable when it is a
       # literal, a variable assigned only literals, or a block parameter bound to
@@ -1522,7 +1522,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "undef in a singleton body is invisible to respond to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         class << self
           undef_method :new
@@ -1550,7 +1550,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "visibility refusal routes through method missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A call refused for VISIBILITY raises `NoMethodError` directly instead of
       # going through `method_missing`, so a user hook never sees it.
       #

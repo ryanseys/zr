@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Methods: dispatch" do
   it "and nullable container poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value form of `a && b` / `a || b` widens both arms to the unified
       # result type. When the left is a nullable container pointer (hash or
       # array) and the result is poly, the kept-left arm must box the temp;
@@ -123,7 +123,7 @@ describe "Methods: dispatch" do
   end
 
   it "builtin class method dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `def self.x` added to a REOPENED builtin -- or written in a `class << Time`
       # body -- is a class method like any other, so it has to answer a DYNAMIC send
       # too, not only a call zeo resolved statically. It used to answer just the
@@ -218,7 +218,7 @@ describe "Methods: dispatch" do
   end
 
   it "call op write poly recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `recv.attr op= value` where the receiver is only known as a poly value
       # (doom: `sector.ceiling_height -= speed` on a sector pulled out of a hash).
       class Sector
@@ -286,7 +286,7 @@ describe "Methods: dispatch" do
   end
 
   it "dispatch unused param nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Virtual dispatch on a poly receiver into a method whose parameter is unused
       # (so its type never resolves) and is passed nil. The unused param is poly in
       # the callee signature; the dispatch arg temp must be a boxed poly, not a `void`
@@ -353,7 +353,7 @@ describe "Methods: dispatch" do
   end
 
   it "kwargs collapse poly receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A braceless keyword-argument call collapses into the callee's first unfilled
       # POSITIONAL parameter when no declared keyword parameter takes a key. Reached
       # through a POLY receiver the arms matched keywords by name only, so an
@@ -472,7 +472,7 @@ describe "Methods: dispatch" do
   end
 
   it "kwargs instance dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Keyword args through the instance-method dispatch path: a `**kwrest` callee
       # collects literal keywords and merged `**hash` forwards; a named keyword
       # param extracts from a forwarded `**hash` (absent key -> default); a
@@ -525,7 +525,7 @@ describe "Methods: dispatch" do
   end
 
   it "method added dispatch watermark" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A definition hook sees the class only as far as it has been built. The
       # REFLECTION half of that is `tests/method_added_watermark.rb`; this is the
       # DISPATCH half -- calling a method written below the `def` the hook is
@@ -643,7 +643,7 @@ describe "Methods: dispatch" do
   end
 
   it "nil default param widens to poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def f(x = nil)` should keep nil observable at the no-arg call
       # site, even when other call sites supply a non-nullable scalar
       # (symbol / int / float / bool). Pre-fix the per-call-site
@@ -681,7 +681,7 @@ describe "Methods: dispatch" do
   end
 
   it "operators on dynamic operands fall through to dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The old "isn't supported yet for non-Int/Float operands" panic is now
       # dynamic dispatch: String#+ via send_value's table, and a user class's
       # own operator method chained through a Poly intermediate (`a << 1`
@@ -714,7 +714,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Polymorphic dispatch over a parameter typed `poly` should pick the
       # right `[]` based on the runtime type — a user class's `def [](x)`
       # for Foo.new, sp_IntArray_get for an Array literal.
@@ -737,7 +737,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch builtin all" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #78: poly dispatch and runtime helpers reaching all built-in
       # array types (not just IntArray). When a `poly` slot can hold any of
       # Int/Float/Str/Sym arrays plus user-class instances, dispatch on
@@ -787,7 +787,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch builtin container arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A call polymorphic over a builtin container and a user class that shadows the
       # same method name lost the builtin arm. The non-yielding reads (first, last,
       # keys, values) were pinned to the user class's return type and left every
@@ -895,7 +895,7 @@ describe "Methods: dispatch" do
   end
 
   it "map over a poly receiver reaches the builtin arm and answers an Array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1042,7 +1042,7 @@ describe "Methods: dispatch" do
   end
 
   it "select over a poly receiver reaches the builtin arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1189,7 +1189,7 @@ describe "Methods: dispatch" do
   end
 
   it "reject over a poly receiver reaches the builtin arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1336,7 +1336,7 @@ describe "Methods: dispatch" do
   end
 
   it "group_by over a poly receiver reaches the builtin arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1483,7 +1483,7 @@ describe "Methods: dispatch" do
   end
 
   it "each over a poly receiver yields every element" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1631,7 +1631,7 @@ describe "Methods: dispatch" do
   end
 
   it "each over a poly receiver answers the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1777,7 +1777,7 @@ describe "Methods: dispatch" do
   end
 
   it "find, min, max and the rest of the search family reach the builtin arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -1966,7 +1966,7 @@ describe "Methods: dispatch" do
   end
 
   it "where no candidate asked for the block, the builtin arm materializes it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -2118,7 +2118,7 @@ describe "Methods: dispatch" do
   end
 
   it "a captured local reaches the builtin arm through the same proc the user arm gets" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -2266,7 +2266,7 @@ describe "Methods: dispatch" do
   end
 
   it "a String element rides the pointer channel through the builtin arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -2420,7 +2420,7 @@ describe "Methods: dispatch" do
   end
 
   it "a Hash receiver yields pairs, and a two-parameter block takes them apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
       #
@@ -2576,7 +2576,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch inherited method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Parent defines a method, child inherits it.
       # Calling the method via a poly-typed parameter must dispatch
       # to the parent's method body for both parent and child instances.
@@ -2602,7 +2602,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch keyword args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Keyword arguments through a poly-receiver method dispatch bind by name,
       # not position (#3268): the trailing keyword hash used to flow into the
       # *rest / first keyword slot, garbling both.
@@ -2636,7 +2636,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch reader unbox" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A length-like poly method dispatch fixes its result slot to mrb_int, but an
       # attr-reader arm can name a poly-typed ivar (a struct member fed from a poly
       # source): the read must unbox into the scalar slot, mirroring the method-arm
@@ -2679,7 +2679,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch splat args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A *rest splat method reached through the poly cls_id dispatch (a receiver
       # that may be one of several user classes) must collect the trailing
       # call-site arguments into an Array, exactly like a concrete-receiver call.
@@ -2717,7 +2717,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch uninstantiated arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The poly-dispatch switch drops the `case` arm of a class that is never
       # instantiated (no value can carry its cls_id). The critical case: a base class
       # that is itself never `.new`'d but whose method is inherited by an instantiated
@@ -2758,7 +2758,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user join beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -2792,7 +2792,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user to_i beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -2834,7 +2834,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user to_f beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -2876,7 +2876,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user empty? beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -2918,7 +2918,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user index beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -2960,7 +2960,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user rindex beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3002,7 +3002,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user find_index beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3044,7 +3044,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user pack beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3086,7 +3086,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user size beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3128,7 +3128,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user length beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3170,7 +3170,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user include? beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3212,7 +3212,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user member? beside the builtin one widens the call's return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3254,7 +3254,7 @@ describe "Methods: dispatch" do
   end
 
   it "a method answering an object of its own class widens where a builtin shares the name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3313,7 +3313,7 @@ describe "Methods: dispatch" do
   end
 
   it "a user arm that agrees with the builtin keeps the concrete type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
       # asked that question and the rest did not, which is why the answer depended on
@@ -3359,7 +3359,7 @@ describe "Methods: dispatch" do
   end
 
   it "a poly call to a yielding method reaches each candidate's own body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3438,7 +3438,7 @@ describe "Methods: dispatch" do
   end
 
   it "a guarded yield answers through the poly call the same" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3519,7 +3519,7 @@ describe "Methods: dispatch" do
   end
 
   it "an early return out of a yielding method answers through the poly call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3598,7 +3598,7 @@ describe "Methods: dispatch" do
   end
 
   it "a yielding method with its own arguments takes them through the poly call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3677,7 +3677,7 @@ describe "Methods: dispatch" do
   end
 
   it "a method that yields twice yields twice through the poly call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3756,7 +3756,7 @@ describe "Methods: dispatch" do
   end
 
   it "a monomorphic call to the same method still fuses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3837,7 +3837,7 @@ describe "Methods: dispatch" do
   end
 
   it "a yield nested inside the method's own block keeps the clone's locals apart" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -3936,7 +3936,7 @@ describe "Methods: dispatch" do
   end
 
   it "two poly call sites whose blocks answer different types each get the right clone" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
       # Blocks are fused, not passed: with a known receiver the method body is
@@ -4018,7 +4018,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly dispatch yielding method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A polymorphic (untyped) receiver's method dispatch enumerates every user
       # class defining that method name. A class whose definition *yields* is inlined
       # at its call sites and never emitted as a standalone function, so the dispatch
@@ -4052,7 +4052,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly empty with user method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Defining an instance `empty?` must not drop the builtin String/Array `empty?`
       # from the polymorphic `empty?` dispatch: a poly receiver was lowered to a
       # cls_id switch built only from user `empty?` methods, so a String (or Array)
@@ -4088,7 +4088,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly face nilable param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parameter that may also receive nil boxes its value, and the boxed face has
       # to answer the names the real class does: Hash#key, the Array#fill mutator, and
       # the two-argument String#index/#rindex all raised NoMethodError (#4149).
@@ -4120,7 +4120,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly method args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Polymorphic method dispatch must pass arguments through to the
       # selected class's method. Before this fix, `compile_poly_method_call`
       # emitted `sp_<Class>_<method>((sp_<Class> *)recv.v.p)` with no
@@ -4150,7 +4150,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly method mixed return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Poly dispatch where user classes disagree on the method's return
       # type. `Foo#name` returns int, `Bar#name` returns string. The result
       # of `a.name` is genuinely polymorphic — the dispatcher must use
@@ -4180,7 +4180,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly multi write index target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -4232,7 +4232,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly predicate dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # all?/any?/none?/one? on a POLY receiver (a value the analyzer can only type
       # as poly, here a heterogeneous hash get) dispatch over the boxed array at
       # runtime instead of raising "undefined method for poly".
@@ -4253,7 +4253,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly predicate method dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # all?/any?/none?/one? on a POLY receiver whose elements are used via a METHOD
       # DISPATCH (a struct element's reader) inside the block, not just a direct
       # predicate on the block param (which test/poly_predicate_dispatch.rb covers).
@@ -4283,7 +4283,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly receiver kwargs into rest" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A keyword hash that no declared keyword parameter consumes degrades to one
       # positional hash at the tail of a *rest. The poly-dispatch arm did not do
       # that, so a call through a polymorphic receiver ran with no arguments at all
@@ -4355,7 +4355,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly self deref" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Polymorphic dispatch where the called method dereferences `self`.
       # `cls_id` used to share memory with `v.p` inside the sp_RbVal union,
       # so writing cls_id after v.p clobbered the low 32 bits of the pointer.
@@ -4390,7 +4390,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly user each index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The blockless index enumerators on a poly receiver built an Enumerator over
       # the object without asking whether a user class owns the name: the method was
       # never entered, its side effects were dropped, and iterating the result
@@ -4450,7 +4450,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly user join dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly receiver whose class defines `join`: the dedicated poly-join arm
       # answered the receiver's #to_s and never entered the method, because it did not
       # ask whether a user class owned the name the way its neighbours do (#4071). The
@@ -4498,7 +4498,7 @@ describe "Methods: dispatch" do
   end
 
   it "poly zero arg container reduction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `arr.sum` on a receiver only known at run time, where a USER class owns the
       # name too (`Node#sum`). The dispatch switch covers user classes only, so a
       # real Array fell through to the NoMethodError default.
@@ -4547,7 +4547,7 @@ describe "Methods: dispatch" do
   end
 
   it "runtime visibility marks govern dynamic dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Runtime `Module#private`/`public`/`protected` with name arguments
       # (`class_eval { private :m }`): marks land in the overlay and govern the
       # DYNAMIC paths -- `respond_to?`, `public_send`, plain `send` -- with the
@@ -4630,7 +4630,7 @@ describe "Methods: dispatch" do
   end
 
   it "safe nav poly dispatch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # safe navigation on a poly receiver must dispatch the method through the
       # poly runtime-class switch, not drop it and return the receiver (#3269).
       class Flag
@@ -4670,7 +4670,7 @@ describe "Methods: dispatch" do
   end
 
   it "splat destructure poly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Splat destructure with a poly_array RHS — Gemini concern on PR #116:
       # the runtime-slice path of compile_multi_write_splat had no case for
       # poly_array, so it fell through to sp_IntArray_get / sp_IntArray_slice
@@ -4712,7 +4712,7 @@ describe "Methods: dispatch" do
   end
 
   it "top level def is callable from a class body and a class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `self` in a class body/class method is the CLASS OBJECT -- there's no
       # concrete receiver to clone, so implicit-self dispatch must go through
       # `RubyValue::Class`, not an invalid `self.clone()`.
@@ -4736,7 +4736,7 @@ describe "Methods: dispatch" do
   end
 
   it "virtual dispatch void override" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An implicit-self call to a void method that subclasses override must dispatch
       # on the runtime class, not bind statically to the base implementation.
       class Base
@@ -4759,7 +4759,7 @@ describe "Methods: dispatch" do
   end
 
   it "virtual dispatch void override empty base" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Empty void base body, overridden in a subclass: the implicit-self call from
       # the base method must still reach the subclass override.
       class Base
@@ -4775,7 +4775,7 @@ describe "Methods: dispatch" do
     _(result).must_answer "sub-ran\n"
   end
   it "a small def of the file runs as a copy at its sites, and every guard that fails takes the call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A small def of the file -- required positionals, a body of reads of
       # self's ivars, of readers and type questions of its arguments, fixnum
       # arithmetic, branches and a return -- runs as a copy at each site

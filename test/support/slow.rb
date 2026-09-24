@@ -2,7 +2,7 @@
 
 require "minitest"
 
-module Ze0
+module Zr
   module Test
     # Where a run's time went: the slowest tests by name, and for the
     # examples that build a program, what each part of the build cost,
@@ -15,17 +15,17 @@ module Ze0
     # test's time is taken in the worker that ran it and comes back in
     # its result, so the numbers are the test's own and not the pool's.
     #
-    # `ZE0_SLOW=30` prints thirty; `ZE0_SLOW=1`, or `SLOW=1`, prints
+    # `ZR_SLOW=30` prints thirty; `ZR_SLOW=1`, or `SLOW=1`, prints
     # twenty. Unset, the run reports as it always did.
     module Slow
       # The key an example leaves its build's parts under, in seconds.
-      KEY = :ze0_phases
+      KEY = :zr_phases
       PARTS = %i[lower link run].freeze
       DEFAULT = 20
 
-      def self.asked? = ENV.key?("ZE0_SLOW") || ENV.key?("SLOW")
+      def self.asked? = ENV.key?("ZR_SLOW") || ENV.key?("SLOW")
 
-      def self.count = ENV["ZE0_SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
+      def self.count = ENV["ZR_SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
 
       def self.minitest_plugin_init(options)
         Minitest.reporter << Reporter.new(options[:io], count) if asked?
@@ -122,4 +122,4 @@ module Ze0
   end
 end
 
-Minitest.register_plugin(Ze0::Test::Slow)
+Minitest.register_plugin(Zr::Test::Slow)

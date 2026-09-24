@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/native/build"
-require_relative "../../lib/ze0/obj/jit/fiddle"
+require_relative "../../lib/zr/native/build"
+require_relative "../../lib/zr/obj/jit/fiddle"
 require_relative "../../test/native/fixtures"
 
 # The in-process road: a unit the Ruby backend wrote, loaded into this
@@ -11,14 +11,14 @@ require_relative "../../test/native/fixtures"
 class JITTest < Minitest::Test
   # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
   def call_main(name)
-    functions, data = Ze0::Native::Fixtures.build(name)
-    unit = Ze0::Native::Build.unit(functions, data)
+    functions, data = Zr::Native::Fixtures.build(name)
+    unit = Zr::Native::Build.unit(functions, data)
     unit.functions.each { |f| f.relocs.each { |r| r.symbol = "getpid" if r.symbol == "exit" } }
-    symbols = Ze0::Obj::JIT.load(unit, host: Ze0::Obj::JIT::Fiddle.new)
+    symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
     main = Fiddle::Function.new(symbols["main"], [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)
     out, = capture_subprocess_io { $stdout.flush; main.call(0, 0) }
     out
@@ -29,7 +29,7 @@ class JITTest < Minitest::Test
   end
 
   def test_hello_prints_in_process
-    assert_equal "hello, ze0!\n", call_main("hello")
+    assert_equal "hello, zr!\n", call_main("hello")
   end
 
   def test_arith_holds_in_process

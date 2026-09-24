@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: defining and naming methods" do
   it "alias of the inherited builtin raise works in every call shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias_method :raise!, :raise` / `alias __raise__ raise` (ostruct's and
       # delegate's shapes): the source is Kernel's BUILTIN raise -- no user
       # `Scope` exists, so this used to be a compile error. Statically-resolved
@@ -58,7 +58,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "bare rescue does not catch a script error level exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `rescue` matches `StandardError` and below ONLY -- it must NOT
       # catch a raised `ScriptError` (a sibling branch of the hierarchy, both
       # direct children of `Exception`). This is the real semantic bare
@@ -79,7 +79,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "begin ensure with no rescue clause still runs ensure and propagates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         begin
           raise "boom"
@@ -95,7 +95,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "begin rescue catches and ensure always runs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts "try"
         raise ArgumentError, "bad"
@@ -114,7 +114,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "def in a rescue clause is not promised" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The nested walk reaches a `rescue` clause, but reaching it is not the same as
       # promising it: the clause runs only if the body raised. The method's name goes
       # on record so a static call site stops folding, and reflection still answers
@@ -155,7 +155,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "error highlight library" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # error_highlight is loaded before the program, as ruby's gem prelude
       # loads it: a require of it answers false, and `detailed_message` shows
       # the line with a caret run under the call that failed. The program
@@ -186,7 +186,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a raise takes the rescue arm and then the ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts "try"
         raise ArgumentError, "bad"
@@ -206,7 +206,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a body that raises nothing takes the else arm and then the ensure" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         puts "body"
       rescue => e
@@ -227,7 +227,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a subclass is caught by its parent's arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class AppError < StandardError
       end
       class ValidationError < AppError
@@ -247,7 +247,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "one arm naming several classes catches any of them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         raise TypeError, "wrong type"
       rescue ArgumentError, TypeError => e
@@ -262,7 +262,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a retry runs the body again, and the ensure sees how many attempts it took" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Attempt
         def initialize
           @attempts = 0
@@ -295,7 +295,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a method-body rescue needs no begin of its own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Worker
         def safe
           raise "oops"
@@ -313,7 +313,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "an ensure runs before the return it wraps" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class ReturnTester
         def m
           begin
@@ -336,7 +336,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a rescue modifier supplies the value where the expression raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Unsafe
         def op(n)
           raise "negative" if n < 0
@@ -359,7 +359,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "a rescue arm's value is the begin's value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class TopRisk
         def risky_top
           raise "bad"
@@ -376,7 +376,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "an exception carries its own readers out through an inner arm and an outer one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class MyError < StandardError
         def initialize(msg, code)
           super(msg)
@@ -414,7 +414,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "method level implicit rescue with no explicit begin end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def m; ...; rescue => e; ...; end` -- `DefNode::body()` is directly a
       # `BeginNode` with no `begin_keyword_loc` in this shape (confirmed via
       # `Prism.parse`), flowing through the SAME `HirNode::Begin` lowering as
@@ -434,7 +434,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "missing method via send raises a rescuable no method error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Plain
         def real
           :real
@@ -457,7 +457,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "raise inside ensure replaces the original exception" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         begin
           raise "original"
@@ -473,7 +473,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "rescue exception class explicitly catches a script error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         raise ScriptError, "script problem"
       rescue Exception => e
@@ -485,7 +485,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "rescue with a computed exception class expression" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A rescue-list entry that is a COMPUTED expression (not a bare constant or
       # splat) is evaluated and matched at runtime -- net/http's `rescue
       # defined?(OpenSSL::SSL) ? OpenSSL::SSL::SSLError : IOError`.
@@ -503,7 +503,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "rescue with multiple classes in one clause" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         raise TypeError, "wrong type"
       rescue ArgumentError, TypeError => e
@@ -515,7 +515,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "singleton body begin rescue and self value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # securerandom picks its implementation with a `begin/rescue` inside `class <<
       # self`, aliasing whichever one works; and `class << self; self; end` is the
       # classic idiom whose VALUE is the singleton class.
@@ -556,7 +556,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "undef method raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #717. `undef <m>` removes the method from the class's
       # dispatch table AND a subsequent call to it raises NoMethodError
       # (matching CRuby). spinel previously recorded the undef but the
@@ -601,7 +601,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "unmatched rescue class propagates to an outer rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         begin
           raise TypeError, "inner"
@@ -617,7 +617,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "unrescued raise propagates through multiple method call frames" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three separate objects (not sibling methods on one class) --
       # implicit-self calls to a sibling method aren't supported yet
       # (a separate, pre-existing, documented gap), so each

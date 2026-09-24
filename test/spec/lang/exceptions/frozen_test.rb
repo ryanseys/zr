@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Exceptions: frozen literals" do
   it "ensure" do
-    result = ze0(<<~'RUBY', path: "ensure.rb")
+    result = zr(<<~'RUBY', path: "ensure.rb")
       # frozen_string_literal: true
 
       # `ensure` runs its clause on the way out however the body leaves: a
@@ -246,7 +246,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "exception freeze" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # freeze on an exception was a no-op and frozen? a hard-coded false, so an
       # exception the program froze itself still read back unfrozen.
       p(RuntimeError.new("f").freeze.frozen?)
@@ -275,7 +275,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "frozen error is caught by a runtime error rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       g = [1].freeze
       begin
         g[0] = 2
@@ -288,7 +288,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "a frozen Array and a frozen Hash refuse every write" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3].freeze
       puts a.frozen?
       begin
@@ -354,7 +354,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "a frozen String refuses every write, and freeze after the fact is enough" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "hello".freeze
       puts s.frozen?
       begin
@@ -411,7 +411,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "make shareable deep freezes a nested object graph that then crosses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The plan's own listed scenario: object -> array -> object, every node
       # frozen by one make_shareable, the whole graph then crossing a Ractor
       # boundary by reference and dispatching on the far side.
@@ -448,7 +448,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "name validation family" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The reflection surface validates the NAMES it is given, through one
       # shared set of predicates rather than sixteen separate remembered checks.
       #
@@ -602,7 +602,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "no method error names a singleton receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `NoMethodError` names its receiver one of two ways, and which one is
       # decided by whether the receiver has a SINGLETON CLASS: `an instance of K`
       # without, `#<K:0xADDR>` with. Materializing one is the whole trigger --
@@ -681,7 +681,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "reopening a frozen class raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A REOPEN of a frozen class is a `FrozenError` and its body never runs -- so
       # the methods that body would have installed do not exist. zeo's compile-time
       # tables already carry them, so the guard retires them at the reopen's own
@@ -760,7 +760,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "rescue and writes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `retry` runs the whole `begin` again, leaving the clause it is written
@@ -875,7 +875,7 @@ describe "Exceptions: frozen literals" do
   end
 
   it "shareable predicate is deep" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A frozen container holding an UNFROZEN element is not shareable --
       # CRuby's frozen-and-everything-reachable-shareable rule.
 

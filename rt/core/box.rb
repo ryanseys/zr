@@ -52,7 +52,7 @@ module Ruby
       @cref = Primitive.zr_eval_cref_under(self, nil)
     end
 
-    def eval(source) = run(::Ze0::Eval.current.compile(source, "eval", 1, []), nil)
+    def eval(source) = run(::Zr::Eval.current.compile(source, "eval", 1, []), nil)
 
     def load_path = @load_path
 
@@ -120,7 +120,7 @@ module Ruby
 
       @loaded[path] = true
       @globals[Primitive.zr_box_gvar_key(:$LOADED_FEATURES)] << path
-      run(::Ze0::Eval.current.compile(File.read(path), path, 1, []), path)
+      run(::Zr::Eval.current.compile(File.read(path), path, 1, []), path)
       true
     end
 

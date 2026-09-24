@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/ir/passes"
-require_relative "../../lib/ze0/ir/interp"
+require_relative "../../lib/zr/ir/passes"
+require_relative "../../lib/zr/ir/interp"
 
 # The IR passes, one shape each: what a pass makes of a function, and
 # that the interpreter answers the same before and after it.
 class PassesTest < Minitest::Test
   def function(name, params, ret)
-    f = Ze0::IR::Function.new(name, params, ret)
+    f = Zr::IR::Function.new(name, params, ret)
     yield f, *f.args
     f
   end
@@ -16,7 +16,7 @@ class PassesTest < Minitest::Test
   def ops(f) = f.blocks.flat_map { |b| b.insts.map(&:op) }
 
   def answer(f, args)
-    Ze0::IR::Interp.new([f]).answer(f.name, args)
+    Zr::IR::Interp.new([f]).answer(f.name, args)
   end
 
   # A lowering that wants to drop a sequence a constant operand has
@@ -45,7 +45,7 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(a, f.iadd(b, f.uextend("i64", c))))
     end
     was = answer(f, [])
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal %i[iconst return], ops(f)
     assert_equal was, answer(f, [])
     assert_equal (42 - 3 + 2) & 0xFFFF_FFFF_FFFF_FFFF, was
@@ -62,7 +62,7 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(f.iadd(ctz, f.uextend("i64", none)), f.iadd(count, f.uextend("i64", turned))))
     end
     was = answer(f, [])
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal %i[iconst return], ops(f)
     assert_equal was, answer(f, [])
     assert_equal 4 + 32 + 9 + 0x0403_0201, was
@@ -79,9 +79,9 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(f.iadd(f.iadd(a, b), f.iadd(c, d)), e))
     end
     was = answer(f, [1_000_003])
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
 
-    assert_equal %i[ishl ushr band sdiv imul], ops(f).select { |op| Ze0::IR::Inst::BINOPS.include?(op) && op != :iadd }
+    assert_equal %i[ishl ushr band sdiv imul], ops(f).select { |op| Zr::IR::Inst::BINOPS.include?(op) && op != :iadd }
     assert_equal was, answer(f, [1_000_003])
     assert_equal 1_000_003 * 8 + 125_000 + 3 + 125_000 + 1_000_003 * 6, was
   end
@@ -98,7 +98,7 @@ class PassesTest < Minitest::Test
       f.switch(no)
       f.ret(f.iconst("i64", 0))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal %i[return], ops(f)
     assert_equal ["v0"], f.entry_block.insts.first.args
     assert_equal 9, answer(f, [9])
@@ -123,7 +123,7 @@ class PassesTest < Minitest::Test
       f.switch(large)
       f.ret(f.iconst("i64", 0))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 1, ops(f).count(:icmp), "only the entry's own test is left"
     assert_equal [1, 8], [answer(f, [0]), answer(f, [7])]
   end
@@ -141,7 +141,7 @@ class PassesTest < Minitest::Test
       f.switch(done)
       f.ret(i)
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal [5, 0], [answer(f, [5]), answer(f, [-3])]
   end
 
@@ -152,7 +152,7 @@ class PassesTest < Minitest::Test
       f.store(f.iconst("i64", 8), p)
       f.ret
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal %i[iconst store return], ops(f)
   end
 
@@ -168,7 +168,7 @@ class PassesTest < Minitest::Test
       c = f.fetch("i64", rec, 8)
       f.ret(f.iadd(a, f.iadd(b, c)))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     loads = f.entry_block.insts.select { |i| i.op == :load }
     assert_equal [16, 8], loads.map(&:offset)
     assert_equal 3, f.entry_block.insts.count { |i| i.op == :store }
@@ -187,7 +187,7 @@ class PassesTest < Minitest::Test
       f.ret(f.iconst("i64", 0))
     end
     was = [[1, 9], [20, 9], [1, 1]].map { |args| answer(f, args) }
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 4, f.blocks.size
     assert_equal %i[brif], f.blocks[0].insts.map(&:op).last(1)
     assert_equal 1, f.blocks[0].insts.count { |i| i.op == :icmp }
@@ -208,7 +208,7 @@ class PassesTest < Minitest::Test
       f.switch(no)
       f.ret(f.iconst("i64", 0))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     first = f.blocks[0].insts.last
     assert_equal :brif, first.op
     assert_equal f.blocks[1].name, first.targets[1][0]
@@ -233,7 +233,7 @@ class PassesTest < Minitest::Test
     end
     args = [[1, 1, 1], [20, 9, 1], [20, 1, 0], [20, 1, 1]]
     was = args.map { |a| answer(f, a) }
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 0, ops(f).count(:bor)
     tests = f.blocks.select { |b| b.insts.last.op == :brif }
     assert_equal 3, tests.size
@@ -257,7 +257,7 @@ class PassesTest < Minitest::Test
       f.switch(no)
       f.ret(f.uextend("i64", c))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 2, f.entry_block.insts.count { |i| i.op == :icmp }, "both tests stay in the entry"
     assert_equal [1, 1, 0], [[1, 9], [20, 9], [20, 1]].map { |args| answer(f, args) }
   end
@@ -277,7 +277,7 @@ class PassesTest < Minitest::Test
       f.switch(join)
       f.ret(f.iadd(y, f.iconst("i64", 1)))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 1, f.blocks.size
     assert_equal %i[iconst iadd return], ops(f)
     assert_equal 6, answer(f, [5])
@@ -310,7 +310,7 @@ class PassesTest < Minitest::Test
       f.jump(b)
     end
     was = [[1, 0, 5], [0, 1, 5]].map { |args| answer(f, args) }
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     adds = f.blocks.index { |blk| blk.insts.any? { |i| i.op == :iadd && i.args.include?("v3") } }
     returns = f.blocks.index { |blk| blk.insts.last.op == :return }
     assert_operator adds, :<, returns, "the join's instructions stand ahead of the block that reads them"
@@ -322,17 +322,17 @@ class PassesTest < Minitest::Test
     f = function("same", %w[i8 i64], "i64") do |f, c, x|
       f.ret(f.csel(c, x, x))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal %i[return], ops(f)
     assert_equal ["v1"], f.entry_block.insts.first.args
   end
 
   # `Statics`: a word the kernel keeps in a static, `bss` here, and a
   # program that answers with the words it read.
-  def static(name, bytes = "\0".b * 8) = Ze0::Obj::Data.new("zr_static_#{name}", :data, bytes, align: 16)
+  def static(name, bytes = "\0".b * 8) = Zr::Obj::Data.new("zr_static_#{name}", :data, bytes, align: 16)
 
   def answer_with(functions, data, args)
-    Ze0::IR::Interp.new(functions, data: data).answer(functions[0].name, args)
+    Zr::IR::Interp.new(functions, data: data).answer(functions[0].name, args)
   end
 
   def loads(f) = f.blocks.flat_map { |b| b.insts.select { |i| i.op == :load } }
@@ -372,8 +372,8 @@ class PassesTest < Minitest::Test
       f.ret(acc)
     end
     was = answer_with([f, bump], [static("gates", [3].pack("q<"))], [5])
-    Ze0::IR::Passes.prepare(f, strict: true)
-    Ze0::IR::Passes.prepare(bump, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(bump, strict: true)
     assert_equal 2, ops(f).count(:gates)
     assert_equal 1, loads(f).size, "the entry's load alone"
     assert_equal 2, f.blocks.find { |b| b.params.size == 2 }.params.size, "the head carries the counts alone"
@@ -391,14 +391,14 @@ class PassesTest < Minitest::Test
       at = f.symbol_addr(f.symbol("zr_static_current_task"))
       a = f.fetch("i64", at)
       b = f.fetch("i64", at, 8)
-      f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:heap)), [])
+      f.call(f.callee("allocate", [], nil, effects: Zr::IR::Effects.bit(:heap)), [])
       c = f.fetch("i64", at)
       d = f.fetch("i64", at, 8)
       e = f.fetch("i64", at)
       f.ret(f.iadd(f.iadd(a, b), f.iadd(f.iadd(c, d), e)))
     end
     allocate = function("allocate", [], nil) { |g| g.ret }
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal [0, 8, 8], loads(f).map(&:offset).sort
     assert_equal 27, answer_with([f, allocate], [static("current_task", [7, 3].pack("q<q<"))], [])
   end
@@ -419,7 +419,7 @@ class PassesTest < Minitest::Test
       c = f.fetch("i64", at)
       f.ret(f.iadd(a, f.iadd(b, c)))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 2, loads(f).size, "the read after the slot store is the one before it"
     assert_equal 4 + 9 + 9, answer_with([f, where], [static("site_stamp")], [])
   end
@@ -432,7 +432,7 @@ class PassesTest < Minitest::Test
     f = function("effects", %w[i64], "i64") do |f, p|
       at = f.symbol_addr(f.symbol("zr_static_site_stamp"))
       a = f.fetch("i64", at)
-      f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:heap) | Ze0::IR::Effects.bit(:malloc)), [])
+      f.call(f.callee("allocate", [], nil, effects: Zr::IR::Effects.bit(:heap) | Zr::IR::Effects.bit(:malloc)), [])
       f.store(f.iconst("i64", 1), p, 8, region: :heap)
       b = f.fetch("i64", at)
       f.call(f.callee("send", [], nil), [])
@@ -441,7 +441,7 @@ class PassesTest < Minitest::Test
       d = f.fetch("i64", at)
       f.ret(f.iadd(f.iadd(a, b), f.iadd(c, d)))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal %i[symbol_value load call iconst store call load iconst store load iadd iadd iadd return], ops(f)
   end
 
@@ -463,7 +463,7 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(r, a))
     end
     was = [[2, 3, 1], [2, 3, 0]].map { |args| answer(f, args) }
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 1, ops(f).count(:iadd) - 1, "one sum, and the return's"
     assert_equal 2, ops(f).count(:imul), "an arm's product is its own"
     assert_equal was, [[2, 3, 1], [2, 3, 0]].map { |args| answer(f, args) }
@@ -477,7 +477,7 @@ class PassesTest < Minitest::Test
     f = function("reloads", %w[i64 i8], "i64") do |f, p, c|
       a = f.fetch("i64", p, 8, region: :heap)
       f.store(f.iconst("i64", 1), p, 16, region: :malloc)
-      f.call(f.callee("allocate", [], nil, effects: Ze0::IR::Effects.bit(:malloc)), [])
+      f.call(f.callee("allocate", [], nil, effects: Zr::IR::Effects.bit(:malloc)), [])
       b = f.fetch("i64", p, 8, region: :heap)
       left = f.label
       right = f.label
@@ -492,7 +492,7 @@ class PassesTest < Minitest::Test
       d = f.fetch("i64", p, 8, region: :heap)
       f.ret(f.iadd(f.iadd(a, b), d))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 2, loads(f).size, "the second load is the first; the one past the arm's store is not"
   end
 
@@ -514,7 +514,7 @@ class PassesTest < Minitest::Test
       f.switch(done)
       f.ret(f.iadd(acc, here))
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     assert_equal 2, loads(f).size
   end
 
@@ -541,7 +541,7 @@ class PassesTest < Minitest::Test
     end
     data = [static("word", [7].pack("q<")), static("site_stamp")]
     was = answer_with([f], data, [4, 5])
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     loops = f.analysis.loops
     assert_equal 1, loops.size
     %i[imul load].each do |op|
@@ -574,7 +574,7 @@ class PassesTest < Minitest::Test
       f.switch(done)
       f.ret(acc)
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     body = f.analysis.loops[0].body
     inside = f.blocks.select { |b| body.include?(b.name) }.flat_map(&:insts).map(&:op)
     assert_equal 2, inside.count(:icmp), "the loop's own test and the branch's"
@@ -603,7 +603,7 @@ class PassesTest < Minitest::Test
       f.switch(done)
       f.ret(acc)
     end
-    Ze0::IR::Passes.prepare(f, strict: true)
+    Zr::IR::Passes.prepare(f, strict: true)
     loops = f.analysis.loops
     assert_equal 1, loops.size
     inside, outside = loads(f).partition { |i| loops[0].body.include?(f.blocks.find { |b| b.insts.include?(i) }.name) }
@@ -627,7 +627,7 @@ class PassesTest < Minitest::Test
       f.ret(f.iadd(a, f.fetch("i64", stamp)))
     end
     [escapes, part].each do |f|
-      Ze0::IR::Passes.prepare(f, strict: true)
+      Zr::IR::Passes.prepare(f, strict: true)
       assert_equal 2, loads(f).size, f.name
     end
   end
@@ -643,12 +643,12 @@ def test_a_small_leaf_is_inlined_into_its_caller_and_a_cycle_is_left_as_calls
   loop_a = function("ping", %w[i64], "i64") { |f, x| f.ret(f.call_val(f.callee("pong", %w[i64], "i64"), [x])) }
   loop_b = function("pong", %w[i64], "i64") { |f, x| f.ret(f.call_val(f.callee("ping", %w[i64], "i64"), [x])) }
   functions = [plus, twice, caller, loop_a, loop_b]
-  was = Ze0::IR::Interp.new(functions).answer("caller", [20])
-  Ze0::IR::Passes.inline(functions).each { |f| Ze0::IR::Passes.prepare(f, strict: true) }
+  was = Zr::IR::Interp.new(functions).answer("caller", [20])
+  Zr::IR::Passes.inline(functions).each { |f| Zr::IR::Passes.prepare(f, strict: true) }
   refute_includes ops(caller), :call
   refute_includes ops(twice), :call
   assert_includes ops(loop_a), :call
-  assert_equal was, Ze0::IR::Interp.new(functions).answer("caller", [20])
+  assert_equal was, Zr::IR::Interp.new(functions).answer("caller", [20])
   assert_equal 43, was
 end
 
@@ -661,7 +661,7 @@ end
       f.ret(f.iadd(f.fetch("i64", at), f.iconst("i64", 1)))
     end
     buffer = function("through_buffer", %w[i64], "i64") do |f, x|
-      at = f.stack_addr(f.slot(Ze0::IR::Passes::Inline::SLOT_BYTES + 8))
+      at = f.stack_addr(f.slot(Zr::IR::Passes::Inline::SLOT_BYTES + 8))
       f.store(x, at)
       f.ret(f.fetch("i64", at))
     end
@@ -670,10 +670,10 @@ end
       f.ret(f.iadd(a, f.call_val(f.callee("through_buffer", %w[i64], "i64"), [x])))
     end
     functions = [through, buffer, caller]
-    Ze0::IR::Passes.inline(functions).each { |f| Ze0::IR::Passes.prepare(f, strict: true) }
+    Zr::IR::Passes.inline(functions).each { |f| Zr::IR::Passes.prepare(f, strict: true) }
 
     assert_equal 1, ops(caller).count(:call)
     assert_equal 1, caller.slots.size
-    assert_equal 41, Ze0::IR::Interp.new(functions).answer("caller", [20])
+    assert_equal 41, Zr::IR::Interp.new(functions).answer("caller", [20])
   end
 end

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Constants: defining and naming methods" do
   it "const alias path receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant-path receiver whose LEAF is a module/class alias resolves to
       # the aliased target, like the simple-constant receiver form already does.
       module Outer
@@ -31,7 +31,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "const alias reached only by new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant aliasing a class, defined in a LEXICAL PARENT and reached only
       # through `.new` from a class nested inside it. The ownership collector saw a
       # bare `Fast` read but not `Fast.new`, so the name got no ownership entry and
@@ -90,7 +90,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "nested definition ignores an outer const alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class/module DEFINITION binds its name in the immediately enclosing scope.
       # Ruby never searches outward for it, so a `NAME = SomeClass` alias written in
       # another scope is a different constant and cannot be what the definition
@@ -173,7 +173,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "remove const on a pending autoload answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # remove_const on a name whose autoload has not run answers nil, and
       # the name forgets its file as well as its row.
       module Box
@@ -202,7 +202,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "scoped const alias in a case arm resolves" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `NAME = SomeModule` write inside a class or module body binds the name
       # whatever container it is written in -- a `case` arm here, but a `begin` body
       # or a block just as much. Only the `if` shape was recorded, so `include
@@ -228,7 +228,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "top level alias and undef target object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `alias` and `undef` at TOP LEVEL, where the implicit target is `Object` --
       # top-level `def` defines a private method on Object, so the keywords that
       # alias or remove one have to reopen the same class. Both were class-body-only
@@ -262,7 +262,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "toplevel alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level `alias b a`: the alias collector only walked class and module
       # bodies, so the new name was never registered and calling it raised NameError.
       def t1; 1; end
@@ -293,7 +293,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "toplevel name collides with runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A top-level method mangles to `sp_<name>`, which is the runtime's own
       # namespace: `def str_hash` collided with sp_str_hash and the generated C did
       # not compile (#3973). Such a name is emitted with an `rb_` infix now.
@@ -334,7 +334,7 @@ describe "Constants: defining and naming methods" do
   end
 
   it "undef const scalar position" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unresolved constant read lowers to a runtime NameError raise whose C
       # value is an sp_Class; used in a scalar slot (Array.new count, array index,
       # int/float arithmetic operand) the struct used to leak into the generated C

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Reline programs" do
   it "file readlines" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # File.readlines: read a file back as an array of lines, keeping the
       # "\n" terminator (CRuby default). chomp: true strips it; an encoding:
       # keyword is accepted and ignored. Uses a cwd-relative path because
@@ -31,7 +31,7 @@ describe "Reline programs" do
   end
 
   it "file readlines limit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "tmpdir"
 
       Dir.mktmpdir do |d|
@@ -49,7 +49,7 @@ describe "Reline programs" do
   end
 
   it "the config, the width and grapheme arithmetic, and the module surface all run without a terminal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # reline -- the pure-Ruby line editor irb and every other Ruby REPL reads
       # through. Vendored whole; what is exercised here is the part that runs
       # without a terminal: the config, the width/grapheme arithmetic its rendering

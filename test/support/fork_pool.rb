@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "../../lib/ze0/native/resident"
+require_relative "../../lib/zr/native/resident"
 require "etc"
 require "io/wait"
 require "minitest"
 
-module Ze0
+module Zr
   module Test
     # Minitest's parallel executor, forking.
     #
@@ -13,7 +13,7 @@ module Ze0
     # when a suite says `parallelize_me!`: it is handed `[klass, method,
     # reporter]` and is trusted to run it and give the reporter a
     # result. The executor minitest ships runs them in threads, which
-    # buys nothing here -- a ze0 compile is the compiler's own Ruby, and
+    # buys nothing here -- a zr compile is the compiler's own Ruby, and
     # the GVL lets one thread at a time hold it.
     #
     # So this one forks. The parent loads every test file once -- 0.4 s
@@ -59,17 +59,17 @@ module Ze0
       # it, in seconds. A worker still silent past this is killed and the
       # example it was holding is reported as a failure by name, so a
       # compile that loops -- or a machine that has begun to swap -- costs
-      # one example and not the tier. `ZE0_TEST_TIMEOUT=0` waits forever,
+      # one example and not the tier. `ZR_TEST_TIMEOUT=0` waits forever,
       # which is what a debugger session wants.
-      DEADLINE = Integer(ENV.fetch("ZE0_TEST_TIMEOUT", 180))
+      DEADLINE = Integer(ENV.fetch("ZR_TEST_TIMEOUT", 180))
 
       # What one example of `klass` may take. A suite that answers
       # `deadline` asks for its own bound, which is for work that is
       # slow rather than stuck -- a wasm build spends minutes in the
-      # backend. `ZE0_TEST_TIMEOUT` overrules every suite, so one run can
+      # backend. `ZR_TEST_TIMEOUT` overrules every suite, so one run can
       # still hold the whole tier to one number.
       def self.deadline_for(klass)
-        return DEADLINE unless ENV["ZE0_TEST_TIMEOUT"].nil? && klass.respond_to?(:deadline)
+        return DEADLINE unless ENV["ZR_TEST_TIMEOUT"].nil? && klass.respond_to?(:deadline)
 
         klass.deadline
       end
@@ -88,7 +88,7 @@ module Ze0
       # here that is not free. Growth is also the honest measure: a
       # worker is retired because Ruby does not give heap pages back,
       # which is a fact about what it has allocated.
-      RECYCLE_MB = Integer(ENV.fetch("ZE0_RECYCLE_MB", 600))
+      RECYCLE_MB = Integer(ENV.fetch("ZR_RECYCLE_MB", 600))
 
       attr_reader :size
 
@@ -162,7 +162,7 @@ module Ze0
           $stdout.flush
           pid = Process.fork do
             # A process group of its own, so a worker that has to be
-            # killed takes with it whatever it started. A ze0 build forks
+            # killed takes with it whatever it started. A zr build forks
             # six more processes, and one orphaned by a killed worker
             # holds its pipe open and a hundred megabytes of memory long
             # after the run has given up on the example.
@@ -290,7 +290,7 @@ module Ze0
         def self.resident = resident_of(Process.pid)
 
         def self.resident_of(pid)
-          Ze0::Native::Resident.of(pid) || `ps -o rss= -p #{pid}`.to_i / 1024
+          ::Zr::Native::Resident.of(pid) || `ps -o rss= -p #{pid}`.to_i / 1024
         end
 
         def initialize(pid, jobs, back)
@@ -339,7 +339,7 @@ module Ze0
             if @overdue
               seconds, resident = @overdue
               "the worker ran past #{seconds}s on this example, holding #{resident} MB " \
-                "(ZE0_TEST_TIMEOUT changes the bound)"
+                "(ZR_TEST_TIMEOUT changes the bound)"
             elsif @status.nil?
               "the worker went without a status"
             elsif @status.signaled?

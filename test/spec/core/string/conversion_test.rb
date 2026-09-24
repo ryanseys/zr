@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: conversion" do
   it "conv to str duck" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_str ducks at String-argument sites.
       class Sep
         def to_str
@@ -44,7 +44,7 @@ describe "String: conversion" do
   end
 
   it "hash str value poly coerce" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Storing a poly value (one that holds a String/Integer at runtime) into a
       # typed-value hash (Hash[String,String] / Hash[String,Integer]) must coerce the
       # poly to the hash's value representation -- the setter takes const char* /
@@ -81,7 +81,7 @@ describe "String: conversion" do
   end
 
   it "mutable str into str array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Pushing a mutable String builder (String.new + <<) into a str_array
       # must snapshot its buffer into a sweep-owned (0xfe) copy, not store the
       # sp_String pointer / alias its object-owned ->data buffer. The builder
@@ -142,7 +142,7 @@ describe "String: conversion" do
   end
 
   it "numeric coerce non numeric string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       begin
         42.coerce("l")
       rescue ArgumentError => e
@@ -159,7 +159,7 @@ describe "String: conversion" do
   end
 
   it "to_f reads a bare leading or trailing dot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p ".5".to_f
       p "5.".to_f
       p "-.5".to_f
@@ -175,7 +175,7 @@ describe "String: conversion" do
   end
 
   it "to_i honours an explicit base argument" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #883: String#to_i with explicit base argument. Without the
       # fix, the base was silently dropped and the call returned 0 for
       # any non-decimal input.
@@ -198,7 +198,7 @@ describe "String: conversion" do
   end
 
   it "to_i with a base accepts the matching literal prefix, and a sign before it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "0x1f".to_i(16)
       p "-0x1f".to_i(16)
       p "-1f".to_i(16)
@@ -214,7 +214,7 @@ describe "String: conversion" do
   end
 
   it "to_i(0) takes the base from the literal prefix" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#to_i(0) auto-detects the base from the literal prefix.
       puts "0xff".to_i(0)
       puts "0b10".to_i(0)
@@ -238,7 +238,7 @@ describe "String: conversion" do
   end
 
   it "to_i(0) reads 0x, 0b, 0o, a bare leading zero, and a sign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "0xff".to_i(0)
       puts "0b101".to_i(0)
       puts "0o755".to_i(0)
@@ -260,7 +260,7 @@ describe "String: conversion" do
   end
 
   it "symbol breadth and to proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol Tier A + the `&:sym` block-argument conversion
       # (`Symbol#to_proc`), previously unsupported.
 
@@ -295,7 +295,7 @@ describe "String: conversion" do
   end
 
   it "symbol to proc call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Explicit Symbol#to_proc applied with a call: :sym.to_proc.call(recv, *args)
       # invokes the named method on the first argument. With the symbol and the call
       # site statically known, it lowers to an ordinary recv.sym(*args) method call.
@@ -340,7 +340,7 @@ describe "String: conversion" do
   end
 
   it "symbol to proc forwards block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p :map.to_proc.call([1, 2]) { |x| x * 3 }
       p :each.to_proc.call([1, 2]) { |x| }
       p :select.to_proc.call([1, 2, 3]) { |x| x.odd? }
@@ -354,7 +354,7 @@ describe "String: conversion" do
   end
 
   it "symbol to proc is lambda and hash values at uses default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # :name.to_proc.lambda? is true (CRuby). Hash#values_at routes each key
       # through [], so a missing key yields the hash's default, not bare nil.
 
@@ -373,7 +373,7 @@ describe "String: conversion" do
   end
 
   it "to i agrees with integer and the split forms agree" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # to_i, Integer() and the split forms answer over the same texts as
       # ruby's: blanks, signs, underscores, prefixes, bases and separators
       # of every kind, and split with a block.
@@ -702,7 +702,7 @@ describe "String: conversion" do
   end
 
   it "to i and a string split scan bytes in the kernel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#to_i in base 10 and a split by a String read their bytes in
       # the kernel: the same answers as ruby's for blanks, signs,
       # underscores, a `0d` prefix, numbers past a fixnum, and for pieces

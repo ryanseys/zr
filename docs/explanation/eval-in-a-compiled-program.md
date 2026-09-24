@@ -4,9 +4,9 @@ Ruby can run a string of code while a program runs: `eval`,
 `instance_eval` with a string, `Binding#eval`, and a `require` of a
 file whose name is computed. A compiler that turns Ruby into machine
 code ahead of time has to decide what to do about that. This page
-explains ze0's answer.
+explains zr's answer.
 
-## Three answers, and the one ze0 takes
+## Three answers, and the one zr takes
 
 A compiler for Ruby can:
 
@@ -17,7 +17,7 @@ A compiler for Ruby can:
 The first answer refuses too much. `pp`, `erb` and many other libraries
 in ruby's standard library eval somewhere. The second answer
 gives two implementations of Ruby, and two sets of answers to keep
-equal to ruby's. ze0 takes the third: evaluated code goes through the
+equal to ruby's. zr takes the third: evaluated code goes through the
 same compiler, the same runtime, and the same checks as the rest of the
 program.
 
@@ -30,7 +30,7 @@ port, the same `Hir.build`, the same desugaring and name resolution --
 and only the back half is a second implementation, a walk of the tree
 the front end already built. What the walk does not carry it refuses
 by name, at its line, rather than guessing. The two roads are
-`lib/ze0/eval.rb` and `lib/ze0/eval/walk.rb`, and
+`lib/zr/eval.rb` and `lib/zr/eval/walk.rb`, and
 `Hir::Build.eval_road_file` picks between them from the target.
 
 ## Which programs carry the compiler
@@ -50,7 +50,7 @@ is smaller and starts faster.
 
 ## How an eval runs
 
-The compiler is Ruby, so ze0 can compile it like any other program.
+The compiler is Ruby, so zr can compile it like any other program.
 It builds the compiler into an object of its own once, and keeps it in
 the cache (`road-<digest>.o`). A program that evals links that object
 beside the runtime.
@@ -81,14 +81,14 @@ eval's symbol table starts from the one the program runs on.
 
 ## The walking road
 
-`ZE0_EVAL=walk` builds a native program with the walk, which is how the
+`ZR_EVAL=walk` builds a native program with the walk, which is how the
 walk is held to the compiling road's own answers: the same program, the
 same runtime, and two back halves that must agree with ruby.
 
 The walk evaluates HIR node by node and reaches the program through the
 calls any Ruby program makes -- `__send__`, `define_method`,
 `instance_variable_get`. What only the runtime can answer it asks
-through `Ze0::Eval::World` (`rt/ext/ze0/eval/walking.rb`): the lexical
+through `Zr::Eval::World` (`rt/ext/zr/eval/walking.rb`): the lexical
 scope a cref stands for, the scopes a Binding names, and the constant,
 class-variable and global tables, each one standing for something the
 compiler emits inline.

@@ -2,8 +2,8 @@
 /vendor/ruby/
 /vendor/bundle/
 # Build output.
-/ext/ze0/Makefile
-/ext/ze0/mkmf.log
+/ext/zr/Makefile
+/ext/zr/mkmf.log
 /tmp/
 /pkg/
 *.gem

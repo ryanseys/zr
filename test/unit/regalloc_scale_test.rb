@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/ir"
-require_relative "../../lib/ze0/backend/aarch64"
+require_relative "../../lib/zr/ir"
+require_relative "../../lib/zr/backend/aarch64"
 
 # The backend's work grows with the function, not with its square.
 #
@@ -18,7 +18,7 @@ require_relative "../../lib/ze0/backend/aarch64"
 # as a Set's entries are not objects of their own.
 class RegallocScaleTest < Minitest::Test
   def chain(n)
-    f = Ze0::IR::Function.new("chain_#{n}", %w[i64], "i64")
+    f = Zr::IR::Function.new("chain_#{n}", %w[i64], "i64")
     a = f.args.first
     n.times do |i|
       found = f.label
@@ -39,7 +39,7 @@ class RegallocScaleTest < Minitest::Test
     Array.new(3) do
       GC.start
       started = Process.clock_gettime(Process::CLOCK_PROCESS_CPUTIME_ID)
-      Ze0::Backend::Aarch64::Codegen.new(f).compile
+      Zr::Backend::Aarch64::Codegen.new(f).compile
       Process.clock_gettime(Process::CLOCK_PROCESS_CPUTIME_ID) - started
     end.min
   end

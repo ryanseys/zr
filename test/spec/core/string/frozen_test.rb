@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: frozen literals" do
   it "array frozen slice bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#slice! must raise FrozenError on a frozen array (Gemini
       # follow-up to #1029: slice! was the remaining unguarded mutator).
       a = [1, 2, 3]
@@ -30,7 +30,7 @@ describe "String: frozen literals" do
   end
 
   it "follows the magic comment rules" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen-string-literal: TRUE
       # The magic comment reads as CRuby reads it: `-` and `_` alike, and the
       # value in any case. Adjacent strings and a heredoc with no
@@ -59,7 +59,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string double shovel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s001 = +"x"; s001.freeze
       p(begin; s001 << "y"; rescue FrozenError => e001; e001.receiver; end)
       p(begin; s001 << "y"; rescue FrozenError => e002; e002.receiver; end)
@@ -78,7 +78,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string global survives gc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A heap string frozen by .freeze and bound to a constant is rooted via
       # sp_mark_user_globals, but the string-pool sweeper (sp_str_sweep) only kept
       # 0xfc-marked strings and freed the frozen (0xf1) one -- a GC use-after-free
@@ -108,7 +108,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # fsl-true is Spinel's DEFAULT (no pragma in this file): literals are frozen,
       # mutation raises, and +"" / String.new / interpolation give mutable strings
       # that keep the full shared-mutation semantics.
@@ -149,7 +149,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal gc root" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       first = "first literal"
@@ -165,7 +165,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal per file" do
-    result = ze0(<<~'RUBY', files: beside("frozen_literal/helper_frozen.rb", "frozen_literal/helper_plain.rb"))
+    result = zr(<<~'RUBY', files: beside("frozen_literal/helper_frozen.rb", "frozen_literal/helper_plain.rb"))
       # Per-file frozen_string_literal: each literal carries its OWN file's pragma,
       # not the entry file's. helper_frozen.rb has the pragma; this entry file and
       # helper_plain.rb do not.
@@ -198,7 +198,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal per file rev" do
-    result = ze0(<<~'RUBY', files: beside("frozen_literal/helper_plain.rb"))
+    result = zr(<<~'RUBY', files: beside("frozen_literal/helper_plain.rb"))
       # frozen_string_literal: true
       # Reverse direction: pragma entry + plain helper. The helper's literals stay
       # unfrozen and mutable; the entry's literals are frozen.
@@ -217,7 +217,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal pragma" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # With the magic comment, string literals are frozen: frozen? is true and
       # mutation raises FrozenError (including through the mutable-string-buffer
@@ -276,7 +276,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen string literal pragma freezes literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       p "abc".frozen?
       p "interp #{1 + 1}".frozen?
@@ -294,7 +294,7 @@ describe "String: frozen literals" do
   end
 
   it "frozen strings" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Frozen strings: `-@`/`#dedup` interning and the frozen-mutation guard.
 
       # `-@` / `#dedup` intern by content: equal contents share one immortal frozen
@@ -340,7 +340,7 @@ describe "String: frozen literals" do
   end
 
   it "hash string key snapshot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String KEY is snapshotted on store: the hash keeps a frozen copy, so
       # mutating the string you stored under can never rewrite a key already in the
       # table. A stored VALUE is the opposite -- the shared handle, mutable through
@@ -459,7 +459,7 @@ describe "String: frozen literals" do
   end
 
   it "interned literals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # Frozen literals and symbols live in the binary's data section and keep
       # their identity across uses.
@@ -482,7 +482,7 @@ describe "String: frozen literals" do
   end
 
   it "is not deduplicated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `"lit".freeze` on a string LITERAL answers the interned fstring, so two of
       # them are the SAME object -- and CRuby REFUSES a singleton on one.
       #
@@ -588,7 +588,7 @@ describe "String: frozen literals" do
   end
 
   it "is one shared string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `"lit".freeze` at any site answers the one frozen String the fstring
       # table holds for those bytes, as -"lit" and String#dedup do: the core
       # rows ruby defines on String itself leave the literal fast path alone.
@@ -609,7 +609,7 @@ describe "String: frozen literals" do
   end
 
   it "nil string receiver raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       v = ENV["NO_SUCH_1664"]
       begin; v.length; rescue NoMethodError => e; puts "length: #{e.message}"; end
       begin; v.upcase; rescue NoMethodError => e; puts "upcase: #{e.message}"; end
@@ -655,7 +655,7 @@ describe "String: frozen literals" do
   end
 
   it "short strings live in their cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String of up to 87 bytes keeps them in its own cell; growing past
       # that moves them to a buffer, and every way of writing keeps the
       # bytes right across the move and back.
@@ -728,7 +728,7 @@ describe "String: frozen literals" do
   end
 
   it "str method nil arg no segv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #504. Several String methods receiving the wrong arg shape used
       # to SEGV. CRuby raises ArgumentError; spinel can't raise but we
       # should at least not crash. Codegen emits compile_arg0 -> "0"
@@ -789,7 +789,7 @@ describe "String: frozen literals" do
   end
 
   it "five String rows answer only where CRuby answers, and raise where it raises" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Five String surfaces that answered where CRuby refuses, or refused where
       # CRuby answers.
 
@@ -852,7 +852,7 @@ describe "String: frozen literals" do
   end
 
   it "clone keeps the frozen state, and dup always answers an unfrozen string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#clone preserves the frozen state; String#dup always returns unfrozen.
       def id(x) = x
 
@@ -896,7 +896,7 @@ describe "String: frozen literals" do
   end
 
   it "to_f reads underscores, clear answers a value, byteslice answers nil past the end, === refuses a non-String" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String conformance: to_f underscores, -@ frozen, clear as a value,
       # byteslice OOB->nil / boundary / Range, === with a non-String arg.
       p "1_000.5".to_f
@@ -937,7 +937,7 @@ describe "String: frozen literals" do
   end
 
   it "-@ on a string already frozen answers the receiver itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#-@ on an already-frozen string returns the receiver itself (#2630).
       a = "abc".freeze
       p((-a).equal?(a))
@@ -949,7 +949,7 @@ describe "String: frozen literals" do
   end
 
   it "-@ interns by content, so two dedups of equal contents answer one object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#-@ / #dedup interns by content: two dedups of equal contents return
       # the same immortal frozen object (#2462).
       p("hello".dedup.equal?("hello".dedup))
@@ -973,7 +973,7 @@ describe "String: frozen literals" do
   end
 
   it "insert, prepend and << on a frozen literal raise FrozenError, and String.new stays mutable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       # Issue #886: Mutating methods on a frozen string literal raise
       # FrozenError per MRI. spinel string literals are always frozen.
@@ -1013,7 +1013,7 @@ describe "String: frozen literals" do
   end
 
   it "a parameter appended to with << lands the append in the caller's variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A string param mutated via `<<` is a byref out-param: the append lands in
       # the caller's variable, like CRuby's shared-object semantics (the classic
       # pass-an-output-buffer serializer pattern).
@@ -1118,7 +1118,7 @@ describe "String: frozen literals" do
   end
 
   it "strings and collections" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       def wrap(x)
@@ -1259,7 +1259,7 @@ describe "String: frozen literals" do
   end
 
   it "symbol nil bool float batch" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol#intern/#name(frozen)/#casecmp(String), boolean & | ^ with Integer,
       # clone(freeze:) on immutable values, Float comparison/to_int/coerce edges,
       # nil <=> / rationalize / =~ / !~.
@@ -1368,7 +1368,7 @@ describe "String: frozen literals" do
   end
 
   it "warns on its first change" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A String literal in a file that sets no frozen_string_literal is
       # chilled: not frozen, but +@ copies it, and its first change warns when
       # deprecation warnings are on. Symbol#to_s chills its String too.
@@ -1483,7 +1483,7 @@ describe "String: frozen literals" do
   end
 
   it "a core method answers a frozen String or a fresh one as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Each answer's frozen? beside the expression that made it: the core's
       # literals are frozen, so a method that answers one must answer what
       # ruby's C answers, a fresh String or a frozen one.
@@ -1627,7 +1627,7 @@ describe "String: frozen literals" do
   end
 
   it "a literal under frozen_string_literal sends no freeze, even where String#freeze is redefined" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
       class String
         def freeze = raise("String#freeze called")

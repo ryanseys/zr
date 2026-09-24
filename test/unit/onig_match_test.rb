@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/ze0/machine/lower"
-require_relative "../../lib/ze0/native/build"
-require_relative "../../lib/ze0/obj/jit/fiddle"
-require_relative "../../lib/ze0/zr"
+require_relative "../../lib/zr/machine/lower"
+require_relative "../../lib/zr/native/build"
+require_relative "../../lib/zr/obj/jit/fiddle"
+require_relative "../../lib/zr/zr"
 
 # The kernel matcher (rt/kernel/onig_*.rb) against ruby's own engine:
 # the core compiles each pattern under this ruby, the kernel unit is
 # JIT-loaded and searches, and `Regexp` on the same subject is the
 # oracle for the position and every capture's byte offsets.
-Ze0::Zr.require_onig
+Zr::Zr.require_onig
 
 class OnigMatchTest < Minitest::Test
   O = Regexp::Onig
@@ -19,12 +19,12 @@ class OnigMatchTest < Minitest::Test
   # The unit: the matcher's files and the clock id the timeout reads.
   class Port
     def initialize
-      Dir.mktmpdir("ze0-onig-") do |dir|
+      Dir.mktmpdir("zr-onig-") do |dir|
         consts = File.join(dir, "consts.rb")
         File.write(consts, "CLOCK_MONOTONIC = 6\n")
-        lower = Ze0::Machine.unit(Dir[File.join(ROOT, "rt/kernel/onig_*.rb")].sort + [consts])
-        unit = Ze0::Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
-        @symbols = Ze0::Obj::JIT.load(unit, host: Ze0::Obj::JIT::Fiddle.new)
+        lower = Zr::Machine.unit(Dir[File.join(ROOT, "rt/kernel/onig_*.rb")].sort + [consts])
+        unit = Zr::Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
+        @symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
         @defs = lower.instance_variable_get(:@defs)
       end
       @fns = {}
@@ -44,7 +44,7 @@ class OnigMatchTest < Minitest::Test
   end
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
   # The kernel's answer: nil, [:error, code], or [position, offsets].

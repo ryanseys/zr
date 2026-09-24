@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: blocks and yields" do
   it "hash default proc symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       p h.public_send(:default_proc=, :a).class
       p h.default_proc.class
@@ -14,7 +14,7 @@ describe "String: blocks and yields" do
   end
 
   it "kernel rational string zerodenom" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Rational parses a String argument ("n", "n/d", "n.d", with optional
       # whitespace and sign) instead of reading the string pointer as an integer, and
       # raises ZeroDivisionError for a zero denominator instead of building (n/0).
@@ -54,7 +54,7 @@ describe "String: blocks and yields" do
   end
 
   it "lambda arrow string return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An arrow lambda (`-> {}`, the sp_Val / sp_lam_* ABI, distinct from the
       # `lambda {}` proc-call ABI) returning a string literal round-trips its
       # value instead of the old hardcoded sp_lam_int(0) stub.
@@ -69,7 +69,7 @@ describe "String: blocks and yields" do
   end
 
   it "map block string new join" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #526. Sibling to #522. #522 fixed `.map { String.new }` block-return
       # inference so the result is correctly typed as
       # `mutable_str_ptr_array` (a sp_PtrArray of sp_String*). But the
@@ -113,7 +113,7 @@ describe "String: blocks and yields" do
   end
 
   it "min by string key" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # min_by/max_by with a String or Symbol block key orders lexicographically
       # (String#<=>), not just for Integer/Float keys.
       p ["banana", "apple", "cherry"].min_by { |s| s }
@@ -134,7 +134,7 @@ describe "String: blocks and yields" do
   end
 
   it "proc reads attr reader" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Scale
         attr_reader :factor
         def initialize(f); @factor = f; end
@@ -159,7 +159,7 @@ describe "String: blocks and yields" do
   end
 
   it "proc source location is a string integer pair" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       loc = ->(x) { x }.source_location
       p loc.class
       p loc.length
@@ -176,7 +176,7 @@ describe "String: blocks and yields" do
   end
 
   it "rational and complex parse string arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p Rational("3/4")
       p Rational("  -5/2 ")
       p Rational("6")
@@ -211,7 +211,7 @@ describe "String: blocks and yields" do
   end
 
   it "rational complex string args" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#Rational and Kernel#Complex parse a String argument as a numeric
       # literal, rather than reading the string's pointer as an integer.
 
@@ -262,7 +262,7 @@ describe "String: blocks and yields" do
   end
 
   it "codepoints, chomp!, partition, delete_prefix and clear each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "hello".codepoints
       s = "hi\n"; p s.chomp!; p s.chomp!
       p "hello".partition("l")
@@ -315,7 +315,7 @@ describe "String: blocks and yields" do
   end
 
   it "chars, bytes, codepoints and lines with a block yield and answer the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#chars/#bytes/#codepoints/#lines with a block yield each element
       # and return the receiver (self), not the element array. The no-block
       # form still returns the array.
@@ -361,7 +361,7 @@ describe "String: blocks and yields" do
   end
 
   it "to_c reads a leading complex and ignores the rest, where Complex() demands the whole string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#to_c raised where CRuby answers (0+0i). One parser was serving two
       # contracts: Kernel#Complex(str) must consume the whole string or raise, while
       # String#to_c reads a LEADING complex and ignores the rest. String#to_r has had
@@ -455,7 +455,7 @@ describe "String: blocks and yields" do
   end
 
   it "symbol proc absent method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # max_by / min_by / sort_by with a symbol-proc naming a method the element does
       # not have compiles and raises NoMethodError, as map with the same proc does.
       a = ([1, 2].max_by(&:foo) rescue $!.class); p a
@@ -481,7 +481,7 @@ describe "String: blocks and yields" do
   end
 
   it "symbol to proc after positional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # &:symbol block-pass after a positional argument must parse as a
       # symbol-to-proc block, not a hash literal -- in both parenthesized
       # and command (paren-less) calls. Front-door blocker for bundler
@@ -512,7 +512,7 @@ describe "String: blocks and yields" do
   end
 
   it "yield autosplat kernel string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby auto-splat of a single yielded Array across multiple block params,
       # and Kernel#String on containers/ranges (returns the object's to_s).
       def pairs124; yield [1, 2]; end

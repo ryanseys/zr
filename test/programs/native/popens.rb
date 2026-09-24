@@ -29,17 +29,17 @@ Dir.mktmpdir do |dir|
   p File.read(out)
   p system("pwd", chdir: dir, out: out)
   p File.read(out).chomp == File.realpath(dir)
-  p system({ "ZE0_SPAWN" => "yes" }, "sh", "-c", "echo $ZE0_SPAWN", out: out)
+  p system({ "ZR_SPAWN" => "yes" }, "sh", "-c", "echo $ZR_SPAWN", out: out)
   p File.read(out)
-  p system({ "ZE0_SPAWN" => nil }, "sh", "-c", "echo [$ZE0_SPAWN]", out: out)
+  p system({ "ZR_SPAWN" => nil }, "sh", "-c", "echo [$ZR_SPAWN]", out: out)
   p File.read(out)
   system("sh", "-c", "echo quiet", out: File::NULL)
   p $?.success?
 end
 
-p system("this-command-does-not-exist-ze0")
+p system("this-command-does-not-exist-zr")
 begin
-  IO.popen(["this-command-does-not-exist-ze0"], &:read)
+  IO.popen(["this-command-does-not-exist-zr"], &:read)
 rescue SystemCallError => e
   p e.class
 end

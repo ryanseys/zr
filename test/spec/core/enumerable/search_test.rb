@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable: searching and matching" do
   it "enum with index value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # with_index on a STORED Enumerator with its return value captured: the
       # block form drains the snapshot, drives the block with the offset index,
       # and returns the enumerator's each return -- the source receiver for an
@@ -34,7 +34,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "grep, grep_v, sum and each_entry answer on a user class that writes each" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable (via a user class with #each) versions of grep/grep_v/sum/each_entry,
       # the receiver KieranP's #2479/#2480/#2504/#2516 duplicates exercise. The bug was
       # the __enum_to_a lowering picking the wrong element/result type.
@@ -64,7 +64,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "the short-circuiting rows stop an endless each, and a user break still belongs to its own call" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A user class whose `each` never ends is still usable, because the
       # short-circuiting Enumerable methods stop the SOURCE rather than scanning a
       # materialized copy of it. `first`/`take`/`find`/`include?` always did;
@@ -115,7 +115,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "the Enumerator rows answer, and a bad argument raises TypeError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable/Enumerator surface (#2479, #2480, #2486, #2504, #2505, #2516)
       class C
         include Enumerable
@@ -147,7 +147,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "env grep lazy followups" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ENV snapshot GC safety (#2842), grep with reference/module patterns
       # (#2843), hash/ENV lazy chains (#2845), ENV mutator chaining and the
       # bang trio (#2844), and slice_before/after === patterns (#2847).
@@ -223,7 +223,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "grep proc pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       even001 = ->(x) { x.even? }
       p [1, 2, 3, 4].grep(even001)
       even002 = ->(x) { x.even? }; p [1, 2, 3, 4].grep_v(even002)
@@ -243,7 +243,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "grep v runtime recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # receiver routed through a method param exercises the runtime loop path
       def gv(a) = a.grep_v(2)
       def gp(a) = a.grep(2)
@@ -271,7 +271,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "lv widen from callee arg slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 3: LV back-propagation from callee arg slot.
       #
       # Body-derived widening of a callee's param (via
@@ -334,7 +334,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "nested index write poly index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `rows[r][c] = "*"` where `r` comes from a destructured block parameter. The
       # store has two lowerings: one that writes through the outer container's slot,
       # and one that fetches the element by value and writes into that copy. The
@@ -392,7 +392,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "struct member shadows enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct/Data member accessor always beats the inherited Enumerable
       # surface: CRuby defines accessors directly on the subclass, so a member
       # named `count` (or `min`, `first`, ...) shadows Enumerable's method of
@@ -446,7 +446,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "user enumerable reach" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three ways an object of a class that includes Enumerable failed to reach the
       # mixin: called with an implicit self from another method of the class, read
       # out of a container (where it is boxed and every poly op answered for an empty
@@ -513,7 +513,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "with index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # map/each/select.with_index with an optional offset. The receiver is a
       # blockless enumerator; with_index binds the element plus a running index.
       # Route receivers through per-type method params to exercise the runtime path
@@ -555,7 +555,7 @@ describe "Enumerable: searching and matching" do
   end
 
   it "with index enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Blockless <enumerator>.with_index(offset) returns a materialized Enumerator
       # over the [element, index] pairs, a first-class value supporting to_a / next /
       # peek / size. The block and terminal-chain forms must keep working.

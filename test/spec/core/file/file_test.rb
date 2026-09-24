@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "File programs" do
   it "glob keeps the pattern as written" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A glob answers the pattern as it is written: a leading `./` stays on
       # every match, and so does a literal segment in the middle of it. A
       # pattern with no magic answers itself where the file is there.
@@ -45,7 +45,7 @@ describe "File programs" do
   end
 
   it "path argument converts as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A path argument is a String, or what `to_path` or `to_str` answers,
       # and it may not hold a NUL byte (CRuby's rb_get_path). The environment
       # refuses NUL bytes in names and values the same way.
@@ -76,9 +76,9 @@ describe "File programs" do
       show("expand_path Pathname") { File.expand_path(Pathname("a"), Pathname("/tmp")) }
       show("basename nil") { File.basename(nil) }
       show("ENV NUL name") { ENV["a\0b"] = "1" }
-      show("ENV NUL value") { ENV["ZE0_NUL_CHECK"] = "a\0b" }
+      show("ENV NUL value") { ENV["ZR_NUL_CHECK"] = "a\0b" }
       show("ENV NUL read") { ENV["a\0b"] }
-      show("ENV kept") { ENV.key?("ZE0_NUL_CHECK") }
+      show("ENV kept") { ENV.key?("ZR_NUL_CHECK") }
 
     RUBY
 
@@ -109,7 +109,7 @@ describe "File programs" do
   end
 
   it "stat names its device and lutime touches the link" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A stat holds the device it was read from as one number, and names its
       # halves. A regular file has no device of its own, so both halves of
       # rdev are zero. lutime touches the link rather than what it points at,

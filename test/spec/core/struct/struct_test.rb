@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Struct programs" do
   it "accessor reports rubys parameter name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A generated WRITER's reported parameter, which differs by where it came from.
       #
       # ruby names an `attr_writer`/`attr_accessor` slot NOTHING -- the C accessor
@@ -63,7 +63,7 @@ describe "Struct programs" do
   end
 
   it "anon struct name nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       k = Struct.new(:a)
       p k.name
       d = Data.define(:z)
@@ -86,7 +86,7 @@ describe "Struct programs" do
   end
 
   it "anonymous struct mints a native class at runtime" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Struct.new` in ANY position mints a native struct class at runtime: an
       # anonymous local/inline struct is a runtime value, exactly like the
       # constant form -- there is no compile-time-synthesized path.
@@ -111,7 +111,7 @@ describe "Struct programs" do
   end
 
   it "block param widen multi struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block over an unresolved receiver, for a name the builtin Enumerable
       # surface also owns, must have its params widened to poly: the dispatch can
       # reach a container at run time, and a user method's yield types describe only
@@ -187,7 +187,7 @@ describe "Struct programs" do
   end
 
   it "class ordering vs data" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       S = Struct.new(:a)
       p(P < Data)
@@ -203,7 +203,7 @@ describe "Struct programs" do
   end
 
   it "const struct matches the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Point = Struct.new(:x, :y)` mints a native struct class at runtime (Batch
       # E) and the constant write names it: accessors, positional init (nil-filled),
       # members/to_a/to_h/==/[]/[]=/each_pair/inspect, and Enumerable through the
@@ -273,7 +273,7 @@ describe "Struct programs" do
   end
 
   it "data bare new in factory" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bare `new(...)` (implicit self) inside a Data/Struct singleton factory must
       # forward its arguments to the generated constructor -- positional AND keyword --
       # exactly like an explicit `Klass.new(...)`.
@@ -329,7 +329,7 @@ describe "Struct programs" do
   end
 
   it "data define" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Data.define` builds an IMMUTABLE value class: keyword construction, readers
       # (no writers), structural `==`, and `deconstruct`/`deconstruct_keys` for
       # pattern matching. `with` returns a copy with some members replaced.
@@ -390,7 +390,7 @@ describe "Struct programs" do
   end
 
   it "data define constructs deconstructs and is immutable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Data.define synthesizes an immutable value class with keyword
       # construction, deconstruct_keys (hash patterns), to_h, with, ==, inspect.
 
@@ -424,7 +424,7 @@ describe "Struct programs" do
   end
 
   it "data define duplicate member" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r1 = (begin; k1 = Data.define(:x, :x); "members=#{k1.members}"; rescue ArgumentError; "argerr"; end)
       p r1
       r2 = (begin; k2 = Struct.new(:a, :a); "ok"; rescue ArgumentError; "argerr"; end)
@@ -444,7 +444,7 @@ describe "Struct programs" do
   end
 
   it "data is a data" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       p(P.new(1, 2).is_a?(Data))
       a = P.new(1, 2); p(a.is_a?(Data))
@@ -459,7 +459,7 @@ describe "Struct programs" do
   end
 
   it "data missing keyword message" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x)
       begin
         P.new(y: 1)
@@ -480,7 +480,7 @@ describe "Struct programs" do
   end
 
   it "data new kwsplat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Point = Data.define(:x, :y)
       h = { x: 1, y: 2 }
       p(Point.new(**h))
@@ -491,7 +491,7 @@ describe "Struct programs" do
   end
 
   it "data new validation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       r1 = (begin; P.new(1); "no error"; rescue ArgumentError; "argerror"; end); p r1
       r2 = (begin; P.new; "no error"; rescue ArgumentError; "argerror"; end); p r2
@@ -508,7 +508,7 @@ describe "Struct programs" do
   end
 
   it "data reopen body may nest a class" do
-    result = ze0(<<~'RUBY', files: beside("data_reopen/target/spec.rb", "data_reopen/target.rb"))
+    result = zr(<<~'RUBY', files: beside("data_reopen/target/spec.rb", "data_reopen/target.rb"))
       # Reopening a `Data.define` constant with a bare `class` runs the body as a
       # `class_eval` block, and every class-body statement but a local write has a
       # spelling there -- a nested class included. The nested `class Spec` used to
@@ -559,7 +559,7 @@ describe "Struct programs" do
   end
 
   it "data respond to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       a = P.new(1, 2)
       p(a.respond_to?(:with))
@@ -577,7 +577,7 @@ describe "Struct programs" do
   end
 
   it "data struct ivar get nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Data/Struct members are not @-instance variables: a literal
       # instance_variable_get answers nil and instance_variables is [] (#2849).
       Point = Data.define(:x, :y)
@@ -602,7 +602,7 @@ describe "Struct programs" do
   end
 
   it "data value eq container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       I = Data.define(:v)
       O = Data.define(:m)
       a = I.new(1)
@@ -633,7 +633,7 @@ describe "Struct programs" do
   end
 
   it "data with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Data#with returns a copy of a Data instance with the given members overridden
       # and the rest carried over. Only Data classes (Data.define) have #with.
       P = Data.define(:x, :y)
@@ -669,7 +669,7 @@ describe "Struct programs" do
   end
 
   it "data with unknown kw" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       P = Data.define(:x, :y)
       a = P.new(1, 2)
       r = (a.with(z: 9) rescue $!.class); p r
@@ -679,7 +679,7 @@ describe "Struct programs" do
   end
 
   it "nested pattern data deconstruct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       D001 = Data.define(:a, :b)
       arr001 = [D001.new(1, 2)]
       r001 = (case arr001; in [D001[x001, y001]] then [x001, y001]; end rescue $!.class)
@@ -713,7 +713,7 @@ describe "Struct programs" do
   end
 
   it "nested struct name collision" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two sibling namespaces each defining `TreeNode` -- one a class, one a Struct
       # constant. Only `class` definitions were qualified by their enclosing path, so
       # the Struct constant kept the bare leaf name and every reference to it bound
@@ -754,7 +754,7 @@ describe "Struct programs" do
   end
 
   it "poly dispatch struct arg arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A poly dispatch drops an arm whose parameter cannot receive the argument.
       # It knew about String and object/non-object mismatches, but not about the
       # kinds C passes as a struct BY VALUE -- Range, Time, Complex, Rational, Class.
@@ -809,7 +809,7 @@ describe "Struct programs" do
   end
 
   it "poly enum to a builtin arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The Enumerable desugar puts `__enum_to_a` in front of `obj.map { }` when the
       # receiver's class defines #each. That rewrite is on the AST and permanent, so
       # a receiver that was an object type when the desugar ran and widened to poly
@@ -872,7 +872,7 @@ describe "Struct programs" do
   end
 
   it "poly map receiver rooted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The receiver of a fused map loop is what the loop reads from, and the body
       # allocates: a receiver built on the spot was held by nothing, so the first
       # collection inside the loop freed the array being walked (#3801).
@@ -905,7 +905,7 @@ describe "Struct programs" do
   end
 
   it "proc param value struct types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A by-value struct (Range, Time, Rational, Complex) reaching a lambda or proc
       # parameter rides the boxed side channel, as a Float already did: the mrb_int
       # argument slot cannot hold one, and the emitted C did not compile (#3962).
@@ -942,7 +942,7 @@ describe "Struct programs" do
   end
 
   it "proc return value struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A first-class proc publishes its result boxed and the `.call` site unboxes it.
       # That unbox was a second, hand-written copy of emit_unbox_text and had drifted:
       # Range, Time and Class were named, so Rational and Complex fell to the generic
@@ -1008,7 +1008,7 @@ describe "Struct programs" do
   end
 
   it "respond to struct data" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `respond_to?` on a class receiver answered false for class methods the same
       # program calls: `Struct.new`, `Data.define`, and a generated struct class's
       # own `members` (#3482). Neighbouring core classes already answered true, so
@@ -1071,7 +1071,7 @@ describe "Struct programs" do
   end
 
   it "a Struct reads, writes and prints its members" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Struct
 
       Point = Struct.new(:x, :y)
@@ -1112,7 +1112,7 @@ describe "Struct programs" do
   end
 
   it "a Struct binds each member from its position, and names the argument it cannot place" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A compiled `S = Struct.new(:a)` binds through the runtime kernel, so a
       # program that patches a core Array or Hash method cannot reach inside the
       # constructor. CRuby's `rb_struct_initialize` is C, and reads `argc`.
@@ -1164,7 +1164,7 @@ describe "Struct programs" do
   end
 
   it "a constant assigned in a Struct.new block body is initialized" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A constant assigned inside a `Struct.new(...) do ... end` block body must be
       # initialized. register_structs consumes the block only for class/ivar/method
       # registration, never as executable statements, so such a constant stayed
@@ -1200,7 +1200,7 @@ describe "Struct programs" do
   end
 
   it "a method defined in the block body wins over the generated one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method defined in a Struct.new / Data.define block overrides the built-in
       # member accessor of the same name, as it does in CRuby. `[]` written in the
       # block was ignored: the call went to the generated member lookup, so a key
@@ -1276,7 +1276,7 @@ describe "Struct programs" do
   end
 
   it "a Struct class answers members and keyword_init?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S = Struct.new(:a, :b)
       p S.methods.include?(:members)
       p S.methods.include?(:keyword_init?)
@@ -1293,7 +1293,7 @@ describe "Struct programs" do
   end
 
   it "each_pair yields the pair whole, and values_at pads past the last member" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S = Struct.new(:a, :b, :c)
       s = S.new(1, 2, 3)
 
@@ -1350,7 +1350,7 @@ describe "Struct programs" do
   end
 
   it "a custom initialize sets the members through super" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A custom `initialize` in the block calls `super` (bare or explicit,
       # positional) into the synthesized member-setter, reached via a two-level
       # base/leaf hierarchy -- not the old "no initialize above" panic.
@@ -1373,7 +1373,7 @@ describe "Struct programs" do
   end
 
   it "a Struct and a Data match an array pattern and a hash pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct and Data support pattern matching: #deconstruct (array patterns)
       # and #deconstruct_keys (hash patterns). Neither has an explicit method;
       # the compiler synthesizes the member array / member hash inline.
@@ -1444,7 +1444,7 @@ describe "Struct programs" do
   end
 
   it "values, values_at and dig, including a dig into a member that holds a Hash" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct: values / values_at / dig (including nested dig into a Hash)
       Point = Struct.new(:x, :y)
       p Point.new(3, 4).values
@@ -1493,7 +1493,7 @@ describe "Struct programs" do
   end
 
   it "a subscript that is not a literal reads by index, counting back from the end" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # The out-of-range Struct#[] message says "too large" for a negative
       # offset; ruby says "too small".
@@ -1533,7 +1533,7 @@ describe "Struct programs" do
   end
 
   it "a Struct built with no arguments reads nil at every member" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Rec = Struct.new(:id, :name)
 
       full = Rec.new(1, "alice")
@@ -1561,7 +1561,7 @@ describe "Struct programs" do
   end
 
   it "the call's shape decides whether a trailing Hash is keywords or a member" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # KEYWORDS to a Struct constructor build the wrong instance. A Struct
       # declared WITHOUT `keyword_init:` still accepts keywords -- ruby decides by
       # whether the CALLER passed keywords, not by how the class was declared --
@@ -1606,7 +1606,7 @@ describe "Struct programs" do
   end
 
   it "a keyword_init Struct takes its members by name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test Struct with keyword_init
 
       Session = Struct.new(
@@ -1635,7 +1635,7 @@ describe "Struct programs" do
   end
 
   it "a Struct class held in a local types its members the same as one in a constant" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct held in a local is the same class as one held in a constant, so its
       # construction types the members the same way. It used to leave every member
       # poly, which put each field read and the arithmetic on it through the boxed
@@ -1675,7 +1675,7 @@ describe "Struct programs" do
   end
 
   it "a local reassigned to a second anonymous Struct class dispatches at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local holding an anonymous Struct class, reassigned to a SECOND one. No
       # single class resolves for it any more, so `s.new` dispatches at run time --
       # and the switch had no arm for a Struct at all, so the call answered nil.
@@ -1731,7 +1731,7 @@ describe "Struct programs" do
   end
 
   it "a member value built in argument position survives until the constructor stores it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct member value built in argument position had to survive until the
       # constructor stored it. The constructor roots its parameters on entry, but that
       # is already too late: a sibling member expression can collect while the call's
@@ -1776,7 +1776,7 @@ describe "Struct programs" do
   end
 
   it "a subscript takes an index, a name or a string, and raises for a member that is not there" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S = Struct.new(:a, :b)
       s = S.new(1, 2)
       i = 1
@@ -1813,7 +1813,7 @@ describe "Struct programs" do
   end
 
   it "a member reader wins over a same-named String method through a block parameter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct / Data / attr_accessor read inside a block, where the receiver is a
       # poly array element: the member must win over a same-named String method, and
       # #[] must reach the member table.
@@ -1854,7 +1854,7 @@ describe "Struct programs" do
   end
 
   it "a member is not an instance variable of the same name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S = Struct.new(:a, :b)
       class S
         def peek = @a
@@ -1875,7 +1875,7 @@ describe "Struct programs" do
   end
 
   it "a member name does not merge types with an unrelated method of that name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Struct member name must not globally type-merge with an unrelated
       # method of the same name. Here Struct member `b` (an Integer) shares
       # its name with Weight#b (a Float array); the int use through an
@@ -1914,7 +1914,7 @@ describe "Struct programs" do
   end
 
   it "Struct.[], a negative-index write, entries, reverse_each, compact and each_with_index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct method surface (#2488-2491, #2506, #2534-2539)
       S = Struct.new(:a, :b, :c)
       p(S[10, 20, 30])                 # 2488 Struct.[]
@@ -1957,7 +1957,7 @@ describe "Struct programs" do
   end
 
   it "Struct.new with a leading name defines the class under Struct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       Struct.new("Named", :a)
       p Struct::Named.new(1).a
       p Struct::Named.name
@@ -1970,7 +1970,7 @@ describe "Struct programs" do
   end
 
   it "keyword_init? is true, false or nil, and a Struct equals itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s == s` must not deadlock: comparing a struct to itself used to lock the
       # same slots Mutex twice and hang. `keyword_init?` is tri-state, matching
       # CRuby -- `nil` when never specified, else the boolean passed.
@@ -1996,7 +1996,7 @@ describe "Struct programs" do
   end
 
   it "too many arguments raises, where too few fill with nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # TOO MANY POSITIONALS to a Struct constructor say `struct size differs` on
       # BOTH paths: the compiled constant-assigned form (which once reported a
       # generic arity range -- fixed) and the runtime-minted form. The keyword half
@@ -2031,7 +2031,7 @@ describe "Struct programs" do
   end
 
   it "two Structs are equal when their class and every member match" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct instances compare by member value (identity was compared before);
       # a string/array member compares by content, and eql? follows ==.
       S = Struct.new(:a, :b)
@@ -2062,7 +2062,7 @@ describe "Struct programs" do
   end
 
   it "a custom initialize that yields runs its block during construction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A custom initialize that calls its block (yield / block_given? / a called
       # &blk) runs its body during construction. For a Struct/Data value class this
       # body was previously skipped -- the members were set member-wise from the raw
@@ -2121,7 +2121,7 @@ describe "Struct programs" do
   end
 
   it "structs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Phase 17.1 -- Struct: compile-time class synthesis. `Point = Struct.new`
       # becomes an ordinary `class Point < Struct` (accessors, initialize,
       # members/to_a/to_h/==/[]/each_pair, Enumerable via the real chain), with
@@ -2181,7 +2181,7 @@ describe "Struct programs" do
   end
 
   it "to enum works on user classes and structs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `to_enum`/`enum_for` on a user class -- the real-Ruby
       # `return to_enum(:each) unless block_given?` pattern -- and the
       # synthesized Struct `each` using exactly that pattern.
@@ -2229,7 +2229,7 @@ describe "Struct programs" do
   end
 
   it "binds the members the class holds, not a members method beside them" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rb_struct_s_members reads the row the class holds, so a member is
       # bound by what `Struct.new` was given and never by a `members` the
       # class or the instance went on to define. Data reads its own row the
@@ -2279,7 +2279,7 @@ describe "Struct programs" do
     OUT
   end
   it "a member is read and written on the fused road, and every way off it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A member read and written on the fused road, and every way off it: a
       # struct with no values yet, a frozen one, a subclass with an ivar
       # before the values, and a member the class no longer has.

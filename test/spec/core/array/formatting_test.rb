@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Array: formatting and inspection" do
   it "to_s, print and interpolation all use the inspect form, and only puts flattens" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [1, 2].to_s
       print [1, 2]; puts
       puts "i #{[1, 2]}"
@@ -23,7 +23,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "at answers nil past the end, for an Integer array and for a Float one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#at returns nil for an out-of-range index. For a scalar element
       # array the result is now typed int?/float?, so the out-of-bounds
       # sentinel (sp_IntArray_get already returns SP_INT_NIL; sp_FloatArray_get
@@ -66,7 +66,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "a far negative index answers nil rather than reading below the buffer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # a[-100] with a 3-element array must not segfault.
       # Before the fix, sp_IntArray_get adjusted the negative index but
       # didn't bounds-check the result, reading far below the buffer.
@@ -102,7 +102,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "product answers the Cartesian product of two arrays" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#product on two int_arrays: Cartesian product.
       puts [1, 2].product([3, 4]).inspect
       puts [1, 2, 3].product([10, 20]).inspect
@@ -118,7 +118,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "a chained call on repeated_permutation computes the real value, and never degrades quietly" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #1244: an unresolved Array method (originally repeated_permutation,
       # then unimplemented) used to emit a NULL placeholder whose chained
       # .to_a.inspect dereferenced a->len and SEGVed; later it silently printed
@@ -137,7 +137,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "closure captures object array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Item
         attr_accessor :name
       end
@@ -183,7 +183,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "empty array local arg widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An empty-array local (`x = []`) that is then filled with objects via
       # `<<` and passed as a call argument must widen the callee's parameter
       # (and any ivar it is stored in) to the real element type. Previously
@@ -247,7 +247,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "empty int array min max" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #745. `[].min` / `[].max` used to read uninitialized memory
       # in `sp_IntArray_min` / `_max` (no empty-array guard before reading
       # `a->data[a->start]`). After #832 both return nil (int? sentinel
@@ -274,7 +274,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "hash flatten rassoc compact" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#flatten / #rassoc / #compact on typed hashes. flatten interleaves
       # keys and values into a flat boxed array; rassoc finds the first pair by
       # value (nil on a miss); compact drops nil-valued entries while preserving
@@ -330,7 +330,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "hash sum array init" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r001 = ({ a: 1, b: 2 }.sum([]) rescue $!.class); p r001
       p({ a: 1 }.sum("") { |k, _v| k.to_s })
       p([[1], [2]].sum([]))
@@ -348,7 +348,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "int array rotate window" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # rotate! advances the array's own start offset and copies only the head to the
       # tail, instead of buffering the head, sliding the rest down and copying back.
       # Everything that reads the array has to keep working across that bump: the
@@ -473,7 +473,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "int array tally" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#tally on int_array maps each distinct element to its
       # occurrence count. Result is an int_int_hash (new variant
       # alongside sym_int_hash / str_int_hash etc.).
@@ -503,7 +503,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "local empty array push promotion propagates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #450 cascade 3. A local seeded with `[]` (default int_array)
       # whose subsequent push observations promote it to an obj-ptr_array:
       # the promoted element type needs to propagate back to (a) ivars
@@ -575,7 +575,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "param body array hash inference" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #544 / #545 follow-up to #542. Body-usage param inference
       # extended to two new shapes:
       #
@@ -644,7 +644,7 @@ describe "Array: formatting and inspection" do
   end
 
   it "repeated permutation defers argument check" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [3, 1, 2].repeated_permutation("l").inspect
       p [3, 1, 2].repeated_permutation(nil).inspect
     RUBY

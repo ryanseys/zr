@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Singleton: the singleton library" do
   it "private class method on an inherited new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `private_class_method :new` marks a name the class does not DEFINE -- it
       # inherits `Class#new` -- so every path that asked "does this class have a class
       # method by this name" answered no and let the public `Class#new` through.
@@ -83,7 +83,7 @@ describe "Singleton: the singleton library" do
   end
 
   it "including Singleton makes new private and instance answer one object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "singleton"
 
       class Only

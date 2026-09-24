@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Whole programs: regressions" do
   it "max, min and sample with a count answer empty for an empty array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [].max(2)
       p [].min(2)
       p [].sample(2)
@@ -18,7 +18,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a left shift of a negative Integer keeps the sign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(-8 << 1)
       p(-1 << 4)
     RUBY
@@ -27,7 +27,7 @@ describe "Whole programs: regressions" do
   end
 
   it "max_by, min_by, sort_by and sum splat the pairs of an each_with_index enumerator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # max_by / min_by / sort_by / sum { block } on an each_with_index Enumerator:
       # materialize the pairs and run the block (auto-splatting each [v, i] pair).
       a = [3, 1, 2]
@@ -46,7 +46,7 @@ describe "Whole programs: regressions" do
   end
 
   it "dup of an array read out of a container is a copy, not an alias" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#dup of an array read out of a poly container must be a real copy, not
       # an alias -- mutating the copy must not corrupt the original.
       board = [["a", "b"], ["c", "d"]]
@@ -70,7 +70,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a ternary whose one arm can only raise still compiles, and the other arm answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A ternary whose true arm compiles to a NoMethodError raise (an unresolvable
       # call on a poly receiver) and whose false arm is a concrete type must compile:
       # the raise arm coerces to the sibling arm's type instead of aborting with a C
@@ -89,7 +89,7 @@ describe "Whole programs: regressions" do
   end
 
   it "each_with_object writes into the object it was handed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = {}
       [1, 2, 3].each_with_object(h) { |x, acc| acc[x] = x * x }
       p h
@@ -99,7 +99,7 @@ describe "Whole programs: regressions" do
   end
 
   it "values_at with no index answers an empty array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([1, 2, 3].values_at)
       p(["a", "b"].values_at)
       p([1, 2, 3].values_at(0, 2))
@@ -113,7 +113,7 @@ describe "Whole programs: regressions" do
   end
 
   it "partition splits a Hash into the pairs that match and the pairs that do not" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       h = { a: 1, b: 2, c: 3, d: 4 }
       pr = h.partition { |_k, v| v.even? }
       p pr[0].to_h
@@ -124,7 +124,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a regexp built with %r{} escapes the slashes in its inspect but not in its source" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       r = %r{a/b}
       puts r.source
       puts r.inspect
@@ -149,7 +149,7 @@ describe "Whole programs: regressions" do
   end
 
   it "two Sets with the same members hash alike, whatever the order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
       a = Set[1, 2, 3]
       b = Set[3, 2, 1]
@@ -169,7 +169,7 @@ describe "Whole programs: regressions" do
   end
 
   it "Symbol <=> String answers nil, and Symbol <=> Symbol orders" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(:abc <=> "abc")
       p(:abc <=> "abd")
       a = :abd; b = "abc"; p(a <=> b)
@@ -189,7 +189,7 @@ describe "Whole programs: regressions" do
   end
 
   it "String#[] and Symbol#[] take a regexp and a capture name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p :hello[/(?<x>l+)/, "x"]
       p :hello[/(?<x>z+)/, "x"]
       p "hello"[/(?<x>l+)/, "x"]
@@ -210,7 +210,7 @@ describe "Whole programs: regressions" do
   end
 
   it "chr and %c answer one character, not one byte" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "あいう".chr
       p "abc".chr
       p "".chr
@@ -240,7 +240,7 @@ describe "Whole programs: regressions" do
   end
 
   it "chop removes one character, and a whole CRLF" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p "abcあ".chop
       p "abc".chop
       p "".chop
@@ -258,7 +258,7 @@ describe "Whole programs: regressions" do
   end
 
   it "encode! and scrub! answer the receiver when there is nothing to change" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p("hello".encode!("UTF-8"))
       p("abc".scrub!("?"))
       s = "world"; s.encode!; p s
@@ -272,7 +272,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a symbol-keyed Hash literal reads back by symbol" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p({x: 1})
       h = {a: 1, b: 2, c: 3}
       p h[:b]
@@ -287,7 +287,7 @@ describe "Whole programs: regressions" do
   end
 
   it "any?, all?, none? and one? judge by truthiness, and an empty array is never any?" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p [123].any? { _1 }
       p [1,2,3].any? { |x| x > 2 }
       p [1,2,3].all? { _1 }
@@ -317,7 +317,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a symbol-keyed Hash rehashes correctly when it grows past its first capacity" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol-keyed Hash literal + grow past the initial capacity. The grow path's
       # capacity->size_t allocation must not trip -Walloc-size-larger-than (#3146),
       # and must rehash correctly.
@@ -342,7 +342,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a negative subscript on the outer array writes through to the inner one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       m = [[1, 4], [2, 5]]
       m[-1][1] = 99
       m[0][0] = 7
@@ -360,13 +360,13 @@ describe "Whole programs: regressions" do
   end
 
   it "take_while chains through with_index" do
-    result = ze0("p [3, 3, 5, 2].take_while.with_index { |v, i| i < 2 }\n")
+    result = zr("p [3, 3, 5, 2].take_while.with_index { |v, i| i < 2 }\n")
 
     _(result).must_answer "[3, 3]\n"
   end
 
   it "transpose, fill, rotate, product and zip over an empty array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p([].transpose)
       p([].fill(1))
       p([].rotate(3))
@@ -387,7 +387,7 @@ describe "Whole programs: regressions" do
   end
 
   it "a local alias is the same String, so an append shows through both names" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-place mutation through a local alias is observed (shared String object).
       s1 = "hello"
       s2 = s1
@@ -425,7 +425,7 @@ describe "Whole programs: regressions" do
   end
 
   it "each_with_object compiles when the block never reads the memo" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_with_object with a Hash memo the block never reads must still compile.
       [1, 2].each_with_object({}) { |x, acc| p x }
       { a: 1 }.each_with_object({}) { |(k, v), h| p k }

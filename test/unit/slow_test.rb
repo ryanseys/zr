@@ -4,12 +4,12 @@ require "test_helper"
 require "stringio"
 require_relative "../support/slow"
 
-# The report `ZE0_SLOW` asks for: the slowest tests by name, and what
+# The report `ZR_SLOW` asks for: the slowest tests by name, and what
 # the examples that build a program spent, by directory. It runs after
 # every test has, so a fault in it would show only there -- once, at
 # the end of a whole tier.
 class SlowTest < Minitest::Test
-  Slow = Ze0::Test::Slow
+  Slow = Zr::Test::Slow
 
   def test_it_names_the_slowest_tests_and_sums_what_each_directory_spent
     io = StringIO.new

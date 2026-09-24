@@ -1,7 +1,7 @@
 # How to add a spec
 
-A spec holds ze0 to ruby for one program. The program is written inline,
-ze0 compiles it, the binary runs, and what it said is what the example
+A spec holds zr to ruby for one program. The program is written inline,
+zr compiles it, the binary runs, and what it said is what the example
 asserts.
 
 ## Write one
@@ -12,7 +12,7 @@ file whose subject your program is about — `core/string/frozen_test.rb`,
 
 ```ruby
 it "keeps the receiver's encoding" do
-  _(ze0(<<~'RUBY')).must_answer "UTF-8\n"
+  _(zr(<<~'RUBY')).must_answer "UTF-8\n"
     puts "ab".upcase.encoding
   RUBY
 end
@@ -27,7 +27,7 @@ output:
 
 ```ruby
 it "writes the message to stderr and exits 1" do
-  result = ze0(<<~'RUBY')
+  result = zr(<<~'RUBY')
     puts "out"
     abort "stopping here"
   RUBY
@@ -38,7 +38,7 @@ it "writes the message to stderr and exits 1" do
 end
 ```
 
-## What `ze0` takes
+## What `zr` takes
 
 | Keyword | For |
 |---|---|
@@ -53,7 +53,7 @@ backtrace, or `__FILE__` — **and** wants a name other than the default.
 The default is the spec file's own path under `test/spec`: an example in
 `test/spec/core/fiber/fiber_test.rb` writes its program as
 `core/fiber/fiber_test.rb`, so a backtrace names the file the example is
-written in (`Ze0::Reader.path_for`).
+written in (`Zr::Reader.path_for`).
 
 It used to be the example's sentence, slugified, which is why no
 description in this suite holds an apostrophe, a comma or a `#` — a
@@ -62,7 +62,7 @@ more, so write the sentence you mean, and know that renaming an example
 cannot move the program it introduces.
 
 Spell `path:` out when the program is *about* its own path — the
-`ze0/...` examples, a program given an absolute name, one that asks what
+`zr/...` examples, a program given an absolute name, one that asks what
 `/` or `/a b/c` expands to.
 
 The `_test` in the derived name stays on purpose. `core/fiber/fiber.rb`
@@ -92,7 +92,7 @@ then assert:
 
 ```ruby
 it "keeps the receiver's encoding" do
-  result = ze0(<<~'RUBY')
+  result = zr(<<~'RUBY')
     # one sentence saying what this pins
 
     s = "ab"
@@ -193,7 +193,7 @@ at.
 
 A program is `<<~'RUBY'`, what it printed is `<<~'OUT'` and what it
 wrote to stderr is `<<~'ERR'`, all with the tag quoted — an unquoted tag
-makes `#{}` inside a Ruby program interpolate before ze0 ever sees it.
+makes `#{}` inside a Ruby program interpolate before zr ever sees it.
 Use `<<~'PROGRAM'` for a program that opens a `RUBY` heredoc of its own,
 since a `<<~` terminator may be indented and the inner one would
 otherwise end the outer.
@@ -227,7 +227,7 @@ $ bundle exec minitest test/spec/core/string
 ## Where the answer comes from
 
 Never from you. Every literal in `test/spec/` was written by ruby 4.0.6
-and lifted from the recording it wrote. If you are adding a program ze0
+and lifted from the recording it wrote. If you are adding a program zr
 does not answer yet, write what **ruby** says, and check it:
 
 ```console
@@ -235,9 +235,9 @@ $ ruby -e 'puts "ab".upcase.encoding'
 UTF-8
 ```
 
-## What ze0 will not compile
+## What zr will not compile
 
-An example whose program uses a form outside ze0's subset **skips**,
+An example whose program uses a form outside zr's subset **skips**,
 naming the form, and joins the refusal census at the end of the run.
 That is the roadmap, not a failure. A program that diverges, crashes or
 runs past its limit fails.

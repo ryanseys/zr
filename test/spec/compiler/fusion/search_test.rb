@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: searching and matching" do
   it "array index int opt narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#index on int_array returns the new int? (scalar-nullable
       # int with INT64_MIN sentinel) instead of being widened to poly.
       # After the nil-check guard the value narrows back to plain int
@@ -49,7 +49,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "array splice" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Array#[]= in its SPLICE forms -- `a[start, len] = v` and `a[range] = v` --
       # replaces the span with the value's elements (CRuby's rb_ary_splice), which
       # is a different operation from the one-index store `a[i] = v`.
@@ -212,7 +212,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "array splice widen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Analysis-time widening: an index write or splice whose value a typed array
       # cannot hold widens the local (or ivar) to a poly array, so the write stores
       # the value exactly as CRuby does instead of rejecting (or miscompiling the
@@ -307,7 +307,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "cmethod specialize samename unrelated" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #1314. `specialize_inherited_cls_new` clones an inherited class
       # method that does a bare `new` (or a subclass-specific cmethod call)
       # into each subclass that calls it, then DCEs the now-shadowed source
@@ -362,7 +362,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "dup untyped index write shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `dup` of a statically unknown receiver keeps the SOURCE's shape: an int-keyed
       # `[]=` into the copy is no evidence that it is a hash, and guessing one made the
       # method answer `{}` where CRuby answered an Array (#3952).
@@ -396,7 +396,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "a guarded include splices into an existing class at run time" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -433,7 +433,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "a guarded prepend overrides a method the class already answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -476,7 +476,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "a false guard splices nothing, so the method stays missing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -518,7 +518,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "a guarded extend brings the module's methods in as class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -556,7 +556,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "a guarded prepend inside class << self overrides an existing class method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -599,7 +599,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "the module's included hook fires only where the guard passes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -640,7 +640,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "a guarded mixin into Object itself reaches every value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A mixin into an EXISTING class under a runtime-undecidable guard is a
       # runtime ancestry edit: the directive runs as the send it is, exactly when
       # the guard passes (hammertime's `unless ::Object < Hammertime` idempotence
@@ -678,7 +678,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "implicit conversion narrowing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The conversion protocol reached through a NARROWING rather than an argument.
       # A local written from a poly source whose every read is an int context, one of
       # them an array index, is typed Integer (analyze.c: the index-narrowing pass) --
@@ -753,7 +753,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "is a string narrow to primitive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `String | nil` value narrowed to String via is_a?(String) must reach a
       # string primitive (sp_str_include / start_with? / end_with?) as a real
       # const char*, not an sp_RbVal. (#1512)
@@ -790,7 +790,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "regexp inline comment" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # (?#comment) groups parse as empty atoms.
       p(/foo(?#comment)bar/.match("foobar") ? "m" : "n")
       p(/foo(?#)bar/ =~ "xfoobar")
@@ -803,7 +803,7 @@ describe "Fusion: searching and matching" do
   end
 
   it "unresolved value typed slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An unresolved name lowers to a raising token whose C value is boxed. Landing
       # it in a concretely-typed slot needs the coercing emit, or the emitted C
       # assigns an sp_RbVal to the slot's own type and the program does not build at

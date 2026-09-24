@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Set programs" do
   it "array element set bad index" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a1 = [1, 2]
       p(begin; a1["x"] = 9; rescue TypeError => e; e.message; end)
       p a1
@@ -77,7 +77,7 @@ describe "Set programs" do
   end
 
   it "array set ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Named Array set operations: variadic union/intersection/difference and the
       # intersect? predicate. (The |/&/- operators and the single-argument named
       # forms already worked; these add the multi-argument fold and intersect?.)
@@ -135,7 +135,7 @@ describe "Set programs" do
   end
 
   it "array set ops poly operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An Array set operation whose OPERAND is poly -- a value whose static type
       # widened, not a poly array. The four diverged three ways: `&` and `|` had no
       # arm and would not compile, `-` was typed as arithmetic and reached
@@ -234,7 +234,7 @@ describe "Set programs" do
   end
 
   it "array zero arg set ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = [1, 2, 3]
       p a.difference
       p a.intersection
@@ -258,7 +258,7 @@ describe "Set programs" do
   end
 
   it "binmode does not set the binary encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `#binmode` returns the stream and changes nothing. In ruby it puts the
       # stream in binary mode, which sets the external encoding to `ASCII-8BIT`,
       # and everything read from it comes back binary.
@@ -298,7 +298,7 @@ describe "Set programs" do
   end
 
   it "const set validates the name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `const_set` validates the constant name ("wrong constant name lower");
       # zeo sets the lowercase constant. `const_get` already validates. And
       # `remove_const` on a missing name prints the RECEIVER in its NameError
@@ -321,7 +321,7 @@ describe "Set programs" do
   end
 
   it "container read combined set map bang" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The combined container-read shapes coexist in one program: with Set
       # required, a poly map! call used to (a) force set.rb's each into a bogus
       # recursive-yield reject, and (b) silently miss the builtin-array arm in
@@ -344,7 +344,7 @@ describe "Set programs" do
   end
 
   it "container read set enumerable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Set read out of a container (poly receiver) iterates through the
       # generated to_a hook: map/select run over its elements, inject(:op)
       # folds through the numeric tower (#3234).
@@ -367,7 +367,7 @@ describe "Set programs" do
   end
 
   it "enumerable to set param" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable#to_set through method parameters: the receiver reaches
       # Set.new intact (including via chained-call receivers), the result
       # dedups, prints, and supports set algebra.
@@ -411,7 +411,7 @@ describe "Set programs" do
   end
 
   it "exception ivar set by a custom initialize survives the raise" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Detailed < StandardError
         def initialize(field)
           @field = field
@@ -430,7 +430,7 @@ describe "Set programs" do
   end
 
   it "frozen instance variable set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Cell
         def initialize; @n = 1; end
         def n; @n; end
@@ -465,7 +465,7 @@ describe "Set programs" do
   end
 
   it "inference method set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Parameter type inference must pick a class whose surface contains
       # ALL methods called on the param, regardless of class definition
       # order. Issue #35: previously the inferer locked in the first class
@@ -507,7 +507,7 @@ describe "Set programs" do
   end
 
   it "instance variable set value class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `self.instance_variable_set` mutates the receiver, so the class cannot keep
       # the by-value representation (the write would land on a copy and be lost).
       class C
@@ -539,7 +539,7 @@ describe "Set programs" do
   end
 
   it "issue scan block last match not set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#scan with a block is supposed to set `$~` (and $1, $~.pre_match,
       # etc) to the current match on each iteration, the same way #sub/#gsub with
       # a block do. zeo leaves `$~` nil inside the scan block instead of updating
@@ -554,7 +554,7 @@ describe "Set programs" do
   end
 
   it "ivar get set literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Box
         def initialize
           @v = 0
@@ -607,7 +607,7 @@ describe "Set programs" do
   end
 
   it "marshal round trip set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
       p Marshal.load(Marshal.dump(Set[1, 2])).to_a.sort
     RUBY
@@ -616,7 +616,7 @@ describe "Set programs" do
   end
 
   it "module class var reflection set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # class_variable_set with a literal name DECLARES the cvar when the class has
       # no such write (CRuby creates it on the fly), and class_variables lists the
       # registered ones, own + ancestors (#2719).
@@ -639,7 +639,7 @@ describe "Set programs" do
   end
 
   it "module const set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Module#const_set with a literal name re-assigns the constant (#2675). A
       # constant is a compile-time C global, so an existing one can be stored into;
       # a name the program never writes has no storage, and the global's type is
@@ -685,7 +685,7 @@ describe "Set programs" do
   end
 
   it "reduce array set ops" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Folding an array of arrays with `&` or `|`: the block parameters are boxed
       # when the receiver is a local, and the poly operator read them as integer
       # bitwise arithmetic, so the fold answered 0 (#3966).
@@ -727,7 +727,7 @@ describe "Set programs" do
   end
 
   it "regexp class set range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def show(pat, chars)
         re = Regexp.new(pat)
         p [pat, chars.select { |ch| ch =~ re }]
@@ -787,7 +787,7 @@ describe "Set programs" do
   end
 
   it "& and - enumerate the operand, so the result follows the operand's order" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A Set algebra operation over a non-Set Enumerable does not preserve
       # ruby's result order.
@@ -832,7 +832,7 @@ describe "Set programs" do
   end
 
   it "Exception#set_backtrace names an Array of String or of Location in its TypeError" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Exception#set_backtrace`'s TypeError names what ruby 4 accepts: "an
       # Array of String or an Array of Thread::Backtrace::Location"; zeo's
       # message still offers "a single String" (an older contract). (Found by
@@ -848,7 +848,7 @@ describe "Set programs" do
   end
 
   it "Set.new drops the equal elements, and each, include? and << answer over what is left" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The bundled `set` library: construction from an array (with de-duplication of
       # equal scalar elements), iteration, membership, and mutation.
       require 'set'
@@ -882,7 +882,7 @@ describe "Set programs" do
   end
 
   it "a two-parameter block auto-splats an Array element on map, each, select and sum" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
 
       s = Set.new([[1, 2]])
@@ -936,7 +936,7 @@ describe "Set programs" do
   end
 
   it "Set[...] builds a set from its arguments and drops the duplicates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Set[...] class-method constructor (CRuby's Set.[]).
       require "set"
 
@@ -965,7 +965,7 @@ describe "Set programs" do
   end
 
   it "max, min and sort take a comparator block, and max takes a count" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
       p(Set[3, 1, 2].max { |x, y| y <=> x })
       p(Set[3, 1, 2].min { |x, y| y <=> x })
@@ -986,7 +986,7 @@ describe "Set programs" do
   end
 
   it "flatten!, replace and reset mutate in place, and every combinator takes an Array operand" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Set mutators (flatten!/replace/reset), combinators with Array operands,
       # and mixed Set/Array arguments reaching the same combinator call site.
       require 'set'
@@ -1038,7 +1038,7 @@ describe "Set programs" do
   end
 
   it "size, include?, |, subset? and map answer on a set built from a literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = Set[3, 1, 2, 1]
       p s.size
       p s.include?(2)
@@ -1057,7 +1057,7 @@ describe "Set programs" do
   end
 
   it "delete is a no-op for a missing element and returns the set, so it chains" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
 
       s = Set.new
@@ -1093,7 +1093,7 @@ describe "Set programs" do
   end
 
   it "add, delete, the four operators, subset?, == and the Enumerable methods answer in one run" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
 
       s = Set.new([1, 2, 3, 2, 1])
@@ -1146,7 +1146,7 @@ describe "Set programs" do
   end
 
   it "divide groups by a one-parameter block's value and by a two-parameter block's relation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
       s = Set[1, 2, 3, 4, 5, 6]
       p s.divide { |x| x % 3 }.map { |sub| sub.to_a.sort }.sort
@@ -1162,7 +1162,7 @@ describe "Set programs" do
   end
 
   it "a blockless each is an Enumerator, and the constructor takes any Enumerable including one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
 
       # A blockless Set#each raised LocalJumpError -- the method is written with
@@ -1205,7 +1205,7 @@ describe "Set programs" do
   end
 
   it "keep_if and delete_if return the receiver, and select! and reject! return nil when nothing moved" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
 
       # subtract / replace (in place, return self)
@@ -1267,7 +1267,7 @@ describe "Set programs" do
   end
 
   it "a frozen set refuses every mutator with FrozenError, and an unfrozen one still mutates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
 
       # A frozen Set refuses every mutation, as CRuby's does. The element array is a
@@ -1322,7 +1322,7 @@ describe "Set programs" do
   end
 
   it "the Enumerable methods, the comparison operators and to_set answer across the API" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
       p(Set[1, 2, 3].select { |x| x > 1 })
       p(Set[1,2,3].reject { |x| x.even? })
@@ -1413,7 +1413,7 @@ describe "Set programs" do
   end
 
   it "FrozenError names the receiver, and a binary operator on a subclass answers the subclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two Set rows: the FrozenError names the receiver ("can't modify
       # frozen Set: Set[1]"), and a binary op on a Set SUBCLASS answers the
       # subclass. (Found by the 2026-08-24 probe sweep.)
@@ -1431,7 +1431,7 @@ describe "Set programs" do
   end
 
   it "Set.new takes the Array that map returns, and a plain class takes the same shape" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
 
       s = Set.new([1, 2])
@@ -1485,7 +1485,7 @@ describe "Set programs" do
   end
 
   it "a search asks == while a set operation asks eql?, so [1.0] - [1] keeps the Float" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby splits its container rows in two, and the split is observable.
       #
       #   A SEARCH asks `==`  -- `include?`, `index`, `rindex`, `count`,
@@ -1631,7 +1631,7 @@ describe "Set programs" do
   end
 
   it "&, | and - build fresh sets, and subset? and superset? compare membership" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Set operators and queries over the array-backed bundled set: & | - build
       # fresh sets, subset?/superset? compare membership, to_a/map expose the
       # elements (map returns an Array, as in CRuby).
@@ -1673,7 +1673,7 @@ describe "Set programs" do
   end
 
   it "the containment predicates take a set and raise ArgumentError on anything else" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The containment predicates take a Set and nothing else: CRuby answers
       # ArgumentError("value must be a set"). Passing an Array reached the operand's
       # own #subset?, which does not exist on one, and refused to compile at all.
@@ -1714,7 +1714,7 @@ describe "Set programs" do
   end
 
   it "a Range is an operand for every combinator, and for merge, subtract and replace" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require 'set'
       p((Set[1, 2] & (2..4)).to_a)
       p((Set[1, 2] | (2..4)).to_a)
@@ -1745,7 +1745,7 @@ describe "Set programs" do
   end
 
   it "subtract, flatten, map!, select!, reject!, classify and divide each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "set"
       s = Set[1, 2, 3, 4]
       p s.subtract([2, 3]).to_a.sort
@@ -1779,7 +1779,7 @@ describe "Set programs" do
   end
 
   it "Set#reset, Thread.list, Module#const_set and the exception accessors that take data" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Set#reset, Thread.list, Module#const_set, and the exception accessors that
       # take keyword/positional data: KeyError(key:/receiver:), SystemExit(status),
       # LocalJumpError#reason, FrozenError#receiver.
@@ -1814,7 +1814,7 @@ describe "Set programs" do
   end
 
   it "small api matchdata size set join complex i method source location" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Small API wins: MatchData#size/#length, Set#join, the Complex::I
       # imaginary-unit constant (and that it multiplies to -1), and Method's
       # source_location/super_method (nil for a builtin, matching CRuby's C-method).
@@ -1842,7 +1842,7 @@ describe "Set programs" do
   end
 
   it "struct valuesat hash set init wave10" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Struct#values_at (index and range keys) and #hash (value equality).
       Pt = Struct.new(:x, :y, :z)
       a = Pt.new(1, 2, 3)
@@ -1867,11 +1867,11 @@ describe "Set programs" do
   end
 
   it "subclass sees only the calls ruby makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which of Set's own methods its methods call on a subclass: every
       # method Set defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       class Probe < Set
@@ -2091,7 +2091,7 @@ describe "Set programs" do
   end
 
   it "to set forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Enumerable#to_set does not apply the block form, so the untransformed
       # elements land in the set.
@@ -2114,7 +2114,7 @@ describe "Set programs" do
   end
 
   it "universal reflection and to set" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Point
         def initialize(x, y)
           @x = x
@@ -2157,7 +2157,7 @@ describe "Set programs" do
   end
 
   it "user to set not rewritten" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `enum.to_set` desugars to `Set.new(enum.to_a)`, but a class that defines its
       # OWN to_set has to keep it. The rewrite used to run before class collection,
       # so it could not tell, and rewrote every to_set in the program: a method

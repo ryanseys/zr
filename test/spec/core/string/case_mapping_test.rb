@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: case mapping" do
   it "capitalize titlecases the digraphs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `String#capitalize` maps the Unicode digraphs to their TITLECASE forms
       # (U+01F3 dz -> U+01F2 Dz, and the Lj/Nj/Dz families), and #swapcase of a
       # titlecase char lowercases per-half ("Dz" -> "dZ"). zeo maps both
@@ -28,7 +28,7 @@ describe "String: case mapping" do
   end
 
   it "casecmp folds ascii and casecmp p folds unicode" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # casecmp folds ASCII alone and casecmp? folds all of Unicode, as
       # CRuby's str_casecmp and str_casecmp_p do. An operand the receiver has
       # no encoding in common with answers nil.
@@ -60,7 +60,7 @@ describe "String: case mapping" do
   end
 
   it "reader named after string method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A reader whose name is also a String method, read through a poly receiver.
       # The poly shortcuts stringified the receiver and applied the String method, so
       # a Struct member called `upcase` answered the UPCASED #inspect of the object
@@ -128,7 +128,7 @@ describe "String: case mapping" do
   end
 
   it "gsub with a Hash, split(\"\"), a capture index, casecmp?, oct and slice! each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "hello world".gsub(/[aeiou]/, "a" => "1", "e" => "2", "o" => "3")
       p "hello".split("")
       p "hello world"[/(\w+) (\w+)/, 2]
@@ -150,7 +150,7 @@ describe "String: case mapping" do
   end
 
   it "a Hash replacement maps every match, and a key that is missing gives the empty string" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A grab-bag of String / Hash leaf methods.
 
       # `gsub` with a Hash maps each match to its replacement (missing keys -> "").
@@ -207,7 +207,7 @@ describe "String: case mapping" do
   end
 
   it "the case, strip, split, chomp, index, sub, tr and % families all match the oracle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The String Tier A surface: case/strip families, split shapes, chomp,
       # indexing forms, sub/gsub (String + block), tr/delete/squeeze/count,
       # lenient conversions, succ carry, padding, and `%` formatting.
@@ -319,7 +319,7 @@ describe "String: case mapping" do
   end
 
   it "casecmp answers -1, 0 or 1, and casecmp? answers true or false" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#casecmp returns -1 / 0 / 1 for case-insensitive lex compare.
       # String#casecmp? returns true / false.
       puts "ABC".casecmp("abc")
@@ -343,7 +343,7 @@ describe "String: case mapping" do
   end
 
   it "an embedded NUL is a byte of the string, and no operation truncates at it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An embedded NUL is a byte of the string: the representation has always
       # carried it (the header records the true byte length), but an operation that
       # reached for strlen or strstr stopped at it and silently truncated. The policy
@@ -479,7 +479,7 @@ describe "String: case mapping" do
   end
 
   it "upcase, reverse, +, *, capitalize and include? each answer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "abc".upcase
       puts "ABC".downcase
       puts "abc".length
@@ -508,7 +508,7 @@ describe "String: case mapping" do
   end
 
   it "a parameter with no concrete-typed caller takes its type from the calls in the body" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #450 cascade 2: a method like
       #
       #   def match_pattern(pattern, path)
@@ -559,7 +559,7 @@ describe "String: case mapping" do
   end
 
   it "symbol casecmp" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol#casecmp and Symbol#casecmp? compare two symbols' names case-folded.
       # casecmp returns -1/0/1 (like <=>); casecmp? returns a boolean.
       # (String#casecmp/casecmp? already work; a couple are kept here as a guard.)
@@ -606,7 +606,7 @@ describe "String: case mapping" do
   end
 
   it "symbol upcase interpolation" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Symbol#upcase / #downcase on a method-returned (branch-poly) symbol
       # inside string interpolation lowers through sp_sym_intern. The runtime
       # helper is gated on @needs_sym_intern, which analyze set as a memoized
@@ -643,7 +643,7 @@ describe "String: case mapping" do
   end
 
   it "swapcase of a binary or KOI8-R string maps ASCII only and keeps the encoding" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "\xE9a\xC9B".b
       p [s.upcase, s.downcase, s.capitalize, s.swapcase, s.swapcase.encoding]
       k = "\xE9a\xC9B".b.force_encoding("KOI8-R")
@@ -666,7 +666,7 @@ describe "String: case mapping" do
   end
 
   it "case mapping of a US-ASCII string with a byte past ASCII maps the ASCII letters" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "A\xE9b".force_encoding("US-ASCII")
       def t(name)
         r = yield

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Range programs" do
   it "str rindex optional narrow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #645: `slash = p.rindex("/")` followed by a nil-check
       # ternary used to leak sp_RbVal into sp_str_sub_range_r (which
       # expects mrb_int):
@@ -53,7 +53,7 @@ describe "Range programs" do
   end
 
   it "string new array literal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #519. `[String.new]` (and `[s]` where `s = String.new`) used to
       # infer as `int_array`, then codegen emitted
       # `sp_IntArray_push(arr, sp_String_new(""))` -- C type mismatch.
@@ -87,7 +87,7 @@ describe "Range programs" do
   end
 
   it "string split with limit" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # String#split with a positive `limit` argument caps the result at
       # `limit` elements; the last element keeps the unsplit remainder.
       # Pre-fix spinel's two-arg split fell through to sp_str_split, which
@@ -111,7 +111,7 @@ describe "Range programs" do
   end
 
   it "case" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test case/when, unless, next, default args
 
       def describe(n)
@@ -172,7 +172,7 @@ describe "Range programs" do
   end
 
   it "case in range pattern" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A range pattern in `case/in` matches by membership (===), honoring
       # exclusivity and beginless/endless bounds, instead of being treated as an
       # unconditional match (which previously selected the wrong arm). Scrutinees
@@ -254,7 +254,7 @@ describe "Range programs" do
   end
 
   it "case in range pattern 2" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       case 5
       in 1..10
         puts "in range"
@@ -271,7 +271,7 @@ describe "Range programs" do
   end
 
   it "collections convert and walk as cruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Range walks anything with succ, an Integer toward a Float end too.
       # Enumerable#uniq and Set#count take their blocks; collect names its own
       # enumerator; with_index reads nil as 0. A Struct keeps a keyword Hash
@@ -373,7 +373,7 @@ describe "Range programs" do
   end
 
   it "endless method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Endless methods (Ruby 3.0+): `def name(args) = expr` is shorthand for
       # a single-expression method body. Prism flattens this to the same
       # DefNode shape as a regular def with a one-statement StatementsNode
@@ -453,7 +453,7 @@ describe "Range programs" do
   end
 
   it "endless method definition" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Calc
         def double(x) = x * 2
       end
@@ -464,7 +464,7 @@ describe "Range programs" do
   end
 
   it "endless method rescue" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Endless method with rescue modifier:
       #   def name(args) = expr rescue fallback
       # Combines `def foo(x) = expr` (already supported) with the postfix
@@ -515,7 +515,7 @@ describe "Range programs" do
   end
 
   it "endless method rescue modifier" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Unsafe
         def op(n)
           raise "negative" if n < 0
@@ -534,7 +534,7 @@ describe "Range programs" do
   end
 
   it "enumerator produce endless generator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerator.produce(initial) { |prev| ... } yields initial, then each
       # block result, forever -- bounded by the consumer. Without initial, the
       # first value is block.call(nil).
@@ -558,7 +558,7 @@ describe "Range programs" do
   end
 
   it "enumerator range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Range#each with no block is an external Enumerator (#next/#peek/#rewind/#size),
       # but only when used that way: when it is the receiver of a collection method
       # (.to_a/.map/.select/.sum/...) it materializes to a typed array, so those chains
@@ -621,7 +621,7 @@ describe "Range programs" do
   end
 
   it "flip flop latches" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A flip-flop is a LATCH, not a Range: true from the evaluation whose left
       # operand is truthy through the one whose right operand is. Two dots retest
       # the right operand in the very evaluation that turned it on; three wait.
@@ -663,7 +663,7 @@ describe "Range programs" do
   end
 
   it "for loop over a range asks the range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `for x in <range>` decides how to iterate from the range's ENDPOINTS, not
       # from the fact that it is a Range.
       #
@@ -765,7 +765,7 @@ describe "Range programs" do
   end
 
   it "immediates and ranges are always frozen" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts 1.frozen?
       puts 1.5.frozen?
       puts :sym.frozen?
@@ -785,7 +785,7 @@ describe "Range programs" do
   end
 
   it "a sum block whose value comes out of a find still folds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `sum` block whose value indexes an Array#find result is poly; the sum
       # must fold through the block (regression alongside #2913).
       table = [["h", 3600], ["m", 60]]
@@ -796,7 +796,7 @@ describe "Range programs" do
   end
 
   it "begin and end answer for a Range read out of a container" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # begin/end on a Range read out of a poly container: the poly receiver reads
       # the sp_Range endpoints instead of returning an opaque value.
       ranges = [(1..5), (10..20)]
@@ -813,7 +813,7 @@ describe "Range programs" do
   end
 
   it "count over a String range counts the values it enumerates" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts ("a".."e").count
       puts ("a"..."e").count
       puts ("aa".."ad").count
@@ -827,7 +827,7 @@ describe "Range programs" do
   end
 
   it "slice! removes characters, not bytes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = "あいうえお"
       s.slice!(1)
       p s
@@ -861,7 +861,7 @@ describe "Range programs" do
   end
 
   it "count takes a block, an argument, or nothing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p(("a".."e").count { |s| s < "c" })
       p(("a".."e").count)
       p(("a".."e").count("b"))
@@ -877,7 +877,7 @@ describe "Range programs" do
   end
 
   it "Kernel#rand over a Range answers inside it, and nil for an empty one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       a = (2..5)
       r = rand(a)
       p (2..5).include?(r)
@@ -895,7 +895,7 @@ describe "Range programs" do
   end
 
   it "lazy endless take while" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p (1..Float::INFINITY).lazy.take_while { |x| x < 5 }.to_a
       p (1..).lazy.take_while { |x| x * x < 30 }.to_a
       p (1..Float::INFINITY).lazy.map { |x| x * 3 }.take_while { |x| x < 20 }.to_a
@@ -909,7 +909,7 @@ describe "Range programs" do
   end
 
   it "leaf methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A grab-bag of core leaf methods across String, Array, Hash, Symbol, Integer,
       # and Proc — each the whole of its behavior, oracle-checked.
 
@@ -1010,7 +1010,7 @@ describe "Range programs" do
   end
 
   it "nil object id range cover and struct not equal" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # nil.object_id is 4 (CRuby 4.0.6). Range#cover? accepts a Range argument
       # (containment). Struct#!= negates the struct's value == (not identity).
 
@@ -1037,7 +1037,7 @@ describe "Range programs" do
   end
 
   it "open side counts as infinite without a walk" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A range with an open side holds an infinite count, and CRuby answers
       # that without a walk. An argument or a block counts the members that
       # match, so those walk and a side that cannot iterate raises. A walk
@@ -1078,7 +1078,7 @@ describe "Range programs" do
   end
 
   it "overlap compares as range c does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       pairs = [[0..2, 1..3], [0..2, 3..4], [0...3, 3..4], [0.., ..0], [..0, ..5], [..0, 1..], [5..1, 0..9], [1...1, 1..1], ["a".."c", "b".."z"], [1..2, "a".."b"], [nil..nil, 1..2], [(1..), (3..)], [1.0..2.5, 2.5..3]]
       pairs.each { |a, b| p [a, b, a.overlap?(b), b.overlap?(a)] }
       begin; (1..2).overlap?(3); rescue TypeError => e; p e.message; end
@@ -1107,7 +1107,7 @@ describe "Range programs" do
   end
 
   it "rand ranges and random equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Kernel#rand / Random#rand range semantics, and Random equality.
 
       # A range argument draws a value within it (Integer range -> Integer, a Float
@@ -1163,7 +1163,7 @@ describe "Range programs" do
   end
 
   it "rand ranges edge cases and random equality" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p rand(5...5)
       p rand(5..3)
       p rand(-3) >= 0
@@ -1192,11 +1192,11 @@ describe "Range programs" do
   end
 
   it "subclass sees only the calls ruby makes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Which of Range's own methods its methods call on a subclass: every
       # method Range defines is wrapped to log a call made from inside another,
       # and each is then called once on a fresh receiver. CRuby calls one by
-      # dispatch only where it means to, and ze0's core, written in Ruby, has
+      # dispatch only where it means to, and zr's core, written in Ruby, has
       # to call no more and no fewer. Written by `rake gen:dispatch`.
 
       class Probe < Range
@@ -1359,7 +1359,7 @@ describe "Range programs" do
   end
 
   it "top level endless def" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def double(x) = x * 2
       puts double(21)
     RUBY

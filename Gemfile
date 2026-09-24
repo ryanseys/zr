@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-# ze0's own dependencies are in ze0.gemspec. The stage-0 host is ruby
+# zr's own dependencies are in zr.gemspec. The stage-0 host is ruby
 # 4.0.6 (.ruby-version), which is also the oracle every corpus program
 # was recorded from.
 gemspec

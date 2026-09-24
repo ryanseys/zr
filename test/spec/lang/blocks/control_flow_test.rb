@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Blocks: control flow" do
   it "anon block forward" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Anonymous `&` block forwarding (Ruby 3.1+).
       #
       # `def outer(&); inner(&); end` declares an unnamed block parameter
@@ -58,7 +58,7 @@ describe "Blocks: control flow" do
   end
 
   it "block local shadow" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block-local declaration (`|x; sum|`) introduces a fresh variable scoped to
       # the block: it shadows any enclosing local of the same name, is reset to nil on
       # each block invocation, and must never leak its writes back out.
@@ -103,7 +103,7 @@ describe "Blocks: control flow" do
   end
 
   it "block optional unused" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Greeter
         def greet(text = nil, &block)
           puts text || "anonymous"
@@ -128,7 +128,7 @@ describe "Blocks: control flow" do
   end
 
   it "block param call block given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that captures its block as `&blk` AND calls `block_given?`
       # must still invoke the block through the &blk slot. The block_given?
       # call makes the method look like a yield-method, which previously
@@ -188,7 +188,7 @@ describe "Blocks: control flow" do
   end
 
   it "block param call value return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An &block-param method called with a literal block returns the
       # value of blk.call, typed by the block body's return type rather than
       # the int default. The block value is carried through sp_proc_call's
@@ -233,7 +233,7 @@ describe "Blocks: control flow" do
   end
 
   it "break and next inside a yielded block behave like real ruby" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `next` skips to the next yield; `break value` makes the WHOLE call
       # (`each_num(...)`) evaluate to that value, stopping further yields.
 
@@ -252,7 +252,7 @@ describe "Blocks: control flow" do
   end
 
   it "break leaves the define method call it was given to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class W < Array
         define_method(:each) { |*args, &blk| super(*args, &blk) }
       end
@@ -288,7 +288,7 @@ describe "Blocks: control flow" do
   end
 
   it "break needs the call its block was given to" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `break` leaves the call its block was given to. Once that call has
       # returned there is nothing to leave, even while the method the block was
       # written in still runs, and the break is a LocalJumpError. A shareable
@@ -374,7 +374,7 @@ describe "Blocks: control flow" do
   end
 
   it "case local in lambda" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local assigned inside a `case`/`when` branch of a lambda/proc
       # body must be declared in the proc's emitted C function. The proc
       # capture scanner walked `if`/`while` branches but not `case` arms
@@ -444,7 +444,7 @@ describe "Blocks: control flow" do
   end
 
   it "lambda explicit return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # An explicit `return <value>` inside a lambda/proc body must carry its
       # value out through `.call` instead of being lost (returning 0). The proc
       # return-type inference has to consider the ReturnNode tail, not only an
@@ -493,7 +493,7 @@ describe "Blocks: control flow" do
   end
 
   it "lifted block nonlocal return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` inside a block that is lifted to a proc.
       #
       # `@graph.adj[v].each { }` has a poly receiver, so the dispatch materializes
@@ -570,7 +570,7 @@ describe "Blocks: control flow" do
   end
 
   it "nonlocal return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # frozen_string_literal: true
 
       # `return` written in a block leaves the METHOD, not the block. The
@@ -682,7 +682,7 @@ describe "Blocks: control flow" do
   end
 
   it "proc call value return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `lambda {}` / `proc {}` (method-call form) record their block's return
       # type so `.call` unboxes the sp_proc_call mrb_int result back to the
       # real type instead of rendering the pointer as an integer.
@@ -715,7 +715,7 @@ describe "Blocks: control flow" do
   end
 
   it "proc cell opassign returns new value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A stored proc/lambda whose body op-assigns a captured local must return the
       # POST-assignment value (not the stale pre-assignment slot), while the mutation
       # still persists in the captured variable.
@@ -745,7 +745,7 @@ describe "Blocks: control flow" do
   end
 
   it "a non-lambda proc's return returns from the method that made the proc" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-lambda proc's `return` returns from the method that created the proc
       # (CRuby non-local return); a lambda's `return` is local to the lambda.
       def m
@@ -762,7 +762,7 @@ describe "Blocks: control flow" do
   end
 
   it "a lambda's return answers the lambda, and the method carries on" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def lam
         -> { return 30 }.call
         40
@@ -777,7 +777,7 @@ describe "Blocks: control flow" do
   end
 
   it "a non-local return abandons the rest of the method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # the non-local return aborts the rest of the method
       def compute
         r = proc { return 7 }.call
@@ -793,7 +793,7 @@ describe "Blocks: control flow" do
   end
 
   it "a non-local return carries a heap value home" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # heap (string) return value
       def smethod
         proc { return "early" }.call
@@ -809,7 +809,7 @@ describe "Blocks: control flow" do
   end
 
   it "a bare return in a proc answers nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # bare return yields nil
       def bare
         proc { return }.call
@@ -825,7 +825,7 @@ describe "Blocks: control flow" do
   end
 
   it "a conditional return in a proc returns non-locally only where the guard holds" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # conditional: returns non-locally only when the guard holds
       def cond(x)
         proc { return "yes" if x > 0 }.call
@@ -843,7 +843,7 @@ describe "Blocks: control flow" do
   end
 
   it "a proc built by Proc.new returns non-locally the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Proc.new form
       def pnew
         Proc.new { return 99 }.call
@@ -859,7 +859,7 @@ describe "Blocks: control flow" do
   end
 
   it "each recursive invocation owns its own proc-return frame" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Recursion: each invocation owns its own proc-return frame, so the return
       # targets the correct method instance.
       def countdown(n, acc)
@@ -876,7 +876,7 @@ describe "Blocks: control flow" do
   end
 
   it "an inner returning-proc method unwinds only itself" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested returning-proc methods: inner's return unwinds only inner.
       def inner
         proc { return "inner-ret" }.call
@@ -897,7 +897,7 @@ describe "Blocks: control flow" do
   end
 
   it "a multi-value return out of a proc answers an array" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-value return becomes an array.
       def mv
         proc { return 1, 2, 3 }.call
@@ -913,7 +913,7 @@ describe "Blocks: control flow" do
   end
 
   it "many sequential calls each pop their own frame, returning or falling through" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Many sequential calls: each non-local return (and each fall-through) pops its
       # frame, so the bounded frame stack never overflows.
       def doubled(x)
@@ -938,7 +938,7 @@ describe "Blocks: control flow" do
   end
 
   it "a returning proc that does not return answers its tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Fall-through value: a returning proc that does NOT return still yields its tail
       # expression (the `.call` result is the method's value). Mixed return/tail types
       # unify to a poly home; same-type stays scalar.
@@ -957,7 +957,7 @@ describe "Blocks: control flow" do
   end
 
   it "the same fall-through answers an Integer tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       def tail_int(n)
         proc { return 5 if n < 0; 10 }.call
       end
@@ -973,7 +973,7 @@ describe "Blocks: control flow" do
   end
 
   it "a return inside an inlined iteration block returns from the enclosing method" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` inside an inlined iteration block is non-local: it returns from the
       # home method, not just the block, so the trailing statement is skipped.
       def first_even_times_ten
@@ -990,7 +990,7 @@ describe "Blocks: control flow" do
   end
 
   it "an inlined block that fires no return answers its tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Inlined block that falls through (no return fires) -- its tail is the value.
       def all_fall_through
         proc { [1, 2, 3].each { |x| x * 10 }; :fell }.call
@@ -1005,7 +1005,7 @@ describe "Blocks: control flow" do
   end
 
   it "a block-body local survives beside a non-local return from the block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Block-body local plus a non-local return from inside the block.
       def block_local_return
         proc { [1, 2, 3].each { |x| y = x * 10; return y if x == 2 }; :fell }.call
@@ -1020,7 +1020,7 @@ describe "Blocks: control flow" do
   end
 
   it "each_with_index inside a returning proc returns non-locally" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # each_with_index inside a returning proc.
       def index_of_twenty
         proc { [10, 20, 30].each_with_index { |v, i| return i if v == 20 }; -1 }.call
@@ -1035,7 +1035,7 @@ describe "Blocks: control flow" do
   end
 
   it "map inside a proc collects, with no return to fire" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # map (a collecting block) inside a proc, no return.
       def doubled_array
         proc { [1, 2, 3].map { |x| x * 2 } }.call
@@ -1050,7 +1050,7 @@ describe "Blocks: control flow" do
   end
 
   it "nested inlined blocks carry a non-local return out through both" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Nested inlined blocks (block within block) with a non-local return.
       def nested_blocks_return
         proc { [1, 2].each { |a| [3, 4].each { |b| return a * b if a == 2 && b == 4 } }; 0 }.call
@@ -1065,7 +1065,7 @@ describe "Blocks: control flow" do
   end
 
   it "sibling inlined blocks that reuse a parameter name share one declaration" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Sibling inlined blocks reusing a param name share one declaration.
       def sibling_param_reuse
         proc { [1, 2].each { |x| return x if x == 2 }; [3, 4].each { |x| return x }; 0 }.call
@@ -1080,7 +1080,7 @@ describe "Blocks: control flow" do
   end
 
   it "deep recursion through a returning-proc method grows the frame stack and unwinds it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Deep recursion through a returning-proc method: the frame stack grows past the
       # old fixed cap (256) rather than raising SystemStackError.
       def countdown_to_zero(n)
@@ -1097,7 +1097,7 @@ describe "Blocks: control flow" do
   end
 
   it "a fiber whose body holds an inlined block keeps that block's own locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A fiber whose body contains an inlined block: the block params/locals are
       # collected for the fiber function (parallels the proc collection fix).
       fib = Fiber.new do
@@ -1114,7 +1114,7 @@ describe "Blocks: control flow" do
   end
 
   it "proc return escape localjump" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A non-lambda proc whose home method exits via an exception (not a normal
       # return) and is called afterwards raises LocalJumpError, as in CRuby -- the
       # home node is dropped as the exception unwinds the method, so the later return
@@ -1141,7 +1141,7 @@ describe "Blocks: control flow" do
   end
 
   it "proc return scopes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       la = lambda { return 5 }
       p la.call
       def m; pr = proc { return 7 }; pr.call; 9; end
@@ -1160,7 +1160,7 @@ describe "Blocks: control flow" do
   end
 
   it "proc universal return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Universal boxed proc return (CRuby's uniform VALUE proc ABI): a first-class
       # proc publishes its result through one boxed return channel regardless of the
       # value's static type, so a proc reached through a type-erased path -- stored in
@@ -1251,7 +1251,7 @@ describe "Blocks: control flow" do
   end
 
   it "recursive block forward value" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method that forwards its &block down a recursive call and returns
       # the result carries the block's value back. The tail is the recursive
       # call (its value must be returned, not dropped for side-effect), and
@@ -1281,7 +1281,7 @@ describe "Blocks: control flow" do
   end
 
   it "redo inside a yielded block reruns without advancing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Collector
         def each_num(a, b)
           yield a
@@ -1302,7 +1302,7 @@ describe "Blocks: control flow" do
   end
 
   it "return in a block leaves the lambda around it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `return` written in a block that sits inside a lambda leaves the
       # lambda, not the method that made the lambda: a lambda is the innermost
       # frame a return can name.
@@ -1395,7 +1395,7 @@ describe "Blocks: control flow" do
   end
 
   it "scope boundary stops the block and return walks" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The walks that ask "does this body use its block?", "does it contain a
       # `super`?" and "does a `begin` here need the method's return catch?" all stop
       # at the same three boundaries, and each used to spell those stops out in its
@@ -1486,7 +1486,7 @@ describe "Blocks: control flow" do
   end
 
   it "spread block keeps its arguments while they bind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block that spreads a lone argument over its parameters reads the
       # Array `to_ary` answered while its parameters bind, and a default or
       # a destructuring parameter runs Ruby in between: the Array stays
@@ -1546,7 +1546,7 @@ describe "Blocks: control flow" do
   end
 
   it "toplevel proc return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       puts "before"
       pr001 = proc { return 1 }
       r001 = (pr001.call rescue $!.class)
@@ -1558,7 +1558,7 @@ describe "Blocks: control flow" do
   end
 
   it "upto downto block" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # upto/downto with a block: the body must run whether or not the block declares
       # a parameter. Regression: a no-param block (`1.upto(5) { h += 1 }`) dropped its
       # body entirely (printed 0). A declared param is rebound each iteration, so
@@ -1594,7 +1594,7 @@ describe "Blocks: control flow" do
   end
 
   it "yield and block given branch on whether a block was passed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Foo
         def maybe_yield
           if block_given?
@@ -1613,7 +1613,7 @@ describe "Blocks: control flow" do
   end
 
   it "yield call assigned return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #396. A yield-bearing top-level fn called with a literal
       # block + the result assigned (`x = measure { ... }`) emitted
       # `sp_measure(, NULL, NULL)` -- empty leading slot + extra trailing
@@ -1668,7 +1668,7 @@ describe "Blocks: control flow" do
   end
 
   it "yield value mixed block types" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class-method with `yield` inlined at two call sites whose blocks return
       # DIFFERENT types: the yield value must be boxed by each call site's own block
       # type, not the method AST node's single cached type (which segfaulted by
@@ -1706,7 +1706,7 @@ describe "Blocks: control flow" do
   end
 
   it "yield value return" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A yield-using method called with a literal block returns the yielded
       # value, typed by the block's return type (not the int default). Covers
       # instance + top-level methods, expression / assignment contexts, and
@@ -1773,7 +1773,7 @@ describe "Blocks: control flow" do
     OUT
   end
   it "an each or a times with a block literal runs in place, and a program sees what the call gave it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `ary.each { |x| }` and `n.times { |i| }` run in place at the site: the
       # loop and the block's body in the caller's own function, with a frame
       # for the builtin and one for the block linked under the caller's for
@@ -1880,7 +1880,7 @@ describe "Blocks: control flow" do
     OUT
   end
   it "a Range of fixnums runs each in place, to the last fixnum but not past it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       s = 0
       (1..5).each { |i| s += i }
       p s

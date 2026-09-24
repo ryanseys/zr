@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Hash: slicing" do
   it "chained aset on poly hash recv" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #456: `outer[k1][k2] = v` where outer's value type is sp_RbVal
       # (StrPolyHash). The inner `[]=` recv is poly; with no
       # `is_a?(Hash)` narrowing, the dispatch needs to enumerate Hash-
@@ -30,7 +30,7 @@ describe "Hash: slicing" do
   end
 
   it "enumerable hash range receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Enumerable methods whose only arm is the Array one were refused outright on a
       # Hash or a Range receiver. Every one of them answers what the same call on
       # `receiver.to_a` answers -- Enumerable over a Hash walks its pairs, over a
@@ -102,7 +102,7 @@ describe "Hash: slicing" do
   end
 
   it "a Hash constant passed to a parameter that defaults to {} both iterates and keeps its String keys" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Hash constant passed to a parameter that defaults to `{}`. Two faults, both
       # silent: the loop ran zero times, and then its writes went nowhere (#4041).
       #
@@ -177,7 +177,7 @@ describe "Hash: slicing" do
   end
 
   it "a literal with a double-splat merges the spread source instead of erasing the literal's type" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A hash literal with a double-splat (`{ **h, k: v }`) must merge the spread
       # source instead of erasing the literal's type to UNKNOWN and rejecting.
       #
@@ -229,7 +229,7 @@ describe "Hash: slicing" do
   end
 
   it "the Enumerable rows read a Hash as a sequence of pairs" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash Enumerable conformance (KieranP #2339,#2341,#2350,#2352)
       h = { a: 1, b: 2 }
       p h.first                                  # #2350 first pair
@@ -267,7 +267,7 @@ describe "Hash: slicing" do
   end
 
   it "except answers a copy without the given keys, and passes over a key that is not there" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash#except returns a copy of the hash without the given keys.
 
       # 1. Symbol-keyed, drop one / several / a missing key.
@@ -315,7 +315,7 @@ describe "Hash: slicing" do
   end
 
   it "min, max, minmax_by, flat_map and each_with_object redispatch over pairs and over a Range" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash min/max/minmax_by, flat_map splicing, and each_with_object over
       # hashes and ranges (the pair/array redispatch family).
       h = { a: 1, b: 3, c: 2 }
@@ -342,7 +342,7 @@ describe "Hash: slicing" do
   end
 
   it "two Ranges with the same bounds are one key, so a lookup finds what it stored" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two Ranges with the same bounds are one Hash key. A fresh box hashed by
       # pointer, so a lookup never found the entry it had just stored.
       h = { (1..3) => :a, (4..6) => :b }
@@ -385,7 +385,7 @@ describe "Hash: slicing" do
   end
 
   it "clear answers the emptied hash, argumentless merge a copy, argumentless slice an empty hash, and to_hash self" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Hash: clear returns the emptied hash; no-arg merge is a copy; no-arg slice
       # is an empty hash; blockless one? is exactly-one-pair; to_hash is self.
       h = { a: 1, b: 2 }
@@ -418,7 +418,7 @@ describe "Hash: slicing" do
   end
 
   it "integer hash range batch9" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Integer quo/gcdlcm/pow/digits edges, Hash compact!/update/store/merge!/
       # each_with_object(String memo), and endless Range#to_a.
 
@@ -484,7 +484,7 @@ describe "Hash: slicing" do
   end
 
   it "key whose hash raises raises where it is used" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A key's own `hash` or `eql?` that raises raises at the call that ran
       # it, and a key's `eql?` that grows the table under a lookup leaves the
       # table whole.
@@ -571,7 +571,7 @@ describe "Hash: slicing" do
   end
 
   it "user to hash splat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `**obj` where obj defines #to_hash converts through to_hash, as CRuby does.
       class Opts
         def to_hash = { a: 1, b: 2 }
@@ -600,7 +600,7 @@ describe "Hash: slicing" do
   end
 
   it "void value hash store nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `h[k] = nil` in value position (`return @cache[k] = nil`): the rhs is
       # nil-typed and has no C storage type; the store temp must widen to poly
       # instead of being declared `void _tN` (error: incomplete type 'void').

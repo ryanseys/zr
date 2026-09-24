@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Abbrev programs" do
   it "require from a block and top level" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The SAME file required from inside a block AND at top level. The two
       # requires used to take different paths and disagree about who runs the file
       # body: one marked the feature loaded without running the body's statements,

@@ -6,7 +6,7 @@ exceptions, `break`, `return` and `throw` move through compiled code.
 ## A send, from the site
 
 In CRuby, a method call runs through the interpreter's call cache. In
-ze0 there is no interpreter, so each send site in compiled code owns
+zr there is no interpreter, so each send site in compiled code owns
 its caches, in `.bss`: four `CallCache` cells.
 
 A cell is keyed on two things: the receiver's class, and a global
@@ -106,7 +106,7 @@ stops at the first difference.
 
 ## Signals: exceptions without unwinding tables
 
-ze0 does not use the platform's unwinder. Every compiled function
+zr does not use the platform's unwinder. Every compiled function
 answers a `Value`, and the special value `undef` (`0x34`) means a
 *signal* is pending. The task records which kind: a raise, a `break`,
 a `return` or a `throw`.

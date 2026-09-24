@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Classes programs" do
   it "bare class opening fixes its parent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The shapes around `superclass mismatch`. A `class Foo` with no clause gives
       # Foo the class Object as its parent, and that is a decision, not an absence:
       # every later reopen must agree with it or raise.
@@ -84,7 +84,7 @@ describe "Classes programs" do
   end
 
   it "bare return in initialize" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #337: a bare `return` (Ruby's "exit early" form) inside an
       # `initialize` body used to lower to `return 0;` regardless of the
       # wrapping function's C return type. Two emit shapes were affected:
@@ -151,7 +151,7 @@ describe "Classes programs" do
   end
 
   it "basicobject new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # BasicObject is instantiable (#2658): the same blank instance Object.new
       # builds, tagged with its own builtin id.
       o = BasicObject.new
@@ -164,7 +164,7 @@ describe "Classes programs" do
   end
 
   it "bigint operand rooted" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A bignum operand must survive the evaluation of the other side, which can
       # run arbitrary code (and collect).
       class Run
@@ -200,7 +200,7 @@ describe "Classes programs" do
   end
 
   it "call or write through writer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `obj.attr ||= v` and `&&=` call the reader and, conditionally, the writer.
       # They were emitted as a direct instance-variable touch instead, which is a
       # valid fast path for a generated accessor pair and wrong for a hand-written
@@ -308,7 +308,7 @@ describe "Classes programs" do
   end
 
   it "case when value type classes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `when Rational` / `when Complex` (and Regexp, Proc, Time) have a builtin
       # cls_id but no class-table entry, so the arm used to compile to a constant
       # false and never matched; `Klass === poly` answered false the same way (#3959).
@@ -371,7 +371,7 @@ describe "Classes programs" do
   end
 
   it "case when with class candidates checks instance ancestry" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Module#===` -- previously a compile-time rejection (`when Integer`
       # never worked); now real Ruby's instance-of check.
 
@@ -397,7 +397,7 @@ describe "Classes programs" do
   end
 
   it "class allocate" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Thing
         def initialize(x) = (@x = x)
         def x = @x
@@ -449,7 +449,7 @@ describe "Classes programs" do
   end
 
   it "a class body built at run time reads and writes its own constants" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
       # lay out, so zeo builds it with `Class.new(parent) { ... }`. A block is not a
       # class body in two ways ruby cares about, and both used to leak:
@@ -495,7 +495,7 @@ describe "Classes programs" do
   end
 
   it "the body's local never reaches the enclosing scope, and its class variable is real storage" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `class Adapter < parent` with a LOCAL superclass has no compile-time class to
       # lay out, so zeo builds it with `Class.new(parent) { ... }`. A block is not a
       # class body in two ways ruby cares about, and both used to leak:
@@ -659,7 +659,7 @@ describe "Classes programs" do
   end
 
   it "class case eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal; end
       class Dog < Animal; end
       class Cat; end
@@ -679,7 +679,7 @@ describe "Classes programs" do
   end
 
   it "class def under runtime conditional" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class or module body guarded by a RUNTIME condition.
       #
       # Gems that support more than one Ruby implementation define whole classes
@@ -724,7 +724,7 @@ describe "Classes programs" do
   end
 
   it "class defines its own new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def self.new` is an ordinary class method: `.new` dispatches to it, and its
       # `super` reaches `Class#new`'s allocate-then-`initialize`. rubygems'
       # `Gem::Package::TarWriter` uses the shape to offer a block form that closes.
@@ -789,7 +789,7 @@ describe "Classes programs" do
   end
 
   it "class in collection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A Class object stored in a Hash value or Array element must round-trip
       # through poly storage (boxed as a class), not collapse to the int slot
       # (which produced an sp_box_int / sp_IntArray_push type mismatch and,
@@ -829,7 +829,7 @@ describe "Classes programs" do
   end
 
   it "class model edges" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Three class-model behaviors that follow from Ruby's real object model.
 
       # 1. `super` in a CLASS method. In Ruby `def self.foo` is an ordinary instance
@@ -909,7 +909,7 @@ describe "Classes programs" do
   end
 
   it "class name already taken is a type error" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby raises before anything is minted. (It also warns
       # `previous definition of TOP was here`, which zeo does not track --
       # hence the stdout-only check rather than a golden.)
@@ -927,7 +927,7 @@ describe "Classes programs" do
   end
 
   it "class new creates an anonymous runtime class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Class.new(Super) { ... }` mints a runtime class. The block body
       # runs against the new class (`define_method` and `def` both install on
       # it); a constant binding names it; is_a?/instance_of?/superclass and a
@@ -969,7 +969,7 @@ describe "Classes programs" do
   end
 
   it "class new override supers into a runtime parent" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #192 feature (1): a `super` in an override installed via a `Class.new(Parent)`
       # block reaches the parent's method, when the parent is a runtime class. The
       # override forwards args and composes the parent's result.
@@ -991,7 +991,7 @@ describe "Classes programs" do
   end
 
   it "class of primitive" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #715. `<primitive>.class` should return the builtin class for
       # each primitive, not just for obj-typed receivers. Coverage:
       # Integer/Float/String/Symbol/NilClass/TrueClass/FalseClass/Array/Hash.
@@ -1022,7 +1022,7 @@ describe "Classes programs" do
   end
 
   it "class ordering unrelated nil" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Animal; end
       class Dog < Animal; end
       class Cat < Animal; end
@@ -1042,7 +1042,7 @@ describe "Classes programs" do
   end
 
   it "class phase2 name eq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #404 Phase 2: `.name`, `.inspect`, `.==`, `.!=`, `.eql?`
       # on a sp_Class value. Phase 1 wired `.to_s` and the class-as-value
       # round-trip through locals / ivars / hash values. Phase 2 fills
@@ -1126,7 +1126,7 @@ describe "Classes programs" do
   end
 
   it "self inside a class body is the class object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1157,7 +1157,7 @@ describe "Classes programs" do
   end
 
   it "an @x written in a class body belongs to the class object" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1203,7 +1203,7 @@ describe "Classes programs" do
   end
 
   it "a class-level @x is not inherited, where a @@x is shared" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1241,7 +1241,7 @@ describe "Classes programs" do
   end
 
   it "a class @x and an instance @x of one name are different slots" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1271,7 +1271,7 @@ describe "Classes programs" do
   end
 
   it "class << self declares the readers for a class-level @x" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1310,7 +1310,7 @@ describe "Classes programs" do
   end
 
   it "a module body carries its own @x the same way" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1337,7 +1337,7 @@ describe "Classes programs" do
   end
 
   it "an implicit-self call in a class method resolves against the receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1378,7 +1378,7 @@ describe "Classes programs" do
   end
 
   it "a block inside a class method reads the class-level @x" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1407,7 +1407,7 @@ describe "Classes programs" do
   end
 
   it "a class held in a variable dispatches its class methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1444,7 +1444,7 @@ describe "Classes programs" do
   end
 
   it "a class method takes every parameter shape a method takes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1471,7 +1471,7 @@ describe "Classes programs" do
   end
 
   it "instance_variable_get and its siblings reach a class object's own ivars" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-level state: `self` inside a class method, and the instance
       # variables of the CLASS OBJECT itself.
       #
@@ -1512,7 +1512,7 @@ describe "Classes programs" do
   end
 
   it "class superclass" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class A
       end
 
@@ -1538,7 +1538,7 @@ describe "Classes programs" do
   end
 
   it "class value builtin and nested" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Followup to #404. Built-in exception classes (StandardError,
       # RuntimeError, ...) and nested user classes (M::Inner) used as
       # values must lower to sp_Class compound literals, the same way
@@ -1587,7 +1587,7 @@ describe "Classes programs" do
   end
 
   it "class var recv reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local statically holding one class constant dispatches like the constant
       # for the reflection surface too (#2717, #2721).
       class Dog; def bark; end; end
@@ -1611,7 +1611,7 @@ describe "Classes programs" do
   end
 
   it "class variable cref scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `@@x` resolves against the LEXICAL cref chain, and only `class`/`module`
       # bodies open one. Outside any of them Ruby raises rather than storing.
 
@@ -1690,7 +1690,7 @@ describe "Classes programs" do
   end
 
   it "class variable reflection" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class C
         @@x = 5
         @@name = "hi"
@@ -1715,7 +1715,7 @@ describe "Classes programs" do
   end
 
   it "a class variable declared in a module body is read and written by its module methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class variable (`@@x`) is shared storage owned by the class or module
       # where it's first assigned. It can be declared in a module body and read
       # and written from `def self.` methods.
@@ -1765,7 +1765,7 @@ describe "Classes programs" do
   end
 
   it "cmethod self and default" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Bare `self` inside a class method is the Class object; a default-parameter
       # expression referencing self evaluates in the CALLEE's context even when
       # the default is materialized at a caller in another class.
@@ -1805,7 +1805,7 @@ describe "Classes programs" do
   end
 
   it "constructor pushes the frames ruby pushes" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Foo.new` pushes NO backtrace frame of its own. zeo pushed `Class#new` for
       # every construction, so a raise from any `initialize` reported one frame ruby
       # does not have.
@@ -1910,7 +1910,7 @@ describe "Classes programs" do
   end
 
   it "def with class receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `def Klass.name` written inside `class Klass` is the older spelling of
       # `def self.name` -- net/smtp uses it throughout, including as the target of a
       # `class << self` alias, which only resolves if it registered as a class method.
@@ -1957,7 +1957,7 @@ describe "Classes programs" do
   end
 
   it "default initialize copy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Plain
         attr_accessor :v
         def initialize(v); @v = v; end
@@ -1985,7 +1985,7 @@ describe "Classes programs" do
   end
 
   it "defined classifies syntactic form" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       x = 5
       puts(defined?(x))
       puts(defined?(1 + 1))
@@ -2007,13 +2007,13 @@ describe "Classes programs" do
   end
 
   it "defined on a begin expression classifies as expression" do
-    result = ze0("puts defined?(begin; 1; end)\n")
+    result = zr("puts defined?(begin; 1; end)\n")
 
     _(result).must_answer "expression\n"
   end
 
   it "definition hooks when compiled" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The same six hooks as `definition_hooks_at_runtime.rb`, but for definitions
       # written in a class body -- which zeo compiles into a method table rather than
       # running, so the report has to be put back at the definition's position.
@@ -2127,7 +2127,7 @@ describe "Classes programs" do
   end
 
   it "dot class reflects every receiver kind" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Widget
       end
       module Helper
@@ -2173,7 +2173,7 @@ describe "Classes programs" do
   end
 
   it "dynamic class new defaults" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `table[key].new` -- the receiver is a Class value read out of a container, so
       # the construction switches on its runtime id. The zero-argument form now also
       # reaches a constructor whose parameters are all optional, filling each with
@@ -2217,7 +2217,7 @@ describe "Classes programs" do
   end
 
   it "dynamic class new fed back" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `s.class.new(**h)` on a receiver known only at run time. The dispatch
       # switches on the class's cls_id, and the runtime helper that produces that
       # class answered -1 for every value -- it filled in the NAME only -- so the
@@ -2276,7 +2276,7 @@ describe "Classes programs" do
   end
 
   it "elsif isa chain" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #310: an `if/elsif/else` chain with `is_a?(Class)` checks
       # in the elsif branch used to emit `} else <prologue> if (...)`
       # without wrapping braces. The compile_cond_expr for a poly is_a?
@@ -2346,7 +2346,7 @@ describe "Classes programs" do
   end
 
   it "embedded var" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # EmbeddedVariableNode -- `"#$gv"`, `"#@iv"`, `"#@@cv"`.
       #
       # Shorthand interpolation form that skips the braces around a
@@ -2370,7 +2370,7 @@ describe "Classes programs" do
   end
 
   it "harness batch 2453 2456" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # #2453: an array-literal aggregate in argument position (Math.log([..].max, b))
       # must wrap its builder in a statement-expression, not leak it into the call.
       class S
@@ -2423,7 +2423,7 @@ describe "Classes programs" do
   end
 
   it "interpolating a String built by String.new and << prints its text" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #1027: string interpolation of a method that returns sp_String *
       # (the mutable-string type backing `String.new` + `<<`) emitted the
       # pointer cast to long long with `%lld` instead of reading the string
@@ -2458,7 +2458,7 @@ describe "Classes programs" do
   end
 
   it "Random.new answers the same stream for the same seed" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Random uses a different RNG than CRuby, so values differ; the test
       # checks the interface (types, ranges, reproducibility), not exact
       # sequence parity. bytes#length is avoided because spinel has no
@@ -2496,7 +2496,7 @@ describe "Classes programs" do
   end
 
   it "identifier outside the ascii alphabet" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby treats every byte above ASCII as an identifier byte, so this ivar is
       # legal (fastimage ships one). A generated identifier takes a narrower
       # alphabet, so such a name must be mangled rather than passed through.
@@ -2524,7 +2524,7 @@ describe "Classes programs" do
   end
 
   it "initialize family visibility" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # initialize, initialize_copy and friends are not private by default.
       #
@@ -2559,7 +2559,7 @@ describe "Classes programs" do
   end
 
   it "instance class new" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       S = Struct.new(:a, :b)
       s = S.new(1, 2)
       t = s.class.new(3, 4)
@@ -2593,7 +2593,7 @@ describe "Classes programs" do
   end
 
   it "issue class variable toplevel scope" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class variable (`@@cv`) assigned inside a `Class.new { ... }` block
       # should raise RuntimeError ("class variable access from toplevel"): class
       # variables resolve through the LEXICAL scope, and a `do...end` block (unlike
@@ -2615,7 +2615,7 @@ describe "Classes programs" do
   end
 
   it "masgn classvar target" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Class-variable multi-assignment targets (`@@a, @@b = 1, 2`). Each
       # ClassVariableTargetNode registers and initializes its slot from the
       # i-th literal of the right-hand side, mirroring a plain `@@a = 1`.
@@ -2639,7 +2639,7 @@ describe "Classes programs" do
   end
 
   it "nested classes reopen through both definition forms" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module Store
         class Item
           def tag
@@ -2676,7 +2676,7 @@ describe "Classes programs" do
   end
 
   it "new binds optional initialize params" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The `.new` binding fix: one `initialize(items = nil)` serving both
       # `Bag.new` and `Bag.new([1])` (oracle: 0, 1).
 
@@ -2696,7 +2696,7 @@ describe "Classes programs" do
   end
 
   it "new on a class with no initialize rejects arguments" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Object#initialize` takes none, so passing any is an ArgumentError --
       # it was silently DROPPING them and constructing happily. Rescuable and
       # raised at runtime (plan G1), covering both the static `.new` path and
@@ -2725,7 +2725,7 @@ describe "Classes programs" do
   end
 
   it "object new sentinel" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #63: `Object.new.freeze` constants used as identity sentinels
       # generated `sp_Object *` declarations against a type that didn't exist
       # in the runtime, plus the `freeze` call fell through the dispatcher
@@ -2754,7 +2754,7 @@ describe "Classes programs" do
   end
 
   it "open class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Test: open class support for built-in types
       # Extension methods on String, Integer, Float
 
@@ -2793,7 +2793,7 @@ describe "Classes programs" do
   end
 
   it "open class bool builtin" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class TrueClass
         def flag_name
           "true:" + self.class.name
@@ -2835,7 +2835,7 @@ describe "Classes programs" do
   end
 
   it "open class default arg" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class String
         def pad(n = 3)
           self + ("x" * n)
@@ -2899,7 +2899,7 @@ describe "Classes programs" do
   end
 
   it "poly join value type receiver" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The poly `join` dispatch grew a user-class arm in ceaea73e (#4083's fix). That
       # arm passed the boxed receiver as a POINTER; a value-type class takes self by
       # value, and the C build stopped (#4091). The sibling arm at the default
@@ -2940,7 +2940,7 @@ describe "Classes programs" do
   end
 
   it "poly return value class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Issue #118: a method that returns instances of two or more value-
       # type-eligible classes per branch used to crash the C compile. Both
       # A and B detected as value-type (no attr_writer / no mutator) →
@@ -3021,7 +3021,7 @@ describe "Classes programs" do
   end
 
   it "primitive eq user class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Cross-type equality between a primitive and a user-class, both directions.
 
       # Box -- is_a? short-circuits, so only the typed-arg compile path
@@ -3162,7 +3162,7 @@ describe "Classes programs" do
   end
 
   it "private initialize owners" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Two patterns behind 56 of the census's private `owner` rows, and the half of
       # them this closes.
       #
@@ -3280,7 +3280,7 @@ describe "Classes programs" do
   end
 
   it "protected reach in a runtime class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A `protected` method must be reachable from another instance of the same
       # class. That works for a compiled `class` body and fails for a body written
       # inside `Class.new do ... end`.
@@ -3326,7 +3326,7 @@ describe "Classes programs" do
   end
 
   it "reading an undefined class variable" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Reading a class variable that was never assigned raises NameError
       # ("uninitialized class variable @@missing in ..."). zeo's cvar read answers
       # nil instead.
@@ -3349,7 +3349,7 @@ describe "Classes programs" do
   end
 
   it "reopened builtin answers from its own line" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The widened sweep behind `a_later_def_on_a_builtin_reaches_back`: every
       # shape a compile-time reopen of a builtin can take, called from ABOVE its own
       # `class Foo ... end` and again from below.
@@ -3428,7 +3428,7 @@ describe "Classes programs" do
   end
 
   it "returned class needs no name" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every line here reaches a builtin class this program NAMES NOWHERE.
       #
       # The compiler decides which builtin method tables the binary carries
@@ -3486,7 +3486,7 @@ describe "Classes programs" do
   end
 
   it "runtime class body directives" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A class built at runtime runs its body as an ordinary block, so every
       # class-body directive has to be rewritten into the equivalent self-send.
       module Greeting
@@ -3558,7 +3558,7 @@ describe "Classes programs" do
   end
 
   it "runtime class names its own frames" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A method of a RUNTIME-minted class names its frame after that class.
       #
       # A `def` inside such a body is lifted to a top-level method and installed on
@@ -3673,7 +3673,7 @@ describe "Classes programs" do
   end
 
   it "same leaf class name in two namespaces stays distinct" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       module A1
         class Widget
           def tag
@@ -3698,7 +3698,7 @@ describe "Classes programs" do
   end
 
   it "scoped builtin class values" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # ::-scoped builtin class constants as first-class values (#2840), and
       # stat handles reporting File::Stat (#2841).
       p Math::DomainError
@@ -3727,7 +3727,7 @@ describe "Classes programs" do
   end
 
   it "self class new construction" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `self.class.new(args)` in an instance method of a leaf class (no
       # subclasses) constructs the enclosing class statically — the
       # idiomatic functional-update pattern (e.g. AST::Node#updated).
@@ -3750,7 +3750,7 @@ describe "Classes programs" do
   end
 
   it "superclass must be a plain class" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Superclass validation: a Module raises TypeError "superclass must be an
       # instance of Class (given an instance of Module)" (zeo: NoMethodError on
       # 'inherited'); a non-class names the given class the same way (zeo's
@@ -3775,7 +3775,7 @@ describe "Classes programs" do
   end
 
   it "user negation methods" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       class Neg
         def initialize(b); @b = b; end
         def !; !@b; end
@@ -3792,7 +3792,7 @@ describe "Classes programs" do
   end
 
   it "void value begin writer tail" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-position `begin` whose tail is a writer call (or nil) is
       # void/nil-typed: the begin result temp -- and the ivar slot it flows into --
       # must widen to poly instead of C `void` (error: incomplete type 'void').
@@ -3842,7 +3842,7 @@ describe "Classes programs" do
   end
 
   it "void value case writer arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-position `case` whose arms are writer calls (or nil) is
       # void/nil-typed: the case result temp must widen to poly instead of being
       # declared `void _crN` (error: incomplete type 'void'). Unmatched reads nil.
@@ -3897,7 +3897,7 @@ describe "Classes programs" do
   end
 
   it "void value if writer arm" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A value-position `if`/ternary whose arm is a writer call (doom's
       # `self.fullscreen = value if respond_to?(...)` used as an expression) is
       # void-typed: the result temp must widen to poly instead of being declared

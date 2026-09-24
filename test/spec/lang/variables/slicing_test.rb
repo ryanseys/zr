@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables: slicing" do
   it "assignment in condition warning" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby warns when a conditional's test is an assignment of a LITERAL --
       # `warning: found '= literal' in conditional, should be ==` -- the classic
       # `if x = 1` typo. zeo emits nothing.
@@ -56,7 +56,7 @@ describe "Variables: slicing" do
   end
 
   it "begin value body local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The value of a begin/rescue is the body's when the body carries one. A body
       # whose last statement is a local read is typed by a write that comes later in
       # the walk, so within a round it reads as "not settled yet" -- and taking the
@@ -97,7 +97,7 @@ describe "Variables: slicing" do
   end
 
   it "captured param reassigned in the body shares one cell" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A parameter that is BOTH captured by an escaping block AND reassigned
       # used to get its capture cell declared twice -- once by the prologue's
       # param wrap and once by the hoist prelude's param-seeded arm -- so the
@@ -128,7 +128,7 @@ describe "Variables: slicing" do
   end
 
   it "global multi assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Multi-assignment into global variables must declare and type every
       # target from the right-hand side, not only the first. A non-int RHS
       # (string / float / array) or a splat-rest target previously left the C
@@ -172,7 +172,7 @@ describe "Variables: slicing" do
   end
 
   it "global nil slot" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A global whose only value is nil got no type, and a global with no type got
       # no slot, so the reference did not compile at all ('gv_foo' undeclared). The
       # same for a global never assigned anywhere, which Ruby also reads as nil.
@@ -232,7 +232,7 @@ describe "Variables: slicing" do
   end
 
   it "Operator-write ($x += / -= / *= / /= ... )" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
       # Was four tests; merged here. Globals across the original files
       # happened to reuse `$count`, so this file picks distinct names per
@@ -263,7 +263,7 @@ describe "Variables: slicing" do
   end
 
   it "Or-write ($x ||= val)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
       # Was four tests; merged here. Globals across the original files
       # happened to reuse `$count`, so this file picks distinct names per
@@ -289,7 +289,7 @@ describe "Variables: slicing" do
   end
 
   it "And-write ($x &&= val)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
       # Was four tests; merged here. Globals across the original files
       # happened to reuse `$count`, so this file picks distinct names per
@@ -310,7 +310,7 @@ describe "Variables: slicing" do
   end
 
   it "Target (multi-assign LHS for globals)" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Global variable compound writes — Or / And / Operator / Target.
       # Was four tests; merged here. Globals across the original files
       # happened to reuse `$count`, so this file picks distinct names per
@@ -338,7 +338,7 @@ describe "Variables: slicing" do
   end
 
   it "is a against statically typed array hash range and symbol locals" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       arr = [1, 2, 3]
       puts arr.is_a?(Array)
       puts arr.is_a?(Object)
@@ -362,7 +362,7 @@ describe "Variables: slicing" do
   end
 
   it "local across begin clauses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local first assigned inside a `begin` body is still in scope in the
       # `rescue`/`ensure` clauses and after the whole `begin` -- one Ruby scope, even
       # though each clause runs on its own path.
@@ -452,7 +452,7 @@ describe "Variables: slicing" do
   end
 
   it "local or write first assign" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `x ||= v` on a method-local with no earlier assignment, and a tail assignment
       # as a method's value.
       #
@@ -557,7 +557,7 @@ describe "Variables: slicing" do
   end
 
   it "local rebind after self returning mutator" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A local holding both a scalar and a self-returning Array mutator's result stays poly.
       x = [1, 2]
       r = x.pop
@@ -614,7 +614,7 @@ describe "Variables: slicing" do
   end
 
   it "multiple assignment names its constant scope first" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A multiple assignment evaluates each target's receiver or scope
       # before the right-hand side, and an attribute target through an
       # explicit receiver may not reach a private writer.
@@ -650,7 +650,7 @@ describe "Variables: slicing" do
   end
 
   it "ruby underscore is an ordinary readable local" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Ruby's `_` is an ordinary local: it reads back, it reassigns from its own
       # value, and only the first `_` in a parameter list owns the name. The
       # generated program has no named binding that spells `_`, so it must be

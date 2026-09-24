@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "RubyVM programs" do
   it "ast node id for backtrace location" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location(loc)` -- the one
       # primitive `error_highlight` asks of a prism-compiled program.
       #
@@ -90,7 +90,7 @@ describe "RubyVM programs" do
   end
 
   it "ast of refuses what ruby refuses" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree.of` refuses the same way CRuby does.
       #
       # Every ISEQ ruby builds is prism-compiled, so CRuby answers a RuntimeError
@@ -137,7 +137,7 @@ describe "RubyVM programs" do
   end
 
   it "eval syntax error carries prisms report" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A snippet that does not parse raises a `SyntaxError` whose message is the
       # program's to read, so it is prism's whole report -- header, the offending
       # line with its context, and one caret row per diagnostic -- exactly as
@@ -212,7 +212,7 @@ describe "RubyVM programs" do
   end
 
   it "iseq compiles a string and evals it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::InstructionSequence.compile takes a string of Ruby, which eval
       # runs at the top level, under main; a string that does not parse raises
       # SyntaxError as it compiles.
@@ -261,7 +261,7 @@ describe "RubyVM programs" do
   end
 
   it "iseq label names the block it came from" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::InstructionSequence#label` on a Proc handle used to refuse: a
       # block's frame name is a LEXICAL fact, and the Proc value carried only a
       # location. Codegen stamps the name on the proc's shape now.
@@ -354,7 +354,7 @@ describe "RubyVM programs" do
   end
 
   it "naming the ast adds no constant before a parse" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A program that names RubyVM::AbstractSyntaxTree finds Node and Location
       # there, and no constant of the parser under the module until a parse.
       p Object.constants.include?(:Prism), defined?(Prism)
@@ -377,7 +377,7 @@ describe "RubyVM programs" do
   end
 
   it "each construct dumps as the type, location and children the oracle dumps" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -446,7 +446,7 @@ describe "RubyVM programs" do
   end
 
   it "a Node answers its type, its location numbers and its children" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -499,7 +499,7 @@ describe "RubyVM programs" do
   end
 
   it "parse raises SyntaxError for a broken program, and of refuses an ISeq" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -544,7 +544,7 @@ describe "RubyVM programs" do
   end
 
   it "a Location answers its first and last line and column" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -577,7 +577,7 @@ describe "RubyVM programs" do
   end
 
   it "RubyVM itself answers keep_script_lines and stat" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -630,7 +630,7 @@ describe "RubyVM programs" do
   end
 
   it "YJIT is never enabled, and its readers say so" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -668,7 +668,7 @@ describe "RubyVM programs" do
   end
 
   it "InstructionSequence compiles a string and answers its own handle" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # RubyVM::AbstractSyntaxTree over prism with parse.y taxonomy: the tree
       # shapes below are the oracle's own dumps (type, location, children) for the
       # tier of constructs zeo maps faithfully. node_id values are zeo-numbered
@@ -728,7 +728,7 @@ describe "RubyVM programs" do
   end
 
   it "the literal kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -796,7 +796,7 @@ describe "RubyVM programs" do
   end
 
   it "the collection kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -846,7 +846,7 @@ describe "RubyVM programs" do
   end
 
   it "the variable kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -903,7 +903,7 @@ describe "RubyVM programs" do
   end
 
   it "a multiple assignment dumps in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -954,7 +954,7 @@ describe "RubyVM programs" do
   end
 
   it "an operator assignment dumps in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1007,7 +1007,7 @@ describe "RubyVM programs" do
   end
 
   it "the call kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1096,7 +1096,7 @@ describe "RubyVM programs" do
   end
 
   it "the definition kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1176,7 +1176,7 @@ describe "RubyVM programs" do
   end
 
   it "the control-flow kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1250,7 +1250,7 @@ describe "RubyVM programs" do
   end
 
   it "the pattern-matching kinds dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1313,7 +1313,7 @@ describe "RubyVM programs" do
   end
 
   it "a hoisted BEGIN and an empty program dump in parse.y's taxonomy" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1369,7 +1369,7 @@ describe "RubyVM programs" do
   end
 
   it "a multiline construct carries the spans its lines give it" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::AbstractSyntaxTree` over every prism kind zeo maps, checked shape
       # for shape against ruby 4.0.6.
       #
@@ -1415,7 +1415,7 @@ describe "RubyVM programs" do
   end
 
   it "a handle made from a proc answers its label and base_label" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       $stderr.reopen(IO::NULL)
 
       handle = RubyVM::InstructionSequence.of(proc { 1 })
@@ -1442,7 +1442,7 @@ describe "RubyVM programs" do
   end
 
   it "InstructionSequence.of answers a handle for a Ruby callable and nil for a C one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `RubyVM::InstructionSequence.of` answers a real handle for a callable
       # written in Ruby and `nil` for a C-defined one. It used to answer `nil` for
       # EVERYTHING, which is the one row of the YARV surface that was quietly wrong
@@ -1507,7 +1507,7 @@ describe "RubyVM programs" do
   # that read YARV bytecode are differences, named in
   # docs/reference/differences-from-ruby.md.
   it "an InstructionSequence answers eval, to_binary and each_child as ruby does" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       iseq = RubyVM::InstructionSequence.of(proc { 1 })
       def t(name)
         p [name, yield]
@@ -1528,7 +1528,7 @@ describe "RubyVM programs" do
   end
 
   it "compile_option answers the options ruby's compiler starts with" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       p RubyVM::InstructionSequence.compile_option.keys.sort.first(4)
     RUBY
 

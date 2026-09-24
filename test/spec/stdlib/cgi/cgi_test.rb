@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "CGI programs" do
   it "escapeElement rewrites only the tags it was asked about, each span ending at the next delimiter" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `CGI.escapeElement` / `CGI.unescapeElement` rewrite only the tags they were
       # asked about, and each span ends at the next DELIMITER.
       #
@@ -88,7 +88,7 @@ describe "CGI programs" do
   end
 
   it "escape, escapeHTML and unescape answer what ruby answers" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       require "cgi/escape"
       puts CGI.escape("a b&c=d")
       puts CGI.escapeHTML("<x>&'")
@@ -103,7 +103,7 @@ describe "CGI programs" do
   end
 
   it "every escape rewrites bytes, so the answer keeps the encoding it was given" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Every CGI escape is a BYTE transformation: it rewrites ASCII punctuation
       # and passes every other byte through, so ruby hands back a string in the
       # encoding it was given -- invalid bytes and all.
@@ -182,7 +182,7 @@ describe "CGI programs" do
   end
 
   it "escapeHTML is an instance method of CGI::EscapeExt, which CGI reaches by include and extend" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `CGI.escapeHTML` is not a class method of `CGI`. It is an instance method of
       # `CGI::EscapeExt`, reached because `CGI` both INCLUDES and EXTENDS
       # `CGI::Escape`, and `Escape` PREPENDS `EscapeExt`. zeo hung the helpers
@@ -278,7 +278,7 @@ describe "CGI programs" do
   end
 
   it "extended modules row answers as the modules own" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `extend M` seats M in the SINGLETON class's ancestry: the class method it
       # supplies is still M's own instance method, and every reflection answer says
       # so. zeo scanned only the class ancestry for a class-method owner, so it
@@ -367,7 +367,7 @@ describe "CGI programs" do
   end
 
   it "extensions" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # In-tree ext/ extensions, activated by `require` and dispatched through the
       # same tables as the core builtins. Each is behind a per-extension build
       # feature (default on). See docs/EXTENSIONS.md.
@@ -444,7 +444,7 @@ describe "CGI programs" do
   end
 
   it "is a class not a module" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # CRuby's `CGI` is a CLASS whose superclass is `Object` -- `CGI.new(...)` is the
       # whole CGI API -- and cgi/escape.rb opens it as one (`class CGI`). zeo had it
       # registered as a module, so every gem that reopened it stopped at `CGI is not a

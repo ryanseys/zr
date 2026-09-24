@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Pack programs" do
   it "block call multi arg pack" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # A block invoked through `block.call(a, b)` with MULTIPLE arguments packs
       # those arguments into an array for a collector that takes the block's value
       # as one object (`to_a`), and binds them across a destructuring block's
@@ -55,7 +55,7 @@ describe "Pack programs" do
   end
 
   it "computed require without the pack is a load error" do
-    result = ze0(<<~'RUBY', files: beside("computed_require/lib/greeter.rb", "computed_require/prog.rb"))
+    result = zr(<<~'RUBY', files: beside("computed_require/lib/greeter.rb", "computed_require/prog.rb"))
       # Without the flag the same program raises the LoadError it always did --
       # a hermetic binary is the default, not an accident.
 
@@ -66,7 +66,7 @@ describe "Pack programs" do
   end
 
   it "each entry packs multi value yields where each passes them through" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The entire difference between `each_entry` and `each`, and it is only
       # observable when the receiver's own `each` yields MORE THAN ONE value.
 
@@ -101,7 +101,7 @@ describe "Pack programs" do
   end
 
   it "enumerator new yields through a yielder with cruby packing" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Enumerator.new { |y| ... }` -- the generator/Yielder pair, and the
       # packing truth table: `next_values` preserves yield arity exactly,
       # `next` collapses through ary2sv (`yield`->nil, `yield nil`->nil,
@@ -145,7 +145,7 @@ describe "Pack programs" do
   end
 
   it "hash each packs a pair only when the block takes one" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # `Hash#each` yields two values to a block that can take two, and packs them
       # into one array only for a block that cannot -- `rb_hash_foreach`'s own rule.
       # Every shape below decides that question differently, and the lambda case is
@@ -209,7 +209,7 @@ describe "Pack programs" do
   end
 
   it "multiple yield args pack into an array for the resumer" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # Asserted via `puts` (an Array prints one element per line, matching
       # real ruby) rather than `v.length`/`v[0]`: `resume`'s result is
       # statically Poly, and collection methods on a Poly value are the
@@ -227,7 +227,7 @@ describe "Pack programs" do
   end
 
   it "poly user pack unpack" do
-    result = ze0(<<~'RUBY')
+    result = zr(<<~'RUBY')
       # The poly-receiver arms for `pack` and `unpack1` did not ask whether a user
       # class owns the name, the way their neighbours do. `pack` answered "" and
       # `unpack1` read the receiver through a char * whatever it held -- both
@@ -283,7 +283,7 @@ describe "Pack programs" do
     OUT
   end
     it "every integer directive packs and unpacks the machine words and past them, a fixnum or not" do
-      result = ze0(<<~'RUBY')
+      result = zr(<<~'RUBY')
         class Two
           def to_int = 2
         end
