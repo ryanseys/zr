@@ -125,7 +125,7 @@ of free cells, a major collection follows at once, because the heap
 did not fill with young dead objects. The exception: if a major
 collection ran in the last three collections, it already showed that
 live objects fill the class, so the class grows by its whole step. CRuby
-also holds a NOFREE major collection off for `RVALUE_OLD_AGE`
+also delays a NOFREE major collection for `RVALUE_OLD_AGE`
 collections.
 
 Both kinds sweep every arena one word of bitmaps at a time. The cells

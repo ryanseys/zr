@@ -94,7 +94,7 @@ block's frame, so a backtrace from inside is the same as without this.
 A pending unwind from the body goes to a region of the site, which puts
 the caller's frame back on top before it continues. Only a block with
 at most one parameter, no block of its own inside, no binding, no
-`super` and no `def` runs this way (`Scope.iterator_template?`).
+`super` and no `def` runs this way (`Lower::Scope#iterator_template?`).
 
 Constants and instance variables have cache entries too. The entry of
 a constant has two keys: the scope, and a constant stamp. The entry of

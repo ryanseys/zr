@@ -42,7 +42,7 @@ end
 puts "#{people.size} people, #{people.sum { |p| p.name.length }} letters of names"
 ```
 
-This is ordinary Ruby. Run it with ruby first, so you know the answer:
+This is ordinary Ruby. Run it with ruby first, so that you know the correct output:
 
 ```console
 $ ruby greet.rb
@@ -145,7 +145,7 @@ Next steps:
 
 - To see which targets your machine can build, run `zr targets`, or
   read [How to build for another target](../how-to/build-for-another-target.md).
-- To help make zr answer more programs, follow
+- To help zr support more programs, follow
   [Add your first spec](add-your-first-spec.md).
 - To learn why zr checks itself against ruby's output, read
   [The contract: ruby's output or a refusal](../explanation/the-contract.md).

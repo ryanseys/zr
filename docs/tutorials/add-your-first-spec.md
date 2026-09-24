@@ -27,7 +27,7 @@ $ exe/zr version
 zr 0.1.0
 ```
 
-## Ask ruby first
+## Get the output from ruby first
 
 ruby 4.0.6 is the only source of expected outputs, so we start there.
 Our program puts a few words into groups by their length:
