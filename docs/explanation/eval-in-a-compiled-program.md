@@ -2,11 +2,11 @@
 
 Ruby can run a string of code while a program runs: `eval`,
 `instance_eval` with a string, `Binding#eval`, and a `require` of a
-file whose name is computed. A compiler that turns Ruby into machine
-code ahead of time has to decide what to do about that. This page
-explains zr's answer.
+file whose name the program computes. A compiler that turns Ruby into
+machine code before the program runs must decide what to do with
+this. This page explains zr's solution: eval support.
 
-## Three answers, and the one zr takes
+## Three possible solutions
 
 A compiler for Ruby can:
 
@@ -14,118 +14,128 @@ A compiler for Ruby can:
 2. include an interpreter for evaluated code; or
 3. include the compiler itself, and compile the string when it runs.
 
-The first answer refuses too much. `pp`, `erb` and many other libraries
-in ruby's standard library eval somewhere. The second answer
-gives two implementations of Ruby, and two sets of answers to keep
-equal to ruby's. zr takes the third: evaluated code goes through the
-same compiler, the same runtime, and the same checks as the rest of the
-program.
+The first solution refuses too much. `pp`, `erb` and many other
+libraries in ruby's standard library eval. The second solution gives
+two implementations of Ruby, and two sets of results to keep equal to
+ruby's. On a native target, zr uses the third: evaluated code goes
+through the same compiler, the same runtime and the same tests as the
+rest of the program. This is the **eval compiler**.
 
-On wasm the third answer is not available. A module's code is fixed
-when the engine instantiates it, and WASI hands a guest no way to make
-a second module, so there is nowhere to put what the compiler emits.
-A program there takes the second answer instead, and pays for it as
-little as it can: the **front end is the same one** -- the same prism
-port, the same `Hir.build`, the same desugaring and name resolution --
-and only the back half is a second implementation, a walk of the tree
-the front end already built. What the walk does not carry it refuses
-by name, at its line, rather than guessing. The two roads are
-`lib/zr/eval.rb` and `lib/zr/eval/walk.rb`, and
-`Hir::Build.eval_road_file` picks between them from the target.
+On wasm, the third solution is not possible. The engine fixes the code
+of a module when it instantiates the module, and WASI gives a guest no
+way to make a second module. Thus there is no place for the machine
+code of the string. A WASI program uses the second solution: the
+**tree-walking interpreter**. It costs as little as possible, because
+the **front end is the same**: the same prism port, the same
+`Hir.build`, the same desugaring and name resolution. Only the back
+half is different: it walks the tree that the front end made. zr
+refuses a form that the tree-walking interpreter does not support, with
+a message that gives the form and the line.
 
-## Which programs carry the compiler
+`lib/zr/eval.rb` is the eval compiler, and `lib/zr/eval/walk.rb` is the
+tree-walking interpreter. `Hir::Build.eval_file` selects one of them for
+the target.
 
-The HIR build decides, from the source, whether a program can reach the
-compiler at run time. A program carries it when it names:
+## Which programs include eval support
+
+The HIR build decides, from the source, whether a program can reach
+the compiler while it runs. A program includes eval support when it
+contains:
 
 - `eval`, or `instance_eval`, `class_eval` or `module_eval` with an
   argument;
-- a `require`, `require_relative` or `load` whose file it cannot find
-  as it compiles;
-- a change to `$LOAD_PATH` other than a literal directory added;
+- a `require`, `require_relative` or `load` of a file that zr cannot
+  find at compile time;
+- a change to `$LOAD_PATH` other than the addition of a literal
+  directory;
 - a `send` or a `method` that can reach one of these.
 
-A program that does none of these carries nothing extra, and its binary
-is smaller and starts faster.
+A program without these does not include eval support. Its binary is
+smaller and starts faster.
 
-## How an eval runs
+## How the eval compiler runs
 
-The compiler is Ruby, so zr can compile it like any other program.
-It builds the compiler into an object of its own once, and keeps it in
-the cache (`road-<digest>.o`). A program that evals links that object
-beside the runtime.
+The compiler is Ruby, so zr can compile it like any other program. zr
+builds eval support into its own object one time, and keeps it in the
+cache (`eval-<key>.o`). A program that evals links that object beside
+the runtime.
 
 The compiler loads only when the program evaluates its first string.
-Many programs that could eval never do, and loading the compiler makes
-about a hundred thousand objects.
+Many programs that can eval never do, and the load of the compiler
+makes about a hundred thousand objects.
 
-For each string, the carried compiler:
+For each string, the eval compiler:
 
 1. parses it with the prism port;
-2. lowers it, one scope inside the locals of the asking scope, so it
-   can read and write them;
+2. lowers it as one scope inside the locals of the calling scope, so
+   that it can read and write them;
 3. assembles it with the aarch64 backend; and
-4. loads the machine code into the process with `Obj::JIT`, over the
-   runtime's own calls to map and protect memory. The snippet's calls
-   into the runtime and the program are resolved by name: the image's
-   own symbol table is sorted by name (`Obj::MachO::Executable`), so the
-   kernel finds each one by a binary search of it (`zr_os_symbol`,
-   runtime/kernel/os/darwin/jit.rb), and asks dlsym only for a name of
-   libSystem's -- or for everything, in an image `ld` linked, whose
-   table is in no order and whose exports trie holds every name.
+4. loads the machine code into the process with `Obj::JIT`, through the
+   runtime's own calls to map and protect memory.
 
-An eval must agree with the code around it about the kernel's
-functions, layouts and symbol ids. The program carries the kernel's
-*description* for this (`runtime/ext/os/<os>/zr_description.rb`), and the
-eval's symbol table starts from the one the program runs on.
+The string's calls into the runtime and the program are resolved by
+name. zr's linker sorts the symbol table of the image by name
+(`Obj::MachO::Executable`), so the kernel finds each name with a
+binary search (`zr_os_symbol`, `runtime/kernel/os/darwin/jit.rb`). It
+calls `dlsym` only for a libSystem name, or for all names in an image
+that `ld` linked, whose table is not sorted.
 
-## The walking road
+The evaluated code must agree with the code around it about the
+kernel's functions, layouts and symbol IDs. For this, the program
+includes the kernel's description
+(`runtime/ext/os/<os>/zr_description.rb`), and the symbol table of the
+string starts from the program's own.
 
-`ZR_EVAL=walk` builds a native program with the walk, which is how the
-walk is held to the compiling road's own answers: the same program, the
-same runtime, and two back halves that must agree with ruby.
+## How the tree-walking interpreter runs
 
-The walk evaluates HIR node by node and reaches the program through the
-calls any Ruby program makes -- `__send__`, `define_method`,
-`instance_variable_get`. What only the runtime can answer it asks
-through `Zr::Eval::World` (`runtime/ext/zr/eval/walking.rb`): the lexical
-scope a cref stands for, the scopes a Binding names, and the constant,
-class-variable and global tables, each one standing for something the
-compiler emits inline.
+`ZR_EVAL=walk` builds a native program with the tree-walking
+interpreter. The tests use it to check the interpreter against the
+eval compiler: the same program, the same runtime, and two back halves
+that must both agree with ruby.
 
-While it walks, the runtime is told that what asks is the program and
-not the road's own file (`zr_walk_enter`). The road's files load out of
-the program's sight, and without that a constant a string defines on
-Object would be concealed as a hidden file's own.
+The interpreter evaluates the HIR node by node. It calls the program
+through the methods that any Ruby program uses: `__send__`,
+`define_method`, `instance_variable_get`. For what only the runtime
+knows, it uses `Zr::Eval::World` (`runtime/ext/zr/eval/walking.rb`):
+the lexical scope of a cref, the scopes of a Binding, and the constant,
+class-variable and global tables. Each of these is in place of code
+that the compiler writes inline.
 
-What it does not carry, and refuses by name:
+While the interpreter runs, the runtime knows that the caller is the
+program, not a file of eval support (`zr_walk_enter`). The program
+cannot see the files of eval support. Without this, a constant that a
+string defines on Object would be hidden as if a file of eval support
+defined it.
 
-- `$~`, `$_`, `$&` and the numbered groups. They are registers of the
-  frame that last matched, and the walk has no frame of its own to keep
-  them in.
-- `return` from an eval inside a method: the walk cannot unwind the
-  compiled frame that called it.
-- `super` written at the top of an eval rather than inside a `def` the
-  eval itself holds.
-- `using`, and a call written under a refinement.
-- A `require` of a file the program was not compiled with, which wants
-  a toplevel address the walk has none of.
+The tree-walking interpreter refuses these forms, with a message that
+gives the form:
+
+- `$~`, `$_`, `$&` and the numbered groups. They belong to the frame
+  that matched last, and the interpreter has no frame of its own for
+  them.
+- `return` from an eval inside a method. The interpreter cannot unwind
+  the compiled frame that called it.
+- `super` at the top level of an eval, not inside a `def` of the eval.
+- `using`, and a call under a refinement.
+- A `require` of a file that zr did not compile into the program. It
+  needs a top-level address that the interpreter does not have.
 - `RubyVM::InstructionSequence.compile`, which asks for code to run
   later.
 
-Backtraces name the walk's own files rather than the string's line.
+Backtraces give the interpreter's own files, not the line of the
+string.
 
 ## Limits
 
-- A WASI module holds the whole front end where a binary holds a
-  cached object, so a wasm program that evals is about 90 MB and takes
-  about three minutes to build.
-- An engine compiles a module whole before it runs a line of it, so
-  that 90 MB costs about 2.1 GB of the host's memory at instantiation
-  -- measured on `e2e/lang/eval/eval_in_a_binary.rb` under wasmtime.
-  The program's own memory is a fraction of it. `wasmtime compile`
-  ahead of time moves the cost out of the run.
-- A binary that carries the compiler names the absolute paths of the
-  gem's `runtime/ext` and `vendor/ext/*/lib`, and of the library tree it was
-  built against. A computed `require` in such a binary works only while
-  that version of the gem, and its pinned gems, stay installed.
+- A WASI module contains the whole front end, where a binary links a
+  cached object. Thus a WASI program that evals is about 90 MB, and its
+  build takes about three minutes.
+- An engine compiles a module whole before it runs it. Thus the 90 MB
+  module needs about 2.1 GB of the host's memory when wasmtime
+  instantiates it (measured on `e2e/lang/eval/eval_in_a_binary.rb`).
+  The program's own memory is a small part of this. `wasmtime compile`
+  moves this cost out of the run.
+- A binary with eval support contains the absolute paths of the gem's
+  `runtime/ext` and `vendor/ext/*/lib`, and of the library tree it was
+  built with. A computed `require` in such a binary works only while
+  that version of the gem and its pinned gems stay installed.
