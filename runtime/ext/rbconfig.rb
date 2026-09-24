@@ -94,7 +94,6 @@ module RbConfig
     "rubylibdir" => "#{prefix}/lib/ruby/#{ruby_version}",
     "archdir" => "#{prefix}/lib/ruby/#{ruby_version}/#{arch}",
     "rubyarchdir" => "#{prefix}/lib/ruby/#{ruby_version}/#{arch}",
-    "topdir" => "#{prefix}/lib/ruby/#{ruby_version}/#{arch}",
     "sitedir" => "#{prefix}/lib/ruby/site_ruby",
     "sitelibdir" => "#{prefix}/lib/ruby/site_ruby/#{ruby_version}",
     "sitearchdir" => "#{prefix}/lib/ruby/site_ruby/#{ruby_version}/#{arch}",

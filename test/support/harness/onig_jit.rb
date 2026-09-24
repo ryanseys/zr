@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
-require "fiddle"
-require "tmpdir"
-require_relative "../../../lib/zr/machine/lower"
-require_relative "../../../lib/zr/native/build"
-require_relative "../../../lib/zr/obj/jit/fiddle"
-require_relative "../../../lib/zr/paths"
+require_relative "kernel_jit"
 require_relative "../../../lib/zr/runtime"
 
 module Zr
@@ -14,31 +9,15 @@ module Zr
     # searching programs the core compiled under this ruby: what the
     # checks hold to ruby's own engine.
     class OnigJIT
-      TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
-                "Bool" => Fiddle::TYPE_CHAR, "Void" => Fiddle::TYPE_VOID }.freeze
       MISMATCH = -1
       TIMEOUT = -23
 
       def initialize
         Zr.require_onig
-        Dir.mktmpdir("zr-onig-") do |dir|
-          consts = File.join(dir, "consts.rb")
-          File.write(consts, "CLOCK_MONOTONIC = 6\n")
-          lower = Machine.unit(Dir[File.join(Paths::RUNTIME, "kernel/onig_*.rb")].sort + [consts])
-          unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
-          @symbols = Obj::JIT.load(unit, host: Obj::JIT::Fiddle.new)
-          @defs = lower.instance_variable_get(:@defs)
-        end
-        @fns = {}
+        @kernel = KernelJIT.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })
       end
 
-      def call(name, *args)
-        fn = @fns[name] ||= begin
-          d = @defs.fetch(name)
-          Fiddle::Function.new(@symbols.fetch(name), d.params.map { |_, t| TYPES.fetch(t) }, TYPES.fetch(d.ret))
-        end
-        fn.call(*args)
-      end
+      def call(name, *args) = @kernel.call(name, *args)
 
       # A compiled pattern (Regexp::Onig::Reg) as the program String the
       # kernel reads.

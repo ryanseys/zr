@@ -50,7 +50,7 @@ module Zr
     class Lower
       include Immediates
 
-      attr_reader :functions, :data, :raw, :symbols
+      attr_reader :functions, :data, :raw, :symbols, :defs
 
       def initialize(sources, symbols = Symbols.new)
         @sources = sources

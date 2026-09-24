@@ -2591,11 +2591,7 @@ module Zr
           if params.is_a?(Prism::BlockParametersNode)
             args = params.parameters ? parameters_args(params.parameters) : new_args_node(args_first, args_first)
             args_span_first = first_of(params)
-            args_span_last = last_of(params)
-            unless params.opening_loc
-              args_span_first = args.first_pos
-              args_span_last = args.last_pos
-            end
+            args_span_first = args.first_pos unless params.opening_loc
             if params.opening_loc && params.parameters.nil?
               args.first_pos = first_of(params.opening_loc)
               args.last_pos = last_of(params.opening_loc)
@@ -2603,7 +2599,6 @@ module Zr
           else
             args = new_args_node(args_first, args_first)
             args_span_first = args_first
-            args_span_last = args_first
           end
           count =
             case params
@@ -3038,9 +3033,9 @@ module Zr
       def if_body(node, cond, type, nested: false)
         then_keyword = then_keyword_of(node)
         if then_keyword
-          body, _first, last, offset = compstmt(node.statements, last_of(then_keyword), end_offset(then_keyword))
+          body, = compstmt(node.statements, last_of(then_keyword), end_offset(then_keyword))
         else
-          body, _first, last, offset = compstmt(node.statements, last_of(node.predicate), end_offset(node.predicate),
+          body, = compstmt(node.statements, last_of(node.predicate), end_offset(node.predicate),
                                                 newline: true, absorb: true)
         end
         tail = node.respond_to?(:subsequent) ? node.subsequent : node.else_clause
@@ -3048,7 +3043,7 @@ module Zr
         case tail
         when Prism::ElseNode
           keyword = tail.else_keyword_loc
-          else_node, _first, last, = compstmt(tail.statements, last_of(keyword), end_offset(keyword))
+          else_node, = compstmt(tail.statements, last_of(keyword), end_offset(keyword))
         when Prism::IfNode
           else_node = elsif_node(tail)
         end

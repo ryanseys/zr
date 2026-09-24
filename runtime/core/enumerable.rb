@@ -635,7 +635,6 @@ module Enumerable
     if none
       Primitive.zr_enum_each(self, nil) do |x|
         return x
-        nil
       end
       return nil
     end

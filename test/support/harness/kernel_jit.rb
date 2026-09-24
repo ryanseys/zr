@@ -1,0 +1,50 @@
+# frozen_string_literal: true
+
+require "fiddle"
+require "tmpdir"
+require_relative "../../../lib/zr/machine/lower"
+require_relative "../../../lib/zr/native/build"
+require_relative "../../../lib/zr/obj/jit/fiddle"
+require_relative "../../../lib/zr/paths"
+
+module Zr
+  module Harness
+    # Kernel files, compiled into one unit and loaded into this ruby, so
+    # that a test can call their functions through Fiddle and compare the
+    # results with CRuby's. The machine dialect gives Ruby syntax other
+    # meanings (0 is false, `/` truncates, words wrap at 2**64), so kernel
+    # code runs on the host only after zr compiles it.
+    class KernelJIT
+      TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
+                "Bool" => Fiddle::TYPE_CHAR, "Void" => Fiddle::TYPE_VOID }.freeze
+
+      # `patterns` are globs under runtime/kernel. `constants` sets the
+      # constants that the files read from a kernel file outside the unit
+      # (the OS layer, for example).
+      def initialize(*patterns, constants: {})
+        files = patterns.flat_map { |pattern| Dir[File.join(Paths::RUNTIME, "kernel", pattern)].sort }
+        raise ArgumentError, "no kernel file matches #{patterns.inspect}" if files.empty?
+
+        Dir.mktmpdir("zr-kernel-jit-") do |dir|
+          defined = File.join(dir, "constants.rb")
+          File.write(defined, constants.map { |name, value| "#{name} = #{value}\n" }.join)
+          lower = Machine.unit(files + [defined])
+          unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
+          @symbols = Obj::JIT.load(unit, host: Obj::JIT::Fiddle.new)
+          @defs = lower.defs
+        end
+        @functions = {}
+      end
+
+      # Calls the kernel function `name` with `args` (Integers, or
+      # addresses as Integers), and returns what it returns.
+      def call(name, *args)
+        function = @functions[name] ||= begin
+          signature = @defs.fetch(name)
+          Fiddle::Function.new(@symbols.fetch(name), signature.params.map { |_, type| TYPES.fetch(type) }, TYPES.fetch(signature.ret))
+        end
+        function.call(*args)
+      end
+    end
+  end
+end

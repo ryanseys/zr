@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/machine/lower"
-require_relative "../../lib/zr/native/build"
-require_relative "../../lib/zr/obj/jit/fiddle"
+require_relative "../support/harness/kernel_jit"
 require_relative "../../lib/zr/runtime"
 
 # The kernel matcher (runtime/kernel/onig_*.rb) against ruby's own engine:
@@ -14,33 +12,8 @@ Zr.require_onig
 
 class OnigMatchTest < Minitest::Test
   O = Regexp::Onig
-  TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR, "Bool" => Fiddle::TYPE_CHAR, "Void" => Fiddle::TYPE_VOID }.freeze
-
-  # The unit: the matcher's files and the clock id the timeout reads.
-  class Port
-    def initialize
-      Dir.mktmpdir("zr-onig-") do |dir|
-        consts = File.join(dir, "consts.rb")
-        File.write(consts, "CLOCK_MONOTONIC = 6\n")
-        lower = Zr::Machine.unit(Dir[File.join(ROOT, "runtime/kernel/onig_*.rb")].sort + [consts])
-        unit = Zr::Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
-        @symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
-        @defs = lower.instance_variable_get(:@defs)
-      end
-      @fns = {}
-    end
-
-    def call(name, *args)
-      fn = @fns[name] ||= begin
-        d = @defs.fetch(name)
-        Fiddle::Function.new(@symbols.fetch(name), d.params.map { |_, t| TYPES.fetch(t) }, TYPES.fetch(d.ret))
-      end
-      fn.call(*args)
-    end
-  end
-
   def self.port
-    @port ||= Port.new
+    @port ||= Zr::Harness::KernelJIT.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })
   end
 
   def setup

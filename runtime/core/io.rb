@@ -1021,7 +1021,7 @@ class IO
       else
         text = Primitive.zr_obj_as_string(object)
         if text.empty?
-          yield +"\n"
+          yield(+"\n")
         elsif text.end_with?("\n")
           yield text
         else
