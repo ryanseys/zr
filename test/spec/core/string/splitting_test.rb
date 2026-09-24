@@ -575,10 +575,6 @@ describe "String: splitting and joining" do
 
   it "lines with an empty separator splits into paragraphs, keeping the blank line with the one before" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # String#lines in paragraph mode (a "" separator) does not split on the
-      # blank line.
-      #
       p "a\n\nb\n".lines("")
       r004 = ("1-2-3".lines("-", chomp: true) rescue $!.class); p r004
       p "1-2-3".lines("-")

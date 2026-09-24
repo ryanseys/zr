@@ -1111,10 +1111,6 @@ describe "Numeric programs" do
 
   it "kernel integer float convert" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Integer() with a Hash argument raises instead of answering nil under
-      # exception: false.
-      #
       # Kernel#Integer / #Float: `exception: false` asks for nil rather than a raise,
       # and the keyword hash is not one of the value arguments (passed through as one
       # it landed in the base slot as a pointer). A value with no integer conversion

@@ -2525,9 +2525,6 @@ describe "Classes programs" do
 
   it "initialize family visibility" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # initialize, initialize_copy and friends are not private by default.
-      #
       class Hooked
         attr_accessor :v
         def initialize(v); @v = v; end

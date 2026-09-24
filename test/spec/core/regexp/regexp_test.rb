@@ -360,9 +360,6 @@ describe "Regexp programs" do
 
   it "matchdata frozen query" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # MatchData#frozen? answers false; ruby freezes MatchData.
-      #
       m001 = "hello".match(/l+/)
       p m001.frozen?
       p m001.to_a.frozen?
@@ -378,10 +375,6 @@ describe "Regexp programs" do
 
   it "matchdata values at range" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # MatchData#values_at with a Range argument wraps the result in an extra
-      # array.
-      #
       # MatchData#values_at takes a Range, selecting a run of groups the way
       # Array#values_at does. The Range went into the group-index slot as a struct,
       # so the C did not compile.
@@ -2112,10 +2105,6 @@ describe "Regexp programs" do
 
   it "Regexp.new raises a catchable RegexpError and the program runs on" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # The RegexpError message reads "unterminated character class"; ruby
-      # 4.0.6's Onigmo says "premature end of char-class".
-      #
       # Issue #846: a bad `Regexp.new("...")` raises a catchable
       # RegexpError. Pre-fix the static-table compile error fired
       # before main()'s setjmp scope and terminated the process.

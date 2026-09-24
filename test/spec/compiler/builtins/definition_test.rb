@@ -111,17 +111,6 @@ describe "Builtins: defining and naming methods" do
 
   it "builtin arity class methods" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # A builtin CLASS method's declared arity is wider than CRuby's, so a call
-      # CRuby rejects is accepted and the ArgumentError names the wrong range:
-      # zr reports `expected 1..4` where CRuby says `1..3`.
-      #
-      # One row the arity census gated before it was retired at zero.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # A builtin class/module method called with a count CRuby rejects raises
       # CRuby's ArgumentError. File.open with no arguments crashed the compiler.
       def check

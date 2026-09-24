@@ -91,9 +91,6 @@ describe "Hash: comparison and equality" do
 
   it "float negative zero hash" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # -0.0 and 0.0 hash differently from ruby's answer.
-      #
       p((-0.0).eql?(0.0))
       p((-0.0).hash == (0.0).hash)
       v001 = -0.0; w001 = 0.0; c001 = (v001.hash == w001.hash); p c001

@@ -788,10 +788,6 @@ describe "Set programs" do
 
   it "& and - enumerate the operand, so the result follows the operand's order" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A Set algebra operation over a non-Set Enumerable does not preserve
-      # ruby's result order.
-      #
       require 'set'
 
       # The intersection and difference ENUMERATE the operand and consult the
@@ -2092,10 +2088,6 @@ describe "Set programs" do
 
   it "to set forms" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Enumerable#to_set does not apply the block form, so the untransformed
-      # elements land in the set.
-      #
       require 'set'
       p([1, 2].to_set.to_set.to_a)
       s = [1, 2].to_set

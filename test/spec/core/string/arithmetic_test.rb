@@ -134,10 +134,6 @@ describe "String: arithmetic" do
 
   it "* with a huge count raises before it allocates, and a negative count raises too" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # String#* overflow raises "string size too big"; ruby 4.0.6 says "argument
-      # too big".
-      #
       # Issue #836: String * <huge> raises ArgumentError instead of
       # segfaulting (the implicit malloc-NULL + memcpy chain).
       #

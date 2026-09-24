@@ -220,9 +220,6 @@ describe "Regexp: pattern matching" do
 
   it "matchdata array pattern" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # MatchData does not deconstruct for an array pattern in case/in.
-      #
       m001 = "ab".match(/(a)(b)/)
       p m001.deconstruct
       case m001
@@ -290,10 +287,6 @@ describe "Regexp: pattern matching" do
 
   it "matchdata deconstruct keys type" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # MatchData#deconstruct_keys with a bad argument type answers {} where ruby
-      # raises TypeError.
-      #
       m001 = "ab".match(/(?<a>a)/)
       r001 = (m001.deconstruct_keys(["a"]) rescue $!.class); p r001
       r002 = (m001.deconstruct_keys(1) rescue $!.class); p r002

@@ -554,10 +554,6 @@ describe "Regexp: searching and matching" do
 
   it "last match named group" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Regexp.last_match with a String name raises "no implicit conversion";
-      # ruby accepts a name.
-      #
       "2024-01" =~ /(?<y>\d+)-(?<mo>\d+)/
       p Regexp.last_match("mo")
       p Regexp.last_match(:mo)
@@ -1210,9 +1206,6 @@ describe "Regexp: searching and matching" do
 
   it "matchdata index bounds" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # MatchData#[] past the last group answers the group text instead of nil.
-      #
       # A negative MatchData index reaches the capture groups only, so the one that
       # would land on the whole match is nil. A beginless or endless bound carries
       # the range sentinel, which the negative-index fixup turned into a wild offset.
@@ -1309,10 +1302,6 @@ describe "Regexp: searching and matching" do
 
   it "matchdata match by name" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Regexp.last_match with a Symbol name raises "no implicit conversion";
-      # ruby accepts a name.
-      #
       "2024-01-15" =~ /(?<y>\d+)-(?<mo>\d+)-(?<d>\d+)/
       p Regexp.last_match(:y)
       p Regexp.last_match(:mo)
@@ -2452,17 +2441,6 @@ describe "Regexp: searching and matching" do
 
   it "a backreference under /i matches the other case of what the group took" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # A backreference compares case-SENSITIVELY even when the pattern is folded,
-      # so `/(a)\1/i` does not match `"aA"` where CRuby's does.
-      #
-      # The comparison is a plain byte compare; under `/i` it has to fold both
-      # sides the way the rest of the pattern already does.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # The backreference comparison was a plain memcmp, so it stayed case-sensitive
       # even when the rest of the pattern was folded. Ported from mruby-regexp
       # (f9adb3017); folding stops at ASCII, as it does everywhere else here.
@@ -2541,16 +2519,6 @@ describe "Regexp: searching and matching" do
 
   it "a repetition whose body may match empty ends on an empty capture" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # A repetition whose body can match EMPTY runs one final iteration that
-      # consumes nothing, and CRuby's captured group holds the empty string at the
-      # position the loop stopped at. zr's holds the last non-empty match instead,
-      # so the group and the overall match disagree about where the loop ended.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # A repetition whose body can match empty runs one final iteration that
       # consumes nothing, and that iteration is the one that ends the loop: the group
       # inside it holds the empty string at the position the loop stopped at. The VM
@@ -2866,10 +2834,6 @@ describe "Regexp: searching and matching" do
 
   it "Regexp#match with a block yields the MatchData and answers the block's value" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Regexp#match with a block returns the MatchData instead of the block's
-      # value.
-      #
       # `re.match(str) { |m| ... }` yields the MatchData on a hit and evaluates to
       # the block's value. Only the String-receiver form had the arm, so with a
       # Regexp receiver the block never ran and the MatchData itself was the value.

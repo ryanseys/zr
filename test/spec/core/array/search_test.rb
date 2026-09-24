@@ -564,10 +564,6 @@ describe "Array: searching and matching" do
 
   it "an index that is not an Integer raises TypeError from values_at, at, [], fetch and first" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Array#[]= on a frozen array raises TypeError for the bad index before
-      # FrozenError for the frozen receiver; ruby checks frozenness first.
-      #
       r = ([1, 2].values_at("x") rescue $!.class); p r
       s = "x"; r = ([1, 2].values_at(s) rescue $!.class); p r
       r = ([1, 2].values_at([0]) rescue $!.class); p r

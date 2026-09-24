@@ -1132,9 +1132,6 @@ describe "Time programs" do
 
   it "the month may be a three-letter English abbreviation" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Time.utc does not accept a month NAME ("feb") in the month position.
-      #
       # The month argument of the civil constructors takes an English month
       # abbreviation as well as a number. A plain strtoll read those as zero and the
       # constructor rejected them.
@@ -1310,9 +1307,6 @@ describe "Time programs" do
 
   it "round, floor and ceil refuse a negative digit count" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Time#round with negative digits rounds where ruby raises ArgumentError.
-      #
       # Time#round/#floor/#ceil with a negative digit count is CRuby's
       # ArgumentError; the count was clamped to zero and the call answered a Time.
       t001 = Time.utc(2020, 1, 1, 0, 0, 1, 123456)

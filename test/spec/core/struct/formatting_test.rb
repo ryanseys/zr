@@ -531,9 +531,6 @@ describe "Struct: formatting and inspection" do
 
   it "a keyword_init struct's name carries the (keyword_init: true) suffix" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A keyword_init Struct's inspect omits the "(keyword_init: true)" suffix.
-      #
       K = Struct.new(:a, keyword_init: true)
       J = Struct.new(:a)
       DD = Data.define(:a)

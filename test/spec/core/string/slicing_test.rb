@@ -161,9 +161,6 @@ describe "String: slicing" do
 
   it "array slice bang bounds" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Array#slice! past the end answers [] where ruby answers nil.
-      #
       a = [1, 2, 3]
       p a.slice!(1, -1)
       p a

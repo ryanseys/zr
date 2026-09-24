@@ -578,9 +578,6 @@ describe "Pack: packing and unpacking" do
 
   it "X, @ and a count move unpack's cursor, and moving past the start raises" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # String#unpack does not support the X (back up) directive.
-      #
       p "abcdef".unpack("a2X2a4")
       p "hello".unpack("@2a*")
       r1 = ("abc".unpack("%C3") rescue $!.class)

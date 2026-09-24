@@ -615,10 +615,6 @@ describe "Kernel: formatting and inspection" do
 
   it "the Kernel conversions do not consult to_int, to_str or to_ary" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Kernel conversions do not consult the to_int/to_str/to_ary protocol
-      # methods.
-      #
       class ToStr001; def to_str; "c2str"; end; end
       p(String(ToStr001.new) == "c2str")
 

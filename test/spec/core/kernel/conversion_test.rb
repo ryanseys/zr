@@ -259,10 +259,6 @@ describe "Kernel: conversion" do
 
   it "the conversion functions raise TypeError for a bad argument type and RangeError past the bound" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Kernel conversion functions raise ArgumentError where ruby raises
-      # TypeError for a bad argument type.
-      #
       r001 = (Integer({}) rescue $!.class)
       p r001
 

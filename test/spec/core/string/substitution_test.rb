@@ -211,10 +211,6 @@ describe "String: substitution" do
 
   it "a backslash in a tr or count character set escapes the next character rather than opening a range" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A character-set escape in a String method argument is not expanded, so
-      # the range collapses.
-      #
       # A backslash in a tr/count/delete/squeeze character set escapes the next
       # character, so "a\\-b" holds the three members a, - and b rather than the
       # range a..b. The set parser had no escape at all.

@@ -265,10 +265,6 @@ describe "Blocks: slicing" do
 
   it "block param trailing comma" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A block parameter list with a trailing comma (`|a,|`) does not discard
-      # the extra element, so the body sees the wrong binding.
-      #
       # `|x,|` -- a trailing comma in a block's parameter list -- means "destructure
       # the element and take the leading names, drop the rest". Prism spells the
       # comma as an ImplicitRestNode, which nothing read, so `|x,|` behaved as `|x|`

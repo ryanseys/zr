@@ -950,10 +950,6 @@ describe "Modules programs" do
 
   it "module case conformance" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Module#=== / ancestors ordering includes a module ruby leaves out of the
-      # match.
-      #
       # Four surfaces around class values and case equality.
 
       # A module has no superclass chain: its ancestors are itself and what it

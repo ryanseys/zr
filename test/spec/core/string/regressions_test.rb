@@ -1811,9 +1811,6 @@ describe "String: regressions" do
 
   it "a Hash replacement in sub and gsub falls back to the hash's default" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A String transform drops replacement characters ruby emits.
-      #
       # Three more String surfaces from the conformance wave.
 
       # A Hash replacement in sub/gsub looks the match up with #[], so a miss takes

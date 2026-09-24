@@ -403,10 +403,6 @@ describe "Builtins: blocks and yields" do
 
   it "curry arity" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Proc#curry with an arity larger than the proc's own returns a Proc where
-      # ruby raises ArgumentError.
-      #
       c001 = proc { |a, b, c| [a, b, c] }.curry(2); p c001[1][2].class
       c002 = ->(*a) { a }.curry(3); p c002[1][2][3].class
       c003 = ->(*a) { a }.curry; p c003[1].class

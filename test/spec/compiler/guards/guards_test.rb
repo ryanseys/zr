@@ -2743,18 +2743,6 @@ describe "Guards programs" do
 
   it "regexp unicode casefold" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # `/i` folds only ASCII, so a non-ASCII literal does not match its
-      # counterpart.
-      #
-      # CRuby folds by Unicode simple case folding, and a counterpart need not have
-      # the same WIDTH (`U+212A` folds to `k`), which is why the fix is to emit the
-      # counterparts as a class rather than to fold in place.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # /i folds by Unicode simple case folding: the counterparts of a non-ASCII
       # literal are emitted as a class, since a counterpart need not have the same
       # width (U+212A folds to `k`). Ported from mruby-regexp (618ba9435). A build

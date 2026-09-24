@@ -811,9 +811,6 @@ describe "Numeric: conversion" do
 
   it "integer 0d prefix" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Integer() rejects the 0d decimal prefix.
-      #
       # `0d19` is CRuby's explicit decimal prefix; the parser knew 0x, 0b and 0o but
       # not this one, and rejected the string.
       r001 = (Integer("0d19") rescue $!.class)

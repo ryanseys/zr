@@ -1494,10 +1494,6 @@ describe "Struct programs" do
 
   it "a subscript that is not a literal reads by index, counting back from the end" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # The out-of-range Struct#[] message says "too large" for a negative
-      # offset; ruby says "too small".
-      #
       # Struct#[] with an index that is not a literal: the member chain was emitted
       # as bare statements, so the whole read was a void expression and the C would
       # not compile. A negative offset counts from the end, and a miss raises.

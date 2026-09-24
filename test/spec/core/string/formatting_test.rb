@@ -283,10 +283,6 @@ describe "String: formatting and inspection" do
 
   it "numeric string argument" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A numeric method with a String argument raises TypeError where ruby
-      # raises ArgumentError.
-      #
       r001 = (5.div("x") rescue $!.class)
       p r001
 

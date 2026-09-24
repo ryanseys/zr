@@ -160,9 +160,6 @@ describe "Numeric: raising and rescuing" do
 
   it "float remainder zero divisor" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Float#remainder by zero answers NaN where ruby raises ZeroDivisionError.
-      #
       r001 = (7.0.remainder(0.0) rescue $!.class); p r001
       r002 = (7.0.remainder(0) rescue $!.class); p r002
       v003 = 7.0; w003 = 0.0; r003 = (v003.remainder(w003) rescue $!.class); p r003
@@ -1235,9 +1232,6 @@ describe "Numeric: raising and rescuing" do
 
   it "Complex() and its siblings answer nil under exception: false" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Complex() with exception: false raises instead of answering nil.
-      #
       p(Complex("bad", exception: false))
 
       p(Rational("x", exception: false))
@@ -1266,10 +1260,6 @@ describe "Numeric: raising and rescuing" do
 
   it "an exception: keyword stays a keyword and never counts as the second component" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Complex() with an exception: keyword mis-routes the keyword into the
-      # numeric argument.
-      #
       # `exception: false` is a keyword, not the second component: it counted as one
       # and the value came out of the keyword hash's address (#3869).
       p(Complex("1+2i", exception: false))

@@ -398,10 +398,6 @@ describe "Numeric: slicing" do
 
   it "integer gcd arg check" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Integer#gcd with a non-integer raises the coercion message; ruby raises
-      # "not an integer".
-      #
       # Integer#gcd / #lcm / #gcdlcm take an Integer; anything else is CRuby's
       # "not an integer" TypeError. Only a Float was caught, so a String went into
       # the mrb_int slot as a pointer and the result was computed from its address.

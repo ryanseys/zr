@@ -602,18 +602,6 @@ describe "Numeric: comparison and equality" do
 
   it "float bignum compare" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # Comparing a Float against a BIGNUM answers the wrong way for the values
-      # that do not fit a double's integer range.
-      #
-      # CRuby compares exactly. zr agrees on the ordinary pairs and diverges on
-      # the ones where the conversion loses -- which is the dangerous direction:
-      # the comparison silently answers, rather than raising.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # A Float against a Bignum was coerced INTO a bignum, which truncates the
       # double to int64 and saturates there, so `1.0 / 0 > 10 ** 100` answered false
       # (with a conversion warning from the C compiler on the way past).
@@ -673,10 +661,6 @@ describe "Numeric: comparison and equality" do
 
   it "float nan identity" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Two NaN floats do not compare identical under equal?/eql? the way ruby's
-      # boxed NaN does.
-      #
       n001 = Float::NAN
       h001 = { n001 => 1 }
       p h001[n001]

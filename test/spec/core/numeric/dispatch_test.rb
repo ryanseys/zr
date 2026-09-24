@@ -438,10 +438,6 @@ describe "Numeric: dispatch" do
 
   it "poly numeric div remainder" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Float#div by zero raises FloatDomainError where ruby raises
-      # ZeroDivisionError.
-      #
       # A Float that reaches a method through a boxed slot answers the whole
       # Numeric surface, not only the operators (#3800).
       rings = [[[[-63.1269583, 46.2338358], [-63.1260111, 46.234436]]]]

@@ -1074,25 +1074,6 @@ describe "Array programs" do
 
   it "float round digits cruby" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # `Float#round(n)` with a positive digit count rounds by scaling with a power
-      # of ten, so the SCALED product's own representation error becomes part of
-      # the value:
-      #
-      #   64.781995.round(5)   CRuby 64.782   zr 64.78199
-      #
-      # `64.781995 * 1e5` is `6478199.4999999991`, so the digit that should round
-      # up rounds down. CRuby does not scale: `flo_round` works from the decimal
-      # representation for exactly this reason.
-      #
-      # The negative twin diverges the same way, and `round(2)`/`round(3)` agree --
-      # so this only shows at the digit counts where the scaled product lands near
-      # a half.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # Rounding at a positive digit count by scaling with a power of ten reads the
       # scaled product's own representation error as part of the value: 64.781995 *
       # 1e5 is 6478199.4999999991, so the digit that should round up rounds down and
@@ -2241,9 +2222,6 @@ describe "Array programs" do
 
   it "struct dig missing key" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # Struct#dig with an unknown member raises NameError where ruby answers nil.
-      #
       S = Struct.new(:a, :b)
       s = S.new(1, 2)
       p s.dig(:zz)

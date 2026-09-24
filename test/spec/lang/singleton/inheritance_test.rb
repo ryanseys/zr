@@ -538,10 +538,6 @@ describe "Singleton: inheritance and ancestors" do
 
   it "extend module super" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # A super call from a method in an extended module skips the extending
-      # object's own definition.
-      #
       module Deco
         def render(text) = "[#{super}]"
       end

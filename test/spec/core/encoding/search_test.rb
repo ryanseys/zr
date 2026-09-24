@@ -374,21 +374,6 @@ describe "Encoding: searching and matching" do
 
   it "regexp unicode escape" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # `\u{...}` with more than one codepoint is a PARSE ERROR:
-      #
-      #     regex parse error:
-      #         \u{61 62}
-      #              ^
-      #
-      # CRuby reads a braced `\u{}` as a space-separated LIST of codepoints, so
-      # `/\u{61 62}/` is `/ab/`. zr's escape reader takes one and refuses the
-      # space.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # The engine returned every unknown escape as itself, so \u lost its backslash
       # and the rest became literal text: /µ/ named the text "u00b5", and
       # /\u{3042}/ read as a quantifier on `u`. Ported from mruby-regexp (048e5da5f).

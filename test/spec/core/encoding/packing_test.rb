@@ -1049,18 +1049,6 @@ describe "Encoding: packing and unpacking" do
 
   it "regexp multibyte literal atom" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at fa06b601.
-      #
-      # A multibyte literal in a pattern is emitted one BYTE at a time, so each
-      # byte becomes an atom of its own and a quantifier binds to the last one:
-      # `/あ+/` compiles as the lead bytes followed by a repeat of the final byte.
-      #
-      # The visible result is a match that returns bytes which are not a character:
-      # `"ĀĀ"` where CRuby answers `"あ"`.
-      #
-      # The original header follows. It describes the PREDECESSOR project's
-      # version of this test and its own fix, not zr's divergence above.
-      #
       # A literal is emitted one byte at a time, so a character above 127 made each
       # of its bytes an atom of its own and a quantifier bound to the last one:
       # /あ+/ compiled as the lead byte followed by a repeat of the final

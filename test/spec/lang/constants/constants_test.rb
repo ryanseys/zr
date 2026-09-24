@@ -4803,10 +4803,6 @@ describe "Constants programs" do
 
   it "undefined constant warns" do
     result = zr(<<~'RUBY')
-      # GAP -- imported from the spinel corpus at c55d9bdb.
-      # The uninitialized-constant message is namespaced ("Object::AlsoMissing");
-      # ruby names the constant alone.
-      #
       # A constant the whole program never defines is warned about at build time and
       # still raises NameError when reached, which is what CRuby does and what
       # ruby/spec asserts (#3976). The warning is what a dropped `require` needs: the
