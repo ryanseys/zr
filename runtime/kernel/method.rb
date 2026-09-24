@@ -1,6 +1,6 @@
-# Method and UnboundMethod: a copy of the method entry, the module it
-# was found in (`owner`), the class it was asked of (`klass`), and the
-# receiver, which an UnboundMethod lacks.
+# Method and UnboundMethod contain a copy of the method entry, the
+# module where the lookup found it (`owner`), the class of the lookup
+# (`klass`), and the receiver. An UnboundMethod has no receiver.
 Machine.struct :RMethod, basic: RBasic, recv: Value, klass: Value, owner: Value, entry: MEntry
 T_METHOD = 29
 G_METHOD = 33
@@ -23,7 +23,8 @@ machine def zr_mark_method(m)
   zr_mark_entry(RMethod.entry(m))
 end
 
-# The module in `klass`'s chain whose own table answers `mid`, or nil.
+# Returns the module in `klass`'s ancestor list whose own method table
+# has `mid`, or nil.
 sig [Value, Word] => Value
 machine def zr_method_owner(klass, mid)
   k = klass
@@ -43,9 +44,9 @@ machine def zr_method_owner(klass, mid)
   Machine.value(QNIL)
 end
 
-# The NameError for `mid` on `klass`: `undefined method 'x' for class
-# 'C'` when `vis` is public (no such method), else `method 'x' for class
-# 'C' is private` or protected.
+# Raises the NameError for `mid` on `klass`. When `vis` is public (no
+# such method), the message is `undefined method 'x' for class 'C'`. If
+# not, it is `method 'x' for class 'C' is private` or protected.
 sig [Value, Word, Word] => Value
 machine def zr_undefined_method(klass, mid, vis)
   b = Machine.slot(Buf.size)
@@ -76,8 +77,8 @@ machine def zr_undefined_method(klass, mid, vis)
   zr_raise(e)
 end
 
-# The Method (a receiver given) or UnboundMethod (`recv` undef) for
-# `mid` on `klass`, or the NameError.
+# Returns the Method (with a receiver) or the UnboundMethod (`recv` is
+# undef) for `mid` on `klass`, or raises the NameError.
 sig [Value, Value, Word] => Value
 machine def zr_method_new(recv, klass, mid)
   e = zr_find_method(klass, mid)
@@ -100,9 +101,9 @@ machine def zr_method_new(recv, klass, mid)
   m
 end
 
-# A Method for a name the receiver only answers through
-# `method_missing`: owned by the class it was looked up on (a singleton
-# class when the receiver has one), any number of arguments.
+# Makes a Method for a name that the receiver handles only through
+# `method_missing`. Its owner is the class of the lookup (the singleton
+# class if the receiver has one), and it takes any number of arguments.
 sig [Value, Value, Word] => Value
 machine def zr_method_missing_new(recv, klass, mid)
   m = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
@@ -142,8 +143,8 @@ machine def zr_mod_instance_method(recv, argc, argv, cref, blk)
   zr_method_new(Machine.value(QUNDEF), recv, Machine.load64(slot, 0))
 end
 
-# `public_method` and `public_instance_method`: `method` and
-# `instance_method` when the name they find is public.
+# `public_method` and `public_instance_method`: the same as `method`
+# and `instance_method`, but only when the method is public.
 sig [Value, Value, Word] => Value
 machine def zr_public_method_new(recv, klass, mid)
   m = zr_method_new(recv, klass, mid)
@@ -183,8 +184,9 @@ machine def zr_method_block(p, argc, argv, blk)
   zr_method_invoke(RProc.self(p), argc, argv, blk)
 end
 
-# The Method's entry on its receiver; the chain node the name is found
-# on is what `super` in the body continues from.
+# Calls the Method's entry on its receiver. The lookup finds the
+# ancestor that has the name, and `super` in the body continues from
+# that ancestor.
 sig [Value, Word, Ptr, Value] => Value
 machine def zr_method_invoke(m, argc, argv, blk)
   zr_find_method(RMethod.klass(m), MEntry.mid(RMethod.entry(m)))
@@ -196,9 +198,9 @@ machine def zr_method_to_proc(recv, argc, argv, cref, blk)
   zr_native_proc(Machine.addr(:zr_method_block), recv)
 end
 
-# The meta whose parameters, arity and location a method entry has:
-# its own for a def, its block's for a `define_method` body, and none
-# (0) for a builtin.
+# Returns the FrameMeta that gives the parameters, arity and location of
+# a method entry: its own for a def, its block's for a `define_method`
+# body, and 0 for a builtin.
 sig [Ptr] => Ptr
 machine def zr_method_meta(e)
   if MEntry.kind(e) == KIND_DEF
@@ -210,9 +212,9 @@ machine def zr_method_meta(e)
   0
 end
 
-# A compiled def carries the arity its parameters give; a builtin's is
-# its entry's. A core def answers as C does, -1 for any optional count,
-# unless CRuby writes it in Ruby too.
+# A compiled def has the arity of its parameters. A builtin's arity is
+# in its entry. A core def returns what C returns (-1 for any optional
+# count), unless CRuby also writes that method in Ruby.
 sig [Value] => Word
 machine def zr_method_arity_of(m)
   e = RMethod.entry(m)
@@ -231,8 +233,8 @@ machine def zr_method_arity(recv, argc, argv, cref, blk)
   zr_fix(zr_method_arity_of(recv))
 end
 
-# The rows of a parameter table as `parameters` answers them; a plain
-# proc's required parameters are optional to it.
+# Returns the entries of a parameter table in the form that `parameters`
+# returns. For a plain proc, required parameters are optional.
 sig [Ptr, Bool] => Value
 machine def zr_param_rows(table, lenient)
   out = zr_ary_new(4)
@@ -255,8 +257,8 @@ machine def zr_param_rows(table, lenient)
   out
 end
 
-# The rows a method written in C answers: `[:rest]` for any count,
-# else one `[:req]` per argument.
+# Returns the parameter entries for a C method: `[:rest]` for any
+# count, or one `[:req]` for each argument.
 sig [Word] => Value
 machine def zr_arity_rows(arity)
   out = zr_ary_new(4)
@@ -280,12 +282,13 @@ sig [Value] => Value
 machine def zr_method_rows(m)
   e = RMethod.entry(m)
   meta = zr_method_meta(e)
-  # A core def answers as C does, unless CRuby writes it in Ruby too; a
-  # define_method body, the core's included, answers its block's table.
+  # A core def returns what C returns, unless CRuby also writes that
+  # method in Ruby. A define_method body, also in the core, returns its
+  # block's table.
   if meta != 0 && (FrameMeta.file_len(meta) > 0 || FrameMeta.ruby(meta) != 0 || MEntry.kind(e) == KIND_BMETHOD)
     return zr_param_rows(FrameMeta.params(meta), false)
   end
-  # A struct writer names its one parameter `_`, as ruby's does.
+  # A struct writer calls its one parameter `_`, as ruby does.
   if MEntry.kind(e) == KIND_STRUCT_ASET
     row = zr_ary_new(2)
     zr_ary_push(row, zr_sym(Machine.id(:req)))
@@ -302,8 +305,8 @@ machine def zr_method_parameters(recv, argc, argv, cref, blk)
   zr_method_rows(recv)
 end
 
-# A table's required count (a required keyword counts one), and
-# whether it takes any number.
+# The required count of a parameter table (all required keywords count
+# as one), and whether the table takes any number of arguments.
 sig [Ptr] => Word
 machine def zr_params_min(table)
   n = Machine.load64(table, 0)
@@ -335,8 +338,9 @@ machine def zr_params_rest_p(table)
   false
 end
 
-# `Proc#arity`: a lambda's is its method arity; a plain proc's is its
-# required count, negative less one only with a rest.
+# `Proc#arity`. For a lambda, it is the method arity. For a plain proc,
+# it is the required count, or -(count + 1) only when it has a rest
+# parameter.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_arity(recv, argc, argv, cref, blk)
   meta = RProc.meta(recv)
@@ -408,8 +412,8 @@ machine def zr_method_name(recv, argc, argv, cref, blk)
   zr_sym(MEntry.mid(RMethod.entry(recv)))
 end
 
-# The name the method was defined with: an alias answers the def's
-# own.
+# The name in the method's definition. For an alias, it is the name of
+# the original def.
 sig [Ptr] => Word
 machine def zr_method_original_id(e)
   if MEntry.kind(e) == KIND_DEF
@@ -418,8 +422,8 @@ machine def zr_method_original_id(e)
   MEntry.orig(e)
 end
 
-# The module the entry was defined in: an alias's source, else the
-# method's owner.
+# The module where the entry was defined: for an alias, the source of
+# the alias; if not, the method's owner.
 sig [Value] => Value
 machine def zr_method_defined_in(m)
   e = RMethod.entry(m)
@@ -445,8 +449,8 @@ machine def zr_method_unbind(recv, argc, argv, cref, blk)
   m
 end
 
-# `bind(obj)`: the receiver must be of a class owner; a module's
-# method binds to anything.
+# `bind(obj)`: the receiver must be an instance of the owner class. A
+# module's method binds to any object.
 sig [Value, Value] => Value
 machine def zr_method_bind_to(m, obj)
   owner = RMethod.owner(m)
@@ -483,10 +487,11 @@ machine def zr_method_bind_call(recv, argc, argv, cref, blk)
   zr_method_invoke(bound, argc - 1, argv + 8, blk)
 end
 
-# The meta that locates a method entry in a Ruby file, or 0: a def's
-# or a block's own, an attribute's the class body's.
-# A core method, whose meta names no file, is a builtin to
-# reflection: no location, a C method's arity and parameters.
+# Returns the FrameMeta that gives the location of a method entry in a
+# Ruby file, or 0. A def or a block uses its own FrameMeta, and an
+# attribute uses the class body's. A core method has no file in its
+# FrameMeta, so reflection treats it as a builtin: no location, and the
+# arity and parameters of a C method.
 sig [Ptr] => Ptr
 machine def zr_method_location(e)
   meta = zr_method_meta(e)
@@ -500,8 +505,8 @@ machine def zr_method_location(e)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
-# The box a method's body was compiled into, or nil for one the runtime
-# carries or one written where no box was open.
+# Returns the box that contains the method's compiled body. Returns nil
+# for a runtime method, or for a method written where no box was open.
 sig [Value] => Value
 machine def zr_method_box_m(m)
   meta = zr_method_location(RMethod.entry(m))
@@ -524,8 +529,8 @@ machine def zr_method_source_location(recv, argc, argv, cref, blk)
   out
 end
 
-# Two methods are equal when they name the same code on the same
-# receiver from the same owner.
+# Two methods are equal when they refer to the same code, with the same
+# receiver and the same owner.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -534,14 +539,15 @@ machine def zr_method_eq(recv, argc, argv, cref, blk)
   end
   a = RMethod.entry(recv)
   b = RMethod.entry(other)
-  # A method `define_method` made keeps its body in the entry's cref:
-  # two bodies are two methods.
+  # A method from `define_method` keeps its body in the entry's cref.
+  # Two different bodies are two different methods.
   zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && zr_entry_body(a) == zr_entry_body(b) && MEntry.kind(a) == MEntry.kind(b) &&
           (MEntry.kind(a) != KIND_BMETHOD || MEntry.cref(a) == MEntry.cref(b)))
 end
 
-# The hash of the parts `zr_method_eq` compares, so equal methods share
-# one, as method_hash makes it from the receiver and the entry.
+# The hash of the parts that `zr_method_eq` compares, so that equal
+# methods have the same hash. As in method_hash, it uses the receiver
+# and the entry.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_hash(recv, argc, argv, cref, blk)
   e = RMethod.entry(recv)
@@ -554,11 +560,12 @@ machine def zr_method_hash(recv, argc, argv, cref, blk)
   zr_fix(h & 4611686018427387903)
 end
 
-# One parameter row as `inspect` shows it, CRuby's way: `a`, `b=...`,
-# `*r`, `k:`, `o: ...`, `**kw`, `&blk`, `**nil`; an unnamed row is `_`,
-# `*` or `**`; an anonymous block is `...`, which also stands for the
-# whole `(*, **, &)` triple (`forwarding`); an anonymous `**` after
-# another row drops itself and the separator before it.
+# Writes one parameter entry as `inspect` shows it in CRuby: `a`,
+# `b=...`, `*r`, `k:`, `o: ...`, `**kw`, `&blk`, `**nil`. An unnamed
+# entry is `_`, `*` or `**`. An anonymous block is `...`, which also
+# represents the full `(*, **, &)` triple (`forwarding`). An anonymous
+# `**` after another entry writes nothing, and removes the separator
+# before it.
 sig [Ptr, Word, Word, Word, Bool] => Void
 machine def zr_buf_param(b, kind, id, i, forwarding)
   if kind == PARAM_REST
@@ -604,7 +611,7 @@ machine def zr_buf_param(b, kind, id, i, forwarding)
   end
 end
 
-# Whether the table is the `(*, **, &)` of a `(...)` parameter.
+# Whether the table is the `(*, **, &)` of a `(...)` parameter list.
 sig [Ptr] => Bool
 machine def zr_params_forwarding_p(table)
   Machine.load64(table, 0) == 3 &&
@@ -647,8 +654,8 @@ machine def zr_buf_method_params(b, m)
 end
 
 # `#<Method: C#name(params) file:line>`. A singleton method shows its
-# object and a dot; a method found past the asked class shows the owner
-# in parentheses; an UnboundMethod shows the owner alone.
+# object and a dot. A method found in an ancestor of the lookup class
+# shows the owner in parentheses. An UnboundMethod shows only the owner.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)

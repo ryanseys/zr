@@ -1,7 +1,7 @@
 # Onigmo's backtrack stack (regexec.c:1043-1830): the entry type, the
-# STACK_* macros as defs over the match state, and the stack that
-# starts in the search's arena and doubles into the heap. Derived from
-# Onigmo; the license is in runtime/kernel/regexp.rb.
+# STACK_* macros as defs on the match state, and the stack itself. The
+# stack starts in the search's arena and doubles into the heap. Derived
+# from Onigmo; the license is in runtime/kernel/regexp.rb.
 Machine.import "malloc", [Word] => Ptr
 Machine.import "free", [Ptr] => Void
 Machine.import "memmove", [Ptr, Ptr, Word] => Ptr
@@ -33,7 +33,8 @@ ONIG_STACK_POP_LEVEL_FREE = 0
 ONIG_STACK_POP_LEVEL_MEM_START = 1
 ONIG_STACK_POP_LEVEL_ALL = 2
 
-# One stack entry (OnigStackType): the union punned by role.
+# One stack entry (OnigStackType). The fields a-d have a different
+# meaning for each role of the C union:
 #   state:      a pcode, b pstr, c pstr_prev, d pkeep
 #   repeat:     a count, b pcode, c num
 #   repeat_inc: a si
@@ -43,11 +44,10 @@ ONIG_STACK_POP_LEVEL_ALL = 2
 #   absent_pos: a abs_pstr, b end_pstr
 Machine.struct :OnigStk, type: Word, null_check: Word, a: Word, b: Word, c: Word, d: Word
 
-# The match in progress: OnigMatchArg plus what match_at keeps in
-# locals that the opcode defs share. `mem_start_stk`/`mem_end_stk` hold
-# num_mem + 1 words each, group 0 included (ADD_NUMMEM under
-# USE_SUBEXP_CALL). `aend` is match_at's `end`, which the absent
-# operators move.
+# The match in progress: OnigMatchArg, plus the match_at locals that
+# the opcode defs share. `mem_start_stk` and `mem_end_stk` each contain
+# num_mem + 1 words, with group 0 (ADD_NUMMEM under USE_SUBEXP_CALL).
+# `aend` is match_at's `end`, which the absent operators change.
 Machine.struct :OnigMatch,
   prog: Ptr, code: Ptr, enc: Word, options: Word, case_fold: Word,
   num_mem: Word, pop_level: Word, bt_mem_start: Word, bt_mem_end: Word,
@@ -89,14 +89,14 @@ machine def zr_onig_set_mem_end(m, n, v)
   Machine.store64(OnigMatch.mem_end_stk(m) + (n * 8), 0, v)
 end
 
-# BIT_STATUS_AT: group n's bit, groups past 31 sharing bit 0.
+# BIT_STATUS_AT: the bit of group n. Groups after 31 share bit 0.
 sig [Word, Word] => Bool
 machine def zr_onig_bit_status_at(stats, n)
   n < 32 ? (stats & (1 << n)) != 0 : (stats & 1) != 0
 end
 
-# The start pointer of group `mem`: an index into the stack when the
-# group backtracks its start, the pointer itself otherwise.
+# The start pointer of group `mem`. The stored value is a stack index
+# when the group backtracks its start, and the pointer if not.
 sig [Ptr, Word] => Ptr
 machine def zr_onig_mem_start_ptr(m, mem)
   v = zr_onig_mem_start(m, mem)
@@ -115,9 +115,10 @@ machine def zr_onig_mem_end_ptr(m, mem)
   Machine.ptr(v)
 end
 
-# stack_double: twice the room, copying out of the arena the first time
-# and out of the smaller heap block after, which goes: realloc's work
-# spelled out, since a wasm module's allocator has no realloc.
+# stack_double: doubles the stack size. The first time, it copies out of
+# the arena. After that, it copies out of the smaller heap block and
+# frees it. This does the work of realloc, because a wasm module's
+# allocator has no realloc.
 sig [Ptr] => Void
 machine def zr_onig_stack_double(m)
   base = OnigMatch.stk_base(m)
@@ -142,7 +143,7 @@ machine def zr_onig_stack_ensure(m)
   end
 end
 
-# STACK_SAVE: a stack that left the arena stays with the search.
+# STACK_SAVE: a stack that moved out of the arena stays with the search.
 sig [Ptr] => Void
 machine def zr_onig_stack_save(m)
   if OnigMatch.stk_base(m) != OnigMatch.stk_alloc(m)
@@ -151,7 +152,8 @@ machine def zr_onig_stack_save(m)
   end
 end
 
-# The null_check a new entry inherits: the one below it, or 0 at the base.
+# Returns the null_check for a new entry: the null_check of the entry
+# below it, or 0 at the base.
 sig [Ptr, Ptr] => Word
 machine def zr_onig_inherit_null_check(m, stk)
   stk == OnigMatch.stk_base(m) ? 0 : OnigStk.null_check(stk - OnigStk.size)
@@ -293,7 +295,8 @@ machine def zr_onig_push_absent_pos(m, start, e)
   OnigMatch.set_stk(m, stk + OnigStk.size)
 end
 
-# What popping a MEM_START or MEM_END entry restores.
+# Restores the group positions when the stack pops a MEM_START or
+# MEM_END entry.
 sig [Ptr, Ptr] => Void
 machine def zr_onig_restore_mem(m, stk)
   num = OnigStk.a(stk)
@@ -301,15 +304,16 @@ machine def zr_onig_restore_mem(m, stk)
   zr_onig_set_mem_end(m, num, OnigStk.d(stk))
 end
 
-# What popping a REPEAT_INC entry undoes: the count it added.
+# Undoes the count that a REPEAT_INC entry added, when the stack pops
+# it.
 sig [Ptr, Ptr] => Void
 machine def zr_onig_undo_repeat_inc(m, stk)
   rep = zr_onig_stk_at(m, OnigStk.a(stk))
   OnigStk.set_a(rep, OnigStk.a(rep) - 1)
 end
 
-# STACK_POP by the pattern's pop level: the stack pointer lands on the
-# state entry to resume from.
+# STACK_POP at the pattern's pop level. The stack pointer stops on the
+# state entry from which the match continues.
 sig [Ptr] => Void
 machine def zr_onig_stack_pop(m)
   level = OnigMatch.pop_level(m)
@@ -337,9 +341,9 @@ machine def zr_onig_stack_pop(m)
 end
 
 # STACK_POP_TIL_POS_NOT, STACK_POP_TIL_LOOK_BEHIND_NOT and
-# STACK_POP_TIL_ABSENT: pop down to the entry of `stop`, undoing what
-# lies above it. Leaving a negative look-ahead counts the backtrack
-# targets it drops as failures and memoizes its cache points.
+# STACK_POP_TIL_ABSENT: pop down to the entry of `stop`, and undo the
+# entries above it. For a negative look-ahead, each dropped backtrack
+# target counts as a failure, and its cache points are memoized.
 sig [Ptr, Word] => Void
 machine def zr_onig_stack_pop_til(m, stop)
   stk = OnigMatch.stk(m)
@@ -366,9 +370,10 @@ machine def zr_onig_stack_pop_til(m, stop)
 end
 
 # STACK_POS_END and STACK_STOP_BT_END: void every backtrack target above
-# the nearest entry of `mark`, and the mark itself; that entry. Each
-# target voided counts as a failure for the match cache; a look-ahead's
-# cache points are memoized, an atomic group's become atomic ones.
+# the nearest entry of `mark`, and the mark itself. Returns that entry.
+# Each voided target counts as a failure for the match cache. The cache
+# points of a look-ahead are memoized, and the cache points of an atomic
+# group become atomic cache points.
 sig [Ptr, Word] => Ptr
 machine def zr_onig_stack_void_til(m, mark)
   k = OnigMatch.stk(m)
@@ -390,8 +395,9 @@ machine def zr_onig_stack_void_til(m, mark)
   k
 end
 
-# STACK_NULL_CHECK: whether the loop `id` is at the position it started
-# at, read from the NULL_CHECK_START entry the top's null_check names.
+# STACK_NULL_CHECK: whether the loop `id` is at its start position. It
+# reads the NULL_CHECK_START entry that the top entry's null_check
+# refers to.
 sig [Ptr, Word, Ptr] => Bool
 machine def zr_onig_null_check(m, id, s)
   k = zr_onig_stk_at(m, OnigStk.null_check(OnigMatch.stk(m) - OnigStk.size)) + OnigStk.size
@@ -404,9 +410,10 @@ machine def zr_onig_null_check(m, id, s)
   false
 end
 
-# The MEMST part of STACK_NULL_CHECK_MEMST(_REC): from the START entry
-# `k` up to the top, 1 when every group is empty and unmoved, -1 when
-# empty but moved, 0 when some group captured something.
+# The MEMST part of STACK_NULL_CHECK_MEMST(_REC). It scans from the
+# START entry `k` up to the top. Returns 1 when every group is empty and
+# did not move, -1 when every group is empty but moved, and 0 when a
+# group captured text.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_null_check_memst_scan(m, k, s)
   isnull = 1
@@ -449,8 +456,8 @@ machine def zr_onig_null_check_memst(m, id, s)
   0
 end
 
-# STACK_NULL_CHECK_MEMST_REC: the same across subexpression calls, the
-# START entry found by nesting level.
+# STACK_NULL_CHECK_MEMST_REC: the same across subexpression calls. It
+# finds the START entry by nesting level.
 sig [Ptr, Word, Ptr] => Word
 machine def zr_onig_null_check_memst_rec(m, id, s)
   level = 0
@@ -477,7 +484,7 @@ machine def zr_onig_null_check_memst_rec(m, id, s)
   0
 end
 
-# STACK_GET_REPEAT: the REPEAT entry of `id` at this call level.
+# STACK_GET_REPEAT: returns the REPEAT entry of `id` at this call level.
 sig [Ptr, Word] => Ptr
 machine def zr_onig_get_repeat(m, id)
   level = 0
@@ -498,7 +505,8 @@ machine def zr_onig_get_repeat(m, id)
   k
 end
 
-# STACK_RETURN: the return address of the innermost open call frame.
+# STACK_RETURN: returns the return address of the innermost open call
+# frame.
 sig [Ptr] => Ptr
 machine def zr_onig_stack_return(m)
   level = 0
@@ -518,8 +526,8 @@ machine def zr_onig_stack_return(m)
   Machine.ptr(0)
 end
 
-# STACK_GET_MEM_START: the MEM_START entry of `mnum` that the top's
-# MEM_END entries have not closed.
+# STACK_GET_MEM_START: returns the MEM_START entry of `mnum` that no
+# MEM_END entry near the top has closed.
 sig [Ptr, Word] => Ptr
 machine def zr_onig_get_mem_start(m, mnum)
   level = 0
@@ -540,7 +548,7 @@ machine def zr_onig_get_mem_start(m, mnum)
   k
 end
 
-# mem_is_in_memp: whether `mem` is among the `num` MemNums at memp.
+# mem_is_in_memp: whether `mem` is one of the `num` MemNums at memp.
 sig [Word, Word, Ptr] => Bool
 machine def zr_onig_mem_in_memp(mem, num, memp)
   i = 0
@@ -553,15 +561,16 @@ machine def zr_onig_mem_in_memp(mem, num, memp)
   false
 end
 
-# A MemNum operand: two little-endian bytes.
+# Reads a MemNum operand: two little-endian bytes.
 sig [Ptr] => Word
 machine def zr_onig_get_memnum(p)
   Machine.word(Machine.load8(p, 0)) | (Machine.word(Machine.load8(p, 1)) << 8)
 end
 
-# backref_match_at_nested_level: match the text in the cell `ps`
-# against the capture of one of the groups at memp that was made `nest`
-# call levels up; whether it matched, the cell moved past the match.
+# backref_match_at_nested_level: matches the text at the pointer in the
+# word `ps` against the capture of one of the groups at memp, made
+# `nest` call levels up. Returns whether it matched. On a match, it
+# moves the pointer in `ps` past the match.
 sig [Ptr, Word, Word, Word, Ptr, Ptr, Ptr] => Bool
 machine def zr_onig_backref_at_nested_level(m, ignore_case, nest, mem_num, memp, ps, send)
   pend = Machine.ptr(0)

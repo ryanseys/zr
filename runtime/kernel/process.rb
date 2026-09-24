@@ -1,4 +1,4 @@
-# Child processes: `zr_os_spawn`, with a pipe for the output backticks
+# Child processes: `zr_os_spawn`, a pipe for the output that backticks
 # collect, and waitpid for the status.
 Machine.import "getrusage", [I32, Ptr] => I32
 Machine.import "waitpid", [I32, Ptr, I32] => I32
@@ -7,7 +7,8 @@ Machine.import "getppid", [] => I32
 Machine.import "kill", [I32, I32] => I32
 Machine.import "signal", [I32, Ptr] => Ptr
 
-# A NULL-ended char* vector of an Array of Strings, malloc'd.
+# Makes a NULL-terminated char* vector from an Array of Strings, with
+# malloc.
 sig [Value] => Ptr
 machine def zr_spawn_vector(words)
   n = RArray.len(words)
@@ -21,8 +22,8 @@ machine def zr_spawn_vector(words)
   vector
 end
 
-# Child processes through posix_spawn, which is not variadic, where the
-# OS has it: `zr_os_spawn` calls this with the OS's flags.
+# Starts child processes through posix_spawn (which is not variadic) on
+# an OS that has it. `zr_os_spawn` calls this with the OS's flags.
 Machine.import "posix_spawnp", [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "posix_spawn_file_actions_init", [Ptr] => I32
 Machine.import "posix_spawn_file_actions_adddup2", [Ptr, I32, I32] => I32
@@ -33,12 +34,15 @@ Machine.import "posix_spawnattr_init", [Ptr] => I32
 Machine.import "posix_spawnattr_setflags", [Ptr, I32] => I32
 Machine.import "posix_spawnattr_destroy", [Ptr] => I32
 
-# Spawn `words` (an Array of Strings, the program first). `dups` is a
-# flat Array of (child descriptor, source descriptor) pairs applied in
-# order, `closes` the child's descriptors to shut, `env` the child's
-# whole environment as "KEY=value" strings or nil to inherit it, and
-# `chdir` the child's directory or nil; `flags` are the OS's own
-# posix_spawnattr flags. The pid, or the negated errno.
+# Spawns `words` (an Array of Strings, program first). Returns the pid,
+# or the negated errno.
+# - `dups`: a flat Array of (child descriptor, source descriptor) pairs,
+#   applied in order.
+# - `closes`: the child's descriptors to close.
+# - `env`: the child's full environment as "KEY=value" strings, or nil
+#   to inherit it.
+# - `chdir`: the child's directory, or nil.
+# - `flags`: the OS's posix_spawnattr flags.
 sig [Value, Value, Value, Value, Value, Word] => Value
 machine def zr_posix_spawn(words, dups, closes, env, chdir, flags)
   argv = zr_spawn_vector(words)
@@ -83,13 +87,14 @@ end
 
 Machine.import "execve", [Ptr, Ptr, Ptr] => I32
 
-# The options posix_spawn cannot carry, applied to this process in
-# rb_execarg_run_options's order: the process group (`pgroup` -1 leaves
-# it, 0 makes a new one), the resource limits (`limits` holds resource,
-# soft, hard triples), the umask (-1 leaves it), the descriptors and the
-# directory, each a row of `options` in that order: `dups` and `closes`
-# are zr_posix_spawn's. 0, or the errno. It allocates nothing, so a
-# forked child may run it before its exec.
+# Applies to this process the options that posix_spawn cannot take, in
+# the order of rb_execarg_run_options: the process group (`pgroup` -1
+# keeps it, 0 makes a new one), the resource limits (`limits` contains
+# resource, soft, hard triples), the umask (-1 keeps it), the
+# descriptors, and the directory. `options` is [dups, closes, chdir,
+# pgroup, umask, limits]; `dups` and `closes` are as for zr_posix_spawn.
+# Returns 0 or the errno. It allocates nothing, so a forked child can run
+# it before its exec.
 sig [Value] => Word
 machine def zr_exec_options(options)
   dups = zr_ary_at(options, 0)
@@ -98,9 +103,9 @@ machine def zr_exec_options(options)
   pgroup = zr_ary_at(options, 3)
   mask = zr_ary_at(options, 4)
   limits = zr_ary_at(options, 5)
-  # A pty's child leads a session of its own with the slave as its
+  # A pty child starts its own session, with the slave as its
   # controlling terminal and its standard streams, as pty.c's chfunc
-  # makes it, before any other option.
+  # does. This occurs before all other options.
   if RArray.len(options) > 6
     zr_exec_tty(zr_ary_at(options, 6))
   end
@@ -125,8 +130,8 @@ machine def zr_exec_options(options)
   while i < RArray.len(dups)
     child = Machine.i32(zr_fix2long(zr_ary_at(dups, i)))
     source = Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1)))
-    # A descriptor duplicated onto itself only loses close-on-exec, as
-    # posix_spawn_file_actions_adddup2 treats it.
+    # A dup of a descriptor onto itself only clears close-on-exec, as in
+    # posix_spawn_file_actions_adddup2.
     if child == source
       zr_os_fcntl(child, Machine.i32(F_SETFD), 0)
     elsif dup2(source, child) < Machine.i32(0)
@@ -146,7 +151,8 @@ machine def zr_exec_options(options)
 end
 
 # pty.c's start_new_session, obtain_ctty and drop_privilege for the
-# [master, slave] pair `tty`: the errors each ignores stay ignored.
+# [master, slave] pair `tty`. It ignores the same errors that pty.c
+# ignores.
 sig [Value] => Void
 machine def zr_exec_tty(tty)
   master = Machine.i32(zr_fix2long(zr_ary_at(tty, 0)))
@@ -163,10 +169,10 @@ machine def zr_exec_tty(tty)
   zr_os_setid(zr_sym(Machine.id(:seteuid)), zr_fix(Machine.word(getuid())))
 end
 
-# A spawn through fork and execve, for the options posix_spawn cannot
-# carry: the child applies them, then runs the program at `path`. A
-# child that cannot start writes its errno to a pipe that an exec
-# closes, and ends. The pid, or the negated errno.
+# A spawn through fork and execve, for the options that posix_spawn
+# cannot take. The child applies them, then runs the program at `path`.
+# If the child cannot start, it writes its errno to a pipe that an exec
+# closes, and exits. Returns the pid, or the negated errno.
 sig [Value, Value, Value, Value] => Value
 machine def zr_spawn_forked(path, words, env, options)
   ends = Machine.slot(8)
@@ -215,8 +221,8 @@ machine def zr_spawn_forked(path, words, env, options)
   zr_fix(pid)
 end
 
-# execve in this process after the options: answers only when it could
-# not, with the negated errno.
+# Applies the options, then calls execve in this process. It returns
+# only on failure, with the negated errno.
 sig [Value, Value, Value, Value] => Value
 machine def zr_exec_with(path, words, env, options)
   err = zr_exec_options(options)
@@ -237,7 +243,7 @@ machine def zr_exec_with(path, words, env, options)
   zr_fix(0 - err)
 end
 
-# waitpid: [pid, raw status], or the negated errno.
+# waitpid: returns [pid, raw status], or the negated errno.
 sig [Value, Value] => Value
 machine def zr_proc_wait(pid, flags)
   status = Machine.slot(8)
@@ -256,16 +262,16 @@ machine def zr_proc_wait(pid, flags)
   out
 end
 
-# A pipe: [read end, write end], or the negated errno.
+# Makes a pipe: returns [read end, write end], or the negated errno.
 sig [] => Value
 machine def zr_io_pipe
   fds = Machine.slot(8)
   if pipe(fds) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
-  # Both ends close themselves across an exec, as rb_cloexec_pipe asks:
-  # a write end that leaked into an unrelated child would hold the
-  # reader's end of file open for as long as that child lived.
+  # Both ends are close-on-exec, as with rb_cloexec_pipe. If a write end
+  # leaks into an unrelated child, the reader gets no end of file while
+  # that child runs.
   read_end = zr_fix(Machine.word(Machine.load32(fds, 0)))
   write_end = zr_fix(Machine.word(Machine.load32(fds, 4)))
   zr_io_cloexec(read_end)
@@ -276,8 +282,9 @@ machine def zr_io_pipe
   out
 end
 
-# `who`'s user and system time in seconds, `[utime, stime]`: a
-# rusage's two leading timevals (seconds, then microseconds).
+# Returns the user and system time of `who` in seconds, as
+# `[utime, stime]`. These are the first two timevals of a rusage
+# (seconds, then microseconds).
 sig [Value] => Value
 machine def zr_proc_rusage(who)
   ru = Machine.slot(144)
@@ -302,8 +309,8 @@ Machine.import "getgroups", [I32, Ptr] => I32
 Machine.import "getpriority", [I32, I32] => I32
 Machine.import "setpriority", [I32, I32, I32] => I32
 
-# `getpriority`: the niceness, and the errno beside it. A niceness of
-# -1 is a real answer, so errno is cleared first and only a failure of
+# `getpriority`: returns the niceness and the errno. A niceness of -1 is
+# a valid result, so the call clears errno first. Then only a failure of
 # this call sets it.
 sig [Value, Value] => Value
 machine def zr_proc_getpriority(which, who)
@@ -320,8 +327,8 @@ machine def zr_proc_setpriority(which, who, priority)
   zr_io_status(setpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who)), Machine.i32(zr_fix2long(priority))))
 end
 
-# The process group, the session and the groups: each answers its id,
-# or the errno as a negative where the call fails.
+# The process group, the session and the groups. Each returns its id,
+# or the negated errno when the call fails.
 sig [] => Value
 machine def zr_proc_getpgrp
   zr_io_failed(Machine.sword(getpgrp()))
@@ -347,7 +354,7 @@ machine def zr_proc_setsid
   zr_io_failed(Machine.sword(setsid()))
 end
 
-# The supplementary groups, as an Array of ids.
+# Returns the supplementary groups as an Array of ids.
 sig [] => Value
 machine def zr_proc_groups
   list = Machine.slot(256)
@@ -369,9 +376,10 @@ machine def zr_proc_kill(pid, signal)
   zr_io_status(kill(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(signal))))
 end
 
-# kill(2) of `signal` to every pid in `pids`, in one call as rb_f_kill
-# makes them, so that a signal this process sends itself is handled
-# once all are sent: 0, or the negated errno of the first that failed.
+# Sends `signal` with kill(2) to every pid in `pids`, in one call as
+# rb_f_kill does. Thus a POSIX signal that this process sends to itself
+# is handled after all are sent. Returns 0, or the negated errno of the
+# first failure.
 sig [Value, Value] => Value
 machine def zr_proc_kill_all(pids, signal)
   i = 0
@@ -391,8 +399,8 @@ end
 Machine.import "getrlimit", [I32, Ptr] => I32
 Machine.import "setrlimit", [I32, Ptr] => I32
 
-# `getrlimit`: `[cur, max]`, each rlim_t's bits as a signed word, or the
-# errno as a negative.
+# `getrlimit`: returns `[cur, max]`, each rlim_t's bits as a signed
+# word, or the negated errno.
 sig [Value] => Value
 machine def zr_proc_getrlimit(resource)
   limits = Machine.slot(16)
@@ -405,7 +413,7 @@ machine def zr_proc_getrlimit(resource)
   out
 end
 
-# `setrlimit`, each limit given as the signed word of its bits.
+# `setrlimit`. Each limit is the signed word of its bits.
 sig [Value, Value, Value] => Value
 machine def zr_proc_setrlimit(resource, cur, max)
   limits = Machine.slot(16)
@@ -421,8 +429,8 @@ Machine.import "setregid", [I32, I32] => I32
 Machine.import "setgroups", [I32, Ptr] => I32
 Machine.import "initgroups", [Ptr, I32] => I32
 
-# `setreuid` (`group` false) or `setregid`, where -1 leaves an id as it
-# is: 0, or the errno as a negative.
+# `setreuid` (`group` false) or `setregid`. An id of -1 keeps the
+# current id. Returns 0, or the negated errno.
 sig [Value, Value, Value] => Value
 machine def zr_proc_setreid(group, real, effective)
   r = Machine.i32(zr_fix2long(real))
@@ -430,7 +438,7 @@ machine def zr_proc_setreid(group, real, effective)
   zr_io_status(group == QTRUE ? setregid(r, e) : setreuid(r, e))
 end
 
-# `setgroups` over an Array of group ids.
+# `setgroups` with an Array of group ids.
 sig [Value] => Value
 machine def zr_proc_setgroups(ids)
   n = RArray.len(ids)
@@ -452,17 +460,17 @@ end
 
 Machine.import "fork", [] => I32
 
-# `fork`: the child's pid in the parent, 0 in the child, or the errno as
-# a negative.
+# `fork`: returns the child's pid in the parent, 0 in the child, or the
+# negated errno.
 sig [] => Value
 machine def zr_proc_fork
   zr_io_failed(Machine.sword(fork()))
 end
 
-# A forked child's end, as CRuby's ruby_stop ends it: the at_exit
-# handlers and the streams as a program's end runs them, with `exc` the
-# exception its block raised, or nil, and then the process exits. The
-# parent's frames below never see the exception.
+# Ends a forked child, as CRuby's ruby_stop does. It runs the at_exit
+# handlers and flushes the streams as at the end of a program, then the
+# process exits. `exc` is the exception that the fork block raised, or
+# nil. The parent's frames below never see the exception.
 sig [Value] => Value
 machine def zr_proc_child_exit(exc)
   exit(Machine.i32(zr_program_end(exc == QNIL ? Machine.value(QUNDEF) : exc)))

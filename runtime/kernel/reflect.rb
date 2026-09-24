@@ -1,8 +1,8 @@
-# Reflection over names: the instance and class variables an object
-# holds, and the methods it answers to.
+# Reflection on names: the instance and class variables of an object,
+# and the methods that it responds to.
 
-# A method or variable name given as a Symbol or a String, as its id
-# in `out`.
+# Converts a method or variable name (a Symbol or a String) to its id,
+# and writes the id to `out`.
 sig [Value, Ptr] => Value
 machine def zr_name_id(name, out)
   if !zr_special_p(name) && zr_type(name) == T_STRING
@@ -21,8 +21,8 @@ machine def zr_name_id(name, out)
   Machine.value(QNIL)
 end
 
-# `'x' is not allowed as an instance variable name`, and the class
-# variable form, when the name lacks its sigil.
+# Raises `'x' is not allowed as an instance variable name`, or the class
+# variable form, when the name does not start with its sigil.
 sig [Word, Ptr, Word, Ptr, Word] => Value
 machine def zr_bad_variable_name(id, sigil, siglen, kind, kindlen)
   p = zr_symbol_name_ptr(id)
@@ -40,8 +40,8 @@ machine def zr_bad_variable_name(id, sigil, siglen, kind, kindlen)
   zr_raise_buf(zr_global(G_NAME_ERROR), b)
 end
 
-# An identifier: a letter, underscore or byte past ASCII, then those
-# and digits.
+# Whether the bytes are an identifier: a letter, an underscore or a
+# non-ASCII byte, then any of these or digits.
 sig [Ptr, Word] => Bool
 machine def zr_ident_p(p, n)
   if n == 0
@@ -69,9 +69,9 @@ machine def zr_check_cvar_name(id)
   zr_bad_variable_name(id, Machine.bytes("@@"), 2, Machine.bytes("a class"), 7)
 end
 
-# The names in a variable table, as Symbols, each once, after those
-# already in `out`. `lead` is the byte a name of this kind starts with,
-# which is what tells a hidden name of the lowering from a real one.
+# Adds the names in a variable table to `out` as Symbols, with no
+# duplicates. `lead` is the first byte of a name of this kind. It tells a
+# real name from a hidden name that the lowering made.
 sig [Ptr, Value, Word] => Void
 machine def zr_ivtab_names(t, out, lead)
   i = 0
@@ -132,8 +132,8 @@ machine def zr_obj_instance_variable_defined(recv, argc, argv, cref, blk)
   zr_ivar_defined(recv, id)
 end
 
-# `Module#class_variables`: the module's own, then its ancestors' when
-# `inherit` is not false.
+# `Module#class_variables`: the module's own class variables, then
+# those of its ancestors when `inherit` is not false.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_class_variables(recv, argc, argv, cref, blk)
   inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
@@ -191,8 +191,8 @@ machine def zr_mod_class_variable_set(recv, argc, argv, cref, blk)
   v
 end
 
-# `Module#remove_class_variable`: the row leaves the owning module's
-# table, and its value is the answer.
+# `Module#remove_class_variable`: removes the entry from the table of
+# the owning module, and returns its value.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_remove_class_variable(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
@@ -237,9 +237,10 @@ machine def zr_mod_class_variable_defined(recv, argc, argv, cref, blk)
   zr_bool(zr_cvar_owner(recv, id) != QNIL)
 end
 
-# `Object#singleton_methods`: the singleton class's own public and
-# protected methods, and with `all` those of the modules it extends
-# and, for a class, of its superclasses' singleton classes.
+# `Object#singleton_methods`: the public and protected methods of the
+# singleton class. With `all`, it also includes the methods of the
+# modules that extend it and, for a class, the methods of the singleton
+# classes of its superclasses.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
@@ -263,8 +264,8 @@ machine def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
   out
 end
 
-# `methods`, and the three by visibility; `methods(false)` is
-# `singleton_methods(false)`.
+# `methods`, and the three forms for each visibility. `methods(false)`
+# is the same as `singleton_methods(false)`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_methods(recv, argc, argv, cref, blk)
   if argc == 1 && (Machine.value(Machine.load64(argv, 0)) == QFALSE || Machine.value(Machine.load64(argv, 0)) == QNIL)
@@ -291,9 +292,10 @@ machine def zr_obj_protected_methods(recv, argc, argv, cref, blk)
   zr_method_names(zr_class_of(recv), all ? 1 : 0, VIS_PROTECTED, true)
 end
 
-# `method_defined?` and the three by visibility: whether the module or
-# an ancestor answers the name with that visibility. A refinement in use
-# does not count: the question is about the module's own chain.
+# `method_defined?` and the three forms for each visibility: whether the
+# module or an ancestor defines the name with that visibility. An active
+# refinement does not count, because the check uses only the module's
+# own ancestor list.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_mod_method_defined_vis(recv, argc, argv, vis)
   slot = Machine.slot(8)
@@ -327,8 +329,8 @@ machine def zr_mod_protected_method_defined(recv, argc, argv, cref, blk)
   zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED)
 end
 
-# `Method#super_method`: the method past this one's owner in the
-# receiver's chain, bound the same way, or nil.
+# `Method#super_method`: the method after this method's owner in the
+# receiver's ancestor list, bound in the same way, or nil.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_super_method(recv, argc, argv, cref, blk)
   owner = RMethod.owner(recv)
@@ -351,7 +353,8 @@ machine def zr_method_super_method(recv, argc, argv, cref, blk)
   zr_method_new(RMethod.recv(recv), sup, mid)
 end
 
-# `Module#included_modules`: the modules in the chain, nearest first.
+# `Module#included_modules`: the modules in the ancestor list, nearest
+# first.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_included_modules(recv, argc, argv, cref, blk)
   out = zr_ary_new(8)
@@ -366,7 +369,8 @@ machine def zr_mod_included_modules(recv, argc, argv, cref, blk)
 end
 
 # `Module.nesting`: the classes and modules whose bodies enclose the
-# caller, innermost first; an eval's cref is not lexical and is skipped.
+# caller, innermost first. An eval's cref is not lexical, so it is
+# skipped.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_nesting(recv, argc, argv, cref, blk)
   out = zr_ary_new(4)
@@ -380,10 +384,10 @@ machine def zr_mod_nesting(recv, argc, argv, cref, blk)
   out
 end
 
-# `__method__`: the name of the method the caller is in, through any
-# blocks, or nil at the top level or in a class body. A define_method
-# body is a block whose cref names its entry, and its method is the
-# name it was defined as, through an alias too.
+# `__method__`: the name of the method that contains the caller, through
+# any blocks, or nil at the top level or in a class body. A define_method
+# body is a block whose cref refers to its method entry. Its name is the
+# name that define_method gave, also when it is called through an alias.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
   rec = Frame.prev(Task.top(zr_task()))
@@ -395,14 +399,15 @@ machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
   while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
-  # A def of the core library runs under a builtin's meta.
+  # A def in the core library runs with a builtin's FrameMeta.
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD && FrameMeta.kind(meta) != KIND_BUILTIN
     return Machine.value(QNIL)
   end
   zr_sym(FrameMeta.name(meta))
 end
 
-# `__callee__`: the name the method was called by, an alias's own.
+# `__callee__`: the name that the caller used for the method. For an
+# alias, it is the alias name.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_callee(recv, argc, argv, cref, blk)
   rec = Frame.prev(Task.top(zr_task()))
@@ -421,8 +426,8 @@ machine def zr_kernel_callee(recv, argc, argv, cref, blk)
       return Machine.value(QNIL)
     end
   end
-  # A method the runtime writes in Ruby runs as a builtin, and is called
-  # by an alias as much as a program's own is.
+  # A runtime method written in Ruby runs as a builtin. An alias can call
+  # it, as for a method of the program.
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD && FrameMeta.kind(meta) != KIND_BUILTIN
     return Machine.value(QNIL)
   end
@@ -438,11 +443,11 @@ machine def zr_mod_singleton_class_p(recv, argc, argv, cref, blk)
   zr_bool(zr_singleton_p(recv))
 end
 
-# `Proc#source_location`: where the block was written, or nil for one
-# the runtime made.
+# `Proc#source_location`: the location of the block in the source, or
+# nil for a block that the runtime made.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_source_location(recv, argc, argv, cref, blk)
-  # A Method's Proc is where the method is.
+  # The location of a Method's Proc is the location of the method.
   if RProc.fn(recv) == Machine.addr(:zr_method_block)
     return zr_send(RProc.self(recv), Machine.id(:source_location), 0, 0)
   end
@@ -456,8 +461,8 @@ machine def zr_proc_source_location(recv, argc, argv, cref, blk)
   out
 end
 
-# The main object's own verbs: `include`, `public` and `private` act
-# on Object.
+# The singleton methods of the main object: `include`, `public` and
+# `private` operate on Object.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_main_include(recv, argc, argv, cref, blk)
   zr_send(zr_global(G_OBJECT), Machine.id(:include), argc, argv)
@@ -473,7 +478,8 @@ machine def zr_main_private(recv, argc, argv, cref, blk)
   zr_set_visibility(zr_global(G_OBJECT), argc, argv, blk, VIS_PRIVATE, 0)
 end
 
-# `Module#remove_method`: the entry must be the module's own.
+# `Module#remove_method`: the method entry must be in the module's own
+# table.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
   r = zr_class_modify_check(recv)
@@ -516,8 +522,8 @@ machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
   recv
 end
 
-# The `method_removed` or `singleton_method_removed` hook, when the
-# program defines one.
+# Calls the `method_removed` or `singleton_method_removed` hook, if the
+# program defines it.
 sig [Value, Word] => Value
 machine def zr_method_removed(klass, mid)
   zr_method_hook(klass, mid, Machine.id(:method_removed), Machine.id(:singleton_method_removed))
@@ -528,8 +534,8 @@ machine def zr_method_undefined(klass, mid)
   zr_method_hook(klass, mid, Machine.id(:method_undefined), Machine.id(:singleton_method_undefined))
 end
 
-# `hook` on the class, or `singleton_hook` on what a singleton class
-# is attached to, when the program defines one.
+# Calls `hook` on the class, or `singleton_hook` on the object that a
+# singleton class is attached to, if the program defines it.
 sig [Value, Word, Word, Word] => Value
 machine def zr_method_hook(klass, mid, hook, singleton_hook)
   recv = klass
@@ -543,7 +549,8 @@ machine def zr_method_hook(klass, mid, hook, singleton_hook)
   zr_hook(recv, hook, zr_sym(mid))
 end
 
-# `remove_instance_variable(name)`: the value, and the row is gone.
+# `remove_instance_variable(name)`: removes the ivar entry and returns
+# its value.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_remove_instance_variable(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
@@ -580,9 +587,9 @@ machine def zr_obj_remove_instance_variable(recv, argc, argv, cref, blk)
   v
 end
 
-# `Class#subclasses`: the classes whose superclass is this one, newest
-# first, singleton classes left out; read off the arena and ordered by
-# creation serial.
+# `Class#subclasses`: the classes whose superclass is this class, newest
+# first, with no singleton classes. It reads them from the arena and
+# sorts them by creation serial.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_subclasses(recv, argc, argv, cref, blk)
   out = zr_ary_new(4)
@@ -608,7 +615,7 @@ machine def zr_class_subclasses(recv, argc, argv, cref, blk)
   out
 end
 
-# `k` placed before the first class made earlier than it.
+# Inserts `k` before the first class that was made before `k`.
 sig [Value, Value] => Void
 machine def zr_ary_insert_by_serial(out, k)
   serial = ClassExt.serial(RClass.ext(k))
@@ -631,15 +638,15 @@ machine def zr_main_define_method(recv, argc, argv, cref, blk)
   zr_mod_define_method(zr_global(G_OBJECT), argc, argv, cref, blk)
 end
 
-# The main object's `to_s` and `inspect`: `main`, as its own singleton
-# methods.
+# The main object's `to_s` and `inspect`, which are singleton methods
+# that return `main`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_main_to_s(recv, argc, argv, cref, blk)
   zr_str_set_index(zr_str_new(Machine.bytes("main"), 4), ENC_BINARY)
 end
 
-# `attached_object`: the object a singleton class belongs to; a plain
-# class has none.
+# `attached_object`: the object that a singleton class belongs to. A
+# plain class has no attached object.
 sig [Value] => Value
 machine def zr_mod_attached(klass)
   if !zr_singleton_p(klass)
@@ -648,9 +655,9 @@ machine def zr_mod_attached(klass)
   RClass.attached(klass)
 end
 
-# The FrameMeta of the Ruby code a Proc, a Method or an UnboundMethod
-# runs, or 0 for code the runtime carries: what
-# RubyVM::InstructionSequence.of finds an instruction sequence for.
+# Returns the FrameMeta of the Ruby code that a Proc, a Method or an
+# UnboundMethod runs, or 0 for runtime code. RubyVM::InstructionSequence.of
+# finds an instruction sequence only when this is not 0.
 sig [Value] => Ptr
 machine def zr_iseq_meta(body)
   if zr_special_p(body)
@@ -676,14 +683,16 @@ machine def zr_iseq_p(body)
   zr_bool(zr_iseq_meta(body) != 0)
 end
 
-# The label of the code `body` runs, or with `base` the label of the
-# method, class or file its blocks are written in.
+# Returns the label of the code that `body` runs. With `base`, it
+# returns the label of the method, class or file that contains the
+# blocks.
 sig [Value, Value] => Value
 machine def zr_iseq_label(body, base)
   zr_iseq_meta_label(zr_fix(Machine.word(zr_iseq_meta(body))), base)
 end
 
-# The same for the FrameMeta at address `meta_word`, as a frame names it.
+# The same for the FrameMeta at address `meta_word`, in the form that a
+# frame gives it.
 sig [Value, Value] => Value
 machine def zr_iseq_meta_label(meta_word, base)
   meta = Machine.ptr(zr_fix2long(meta_word))
@@ -701,8 +710,8 @@ machine def zr_iseq_meta_label(meta_word, base)
   zr_buf_take(b)
 end
 
-# `[path, first line, kind]` of the FrameMeta at `meta_word`, the kind
-# as RubyVM::InstructionSequence#type names it.
+# Returns `[path, first line, kind]` of the FrameMeta at `meta_word`.
+# The kind is the name that RubyVM::InstructionSequence#type gives.
 sig [Value] => Value
 machine def zr_iseq_meta_info(meta_word)
   meta = Machine.ptr(zr_fix2long(meta_word))
@@ -726,8 +735,8 @@ machine def zr_iseq_meta_info(meta_word)
   out
 end
 
-# The parameter rows of the FrameMeta at `meta_word`, a method's as a
-# method takes them and a block's as a proc does.
+# Returns the parameter list of the FrameMeta at `meta_word`: for a
+# method, as a method takes them; for a block, as a proc takes them.
 sig [Value] => Value
 machine def zr_iseq_meta_parameters(meta_word)
   meta = Machine.ptr(zr_fix2long(meta_word))
@@ -742,10 +751,10 @@ machine def zr_iseq_meta_word(body)
   zr_fix(Machine.word(zr_iseq_meta(body)))
 end
 
-# What rb_debug_inspector_open lets a debugger read: each frame outward
-# from the caller of the method that asks, as `[row, node id, self,
-# binding, FrameMeta address, class]`. A frame the runtime pushed for a
-# method written in C has no binding, and its address is 0.
+# The data that rb_debug_inspector_open gives a debugger. It returns
+# each frame, outward from the caller of this method, as `[backtrace
+# line, node id, self, binding, FrameMeta address, class]`. A frame that
+# the runtime pushed for a C method has no binding, and its address is 0.
 sig [] => Value
 machine def zr_debug_frames
   out = zr_ary_new(16)
@@ -758,7 +767,7 @@ machine def zr_debug_frames
       native = FrameMeta.kind(meta) == KIND_BUILTIN || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.file_len(meta) == 0
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
-      # A C frame has no file or line of its own to show.
+      # A C frame has no file or line of its own.
       if native
         zr_buf_push(b, Machine.bytes(":0:in '"), 7)
         zr_buf_label(b, zr_frame_label_meta(rec))

@@ -1,6 +1,6 @@
 # onig_search_gpos and onig_match (regexec.c:4238-5281): the search
-# drivers over match_at, with the anchor pre-checks, the exact-string
-# and map searches of the optimizer, and forward_search_range /
+# drivers that call match_at. They include the anchor pre-checks, the
+# optimizer's exact-string and map searches, and forward_search_range /
 # backward_search_range. Derived from Onigmo; the license is in
 # runtime/kernel/regexp.rb.
 ONIG_OPTIMIZE_NONE = 0
@@ -23,13 +23,13 @@ ONIG_ANCHOR_ANYCHAR_STAR = 16384
 ONIG_ANCHOR_ANYCHAR_STAR_ML = 32768
 ONIG_MAX_PTR_NUM = 100
 
-# The two buffers a search needs -- its region, and the match state's
-# arena -- kept between searches rather than malloc'd and freed a
-# match, which `String#scan` over a long text did tens of thousands
-# of times: each is one row of `ptr, capacity, busy`, grown to the
-# largest asked for. A row that is busy (a search under a search,
-# which nothing does today) hands out a malloc, and the free that
-# follows tells the two apart by the address.
+# The two buffers that a search needs: its region and the match state's
+# arena. They stay between searches, because a malloc and a free for
+# each match is slow: `String#scan` on a long text can make tens of
+# thousands of matches. Each buffer is one record of `ptr, capacity,
+# busy`, which grows to the largest request. If a record is busy (a
+# search inside a search), the call gets a new malloc, and the free
+# after it tells the two apart by the address.
 SCRATCH_ROW = 24
 
 sig [Word, Word] => Ptr
@@ -63,10 +63,11 @@ machine def zr_onig_scratch_free(row, p)
   end
 end
 
-# The match state for a search of `prog` over str..text_end, writing
-# `region` (a word array of 2 * (num_mem + 1), or 0) under a time
-# `limit` in nanoseconds (0 for none). MATCH_ARG_INIT plus STACK_INIT's
-# arena: the index words and the first stack, one malloc.
+# Makes the match state for a search of `prog` in str..text_end. It
+# writes `region` (a word array of 2 * (num_mem + 1), or 0), with a time
+# `limit` in nanoseconds (0 for no limit). This is MATCH_ARG_INIT plus
+# the arena of STACK_INIT: the index words and the first stack, in one
+# malloc.
 sig [Ptr, Ptr, Ptr, Ptr, Ptr, Word] => Void
 machine def zr_onig_msa_init(m, prog, str, text_end, region, limit)
   OnigMatch.set_prog(m, prog)
@@ -97,7 +98,7 @@ machine def zr_onig_msa_init(m, prog, str, text_end, region, limit)
   OnigMatch.set_num_cache_points(m, 0)
   OnigMatch.set_match_cache_buf(m, Machine.ptr(0))
   num_repeat = OnigProg.num_repeat(prog)
-  # ADD_NUMMEM: group 0 has a slot too, for \g<0>.
+  # ADD_NUMMEM: group 0 also has a slot, for \g<0>.
   words = num_repeat + ((num_mem + 1) * 2)
   arena = zr_onig_scratch(1, (words * 8) + (ONIG_INIT_MATCH_STACK_SIZE * OnigStk.size))
   OnigMatch.set_repeat_stk(m, arena)
@@ -106,7 +107,8 @@ machine def zr_onig_msa_init(m, prog, str, text_end, region, limit)
   OnigMatch.set_stk_alloc(m, arena + (words * 8))
 end
 
-# MATCH_ARG_FREE (the match cache's rows and bits with it) and the arena.
+# MATCH_ARG_FREE (with the match cache's entries and bits) and the
+# arena.
 sig [Ptr] => Void
 machine def zr_onig_msa_free(m)
   if OnigMatch.stack_p(m) != 0
@@ -121,7 +123,7 @@ machine def zr_onig_msa_free(m)
   zr_onig_scratch_free(1, OnigMatch.repeat_stk(m))
 end
 
-# onig_region_resize_clear: every position ONIG_REGION_NOTPOS.
+# onig_region_resize_clear: sets every position to ONIG_REGION_NOTPOS.
 sig [Ptr, Word] => Void
 machine def zr_onig_region_clear(region, num_mem)
   i = 0
@@ -239,7 +241,7 @@ machine def zr_onig_slow_search_backward_ic(enc, flag, target, target_end, text,
   Machine.ptr(0)
 end
 
-# bm_search_notrev: Sunday's quick search applied to a multibyte string.
+# bm_search_notrev: Sunday's quick search for a multibyte string.
 sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_bm_search_notrev(prog, target, target_end, text, text_end, text_range)
   enc = zr_onig_prog_enc(prog)
@@ -364,7 +366,7 @@ machine def zr_onig_map_search_backward(prog, text, adjust_text, text_start, tex
   Machine.ptr(0)
 end
 
-# The optimizer's search from p forward, by reg->optimize.
+# The optimizer's forward search from p, as reg->optimize selects.
 sig [Ptr, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_forward_find(prog, p, text_end, range)
   optimize = OnigProg.optimize(prog)
@@ -382,8 +384,8 @@ machine def zr_onig_forward_find(prog, p, text_end, range)
 end
 
 # forward_search_range: whether the optimizer finds a possible match
-# start from s before range; the cells `low`, `high` and (when not 0)
-# `low_prev` take the match window.
+# start from s before range. It writes the match window to the words
+# `low`, `high` and (when not 0) `low_prev`.
 sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => Bool
 machine def zr_onig_forward_search_range(prog, str, text_end, s, range, low, high, low_prev)
   enc = zr_onig_prog_enc(prog)
@@ -415,7 +417,7 @@ machine def zr_onig_forward_search_range(prog, str, text_end, s, range, low, hig
         again = true if !zr_onig_newline_p(enc, prev, text_end)
       end
     elsif OnigProg.sub_anchor(prog) == ONIG_ANCHOR_END_LINE
-      # The empty line at the end of the text is a line
+      # The empty line at the end of the text counts as a line
       # (USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE).
       if p != text_end && !zr_onig_newline_p(enc, p, text_end)
         again = true
@@ -469,7 +471,7 @@ machine def zr_onig_forward_search_range(prog, str, text_end, s, range, low, hig
         Machine.store64(low, 0, Machine.word(lo))
       end
     end
-    # no needs to adjust *high, *high is used as range check only
+    # *high needs no adjustment, because it is used only as a range check.
     if Machine.word(p - str) < dmin
       Machine.store64(high, 0, Machine.word(str))
     else
@@ -479,7 +481,7 @@ machine def zr_onig_forward_search_range(prog, str, text_end, s, range, low, hig
   true
 end
 
-# The optimizer's search from p backward, by reg->optimize.
+# The optimizer's backward search from p, as reg->optimize selects.
 sig [Ptr, Ptr, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_backward_find(prog, p, range, adjrange, text_end)
   optimize = OnigProg.optimize(prog)
@@ -545,8 +547,8 @@ machine def zr_onig_backward_search_range(prog, str, text_end, s, range, adjrang
   true
 end
 
-# MATCH_AND_RETURN_CHECK: match_at at s; the match's position, or
-# ONIG_MISMATCH to go on, or an error to stop with.
+# MATCH_AND_RETURN_CHECK: runs match_at at s. Returns the match's
+# position, ONIG_MISMATCH to continue, or an error to stop.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_try_at(m, s, prev)
   r = zr_onig_match_at(m, s, prev)
@@ -554,9 +556,9 @@ machine def zr_onig_try_at(m, s, prev)
   r
 end
 
-# onig_search_gpos over the match state `m` (zr_onig_msa_init'd), with
-# global_pos for \G. The answer is the match position, ONIG_MISMATCH, or
-# an error code.
+# onig_search_gpos with the match state `m` (from zr_onig_msa_init), and
+# global_pos for \G. Returns the match position, ONIG_MISMATCH, or an
+# error code.
 sig [Ptr, Ptr, Ptr, Ptr] => Word
 machine def zr_onig_search_gpos(m, global_pos, start, range)
   prog = OnigMatch.prog(m)
@@ -569,7 +571,7 @@ machine def zr_onig_search_gpos(m, global_pos, start, range)
   end
   return ONIG_MISMATCH if start > text_end || start < str
   anchor = OnigProg.anchor(prog)
-  # anchor optimize: resume search range
+  # Anchor optimization: narrow the search range.
   if anchor != 0 && str < text_end
     anchor_dmin = OnigProg.anchor_dmin(prog)
     anchor_dmax = OnigProg.anchor_dmax(prog)
@@ -577,7 +579,7 @@ machine def zr_onig_search_gpos(m, global_pos, start, range)
     min_semi_end = text_end
     max_semi_end = text_end
     if (anchor & ONIG_ANCHOR_BEGIN_POSITION) != 0 || (anchor & ONIG_ANCHOR_ANYCHAR_STAR_ML) != 0 && (anchor & (ONIG_ANCHOR_BEGIN_BUF | ONIG_ANCHOR_END_BUF | ONIG_ANCHOR_SEMI_END_BUF)) == 0
-      # search start-position only
+      # Search only at the start position.
       if range > start
         if global_pos > start
           if global_pos < range
@@ -590,7 +592,7 @@ machine def zr_onig_search_gpos(m, global_pos, start, range)
         range = start
       end
     elsif (anchor & ONIG_ANCHOR_BEGIN_BUF) != 0
-      # search str-position only
+      # Search only at the str position.
       if range > start
         return ONIG_MISMATCH if start != str
         range = str + 1
@@ -629,7 +631,8 @@ machine def zr_onig_search_gpos(m, global_pos, start, range)
           range = max_semi_end - anchor_dmin + 1
         end
         return ONIG_MISMATCH if start > range
-        # If start == range, match with empty at end. Backward search is used.
+        # If start == range, match the empty string at the end. This uses
+        # a backward search.
       else
         if Machine.word(min_semi_end - range) > anchor_dmax
           range = min_semi_end - anchor_dmax
@@ -643,7 +646,7 @@ machine def zr_onig_search_gpos(m, global_pos, start, range)
       end
     end
   elsif str == text_end
-    # empty string
+    # The empty string.
     return ONIG_MISMATCH if OnigProg.threshold_len(prog) != 0
     OnigMatch.set_gpos(m, start)
     return zr_onig_try_at(m, start, Machine.ptr(0))
@@ -655,7 +658,7 @@ machine def zr_onig_search_gpos(m, global_pos, start, range)
   zr_onig_search_backward(m, start, range)
 end
 
-# The forward half of onig_search_gpos, after the anchor adjustments.
+# The forward part of onig_search_gpos, after the anchor adjustments.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_search_forward(m, start, range)
   prog = OnigMatch.prog(m)
@@ -731,14 +734,14 @@ machine def zr_onig_search_forward(m, start, range)
     break if s >= range
   end
   if s == range
-    # because empty match with /$/.
+    # Try the end too, because /$/ can match the empty string there.
     r = zr_onig_try_at(m, s, prev)
     return r if r != ONIG_MISMATCH
   end
   ONIG_MISMATCH
 end
 
-# The backward half of onig_search_gpos.
+# The backward part of onig_search_gpos.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_search_backward(m, start, range)
   prog = OnigMatch.prog(m)
@@ -812,11 +815,11 @@ machine def zr_onig_search_backward(m, start, range)
   ONIG_MISMATCH
 end
 
-# onig_search: the match position of `prog` in str..text_end searching
-# from start toward range (forward when range > start, else backward),
-# `region` a word array of 2 * (num_mem + 1) or 0, under `limit`
-# nanoseconds (0 for none); ONIG_MISMATCH for none, ONIGERR_TIMEOUT
-# when the limit passed.
+# onig_search: returns the match position of `prog` in str..text_end.
+# It searches from start toward range (forward when range > start, and
+# backward if not). `region` is a word array of 2 * (num_mem + 1), or 0.
+# `limit` is in nanoseconds (0 for no limit). Returns ONIG_MISMATCH for
+# no match, and ONIGERR_TIMEOUT when the time limit is exceeded.
 sig [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Word] => Word
 machine def zr_onig_search(prog, str, text_end, start, range, region, limit)
   m = Machine.slot(OnigMatch.size)
@@ -826,7 +829,8 @@ machine def zr_onig_search(prog, str, text_end, start, range, region, limit)
   r
 end
 
-# onig_match: the length matched at `at` exactly, ONIG_MISMATCH, or an error.
+# onig_match: returns the match length at exactly `at`, ONIG_MISMATCH,
+# or an error.
 sig [Ptr, Ptr, Ptr, Ptr, Ptr, Word] => Word
 machine def zr_onig_match(prog, str, text_end, at, region, limit)
   m = Machine.slot(OnigMatch.size)

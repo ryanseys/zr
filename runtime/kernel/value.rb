@@ -1,7 +1,7 @@
-# Values: CRuby's tagging. A fixnum is `n << 1 | 1`; false is 0, nil 8,
-# true 0x14, undef 0x34; a static symbol is `id << 8 | 0x0c`; everything
-# else is a pointer to a cell whose header is an RBasic. `undef` never
-# reaches Ruby: it means a signal is pending.
+# Values use CRuby's tagging. A fixnum is `n << 1 | 1`. false is 0, nil
+# is 8, true is 0x14 and undef is 0x34. A static symbol is
+# `id << 8 | 0x0c`. All other values are pointers to a cell whose header
+# is an RBasic. `undef` never gets to Ruby: it means a pending unwind.
 Machine.import "write", [I32, Ptr, Word] => Word
 Machine.import "exit", [I32] => Void
 Machine.import "abort", [] => Void
@@ -12,13 +12,13 @@ Machine.import "memmove", [Ptr, Ptr, Word] => Ptr
 Machine.import "memset", [Ptr, I32, Word] => Ptr
 Machine.import "getenv", [Ptr] => Ptr
 
-# malloc that answers a block, or ends the program as CRuby does when
-# memory runs out: the kernel cannot unwind from inside an allocation,
-# so no NoMemoryError can reach Ruby from here. The bytes asked for
-# count toward the payload the heap collects by (runtime/kernel/heap.rb),
-# and zr_xfree takes the block's own size off again: what a block
-# holds past the ask is not counted in, so the count runs under the
-# payload held, never over it, and stops at zero.
+# malloc that returns a block, or ends the program as CRuby does when no
+# memory is available. The kernel cannot unwind from inside an
+# allocation, so no NoMemoryError can get to Ruby from here. The
+# requested bytes count toward the malloc total that starts a collection
+# (runtime/kernel/heap.rb). zr_xfree subtracts the block's real size,
+# which can be larger than the request. Thus the total can be less than
+# the real total, but never more, and it stops at zero.
 sig [Word] => Ptr
 machine def zr_xmalloc(n)
   p = malloc(n)
@@ -40,23 +40,20 @@ machine def zr_xfree(p)
   end
 end
 
-# A free whose caller knows the block's size already.
+# A free for a caller that knows the block's size.
 #
-# `zr_xfree` asks the allocator for it (`zr_os_malloc_size`, which is
-# `malloc_size` on darwin and `malloc_usable_size` on linux), and a
-# sweep does that for every String, Array, ivar table and Hash it frees.
-# The buffers a cell owns all carry their own size -- a String's is its
-# capacity and a NUL, an Array's its capacity in words and the front gap
-# a shift left behind it, an ivar table's and a Hash's their row counts
-# -- so those frees ask nothing.
+# `zr_xfree` gets the size from the allocator (`zr_os_malloc_size`:
+# `malloc_size` on darwin, `malloc_usable_size` on linux). A sweep does
+# not need that call, because each buffer of a cell records its size: a
+# String's capacity plus a NUL, an Array's capacity in words plus the
+# front gap from a shift, the entry count of an ivar table or a Hash.
 #
-# The count it keeps is truer as well. `zr_xmalloc` adds the bytes
-# **asked for** and `zr_xfree` takes off the bytes the allocator
-# **gave**, which is at least as many, so `Heap.malloced` drifts down on
-# every round of the same buffer and the collector's malloc trigger
-# fires later than it should. The `size > malloced` clamp hides that by
-# stopping at zero. A caller that names the size it asked for takes off
-# exactly what was added.
+# The malloc total is also more accurate. `zr_xmalloc` adds the
+# requested bytes, but `zr_xfree` subtracts the allocated bytes, which
+# can be more. Thus `Heap.malloced` gets smaller each time a buffer is
+# used again, and the malloc trigger starts a collection too late. The
+# `size > malloced` clamp hides this at zero. A caller that gives the
+# requested size subtracts exactly what was added.
 sig [Ptr, Word] => Void
 machine def zr_sized_xfree(p, n)
   if p != 0
@@ -66,10 +63,10 @@ machine def zr_sized_xfree(p, n)
   end
 end
 
-# Whether the machine can give a buffer of `n` bytes, which CRuby finds
-# out by allocating the buffer a read asks for. A read asks here first,
-# so a length no allocator can serve raises NoMemoryError in the program
-# rather than ending the process.
+# Whether the machine can allocate a buffer of `n` bytes. CRuby finds
+# this out when it allocates the buffer for a read. A read calls this
+# first, so that a length too large for the allocator raises
+# NoMemoryError in the program and does not end the process.
 sig [Value] => Value
 machine def zr_memory_for_p(n)
   size = zr_fix2long(n)
@@ -84,7 +81,8 @@ machine def zr_memory_for_p(n)
   Machine.value(QTRUE)
 end
 
-# CRuby's words, and its status, when it cannot get memory.
+# Writes CRuby's message and exits with CRuby's status when no memory is
+# available.
 sig [] => Void
 machine def zr_memory_exhausted
   write(Machine.i32(2), Machine.bytes("[FATAL] failed to allocate memory\n"), 34)
@@ -97,7 +95,7 @@ QTRUE = 20
 QUNDEF = 52
 SYMBOL_TAG = 12
 
-# Type tags, CRuby's numbering, in the low five bits of the flags.
+# Type tags, with CRuby's numbers, in the low five bits of the flags.
 T_NONE = 0
 T_OBJECT = 1
 T_CLASS = 2
@@ -113,43 +111,45 @@ T_MASK = 31
 # Flag bits above the type.
 FL_ALLOCATED = 1 << 5
 FL_FREEZE = 1 << 11
-# An object whose kind has no ivar table of its own keeps one beside
-# the arena, indexed by its cell.
+# An object of a kind with no ivar table field keeps its ivar table in a
+# side table next to the arena, indexed by its cell.
 FL_EXIVAR = 1 << 10
-# A singleton class: one object's own, `attached`, ahead of its class.
+# A singleton class: it belongs to one object (`attached`), and it is
+# before that object's class in the ancestor list.
 FL_SINGLETON = 1 << 12
-# A module whose name is temporary (`set_temporary_name`): a constant
-# assignment still names it.
+# A module with a temporary name (`set_temporary_name`). A constant
+# assignment can still give it a permanent name.
 FL_TEMP_NAME = 1 << 14
-# A String's encoding, as ruby's own index into `Encoding.list`: 0
-# ASCII-8BIT, 1 UTF-8, 2 US-ASCII, then one number for each of the
-# other hundred. Eight bits over the flags hold it, with 0 and 1
-# swapped, so a String that never named an encoding reads as UTF-8.
+# A String's encoding, as ruby's index into `Encoding.list`: 0 is
+# ASCII-8BIT, 1 is UTF-8, 2 is US-ASCII, then one number for each of the
+# other hundred. It is in eight bits of the flags, with 0 and 1 swapped,
+# so a String with no encoding set reads as UTF-8.
 FL_ENC_SHIFT = 24
 FL_ENC_KEEP = 0 - ((255 << 24) + 1)
 ENC_BINARY = 0
 ENC_UTF8 = 1
 ENC_USASCII = 2
 ENC_CESU8 = 15
-# No encoding: what two Strings that cannot join would take.
+# No encoding: the result for two Strings that are not compatible.
 ENC_NONE = 255
-# UTF-16 and UTF-32 in each byte order, then their two dummy names:
-# the encodings whose ASCII bytes are not ASCII characters.
+# UTF-16 and UTF-32 in each byte order, then their two dummy names.
+# These are the encodings in which ASCII bytes are not ASCII characters.
 ENC_UTF16BE = 3
 ENC_UTF16LE = 4
 ENC_UTF32BE = 5
 ENC_UTF32LE = 6
 ENC_UTF32 = 8
-# A symbol row keeps the same tag in its length word, this far up.
+# A symbol entry keeps the same tag in its length word, at this shift.
 SYM_TAG_SHIFT = 56
 # A Hash that compares keys by identity (`compare_by_identity`).
 FL_IDENTITY = 1 << 17
-# A Hash a `ruby2_keywords` method took from keywords into its rest.
+# A Hash that a `ruby2_keywords` method made from keywords for its rest
+# parameter.
 FL_RUBY2 = 1 << 18
-# A class in Object's family with its rank table built
-# (zr_class_rank), neither boxed nor a box's shadow: the type
-# questions -- `is_a?`, `===`, `nil?` -- answer from its table and
-# its flags alone, with no walk, at the site.
+# A class under Object with a rank table (zr_class_rank), which is not
+# boxed and is not a box's shadow. At the site, the type checks
+# (`is_a?`, `===`, `nil?`) use only its table and its flags, and do not
+# walk the ancestor list.
 FL_RANKED = 1 << 34
 FL_RANKED_CLEAR = 0 - FL_RANKED - 1
 
@@ -160,7 +160,7 @@ machine def zr_fixnum_p(v)
   (Machine.word(v) & 1) == 1
 end
 
-# Not a pointer to a cell.
+# Whether `v` is not a pointer to a cell.
 sig [Value] => Bool
 machine def zr_special_p(v)
   w = Machine.word(v)
@@ -204,7 +204,8 @@ end
 
 sig [Value] => Word
 machine def zr_type(v)
-  # A heap object first, its type in its header (zr_class_of).
+  # Check for a heap object first. Its type is in its header
+  # (zr_class_of).
   if (Machine.word(v) & 7) == 0 && Machine.word(v) > QUNDEF
     return RBasic.flags(v) & T_MASK
   end
@@ -235,31 +236,33 @@ machine def zr_write_err(bytes, len)
   write(2, bytes, len)
 end
 
-# A message on stderr, then abort: a bug in the runtime, never a Ruby error.
+# Writes a message to stderr, then aborts. It is for a bug in the
+# runtime, never for a Ruby error.
 sig [Ptr, Word] => Void
 machine def zr_bug(bytes, len)
   write(2, bytes, len)
   abort()
 end
 
-# libc's memmove, which is safe for the ranges that overlap: a caller
-# that shifts within one buffer needs no second routine.
+# libc's memmove, which is safe for ranges that overlap. Thus a caller
+# that shifts bytes within one buffer needs no other routine.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_memcpy(to, from, n)
   memmove(to, from, n)
 end
 
-# A stop for a core method that reaches a case it does not answer
-# yet: a NotImplementedError naming it, never a wrong answer. A program
-# may rescue it, as it may rescue ruby's own on a platform that lacks
-# the feature.
+# Stops a core method that gets a case it does not support. It raises a
+# NotImplementedError that gives the case, and never returns a wrong
+# result. A program can rescue it, as it can rescue ruby's error on a
+# platform that does not have the feature.
 sig [Value] => Value
 machine def zr_unimplemented(what)
   zr_raise_stop(zr_core_class(Machine.id(:NotImplementedError)), what)
 end
 
-# A call this OS does not have: the NotImplementedError rb_notimplement
-# raises, `<name>() function is unimplemented on this machine`.
+# For a call that this OS does not have. Raises the NotImplementedError
+# that rb_notimplement raises: `<name>() function is unimplemented on
+# this machine`.
 sig [Ptr, Word] => Value
 machine def zr_notimplement(name, len)
   b = Machine.slot(Buf.size)
@@ -269,9 +272,9 @@ machine def zr_notimplement(name, len)
   zr_raise_buf(zr_core_class(Machine.id(:NotImplementedError)), b)
 end
 
-# A feature ruby carries that this runtime has no file for: a LoadError
-# naming it, so the `rescue LoadError` a library guards an optional
-# require with still runs.
+# For a ruby feature that this runtime has no file for. Raises a
+# LoadError that gives the feature, so that a library's
+# `rescue LoadError` around an optional require still runs.
 sig [Value] => Value
 machine def zr_unloadable(what)
   zr_raise_stop(zr_core_class(Machine.id(:LoadError)), what)

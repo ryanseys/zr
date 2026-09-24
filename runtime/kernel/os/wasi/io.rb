@@ -1,7 +1,7 @@
-# WASI's half of the descriptor calls: errno in a word of the module's
-# own, open(2) over path_open, WASI's filestat as the stat buffer, and
-# the libc descriptor and path calls the portable kernel imports, each
-# answered as wasi-libc answers it.
+# The WASI part of the descriptor calls: errno in a word of the module,
+# open(2) on top of path_open, WASI's filestat as the stat buffer, and
+# the libc descriptor and path calls that the portable kernel imports.
+# Each call returns what wasi-libc returns.
 
 sig [] => Word
 machine def zr_os_errno
@@ -16,9 +16,9 @@ end
 EINTR = 27
 EBADF = 8
 
-# wasi-libc's open flags: the file status flags are WASI's fdflags, the
-# creation flags WASI's oflags shifted up 12 bits, and the access modes
-# bits of their own high up.
+# wasi-libc's open flags. The file status flags are WASI's fdflags. The
+# creation flags are WASI's oflags, shifted up 12 bits. The access modes
+# have their own high bits.
 O_APPEND = 1
 O_NONBLOCK = 4
 O_NONBLOCK_OFF = 4294967291
@@ -26,36 +26,36 @@ O_FDFLAGS = 31
 O_NOFOLLOW = 16777216
 O_RDONLY = 67108864
 O_WRONLY = 268435456
-# wasi-libc has no exec, so nothing closes itself across one.
+# wasi-libc has no exec, so close-on-exec does nothing.
 O_CLOEXEC = 0
 PTY_OPEN_FLAGS = 335544320
 
-# musl's ioctl numbers, which wasi-libc keeps though nothing answers them.
+# musl's ioctl numbers. wasi-libc keeps them, but no call supports them.
 TIOCGWINSZ = 21523
-# TIOCSCTTY: the descriptor becomes the session's controlling terminal.
+# TIOCSCTTY: makes the descriptor the session's controlling terminal.
 TIOCSCTTY = 21518
 TIOCSWINSZ = 21524
 TERMIOS_LEN = 60
 
 F_GETFD = 1
 
-# The rights path_open grants by access mode, as wasi-libc asks for
-# them: every right but reading and writing, then the reads for
-# O_RDONLY and the writes for O_WRONLY.
+# The rights that path_open grants for each access mode, as wasi-libc
+# requests them: all rights except read and write, plus the read rights
+# for O_RDONLY and the write rights for O_WRONLY.
 RIGHTS_READ = 16386
 RIGHTS_WRITE = 4194625
 RIGHTS_OTHER = 1073741823 - RIGHTS_READ - RIGHTS_WRITE
 FDSTAT_LEN = 24
 
-# WASI names no link a path takes, so no path resolves further than
-# it is written: 0 for every one.
+# WASI cannot resolve the links in a path, so this returns 0 for every
+# path, and the caller uses the path as written.
 sig [Ptr] => Ptr
 machine def zr_os_realpath(path)
   Machine.ptr(0)
 end
 
-# open(2) over path_open, under the preopened directory the path is in.
-# A WASI file has no permission bits, so the mode goes unread.
+# open(2) on top of path_open, in the preopened directory that contains
+# the path. A WASI file has no permission bits, so the mode is ignored.
 sig [Ptr, I32, I32] => I32
 machine def zr_os_open(path, flags, _mode)
   where = Machine.slot(16)
@@ -83,9 +83,9 @@ machine def zr_os_open(path, flags, _mode)
   Machine.load32(out, 0)
 end
 
-# F_SETFL sets the fdflags; F_GETFL reads them back with the access
-# mode the rights say; F_SETFD and F_GETFD have no close-on-exec to set
-# or read; anything else is not a command WASI has.
+# F_SETFL sets the fdflags. F_GETFL reads them, with the access mode
+# from the rights. F_SETFD and F_GETFD do nothing, because there is no
+# close-on-exec. WASI has no other commands.
 sig [I32, I32, Word] => I32
 machine def zr_os_fcntl(fd, command, argument)
   if command == Machine.i32(F_SETFL)
@@ -112,7 +112,8 @@ machine def zr_os_fcntl(fd, command, argument)
   Machine.i32(flags)
 end
 
-# No descriptor here is a terminal or a device a request could reach.
+# No descriptor here is a terminal or a device that an ioctl request
+# can reach.
 sig [I32, Word, Ptr] => I32
 machine def zr_os_ioctl(fd, request, argument)
   zr_wasi_fail(WASI_ENOTTY)
@@ -178,7 +179,7 @@ machine def fsync(fd)
   zr_wasi_status(fd_sync(fd))
 end
 
-# SEEK_SET, SEEK_CUR and SEEK_END are WASI's whence numbers as well.
+# SEEK_SET, SEEK_CUR and SEEK_END are also WASI's whence numbers.
 sig [I32, Word, I32] => Word
 machine def lseek(fd, offset, whence)
   out = Machine.slot(8)
@@ -193,25 +194,27 @@ machine def ftruncate(fd, size)
   zr_wasi_status(fd_filestat_set_size(fd, size))
 end
 
-# WASI keeps no permission bits, so there are none to change.
+# WASI has no permission bits, so there is nothing to change.
 sig [I32, I32] => I32
 machine def fchmod(fd, mode)
   Machine.i32(0)
 end
 
-# The mask a module has no use for, as a fresh shell would set it.
+# A module does not use the umask. Returns 022, the usual value in a
+# new shell.
 sig [I32] => I32
 machine def umask(mask)
   Machine.i32(18)
 end
 
-# A stat buffer is WASI's own filestat: the device at 0, the inode at 8,
-# the file type byte at 16, the link count at 24, the size at 32, and
-# the access, modification and change times at 40, 48 and 56 in
+# A stat buffer is WASI's filestat: the device at 0, the inode at 8, the
+# file type byte at 16, the link count at 24, the size at 32, and the
+# access, modification and change times at 40, 48 and 56, in
 # nanoseconds.
 STAT_LEN = 64
 
-# One call on a path's filestat, following a last symlink or not.
+# Gets a path's filestat. It follows a symlink at the end of the path,
+# or not.
 sig [Ptr, Ptr, I32] => I32
 machine def zr_wasi_path_stat(path, buf, follow)
   where = Machine.slot(16)
@@ -237,15 +240,15 @@ machine def fstat(fd, buf)
   zr_wasi_status(fd_filestat_get(fd, zr_wasi_addr(buf)))
 end
 
-# Whether the path is there: WASI answers no question of permission.
+# Whether the path exists. WASI has no permission checks.
 sig [Ptr, I32] => I32
 machine def access(path, mode)
   buf = Machine.slot(STAT_LEN)
   stat(path, buf)
 end
 
-# st_mode's type bits for WASI's file type, with the permission bits a
-# fresh file of that type usually carries, since WASI keeps none.
+# The st_mode type bits for WASI's file type, with the usual permission
+# bits of a new file of that type, because WASI has none.
 sig [Ptr] => Word
 machine def zr_os_stat_mode(buf)
   type = Machine.word(Machine.load8(buf, 16))
@@ -272,8 +275,8 @@ machine def zr_os_stat_size(buf)
   Machine.load64(buf, 32)
 end
 
-# The rows zr_stat_m answers: an owner is root and a device number is
-# zero, since a module is told neither, and a block is 512 bytes.
+# The fields that zr_stat_m returns. The owner is root and the device
+# number is zero, because a module gets neither. A block is 512 bytes.
 sig [Ptr] => Value
 machine def zr_os_stat_rows(buf)
   size = Machine.load64(buf, 32)
@@ -297,8 +300,8 @@ machine def zr_os_stat_rows(buf)
   out
 end
 
-# The calls that name one path: its directory's descriptor and the
-# rest go to the host.
+# The calls with one path. The call gives the host the descriptor of the
+# path's directory and the remaining part of the path.
 sig [Ptr] => I32
 machine def unlink(path)
   where = Machine.slot(16)
@@ -344,7 +347,7 @@ machine def readlink(path, buf, len)
   Machine.word(Machine.load32(used, 0))
 end
 
-# The calls that name two paths.
+# The calls with two paths.
 sig [Ptr, Ptr] => I32
 machine def rename(from, to)
   a = Machine.slot(16)
@@ -369,7 +372,7 @@ machine def link(from, to)
   zr_wasi_status(path_link(da, Machine.i32(0), zr_wasi_rest(a), zr_wasi_rest_len(a), db, zr_wasi_rest(b), zr_wasi_rest_len(b)))
 end
 
-# A symlink's target is text the host stores as given.
+# The host stores a symlink's target text as it is given.
 sig [Ptr, Ptr] => I32
 machine def symlink(target, path)
   where = Machine.slot(16)
@@ -381,7 +384,7 @@ machine def symlink(target, path)
 end
 
 # A directory stream: its descriptor, the cookie of the next entry, and
-# the one entry fd_readdir last answered, its name ended with a NUL.
+# the last entry that fd_readdir returned, with a NUL after its name.
 DIR_BUFFER = 4096
 
 sig [I32] => Ptr
@@ -401,8 +404,8 @@ machine def opendir(path)
   fdopendir(fd)
 end
 
-# The next entry, read one at a time from the cookie on, or 0 at the
-# end. A dirent is 24 bytes and then the name.
+# Returns the next entry, which it reads one at a time from the cookie,
+# or 0 at the end. A dirent is 24 bytes, followed by the name.
 sig [Ptr] => Ptr
 machine def readdir(d)
   buf = d + 16
@@ -429,10 +432,11 @@ machine def closedir(d)
   r
 end
 
-# poll_oneoff on every descriptor of `fds` at once, each for the events
-# its row of `events` names, and on the clock when the wait has an end:
-# an Array of the events that came ready for each row, or the negated
-# errno. Each subscription's userdata is its row.
+# Calls poll_oneoff on all descriptors of `fds` at the same time. Each
+# waits for the events in its element of `events`. It also waits on the
+# clock when the wait has a timeout. Returns an Array of the ready events
+# for each element, or the negated errno. The userdata of each
+# subscription is its element index.
 sig [Value, Value, Value] => Value
 machine def zr_os_wait_fds(fds, events, milliseconds)
   count = RArray.len(fds)
@@ -500,9 +504,9 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
   out
 end
 
-# poll_oneoff on one descriptor, and on the clock when the wait has an
-# end: the events that came ready, 0 when the time ran out, or the
-# negated errno. A subscription is 48 bytes and an event 32.
+# Calls poll_oneoff on one descriptor, and on the clock when the wait
+# has a timeout. Returns the ready events, 0 on a timeout, or the negated
+# errno. A subscription is 48 bytes and an event is 32 bytes.
 sig [Value, Value, Value] => Value
 machine def zr_os_wait_fd(fd, events, milliseconds)
   n = zr_fix2long(fd)
@@ -552,8 +556,8 @@ machine def zr_os_wait_fd(fd, events, milliseconds)
   zr_fix(ready)
 end
 
-# The messages wasi-libc's strerror gives, one a line in WASI's errno
-# order.
+# The messages of wasi-libc's strerror, one on each line, in WASI's
+# errno order.
 sig [I32] => Ptr
 machine def strerror(n)
   text = Machine.bytes(<<-MESSAGES)
@@ -646,7 +650,7 @@ Capabilities insufficient
     end
     at += 1
   end
-  # The line becomes the C string: a copy, ended where its line ends.
+  # Copy the line into the C string, with a NUL at the end of the line.
   len = 0
   while Machine.load8(at + len, 0) != Machine.i8(10)
     len += 1
@@ -657,8 +661,8 @@ Capabilities insufficient
   out
 end
 
-# A module is given no working directory: the root is the one every
-# preopened directory stands under.
+# A module gets no working directory. It returns the root, which
+# contains every preopened directory.
 sig [Ptr, Word] => Ptr
 machine def getcwd(buf, size)
   if size < 2

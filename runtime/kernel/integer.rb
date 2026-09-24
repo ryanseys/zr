@@ -1,9 +1,10 @@
-# Integer: fixnums only, for now. Compiled code inlines the fixnum fast
-# path of each operator below while its gate bit is clear; a redefinition
-# sets the bit (see zr_define_method) and every site takes the call. The
-# gate word lives in a register of its own, read by `Machine.gates`,
-# written with its static by `Machine.gates_set`, and loaded from the
-# static where foreign code enters (`Machine.gates_enter`).
+# Integer builtins for fixnums. A bignum goes to the core library.
+# Compiled code inlines the fixnum fast path of each operator below while
+# its gate bit is clear. A redefinition sets the bit (see
+# zr_define_method), and then every site makes the call. The gate word is
+# in its own register. `Machine.gates` reads it, `Machine.gates_set`
+# writes it and its static, and `Machine.gates_enter` loads it from the
+# static where foreign code enters.
 GATE_PLUS = 1
 GATE_MINUS = 2
 GATE_MUL = 4
@@ -24,8 +25,8 @@ GATE_XOR = 262144
 GATE_SHR = 524288
 GATE_HASH_AREF = 1048576
 GATE_HASH_ASET = 2097152
-# The named calls with a fast path of their own (zr_opt_getbyte and
-# the rest): bits above the operators', in the same word.
+# The named calls that have their own fast path (zr_opt_getbyte and the
+# others). Their bits are above the operator bits, in the same word.
 GATE_GETBYTE = 1 << 31
 GATE_SETBYTE = 1 << 32
 GATE_SUCC = 1 << 33
@@ -33,33 +34,34 @@ GATE_PUSH = 1 << 34
 GATE_POP = 1 << 35
 GATE_SHIFT = 1 << 36
 GATE_EMPTY_P = 1 << 37
-# Proc#call, for a `&b` parameter bound as the block it was given
-# (zr_opt_block_call).
+# Proc#call on a `&b` parameter that is bound to the block that the
+# caller gave (zr_opt_block_call).
 GATE_PROC_CALL = 1 << 38
-# `is_a?`, `kind_of?` and `instance_of?`, Kernel's for every object:
-# these two close when a method of the name is defined anywhere,
-# since a site answers them by the receiver's class alone.
+# `is_a?`, `kind_of?` and `instance_of?` from Kernel, for every object.
+# These two gates close when any class defines a method of that name,
+# because a site gets the result from the receiver's class only.
 GATE_IS_A = 1 << 39
 GATE_INSTANCE_OF = 1 << 40
-# Bit 41 was Module#==='s gate: a `case` arm over a class answers
-# from its cell instead, whose entry says whether `===` is Module's
-# (SystemCallError's own is the core's, defined before any program
-# started, which a gate closed by definitions never saw).
-# `nil?`, Kernel's and NilClass's: closes when a method of the name
-# is defined anywhere, since a site answers it by the receiver alone.
+# Bit 41 is not used. A `case` arm on a class does not use a gate for
+# Module#===. Its cache entry records whether `===` is Module's. A gate
+# cannot see SystemCallError's own `===`, because the core defines it
+# before the program starts.
+# `nil?` from Kernel and NilClass. The gate closes when any class
+# defines a method of that name, because a site gets the result from
+# the receiver only.
 GATE_NIL_P = 1 << 42
-# Array#each, Integer#times and Range#each: a site with a block
-# literal runs the loop in place while each is its class's own
+# Array#each, Integer#times and Range#each. A site with a block literal
+# runs the loop inline while each method is the original of its class
 # (Function::Iterators).
 GATE_EACH = 1 << 43
 GATE_TIMES = 1 << 44
 GATE_RANGE_EACH = 1 << 45
-# Integer#-@ and Float#-@: a site negates a fixnum or a flonum in place.
+# Integer#-@ and Float#-@: a site negates a fixnum or a flonum inline.
 GATE_UMINUS = 1 << 46
 GATE_FLO_UMINUS = 1 << 47
 
-# The decimal digits of `n` into `buf`, answering how many bytes they
-# take, ahead of a buffer of 24.
+# Writes the decimal digits of `n` into `buf` and returns the number of
+# bytes. `buf` must have 24 bytes.
 sig [Word, Ptr] => Word
 machine def zr_long_digits(n, buf)
   neg = n < 0
@@ -96,7 +98,7 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   end
   base = 10
   if argc == 1
-    # NUM2INT: nil is no radix, and a Float truncates to one.
+    # As NUM2INT: nil is not a radix, and a Float truncates to an Integer.
     out = Machine.slot(8)
     r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
     return r if r == QUNDEF
@@ -138,16 +140,16 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   zr_usascii_str_new(buf + at, 72 - at)
 end
 
-# A bignum is a plain object of class Integer: its limbs live in
-# hidden instance variables and its arithmetic in the core library
-# (`Integer#big_op`). Every fixnum builtin routes there when either
-# side is one.
+# A bignum is a plain object of class Integer. Its limbs are in hidden
+# instance variables, and its arithmetic is in the core library
+# (`Integer#big_op`). Every fixnum builtin sends the operation there when
+# one operand is a bignum.
 sig [Value] => Bool
 machine def zr_big_p(v)
   !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic.klass(v) == zr_global(G_INTEGER)
 end
 
-# A fresh bignum shell for the core to fill.
+# Makes an empty bignum object for the core to fill.
 sig [] => Value
 machine def zr_big_alloc
   zr_obj_alloc(zr_global(G_INTEGER))
@@ -158,9 +160,9 @@ machine def zr_fixnum_p_m(v)
   zr_bool(zr_fixnum_p(v))
 end
 
-# A literal past the fixnum range: its decimal digits, parsed by the
-# core the first time its site runs, then the same Integer, held in a
-# table by the site's index.
+# An integer literal outside the fixnum range. The first time its site
+# runs, the core parses its decimal digits. A table keeps the Integer at
+# the site's index, and later runs return the same Integer.
 G_BIG_LITERALS = 54
 
 sig [Word, Ptr, Word] => Value
@@ -177,7 +179,7 @@ machine def zr_big_literal(index, bytes, n)
   big
 end
 
-# `recv.big_op(:mid, *argv)`, with the builtin's block.
+# Calls `recv.big_op(:mid, *argv)` with the builtin's block.
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_big_route_blk(recv, mid, argc, argv, blk)
   args = zr_xmalloc((argc + 1) * 8)
@@ -193,9 +195,9 @@ machine def zr_big_route(recv, mid, argc, argv)
   zr_big_route_blk(recv, mid, argc, argv, Machine.value(QNIL))
 end
 
-# A machine word that may lie past the fixnum range: a fixnum when it
-# fits, else the bignum `Integer.big_from_word(high, low)` builds from
-# its two halves.
+# Converts a machine word that can be outside the fixnum range. Returns
+# a fixnum when it fits. If not, `Integer.big_from_word(high, low)` makes
+# a bignum from its two halves.
 sig [Word] => Value
 machine def zr_int_from_word(n)
   if n <= 4611686018427387903 && n >= 0 - 4611686018427387904
@@ -207,8 +209,8 @@ machine def zr_int_from_word(n)
   zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair)
 end
 
-# A shift count into `out`: a bignum routes, anything else converts
-# through to_int (a Float truncates), as rb_to_int does.
+# Writes a shift count into `out`. A bignum goes to the core. Any other
+# value converts through to_int (a Float truncates), as rb_to_int does.
 sig [Value, Ptr, Ptr, Word] => Value
 machine def zr_shift_operand(recv, argv, out, mid)
   other = Machine.value(Machine.load64(argv, 0))
@@ -227,10 +229,10 @@ machine def zr_shift_operand(recv, argv, out, mid)
   zr_index_operand(other, out)
 end
 
-# The operand of an Integer operator into `out` when it is an Integer;
-# else the answer of `other.coerce(recv)` sent `mid` (`kind` 0), or the
-# comparison failure (`kind` 1), or nil (`kind` 2), or the TypeError
-# alone (`kind` 3). QNIL means the operand is in `out`.
+# Writes the operand of an Integer operator into `out` when it is an
+# Integer, and returns QNIL. If not, `kind` gives the result: 0 sends
+# `mid` through `other.coerce(recv)`, 1 raises the comparison failure,
+# 2 returns nil, and 3 raises only the TypeError.
 sig [Value, Ptr, Ptr, Word, Word] => Value
 machine def zr_int_operand(recv, argv, out, mid, kind)
   other = Machine.value(Machine.load64(argv, 0))
@@ -244,10 +246,10 @@ machine def zr_int_operand(recv, argv, out, mid, kind)
   Machine.value(QNIL)
 end
 
-# CRuby's rb_num_coerce_bin / relop / cmp: `other.coerce(recv)` answers
-# [a, b], and the operator runs as `a mid b`. Without a coerce, `kind`
-# decides: 0 and 3 raise the TypeError, 1 the comparison failure, 2
-# answers nil.
+# CRuby's rb_num_coerce_bin / relop / cmp. `other.coerce(recv)` returns
+# [a, b], and the operator runs as `a mid b`. If `other` has no coerce,
+# `kind` decides: 0 and 3 raise the TypeError, 1 raises the comparison
+# failure, and 2 returns nil.
 sig [Value, Value, Word, Word] => Value
 machine def zr_num_coerce(recv, other, mid, kind)
   if kind != 3 && !zr_special_p(other)
@@ -264,8 +266,8 @@ machine def zr_num_coerce(recv, other, mid, kind)
       end
       first = zr_ary_at(pair, 0)
       second = zr_ary_at(pair, 1)
-      # A bit operator (`kind` 4) takes Integers alone, as CRuby's
-      # bit_coerce checks: anything else fails as the operand does.
+      # A bit operator (`kind` 4) accepts only Integers, as CRuby's
+      # bit_coerce checks. Any other result fails as the operand fails.
       if kind != 4 || ((zr_fixnum_p(first) || zr_big_p(first)) && (zr_fixnum_p(second) || zr_big_p(second)))
         Machine.store64(slot, 0, Machine.word(second))
         return zr_send(first, mid, 1, slot)
@@ -282,8 +284,8 @@ machine def zr_num_coerce(recv, other, mid, kind)
     zr_buf_class_of(b, recv)
     zr_buf_push(b, Machine.bytes(" with "), 6)
   end
-  # A Float shows by inspect, heap or not, as CRuby's coerce_failed
-  # and rb_cmperr name it; anything else by its class.
+  # The message shows a Float (heap or not) with inspect, as CRuby's
+  # coerce_failed and rb_cmperr do. It shows any other value by its class.
   if zr_special_p(other) || zr_float_p(other)
     s = zr_inspect(other)
     return s if s == QUNDEF
@@ -300,15 +302,15 @@ machine def zr_num_coerce(recv, other, mid, kind)
   zr_raise_buf(zr_global(G_TYPE_ERROR), b)
 end
 
-# `zr_num_coerce` for the core: the operator as a Symbol, the kind as
+# `zr_num_coerce` for the core. The operator is a Symbol and the kind is
 # an Integer.
 sig [Value, Value, Value, Value] => Value
 machine def zr_num_coerce_m(recv, other, mid, kind)
   zr_num_coerce(recv, other, zr_sym2id(mid), zr_fix2long(kind))
 end
 
-# A result outside the fixnum range: bignums are not implemented yet,
-# and a wrong answer must not slip out.
+# Returns an arithmetic result. A result outside the fixnum range
+# becomes a bignum (zr_int_from_word).
 sig [Word] => Value
 machine def zr_int_result(n)
   zr_int_from_word(n)
@@ -364,8 +366,8 @@ machine def zr_int_mul(recv, argc, argv, cref, blk)
   zr_int_result(p)
 end
 
-# Floored division and modulo, as Ruby defines them; the caller has
-# ruled out a zero divisor.
+# Floored division and modulo, as Ruby defines them. The caller must
+# make sure that the divisor is not zero.
 sig [Word, Word] => Word
 machine def zr_floor_div(a, b)
   q = a / b
@@ -416,8 +418,8 @@ machine def zr_int_mod(recv, argc, argv, cref, blk)
   zr_fix(zr_floor_mod(zr_fix2long(recv), b))
 end
 
-# The bit operators; a shift past 62 bits leaves the fixnum range and
-# stops loudly until bignums arrive.
+# The bit operators. A left shift that leaves the fixnum range goes to
+# the core's bignum code.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_and(recv, argc, argv, cref, blk)
   if !zr_fixnum_p(recv)
@@ -470,7 +472,8 @@ machine def zr_int_lshift(recv, argc, argv, cref, blk)
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)
   if n < 0
-    # The hardware takes a shift count mod 64; ruby shifts every bit out.
+    # The hardware uses the shift count mod 64, but ruby shifts all bits
+    # out.
     if (0 - n) >= 63
       return zr_fix(a < 0 ? 0 - 1 : 0)
     end
@@ -482,8 +485,9 @@ machine def zr_int_lshift(recv, argc, argv, cref, blk)
   zr_int_result(a << n)
 end
 
-# `Integer#bit_length` of a fixnum: the bits past the sign, which is
-# the place of the highest bit of `n` (of `-n - 1` below zero).
+# `Integer#bit_length` of a fixnum: the number of bits after the sign.
+# This is the position of the highest set bit of `n` (of `-n - 1` when
+# `n` is negative).
 sig [Value] => Value
 machine def zr_fix_bit_length(v)
   n = zr_fix2long(v)
@@ -587,8 +591,8 @@ machine def zr_int_ge(recv, argc, argv, cref, blk)
   zr_bool(zr_fix2long(recv) >= b)
 end
 
-# Equality takes any operand: a Float compares exactly, and a
-# non-Integer is simply not equal.
+# Equality accepts any operand. A Float compares exactly, and any other
+# non-Integer is not equal.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_eq(recv, argc, argv, cref, blk)
   if !zr_fixnum_p(recv)
@@ -627,8 +631,9 @@ machine def zr_int_ne(recv, argc, argv, cref, blk)
   zr_bool(r == QNIL || r == QFALSE)
 end
 
-# An Integer against a double, exactly: -1, 0, 1, or 2 for NaN. The
-# double's integer part fits a fixnum, or its sign alone decides.
+# Compares an Integer with a double exactly. Returns -1, 0, 1, or 2 for
+# NaN. If the integer part of the double does not fit a fixnum, its sign
+# gives the result.
 sig [Word, F64] => Word
 machine def zr_int_float_cmp(n, d)
   if zr_nan_p(d)
@@ -675,7 +680,7 @@ machine def zr_int_float_relate(n, d, want)
   zr_bool(c >= 0)
 end
 
-# `Integer#<=>` with a Float: nil for NaN.
+# `Integer#<=>` with a Float. Returns nil for NaN.
 sig [Value, Value] => Value
 machine def zr_int_float_spaceship(recv, other)
   c = zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other))

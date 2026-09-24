@@ -1,8 +1,8 @@
-# match_at (regexec.c:2311-4234): Onigmo's byte-code interpreter over a
-# program the core compiled (runtime/core/regexp/onig/program.rb). The opcode
-# families are defs over the OnigMatch state; each answers 0 to go on,
-# 1 to fail (backtrack), 2 to finish, or an error code. Derived from
-# Onigmo; the license is in runtime/kernel/regexp.rb.
+# match_at (regexec.c:2311-4234): Onigmo's byte-code interpreter for a
+# program that the core compiled (runtime/core/regexp/onig/program.rb).
+# Each opcode family is a def on the OnigMatch state. Each def returns
+# 0 to continue, 1 to fail (backtrack), 2 to finish, or an error code.
+# Derived from Onigmo; the license is in runtime/kernel/regexp.rb.
 Machine.import "clock_gettime", [I32, Ptr] => I32
 
 # The program header, in runtime/core/regexp/onig/program.rb's field order.
@@ -123,12 +123,13 @@ OP_CALL = 88
 OP_RETURN = 89
 OP_CONDITION = 90
 
-# The answers of an opcode def.
+# The return values of an opcode def.
 ONIG_OP_NEXT = 0
 ONIG_OP_FAIL = 1
 ONIG_OP_FINISH = 2
 
-# A RelAddr, AbsAddr or Length operand: a signed 32-bit little-endian int.
+# Reads a RelAddr, AbsAddr or Length operand: a signed 32-bit
+# little-endian int.
 sig [Ptr] => Word
 machine def zr_onig_get_i32(p)
   Machine.sword(Machine.load32(p, 0))
@@ -140,7 +141,8 @@ machine def zr_onig_bitset_at(p, c)
   (Machine.word(Machine.load8(p + (c >> 3), 0)) & (1 << (c & 7))) != 0
 end
 
-# The repeat range of repeat `id`: lower, or upper with `which` 1.
+# Returns the range of repeat `id`: the lower limit, or the upper limit
+# when `which` is 1.
 sig [Ptr, Word, Word] => Word
 machine def zr_onig_repeat_range(m, id, which)
   Machine.load64(OnigMatch.prog(m) + OnigProg.repeat_off(OnigMatch.prog(m)) + (id * 16) + (which * 8), 0)
@@ -154,9 +156,9 @@ machine def zr_onig_now
   Machine.load64(ts, 0) * 1000000000 + Machine.load64(ts, 8)
 end
 
-# CHECK_INTERRUPT_IN_MATCH_AT with rb_reg_timeout_p (re.c): every 128th
-# check reads the clock; the first fixes the deadline from the limit,
-# the later ones answer whether it passed.
+# CHECK_INTERRUPT_IN_MATCH_AT with rb_reg_timeout_p (re.c). Every 128th
+# check reads the clock. The first read sets the deadline from the
+# limit. Each later read checks whether the deadline passed.
 sig [Ptr] => Bool
 machine def zr_onig_check_interrupt(m)
   counter = OnigMatch.counter(m) + 1
@@ -173,7 +175,7 @@ machine def zr_onig_check_interrupt(m)
   OnigMatch.end_time(m) < zr_onig_now()
 end
 
-# OP_END: the match found; the region filled from the memory stacks.
+# OP_END: the match is found. Fills the region from the memory stacks.
 sig [Ptr] => Word
 machine def zr_onig_op_end(m)
   s = OnigMatch.s(m)
@@ -372,8 +374,8 @@ machine def zr_onig_op_exact_mb(m, op)
   ONIGERR_UNDEFINED_BYTECODE
 end
 
-# The cclass_mb tail: a multibyte character against the code ranges
-# whose Length operand is at p.
+# The cclass_mb tail: checks a multibyte character against the code
+# ranges whose Length operand is at p.
 sig [Ptr, Ptr, Ptr, Ptr] => Word
 machine def zr_onig_cclass_mb(m, p, s, sbegin)
   e = OnigMatch.aend(m)
@@ -655,8 +657,9 @@ machine def zr_onig_op_anchor(m, op)
   ONIGERR_UNDEFINED_BYTECODE
 end
 
-# The capture of group `mem` matched at s, bytewise or folded: the
-# position after it, or 0. sprev is left on the last character matched.
+# Matches the capture of group `mem` at s, bytewise or case-folded.
+# Returns the position after it, or 0. It sets sprev to the last matched
+# character.
 sig [Ptr, Word, Word] => Ptr
 machine def zr_onig_backref_one(m, mem, ic)
   s = OnigMatch.s(m)
@@ -832,20 +835,21 @@ machine def zr_onig_op_memory(m, op)
   ONIGERR_UNDEFINED_BYTECODE
 end
 
-# The repeat_inc tail shared by OP_REPEAT_INC and OP_REPEAT_INC_SG;
-# `pbegin` is the opcode's address, 0 for the SG form the cache skips.
+# The repeat_inc tail for OP_REPEAT_INC and OP_REPEAT_INC_SG. `pbegin`
+# is the opcode's address, or 0 for the SG form, which the match cache
+# skips.
 sig [Ptr, Word, Word, Ptr, Ptr] => Word
 machine def zr_onig_repeat_inc(m, mem, si, p, pbegin)
   stkp = zr_onig_stk_at(m, si)
   count = OnigStk.a(stkp) + 1
   OnigStk.set_a(stkp, count)
   if count >= zr_onig_repeat_range(m, mem, 1)
-    # end of repeat. Nothing to do.
+    # End of repeat. Nothing to do.
   elsif count >= zr_onig_repeat_range(m, mem, 0)
     if pbegin != 0
       r = zr_onig_check_match_cache(m, pbegin)
       if r != 0
-        # MATCH_CACHE_HIT: the count this visit added comes off again.
+        # MATCH_CACHE_HIT: remove the count that this visit added.
         OnigStk.set_a(stkp, OnigStk.a(stkp) - 1)
         return ONIG_OP_FAIL if r == 1
         return ONIG_OP_NEXT
@@ -862,7 +866,7 @@ machine def zr_onig_repeat_inc(m, mem, si, p, pbegin)
   ONIG_OP_NEXT
 end
 
-# The repeat_inc_ng tail shared by OP_REPEAT_INC_NG and OP_REPEAT_INC_NG_SG.
+# The repeat_inc_ng tail for OP_REPEAT_INC_NG and OP_REPEAT_INC_NG_SG.
 sig [Ptr, Word, Word, Ptr, Ptr] => Word
 machine def zr_onig_repeat_inc_ng(m, mem, si, p, pbegin)
   stkp = zr_onig_stk_at(m, si)
@@ -978,7 +982,8 @@ machine def zr_onig_op_control(m, op)
   ONIGERR_UNDEFINED_BYTECODE
 end
 
-# null_check_found: the empty loop found, skip the instruction after.
+# null_check_found: an empty loop is found, so skip the next
+# instruction.
 sig [Ptr, Ptr] => Word
 machine def zr_onig_null_check_found(m, p)
   op = Machine.word(Machine.load8(p, 0))
@@ -1085,7 +1090,8 @@ machine def zr_onig_op_pos(m, op)
     p = p + 8
     q = zr_onig_step_back(enc, str, s, e, tlen)
     if q == 0
-      # too short case -> success. ex. /(?<!XXX)a/.match("a")
+      # The text is too short, so the check succeeds.
+      # Example: /(?<!XXX)a/.match("a")
       OnigMatch.set_p(m, p + addr)
       return ONIG_OP_NEXT
     end
@@ -1132,13 +1138,14 @@ machine def zr_onig_op_absent(m, op)
       zr_onig_stack_pop(m)
       return ONIG_OP_FAIL
     elsif s >= aend && s > absent
-      # Only one (or less) character matched in the last iteration: not a possible point.
+      # One or no character matched in the last iteration, so this is
+      # not a possible point.
       return ONIG_OP_FAIL if s > aend
       # All possible points were found. Try matching after (?~...).
       return ONIG_OP_FAIL if s > e
       OnigMatch.set_p(m, p + addr)
     elsif s == e
-      # At the end of the string, just match with it.
+      # At the end of the string, match there.
       return ONIG_OP_FAIL if s > e
       OnigMatch.set_p(m, p + addr)
     else
@@ -1193,7 +1200,7 @@ machine def zr_onig_op_call(m, op)
   ONIGERR_UNDEFINED_BYTECODE
 end
 
-# One opcode: dispatched by family.
+# Runs one opcode. It dispatches by opcode family.
 sig [Ptr, Word] => Word
 machine def zr_onig_step(m, op)
   if op < OP_CCLASS
@@ -1218,13 +1225,14 @@ machine def zr_onig_step(m, op)
   zr_onig_op_call(m, op)
 end
 
-# match_at: the match of the program at sstart, sprev the character
-# before it (0 at the start); the length matched, ONIG_MISMATCH, or an
-# error (ONIGERR_TIMEOUT among them). The region and the stacks are the
-# search's.
+# match_at: matches the program at sstart. sprev is the character
+# before it (0 at the start). Returns the match length, ONIG_MISMATCH, or
+# an error (for example ONIGERR_TIMEOUT). The region and the stacks
+# belong to the search.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_onig_match_at(m, sstart, sprev)
-  # STACK_INIT: the stack a former match_at grew stays; else the arena's.
+  # STACK_INIT: use the stack that an earlier match_at grew, or the
+  # arena's stack.
   if OnigMatch.stack_p(m) != 0
     base = OnigMatch.stack_p(m)
     OnigMatch.set_stk_base(m, base)
@@ -1235,8 +1243,8 @@ machine def zr_onig_match_at(m, sstart, sprev)
     OnigMatch.set_stk_end(m, base + (ONIG_INIT_MATCH_STACK_SIZE * OnigStk.size))
   end
   OnigMatch.set_stk(m, base)
-  # STACK_PUSH_ENSURED(STK_ALT, FinishCode): the bottom entry, whose code
-  # is the program's closing OP_FINISH.
+  # STACK_PUSH_ENSURED(STK_ALT, FinishCode): the bottom entry. Its code is
+  # the OP_FINISH at the end of the program.
   code = OnigMatch.code(m)
   finish = code + OnigProg.code_len(OnigMatch.prog(m)) - 1
   zr_onig_push(m, STK_ALT, finish, sstart, sprev, sstart)

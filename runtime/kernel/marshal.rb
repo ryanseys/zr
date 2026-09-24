@@ -1,20 +1,18 @@
-# Marshal's reader for the kinds a dump is mostly made of -- nil, the
-# booleans, fixnums, floats, symbols and their links, strings with
+# A fast Marshal reader for the kinds that most dumps contain: nil, the
+# booleans, fixnums, floats, symbols and symbol links, strings with
 # their encoding, arrays, hashes, plain objects and structs, a `_load`
-# payload (an Encoding, mostly), a bignum that fits a fixnum, and links
-# to any of them. Anything else (`marshal_load`, a class or module, a
-# regexp, a wider bignum, an extended or subclassed value, a hash with
-# a default, an object of a class with an allocator of its own) makes
-# the whole read fall back to the Ruby reader
-# (runtime/core/marshal.rb), which reads the document from its start. The
-# two read the same bytes to the same values; this one reads them at
-# the speed of a copy, which is what a cache of parses or of compiled
-# units is read at.
+# payload (usually an Encoding), a bignum that fits a fixnum, and links
+# to any of these. For all other kinds (`marshal_load`, a class or
+# module, a regexp, a larger bignum, an extended or subclassed value, a
+# hash with a default, an object of a class with its own allocator), the
+# read falls back to the Ruby reader (runtime/core/marshal.rb). The Ruby
+# reader then reads the document from the start. Both readers give the
+# same values. This one reads at about the speed of a copy, which is
+# necessary for a cache of parses or of compiled units.
 #
-# The reader's state, on the stack: the bytes, how many, where it is,
-# and whether it has given up. What it has made -- the object and
-# symbol tables -- rides in two Arrays the caller holds, since a slot
-# on the stack roots nothing.
+# The reader state is on the stack: the bytes, the length, the position,
+# and a bail flag. The object table and the symbol table are in two
+# Arrays that the caller keeps, because a stack slot is not a GC root.
 Machine.struct :MReader, bytes: Ptr, len: Word, pos: Word, bail: Word
 
 MR_NIL = 0x30
@@ -34,10 +32,10 @@ MR_STRUCT = 0x53
 MR_USRDEF = 0x75
 MR_BIGNUM = 0x6c
 
-# `Marshal.load(bytes)` for a String. Where the Ruby reader must read
-# it instead -- a document of another format version, one cut short,
-# or one holding a kind this reader leaves to Ruby -- the answer is nil
-# and zr_marshal_bailed_p says so; undef is a raise, which the caller
+# `Marshal.load(bytes)` for a String. It returns nil when the Ruby
+# reader must read the document: another format version, a truncated
+# document, or a kind that this reader leaves to Ruby. Then
+# zr_marshal_bailed_p returns true. Undef means a raise, which the caller
 # passes on.
 sig [Value] => Value
 machine def zr_marshal_load_fast(src)
@@ -60,8 +58,8 @@ machine def zr_marshal_load_fast(src)
   if v == QUNDEF
     return v
   end
-  # Bytes past the value are ruby's business too: the Ruby reader
-  # answers what ruby answers for them.
+  # The Ruby reader also handles bytes after the value, so that the
+  # result is the same as ruby's.
   if MReader.pos(r) != MReader.len(r)
     zr_mr_bail(r)
     return Machine.value(QNIL)
@@ -69,14 +67,15 @@ machine def zr_marshal_load_fast(src)
   v
 end
 
-# Whether the fast reader gave the document up, rather than read it or
-# raised.
+# Whether the fast reader stopped and left the document to the Ruby
+# reader (and did not read it or raise).
 sig [] => Value
 machine def zr_marshal_bailed_p
   Machine.value(Machine.load64(Machine.static(:marshal_bailed, 8), 0) != 0 ? QTRUE : QFALSE)
 end
 
-# The reader gives up: undef, with the reason kept for the caller.
+# Stops the fast reader. Returns undef and sets the bail flag for the
+# caller.
 sig [Ptr] => Value
 machine def zr_mr_bail(r)
   MReader.set_bail(r, 1)
@@ -84,8 +83,8 @@ machine def zr_mr_bail(r)
   Machine.value(QUNDEF)
 end
 
-# The next byte, or -1 past the end, which is a document cut short and
-# so the Ruby reader's to refuse.
+# Returns the next byte, or -1 at the end. The end means a truncated
+# document, so the reader bails and the Ruby reader raises the error.
 sig [Ptr] => Word
 machine def zr_mr_byte(r)
   pos = MReader.pos(r)
@@ -97,9 +96,9 @@ machine def zr_mr_byte(r)
   Machine.word(Machine.load8(MReader.bytes(r) + pos, 0))
 end
 
-# The packed integer: one byte for a small number, else a count byte
-# and that many bytes of it, least significant first. -1 for a number
-# cut short, which no packed count or index is.
+# Reads a packed integer: one byte for a small number, or a count byte
+# and then that number of bytes, least significant first. Returns -1 for
+# a truncated number. No packed count or index is negative.
 sig [Ptr] => Word
 machine def zr_mr_long(r)
   head = zr_mr_byte(r)
@@ -132,8 +131,8 @@ machine def zr_mr_long(r)
   value
 end
 
-# `n` bytes of text from where the reader stands, as a pointer, or 0
-# past the end; the reader steps over them.
+# Returns a pointer to the next `n` bytes and moves past them. Returns 0
+# if fewer than `n` bytes remain.
 sig [Ptr, Word] => Ptr
 machine def zr_mr_text(r, n)
   pos = MReader.pos(r)
@@ -144,9 +143,8 @@ machine def zr_mr_text(r, n)
   MReader.bytes(r) + pos
 end
 
-# Whether `n` bytes at `p` are all ASCII. A symbol with a byte past
-# ASCII has an encoding of its own to intern under, which the Ruby
-# reader decides.
+# Whether the `n` bytes at `p` are all ASCII. A symbol with a non-ASCII
+# byte needs its own encoding for intern, and the Ruby reader finds it.
 sig [Ptr, Word] => Bool
 machine def zr_mr_ascii_p(p, n)
   i = 0
@@ -159,7 +157,8 @@ machine def zr_mr_ascii_p(p, n)
   true
 end
 
-# A symbol, new or linked, as its id; -1 for anything else.
+# Reads a symbol, new or linked, and returns its id. Returns -1 for any
+# other kind.
 sig [Ptr, Value] => Word
 machine def zr_mr_symbol(r, symbols)
   tag = zr_mr_byte(r)
@@ -183,9 +182,9 @@ machine def zr_mr_symbol(r, symbols)
   id
 end
 
-# The class `path` names ("Prism::CallNode"), walked from Object one
-# component at a time; undef for a path that names nothing or names
-# something that is not a class.
+# Returns the class that `path` refers to ("Prism::CallNode"). It looks
+# up one component at a time from Object. Returns undef if the path
+# refers to nothing, or to something that is not a class.
 sig [Ptr, Word] => Value
 machine def zr_mr_class(p, n)
   scope = zr_global(G_OBJECT)
@@ -217,9 +216,9 @@ machine def zr_mr_class(p, n)
   scope
 end
 
-# One value. Undef is a bail or a raise (`MReader.bail` tells them
-# apart); every value that has a link slot takes it before its parts,
-# as marshal.c registers it.
+# Reads one value. Undef means a bail or a raise (`MReader.bail` tells
+# which). A value that has a link slot registers it before its parts, as
+# marshal.c does.
 sig [Ptr, Value, Value] => Value
 machine def zr_mr_value(r, objects, symbols)
   tag = zr_mr_byte(r)
@@ -279,10 +278,11 @@ machine def zr_mr_value(r, objects, symbols)
   zr_mr_bail(r)
 end
 
-# `l`: a sign, a count of 16-bit words, and the words least
-# significant first. ruby writes every integer past 32 bits this way,
-# a prism location among them, so most are fixnums here; one past a
-# fixnum is the core's Bignum to build, which is Ruby's.
+# `l`: a sign, a count of 16-bit words, and the words, least
+# significant first. ruby writes every integer larger than 32 bits in
+# this form (a prism location, for example), so most of them fit a
+# fixnum. A value larger than a fixnum needs the core's Bignum, which is
+# in Ruby, so the reader bails.
 sig [Ptr, Value] => Value
 machine def zr_mr_bignum(r, objects)
   sign = zr_mr_byte(r)
@@ -308,9 +308,10 @@ machine def zr_mr_bignum(r, objects)
   v
 end
 
-# `u`: a class's `_load` over the bytes it dumped. An Encoding's
-# `_load` answers its name, which the encoding is found by, as the
-# Ruby reader has it; a payload with ivars of its own is Ruby's.
+# `u`: a class's `_load` on the bytes that it dumped. For an Encoding,
+# the payload is its name, and the reader finds the encoding by name, as
+# the Ruby reader does. A payload with its own ivars goes to the Ruby
+# reader.
 sig [Ptr, Value, Value] => Value
 machine def zr_mr_user_dump(r, objects, symbols)
   klass = zr_mr_named_class(r, symbols)
@@ -332,7 +333,8 @@ machine def zr_mr_user_dump(r, objects, symbols)
   v
 end
 
-# The bytes of a string, binary until an ivar says its encoding.
+# Reads the bytes of a string. The string is binary until an ivar gives
+# its encoding.
 sig [Ptr] => Value
 machine def zr_mr_string(r)
   n = zr_mr_long(r)
@@ -345,8 +347,8 @@ machine def zr_mr_string(r)
   s
 end
 
-# A float's text, which strtod reads as ruby's writer wrote it: a
-# decimal, or "inf", "-inf" and "nan".
+# Reads a float's text with strtod, in the form that ruby's writer
+# writes: a decimal, or "inf", "-inf" or "nan".
 sig [Ptr, Value] => Value
 machine def zr_mr_float(r, objects)
   n = zr_mr_long(r)
@@ -382,8 +384,8 @@ machine def zr_mr_array(r, objects, symbols)
   a
 end
 
-# A hash with no default. A key that runs Ruby code to hash itself (an
-# object with its own `hash`) is left to the Ruby reader.
+# Reads a hash with no default. A key that runs Ruby code for its hash
+# (an object with its own `hash`) goes to the Ruby reader.
 sig [Ptr, Value, Value] => Value
 machine def zr_mr_hash(r, objects, symbols)
   n = zr_mr_long(r)
@@ -413,10 +415,11 @@ machine def zr_mr_hash(r, objects, symbols)
   h
 end
 
-# `I`: a value and the ivars after it. A string takes its encoding from
-# `E` (true is UTF-8, false US-ASCII); any value takes an `@name`; the
-# rest -- a named encoding, a regexp or a `_load` payload with ivars,
-# a symbol with an encoding, ruby's own hidden names -- is Ruby's.
+# `I`: a value and the ivars after it. A string gets its encoding from
+# `E` (true is UTF-8, false is US-ASCII). Any value can get an `@name`.
+# All other cases go to the Ruby reader: a named encoding, a regexp or a
+# `_load` payload with ivars, a symbol with an encoding, and ruby's own
+# hidden names.
 sig [Ptr, Value, Value] => Value
 machine def zr_mr_ivars(r, objects, symbols)
   pos = MReader.pos(r)
@@ -462,9 +465,9 @@ machine def zr_mr_ivars(r, objects, symbols)
   v
 end
 
-# `o`: a plain object of a class with the ordinary allocator, its ivars
-# set as they come. A Range or a Set is built from its parts, an
-# exception has parts of its own: those are Ruby's.
+# `o`: a plain object of a class with the ordinary allocator. The reader
+# sets its ivars in order. A Range or a Set is built from its parts, and
+# an exception has special parts, so these go to the Ruby reader.
 sig [Ptr, Value, Value] => Value
 machine def zr_mr_object(r, objects, symbols)
   klass = zr_mr_named_class(r, symbols)
@@ -501,7 +504,8 @@ machine def zr_mr_object(r, objects, symbols)
   built
 end
 
-# Whether `klass` is Set or under it, which the core defines in Ruby.
+# Whether `klass` is Set or a subclass of it. The core defines Set in
+# Ruby.
 sig [Value] => Bool
 machine def zr_mr_set_p(klass)
   set = zr_const_lookup_at(zr_global(G_OBJECT), Machine.id(:Set))
@@ -511,7 +515,8 @@ machine def zr_mr_set_p(klass)
   zr_class_inherits(klass, set)
 end
 
-# The class a symbol names, from the reader's own name.
+# Returns the class that a symbol refers to, from the name in the
+# document.
 sig [Ptr, Value] => Value
 machine def zr_mr_named_class(r, symbols)
   id = zr_mr_symbol(r, symbols)
@@ -521,10 +526,10 @@ machine def zr_mr_named_class(r, symbols)
   zr_mr_class(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
 end
 
-# `S`: a struct, its values stored by member, as marshal.c stores them
-# without the members' writers. A Data value is frozen and built
-# otherwise; a member the class does not have is an error: both are
-# Ruby's.
+# `S`: a struct. The reader stores its values by member without the
+# member writers, as marshal.c does. A Data value is frozen and is built
+# in a different way, and a member that the class does not have is an
+# error. Both cases go to the Ruby reader.
 sig [Ptr, Value, Value] => Value
 machine def zr_mr_struct(r, objects, symbols)
   klass = zr_mr_named_class(r, symbols)
@@ -570,8 +575,8 @@ machine def zr_mr_struct(r, objects, symbols)
   built
 end
 
-# The members of a struct class, from the nearest class holding them,
-# or nil for a class that is no struct.
+# Returns the members of a struct class, from the nearest class that has
+# them, or nil for a class that is not a struct.
 sig [Value] => Value
 machine def zr_mr_members(klass)
   k = klass
@@ -601,7 +606,7 @@ machine def zr_mr_member_index(members, id)
   0 - 1
 end
 
-# Whether `klass` is under Data, which the core defines in Ruby.
+# Whether `klass` is a subclass of Data. The core defines Data in Ruby.
 sig [Value] => Bool
 machine def zr_mr_data_p(klass)
   data = zr_const_lookup_at(zr_global(G_OBJECT), Machine.id(:Data))

@@ -1,8 +1,8 @@
-# deflate.c: the compressor. The state is the C's deflate_state with
-# its trees, counts, heap and depths in one block after it; the four
-# buffers the C allocates apart stay apart. No gzip header struct is
-# ever set (deflateSetHeader is not reached), so a gzip stream gets the
-# plain ten-byte header.
+# deflate.c: the compressor. The state is the C deflate_state, with its
+# trees, counts, heap and depths in one block after it. The four buffers
+# that the C code allocates separately are also separate here. Nothing
+# calls deflateSetHeader, so no gzip header struct is set, and a gzip
+# stream gets the plain ten-byte header.
 # Derived from zlib; the license is in runtime/kernel/zlib.rb.
 Machine.struct :DeflateState, strm: Ptr, status: Word, pending_buf: Ptr, pending_buf_size: Word, pending_out: Ptr, pending: Word, wrap: Word, last_flush: Word, w_size: Word, w_bits: Word, w_mask: Word, window: Ptr, window_size: Word, prev: Ptr, head: Ptr, ins_h: Word, hash_size: Word, hash_bits: Word, hash_mask: Word, hash_shift: Word, block_start: Word, match_length: Word, prev_match: Word, match_available: Word, strstart: Word, match_start: Word, lookahead: Word, prev_length: Word, max_chain_length: Word, max_lazy_match: Word, level: Word, strategy: Word, good_match: Word, nice_match: Word, dyn_ltree: Ptr, dyn_dtree: Ptr, bl_tree: Ptr, l_max_code: Word, d_max_code: Word, bl_max_code: Word, bl_count: Ptr, heap: Ptr, heap_len: Word, heap_max: Word, depth: Ptr, sym_buf: Ptr, lit_bufsize: Word, sym_next: Word, sym_end: Word, opt_len: Word, static_len: Word, matches: Word, insert: Word, bi_buf: Word, bi_valid: Word, high_water: Word
 
@@ -16,13 +16,13 @@ DEF_HCRC_STATE = 103
 DEF_BUSY_STATE = 113
 DEF_FINISH_STATE = 666
 
-# What a block function answers.
+# The values that a block function returns.
 DEF_NEED_MORE = 0
 DEF_BLOCK_DONE = 1
 DEF_FINISH_STARTED = 2
 DEF_FINISH_DONE = 3
 
-# The kinds of block function the configuration table names.
+# The kinds of block function in the configuration table.
 DEF_KIND_STORED = 0
 DEF_KIND_FAST = 1
 DEF_KIND_SLOW = 2
@@ -40,8 +40,8 @@ Z_HUFFMAN_ONLY = 2
 Z_RLE = 3
 Z_FIXED = 4
 
-# The block the trees, counts, heap and depths live in, after the
-# struct.
+# The block after the struct that contains the trees, counts, heap and
+# depths.
 DEF_LTREE_BYTES = 4584
 DEF_DTREE_BYTES = 488
 DEF_BLTREE_BYTES = 312
@@ -50,15 +50,15 @@ DEF_HEAP_BYTES = 2292
 DEF_DEPTH_BYTES = 576
 DEF_TAIL_BYTES = 8316
 
-# The configuration table's column `col` (0 good, 1 lazy, 2 nice, 3
-# chain) for `level`.
+# Returns column `col` of the configuration table (0 good, 1 lazy,
+# 2 nice, 3 chain) for `level`.
 sig [Word, Word] => Word
 machine def zr_deflate_config(level, col)
   zr_zlib_u32(zr_deflate_config_table(), (level * 4) + col)
 end
 
-# The configuration table's func column: which block function a level
-# runs.
+# The func column of the configuration table: the block function that a
+# level runs.
 sig [Word] => Word
 machine def zr_deflate_kind(level)
   if level == 0
@@ -75,7 +75,7 @@ machine def zr_deflate_max_dist(s)
   DeflateState.w_size(s) - DEF_MIN_LOOKAHEAD
 end
 
-# RANK: Z_BLOCK ranked between Z_NO_FLUSH and Z_PARTIAL_FLUSH.
+# RANK: puts Z_BLOCK between Z_NO_FLUSH and Z_PARTIAL_FLUSH.
 sig [Word] => Word
 machine def zr_deflate_rank(f)
   if f > 4
@@ -84,7 +84,7 @@ machine def zr_deflate_rank(f)
   f * 2
 end
 
-# UPDATE_HASH: the hash `h` moved on by the byte `c`.
+# UPDATE_HASH: returns the hash `h` updated with the byte `c`.
 sig [Ptr, Word, Word] => Word
 machine def zr_deflate_hash(s, h, c)
   ((h << DeflateState.hash_shift(s)) ^ c) & DeflateState.hash_mask(s)
@@ -95,8 +95,8 @@ machine def zr_deflate_window_byte(s, i)
   zr_zlib_byte(DeflateState.window(s) + i)
 end
 
-# INSERT_STRING: the string at `str` into the hash chains; answers the
-# head of its chain before it.
+# INSERT_STRING: inserts the string at `str` into the hash chains.
+# Returns the previous head of its hash chain.
 sig [Ptr, Word] => Word
 machine def zr_deflate_insert_string(s, str)
   ins_h = zr_deflate_hash(s, DeflateState.ins_h(s), zr_deflate_window_byte(s, str + MIN_MATCH - 1))
@@ -114,8 +114,8 @@ machine def zr_deflate_clear_hash(s)
   memset(DeflateState.head(s), Machine.i32(0), (DeflateState.hash_size(s) - 1) * 4)
 end
 
-# slide_hash: every chain position moved down by the window size, or
-# cleared when it would fall off.
+# slide_hash: moves each hash chain position down by the window size, or
+# clears it if it goes below zero.
 sig [Ptr] => Void
 machine def zr_deflate_slide_hash(s)
   wsize = DeflateState.w_size(s)
@@ -143,8 +143,8 @@ machine def zr_deflate_slide_hash(s)
   end
 end
 
-# read_buf: up to `size` bytes of input into `buf`, counted into the
-# check; answers how many.
+# read_buf: reads up to `size` bytes of input into `buf` and adds them
+# to the check value. Returns the number of bytes.
 sig [Ptr, Ptr, Ptr, Word] => Word
 machine def zr_deflate_read_buf(strm, s, buf, size)
   len = ZStream.avail_in(strm)
@@ -166,9 +166,10 @@ machine def zr_deflate_read_buf(strm, s, buf, size)
   len
 end
 
-# fill_window: the window filled from the input as far as the
-# lookahead needs, sliding it down when the upper half is full, and the
-# bytes past the data zeroed so a match scan reads nothing undefined.
+# fill_window: fills the window from the input as far as the lookahead
+# needs. It slides the window down when the upper half is full. It sets
+# the bytes after the data to zero, so a match scan reads no undefined
+# bytes.
 sig [Ptr] => Void
 machine def zr_deflate_fill_window(s)
   strm = DeflateState.strm(s)
@@ -234,7 +235,7 @@ machine def zr_deflate_fill_window(s)
   end
 end
 
-# deflateStateCheck: 1 when `strm` has no deflate state to speak of.
+# deflateStateCheck: returns 1 when `strm` has no valid deflate state.
 sig [Ptr] => Word
 machine def zr_deflate_state_check(strm)
   if strm == 0
@@ -251,7 +252,8 @@ machine def zr_deflate_state_check(strm)
   0
 end
 
-# The trees, counts, heap and depths pointed into the tail of `s`.
+# Sets the pointers for the trees, counts, heap and depths into the
+# block after `s`.
 sig [Ptr] => Void
 machine def zr_deflate_point_tail(s)
   p = s + DeflateState.size
@@ -268,8 +270,8 @@ machine def zr_deflate_point_tail(s)
   DeflateState.set_depth(s, p)
 end
 
-# deflateEnd: the state and its buffers freed; Z_DATA_ERROR when the
-# stream was mid-way.
+# deflateEnd: frees the state and its buffers. Returns Z_DATA_ERROR if
+# the stream is not complete.
 sig [Ptr] => Word
 machine def zr_deflate_end(strm)
   if zr_deflate_state_check(strm) != 0
@@ -297,9 +299,9 @@ machine def zr_deflate_end(strm)
   Z_OK
 end
 
-# deflateInit2_: a stream given its state and buffers. The version and
-# size checks are the C's guard against a caller built for another
-# zlib, which nothing here can be.
+# deflateInit2_: gives a stream its state and buffers. The C code has
+# version and size checks against a caller built for a different zlib.
+# Here no caller can be, so the checks are not necessary.
 sig [Ptr, Word, Word, Word, Word, Word] => Word
 machine def zr_deflate_init2(strm, level, method, window_bits, mem_level, strategy)
   wrap = 1
@@ -363,8 +365,8 @@ machine def zr_deflate_init2(strm, level, method, window_bits, mem_level, strate
   zr_deflate_reset(strm)
 end
 
-# deflateSetDictionary: the dictionary into the window and the hash
-# chains, before any input.
+# deflateSetDictionary: puts the dictionary into the window and the
+# hash chains, before any input.
 sig [Ptr, Ptr, Word] => Word
 machine def zr_deflate_set_dictionary(strm, dictionary, dict_length)
   if zr_deflate_state_check(strm) != 0 || dictionary == 0
@@ -422,7 +424,8 @@ machine def zr_deflate_set_dictionary(strm, dictionary, dict_length)
   Z_OK
 end
 
-# deflateResetKeep: the stream back at its start, its window kept.
+# deflateResetKeep: resets the stream to its start, but keeps its
+# window.
 sig [Ptr] => Word
 machine def zr_deflate_reset_keep(strm)
   if zr_deflate_state_check(strm) != 0
@@ -450,7 +453,7 @@ machine def zr_deflate_reset_keep(strm)
   Z_OK
 end
 
-# lm_init: the matcher's state for a new stream.
+# lm_init: sets the matcher's state for a new stream.
 sig [Ptr] => Void
 machine def zr_deflate_lm_init(s)
   DeflateState.set_window_size(s, 2 * DeflateState.w_size(s))
@@ -480,8 +483,8 @@ machine def zr_deflate_reset(strm)
   ret
 end
 
-# deflateParams: a new level and strategy mid-stream, after what the
-# old ones compressed is flushed.
+# deflateParams: sets a new level and strategy during a stream. It
+# first flushes the data that the old settings compressed.
 sig [Ptr, Word, Word] => Word
 machine def zr_deflate_params(strm, level, strategy)
   if zr_deflate_state_check(strm) != 0
@@ -523,15 +526,16 @@ machine def zr_deflate_params(strm, level, strategy)
   Z_OK
 end
 
-# putShortMSB: a 16-bit word onto the pending output, high byte first.
+# putShortMSB: adds a 16-bit word to the pending output, high byte
+# first.
 sig [Ptr, Word] => Void
 machine def zr_deflate_put_short_msb(s, b)
   zr_tr_put_byte(s, (b >> 8) & 255)
   zr_tr_put_byte(s, b & 255)
 end
 
-# flush_pending: as much of the pending output as the stream has room
-# for.
+# flush_pending: writes as much of the pending output as the stream's
+# output buffer can take.
 sig [Ptr] => Void
 machine def zr_deflate_flush_pending(strm)
   s = ZStream.state(strm)
@@ -554,15 +558,15 @@ machine def zr_deflate_flush_pending(strm)
   end
 end
 
-# ERR_RETURN: the error's text on the stream, and the error.
+# ERR_RETURN: sets the error's text on the stream and returns the error.
 sig [Ptr, Word] => Word
 machine def zr_deflate_err(strm, err)
   ZStream.set_msg(strm, zr_zlib_error_text(err))
   err
 end
 
-# deflate: as much of the input compressed as the output room allows,
-# with the header first and the trailer after a finish.
+# deflate: compresses as much of the input as the output buffer allows.
+# It writes the header first, and the trailer after a finish.
 sig [Ptr, Word] => Word
 machine def zr_deflate(strm, flush)
   if zr_deflate_state_check(strm) != 0 || flush > Z_BLOCK || flush < 0
@@ -719,7 +723,7 @@ machine def zr_deflate(strm, flush)
   Z_STREAM_END
 end
 
-# deflateCopy: `dest` made a copy of `source`, buffers and all.
+# deflateCopy: makes `dest` a copy of `source`, with all its buffers.
 sig [Ptr, Ptr] => Word
 machine def zr_deflate_copy(dest, source)
   if zr_deflate_state_check(source) != 0 || dest == 0
@@ -752,11 +756,11 @@ machine def zr_deflate_copy(dest, source)
   Z_OK
 end
 
-# longest_match: the longest match for the string at strstart along
-# the hash chain from `cur_match`, no shorter than prev_length; its
-# start goes to match_start. The scan may read past the lookahead into
-# bytes fill_window zeroed, as the C's does; the length is capped by
-# the lookahead so the answer does not depend on them.
+# longest_match: finds the longest match for the string at strstart
+# along the hash chain from `cur_match`, at least prev_length long. It
+# writes the match start to match_start. As in the C code, the scan can
+# read past the lookahead into bytes that fill_window set to zero. The
+# lookahead limits the length, so the result does not depend on them.
 sig [Ptr, Word] => Word
 machine def zr_deflate_longest_match(s, cur_match)
   chain_length = DeflateState.max_chain_length(s)
@@ -866,7 +870,7 @@ machine def zr_deflate_longest_match(s, cur_match)
   DeflateState.lookahead(s)
 end
 
-# FLUSH_BLOCK_ONLY: the current block written and a new one begun.
+# FLUSH_BLOCK_ONLY: writes the current block and starts a new one.
 sig [Ptr, Word] => Void
 machine def zr_deflate_flush_block_only(s, last)
   buf = 0
@@ -878,9 +882,9 @@ machine def zr_deflate_flush_block_only(s, last)
   zr_deflate_flush_pending(DeflateState.strm(s))
 end
 
-# deflate_stored: the input copied to stored blocks, straight to the
-# output where it fits, through the window and the pending buffer where
-# it does not.
+# deflate_stored: copies the input to stored blocks. It copies directly
+# to the output when the data fits, and through the window and the
+# pending buffer when it does not.
 sig [Ptr, Word] => Word
 machine def zr_deflate_stored(s, flush)
   strm = DeflateState.strm(s)
@@ -1036,8 +1040,8 @@ machine def zr_deflate_stored(s, flush)
   DEF_NEED_MORE
 end
 
-# The end of a block function: what the C's FLUSH_BLOCK answers when
-# the output filled, else -1 to go on.
+# The end of a block function. Returns the value that the C FLUSH_BLOCK
+# returns when the output is full, or -1 to continue.
 sig [Ptr, Word] => Word
 machine def zr_deflate_flush_block(s, last)
   zr_deflate_flush_block_only(s, last)
@@ -1050,8 +1054,9 @@ machine def zr_deflate_flush_block(s, last)
   0 - 1
 end
 
-# What every block function does once the input is spent: the last
-# block flushed under a finish, else the block so far.
+# The step that each block function does when no input remains. On a
+# finish, it flushes the last block. If not, it flushes the current
+# block.
 sig [Ptr, Word] => Word
 machine def zr_deflate_block_end(s, flush)
   if flush == Z_FINISH
@@ -1070,7 +1075,8 @@ machine def zr_deflate_block_end(s, flush)
   DEF_BLOCK_DONE
 end
 
-# deflate_fast: matches taken as found, no lazy evaluation.
+# deflate_fast: uses each match when it finds it, with no lazy
+# evaluation.
 sig [Ptr, Word] => Word
 machine def zr_deflate_fast(s, flush)
   while true
@@ -1131,8 +1137,8 @@ machine def zr_deflate_fast(s, flush)
   zr_deflate_block_end(s, flush)
 end
 
-# deflate_slow: lazy evaluation, a match held back for a longer one at
-# the next byte.
+# deflate_slow: lazy evaluation. It keeps a match back in case the next
+# byte starts a longer match.
 sig [Ptr, Word] => Word
 machine def zr_deflate_slow(s, flush)
   while true
@@ -1210,7 +1216,7 @@ machine def zr_deflate_slow(s, flush)
   zr_deflate_block_end(s, flush)
 end
 
-# deflate_rle: runs of one byte as matches at distance one.
+# deflate_rle: encodes runs of one byte as matches at distance one.
 sig [Ptr, Word] => Word
 machine def zr_deflate_rle(s, flush)
   while true
@@ -1296,7 +1302,7 @@ machine def zr_deflate_rle(s, flush)
   zr_deflate_block_end(s, flush)
 end
 
-# deflate_huff: every byte a literal, no matching at all.
+# deflate_huff: encodes each byte as a literal, with no matching.
 sig [Ptr, Word] => Word
 machine def zr_deflate_huff(s, flush)
   while true

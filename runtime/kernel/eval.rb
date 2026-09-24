@@ -1,15 +1,16 @@
-# Running a block under another self: `instance_eval`, `class_eval`,
-# `Class.new { }`, and the methods `define_method` makes of a block.
+# Runs a block with a different self: `instance_eval`, `class_eval`,
+# `Class.new { }`, and the methods that `define_method` makes from a
+# block.
 #
-# The block's Proc is copied with the new self and a cref pushed for
-# the eval, which is where a `def` in the block lands; constants and
-# class variables look through it (see RCref).
+# The kernel copies the block's Proc with the new self and pushes a cref
+# for the eval. A `def` in the block defines its method on that cref.
+# Constant and class variable lookups also go through it (see RCref).
 
-# A method whose body is a block: the entry's `cref` slot holds the
-# Proc, and a call runs it under the receiver as a lambda. The call
-# allocates nothing: the body's image goes on the stack with the
-# receiver as self (`zr_bmethod_call`), under a cref the entry makes
-# once and keeps (`zr_bmethod_cref`).
+# A method whose body is a block. The method entry's `cref` slot
+# contains the Proc, and a call runs it as a lambda with the receiver as
+# self. The call allocates nothing: the body's image goes on the stack
+# with the receiver as self (`zr_bmethod_call`). It uses a cref that the
+# entry makes one time and keeps (`zr_bmethod_cref`).
 KIND_BMETHOD = 8
 
 sig [Value, Value, Value] => Value
@@ -23,18 +24,18 @@ machine def zr_proc_under(p, self_, cref)
   copy
 end
 
-# The block run with `self_` as self and `klass` as the definee.
+# Runs the block with `self_` as self and `klass` as the definee.
 sig [Value, Value, Value, Word, Ptr] => Value
 machine def zr_yield_under(blk, self_, klass, argc, argv)
   c = zr_cref_push_eval(klass, RProc.cref(blk))
-  # An object that can take a singleton class gets one only when the
-  # block needs it, as ruby's instance_exec leaves it.
+  # An object that can have a singleton class gets one only when the
+  # block needs it, as in ruby's instance_exec.
   if klass == QUNDEF
     RCref.set_klass(c, Machine.value(QNIL))
     RCref.set_lazy(c, self_)
   end
-  # A value with no singleton class takes no `def` either, as CRuby's
-  # singleton_class_for_eval decides.
+  # A value that cannot have a singleton class also cannot take a `def`,
+  # as in CRuby's singleton_class_for_eval.
   if zr_singleton_refused_p(self_)
     RCref.set_eval(c, EVAL_NO_DEF)
   end
@@ -47,16 +48,16 @@ machine def zr_no_block_given
   zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given (yield)"), 22)
 end
 
-# `no block given`, which a call that takes a block and reaches no
-# yield raises: instance_exec says this, and not the yield's own text.
+# Raises `no block given` for a call that needs a block and gets none.
+# instance_exec uses this text, not the text of `yield`.
 sig [] => Value
 machine def zr_block_needed
   zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given"), 14)
 end
 
-# `Class#initialize(superclass) { }`, under a class `Class#new` made
-# with no superclass yet: the chain, the `inherited` hook, then the
-# block under the class, given the class.
+# `Class#initialize(superclass) { }`, on a class that `Class#new` made
+# with no superclass. It sets the ancestor list, calls the `inherited`
+# hook, then runs the block with the class as self and as argument.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_initialize(recv, argc, argv, cref, blk)
   if RClass.superclass(recv) != QNIL || recv == zr_global(G_BASIC_OBJECT)
@@ -100,8 +101,8 @@ machine def zr_module_initialize(recv, argc, argv, cref, blk)
   Machine.value(QNIL)
 end
 
-# `class_eval { }` and `module_eval { }`: the block under the module,
-# given it; `class_exec` passes the arguments instead.
+# `class_eval { }` and `module_eval { }`: run the block with the module
+# as self and as argument. `class_exec` passes its arguments instead.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_class_eval(recv, argc, argv, cref, blk)
   if blk == QNIL
@@ -126,11 +127,12 @@ machine def zr_mod_class_exec(recv, argc, argv, cref, blk)
   zr_yield_under(blk, recv, recv, argc, argv)
 end
 
-# Where a `def` inside `instance_eval` lands: the object's singleton
-# class, or the class of a special constant. A value that can have no
-# singleton class answers its class, and its eval cref refuses a `def`.
-# The same for a block: undef for an object whose singleton class waits
-# until the block needs it.
+# The class that gets a `def` inside `instance_eval`: the object's
+# singleton class, or the class of a special constant. For a value that
+# cannot have a singleton class, it returns the class, and the eval cref
+# refuses a `def`. `zr_eval_definee` is the same for a block, but
+# returns undef for an object whose singleton class is made only when
+# the block needs it.
 sig [Value] => Value
 machine def zr_eval_definee(obj)
   if zr_special_p(obj) || zr_singleton_refused_p(obj)
@@ -153,8 +155,8 @@ machine def zr_obj_instance_eval(recv, argc, argv, cref, blk)
     if argc > 0
       return zr_unimplemented(zr_str_new(Machine.bytes("instance_eval with a string"), 27))
     end
-    # With neither a block nor a string there is nothing to run, and
-    # CRuby answers for the arguments it wanted.
+    # With no block and no string there is nothing to run. CRuby raises
+    # an arity error for the arguments that it expects.
     return zr_wrong_arity_range(argc, 1, 3)
   end
   if argc != 0
@@ -173,8 +175,9 @@ machine def zr_obj_instance_exec(recv, argc, argv, cref, blk)
   zr_yield_under(blk, recv, zr_eval_definee(recv), argc, argv)
 end
 
-# `define_method(name) { }`, or with a Proc, Method or UnboundMethod
-# in place of the block: a method the block's body answers.
+# `define_method(name) { }`, or with a Proc, Method or UnboundMethod in
+# place of the block. It defines a method whose body is the block's
+# body.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_define_method(recv, argc, argv, cref, blk)
   r = zr_class_modify_check(recv)
@@ -204,8 +207,8 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
         zr_buf_class(b, owner)
         return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
       end
-      # A bare `module_function` is a mode: the copy takes both halves,
-      # as a `def` under it does.
+      # A bare `module_function` is a mode. The copy goes to both the
+      # module and its singleton class, as a `def` does in that mode.
       modfn = cref != QNIL && RCref.modfn(cref) != 0
       if modfn
         zr_method_copy(zr_singleton_class(recv), mid, e, zr_meta_owned_by(MEntry.meta(e), recv), VIS_PUBLIC, false)
@@ -235,9 +238,9 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
   zr_sym(mid)
 end
 
-# A copy of `meta` with `owner` as its owner and the name it had: what
-# a method copied by `define_method(name, method)` shows in a
-# backtrace, as CRuby labels it.
+# Returns a copy of `meta` with `owner` as its owner and the same name.
+# A backtrace shows this label for a method that
+# `define_method(name, method)` copies, as CRuby does.
 sig [Ptr, Value] => Ptr
 machine def zr_meta_owned_by(meta, owner)
   if meta == 0
@@ -249,9 +252,9 @@ machine def zr_meta_owned_by(meta, owner)
   copy
 end
 
-# The cref whose visibility a `define_method` into `mod` takes: the
-# calling frame's, only when that frame is `mod`'s own body; from
-# anywhere else the method is public.
+# Returns the cref that gives the visibility for a `define_method` into
+# `mod`. It is the calling frame's cref only when that frame is the body
+# of `mod`. From any other place, the method is public.
 sig [Ptr, Value] => Value
 machine def zr_cref_in_context(frame, mod)
   cref = Frame.cref(frame)
@@ -261,7 +264,8 @@ machine def zr_cref_in_context(frame, mod)
   cref
 end
 
-# `define_singleton_method(name) { }`: the same, on the singleton class.
+# `define_singleton_method(name) { }`: the same as `define_method`, on
+# the singleton class.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
   if zr_special_p(recv) && recv != QNIL && recv != QTRUE && recv != QFALSE
@@ -272,19 +276,20 @@ machine def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
   zr_mod_define_method(s, argc, argv, cref, blk)
 end
 
-# The call of a method made by `define_method`: the block as a lambda
-# under the receiver, defining into the owner. The body's image is
-# written to the stack as a send writes a block literal (proc.rb): a
-# descriptor of this call alone, whose frame roots what it names. The
-# block the call was given goes to the body as its own block, which
-# its frame keeps in `defined` (a block's frame `blk` is the block of
-# the method the body was written in).
+# Calls a method that `define_method` made. It runs the block as a
+# lambda with the receiver as self, and a `def` in it defines into the
+# owner. The body's image goes on the stack, as a send writes a block
+# literal (proc.rb). It is a descriptor for this call only, and its frame
+# is the GC root for the values that it refers to. The block given to
+# the call becomes the body's own block, and the frame keeps it in
+# `defined`. (A block frame's `blk` is the block of the method that
+# contains the body.)
 sig [Ptr, Value, Word, Ptr, Value] => Value
 machine def zr_bmethod_call(e, recv, argc, argv, blk)
   zr_coverage_method(e)
   body = MEntry.cref(e)
   if RProc.meta(body) == 0
-    # a Symbol's or Method's Proc works on its arguments alone
+    # The Proc of a Symbol or a Method uses only its arguments.
     return Machine.call(:block, RProc.fn(body), body, argc, argv, blk)
   end
   d = Machine.slot(RProc.size)
@@ -303,18 +308,18 @@ machine def zr_bmethod_call(e, recv, argc, argv, blk)
   zr_trace_bmethod(TRACE_RETURN, e, recv, Machine.call(:block, RProc.fn(p), p, argc, argv, blk))
 end
 
-# A hit on a define_method entry at a compiled site.
+# Runs a define_method entry that a compiled site finds.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_bmethod_fn(recv, argc, argv, e, blk, found)
   zr_bmethod_call(e, recv, argc, argv, blk)
 end
 
-# The cref a define_method body runs under, made at the entry's first
-# call and kept in its `ivar` word: the owner as the definee of a `def`
-# in the body, over the block's own cref, naming the entry so `super`,
-# a trace and a `break` know the method. A row copied to a Method, a
-# saved row or another class makes its own, as its entry is not this
-# one.
+# Returns the cref for a define_method body. The entry makes it at its
+# first call and keeps it in its `ivar` word. The cref makes the owner
+# the definee of a `def` in the body, on top of the block's own cref. It
+# refers to the method entry, so that `super`, a trace and a `break` can
+# find the method. A copy of the entry (in a Method, a saved entry or
+# another class) makes its own cref, because it is a different entry.
 sig [Ptr] => Value
 machine def zr_bmethod_cref(e)
   c = zr_bmethod_cref_kept(e)
@@ -324,25 +329,27 @@ machine def zr_bmethod_cref(e)
   c = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(MEntry.cref(e)))
   RCref.set_entry(c, e)
   IvarCache.set_index(MEntry.ivar(e), Machine.word(c))
-  # The cref goes into the entry's `ivar` word, which the dialect calls
-  # a Word, so the barrier the compiler places after a store into a
-  # Value field does not see it. The entry is a row of the owner's
-  # method table (`zr_method_add_row` writes rows into
-  # `RClass.ext(klass)`), and `zr_mark_entry` reads the cref back out of
-  # it, so the owner is what has come to hold this cref.
+  # The cref goes into the entry's `ivar` word. The machine dialect
+  # types it as a Word, so the compiler adds no write barrier as it does
+  # for a Value field. The entry is in the owner's method table
+  # (`zr_method_add_row` writes entries into `RClass.ext(klass)`), and
+  # `zr_mark_entry` marks the cref from there. Thus the owner now refers
+  # to this cref, and the barrier is on the owner.
   zr_write_barrier(FrameMeta.owner(MEntry.meta(e)), c)
   c
 end
 
-# The cref a define_method entry has made, or nil before its first call.
+# Returns the cref that a define_method entry made, or nil before its
+# first call.
 sig [Ptr] => Value
 machine def zr_bmethod_cref_kept(e)
   kept = IvarCache.index(MEntry.ivar(e))
   kept == 0 ? Machine.value(QNIL) : Machine.value(kept)
 end
 
-# The body of a `refine` block, under the holder module: a `def` in it
-# lands there, and the block is given the holder.
+# Runs the body of a `refine` block with the holder module as self. A
+# `def` in it defines into the holder, and the block gets the holder as
+# its argument.
 sig [Value, Value] => Value
 machine def zr_refine_body(blk, holder)
   slot = Machine.slot(8)

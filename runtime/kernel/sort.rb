@@ -1,19 +1,21 @@
-# Sorting. ruby's `Array#sort` is the C library's `qsort_r`, so a tie's
-# order is that routine's, and `zr_os_sort` names the OS's. On macOS it
-# is the Bentley-McIlroy algorithm here, over rows of `stride` bytes whose
-# first word is the Value compared, index for pointer; musl's smoothsort
-# is runtime/kernel/os/linux/smoothsort.rb.
+# Sorting. ruby's `Array#sort` uses the C library's `qsort_r`, so the
+# order of equal elements comes from that routine. `zr_os_sort` refers to
+# the OS's routine. For macOS, this file has the Bentley-McIlroy
+# algorithm, on records of `stride` bytes whose first word is the Value
+# to compare. It uses indexes in place of pointers. musl's smoothsort is
+# in runtime/kernel/os/linux/smoothsort.rb.
 #
-# The comparator runs Ruby. Once a comparison raises, every later one
-# answers 0 without running Ruby, the sort finishes on the copy it was
-# given, and the signal leaves after it.
-# `plain` says the core's own `<=>` stands on Integer and on String
-# when the sort began, so two fixnums or two Strings compare with no
-# send (zr_sort_plain).
+# The comparator runs Ruby. After a comparison raises, every later
+# comparison returns 0 and runs no Ruby. The sort finishes on its copy,
+# and the pending unwind continues after the sort.
+# `plain` means that Integer and String had the core's own `<=>` when the
+# sort started. Then two fixnums or two Strings compare with no send
+# (zr_sort_plain).
 Machine.struct :Sort, base: Ptr, stride: Word, blk: Value, failed: Word, plain: Word
 
-# `x <=> y` as -1, 0 or 1, the way CRuby reads a comparison's answer:
-# an Integer's sign, else `> 0` then `< 0`; nil fails.
+# Converts the result of `x <=> y` to -1, 0 or 1, as CRuby does. For an
+# Integer, it uses the sign. For other values, it tries `> 0`, then
+# `< 0`. nil fails.
 sig [Value, Value, Value] => Value
 machine def zr_cmpint(r, x, y)
   if zr_fixnum_p(r)
@@ -44,8 +46,8 @@ machine def zr_cmpint(r, x, y)
   zr_fix(0)
 end
 
-# `comparison of X with Y failed`: Y is inspected when it is a special
-# constant, else named by its class.
+# Raises `comparison of X with Y failed`. The message shows Y with
+# inspect when it is a special constant, and by its class if not.
 sig [Value, Value] => Value
 machine def zr_cmperr(x, y)
   b = Machine.slot(Buf.size)
@@ -92,17 +94,17 @@ machine def zr_sort_vecswap(st, i, j, n)
   end
 end
 
-# Whether `klass` finds the core's own `<=>`: a row the core wrote
-# (MEntry.core), as it stood when the sort began.
+# Whether `klass` finds the core's own `<=>`: a method entry that the
+# core wrote (MEntry.core). The sort checks this when it starts.
 sig [Word] => Bool
 machine def zr_core_cmp_p(klass)
   e = zr_find_method(zr_global(klass), Machine.id(:<=>))
   e != 0 && MEntry.core(e) != 0
 end
 
-# `a <=> b` with no send where both are Strings and `a` finds String's
-# own `<=>` as the core wrote it, as CRuby's OPTIMIZED_CMP answers
-# inside Comparable; false for any other pair, which sends `<=>`.
+# `a <=> b` with no send, when both are Strings and `a` finds the core's
+# String#<=>, as CRuby's OPTIMIZED_CMP does in Comparable. Returns false
+# for any other pair, and then the caller sends `<=>`.
 sig [Value, Value] => Value
 machine def zr_cmp_plain(a, b)
   if zr_special_p(a) || zr_special_p(b) || zr_type(a) != T_STRING || zr_type(b) != T_STRING
@@ -123,7 +125,7 @@ machine def zr_sort_plain
   zr_core_cmp_p(G_INTEGER) && zr_core_cmp_p(G_STRING) ? 1 : 0
 end
 
-# The elements at `i` and `j` compared through the block, or `<=>`.
+# Compares the elements at `i` and `j` with the block, or with `<=>`.
 sig [Ptr, Word, Word] => Word
 machine def zr_sort_cmp(st, i, j)
   if Sort.failed(st) != 0
@@ -191,10 +193,10 @@ machine def zr_sort_insertion(st, a, n)
   end
 end
 
-# `n` elements from index `a`, in the order CRuby's mmkubo sort does its
-# work: each split sorts its left part, then its right part. A right
-# part waits on a stack of its own rather than the machine's, so however
-# badly the pivots split, the sort cannot run out of stack.
+# Sorts `n` elements from index `a`, in the same order of work as
+# CRuby's mmkubo sort: each split sorts its left part, then its right
+# part. A right part waits on a separate stack, not the machine stack.
+# Thus the sort cannot overflow the stack, even with bad pivots.
 sig [Ptr, Word, Word] => Void
 machine def zr_sort_range(st, a, n)
   parts = Machine.slot(16)
@@ -225,9 +227,9 @@ machine def zr_sort_range(st, a, n)
   end
 end
 
-# One split of `n` elements from index `a`: true with the sizes of the
-# left part (from `a`) and the right part (ending at `a + n`) in `parts`,
-# or false when the range is sorted already.
+# Splits `n` elements from index `a`. Returns true and writes the sizes
+# of the left part (from `a`) and the right part (to `a + n`) to
+# `parts`. Returns false when the range is already sorted.
 sig [Ptr, Word, Word, Ptr] => Bool
 machine def zr_sort_partition(st, a, n, parts)
   if n < 7
@@ -299,9 +301,9 @@ machine def zr_sort_partition(st, a, n, parts)
   true
 end
 
-# `ary` sorted in place; it is a copy the caller made, so a comparison
-# that raises leaves the original as it was, and the copy keeps every
-# element reachable while the block runs.
+# Sorts `ary` in place. `ary` is a copy that the caller made. Thus a
+# comparison that raises does not change the original, and the copy
+# keeps every element reachable while the block runs.
 sig [Value, Value] => Value
 machine def zr_ary_sort_copy(ary, blk)
   n = RArray.len(ary)
@@ -326,9 +328,9 @@ machine def zr_ary_sort(recv, argc, argv, cref, blk)
   zr_ary_sort_copy(zr_ary_of(RArray.len(recv), RArray.ptr(recv)), blk)
 end
 
-# The sorted copy's elements are copied back over the receiver's, and
-# its length too: what a block did to the receiver while it sorted is
-# lost, as in CRuby.
+# Copies the elements and the length of the sorted copy back to the
+# receiver. As in CRuby, changes that a block made to the receiver
+# during the sort are lost.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
   if zr_modify_frozen_p(recv)
@@ -344,22 +346,24 @@ machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
   recv
 end
 
-# `sort_by`'s rows: a key and its element, in an Array of pairs. When
-# every key is a fixnum or a Float, CRuby sorts with its own introsort
-# instead of `qsort_r`, and a tie's order is that routine's.
+# The records of `sort_by`: a key and its element, in an Array of
+# pairs. When every key is a fixnum or a Float, CRuby sorts with its own
+# introsort in place of `qsort_r`, and the order of equal keys comes from
+# that routine.
 Machine.struct :Pair, key: Value, elem: Value
 
-# The first two keys a uniform sort could not compare (a NaN), held
-# until the sort has put every row back: the error's text allocates,
-# and a row being moved lives only in a scratch slot the collector does
-# not see. Until then every comparison answers that neither is less.
+# The first two keys that a uniform sort cannot compare (a NaN). The
+# sort keeps them until it has put every record back, because the error
+# message allocates, and a record that is moving is only in a scratch
+# slot that the collector does not see. Until then, every comparison
+# returns that neither key is less.
 sig [] => Ptr
 machine def zr_uniform_failed
   Machine.static(:uniform_failed, 24)
 end
 
-# `x <=> y` for a Float `x` and a fixnum or Float `y`, as rb_float_cmp
-# reads it; a NaN is recorded as the failure and answers 0.
+# `x <=> y` for a Float `x` and a fixnum or Float `y`, as in
+# rb_float_cmp. A NaN is recorded as the failure and returns 0.
 sig [Value, Value] => Word
 machine def zr_uniform_float_cmp(x, y)
   st = zr_uniform_failed()
@@ -376,8 +380,8 @@ machine def zr_uniform_float_cmp(x, y)
   c
 end
 
-# rb_uniform_is_less: two fixnums by their words, else through the
-# Float side, which comes first in the comparison, as CRuby puts it.
+# rb_uniform_is_less: compares two fixnums by their words. If not, it
+# compares with the Float operand first, as CRuby does.
 sig [Value, Value] => Bool
 machine def zr_uniform_key_less(a, b)
   if zr_fixnum_p(a) && zr_fixnum_p(b)
@@ -389,7 +393,8 @@ machine def zr_uniform_key_less(a, b)
   zr_uniform_float_cmp(a, b) < 0
 end
 
-# rb_uniform_is_larger, which the check for an ordered input asks.
+# rb_uniform_is_larger, for the check for an input that is already in
+# order.
 sig [Value, Value] => Bool
 machine def zr_uniform_key_larger(a, b)
   if zr_fixnum_p(a) && zr_fixnum_p(b)
@@ -418,7 +423,8 @@ machine def zr_uniform_swap(base, i, j)
   Pair.set_elem(b, e)
 end
 
-# The row at `i` moved to `pos`, the rows between shifted up by one.
+# Moves the record at `i` to `pos`, and shifts the records between them
+# up by one.
 sig [Ptr, Word, Word] => Void
 machine def zr_uniform_move(base, i, pos)
   k = Pair.key(base + (i * Pair.size))
@@ -449,8 +455,7 @@ machine def zr_uniform_insertion(base, a, stop)
   end
 end
 
-# The heap under `a`: `offset` sifted down, the live region ending at
-# `a + len`.
+# Sifts `offset` down in the heap at `a`. The heap ends at `a + len`.
 sig [Ptr, Word, Word, Word] => Void
 machine def zr_uniform_heap_down(base, a, offset, len)
   scratch = Machine.slot(Pair.size)
@@ -492,7 +497,7 @@ machine def zr_uniform_heapsort(base, a, stop)
   end
 end
 
-# The pivot: the median of three rows, as a key.
+# Returns the pivot key: the median of three records.
 sig [Ptr, Word, Word, Word] => Value
 machine def zr_uniform_med3(base, a, b, c)
   if zr_uniform_less(base, a, b)
@@ -549,8 +554,8 @@ machine def zr_uniform_quicksort(base, a, stop, d)
   end
 end
 
-# The rows already in order are left alone; else an introsort whose
-# depth budget is twice the bit length of `n`.
+# Records that are already in order stay as they are. If not, it runs
+# an introsort with a depth limit of twice the bit length of `n`.
 sig [Ptr, Word] => Void
 machine def zr_uniform_sort(base, n)
   i = 1
@@ -574,8 +579,8 @@ machine def zr_uniform_sort(base, n)
   zr_uniform_quicksort(base, 0, n, d * 2)
 end
 
-# `pairs` holds a key and its element in turn. The elements in key
-# order, or `undef` when a comparison raised.
+# `pairs` contains a key, then its element, for each pair. Returns the
+# elements in key order, or `undef` when a comparison raised.
 sig [Value] => Value
 machine def zr_sort_by(pairs)
   n = RArray.len(pairs) / 2
