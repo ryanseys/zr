@@ -82,8 +82,7 @@ $ bundle exec minitest test/spec/core/string/frozen_test.rb:214
 the tier's load order runs only under `bin/test`.
 
 When a run fails, it prints a command that runs each failure again
-alone. Add `--bisect` to find the pair of examples where one example
-makes the other fail.
+alone.
 
 ## Run the specs that a change can reach
 

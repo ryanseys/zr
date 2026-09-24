@@ -66,8 +66,8 @@ The first release as a RubyGem.
   checkout is `tmp/cache/` (was `tmp/rt/`).
 - Environment variables: `ZR_LINKER` (was `ZR_LINK`), `ZR_COMPILED`
   (was `ZR_SELF`), `ZR_HOST_RUBY` (was `ZR_RUBY`), and `ZR_TUNE=0` (was
-  `ZR_GC=0` and `ZR_YJIT=0`). The test harness variables start with
-  `ZR_TEST_`.
+  `ZR_GC=0` and `ZR_YJIT=0`). The old names do not work any more. The
+  test harness variables start with `ZR_TEST_`.
 
 ### Removed
 
@@ -84,13 +84,6 @@ The first release as a RubyGem.
 - `Float#round`, `Float#floor` and `Math.frexp` on wasm: the WASI layer
   defines `frexp` and `ldexp`. Other libm calls (`pow`, `fmod`,
   `strtod`, `hypot`) have no wasm form yet.
-- The spec tier builds WASI modules with `TARGET=wasm32-wasi`, and a
-  target's baseline can list spec examples as well as e2e programs.
-- A test worker that the pool stops also stops the builds that it
-  started. A wasm build continued for fifteen minutes after its example
-  timed out.
-- `rake stage1` finds the runtime object under its current cache name.
-
 - A class method that the core library sends by name reaches a program
   subclass's own definition: `OpenSSL::Digest.hexdigest("SHA1", data)`
   called `Digest::Class.digest` and skipped the override.
