@@ -12,23 +12,22 @@ module Zr
     # `parameters` and `local_variables` leave it out, as CRuby does.
     IT = :"%it"
 
-    # `units` are the files a require or load reaches, each a toplevel
-    # of its own, in the order they were first named. `warnings` are the
-    # parse-time warnings ruby prints for the file, printed when it runs.
-    # `evals` says the program carries the compiler; `entries` maps each
-    # file path to its unit: an index into `units`, or the entry of a
-    # road built already.
-    # `traced` says the program names TracePoint, so its code fires the
-    # events a TracePoint asks for.
-    # `node_ids` maps a HIR node, by identity, to the prism node id it
-    # came from.
-    # `spots` holds each file's error_highlight spots (Hir::Spots), by
-    # the file name its frames carry.
-    # `activations` is how many `using` rows this program holds, which a
-    # build at run time takes its own rows after.
-    # `branches` holds each measured file's branch rows, by file name, in
-    # the order Coverage numbers them, and `defs` each file's def and
-    # block spans, which a definition claims to become a method row.
+    # `units` are the files that a require or load reaches, each with its
+    # own toplevel, in order of first reference. `warnings` are the
+    # parse-time warnings that ruby prints for the file, printed when it
+    # runs. `evals` tells that the program links in the compiler.
+    # `entries` maps each file path to its unit: an index into `units`,
+    # or the entry of a file in eval support.
+    # `traced` tells that the program uses TracePoint, so its code fires
+    # the events that a TracePoint listens for.
+    # `node_ids` maps a HIR node, by identity, to its prism node id.
+    # `spots` contains each file's error_highlight spots (Hir::Spots), by
+    # the file name in its frames.
+    # `activations` is the number of `using` entries in this program. A
+    # compile at run time takes the entries after them.
+    # `branches` contains each measured file's branch records, by file
+    # name, in Coverage's order. `defs` contains each file's def and
+    # block spans; a definition uses its span to become a method entry.
     class Program < Record
       FIELDS = %i[file locals body units warnings evals entries traced node_ids spots coverable activations branches
                   defs].freeze
@@ -56,14 +55,14 @@ module Zr
       def to_a = [@file, @locals, @body, @units, @warnings, @evals, @entries, @traced, @node_ids, @spots, @coverable,
                   @activations, @branches, @defs]
     end
-    # `hidden` when the unit loads only for the runtime's own use, as the
-    # eval road's files do.
-    # `source` is the bytes the unit was built from, and `activates`
-    # says the file took an activation row for a `using`: both are what
-    # the unit cache is keyed on (lib/zr/unit_cache.rb). The bytes and
-    # not a digest of them, because the loader runs inside a program
-    # that evals as well, and nothing there may reach for a library the
-    # loader would then have to load.
+    # `hidden` if the unit loads only for the runtime's own use, as the
+    # eval support files do.
+    # `source` is the bytes that the unit was built from. `activates`
+    # tells that the file took an activation entry for a `using`. The
+    # unit cache uses both (lib/zr/unit_cache.rb). It keeps the bytes,
+    # not a digest, because the loader also runs in a program with eval,
+    # and there it must not require a library that it would then have to
+    # load.
     class Unit < Record
       FIELDS = %i[file locals body warnings internal spots hidden source activates].freeze
       attr_accessor :file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates
@@ -84,8 +83,8 @@ module Zr
       def to_a = [@file, @locals, @body, @warnings, @internal, @spots, @hidden, @source, @activates]
     end
     # `require`, `require_relative` or `load` of a literal name: `path`
-    # is the file it resolved to and `unit` that file's index, or both
-    # nil when no file answers.
+    # is the resolved file and `unit` is that file's index. Both are nil
+    # if no file is found.
     class Require < Record
       FIELDS = %i[kind feature path unit line].freeze
       attr_accessor :kind, :feature, :path, :unit, :line
@@ -101,10 +100,10 @@ module Zr
       def to_a = [@kind, @feature, @path, @unit, @line]
     end
 
-    # The `using` rows a program holds, taken before its first line runs
-    # so that a build at run time can take the rows after them. Only a
-    # program that carries the compiler needs it: nothing else compiles
-    # anything once it has started.
+    # The `using` entries of a program, taken before its first line runs,
+    # so a compile at run time can take the entries after them. Only a
+    # program that links in the compiler needs this, because no other
+    # program compiles after it starts.
     class Activations < Record
       FIELDS = %i[count line].freeze
       attr_accessor :count, :line
@@ -117,9 +116,9 @@ module Zr
       def to_a = [@count, @line]
     end
 
-    # A form this runtime does not answer, held until the program runs
-    # it. Reaching it stops the program by name; never reaching it costs
-    # nothing.
+    # A form that this runtime does not support, kept until the program
+    # runs it. If the program gets to it, the program stops with a message
+    # that gives the form. If not, it costs nothing.
     class Stop < Record
       FIELDS = %i[what line].freeze
       attr_accessor :what, :line
@@ -133,9 +132,9 @@ module Zr
     end
     # `autoload :Name, "feature"` on `recv` (nil for self): the file is
     # `path`, unit `unit`; it runs when the constant is first read.
-    # `declared` is an autoload of a feature a require would read no
-    # file for: the name is declared and no row is kept, so nothing
-    # waits for a file and `autoload?` answers nil.
+    # `declared` is an autoload of a feature for which a require reads no
+    # file. The name is declared and no entry is kept, so nothing waits
+    # for a file and `autoload?` returns nil.
     class Autoload < Record
       FIELDS = %i[recv name feature path unit line declared].freeze
       attr_accessor :recv, :name, :feature, :path, :unit, :line, :declared
@@ -164,17 +163,17 @@ module Zr
 
       def to_a = [@stmts, @line]
     end
-    # A method call. `recv` is nil for an implicit self; `vcall` marks a
-    # bare identifier, which is a NameError when nothing answers; `opt`
+    # A method call. `recv` is nil for an implicit self. `vcall` marks a
+    # bare identifier, which is a NameError if no method is found. `opt`
     # marks the operator syntax `recv[i]`, `recv[i] = v` and `recv << v`,
     # which CRuby runs without a frame on its builtin receivers. An
-    # argument may be a Splat; `kwargs` is a HashLit passed as keywords,
-    # or nil; `block` is a Block literal, a BlockPass, or nil.
-    # `using` is the activation row in force where the call is written,
-    # nil where no refinement is.
+    # argument can be a Splat. `kwargs` is a HashLit passed as keywords,
+    # or nil. `block` is a Block literal, a BlockPass, or nil.
+    # `using` is the active activation entry at the call, or nil if no
+    # refinement is active.
     # `covers` is a safe call's two branches, `[then, else]`, which
-    # Coverage counts where a receiver was and was not nil; nil for
-    # every other call.
+    # Coverage counts for a non-nil and a nil receiver. It is nil for all
+    # other calls.
     class Send < Record
       FIELDS = %i[recv name args line vcall opt block kwargs safe write using covers].freeze
       attr_accessor :recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers
@@ -198,8 +197,8 @@ module Zr
       def to_a = [@recv, @name, @args, @line, @vcall, @opt, @block, @kwargs, @safe, @write, @using, @covers]
     end
 
-    # `using mod`: row `id` holds what row `from` held plus every
-    # refinement `mod` carries. `from` is -1 where nothing was in use.
+    # `using mod`: entry `id` contains the contents of entry `from` plus
+    # every refinement in `mod`. `from` is -1 if nothing was active.
     class Using < Record
       FIELDS = %i[id from value line].freeze
       attr_accessor :id, :from, :value, :line
@@ -213,8 +212,9 @@ module Zr
 
       def to_a = [@id, @from, @value, @line]
     end
-    # Before a statement that holds a `using` a condition may skip: each
-    # `[id, from]` row holds what row `from` held until its `using` runs.
+    # Before a statement that contains a `using` that a condition can
+    # skip: each `[id, from]` entry contains the contents of entry `from`
+    # until its `using` runs.
     class UsingDefaults < Record
       FIELDS = %i[rows line].freeze
       attr_accessor :rows, :line
@@ -226,8 +226,9 @@ module Zr
 
       def to_a = [@rows, @line]
     end
-    # A value the lowering has already put in record slot `index`: the
-    # lowering's own node, for a receiver or argument evaluated once.
+    # A value that the lowering already put in record slot `index`. Only
+    # the lowering makes this node, for a receiver or argument evaluated
+    # once.
     class Slot < Record
       FIELDS = %i[index line].freeze
       attr_accessor :index, :line
@@ -241,8 +242,8 @@ module Zr
     end
     # `recv[args] op= value` and `recv.name op= value`, the receiver and
     # arguments evaluated once; `op` is an operator, or :or / :and.
-    # `using` is the refinements in force, as a Send's, for each of the
-    # sends it makes.
+    # `using` is the active refinements, as for a Send, for each of its
+    # sends.
     class IndexOpAssign < Record
       FIELDS = %i[recv args op value line using].freeze
       attr_accessor :recv, :args, :op, :value, :line, :using
@@ -258,8 +259,8 @@ module Zr
 
       def to_a = [@recv, @args, @op, @value, @line, @using]
     end
-    # `safe` is `recv&.name op= value`: nil, with nothing else run,
-    # when the receiver is nil.
+    # `safe` is `recv&.name op= value`: nil, with nothing else run, if
+    # the receiver is nil.
     class AttrOpAssign < Record
       FIELDS = %i[recv name op value line safe using].freeze
       attr_accessor :recv, :name, :op, :value, :line, :safe, :using
@@ -365,10 +366,10 @@ module Zr
         required.size + optional.size + post.size
       end
 
-      # Whether a lone Array argument spreads over the parameters, as
-      # CRuby's block setup decides: a required parameter or two or more
-      # optional ones ask for it; a lone `|a|` does not, nor keywords
-      # beside exactly one positional and no rest.
+      # Whether a single Array argument spreads over the parameters, as
+      # CRuby's block setup decides. A required parameter, or two or more
+      # optional ones, cause a spread. A single `|a|` does not, and neither
+      # do keywords with exactly one positional and no rest.
       def spread?
         min = required.size + post.size
         keyworded = !keywords.empty? || !kwrest.nil?
@@ -377,7 +378,7 @@ module Zr
         min.positive? || optional.size > 1
       end
 
-      # Only required parameters: the exact arity a dispatcher may check.
+      # Only required parameters: the exact arity that a dispatcher can check.
       def plain?
         optional.empty? && rest.nil? && post.empty? && keywords.empty? && kwrest.nil?
       end
@@ -387,9 +388,9 @@ module Zr
         positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - %i[implicit nokey]
       end
 
-      # `Method#arity`: the required count, negative less one when the
-      # count may vary. A required keyword counts as one argument; any
-      # other keyword form allows one more.
+      # `Method#arity`: the required count, or -(count + 1) if the count can
+      # vary. A required keyword counts as one argument. Any other keyword
+      # form permits one more.
       def arity
         min = required.size + post.size + (keywords.any? { |_, default| default.nil? } ? 1 : 0)
         return -min - 1 if rest && rest != :implicit
@@ -398,8 +399,8 @@ module Zr
         min == max ? min : -min - 1
       end
 
-      # `Method#parameters`, in CRuby's order: `[kind, name]` rows, a
-      # destructuring parameter and `it` with no name.
+      # `Method#parameters`, in CRuby's order: `[kind, name]` pairs. A
+      # destructuring parameter and `it` have no name.
       def rows
         positional = ->(p) { p.is_a?(MultiTarget) || p == IT ? [:req] : [:req, p] }
         [
@@ -425,12 +426,12 @@ module Zr
 
       def to_a = [@args, @line, @kwargs]
     end
-    # `super(args)`; `block` as a Send's. `ZSuper` is the bare `super`,
-    # passing the method's own parameters on as they stand. `in_block`
-    # marks a bare `super` in a block of a def, which CRuby refuses when
-    # the block runs as a method `define_method` made.
-    # `using` is the activation in force where the super stands, as on
-    # a Send: ruby resolves a super under the refinements of its scope.
+    # `super(args)`; `block` as for a Send. `ZSuper` is the bare `super`,
+    # which passes the method's own parameters with their current values.
+    # `in_block` marks a bare `super` in a block of a def. CRuby raises for
+    # it if `define_method` made the block a method.
+    # `using` is the active activation at the super, as for a Send: ruby
+    # resolves a super with the refinements of its scope.
     class Super < Record
       FIELDS = %i[args kwargs block line in_block using].freeze
       attr_accessor :args, :kwargs, :block, :line, :in_block, :using
@@ -480,8 +481,8 @@ module Zr
       def to_a = [@value, @line]
     end
     # An Integer, String, Symbol, nil, true or false.
-    # `chilled` marks a String literal of a file that sets no
-    # frozen_string_literal: the String it makes warns on its first change.
+    # `chilled` marks a String literal in a file with no
+    # frozen_string_literal: its String warns at its first change.
     class Literal < Record
       FIELDS = %i[value line chilled].freeze
       attr_accessor :value, :line, :chilled
@@ -526,7 +527,7 @@ module Zr
 
       def to_a = [@name, @params, @locals, @body, @line, @receiver, @evals, @end_line, @cover]
     end
-    # `depth` counts block scopes up to the one that holds the local.
+    # `depth` counts block scopes up to the scope that owns the local.
     class Local < Record
       FIELDS = %i[name depth line].freeze
       attr_accessor :name, :depth, :line
@@ -539,9 +540,9 @@ module Zr
 
       def to_a = [@name, @depth, @line]
     end
-    # The point a traced program fires a TracePoint `event` from: a
-    # `:line` event, as ruby's compiler places one where a statement
-    # starts a new line.
+    # A point where a traced program fires a TracePoint `event`: a
+    # `:line` event, where ruby's compiler puts one (at a statement that
+    # starts a new line).
     class Trace < Record
       FIELDS = %i[event line].freeze
       attr_accessor :event, :line
@@ -553,11 +554,12 @@ module Zr
 
       def to_a = [@event, @line]
     end
-    # One run of branch `id` in a program Coverage measures. The id is
-    # the program's, not the file's: every branch of every file shares
-    # one counter array, and `Program#branches` says which rows belong
-    # to which file. Its value is nil, so it stands wherever a statement
-    # may, including as the else a source never wrote.
+    # Counts one run of branch `id` in a program that Coverage measures.
+    # The id is unique in the program, not only in the file: all branches
+    # of all files share one counter array, and `Program#branches` tells
+    # which records belong to which file. Its value is nil, so it can be
+    # anywhere a statement can, also as an else that the source does not
+    # have.
     class Cover < Record
       FIELDS = %i[id line].freeze
       attr_accessor :id, :line
@@ -583,8 +585,8 @@ module Zr
       def to_a = [@name, @depth, @value, @line]
     end
     # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
-    # `taken` is false where nothing takes that value: a statement before
-    # the last of a sequence, a loop body.
+    # `taken` is false if the value is not used: a statement before the
+    # last of a sequence, or a loop body.
     class MultiAssign < Record
       FIELDS = %i[target value line taken].freeze
       attr_accessor :target, :value, :line, :taken
@@ -602,7 +604,7 @@ module Zr
     # bare `*`, or nil) and the targets after it. A target is an Assign
     # or IvarWrite with a nil value, a Send with the value to append
     # (`h[k]`, `o.attr`), or a nested MultiTarget. As a block parameter,
-    # a MultiTarget stands among the required names.
+    # a MultiTarget is one of the required names.
     class MultiTarget < Record
       FIELDS = %i[lefts rest rights line whole].freeze
       attr_accessor :lefts, :rest, :rights, :line, :whole
@@ -627,7 +629,8 @@ module Zr
         end
       end
     end
-    # `if`; `unless` arrives with its arms swapped. An arm may be nil.
+    # `if`. `unless` becomes an If with its branches swapped. A branch can
+    # be nil.
     class If < Record
       FIELDS = %i[cond yes no line].freeze
       attr_accessor :cond, :yes, :no, :line
@@ -667,7 +670,7 @@ module Zr
 
       def to_a = [@value, @line]
     end
-    # `a && b`, `a || b`, `!a`: on truthiness, short circuit.
+    # `a && b`, `a || b`, `!a`: on truthiness, with short-circuit.
     class And < Record
       FIELDS = %i[left right line].freeze
       attr_accessor :left, :right, :line
@@ -703,9 +706,9 @@ module Zr
 
       def to_a = [@value, @line]
     end
-    # A class or module the core defines, read from the runtime and never
-    # through lexical scope: what a desugaring names (`Array` in a
-    # pattern), so a program's own `Array` cannot stand in for it.
+    # A class or module that the core defines, read from the runtime and
+    # never through lexical scope. A desugaring uses it (`Array` in a
+    # pattern), so a program's own `Array` cannot replace it.
     class Core < Record
       FIELDS = %i[name line].freeze
       attr_accessor :name, :line
@@ -826,7 +829,7 @@ module Zr
 
       def to_a = [@name, @line]
     end
-    # `shown` is the name the program wrote, where it is not `name`.
+    # `shown` is the name that the program wrote, if it is not `name`.
     class GvarWrite < Record
       FIELDS = %i[name value line shown].freeze
       attr_accessor :name, :value, :line, :shown
@@ -863,7 +866,7 @@ module Zr
 
       def to_a = [@name, @value, @line]
     end
-    # `Name ||= value`: set only when unset or falsy.
+    # `Name ||= value`: set only if unset or falsy.
     class ConstOrWrite < Record
       FIELDS = %i[scope name value line].freeze
       attr_accessor :scope, :name, :value, :line
@@ -941,10 +944,10 @@ module Zr
 
       def to_a = [@names, @line]
     end
-    # `defined?(...)`: `kind` names the form (:local, :ivar, :gvar,
-    # :cvar, :const, :method, :yield, :super, :self, :nil, :true, :false,
-    # :assignment, :expression); `target` is the name, the ConstRead, or
-    # the Send the form asks about.
+    # `defined?(...)`: `kind` is the form (:local, :ivar, :gvar, :cvar,
+    # :const, :method, :yield, :super, :self, :nil, :true, :false,
+    # :assignment, :expression). `target` is the name, the ConstRead, or
+    # the Send that the form tests.
     class Defined < Record
       FIELDS = %i[kind target line].freeze
       attr_accessor :kind, :target, :line
@@ -984,9 +987,9 @@ module Zr
 
       def to_a = [@name, @value, @line]
     end
-    # `[a, b]`; `frozen` where a `# shareable_constant_value: literal`
-    # constant holds it, built frozen with no send (compile.c freezes it
-    # in the compiler).
+    # `[a, b]`. `frozen` if it is the value of a
+    # `# shareable_constant_value: literal` constant: built frozen with
+    # no send (compile.c freezes it in the compiler).
     class ArrayLit < Record
       FIELDS = %i[elements line frozen].freeze
       attr_accessor :elements, :line, :frozen
@@ -1013,8 +1016,8 @@ module Zr
 
       def to_a = [@pairs, @line]
     end
-    # `{k => v, ...}`: `pairs` is a flat list, key then value; `frozen`
-    # as an ArrayLit's.
+    # `{k => v, ...}`: `pairs` is a flat list, key then value. `frozen`
+    # as for an ArrayLit.
     class HashLit < Record
       FIELDS = %i[pairs line frozen].freeze
       attr_accessor :pairs, :line, :frozen
@@ -1027,7 +1030,6 @@ module Zr
 
       def to_a = [@pairs, @line, @frozen]
     end
-    # `low..high` / `low...high`; a missing bound is nil.
     # `$1` and the other numbered groups (`kind` :nth, `number` the
     # group, 0 for `$&`), `` $` `` (:pre), `$'` (:post) and `$+` (:last),
     # read from `$~`'s registers, never through MatchData's methods.
@@ -1043,8 +1045,8 @@ module Zr
 
       def to_a = [@kind, @number, @line]
     end
-    # `static` when both ends are Integer or nil literals: one frozen
-    # Range for the site.
+    # `low..high` / `low...high`. A missing bound is nil. `static` if both
+    # ends are Integer or nil literals: one frozen Range for the site.
     class RangeLit < Record
       FIELDS = %i[low high exclusive line static].freeze
       attr_accessor :low, :high, :exclusive, :line, :static
@@ -1071,8 +1073,8 @@ module Zr
 
       def to_a = [@parts, @line]
     end
-    # A regexp literal: its source and option bits; one object per site.
-    # `/#{x}/o`: the interpolated regexp its site keeps after the first run.
+    # `/#{x}/o`: the interpolated regexp that its site keeps after the
+    # first run.
     class RegexpOnce < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
@@ -1085,6 +1087,7 @@ module Zr
       def to_a = [@value, @line]
     end
 
+    # A regexp literal: its source and option bits. One object per site.
     class RegexpLit < Record
       FIELDS = %i[source options pinned line].freeze
       attr_accessor :source, :options, :pinned, :line
@@ -1098,12 +1101,12 @@ module Zr
 
       def to_a = [@source, @options, @pinned, @line]
     end
-    # `"text".freeze`: the one frozen String of that text, through a send
-    # of `freeze` where the program redefines it. `shared` is true where
-    # a shareable constant or a frozen_string_literal comment holds it:
-    # the shared String with no send, as the compiler's own fstring; false
-    # is the same for a text outside UTF-8, frozen with no send but not
-    # shared.
+    # `"text".freeze`: the one frozen String of that text, or a send of
+    # `freeze` if the program redefines it. `shared` is true for a
+    # shareable constant or under a frozen_string_literal comment: the
+    # shared String with no send, as the compiler's own fstring. `false`
+    # means the same for a text that is not UTF-8: frozen with no send,
+    # but not shared.
     class FrozenString < Record
       FIELDS = %i[value line shared].freeze
       attr_accessor :value, :line, :shared
@@ -1117,10 +1120,10 @@ module Zr
       def to_a = [@value, @line, @shared]
     end
     # `begin body rescue ... else else_body ensure ensure_body end`. The
-    # else arm runs after a body that raised nothing; the ensure arm on
-    # every way out. `rescues` are Rescue nodes in order; `else_body` and
-    # `ensure_body` may be nil. A `rescue` modifier is a Begin with one
-    # clause and no classes.
+    # else branch runs after a body that raised nothing. The ensure branch
+    # runs on every exit. `rescues` are Rescue nodes in order. `else_body`
+    # and `ensure_body` can be nil. A `rescue` modifier is a Begin with
+    # one clause and no classes.
     class Begin < Record
       FIELDS = %i[body rescues else_body ensure_body line].freeze
       attr_accessor :body, :rescues, :else_body, :ensure_body, :line
@@ -1136,7 +1139,7 @@ module Zr
       def to_a = [@body, @rescues, @else_body, @ensure_body, @line]
     end
     # One clause: the exception classes (none means StandardError; one
-    # may be a Splat), the target that takes the exception (`=> e`, an
+    # can be a Splat), the target that gets the exception (`=> e`, an
     # Assign, IvarWrite or Send target with a nil value) or nil, and the
     # handler.
     class Rescue < Record
