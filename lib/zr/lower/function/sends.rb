@@ -12,38 +12,39 @@ module Zr
           :< => "GATE_LT", :<= => "GATE_LE", :> => "GATE_GT", :>= => "GATE_GE", :== => "GATE_EQ", :!= => "GATE_NE",
           :& => "GATE_AND", :| => "GATE_OR", :^ => "GATE_XOR", :>> => "GATE_SHR"
         }.freeze
-        # The operators among them that relate two fixnums, as the IR's
-        # signed conditions over the tagged words.
+        # The comparison operators among them, as the IR's signed
+        # conditions on the tagged words.
         RELATIONS = { :< => "slt", :<= => "sle", :> => "sgt", :>= => "sge", :== => "eq", :!= => "ne" }.freeze
 
-        # What a site may do in place of a call, by the kernel's name for the
-        # cell's shape (runtime/kernel/cache.rb): an accessor's body, or one of the
-        # core's type questions. The two accessors read and write a cell's
-        # table, so their receiver must be a cell; the questions take any.
+        # What a site can do in place of a call, by the kernel's name for the
+        # cell's shape (runtime/kernel/cache.rb): an accessor's body, or one of
+        # the core's type checks. The two accessors read and write a cell's
+        # table, so their receiver must be a cell. The type checks accept any
+        # receiver.
         SHAPES = {
           reader: "SHAPE_READER", writer: "SHAPE_WRITER", is_a: "SHAPE_IS_A", instance_of: "SHAPE_INSTANCE_OF",
           nil_p: "SHAPE_NIL_P", frozen_p: "SHAPE_FROZEN_P", ary_length: "SHAPE_ARY_LENGTH", mod_eqq: "SHAPE_MOD_EQQ",
           eq: "SHAPE_EQ", ne: "SHAPE_NE", eqq: "SHAPE_EQQ"
         }.freeze
         ACCESSOR_SHAPES = %i[reader writer].freeze
-        # The questions of no argument, and of one, a site answers by name.
-        # `nil?` and `frozen?` cannot name an attribute, so no reader is
-        # tested for them.
+        # The zero-argument checks that a site handles by name. `nil?` and
+        # `frozen?` cannot be attribute names, so the site does not test for
+        # a reader.
         QUESTIONS = { nil?: [:nil_p], frozen?: [:frozen_p], size: %i[ary_length reader], length: %i[ary_length reader] }.freeze
-        # `===` is what `case` asks of each `when`, and Module's answers the
-        # class tests a `case` over objects is made of. `==`, `equal?` and
-        # `!=` are identity where the cell holds BasicObject's.
+        # The one-argument checks. `case` sends `===` for each `when`, and
+        # Module#=== does the class tests of a `case` on objects. `==`,
+        # `equal?` and `!=` are identity tests if the cell has BasicObject's.
         ARGUED = {
           is_a?: [:is_a], kind_of?: [:is_a], instance_of?: [:instance_of], "===": %i[mod_eqq eqq],
           "==": [:eq], equal?: [:eq], "!=": [:ne]
         }.freeze
-        # The type questions a site answers before its cell, while no
+        # The type checks that a site handles before its cell, while no
         # class has defined the name (runtime/kernel/integer.rb).
         QUESTION_GATES = { is_a?: "GATE_IS_A", kind_of?: "GATE_IS_A", instance_of?: "GATE_INSTANCE_OF" }.freeze
 
         # The kernel entry of each operator and named call with a core
-        # fast path, and the classes it answers for. The named ones are
-        # `Hir::Build::OPT_CALLS`, which marks the call.
+        # fast path, and the classes that it handles. The named calls are
+        # in `Hir::Build::OPT_CALLS`, which marks the call.
         OPT_ENTRIES = {
           :[] => ["zr_opt_aref", %w[G_ARRAY G_HASH]], :[]= => ["zr_opt_aset", %w[G_ARRAY G_HASH]], :<< => ["zr_opt_ltlt", %w[G_ARRAY G_STRING]],
           getbyte: ["zr_opt_getbyte", %w[G_STRING]], setbyte: ["zr_opt_setbyte", %w[G_STRING]],
@@ -62,18 +63,18 @@ module Zr
           :< => ["lt", "GATE_FLO_LT"], :<= => ["le", "GATE_FLO_LE"], :> => ["gt", "GATE_FLO_GT"], :>= => ["ge", "GATE_FLO_GE"],
           :== => ["eq", "GATE_FLO_EQ"]
         }.freeze
-        # The bits of +0.0 as a flonum, and of the double the rotation
-        # cannot carry (runtime/kernel/float.rb).
+        # The bits of +0.0 as a flonum, and of the double that the rotation
+        # cannot represent (runtime/kernel/float.rb).
         FLONUM_ZERO = 9223372036854775810 - (1 << 64)
         FLONUM_HOLE = 3458764513820540928
 
-        # The names CRuby's C sends by name even to its own classes'
-        # instances, so the method a program defines answers them: the
-        # conversions, equality, hashing and ordering, iteration, the
-        # object protocol and its hooks, and what error reporting asks.
-        # Any other send the core library makes to an instance of a class
-        # the runtime made reaches the core library's own method, as a
-        # call in C reaches a C function (runtime/kernel/send.rb, SEND_CORE).
+        # The names that CRuby's C sends by name, even to instances of its
+        # own classes, so a method that a program defines is called: the
+        # conversions, equality, hashing and ordering, iteration, the object
+        # protocol and its hooks, and error reporting. Any other send by the
+        # core library to an instance of a runtime class goes to the core
+        # library's own method, as a C call goes to a C function
+        # (runtime/kernel/send.rb, SEND_CORE).
         PROTOCOL = %i[
           initialize initialize_copy initialize_dup initialize_clone
           to_s inspect to_str to_sym to_proc to_ary to_a to_hash to_h to_int to_i to_f to_r to_c to_path to_io to_regexp
@@ -85,16 +86,16 @@ module Zr
           marshal_dump marshal_load _dump _load pp
           exception message backtrace full_message detailed_message
         ].to_set.freeze
-        # The bit a send of the core library carries (SEND_CORE).
+        # The flag bit of a send in the core library (SEND_CORE).
         SEND_CORE = 8
-        # The bit a send under `using` carries (SEND_USING): its cells
-        # hold what the lookup under the site's own refinements answered.
+        # The flag bit of a send under `using` (SEND_USING). Its cells
+        # contain the result of the lookup with the site's refinements.
         SEND_USING = 16
-        # The cells a send site owns (runtime/kernel/cache.rb, CALL_WAYS).
+        # The number of cells of a send site (runtime/kernel/cache.rb, CALL_WAYS).
         CALL_WAYS = 4
-        # The names a Float is sent in numeric code, whose sites find a
-        # flonum's class inline; any other site leaves a flonum to the
-        # kernel, which reads its class as well, for the code's sake.
+        # The names that numeric code sends to a Float. Their sites find a
+        # flonum's class inline. All other sites let the kernel read a
+        # flonum's class, to keep the code small.
         FLONUM_NAMES = (OPS.keys + %i[
           ** -@ +@ <=> to_i to_f to_s to_r round floor ceil truncate abs divmod fdiv quo
           nan? finite? infinite? zero? positive? negative? coerce
@@ -102,8 +103,8 @@ module Zr
 
         private
 
-        # The receiver and arguments wait in record slots (a splat gathers
-        # them into one Array there), keywords last as a Hash the task
+        # The receiver and arguments go into record slots (a splat collects
+        # them into one Array there), then keywords as a Hash that the task
         # flags, then the send.
         def call(node)
           return safe_call(node) if node.safe
@@ -117,8 +118,8 @@ module Zr
           if args.any?(Hir::Splat)
             staged([recv_node], 1) do |slots, base|
               ary = gather(args, base + 1)
-              # A write answers the value it wrote, which is the last thing
-              # gathered, not whatever the writer returned.
+              # A write returns the value that it wrote (the last collected
+              # element), not the writer's return value.
               last = node.write ? kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) : nil
               r = send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
               node.write ? last : r
@@ -131,12 +132,12 @@ module Zr
           end
         end
 
-        # An operator site whose operands are plain reads -- a local, self,
-        # an immediate literal: nothing that calls or allocates -- tests
-        # them as they are, and stages them in the record only on the arm
-        # that sends, so the fast arm stores nothing and releases nothing.
-        # A unary operator has one operand, and nothing runs between its
-        # read and the test, so any receiver will do.
+        # An operator site whose operands are plain reads (a local, self, an
+        # immediate literal: nothing that calls or allocates) tests them
+        # directly. It stages them in the record only on the send branch, so
+        # the fast branch stores and releases nothing. A unary operator has
+        # one operand, and nothing runs between its read and the test, so
+        # any receiver is permitted.
         def direct_operands?(node, recv_node)
           return false if node.block || node.kwargs || node.write || node.vcall || owner_using?(node) || traced?
 
@@ -165,8 +166,8 @@ module Zr
           (args.empty? ? unary(node, recv, nil, &slow) : operator(node, recv, nil, args.first, &slow)).tap { deactivate(node) }
         end
 
-        # The send of an operator whose operands were read as values:
-        # staged in the record only now, on the arm that sends.
+        # The send of an operator whose operands were read as values. They
+        # are staged in the record only here, on the send branch.
         def sent_directly(node, recv, args)
           staged([recv, *args], evaluate: ->(value) { value }) do |slots|
             dispatch(node, recv, @f.iadd(slots, imm(8)), imm(args.size))
@@ -174,16 +175,16 @@ module Zr
         end
 
         # Whether a test of `node` branches on the comparison itself: a
-        # relation over plain reads (`direct_operands?`).
+        # comparison of plain reads (`direct_operands?`).
         def relation_test?(node)
           node.is_a?(Hir::Send) && RELATIONS.key?(node.name) && direct_operands?(node, node.recv || Hir::SelfRef.new(node.line))
         end
 
-        # `a < b` and the other relations as a test (`Control#jump_if`):
-        # the fixnum and flonum paths branch on the comparison, so no true
-        # or false is made only to be tested again, which a condition
-        # such as fib's `n < 2` or a loop's `i < n` did every time. The
-        # call's answer is tested as any value is.
+        # `a < b` and the other comparisons as a test (`Control#jump_if`).
+        # The fixnum and flonum paths branch on the comparison, so no true
+        # or false is made only to be tested again (for example, fib's
+        # `n < 2` or a loop's `i < n`). The call's result is tested as a
+        # value.
         def relation_jump(node, yes, no)
           recv = expr(node.recv || Hir::SelfRef.new(node.line))
           arg = expr(node.args.first)
@@ -205,18 +206,18 @@ module Zr
         end
 
         # In the runtime's own Ruby, `recv.send(:name, ...)` is rb_funcall
-        # in CRuby's C: the call of `name` itself, private allowed, and
-        # never a class's own `send` (BasicSocket has one). The call goes
-        # through a cell of its own, with no send frame and no lookup by
-        # name, and the core's own row answers for any name but a
-        # protocol's, as for every other call the core makes.
+        # in CRuby's C: a direct call of `name`, private permitted, and
+        # never a class's own `send` (BasicSocket has one). The call uses
+        # its own cell, with no send frame and no lookup by name. For all
+        # names except PROTOCOL, the core's own method entry is used, as
+        # for every other call that the core makes.
         def kernel_send?(node)
           @l.internal? && %i[send __send__].include?(node.name) && node.args.first.is_a?(Hir::Literal) &&
             node.args.first.value.is_a?(Symbol) && !%i[send __send__ public_send].include?(node.args.first.value)
         end
 
-        # The call a kernel send names, marked as one that may reach a
-        # private method whatever its receiver (`send_mode`).
+        # The call that a kernel send gives, marked so it can call a
+        # private method with any receiver (`send_mode`).
         def funcall(node)
           named = node.dup.tap do |n|
             n.name = node.args.first.value
@@ -226,12 +227,12 @@ module Zr
           named
         end
 
-        # `recv&.name(args)`: nil when the receiver is, with the arguments
-        # left unevaluated; else the send.
+        # `recv&.name(args)`: nil if the receiver is nil, with the arguments
+        # not evaluated; else the send.
         def safe_call(node)
-          # `self&.x` is `self.x`: self is never nil, and the receiver
-          # stays a literal self for the visibility rule. Coverage still
-          # counts the call, and never counts the nil side.
+          # `self&.x` is `self.x`: self is never nil, and the receiver stays
+          # a literal self for the visibility rule. Coverage counts the
+          # call, and never counts the nil branch.
           if node.recv.is_a?(Hir::SelfRef)
             cover(node.covers.first.id) if node.covers
             return call(node.dup.tap { |n| n.safe = false })
@@ -257,9 +258,9 @@ module Zr
           result
         end
 
-        # In the core library, `Primitive.zr_name(args)` is the kernel def
-        # itself, called directly with Values. A block literal is its last
-        # Value, a Proc, whose `break` lands here as a send's would.
+        # In the core library, `Primitive.zr_name(args)` calls the kernel
+        # def directly with Values. A block literal is its last Value, a
+        # Proc, and its `break` comes here as for a send.
         def primitive?(node)
           @l.internal? && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && node.recv.scope.nil?
         end
@@ -287,9 +288,9 @@ module Zr
           end
         end
 
-        # `Primitive.arg!(:in)`: the parameter of that name, which Ruby
-        # cannot spell as a variable when the name is a keyword, as CRuby's
-        # builtin methods read it.
+        # `Primitive.arg!(:in)`: the parameter with that name. Ruby cannot
+        # write it as a variable when the name is a keyword. CRuby's builtin
+        # methods read it the same way.
         def parameter_named(node)
           name = node.args.first.value
           i = @locals.index(name) or @l.refuse(node, "Primitive.arg! names #{name}, which is no parameter here")
@@ -315,8 +316,8 @@ module Zr
           end.tap { deactivate(node) }
         end
 
-        # `parts` pushed one by one into an Array kept in the record slot
-        # `slot`; a Splat spreads its value. Answers the Array.
+        # Pushes `parts` one at a time into an Array in the record slot
+        # `slot`. A Splat spreads its value. Returns the Array.
         def gather(parts, slot)
           @f.store(kernel("zr_ary_new", imm(parts.size)), @rec, value_offset(slot))
           parts.each do |part|
@@ -337,12 +338,10 @@ module Zr
           @f.fetch("i64", ary, off(@l.layout("RArray"), "len"))
         end
 
-        # The count the callee sees: a keywords Hash goes last and flags
-        # the task; a splat's last element may be a ruby2_keywords Hash.
-        # A call's keywords among its arguments: `k: v` pairs with plain
-        # Symbol keys go as trailing values under a static table of the
-        # keys, told to the task right before the send; any other
-        # keywords as one Hash the task flags (runtime/kernel/send.rb).
+        # A call's keywords as arguments. `k: v` pairs with plain Symbol
+        # keys go as trailing values, with a static table of the keys that
+        # the task gets just before the send. All other keywords go as one
+        # Hash that the task flags (runtime/kernel/send.rb).
         def keyword_args(node)
           return [] unless node.kwargs
           return [node.kwargs] unless Scope.literal_keywords?(node.kwargs)
@@ -350,6 +349,9 @@ module Zr
           node.kwargs.pairs.each_slice(2).map(&:last)
         end
 
+        # The count that the callee sees: a keywords Hash goes last and
+        # flags the task. A splat's last element can be a ruby2_keywords
+        # Hash.
         def keyword_argc(node, argc, argv)
           if node.kwargs && Scope.literal_keywords?(node.kwargs)
             keys = node.kwargs.pairs.each_slice(2).map { |key, _| key.value }
@@ -362,23 +364,22 @@ module Zr
           argc
         end
 
-        # `using mod` fills the row it names, so every send under it
-        # reads what this module refines. It answers the self it ran on.
+        # `using mod` fills its activation entry, so every send under it
+        # sees this module's refinements. It returns its self.
         def using_row(node)
           at_node(node)
           checked(kernel("zr_using_activate", imm(node.id), expr(node.value), imm(node.from)))
           @self
         end
 
-        # The refinements in force where this call is written, told to
-        # the task so the lookup sees them -- and so a callee that looks
-        # up under them sees them too, as `send`, `respond_to?` and
-        # `&:name` do in ruby, whichever road the site takes. A `using`
-        # row is one element of the activation table, read here in
-        # place: the kernel is asked only for a row not made yet or one
-        # that forwards to the row before it (a `using` a condition
-        # skipped), and inside a `refine` block, where the list is the
-        # owner's and no row numbers it.
+        # Gives the task the refinements that are active at this call, so
+        # the lookup sees them. A callee that does a lookup also sees them,
+        # as `send`, `respond_to?` and `&:name` do in ruby, on every path
+        # of the site. A `using` entry is one element of the activation
+        # table, read here inline. The kernel is called only for an entry
+        # that is not made yet, for one that forwards to the entry before
+        # it (a `using` that a condition skipped), and in a `refine` block,
+        # where the list is the owner's and has no entry number.
         def activate(node)
           return if node.using.nil?
           return kernel("zr_activate_owner", @rec) if owner_using?(node)
@@ -406,24 +407,24 @@ module Zr
           switch(merge)
         end
 
-        # The refinements told for this send alone, taken back after it:
-        # a callee of the kernel's leaves the word as it found it, and
-        # the next plain site must not read it as its own.
+        # Removes this send's refinements from the task after the send. A
+        # kernel callee leaves the word unchanged, and the next plain site
+        # must not read it as its own.
         def deactivate(node)
           return if node.using.nil?
 
           @f.store(@qnil, @task_addr, off(@task, "refine"), region: :task)
         end
 
-        # Whether the site stands inside a `refine` block: its list is
-        # its owner's, which the kernel reads at every send it makes.
+        # Whether the site is in a `refine` block. Its list is the owner's,
+        # which the kernel reads at each send.
         def owner_using?(node)
           node.using == :owner
         end
 
-        # The mode `zr_dispatch` takes: 0 for an implicit or `self`
-        # receiver, 1 for a bare identifier, 2 for an explicit receiver,
-        # which visibility applies to.
+        # The mode for `zr_dispatch`: 0 for an implicit or `self` receiver,
+        # 1 for a bare identifier, 2 for an explicit receiver (visibility
+        # applies).
         def send_mode(node)
           mode = node.vcall ? 1 : (explicit?(node) && !@funcalls&.key?(node) ? 2 : 0)
           mode |= SEND_CORE if @l.internal? && !PROTOCOL.include?(node.name)
@@ -445,15 +446,15 @@ module Zr
           end
         end
 
-        # Whether `recv` reads a `&b` parameter bound as the block it was
-        # given (`Params#raw_block?`), here or in a scope around this one.
+        # Whether `recv` reads a `&b` parameter bound to the block as given
+        # (`Params#raw_block?`), in this scope or an enclosing scope.
         def raw_block_recv?(recv)
           recv.is_a?(Hir::Local) && scope_at(recv.depth).raw_block == recv.name
         end
 
-        # `recv[i]`, `recv[i] = v` and `recv << v`: a receiver of a core
-        # class with a fast path takes the kernel's entry, which tests the
-        # method's gate and calls it; any other receiver takes the site's
+        # `recv[i]`, `recv[i] = v` and `recv << v`. A receiver of a core
+        # class with a fast path goes to the kernel's entry, which tests the
+        # method's gate and calls it. All other receivers use the site's
         # cell.
         def opt_send(node, recv, argc, argv)
           entry, classes = OPT_ENTRIES.fetch(node.name)
@@ -487,17 +488,17 @@ module Zr
           result
         end
 
-        # The core class whose elements the site reads or writes itself,
-        # or nil: an Array's by `[]` and `[]=`, a String's bytes by
-        # `getbyte` and `setbyte`.
+        # The core class whose elements the site reads or writes inline, or
+        # nil: an Array's by `[]` and `[]=`, a String's bytes by `getbyte`
+        # and `setbyte`.
         def in_place_class(node)
           if array_element?(node) then "G_ARRAY"
           elsif %i[getbyte setbyte].include?(node.name) then "G_STRING"
           end
         end
 
-        # `recv[i]` and `recv[i] = v` with one plain index: an Array
-        # receiver reads or writes the element in place.
+        # `recv[i]` and `recv[i] = v` with one plain index: for an Array
+        # receiver, read or write the element inline.
         def array_element?(node)
           return false unless %i[[] []=].include?(node.name)
 
@@ -506,10 +507,10 @@ module Zr
         end
 
         # The element of an Array `recv` at a fixnum index in range, while
-        # Array's `[]` or `[]=` is its own (the gate) and, for a write,
-        # the Array is not frozen: the value goes to `merge`. A negative
-        # index, one past the end and every other case take `slow`, the
-        # kernel's entry, as before.
+        # Array's `[]` or `[]=` is not redefined (the gate) and, for a
+        # write, the Array is not frozen. The value goes to `merge`. A
+        # negative index, one past the end, and all other cases go to
+        # `slow`, the kernel's entry.
         def array_element(node, recv, argv, merge, slow)
           fast = @f.label
           index = @f.fetch("i64", argv)
@@ -535,14 +536,14 @@ module Zr
         end
 
         # `s.getbyte(i)` and `s.setbyte(i, b)` on a String at a fixnum
-        # index in range, with a fixnum byte, while String's method is
-        # its own (the gate): the byte read or written where it stands,
-        # as zr_str_byte_at and zr_str_setbyte would. A write also wants
-        # a String that is neither frozen nor chilled, and forgets what
-        # the scans knew of its bytes (zr_str_modified). A negative
-        # index, one past the end and every other case take `slow`, the
-        # kernel's entry, which raises or answers nil as the method does.
-        # `bm_ruby_xor` spent three fifths of its time in the entries.
+        # index in range, with a fixnum byte, while String's method is not
+        # redefined (the gate). Reads or writes the byte inline, as
+        # zr_str_byte_at and zr_str_setbyte do. A write also needs a String
+        # that is not frozen or chilled, and clears the cached scan data of
+        # its bytes (zr_str_modified). A negative index, one past the end,
+        # and all other cases go to `slow`, the kernel's entry, which raises
+        # or returns nil as the method does. Without this, `bm_ruby_xor`
+        # spends three fifths of its time in the entries.
         def string_byte(node, recv, argv, merge, slow)
           string = @l.layout("RString")
           fast = @f.label
@@ -569,19 +570,18 @@ module Zr
           end
         end
 
-        # A send through the site's own cell (runtime/kernel/cache.rb), which
-        # keeps the method the receiver's class answered there last. The
-        # site tests the cell itself: a fixnum's class is Integer, a
-        # flonum's Float, a heap object's is in its header, and when
-        # that class is the cell's and the cell's stamp is the site
-        # stamp, the cell's function is called with the method
-        # signature. Anything else -- another special constant, a stale
-        # cell, the cells off -- is the kernel's send, which tests the
-        # site's other cells and fills one. A site under `using` tests
-        # its cell as any does (the cell holds what the lookup under its
-        # refinements answered, and the task holds the refinements for
-        # the callee); one inside a `refine` block asks the kernel every
-        # time.
+        # A send through the site's own cell (runtime/kernel/cache.rb). The
+        # cell keeps the method of the last receiver class at this site.
+        # The site tests the cell inline: a fixnum's class is Integer, a
+        # flonum's is Float, and a heap object's class is in its header.
+        # If that class is the cell's and the cell's stamp is the site
+        # stamp, the site calls the cell's function with the method
+        # signature. All other cases (a different special constant, a stale
+        # cell, cells turned off) go to the kernel's send, which tests the
+        # site's other cells and fills one. A site under `using` tests its
+        # cell in the same way (the cell has the result of the lookup with
+        # its refinements, and the task has the refinements for the
+        # callee). A site in a `refine` block always calls the kernel.
         def cached_send(node, recv, argc, argv, blk, mode: send_mode(node), cc: site_cache(node, "ic", "CallCache", CALL_WAYS))
           slow = -> { kernel("zr_send_cached", cc, recv, sym_word(node.name), argc, argv, blk, imm(mode)) }
           return slow.call if owner_using?(node)
@@ -591,20 +591,20 @@ module Zr
           fixnum = @f.label
           other = @f.label
           heap = @f.label
-          # A site that may carry an accessor takes a second word at the
-          # join: whether the receiver is a cell. A fixnum and a flonum
-          # reach here too, and an accessor of Integer's or Float's would
-          # be read through a receiver that is no address at all.
+          # A site that can have an accessor shape gets a second word at the
+          # join: whether the receiver is a cell. A fixnum and a flonum also
+          # get here, and an accessor of Integer or Float would read through
+          # a receiver that is not an address.
           own = shapes.intersect?(ACCESSOR_SHAPES)
           have, (klass, cellular) = @f.block(own ? %w[i64 i64] : %w[i64])
           reach = ->(k, cell_p) { @f.jump(have, own ? [k, imm(cell_p)] : [k]) }
           direct = @f.label
           miss = @f.label
           merge, (result,) = @f.block(["i64"])
-          # `x.nil?` while no class has defined the name (GATE_NIL_P):
-          # true for nil here, before any class is read; false at `have`
-          # for a receiver whose class is ranked (Object's family, which
-          # is where Kernel's answer holds); the cell for the rest.
+          # `x.nil?` while no class has defined the name (GATE_NIL_P): true
+          # for nil here, before any class is read. False at `have` for a
+          # receiver whose class is ranked (under Object, where Kernel's
+          # `nil?` applies). The cell for all others.
           nil_p = node.name == :nil? && node.args.empty? && node.block.nil? && node.kwargs.nil? && !traced?
           if nil_p
             is_nil = @f.label
@@ -614,9 +614,9 @@ module Zr
             @f.jump(merge, [imm(@l.const("QTRUE"))])
             switch(not_nil)
           end
-          # A receiver written as a symbol, nil, true or false has the
-          # class the compiler knows: a `case` arm over a symbol asks
-          # `:sym === x` of the literal.
+          # The compiler knows the class of a literal symbol, nil, true or
+          # false receiver. For example, a `case` branch on a symbol sends
+          # `:sym === x` to the literal.
           if (known = literal_class(node.recv))
             reach.call(global(known), 0)
           else
@@ -637,12 +637,12 @@ module Zr
             @f.brif(pointer, heap, special)
             switch(heap)
             reach.call(@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass")), 1)
-            # nil, true, false, a symbol and a flonum have a class as a
-            # fixnum has, and a site that sends to one -- `x.nil?` on a
-            # nil, a symbol's `to_proc`, `respond_to?` on a flag -- hits
-            # its cell as a fixnum does. The kernel reads the class: one
-            # call on this side road, where the tests written out at every
-            # site cost the runtime a tenth of its code.
+            # nil, true, false, a symbol and a flonum each have a class, as a
+            # fixnum does. A site that sends to one (`x.nil?` on nil, a
+            # symbol's `to_proc`, `respond_to?` on a flag) hits its cell as
+            # for a fixnum. The kernel reads the class with one call on this
+            # slow path. Inline tests at every site would add a tenth to the
+            # runtime's code.
             switch(special)
             reach.call(kernel("zr_class_of", recv), 0)
           end
@@ -655,9 +655,9 @@ module Zr
             @f.jump(merge, [imm(@l.const("QFALSE"))])
             switch(cell_path)
           end
-          # `recv.is_a?(K)` answers by the receiver's class alone while
-          # no class has defined the name (GATE_IS_A): no cell to hit,
-          # which a site whose receivers are of a dozen classes thrashed.
+          # `recv.is_a?(K)` uses only the receiver's class while no class
+          # has defined the name (GATE_IS_A). It uses no cell, because a
+          # site with receivers of many classes would thrash the cells.
           if (gate = QUESTION_GATES[node.name]) && node.args.size == 1 && node.block.nil? && node.kwargs.nil? && !node.args[0].is_a?(Hir::Splat) && !traced?
             gated = @f.label
             cell_path = @f.label
@@ -690,9 +690,9 @@ module Zr
           end
           found = @f.fetch("i64", cc, off(cell, "found"))
           if direct_site?(node)
-            # The def's direct entry, where the cell holds one for this
-            # site's count: the staged arguments go in registers, with
-            # no count and no keyword word for the def to check.
+            # The def's direct entry, if the cell has one for this site's
+            # count. The staged arguments go in registers, with no count
+            # and no keyword word for the def to check.
             fast = @f.label
             generic = @f.label
             direct = @f.fetch("i64", cc, off(cell, "direct"))
@@ -700,9 +700,9 @@ module Zr
             switch(fast)
             n = node.args.size
             given = n.times.map { |i| @f.fetch("i64", argv, 8 * i) }
-            # The def of the unit the name guesses at, where the direct
-            # entry is its body: the body's copy here, bailing to the
-            # call (`Inline`).
+            # The unit's def with this name, if the direct entry is its
+            # body: an inline copy of the body, which bails to the call
+            # (`Inline`).
             if (d = inline_candidate(node))
               copy = @f.label
               plain = @f.label
@@ -723,9 +723,8 @@ module Zr
           result
         end
 
-        # The global of the class a literal receiver is an instance of, or
-        # nil: a Symbol has no singleton class, nor have nil, true and
-        # false.
+        # The global of a literal receiver's class, or nil. A Symbol, nil,
+        # true and false have no singleton class.
         def literal_class(recv)
           return nil unless recv.is_a?(Hir::Literal)
 
@@ -737,27 +736,25 @@ module Zr
           end
         end
 
-        # Whether a site may take a def's direct entry: positional
-        # arguments alone, four at most, so its count is its own to
-        # prove.
+        # Whether a site can use a def's direct entry: only positional
+        # arguments, four at most, so the site proves the count.
         def direct_site?(node)
           node.args.size <= DIRECT_ARGS && node.kwargs.nil? && node.args.none?(Hir::Splat)
         end
 
-        # The shapes a site may carry, in the order it tests them: what its
-        # own form allows, before the cell says at run time whether the
-        # entry it holds is one (runtime/kernel/cache.rb, `zr_entry_shape`).
-        # Every one wants a call with no block, no keywords and no splat,
-        # and exactly the arguments the body takes -- none for a reader or
-        # a question, one for a writer, `is_a?` or `instance_of?` -- since
-        # any other count raises, and only the call raises it. A type
-        # question is picked by name, so only a site that spells it pays
-        # for its test; `size` and `length` may be Array's or a reader's,
-        # and test both. A traced program keeps the call, as `opt_send`
-        # does.
+        # The shapes that a site can have, in test order. The site's form
+        # permits them. At run time, the cell tells whether its entry has
+        # the shape (runtime/kernel/cache.rb, `zr_entry_shape`). Each shape
+        # needs a call with no block, no keywords and no splat, and the
+        # exact argument count of the body (none for a reader or a check,
+        # one for a writer, `is_a?` or `instance_of?`), because only the
+        # call can raise for a wrong count. A type check is selected by
+        # name, so only a site with that name pays for its test. `size`
+        # and `length` can be Array's or a reader's, so they test both. A
+        # traced program keeps the call, as `opt_send` does.
         def site_shapes(node)
           return [] if node.block || node.kwargs || node.args.any?(Hir::Splat) || traced?
-          # No question or accessor is worth a test in an `initialize`.
+          # In an `initialize`, no check or accessor is worth a test.
           return [] if node.name == :initialize
 
           case node.args.size
@@ -767,10 +764,10 @@ module Zr
           end
         end
 
-        # What a site does where the cell's shape is `shape`. An accessor's
-        # guard that fails goes to `miss`, the kernel's send (which sets the
-        # guess); a question the fast answer leaves open goes to `call`, the
-        # cell's own function, which the cell has already found to stand.
+        # What a site does if the cell's shape is `shape`. A failed accessor
+        # guard goes to `miss`, the kernel's send (which sets the guess). A
+        # check that the fast path cannot decide goes to `call`, the cell's
+        # own function, which the cell already found to be valid.
         def in_place(shape, recv, klass, entry, argv, merge, call, miss)
           case shape
           when :reader, :writer then accessor_in_place(shape, recv, entry, argv, merge, miss)
@@ -785,10 +782,10 @@ module Zr
           end
         end
 
-        # `Mod === obj` where the cell holds Module#===: a ranked class
-        # receiver answers from the classes in place; a module, or a
-        # class not ranked yet, asks the kernel, and what it leaves open
-        # goes to `call`.
+        # `Mod === obj` if the cell has Module#===. For a ranked class
+        # receiver, decide inline from the classes. For a module or a class
+        # not ranked yet, call the kernel. If that does not decide, go to
+        # `call`.
         def mod_eqq_in_place(recv, obj, merge, call)
           classed = @f.label
           asked = @f.label
@@ -799,8 +796,8 @@ module Zr
           answered(kernel("zr_mod_eqq_fast", recv, obj), merge, call)
         end
 
-        # Whether `klass`, a class, is ranked (FL_RANKED): in Object's
-        # family with its rank table built, and in no box.
+        # Whether the class `klass` is ranked (FL_RANKED): under Object,
+        # with its rank table built, and in no box.
         def ranked?(klass)
           @f.icmp("ne", @f.band(@f.fetch("i64", klass, off(@l.layout("RBasic"), "flags")), imm(@l.const("FL_RANKED"))), imm(0))
         end
@@ -820,11 +817,11 @@ module Zr
           klass
         end
 
-        # `klass.is_a?(mod)` written out, as `zr_is_a_fast` answers it:
-        # where `mod` is a ranked class too, `mod`'s rank names the one
-        # place in `klass`'s table it can be. Anything else -- a module,
-        # a class whose table is not built yet, a box's view -- goes to
-        # `open`, the road that calls, which builds the tables.
+        # `klass.is_a?(mod)` inline, as `zr_is_a_fast` does. If `mod` is
+        # also a ranked class, `mod`'s rank gives the only position in
+        # `klass`'s table where it can be. All other cases (a module, a
+        # class with no table yet, a box's view) go to `open`, the path
+        # that calls the kernel, which builds the tables.
         def is_a_in_place(klass, mod, merge, open)
           ext_of = @l.layout("RClass")
           ext = @l.layout("ClassExt")
@@ -848,9 +845,9 @@ module Zr
         end
 
         # `frozen?` as `zr_frozen_p` reads it: every special constant is
-        # frozen, and a cell says so in its flags. Written out here rather
-        # than called, since the kernel's answer is a Bool, which wasm
-        # carries as an i32 where every Value is an i64.
+        # frozen, and a cell has a flag. This is inline and not a call,
+        # because the kernel returns a Bool, which is an i32 in wasm, but
+        # every Value is an i64.
         def frozen_in_place(recv, merge)
           cell = @f.label
           special = @f.label
@@ -862,7 +859,7 @@ module Zr
           @f.jump(merge, [ruby_bool(@f.icmp("ne", @f.band(flags, imm(@l.const("FL_FREEZE"))), imm(0)))])
         end
 
-        # A fast answer, or nil where it leaves the question to the call.
+        # A fast result, or nil if the call must decide.
         def answered(v, merge, call)
           settled = @f.label
           @f.brif(@f.icmp("eq", v, @qnil), call, settled)
@@ -872,18 +869,15 @@ module Zr
 
         def ruby_bool(cond) = @f.csel(cond, imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
 
-        # An accessor's whole body at the site. The cell said its entry is
-        # one, and the site has already found the receiver's class to be
-        # the cell's, so what is left is the receiver's kind, the ractor
-        # and the row the entry guesses -- the three tests
-        # `guessed_ivar_row` makes for `@name` of this frame's own. A
-        # receiver that is not a plain object, a ractor, a frozen receiver
-        # under the writer, or a guess that does not hold goes to `slow`,
-        # the kernel's send, which calls the accessor as it always did and
-        # is what sets the guess.
+        # An accessor's full body at the site. The cell's entry is an
+        # accessor, and the receiver's class matches the cell, so the
+        # remaining tests are the receiver's kind, the ractor, and the
+        # guessed ivar entry (the same tests that `guessed_ivar_row` does
+        # for `@name`). A receiver that is not a plain object, a ractor, a
+        # frozen receiver for the writer, or a wrong guess goes to `slow`,
+        # the kernel's send, which calls the accessor and sets the guess.
         #
-        # The keyword word is cleared as the accessor clears it: a hit
-        # here is the call that would have.
+        # Clear the keyword word as the accessor call would.
         def accessor_in_place(shape, recv, entry, argv, merge, slow)
           table = @l.layout("IvTab")
           row = @l.layout("IvEntry")
@@ -915,20 +909,20 @@ module Zr
           end
         end
 
-        # The send with a block: a descriptor for a block literal, with
-        # the site's own `break` caught on the way out, or the `&value`.
+        # The send with a block: a descriptor for a block literal (the
+        # site catches its own `break` on return), or the `&value`.
         def call_with_block(node, recv, argv, argc)
           if node.block.is_a?(Hir::BlockPass)
             # The site's refinements are active when `&value` becomes a
-            # Proc, so `&:name` and a refined `to_proc` see them.
+            # Proc, so `&:name` and a refined `to_proc` use them.
             value = expr(node.block.value)
             at_node(node)
             argc = keyword_argc(node, argc, argv)
             activate(node)
             proc = checked(kernel("zr_block_pass", value))
-            # A program's `new(&blk)` is a send of Class#new with its frame,
-            # even for `&nil`, as ruby compiles any block argument; the
-            # core's is C's, with none.
+            # A program's `new(&blk)` is a send of Class#new with a frame,
+            # also for `&nil`, as ruby compiles any block argument. The
+            # core's `new` has no frame, as in C.
             return checked(node.name == :new && @l.internal? ? new_send(node, recv, argc, argv, proc) : cached_send(node, recv, argc, argv, proc))
           end
 
@@ -940,15 +934,15 @@ module Zr
         end
 
         # `recv.new(...)`, with its block if it has one: the kernel's
-        # opt_new, a cell for `new` and one for `initialize`.
+        # opt_new, with a cell for `new` and one for `initialize`.
         #
         # A program's `Klass.new(...)` with no block does opt_new's work
-        # itself while the cell holds Class#new (SHAPE_NEW): the object
-        # from the class's allocator, then `initialize` sent as a call
-        # sends it, through a cell of the site's own -- so a def's direct
-        # entry takes the arguments as they stand. Class#new has no frame
-        # on this road, as on the kernel's. Any other receiver or `new`,
-        # or a stale cell, takes the kernel's road, which fills the cell.
+        # inline while the cell has Class#new (SHAPE_NEW). It gets the
+        # object from the class's allocator, then sends `initialize` as a
+        # normal call, through the site's own cell. So a def's direct entry
+        # gets the arguments in place. Class#new has no frame on this path,
+        # as in the kernel. Any other receiver or `new`, or a stale cell,
+        # uses the kernel's path, which fills the cell.
         def new_send(node, recv, argc, argv, blk)
           cc = cache("ic", "CallCache", 2 * CALL_WAYS)
           slow = -> { kernel("zr_new_cached", cc, recv, argc, argv, blk, imm(send_mode(node))) }
@@ -978,16 +972,16 @@ module Zr
           result
         end
 
-        # Whether a `new` site takes the road in place: a program's, on
-        # an explicit receiver (the cell then holds only a public `new`),
-        # with no block (a `new` with one is a call of Class#new with a
-        # frame), untraced, and outside a `refine` block.
+        # Whether a `new` site uses the inline path: in a program (not the
+        # core), with an explicit receiver (so the cell has only a public
+        # `new`), with no block (a `new` with a block calls Class#new with
+        # a frame), not traced, and not in a `refine` block.
         def new_in_place?(node)
           explicit?(node) && node.block.nil? && !@l.internal? && !traced? && !owner_using?(node)
         end
 
-        # The `initialize` a `new` site sends its object: an implicit
-        # call, private allowed, with the site's arguments.
+        # The `initialize` that a `new` site sends to its object: an
+        # implicit call, private permitted, with the site's arguments.
         def initializer(node)
           node.dup.tap do |n|
             n.recv = nil
@@ -997,19 +991,19 @@ module Zr
         end
 
         # The block literal's descriptor and its site number. The
-        # descriptor is a Proc's image in a slot of this record, written
-        # by stores alone: no cell, unless a kernel def keeps the block
-        # (`zr_block_proc`, runtime/kernel/proc.rb). Its flags say it is a
-        # stack's and marked already, so the collector reads nothing
-        # through it: what it names, this frame roots.
+        # descriptor is a Proc image in a slot of this record, written
+        # only by stores. It is not a cell unless a kernel def keeps the
+        # block (`zr_block_proc`, runtime/kernel/proc.rb). Its flags mark
+        # it as on the stack and already marked, so the collector reads
+        # nothing through it. This frame roots all that it refers to.
         def make_block(block)
           fn = @l.block(block, self)
           site = (@sites += 1)
-          # Where a `return` written in the block lands. A block inside a
-          # method names that method's frame. A block inside another block
-          # names what that block names, unless the block is a lambda:
-          # a lambda is the innermost frame a return can leave, so the
-          # answer is known only when the proc is called.
+          # The target of a `return` in the block. A block in a method
+          # refers to that method's frame. A block in another block refers
+          # to the outer block's target, unless the outer block is a lambda.
+          # A lambda is the innermost frame that a return can leave, so the
+          # target is known only when the proc is called.
           serial = frame_serial
           ret_home, ret_serial = if @kind == :block
                                    [@f.csel(lambda?, @rec, proc_field("ret_home")), @f.csel(lambda?, serial, proc_field("ret_serial"))]
@@ -1032,8 +1026,9 @@ module Zr
           [site, desc]
         end
 
-        # The block's call answered; a `break` from the block literal at
-        # `site` is the answer, any other signal takes the landing block.
+        # The result of the block's call. A `break` from the block literal
+        # at `site` gives the result. Any other unwind goes to the landing
+        # block.
         def catching_break(site)
           r = yield
           fine = @f.label
@@ -1052,10 +1047,10 @@ module Zr
           result
         end
 
-        # `super(args)`: the arguments staged as for a send, then the
-        # runtime finds the next method past this frame's owner. A bare
-        # `super` in a block asks first whether the block is a method
-        # `define_method` made, where CRuby refuses it.
+        # `super(args)`: the arguments are staged as for a send, then the
+        # runtime finds the next method after this frame's owner. A bare
+        # `super` in a block first checks whether `define_method` made the
+        # block a method, because CRuby raises for that case.
         def super_call(node)
           if node.in_block
             at_node(node)
@@ -1088,17 +1083,17 @@ module Zr
           (site ? catching_break(site, &call) : checked(call.call)).tap { deactivate(node) }
         end
 
-        # A bare `super` the builder could not expand, one with no def
-        # around it: the runtime raises for it.
+        # A bare `super` that the builder could not expand (no enclosing
+        # def). The runtime raises for it.
         def zsuper(node)
           at_node(node)
           checked(kernel("zr_zsuper_outside", @rec))
         end
 
-        # An Integer operator: the fixnum fast path inline when both sides
-        # are fixnums and the gate is clear, else the call. Equality takes
-        # the call for any other operand too: `1 == 1.0` is true, and
-        # `1 == obj` asks `obj == 1`.
+        # An Integer operator: the inline fixnum fast path if both sides
+        # are fixnums and the gate is clear, else the call. Equality also
+        # uses the call for other operands: `1 == 1.0` is true, and
+        # `1 == obj` sends `obj == 1`.
         def operator(node, recv, argv, arg = @f.fetch("i64", argv), &sends)
           ok = @f.band(fixnums?(recv, arg), gate_clear(OPS.fetch(node.name)))
           fast = @f.label
@@ -1119,16 +1114,16 @@ module Zr
           result
         end
 
-        # `recv.succ` and `-recv` on a fixnum while Integer's method is
-        # its own: the sum or the difference inline, the call past the
-        # fixnums or under a redefinition. `bm_ruby_xor` counts with
-        # `i.succ`, and every call of it was a send.
+        # `recv.succ` and `-recv` on a fixnum while Integer's method is not
+        # redefined: the sum or the difference inline. Outside the fixnums
+        # or after a redefinition, the call. `bm_ruby_xor` counts with
+        # `i.succ`, so this removes a send per iteration.
         #
-        # `-recv` on a flonum while Float's `-@` is its own flips the
-        # sign, which a flonum keeps at bit 2. Two flonums take the call:
-        # +0.0, whose negation is no flonum, and the one whose negation
-        # is the double the flonum zero's pattern stands in for
-        # (`float_value`). The two differ in that bit alone.
+        # `-recv` on a flonum while Float's `-@` is not redefined flips the
+        # sign, which a flonum keeps at bit 2. Two flonums use the call:
+        # +0.0, whose negation is not a flonum, and the one whose negation
+        # is the double that the flonum zero's bit pattern replaces
+        # (`float_value`). The two differ only in that bit.
         def unary(node, recv, argv, &sends)
           fix = @f.icmp("ne", @f.band(recv, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(UNARY.fetch(node.name)))
@@ -1155,10 +1150,10 @@ module Zr
         end
 
         # Whether the site gets the flonum path (`float_path`), which is
-        # some forty instructions: an operator with one, unless an
-        # operand is an Integer literal of a sum, a difference or a
-        # comparison, which count and index far more often than they
-        # meet a Float (`x * 2` and `x / 2` keep it).
+        # about forty instructions: an operator that has one, unless an
+        # operand is an Integer literal in a sum, a difference or a
+        # comparison. Those count and index much more often than they get
+        # a Float (`x * 2` and `x / 2` keep the path).
         def float_path?(node)
           return false unless FLOAT_OPS.key?(node.name)
           return true if %i[* /].include?(node.name)
@@ -1166,20 +1161,20 @@ module Zr
           [node.recv, node.args.first].none? { |n| n.is_a?(Hir::Literal) && n.value.is_a?(Integer) }
         end
 
-        # The flonum path: both operands flonums, or one a flonum and
-        # the other a fixnum (within 2^53 for a comparison, which ruby
-        # makes exactly), with Integer's and Float's gates for the
-        # operator both clear; the arithmetic on doubles, answered as a
-        # flonum again or the kernel's heap Float; a comparison as
-        # ruby's, false with a NaN. Anything else takes `slow`.
+        # The flonum path: both operands are flonums, or one is a flonum
+        # and the other a fixnum (within 2^53 for a comparison, which ruby
+        # does exactly), and the operator's Integer and Float gates are
+        # clear. The arithmetic is on doubles, and the result is a flonum
+        # or the kernel's heap Float. A comparison is as in ruby (false with
+        # a NaN). All other cases go to `slow`.
         def float_path(op, a, b, slow)
           fop = FLOAT_OPS.fetch(op).first
           x, y = doubles(op, a, b, slow)
           fop.is_a?(String) ? ruby_bool(@f.fcmp(fop, x, y)) : float_value(@f.fbinop(fop, x, y))
         end
 
-        # The operands of `op` as doubles, where the flonum path takes
-        # them; else the branch to `slow`.
+        # The operands of `op` as doubles, if the flonum path accepts them.
+        # Else the branch to `slow`.
         def doubles(op, a, b, slow)
           fop, gate = FLOAT_OPS.fetch(op)
           compare = fop.is_a?(String)
@@ -1196,16 +1191,16 @@ module Zr
 
         def flonum?(v) = @f.icmp("eq", @f.band(v, imm(3)), imm(2))
 
-        # A flonum or a fixnum, the fixnum within 2^53 either way when
-        # `exact`.
+        # Whether `v` is a flonum or a fixnum. When `exact`, the fixnum must
+        # be within 2^53 in both directions.
         def number?(v, exact)
           fix = @f.icmp("ne", @f.band(v, imm(1)), imm(0))
           fix = @f.band(fix, @f.icmp("ult", @f.iadd(@f.sshr(v, imm(1)), imm(1 << 53)), imm(1 << 54))) if exact
           @f.bor(flonum?(v), fix)
         end
 
-        # The double a flonum or a fixnum `v` holds: `zr_float_value`'s
-        # rotation, +0.0 for the flonum zero, a fixnum converted.
+        # The double value of a flonum or fixnum `v`: `zr_float_value`'s
+        # rotation, +0.0 for the flonum zero, or a converted fixnum.
         def as_double(v)
           sign = @f.ushr(v, imm(63))
           x = @f.bor(@f.isub(imm(2), sign), @f.band(v, imm(-4)))
@@ -1215,9 +1210,8 @@ module Zr
           @f.bitcast("f64", @f.csel(flonum?(v), decoded, converted))
         end
 
-        # `zr_float_new` inline: a flonum when the exponent's top bits
-        # are 011 or 100, the flonum zero for +0.0, else the kernel's
-        # cell.
+        # `zr_float_new` inline: a flonum if the exponent's top bits are
+        # 011 or 100, the flonum zero for +0.0, else the kernel's cell.
         def float_value(d)
           b = @f.bitcast("i64", d)
           top = @f.band(@f.ushr(b, imm(60)), imm(7))
@@ -1242,8 +1236,8 @@ module Zr
           v
         end
 
-        # The tagged result of `op` on tagged fixnums `a` and `b`; a
-        # result outside the fixnum range takes `slow`.
+        # The tagged result of `op` on tagged fixnums `a` and `b`. A result
+        # outside the fixnum range goes to `slow`.
         def fast_path(op, a, b, slow)
           one = imm(1)
           case op
@@ -1251,7 +1245,8 @@ module Zr
           when :- then @f.bor(overflow_or(@f.ssub_overflow(a, b), slow), one)
           when :* then @f.bor(overflow_or(@f.smul_overflow(@f.sshr(a, one), @f.isub(b, one)), slow), one)
           when :/, :%
-            # -2^62 / -1 leaves the fixnum range: that pair takes the call.
+            # -2^62 / -1 is outside the fixnum range, so that pair uses the
+            # call.
             x = @f.sshr(a, one)
             y = @f.sshr(b, one)
             unless_equal(y, 0, slow)
@@ -1261,8 +1256,8 @@ module Zr
           when :| then @f.bor(a, b)
           when :^ then @f.bor(@f.bxor(a, b), one)
           when :>>
-            # A shift of 63 or more, or of a negative count, is not a
-            # shift right of a fixnum: it takes the call.
+            # A shift of 63 or more, or a negative count, is not a right
+            # shift of a fixnum, so it uses the call.
             k = @f.sshr(b, one)
             unless_unsigned_below(k, 63, slow)
             @f.bor(@f.sshr(a, k), one)
@@ -1270,17 +1265,17 @@ module Zr
           end
         end
 
-        # A negative count reads as a huge unsigned one, so one branch
-        # holds both ends of the range.
+        # A negative count is a very large unsigned value, so one branch
+        # checks both ends of the range.
         def unless_unsigned_below(value, n, escape)
           ok = @f.label
           @f.brif(@f.icmp("uge", value, imm(n)), escape, ok)
           switch(ok)
         end
 
-        # `x / y` or `x % y` rounded toward minus infinity, for `y` not
-        # 0: when neither is negative the machine's truncation is that
-        # already, else the kernel's floor.
+        # `x / y` or `x % y` rounded toward minus infinity, for `y` not 0.
+        # If neither is negative, the machine's truncation gives the same
+        # result. Else use the kernel's floor.
         def floored(op, x, y)
           same = @f.label
           call = @f.label
@@ -1309,16 +1304,16 @@ module Zr
 
         def gate_clear(name) = gates_clear(name)
 
-        # Whether every one of the gates named is clear: one test of the
-        # word, out of its register.
+        # Whether all the given gates are clear: one test of the gate word,
+        # from its register.
         def gates_clear(*names)
           @f.icmp("eq", @f.band(@f.gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
 
-        # `!v` inline for nil, true and false while none of their
-        # classes redefines `!` (GATE_NOT); any other receiver sends
-        # `!` through a cell of its own, as a call would. The three are
-        # the only Values under 28 with their low two bits clear.
+        # `!v` inline for nil, true and false while none of their classes
+        # redefines `!` (GATE_NOT). All other receivers send `!` through
+        # the site's own cell, as a call does. The three are the only
+        # Values below 28 with their low two bits clear.
         def negate(node)
           staged([node.value]) do |slots, base|
             v = @f.fetch("i64", @rec, value_offset(base))

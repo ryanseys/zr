@@ -5,46 +5,45 @@ module Zr
     class Function
       # A small def of the unit, inlined at a site that calls it.
       #
-      # The site keeps its cell and its class-and-stamp test; on a hit
-      # whose direct entry is the def's own body, the body runs here
-      # with no frame, in a form where every guard that fails -- a cell
-      # that misses, a receiver of another kind, an operator past the
-      # fixnums, a gate closed -- jumps to `bail`: the ordinary call,
-      # which runs the def from its start. So the copy may hold only
-      # what leaves nothing behind: reads of parameters, of self's ivars
-      # through their guessed rows, of readers and type questions
-      # through the cells the def's own sites use, fixnum arithmetic,
-      # branches and a return. No call, no store, no allocation. The
-      # def's own function keeps its cells with the copy (`site_cell`),
-      # so a bail that runs the def fills what the copy reads next time.
+      # The site keeps its cell and its class-and-stamp test. On a hit
+      # whose direct entry is the def's own body, the body runs here with
+      # no frame. Every guard that fails (a cell miss, a different
+      # receiver kind, an operator result outside the fixnums, a closed
+      # gate) jumps to `bail`: the normal call, which runs the def from
+      # its start. So the copy can contain only code with no side
+      # effects: reads of parameters, of self's ivars through their
+      # guessed entries, of readers and type checks through the def's
+      # own site cells, fixnum arithmetic, branches and a return. No
+      # call, no store, no allocation. The copy shares the def's cells
+      # (`site_cell`), so a bail that runs the def fills the cells for
+      # the copy's next run.
       #
-      # A def whose body is not pure all through may still begin with a
-      # decision the copy can make: a pure test with a pure arm, as
-      # fib's `n < 2 ? n : ...` or ack's `m == 0`, or a guard clause
-      # (`return x if test`) before the rest. The copy answers that arm
-      # at the site, and every other road is the bail: the def's own
-      # call, which makes the test again. A recursion's leaves, half
-      # its calls, are then no call at all.
+      # A def whose body is not fully pure can still start with a
+      # decision that the copy can make: a pure test with a pure branch
+      # (fib's `n < 2 ? n : ...`, ack's `m == 0`), or a guard clause
+      # (`return x if test`). The copy returns that branch at the site.
+      # All other paths bail to the def's own call, which does the test
+      # again. So the leaves of a recursion (half its calls) make no call.
       #
-      # What a program observes: no frame for the inlined def, so no
-      # SystemStackError from it and one entry poll fewer; a backtrace
-      # is never taken inside the copy, since nothing in it raises.
+      # Visible effects: the inlined def has no frame, so it raises no
+      # SystemStackError and polls one time less at entry. No backtrace
+      # is taken inside the copy, because nothing in it raises.
       module Inline
-        # The most HIR nodes a candidate's body may hold.
+        # The maximum HIR node count of a candidate's body.
         LIMIT = 24
-        # The one-argument sends a copy answers: an Integer operator on
-        # fixnums, identity for BasicObject's `==`/`!=`, a type question,
-        # a `case` arm over a class.
+        # The one-argument sends that a copy handles: an Integer operator
+        # on fixnums, identity for BasicObject's `==`/`!=`, a type check,
+        # and a `case` branch on a class.
         ARGUED = %i[is_a? kind_of? ===].freeze
-        # A name a reader may have.
+        # The pattern of a reader method's name.
         READER = /\A[a-z_][A-Za-z0-9_]*\z/
 
-        # The defs of `body`, a unit's tree, that a site may inline, by
-        # name: written once in the unit, required positionals alone
-        # (four at most, the direct entry's shape), no other local, and
-        # a body of the nodes `pure?` takes, or one that `leads?` with a
-        # decision of them. A def with a receiver (`def self.x`) counts
-        # against the name and is never one.
+        # The defs in the unit tree `body` that a site can inline, by name.
+        # Each is the only def of its name in the unit, has only required
+        # positionals (four at most, the direct entry's shape) and no other
+        # local, and has a body that passes `pure?` or `leads?`. A def with
+        # a receiver (`def self.x`) is never a candidate, and it also
+        # disqualifies its name.
         def self.candidates(body)
           defs = Hash.new { |h, k| h[k] = [] }
           each_def(body) { |d| defs[d.name] << d }
@@ -58,9 +57,9 @@ module Zr
           end
         end
 
-        # Whether `body` begins with a decision the copy can make: an
-        # `if` whose test is pure, with a pure arm, as the whole body or
-        # as a guard clause, one arm a `return`, before the rest.
+        # Whether `body` starts with a decision that the copy can make: an
+        # `if` with a pure test and a pure branch. It is the whole body, or
+        # a guard clause (one branch is a `return`) before the rest.
         def self.leads?(body, count)
           body = body.stmts.first while body.is_a?(Hir::Seq) && body.stmts.size == 1
           test = body.is_a?(Hir::Seq) ? body.stmts.first : body
@@ -77,8 +76,8 @@ module Zr
           node.is_a?(Hir::Return)
         end
 
-        # Every Def under `node`, at any depth: class bodies, blocks and
-        # the defs themselves are walked into.
+        # Every Def under `node`, at any depth. The walk goes into class
+        # bodies, blocks and defs.
         def self.each_def(node, &blk)
           case node
           when Hir::Def
@@ -102,8 +101,8 @@ module Zr
           end
         end
 
-        # Whether `node` is of the form a copy lowers, counting its nodes
-        # into `count` (a one-element Array, the running total).
+        # Whether a copy can lower `node`. Adds its node count to `count`
+        # (a one-element Array with the running total).
         def self.pure?(node, count)
           return false if (count[0] += 1) > LIMIT
 
@@ -137,9 +136,9 @@ module Zr
           b.zero? || (b != 0x3000000000000000 && (top == 3 || top == 4))
         end
 
-        # A send with an explicit receiver and no block, keywords, splat
-        # or refinement: a reader or `nil?` of no argument, or one of
-        # the argued forms.
+        # A send with an explicit receiver and no block, keywords, splat or
+        # refinement: a reader or `nil?` with no argument, or one of the
+        # ARGUED forms.
         def self.pure_send?(node, count)
           return false if node.recv.nil? || node.vcall || node.block || node.kwargs || node.safe || node.using || node.write
           return false unless pure?(node.recv, count) && node.args.all? { |a| !a.is_a?(Hir::Splat) && pure?(a, count) }
@@ -153,10 +152,10 @@ module Zr
 
         private
 
-        # The def a call of `node` may inline, where the site's shape
-        # allows one: its count the def's, no block, no keywords, no
-        # splat, not under `using`, not traced (a trace sees every
-        # frame), not in the core (whose sends carry their own modes).
+        # The def that the call `node` can inline, if the site permits it:
+        # the def's argument count, no block, no keywords, no splat, no
+        # `using`, not traced (a trace sees every frame), and not in the
+        # core (its sends have their own modes).
         def inline_candidate(node)
           return nil if traced? || @l.internal? || node.block || node.kwargs || node.using || node.args.any?(Hir::Splat)
 
@@ -165,8 +164,8 @@ module Zr
         end
 
         # The copy of `d`'s body at the site, with `recv` as its self and
-        # `given` its parameters; every guard that fails jumps to `bail`.
-        # Answers the body's value.
+        # `given` as its parameters. Every guard that fails jumps to
+        # `bail`. Returns the body's value.
         def inline_body(d, recv, given, bail)
           exit, (result,) = @f.block(["i64"])
           saved = [@self, @inline_locals, @inline_exit, @inline_bail, @inlining]
@@ -182,9 +181,9 @@ module Zr
           result
         end
 
-        # The copy of a candidate's body: a pure one whole, or the test
-        # it `leads?` with, whose arms and later statements are each
-        # copied where pure and bail where not.
+        # The copy of a candidate's body: a pure body in full, or the
+        # leading test (`leads?`). Its branches and later statements are
+        # copied if pure, else they bail.
         def spec_leading(body)
           return spec(body) if Inline.pure?(body, [0])
 
@@ -192,10 +191,10 @@ module Zr
           body.is_a?(Hir::If) ? spec_branch(body) : spec_seq(body)
         end
 
-        # The value of `node` in the copy: `expr` for the nodes `pure?`
-        # took, with every miss a jump to the bail block. What the copy
-        # cannot answer -- the arm of a leading test that calls, the rest
-        # after a guard clause -- is the bail itself.
+        # The value of `node` in the copy: `expr` for the nodes that pass
+        # `pure?`, with each miss a jump to the bail block. Code that the
+        # copy cannot run (a branch of a leading test that calls, or the
+        # rest after a guard clause) is only a bail.
         def spec(node)
           unless Inline.pure?(node, [0])
             @f.jump(@inline_bail)
@@ -226,9 +225,9 @@ module Zr
           v
         end
 
-        # A relation of two fixnums branches on the comparison, as
-        # `Sends#relation_jump` does; `==` and `!=` of anything else are
-        # the identity the def's cell may allow, tested as a value.
+        # A comparison of two fixnums branches on the comparison, as
+        # `Sends#relation_jump` does. `==` and `!=` of other values are
+        # identity tests (if the def's cell permits), tested as a value.
         def spec_jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -296,8 +295,8 @@ module Zr
           result
         end
 
-        # `!v` for nil, true and false under GATE_NOT (`Sends#negate`);
-        # any other receiver bails.
+        # `!v` for nil, true and false under GATE_NOT (`Sends#negate`).
+        # All other receivers bail.
         def spec_negate(node)
           v = spec(node.value)
           go = @f.label
@@ -313,7 +312,7 @@ module Zr
           @qnil
         end
 
-        # `@name` of the copy's self through the def's own guessed row.
+        # `@name` of the copy's self, through the def's own guessed entry.
         def spec_ivar_read(node)
           ivar = ivar_name(node.name)
           ic = site_cache(node, "iv", "IvarCache")
@@ -335,7 +334,7 @@ module Zr
         end
 
         # `recv.nil?` under GATE_NIL_P: nil, or a ranked class (a class
-        # in Object's family, which Kernel's answer holds for).
+        # under Object, where Kernel's `nil?` applies).
         def spec_nil_p(recv, merge)
           is_nil = @f.label
           not_nil = @f.label
@@ -352,9 +351,9 @@ module Zr
           @f.jump(merge, [imm(@l.const("QFALSE"))])
         end
 
-        # A reader through the def's own cell: a cell receiver whose
-        # class the cell holds at the site stamp, with a reader's shape,
-        # read in place; anything else bails.
+        # A reader through the def's own cell. If the receiver is a cell
+        # whose class the cell has at the site stamp, with a reader's
+        # shape, read the ivar inline. All other cases bail.
         def spec_reader(node, recv, merge)
           cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
           cell = @l.layout("CallCache")
@@ -371,9 +370,9 @@ module Zr
           accessor_in_place(:reader, recv, @f.fetch("i64", cc, off(cell, "entry")), nil, merge, @inline_bail)
         end
 
-        # An operator on two fixnums under its gate; `==` and `!=` by
-        # identity where the def's own cell holds BasicObject's; a type
-        # question by the classes. Anything else bails.
+        # An operator on two fixnums under its gate. `==` and `!=` by
+        # identity if the def's own cell has BasicObject's methods. A type
+        # check by the classes. All other cases bail.
         def spec_argued(node, recv, arg, merge)
           op = node.name
           if Sends::OPS.key?(op)
@@ -397,7 +396,7 @@ module Zr
           end
         end
 
-        # `Mod === x` through the def's own cell, where the cell holds
+        # `Mod === x` through the def's own cell, if the cell has
         # Module#=== and the receiver is a ranked class.
         def spec_mod_eqq(node, recv, arg, merge)
           cc = site_cache(node, "ic", "CallCache", Sends::CALL_WAYS)
@@ -428,7 +427,7 @@ module Zr
           @f.jump(merge, [ruby_bool(@f.icmp(node.name == :== ? "eq" : "ne", recv, arg))])
         end
 
-        # Whether `cc`'s first way holds `klass` at the site stamp.
+        # Whether `cc`'s first way has `klass` at the site stamp.
         def cell_hit(cc, klass)
           cell = @l.layout("CallCache")
           @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
