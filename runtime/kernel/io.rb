@@ -1,6 +1,6 @@
-# File descriptors: the libSystem calls the IO and File classes use.
-# A failure answers the negated errno, which the core turns into the
-# Errno class it names.
+# File descriptors: the libSystem calls that the IO and File classes
+# use. A failure returns the negated errno, and the core converts it to
+# the matching Errno class.
 Machine.import "read", [I32, Ptr, Word] => Word
 Machine.import "pread", [I32, Ptr, Word, Word] => Word
 Machine.import "pwrite", [I32, Ptr, Word, Word] => Word
@@ -29,8 +29,8 @@ machine def zr_errno
   zr_os_errno()
 end
 
-# errno cleared, for a call whose answer cannot say by itself that it
-# failed: only a failure of the call that follows sets it again.
+# Clears errno, for a call whose return value cannot show a failure.
+# After this, only a failure of the next call sets errno.
 sig [] => Void
 machine def zr_clear_errno
   zr_os_set_errno(0)
@@ -41,15 +41,16 @@ machine def zr_io_failed(r)
   r < 0 ? zr_fix(0 - zr_errno()) : zr_fix(r)
 end
 
-# An int answer: 0 on success, -1 with errno set on failure.
+# Converts an int result: 0 on success, or the negated errno when the
+# call returned -1.
 sig [I32] => Value
 machine def zr_io_status(r)
   r < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(0)
 end
 
-# F_GETFL: the descriptor's own status flags, which say what it was
-# opened for. Every fcntl goes through `zr_os_fcntl`, which passes the
-# argument fcntl reads variadically as each OS needs it.
+# F_GETFL: the status flags of the descriptor, which show the mode it
+# was opened with. Each fcntl goes through `zr_os_fcntl`, which passes
+# the variadic argument of fcntl as each OS needs it.
 F_GETFL = 3
 
 sig [Value] => Value
@@ -57,7 +58,7 @@ machine def zr_io_flags(fd)
   zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL), 0)))
 end
 
-# A descriptor that answers EAGAIN instead of waiting.
+# Makes a descriptor return EAGAIN instead of waiting.
 F_SETFL = 4
 
 sig [Value, Value] => Value
@@ -74,23 +75,23 @@ machine def zr_io_set_nonblock(fd, on)
   zr_io_status(zr_os_fcntl(n, Machine.i32(F_SETFL), flags & O_NONBLOCK_OFF))
 end
 
-# F_SETFD and the one flag it carries.
+# F_SETFD and its one flag.
 F_SETFD = 2
 FD_CLOEXEC = 1
 
-# A descriptor that closes itself across an exec, which ruby asks for on
-# every descriptor it hands out. An open(2) says so on the call itself;
-# pipe(2) here has no flag of its own, so rb_cloexec_pipe sets it after
-# the call, as this does.
+# Makes a descriptor close across an exec. ruby does this for each
+# descriptor that it gives out. An open(2) sets it with a flag on the
+# call. pipe(2) here has no such flag, so rb_cloexec_pipe sets it after
+# the call, as this function does.
 sig [Value] => Value
 machine def zr_io_cloexec(fd)
   zr_io_status(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_SETFD), Machine.word(FD_CLOEXEC)))
 end
 
-# ioctl(2) with the argument a command carries: a number the command
-# reads as it stands, or the bytes of a String the command fills in. A
-# String's address never crosses into ruby, so the two shapes are two
-# calls rather than one that ruby would have to build a pointer for.
+# ioctl(2) with the argument of a command: a number that the command
+# reads as is, or the bytes of a String that the command fills in. The
+# address of a String never goes into ruby, so there are two calls, not
+# one call for which ruby would have to make a pointer.
 sig [Value, Value, Value] => Value
 machine def zr_io_ioctl(fd, command, argument)
   zr_io_failed(Machine.sword(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
@@ -103,26 +104,25 @@ machine def zr_io_ioctl_buf(fd, command, bytes)
                                      RString.ptr(bytes))))
 end
 
-# fcntl(2) with a command the program names itself, and the argument that
-# command takes, through `zr_os_fcntl` as the non-blocking flag goes.
+# fcntl(2) with a command that the program gives, and the argument of
+# that command, through `zr_os_fcntl` as for the non-blocking flag.
 sig [Value, Value, Value] => Value
 machine def zr_io_fcntl(fd, command, argument)
   zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
                                     Machine.word(zr_fix2long(argument)))))
 end
 
-# fcntl(2) with a struct the call reads or fills: the String's bytes are
-# the struct, in place.
+# fcntl(2) with a struct that the call reads or fills. The bytes of the
+# String are the struct, in place.
 sig [Value, Value, Value] => Value
 machine def zr_io_fcntl_bytes(fd, command, bytes)
   zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
                                     Machine.word(RString.ptr(bytes)))))
 end
 
-# rb_sysopen: open(2) with the flags, and the permissions a creation
-# takes, less the umask. Every descriptor ruby opens closes itself
-# across an exec, which rb_sysopen asks for with O_CLOEXEC on the call
-# itself.
+# rb_sysopen: open(2) with the flags, and the permissions for a new
+# file, minus the umask. Each descriptor that ruby opens closes across
+# an exec, so rb_sysopen adds O_CLOEXEC to the call.
 sig [Value, Value, Value] => Value
 machine def zr_io_open_flags(path, flags, perm)
   fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
@@ -136,7 +136,8 @@ machine def zr_io_open_flags(path, flags, perm)
   zr_fix(Machine.sword(fd))
 end
 
-# Up to `count` bytes: a String, nil at the end, or the negated errno.
+# Reads up to `count` bytes. Returns a String, nil at the end, or the
+# negated errno.
 sig [Value, Value] => Value
 machine def zr_io_read(fd, count)
   n = zr_fix2long(count)
@@ -159,8 +160,8 @@ machine def zr_io_read(fd, count)
   s
 end
 
-# pread(2) and pwrite(2): a read or a write at a named file position
-# that leaves the descriptor's own position where it was.
+# pread(2) and pwrite(2): a read or a write at a given file position.
+# The position of the descriptor does not change.
 sig [Value, Value, Value] => Value
 machine def zr_io_pread(fd, count, at)
   n = zr_fix2long(count)
@@ -193,9 +194,9 @@ machine def zr_io_pwrite(fd, s, at)
   zr_fix(n)
 end
 
-# Every byte of `s`, in as many calls as the descriptor takes. The
-# String is read afresh after each call: a retry runs the signal
-# handlers, which are Ruby that may have changed it.
+# Writes all bytes of `s`, in as many calls as necessary. The code reads
+# the String again after each call, because a retry runs the POSIX
+# signal handlers, which are Ruby and can change it.
 sig [Value, Value] => Value
 machine def zr_io_write(fd, s)
   done = 0
@@ -213,9 +214,9 @@ machine def zr_io_write(fd, s)
   zr_fix(done)
 end
 
-# One write(2) of at most `count` bytes from `from`: the caller loops,
-# so a task that shares the process hands the turn on between the
-# calls rather than wait inside one long write.
+# One write(2) of at most `count` bytes from `from`. The caller loops,
+# so a task that shares the process yields to the scheduler between the
+# calls, and does not wait inside one long write.
 sig [Value, Value, Value, Value] => Value
 machine def zr_io_write_some(fd, s, from, count)
   at = zr_fix2long(from)
@@ -239,9 +240,9 @@ machine def zr_io_close(fd)
   zr_io_status(close(Machine.i32(zr_fix2long(fd))))
 end
 
-# dup(2): a fresh descriptor onto the same open file, or the negated
-# errno. dup2(2) puts `from`'s open file on the descriptor `to` names,
-# closing whatever was there.
+# dup(2): a new descriptor for the same open file, or the negated
+# errno. dup2(2) puts the open file of `from` on the descriptor `to`,
+# and closes the file that was there.
 sig [Value] => Value
 machine def zr_io_dup(fd)
   r = dup(Machine.i32(zr_fix2long(fd)))
@@ -268,17 +269,18 @@ machine def zr_io_tty_p(fd)
   zr_bool(Machine.word(isatty(Machine.i32(zr_fix2long(fd)))) != 0)
 end
 
-# The terminal calls io/console makes. An ioctl goes through
-# `zr_os_ioctl`, which passes the argument ioctl reads variadically.
+# The terminal calls that io/console makes. An ioctl goes through
+# `zr_os_ioctl`, which passes the variadic argument of ioctl.
 Machine.import "tcgetattr", [I32, Ptr] => I32
 Machine.import "tcsetattr", [I32, I32, Ptr] => I32
 Machine.import "tcflush", [I32, I32] => I32
 Machine.import "ttyname", [I32] => Ptr
 
-# struct winsize: four unsigned shorts, the rows and the columns first.
+# struct winsize: four unsigned shorts. The rows and the columns are
+# first.
 WINSIZE_LEN = 8
 
-# The window size as its own bytes, or the negated errno.
+# The window size as raw bytes, or the negated errno.
 sig [Value] => Value
 machine def zr_io_winsize(fd)
   buf = Machine.slot(WINSIZE_LEN)
@@ -293,7 +295,7 @@ machine def zr_io_set_winsize(fd, bytes)
   zr_io_status(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
 end
 
-# The terminal's mode as its own bytes, or the negated errno.
+# The mode of the terminal as raw bytes, or the negated errno.
 sig [Value] => Value
 machine def zr_io_termios(fd)
   buf = Machine.slot(TERMIOS_LEN)
@@ -314,15 +316,15 @@ machine def zr_io_tcflush(fd, queue)
   zr_io_status(tcflush(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(queue))))
 end
 
-# A pseudo-terminal pair, through the Unix98 calls ruby itself makes:
+# A pseudo-terminal pair, through the Unix98 calls that ruby makes:
 # posix_openpt for the master, then grantpt and unlockpt, then the name
-# of the slave device, which ruby opens by that name.
+# of the slave device. ruby opens the slave by that name.
 Machine.import "posix_openpt", [I32] => I32
 Machine.import "grantpt", [I32] => I32
 Machine.import "unlockpt", [I32] => I32
 Machine.import "ptsname", [I32] => Ptr
 
-# The master descriptor and the slave's name, or the negated errno.
+# The master descriptor and the name of the slave, or the negated errno.
 sig [] => Value
 machine def zr_pty_open
   master = posix_openpt(Machine.i32(PTY_OPEN_FLAGS))
@@ -345,7 +347,8 @@ machine def zr_pty_open
   out
 end
 
-# The terminal's name, and nil for a descriptor that is not one.
+# The name of the terminal, or nil for a descriptor that is not a
+# terminal.
 sig [Value] => Value
 machine def zr_io_ttyname(fd)
   name = ttyname(Machine.i32(zr_fix2long(fd)))
@@ -377,8 +380,8 @@ machine def zr_io_chdir(path)
   zr_io_status(chdir(RString.ptr(path)))
 end
 
-# The names in a directory, `.` and `..` among them, in the order the
-# file system answers; or the negated errno.
+# The names in a directory, including `.` and `..`, in the order of the
+# file system, or the negated errno.
 sig [Value] => Value
 machine def zr_io_dir_names(path)
   d = opendir(RString.ptr(path))
@@ -396,8 +399,8 @@ machine def zr_io_dir_names(path)
   out
 end
 
-# The same names through a descriptor, which is the only way to them
-# when a program holds one and not a path.
+# The same names through a descriptor. This is the only way to get them
+# when a program has a descriptor and no path.
 sig [Value] => Value
 machine def zr_io_dir_names_fd(fd)
   d = fdopendir(Machine.i32(zr_fix2long(fd)))
@@ -427,7 +430,7 @@ machine def zr_io_chroot(path)
   zr_io_status(chroot(RString.ptr(path)))
 end
 
-# The message strerror gives for errno `n`.
+# The message that strerror gives for errno `n`.
 sig [Value] => Value
 machine def zr_io_strerror(n)
   p = strerror(Machine.i32(zr_fix2long(n)))
@@ -462,9 +465,9 @@ Machine.import "utimes", [Ptr, Ptr] => I32
 Machine.import "lutimes", [Ptr, Ptr] => I32
 Machine.import "flock", [I32, I32] => I32
 
-# One path and one small number: chown's owner, truncate's length, and
-# the rest. `which` picks the call; the answer is 0 or a negative
-# errno.
+# Calls that take one path and one small number: the owner for chown,
+# the length for truncate, and others. `which` selects the call. Returns
+# 0 or a negative errno.
 sig [Value, Value, Value, Value] => Value
 machine def zr_fs_call(which, path, a, b)
   w = zr_fix2long(which)
@@ -493,7 +496,7 @@ machine def zr_fs_call(which, path, a, b)
   zr_io_status(r)
 end
 
-# The two microsecond timevals utimes(2) takes.
+# The two microsecond timevals that utimes(2) takes.
 sig [Value, Value, Value] => Value
 machine def zr_utimes_m(path, atime_us, mtime_us)
   times = Machine.slot(32)
@@ -504,8 +507,7 @@ machine def zr_utimes_m(path, atime_us, mtime_us)
   zr_io_status(utimes(RString.ptr(path), times))
 end
 
-# The same two timevals, for the link itself rather than for what it
-# points at.
+# The same two timevals, for the link itself and not for its target.
 sig [Value, Value, Value] => Value
 machine def zr_lutimes_m(path, atime_us, mtime_us)
   times = Machine.slot(32)
@@ -516,7 +518,7 @@ machine def zr_lutimes_m(path, atime_us, mtime_us)
   zr_io_status(lutimes(RString.ptr(path), times))
 end
 
-# umask(2): the mask that was in force, and the new one when `mask` is
+# umask(2): returns the old mask, and sets the new one when `mask` is
 # not nil.
 sig [Value] => Value
 machine def zr_umask_m(mask)
@@ -528,7 +530,7 @@ machine def zr_umask_m(mask)
   zr_fix(Machine.word(umask(Machine.i32(zr_fix2long(mask)))))
 end
 
-# readlink(2): where the symlink points, or a negative errno.
+# readlink(2): the target of the symlink, or a negative errno.
 sig [Value] => Value
 machine def zr_readlink_m(path)
   buf = zr_xmalloc(4096)
@@ -544,8 +546,8 @@ end
 
 # stat(2) (or lstat when `follow` is false) as fixnums in an Array:
 # dev, ino, mode, nlink, uid, gid, rdev, size, blksize, blocks, then
-# atime, mtime and ctime as seconds and nanoseconds; a negative errno
-# on failure.
+# atime, mtime and ctime as seconds and nanoseconds. Returns a negative
+# errno on failure.
 sig [Value, Value] => Value
 machine def zr_stat_m(path, follow)
   buf = Machine.slot(STAT_LEN)
@@ -556,8 +558,8 @@ machine def zr_stat_m(path, follow)
   zr_os_stat_rows(buf)
 end
 
-# fstat(2): the same rows for a descriptor, which is the only way to
-# them when the stream was opened from one and has no path.
+# fstat(2): the same fields for a descriptor. This is the only way to
+# get them when the stream was opened from a descriptor and has no path.
 sig [Value] => Value
 machine def zr_fstat_m(fd)
   buf = Machine.slot(STAT_LEN)
@@ -587,21 +589,22 @@ machine def zr_chmod_m(path, mode)
   zr_fix(0)
 end
 
-# access(2): whether the process may use the file as `mode` asks (4
+# access(2): whether the process can use the file as `mode` gives (4
 # read, 2 write, 1 execute).
 sig [Value, Value] => Value
 machine def zr_path_access(path, mode)
   zr_bool(Machine.word(access(RString.ptr(path), Machine.i32(zr_fix2long(mode)))) == 0)
 end
 
-# The bits `events` carries: IO::READABLE, IO::PRIORITY, IO::WRITABLE.
+# The bits in `events`: IO::READABLE, IO::PRIORITY, IO::WRITABLE.
 WAIT_READABLE = 1
 WAIT_PRIORITY = 2
 WAIT_WRITABLE = 4
 
-# The thread scheduler's wait on every descriptor a thread parks on: the
-# events that came ready for each, all zero when the time ran out or a
-# signal cut the wait short once its handlers ran, or the negated errno.
+# The wait of the thread scheduler on all descriptors that suspended
+# threads wait for. Returns the ready events for each descriptor. They
+# are all zero when the time ends, or when a POSIX signal stops the wait
+# (after its handlers run). On failure, returns the negated errno.
 sig [Value, Value, Value] => Value
 machine def zr_io_wait_fds(fds, events, milliseconds)
   r = zr_os_wait_fds(fds, events, milliseconds)
@@ -619,9 +622,9 @@ machine def zr_io_wait_fds(fds, events, milliseconds)
   r
 end
 
-# One descriptor's wait: the events that came ready, 0 when the time
-# ran out, or the negated errno. A negative time waits for good, and a
-# signal that cuts the wait short runs its handlers first.
+# The wait on one descriptor. Returns the ready events, 0 when the time
+# ends, or the negated errno. A negative time waits with no limit. A
+# POSIX signal that stops the wait runs its handlers first.
 sig [Value, Value, Value] => Value
 machine def zr_io_wait(fd, events, milliseconds)
   r = zr_os_wait_fd(fd, events, milliseconds)

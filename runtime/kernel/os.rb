@@ -1,20 +1,22 @@
-# The OS layer: every call the kernel makes that an operating system
-# answers in its own way. Each OS implements all of them under
-# runtime/kernel/os/<os>/, beside whatever helpers and constants it needs, and
-# the rest of the kernel calls only these. `test/unit/os_api_test.rb`
-# holds each OS to this list, name and signature.
+# The OS layer: each kernel call whose behavior is different on each
+# operating system. Each OS implements all of them under
+# runtime/kernel/os/<os>/, together with the helpers and constants that
+# it needs. The rest of the kernel calls only these functions.
+# `test/unit/os_api_test.rb` checks each OS against this list, by name
+# and signature.
 #
-# The constants each OS defines as well:
+# Each OS also defines these constants:
 #   EINTR EBADF EPROTOTYPE EAI_SYSTEM NSIG CLOCK_MONOTONIC
 #   O_NONBLOCK O_NONBLOCK_OFF O_CLOEXEC PTY_OPEN_FLAGS
 #   TIOCGWINSZ TIOCSWINSZ TIOCSCTTY TERMIOS_LEN STAT_LEN MSGHDR_LEN MSGHDR_FLAGS
 #   SPAWN_ACTIONS_LEN SPAWN_ATTR_LEN SC_NPROCESSORS_ONLN UTSNAME_LEN
 #   UTSNAME_FIELD RTLD_DEFAULT
 #
-# The core library's OS layer, under runtime/core/os/<os>/, holds the numbers
-# ruby gives each OS's constants: errno.rb, io_constants.rb,
-# process_constants.rb, file_constants.rb and clock_constants.rb, each
-# run just before the portable file that uses it (`Zr::CORE_NAMES`).
+# The OS layer of the core library, under runtime/core/os/<os>/, contains
+# the values that ruby gives to the constants of each OS: errno.rb,
+# io_constants.rb, process_constants.rb, file_constants.rb and
+# clock_constants.rb. Each one runs immediately before the portable file
+# that uses it (`Zr::CORE_NAMES`).
 #
 # errno and descriptors
 #   zr_os_errno          [] => Word
@@ -72,7 +74,7 @@
 #   zr_os_h_errno        [] => Word
 #   zr_os_peereid        [Value] => Value
 #
-# The architecture layer, under runtime/kernel/arch/<arch>/, answers the
-# same way for the machine: the `zr_switch` raw function, CONTEXT_BYTES,
-# and
+# The architecture layer, under runtime/kernel/arch/<arch>/, does the
+# same for the machine. It gives the `zr_switch` raw function,
+# CONTEXT_BYTES, and
 #   zr_arch_context_start [Ptr, Word, Word] => Void

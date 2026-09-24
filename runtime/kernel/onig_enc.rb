@@ -1,9 +1,10 @@
-# The encodings Onigmo's matcher reads under zr, with the helpers of
-# regenc.c and enc/unicode.c the matcher calls. `enc` is the address
-# of the encoding's descriptor inside the program
-# (Regexp::Onig::Enc::Base#descriptor): its kind picks the primitives
-# of the enc/*.c file it came from, and its tables hold what those read.
-# Derived from Onigmo; the license is in runtime/kernel/regexp.rb.
+# The encodings that the Onigmo matcher reads in zr, and the helpers of
+# regenc.c and enc/unicode.c that the matcher calls. `enc` is the
+# address of the encoding descriptor inside the program
+# (Regexp::Onig::Enc::Base#descriptor). Its kind selects the primitives
+# of its enc/*.c source file, and its tables contain the data that those
+# primitives read. Derived from Onigmo. The license is in
+# runtime/kernel/regexp.rb.
 ONIG_ENC_KIND_SINGLE_BYTE = 0
 ONIG_ENC_KIND_UTF8 = 1
 ONIG_ENC_KIND_EUC_JP = 2
@@ -23,7 +24,8 @@ ONIG_CTYPE_WORD_BIT = 4096
 ONIG_MBC_CASE_FOLD_MAXLEN = 18
 ONIG_CASE_FOLD_MULTI_CHAR = 1 << 30
 
-# The descriptor's header; each table offset counts from the descriptor.
+# The header of the descriptor. Each table offset counts from the start
+# of the descriptor.
 Machine.struct :OnigEnc,
   kind: Word, min_len: Word, max_len: Word, flags: Word,
   len_off: Word, trail_off: Word, lower_off: Word, word_off: Word, trans_off: Word, map_off: Word
@@ -39,8 +41,8 @@ machine def zr_onig_enc_single_byte_p(enc)
   OnigEnc.max_len(Machine.ptr(enc)) == 1
 end
 
-# Byte `i` of the table whose offset the descriptor's word at `field`
-# holds (a byte offset into the header).
+# Byte `i` of a table. The word at `field` (a byte offset into the
+# header) contains the offset of the table.
 sig [Word, Word, Word] => Word
 machine def zr_onig_enc_byte(enc, field, i)
   base = Machine.ptr(enc)
@@ -48,7 +50,8 @@ machine def zr_onig_enc_byte(enc, field, i)
   Machine.word(Machine.load8(base + off + i, 0))
 end
 
-# trans[state][byte] of the encoding's state table: -1 accepts, -2 fails.
+# trans[state][byte] of the state table of the encoding: -1 accepts,
+# -2 fails.
 sig [Word, Word, Word] => Word
 machine def zr_onig_enc_trans(enc, state, c)
   v = zr_onig_enc_byte(enc, 64, (state * 256) + c)
@@ -91,7 +94,7 @@ machine def zr_onig_utf8_trans(state, c)
   (c >= 128 && c < 144) ? 3 : 0 - 2
 end
 
-# mbc_enc_len (utf_8.c): the precise answer, n > 0 for a character of n
+# mbc_enc_len (utf_8.c): the precise length. n > 0 for a character of n
 # bytes, -1 for an invalid sequence, -1-n when n more bytes are needed.
 sig [Ptr, Ptr] => Word
 machine def zr_onig_utf8_precise_len(p, e)
@@ -118,9 +121,9 @@ machine def zr_onig_utf8_precise_len(p, e)
   s == 0 - 1 ? 4 : 0 - 1
 end
 
-# ONIGENC_CONSTRUCT_MBCLEN_NEEDMORE's count when the text ends `k` bytes
-# into a character that started with `first` in state `state`: each
-# encoding's mbc_enc_len answers its own.
+# The count for ONIGENC_CONSTRUCT_MBCLEN_NEEDMORE when the text ends `k`
+# bytes into a character that started with `first`, in state `state`.
+# The mbc_enc_len of each encoding gives a different count.
 sig [Word, Word, Word, Word] => Word
 machine def zr_onig_mb_need(enc, k, first, state)
   kind = zr_onig_enc_kind(enc)
@@ -142,7 +145,7 @@ machine def zr_onig_mb_need(enc, k, first, state)
   zr_onig_enc_byte(enc, 32, first) - k
 end
 
-# mbc_enc_len of the encodings that walk a state table from the lead
+# mbc_enc_len of the encodings that follow a state table from the lead
 # byte (euc_jp.c, shift_jis.h, big5.c, gbk.c, cp949.c, euc_kr.c,
 # euc_tw.c, gb18030.c, emacs_mule.c, cesu_8.c).
 sig [Word, Ptr, Ptr] => Word
@@ -219,7 +222,7 @@ machine def zr_onig_precise_len(enc, p, e)
   zr_onig_mb_precise_len(enc, p, e)
 end
 
-# onigenc_mbclen (regenc.c): the length clipped to the text.
+# onigenc_mbclen (regenc.c): the length, limited to the end of the text.
 sig [Word, Ptr, Ptr] => Word
 machine def zr_onig_mbclen(enc, p, e)
   if p < e && Machine.word(Machine.load8(p, 0)) < 128 && OnigEnc.kind(Machine.ptr(enc)) == ONIG_ENC_KIND_UTF8
@@ -234,10 +237,10 @@ machine def zr_onig_mbclen(enc, p, e)
   p < e ? 1 : 0
 end
 
-# enclen (regenc.h): the encoding's one width when it has one. A UTF-8
-# byte below 128 is a character of its own, which is most of what a
-# pattern walks: it answers here, without the four calls of the precise
-# length.
+# enclen (regenc.h): the fixed width of the encoding, when it has one.
+# A UTF-8 byte below 128 is a full character, and most pattern text is
+# such bytes. This function returns 1 for them without the four calls
+# of the precise length.
 sig [Word, Ptr, Ptr] => Word
 machine def zr_onig_enclen(enc, p, e)
   base = Machine.ptr(enc)
@@ -251,8 +254,8 @@ machine def zr_onig_enclen(enc, p, e)
   zr_onig_mbclen(enc, p, e)
 end
 
-# enclen_approx (regexec.c): onigenc_mbclen_approximate, the bytes a
-# truncated character would have had.
+# enclen_approx (regexec.c): onigenc_mbclen_approximate, the byte count
+# that a truncated character would have.
 sig [Word, Ptr, Ptr] => Word
 machine def zr_onig_enclen_approx(enc, p, e)
   base = Machine.ptr(enc)
@@ -286,8 +289,8 @@ machine def zr_onig_mbn_to_code(p, e, len)
   n
 end
 
-# utf_8.c's mbc_to_code, the first byte for anything that is not a
-# whole character.
+# mbc_to_code of utf_8.c. It returns the first byte for a sequence that
+# is not a full character.
 sig [Ptr, Ptr] => Word
 machine def zr_onig_utf8_to_code(p, e)
   c = Machine.word(Machine.load8(p, 0))
@@ -367,7 +370,8 @@ machine def zr_onig_mbc_to_code(enc, p, e)
   zr_onig_mbn_to_code(p, e, zr_onig_enclen(enc, p, e))
 end
 
-# code_to_mbc of the Unicode encodings into buf; the bytes written.
+# code_to_mbc of the Unicode encodings, into buf. Returns the number of
+# bytes written.
 sig [Word, Word, Ptr] => Word
 machine def zr_onig_code_to_mbc(enc, code, buf)
   kind = zr_onig_enc_kind(enc)
@@ -437,9 +441,9 @@ machine def zr_onig_store_utf8_3(buf, code)
   Machine.store8(buf, 2, Machine.i8((code & 63) | 128))
 end
 
-# The tail every left_adjust_char_head of the EUC and trail-byte
-# encodings shares: from the head q found, the character there if it
-# holds s, else the even offset past it.
+# The last step of left_adjust_char_head for all EUC and trail-byte
+# encodings. From the head q that it found, it returns that character if
+# it contains s, else the even offset after it.
 sig [Ptr, Ptr, Word] => Ptr
 machine def zr_onig_adjust_tail(s, q, len)
   return q if q + len > s
@@ -447,8 +451,8 @@ machine def zr_onig_adjust_tail(s, q, len)
   q + (Machine.word(s - q) & (0 - 2))
 end
 
-# left_adjust_char_head of euc_jp.c, euc_kr.c and euc_tw.c: back over
-# the bytes no character starts with.
+# left_adjust_char_head of euc_jp.c, euc_kr.c and euc_tw.c: goes back
+# over the bytes that cannot start a character.
 sig [Word, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_euc_left_adjust(enc, start, s, e)
   p = s
@@ -461,8 +465,8 @@ machine def zr_onig_euc_left_adjust(enc, start, s, e)
   zr_onig_adjust_tail(s, p, zr_onig_enclen(enc, p, e))
 end
 
-# left_adjust_char_head of shift_jis.h, big5.c, gbk.c and cp949.c: back
-# over the lead bytes before a byte that can trail.
+# left_adjust_char_head of shift_jis.h, big5.c, gbk.c and cp949.c: goes
+# back over the lead bytes before a byte that can be a trail byte.
 sig [Word, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_trail_left_adjust(enc, start, s, e)
   p = s
@@ -482,9 +486,9 @@ machine def zr_onig_trail_left_adjust(enc, start, s, e)
 end
 
 # gb18030_left_adjust_char_head: a state machine over the byte classes
-# of GB18030_MAP (C1 0, C2 1, C4 2, CM 3) read backward from s. Each
-# state's move is 23 * 4 cells of zr_onig_gb18030_moves: a state to go
-# to, or 100 + n to answer n bytes before s.
+# of GB18030_MAP (C1 0, C2 1, C4 2, CM 3), read backward from s.
+# zr_onig_gb18030_moves has 23 * 4 bytes, one for each state and class.
+# Each byte is the next state, or 100 + n to return n bytes before s.
 sig [Word, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_gb18030_left_adjust(enc, start, s, e)
   moves = zr_onig_gb18030_moves()
@@ -501,8 +505,8 @@ machine def zr_onig_gb18030_left_adjust(enc, start, s, e)
   s - Machine.word(Machine.load8(moves + 92 + state, 0))
 end
 
-# The moves of gb18030_left_adjust_char_head, then what each state
-# answers when the text runs out.
+# The moves of gb18030_left_adjust_char_head, then the result of each
+# state when the text ends.
 sig [] => Ptr
 machine def zr_onig_gb18030_moves
   Machine.bytes(
@@ -512,7 +516,8 @@ machine def zr_onig_gb18030_moves
 \x01\x00\x01\x01\x01\x03\x03\x03\x01\x01\x03\x00\x02\x02\x00\x00\x02\x02\x00")
 end
 
-# ONIGENC_LEFT_ADJUST_CHAR_HEAD: the head of the character holding s.
+# ONIGENC_LEFT_ADJUST_CHAR_HEAD: the head of the character that
+# contains s.
 sig [Word, Ptr, Ptr, Ptr] => Ptr
 machine def zr_onig_left_adjust(enc, start, s, e)
   kind = zr_onig_enc_kind(enc)
@@ -586,9 +591,9 @@ machine def zr_onig_step_back(enc, start, s, e, n)
   s
 end
 
-# ONIGENC_IS_MBC_NEWLINE: a 0x0a at p, inside the text, as a character
-# of the encoding. Under ruby no option makes CRLF a terminator, so
-# is_mbc_newline_ex is this.
+# ONIGENC_IS_MBC_NEWLINE: whether a 0x0a character of the encoding is at
+# p, inside the text. In ruby no option makes CRLF a terminator, so
+# is_mbc_newline_ex is the same.
 sig [Word, Ptr, Ptr] => Bool
 machine def zr_onig_newline_p(enc, p, e)
   kind = zr_onig_enc_kind(enc)
@@ -604,8 +609,8 @@ machine def zr_onig_newline_p(enc, p, e)
   zr_onig_mbc_to_code(enc, p, e) == 10
 end
 
-# onig_is_in_code_range over `ranges`: a u32 count then (low, high)
-# u32 pairs, as the CCLASS_MB operand and the CR_Word table are laid out.
+# onig_is_in_code_range over `ranges`: a u32 count, then (low, high)
+# u32 pairs. The CCLASS_MB operand and the CR_Word table use this layout.
 sig [Ptr, Word] => Bool
 machine def zr_onig_in_code_range_p(ranges, code)
   n = Machine.word(Machine.load32(ranges, 0))
@@ -630,8 +635,8 @@ machine def zr_onig_ascii_word_p(code)
   (Machine.word(Machine.load32(zr_onig_ctype_bits() + (code * 4), 0)) & ONIG_CTYPE_WORD_BIT) != 0
 end
 
-# The code_to_mbclen of each multibyte encoding past Unicode, as far as
-# is_code_ctype asks it: whether the code is of more than a byte.
+# code_to_mbclen of each multibyte encoding other than Unicode, only as
+# much as is_code_ctype needs: whether the code has more than one byte.
 sig [Word, Word] => Bool
 machine def zr_onig_wide_code_p(enc, code)
   kind = zr_onig_enc_kind(enc)
@@ -686,8 +691,9 @@ machine def zr_onig_ascii_lower(c)
   (c >= 65 && c <= 90) ? c + 32 : c
 end
 
-# The fold row of `code` in zr_onig_fold_rows (rows of from, n, c0, c1,
-# c2 as u32, sorted by from), or 0 for none: onigenc_unicode_fold_lookup.
+# onigenc_unicode_fold_lookup: the fold entry of `code` in
+# zr_onig_fold_rows, or 0 for none. Each entry is from, n, c0, c1, c2 as
+# u32, and the entries are sorted by from.
 sig [Word] => Ptr
 machine def zr_onig_fold_lookup(code)
   table = zr_onig_fold_rows()
@@ -711,8 +717,9 @@ machine def zr_onig_fold_lookup(code)
   Machine.ptr(0)
 end
 
-# onigenc_unicode_mbc_case_fold: the character at p folded into `fold`;
-# the folded byte length. The caller moves past the character.
+# onigenc_unicode_mbc_case_fold: folds the character at p into `fold`
+# and returns the folded byte length. The caller moves past the
+# character.
 sig [Word, Ptr, Ptr, Ptr] => Word
 machine def zr_onig_unicode_case_fold(enc, p, e, fold)
   code = zr_onig_mbc_to_code(enc, p, e)
@@ -754,10 +761,10 @@ machine def zr_onig_jis_lower(kind, code)
   code
 end
 
-# mbc_case_fold of euc_jp.c and shift_jis.h, past ASCII: the lower-case
-# code's bytes. EUC-JP reads bytes that are not a character as their
-# first. The answer is the byte length written, which is also how far
-# the text moves.
+# mbc_case_fold of euc_jp.c and shift_jis.h, for non-ASCII: writes the
+# bytes of the lower-case code. EUC-JP reads bytes that are not a
+# character as their first byte. Returns the byte length written, which
+# is also the distance that the text moves.
 sig [Word, Ptr, Ptr, Ptr] => Word
 machine def zr_onig_jis_case_fold(enc, p, e, fold)
   kind = zr_onig_enc_kind(enc)
@@ -779,9 +786,9 @@ machine def zr_onig_jis_case_fold(enc, p, e, fold)
   len
 end
 
-# ONIGENC_MBC_CASE_FOLD: the character at the pointer in the cell `pp`
-# folded under `flag` into `fold` (ONIG_MBC_CASE_FOLD_MAXLEN bytes), the
-# cell moved past it; the folded byte length.
+# ONIGENC_MBC_CASE_FOLD: folds the character at the pointer in the word
+# `pp`, with `flag`, into `fold` (ONIG_MBC_CASE_FOLD_MAXLEN bytes), and
+# moves the pointer past it. Returns the folded byte length.
 sig [Word, Word, Ptr, Ptr, Ptr] => Word
 machine def zr_onig_mbc_case_fold(enc, flag, pp, e, fold)
   p = Machine.ptr(Machine.load64(pp, 0))
@@ -832,8 +839,8 @@ machine def zr_onig_mbc_case_fold(enc, flag, pp, e, fold)
 end
 
 # string_cmp_ic (regexec.c): whether the `mblen` bytes at s1 and the
-# text at s2 fold the same; the text pointer past the compared part, or
-# 0 when they differ.
+# text at s2 fold the same. Returns the text pointer after the compared
+# part, or 0 when they are different.
 sig [Word, Word, Ptr, Ptr, Word, Ptr] => Ptr
 machine def zr_onig_string_cmp_ic(enc, flag, s1, s2, mblen, text_end)
   buf1 = Machine.slot(ONIG_MBC_CASE_FOLD_MAXLEN)

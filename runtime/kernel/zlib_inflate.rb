@@ -1,20 +1,20 @@
-# inflate.c: the decompressor, a machine over the modes below that
-# makes what progress the input and the output room allow, then
-# answers. The C keeps its registers in locals across one big switch;
-# here each group of modes is a def over a cursor the driver owns, and
-# a def answers whether the machine goes on, leaves, or has an answer
-# of its own. No gzip header is ever asked for (inflateGetHeader is not
-# reached), so the header fields are read and dropped.
-# Derived from zlib; the license is in runtime/kernel/zlib.rb.
+# inflate.c: the decompressor. It is a state machine over the modes
+# below. It goes as far as the input and the output space allow, then
+# returns. The C keeps its registers in locals across one large switch.
+# Here each group of modes is a def that uses a cursor that the driver
+# owns. A def returns whether the machine continues, leaves, or has its
+# own return value. No caller asks for a gzip header (inflateGetHeader
+# is not used), so the header fields are read and discarded.
+# Derived from zlib. The license is in runtime/kernel/zlib.rb.
 Machine.struct :InflateState, strm: Ptr, mode: Word, last: Word, wrap: Word, havedict: Word, flags: Word, dmax: Word, check: Word, total: Word, wbits: Word, wsize: Word, whave: Word, wnext: Word, window: Ptr, hold: Ptr, bits: Word, length: Word, offset: Word, extra: Word, lencode: Ptr, distcode: Ptr, lenbits: Word, distbits: Word, ncode: Word, nlen: Word, ndist: Word, have: Word, nxt: Ptr, lens: Ptr, work: Ptr, codes: Ptr, sane: Word, back: Word, was: Word
 
-# The registers of one inflate call: the C's next, have, put, left,
-# hold and bits, the input and output room it began with, the flush
-# mode, and the answer so far.
+# The registers of one inflate call: next, have, put, left, hold and
+# bits from the C, the input and output space at the start, the flush
+# mode, and the return value so far.
 Machine.struct :InfCursor, nxt: Ptr, have: Word, put: Ptr, left: Word, hold: Ptr, bits: Word, in: Word, out: Word, flush: Word, ret: Word
 
-# The modes, in the C's order and numbering; the order carries meaning,
-# as inf_leave compares against BAD and CHECK.
+# The modes, with the order and numbers of the C. The order is
+# important, because inf_leave compares against BAD and CHECK.
 INF_HEAD = 16180
 INF_FLAGS = 16181
 INF_TIME = 16182
@@ -48,7 +48,7 @@ INF_BAD = 16209
 INF_MEM = 16210
 INF_SYNC = 16211
 
-# What a mode def answers the driver.
+# The values that a mode def returns to the driver.
 INF_NEXT = 0
 INF_LEAVE = 1
 INF_RETURN = 2
@@ -58,7 +58,7 @@ INF_RETURN = 2
 INF_LENS_WORDS = 320
 INF_WORK_WORDS = 288
 
-# inflateStateCheck: 1 when `strm` has no state to speak of.
+# inflateStateCheck: 1 when `strm` has no valid state.
 sig [Ptr] => Word
 machine def zr_inflate_state_check(strm)
   if strm == 0
@@ -71,7 +71,7 @@ machine def zr_inflate_state_check(strm)
   0
 end
 
-# inflateResetKeep: the stream back at its start, its window kept.
+# inflateResetKeep: resets the stream to its start, and keeps its window.
 sig [Ptr] => Word
 machine def zr_inflate_reset_keep(strm)
   if zr_inflate_state_check(strm) != 0
@@ -100,7 +100,7 @@ machine def zr_inflate_reset_keep(strm)
   Z_OK
 end
 
-# inflateReset: the stream back at its start, its window forgotten.
+# inflateReset: resets the stream to its start, and clears its window.
 sig [Ptr] => Word
 machine def zr_inflate_reset(strm)
   if zr_inflate_state_check(strm) != 0
@@ -113,9 +113,9 @@ machine def zr_inflate_reset(strm)
   zr_inflate_reset_keep(strm)
 end
 
-# inflateReset2: the stream reset with a new windowBits, which names
-# the wrapper too: negative for raw, 16 added for gzip, 32 added to
-# take either, 0 to take the window size from the header.
+# inflateReset2: resets the stream with a new windowBits, which also
+# selects the wrapper: negative for raw, plus 16 for gzip, plus 32 for
+# either, 0 to take the window size from the header.
 sig [Ptr, Word] => Word
 machine def zr_inflate_reset2(strm, window_bits)
   if zr_inflate_state_check(strm) != 0
@@ -147,9 +147,9 @@ machine def zr_inflate_reset2(strm, window_bits)
   zr_inflate_reset(strm)
 end
 
-# inflateInit2_: a stream given its state. The version and size checks
-# are the C's guard against a caller built for another zlib, which
-# nothing here can be.
+# inflateInit2_: gives a stream its state. The C checks the version and
+# size to find a caller built for another zlib. Here no caller can be,
+# so these checks are not necessary.
 sig [Ptr, Word] => Word
 machine def zr_inflate_init2(strm, window_bits)
   if strm == 0
@@ -177,7 +177,7 @@ machine def zr_inflate_init2(strm, window_bits)
   ret
 end
 
-# inflateEnd: the state and its window freed.
+# inflateEnd: frees the state and its window.
 sig [Ptr] => Word
 machine def zr_inflate_end(strm)
   if zr_inflate_state_check(strm) != 0
@@ -201,9 +201,10 @@ machine def zr_inflate_fixed_tables(st)
   InflateState.set_distbits(st, 5)
 end
 
-# updatewindow: the last wsize bytes of output before `end_`, `copy`
-# of them written this call, into the sliding window, which is made
-# on first use. Answers 1 when the window cannot be made.
+# updatewindow: copies the last wsize bytes of output before `end_`
+# into the sliding window. `copy` of them were written in this call.
+# The window is made on first use. Returns 1 when the window cannot be
+# made.
 sig [Ptr, Ptr, Ptr, Word] => Word
 machine def zr_inflate_update_window(strm, st, end_, copy)
   if InflateState.window(st) == 0
@@ -250,8 +251,8 @@ machine def zr_inflate_update_window(strm, st, end_, copy)
   0
 end
 
-# UPDATE_CHECK: the running check, a crc32 under a gzip wrapper and an
-# adler32 under a zlib one.
+# UPDATE_CHECK: the running check, a crc32 for a gzip wrapper and an
+# adler32 for a zlib wrapper.
 sig [Ptr, Word, Ptr, Word] => Word
 machine def zr_inflate_update_check(st, check, buf, len)
   if InflateState.flags(st) != 0
@@ -260,7 +261,7 @@ machine def zr_inflate_update_check(st, check, buf, len)
   zr_adler32(check, buf, len)
 end
 
-# CRC2 and CRC4: `n` low bytes of `word` into the header's check.
+# CRC2 and CRC4: adds the `n` low bytes of `word` to the header check.
 sig [Ptr, Word, Word] => Void
 machine def zr_inflate_crc_header(st, word, n)
   hbuf = Machine.slot(8)
@@ -271,7 +272,7 @@ machine def zr_inflate_crc_header(st, word, n)
   InflateState.set_check(st, zr_crc32(InflateState.check(st), hbuf, n))
 end
 
-# The stream's registers back from the cursor: the C's RESTORE.
+# Copies the registers of the stream from the cursor: RESTORE in the C.
 sig [Ptr, Ptr, Ptr] => Void
 machine def zr_inf_restore(strm, st, cur)
   ZStream.set_next_out(strm, InfCursor.put(cur))
@@ -282,7 +283,7 @@ machine def zr_inf_restore(strm, st, cur)
   InflateState.set_bits(st, InfCursor.bits(cur))
 end
 
-# The cursor from the stream's registers: the C's LOAD.
+# Loads the cursor from the registers of the stream: LOAD in the C.
 sig [Ptr, Ptr, Ptr] => Void
 machine def zr_inf_load(strm, st, cur)
   InfCursor.set_put(cur, ZStream.next_out(strm))
@@ -293,8 +294,8 @@ machine def zr_inf_load(strm, st, cur)
   InfCursor.set_bits(cur, InflateState.bits(st))
 end
 
-# PULLBYTE: one more input byte into the bit buffer, or false when
-# there is none, which is when inflate leaves.
+# PULLBYTE: adds one input byte to the bit buffer. Returns false when
+# there is no input, and then inflate leaves.
 sig [Ptr] => Bool
 machine def zr_inf_pull(cur)
   have = InfCursor.have(cur)
@@ -309,8 +310,8 @@ machine def zr_inf_pull(cur)
   true
 end
 
-# NEEDBITS: at least `n` bits in the buffer, or false when the input
-# ran out first.
+# NEEDBITS: gets at least `n` bits into the buffer. Returns false when
+# the input ends first.
 sig [Ptr, Word] => Bool
 machine def zr_inf_need(cur, n)
   while InfCursor.bits(cur) < n
@@ -341,7 +342,7 @@ machine def zr_inf_init_bits(cur)
   InfCursor.set_bits(cur, 0)
 end
 
-# BYTEBITS: the buffer at a byte boundary.
+# BYTEBITS: moves the buffer to a byte boundary.
 sig [Ptr] => Void
 machine def zr_inf_byte_bits(cur)
   n = InfCursor.bits(cur) & 7
@@ -349,7 +350,7 @@ machine def zr_inf_byte_bits(cur)
   InfCursor.set_bits(cur, InfCursor.bits(cur) - n)
 end
 
-# A data error: its message on the stream, and the BAD mode.
+# A data error: sets its message on the stream, and sets the BAD mode.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inf_bad(strm, st, msg)
   ZStream.set_msg(strm, msg)
@@ -357,8 +358,8 @@ machine def zr_inf_bad(strm, st, msg)
   INF_NEXT
 end
 
-# The HEAD mode: no wrapper, a gzip header's first two bytes, or a zlib
-# header.
+# The HEAD mode: no wrapper, the first two bytes of a gzip header, or a
+# zlib header.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_head(strm, st, cur)
   if InflateState.wrap(st) == 0
@@ -406,8 +407,8 @@ machine def zr_inflate_head(strm, st, cur)
   INF_NEXT
 end
 
-# The FLAGS through HCRC modes: a gzip header read and, when it asks,
-# checked. No header struct waits for its fields.
+# The FLAGS through HCRC modes: reads a gzip header and checks it when
+# the header has a check. No header struct gets the fields.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_gzip_header(strm, st, cur)
   mode = InflateState.mode(st)
@@ -522,9 +523,9 @@ machine def zr_inflate_gzip_header(strm, st, cur)
   INF_NEXT
 end
 
-# The NAME and COMMENT modes' work: a zero-terminated header string
-# read past, counted into the check when the header asks. Answers
-# false when the input ends before the string does.
+# The work of the NAME and COMMENT modes: skips a zero-terminated header
+# string, and adds it to the check when the header has a check. Returns
+# false when the input ends before the string.
 sig [Ptr, Ptr] => Bool
 machine def zr_inflate_skip_string(st, cur)
   have = InfCursor.have(cur)
@@ -549,8 +550,8 @@ machine def zr_inflate_skip_string(st, cur)
   len == 0
 end
 
-# The DICTID and DICT modes: the dictionary's check read, and the
-# caller told to set the dictionary when none has been.
+# The DICTID and DICT modes: reads the check of the dictionary, and
+# tells the caller to set the dictionary when it has not.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_dict(strm, st, cur)
   if InflateState.mode(st) == INF_DICTID
@@ -574,8 +575,8 @@ machine def zr_inflate_dict(strm, st, cur)
   INF_NEXT
 end
 
-# The TYPE, TYPEDO, STORED, COPY_ and COPY modes: a block's header, and
-# a stored block's bytes.
+# The TYPE, TYPEDO, STORED, COPY_ and COPY modes: the header of a block,
+# and the bytes of a stored block.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_type(strm, st, cur)
   mode = InflateState.mode(st)
@@ -660,8 +661,8 @@ machine def zr_inflate_type(strm, st, cur)
   INF_NEXT
 end
 
-# The table pointer and root bits handed to inflate_table through
-# cells, and taken back.
+# Builds a table. The table pointer and root bits go to inflate_table
+# through stack slots, and come back through them.
 sig [Ptr, Word, Word, Word] => Word
 machine def zr_inflate_build(st, type, codes, root)
   table = Machine.slot(8)
@@ -682,9 +683,9 @@ machine def zr_inflate_build(st, type, codes, root)
   ret
 end
 
-# A code from `table` for the low bits of the buffer, pulling input
-# until the code's bits are all there: answers the code, or -1 when the
-# input ran out.
+# Gets a code from `table` for the low bits of the buffer. It pulls
+# input until all the bits of the code are there. Returns the code, or
+# -1 when the input ends.
 sig [Ptr, Ptr, Word] => Word
 machine def zr_inflate_decode(cur, table, table_bits)
   while true
@@ -699,8 +700,8 @@ machine def zr_inflate_decode(cur, table, table_bits)
   0
 end
 
-# The second-level code under `last`, pulling as needed: the code, or
-# -1 when the input ran out.
+# Gets the second-level code under `last`, and pulls input as needed.
+# Returns the code, or -1 when the input ends.
 sig [Ptr, Ptr, Word] => Word
 machine def zr_inflate_decode_under(cur, table, last)
   while true
@@ -715,8 +716,8 @@ machine def zr_inflate_decode_under(cur, table, last)
   0
 end
 
-# The TABLE, LENLENS and CODELENS modes: a dynamic block's code lengths
-# read and its tables built.
+# The TABLE, LENLENS and CODELENS modes: reads the code lengths of a
+# dynamic block and builds its tables.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_table_lens(strm, st, cur)
   mode = InflateState.mode(st)
@@ -833,8 +834,8 @@ machine def zr_inflate_table_lens(strm, st, cur)
   INF_NEXT
 end
 
-# The LEN_ through LIT modes: literals and matches decoded one at a
-# time, or through inflate_fast while the buffers allow it.
+# The LEN_ through LIT modes: decodes literals and matches one at a
+# time, or through inflate_fast while the buffers are large enough.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_codes(strm, st, cur)
   mode = InflateState.mode(st)
@@ -988,7 +989,7 @@ machine def zr_inflate_codes(strm, st, cur)
 end
 
 # The CHECK, LENGTH, DONE, BAD, MEM and SYNC modes: the trailer, and
-# the ends of the road.
+# the end states.
 sig [Ptr, Ptr, Ptr] => Word
 machine def zr_inflate_check(strm, st, cur)
   mode = InflateState.mode(st)
@@ -1047,7 +1048,8 @@ machine def zr_inflate_check(strm, st, cur)
   INF_RETURN
 end
 
-# inflate: as much of the stream as its input and output room allow.
+# inflate: decompresses as much of the stream as the input and output
+# space allow.
 sig [Ptr, Word] => Word
 machine def zr_inflate(strm, flush)
   if zr_inflate_state_check(strm) != 0 || ZStream.next_out(strm) == 0 || (ZStream.next_in(strm) == 0 && ZStream.avail_in(strm) != 0)
@@ -1122,8 +1124,8 @@ machine def zr_inflate(strm, flush)
   ret
 end
 
-# inflateSetDictionary: the dictionary a zlib stream named, or any
-# dictionary for a raw stream, into the window.
+# inflateSetDictionary: puts into the window the dictionary that a zlib
+# stream identifies, or any dictionary for a raw stream.
 sig [Ptr, Ptr, Word] => Word
 machine def zr_inflate_set_dictionary(strm, dictionary, length)
   if zr_inflate_state_check(strm) != 0
@@ -1146,9 +1148,9 @@ machine def zr_inflate_set_dictionary(strm, dictionary, length)
   Z_OK
 end
 
-# syncsearch: `len` bytes at `buf` searched for 0, 0, 0xff, 0xff, the
-# count found so far in the cell `have`; answers how many bytes were
-# read.
+# syncsearch: searches `len` bytes at `buf` for 0, 0, 0xff, 0xff. The
+# word at `have` contains the count found so far. Returns the number of
+# bytes read.
 sig [Ptr, Ptr, Word] => Word
 machine def zr_inflate_sync_search(have, buf, len)
   got = Machine.load64(have, 0)
@@ -1172,8 +1174,8 @@ machine def zr_inflate_sync_search(have, buf, len)
   nxt
 end
 
-# inflateSync: the input searched for the next full flush point, and
-# the stream set to go on from there.
+# inflateSync: searches the input for the next full flush point, and
+# sets the stream to continue from there.
 sig [Ptr] => Word
 machine def zr_inflate_sync(strm)
   if zr_inflate_state_check(strm) != 0
@@ -1227,7 +1229,7 @@ machine def zr_inflate_sync(strm)
   Z_OK
 end
 
-# inflateSyncPoint: whether the stream stands at the end of a block a
+# inflateSyncPoint: whether the stream is at the end of a block that a
 # sync or full flush wrote.
 sig [Ptr] => Word
 machine def zr_inflate_sync_point(strm)

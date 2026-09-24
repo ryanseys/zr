@@ -1,6 +1,7 @@
-# Float: a double, as a flonum (CRuby's rotation, when the exponent
-# fits) or a heap cell; shortest round-trip digits by Ryu; CRuby's
-# to_s layout; the arithmetic and comparisons, Integer mixed in.
+# Float: a double, stored as a flonum (CRuby's rotation, when the
+# exponent fits) or in a heap cell. This file has the shortest
+# round-trip digits (Ryu), CRuby's to_s layout, and the arithmetic and
+# comparisons, also with Integer operands.
 Machine.import "fmod", [F64, F64] => F64
 Machine.import "pow", [F64, F64] => F64
 
@@ -9,8 +10,9 @@ T_FLOAT = 4
 G_FLOAT = 40
 FLONUM_ZERO = 9223372036854775810
 INF_BITS = 9218868437227405312
-# The gates of Float's operators compiled code inlines on flonums
-# (the lowering's `float_path`), beside Integer's (runtime/kernel/integer.rb).
+# The gates of the Float operators that compiled code inlines for
+# flonums (`float_path` in the lowering). The Integer gates are in
+# runtime/kernel/integer.rb.
 GATE_FLO_PLUS = 4194304
 GATE_FLO_MINUS = 8388608
 GATE_FLO_MUL = 16777216
@@ -42,8 +44,8 @@ machine def zr_integer_p_m(v)
   zr_bool(zr_fixnum_p(v) || zr_big_p(v))
 end
 
-# A Float from a double: a flonum when the exponent's top bits are
-# 011 or 100, the flonum zero for +0.0, else a heap cell.
+# Makes a Float from a double: a flonum when the top bits of the
+# exponent are 011 or 100, the flonum zero for +0.0, else a heap cell.
 sig [F64] => Value
 machine def zr_float_new(d)
   b = Machine.ptr(Machine.bits(d))
@@ -75,8 +77,8 @@ machine def zr_float_value(v)
   Machine.f64(RFloat.bits(v))
 end
 
-# A Float or Integer operand as a double, or undef with a TypeError
-# for anything else (`coerce` is not consulted yet).
+# Converts a Float or Integer operand to a double. For all other values
+# it raises a TypeError and returns undef (it does not call `coerce`).
 sig [Value, Value, Ptr, Word, Word] => Value
 machine def zr_float_operand(recv, v, out, mid, kind)
   if zr_fixnum_p(v)
@@ -88,7 +90,7 @@ machine def zr_float_operand(recv, v, out, mid, kind)
     return Machine.value(QNIL)
   end
   if zr_big_p(v)
-    # Arithmetic with a bignum runs on its nearest double.
+    # Arithmetic with a bignum uses its nearest double.
     f = zr_send(v, Machine.id(:to_f), 0, 0)
     return f if f == QUNDEF
     Machine.store64(out, 0, Machine.bits(zr_float_value(f)))
@@ -170,8 +172,8 @@ machine def zr_flo_mod(recv, argc, argv, cref, blk)
   zr_float_new(zr_float_mod(zr_float_value(recv), y))
 end
 
-# The quotient CRuby's divmod answers: rounded, and one less when the
-# modulo changed sign.
+# The quotient that CRuby's divmod returns: rounded, and one less when
+# the modulo changed sign.
 sig [F64, F64] => F64
 machine def zr_float_quotient(x, y)
   if zr_nan_p(y)
@@ -193,8 +195,8 @@ machine def zr_float_quotient(x, y)
   d
 end
 
-# CRuby's rb_dbl_complex_new_polar_pi: the Complex at angle `ang`
-# turns of pi, exact on the axes, else through cospi and sinpi.
+# CRuby's rb_dbl_complex_new_polar_pi: the Complex at the angle `ang`
+# times pi. It is exact on the axes, and else uses cospi and sinpi.
 sig [F64, F64] => Value
 machine def zr_complex_polar_pi(abs, ang)
   whole = Machine.trunc(ang)
@@ -202,7 +204,7 @@ machine def zr_complex_polar_pi(abs, ang)
   pair = Machine.slot(16)
   half_turn = Machine.f64(4602678819172646912)
   if fr == half_turn || fr == Machine.f64(0) - half_turn
-    # An odd number of quarter turns: on the imaginary axis.
+    # An odd number of quarter turns is on the imaginary axis.
     half = whole / Machine.f64(4611686018427387904)
     odd = (half - Machine.trunc(half)) != Machine.f64(0)
     if odd == (fr > Machine.f64(0))
@@ -237,7 +239,7 @@ end
 
 # --- comparison -------------------------------------------------------
 
-# -1, 0, 1, or 2 when either side is NaN.
+# Returns -1, 0, 1, or 2 when one side is NaN.
 sig [F64, F64] => Word
 machine def zr_float_cmp(a, b)
   if a < b
@@ -276,9 +278,10 @@ machine def zr_flo_cmp(recv, argc, argv, cref, blk)
   zr_fix(c)
 end
 
-# `recv <=> other` for a Float against a fixnum, a Float or a bignum:
-# -1, 0, 1, or 2 when they do not compare. A bignum compares exactly,
-# through the Integer side, never through a rounded double.
+# `recv <=> other` for a Float and a fixnum, a Float or a bignum.
+# Returns -1, 0, 1, or 2 when they cannot be compared. A bignum
+# compares exactly, through the Integer code, never through a rounded
+# double.
 sig [Value, Value] => Word
 machine def zr_float_cmp_value(recv, other)
   if zr_fixnum_p(other)
@@ -297,8 +300,8 @@ machine def zr_float_cmp_value(recv, other)
   zr_float_cmp(zr_float_value(recv), zr_float_value(other))
 end
 
-# `<`, `<=`, `>`, `>=` with a Float or Integer; anything else fails
-# to compare.
+# `<`, `<=`, `>`, `>=` with a Float or Integer. The comparison fails
+# for all other values.
 sig [Value, Value, Word] => Value
 machine def zr_flo_relate(recv, other, want)
   if !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
@@ -374,8 +377,8 @@ end
 
 # --- conversions ------------------------------------------------------
 
-# A double as an Integer, truncated: NaN and the infinities raise
-# FloatDomainError; past the fixnums needs bignums.
+# Converts a double to an Integer, truncated. NaN and the infinities
+# raise FloatDomainError. A value past the fixnum range becomes a bignum.
 sig [F64] => Value
 machine def zr_float_to_int(d)
   if zr_nan_p(d) || zr_inf_p(d)
@@ -406,8 +409,8 @@ machine def zr_flo_floor(recv, argc, argv, cref, blk)
   zr_float_to_int(Machine.floor(zr_float_value(recv)))
 end
 
-# `floor`, `ceil` and `round` to `digits` places, which Float's own
-# methods read: nil where the double cannot answer exactly.
+# `floor`, `ceil` and `round` to `digits` places, for the Float
+# methods. Returns nil when the double cannot give an exact result.
 sig [Value, Value] => Value
 machine def zr_flo_floor_m(recv, digits)
   slot = Machine.slot(8)
@@ -437,8 +440,8 @@ machine def zr_flo_ceil(recv, argc, argv, cref, blk)
   zr_float_to_int(Machine.ceil(zr_float_value(recv)))
 end
 
-# CRuby's round_half_up: round(x * s) / s, nudged when the scaled
-# value landed short of a half.
+# CRuby's round_half_up: round(x * s) / s, with a correction when the
+# scaled value is just below a half.
 sig [F64, F64] => F64
 machine def zr_round_half_up(x, s)
   xs = x * s
@@ -461,11 +464,11 @@ machine def zr_round_half_up(x, s)
   f
 end
 
-# `round(n)`, `floor(n)` and `ceil(n)` for n > 0: `how` 0, 1, 2, as
-# CRuby's rb_float_round, rb_float_floor and rb_float_ceil do them: a
-# number with fewer digits than asked answers itself, one too small
-# for the digits is zero, and floor corrects a scaled result that
-# crossed the number.
+# `round(n)`, `floor(n)` and `ceil(n)` for n > 0 (`how` is 0, 1 or 2),
+# as CRuby's rb_float_round, rb_float_floor and rb_float_ceil do them.
+# A number with fewer digits than `n` returns itself. A number too
+# small for the digits gives zero. floor corrects a scaled result that
+# went past the number.
 sig [F64, Word, Word] => Value
 machine def zr_float_round_digits(d, digits, how)
   if d == Machine.f64(0) || zr_nan_p(d) || zr_inf_p(d) || zr_float_round_overflow(d, digits)
@@ -474,8 +477,8 @@ machine def zr_float_round_digits(d, digits, how)
   if zr_float_round_underflow(d, digits) && (how == 0 || (how == 1 && d > Machine.f64(0)) || (how == 2 && d < Machine.f64(0)))
     return zr_float_new(Machine.f64(0))
   end
-  # CRuby's ACCURATE_POW10: past DBL_DIG places the power of ten is
-  # not exact. nil sends the caller to the exact route.
+  # CRuby's ACCURATE_POW10: after DBL_DIG places, the power of ten is
+  # not exact. nil tells the caller to use the exact calculation.
   if digits > 14
     return Machine.value(QNIL)
   end
@@ -494,24 +497,24 @@ machine def zr_float_round_digits(d, digits, how)
   zr_float_new(Machine.ceil(d * s) / s)
 end
 
-# The binary exponent frexp answers: the number is f * 2**e with f in
-# [0.5, 1).
+# The binary exponent that frexp returns: the number is f * 2**e with
+# f in [0.5, 1).
 sig [F64] => Word
 machine def zr_float_binexp(d)
   bits = Machine.ptr(Machine.bits(d))
   Machine.word((bits >> 52) & 2047) - 1022
 end
 
-# CRuby's float_round_overflow: with `digits` places asked, a number
-# whose exponent leaves nothing to round answers itself.
+# CRuby's float_round_overflow: for `digits` places, a number whose
+# exponent leaves nothing to round returns itself.
 sig [F64, Word] => Bool
 machine def zr_float_round_overflow(d, digits)
   e = zr_float_binexp(d)
   digits >= 17 - (e > 0 ? e / 4 : (e / 3) - 1)
 end
 
-# CRuby's float_round_underflow: the digits asked all lie above the
-# number.
+# CRuby's float_round_underflow: all the digits requested are above
+# the number.
 sig [F64, Word] => Bool
 machine def zr_float_round_underflow(d, digits)
   e = zr_float_binexp(d)
@@ -566,7 +569,7 @@ machine def zr_flo_abs(recv, argc, argv, cref, blk)
   zr_float_new(Machine.fabs(zr_float_value(recv)))
 end
 
-# `hash`: the bits, with -0.0 as 0.0, so equal Floats hash alike.
+# `hash`: the bits, with -0.0 as 0.0, so equal Floats have the same hash.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_hash(recv, argc, argv, cref, blk)
   d = zr_float_value(recv)
@@ -594,7 +597,7 @@ machine def zr_int_to_f(recv, argc, argv, cref, blk)
   zr_float_new(Machine.to_f64(zr_fix2long(recv)))
 end
 
-# A Float literal, from the bits the compiler read.
+# A Float literal, from the bits that the compiler read.
 sig [Word] => Value
 machine def zr_float_from_bits(bits)
   zr_float_new(Machine.f64(bits))
@@ -641,7 +644,7 @@ machine def zr_pow5_bits(e)
   ((e * 1217359) >> 19) + 1
 end
 
-# How many times `v` divides by five, at most `p` times needed.
+# Whether `v` divides by five at least `p` times.
 sig [Ptr, Word] => Bool
 machine def zr_multiple_of_pow5(v, p)
   n = 0
@@ -765,9 +768,10 @@ end
 
 # --- to_s ----------------------------------------------------------------
 
-# A double into `b` as Float#to_s spells it: digits with the point
-# placed when the decimal exponent is between -3 and 15, or 16 with a
-# fraction; else `d.ddde+XX`; NaN, Infinity and -Infinity by name.
+# Writes a double into `b` as Float#to_s does. It writes digits with a
+# decimal point when the decimal exponent is between -3 and 15 (or 16
+# with a fraction), else `d.ddde+XX`. NaN, Infinity and -Infinity are
+# written by name.
 sig [Ptr, F64] => Void
 machine def zr_buf_float(b, d)
   if zr_nan_p(d)
@@ -840,7 +844,7 @@ machine def zr_buf_float(b, d)
   end
 end
 
-# The decimal digits of `n` into `buf`, answering their count.
+# Writes the decimal digits of `n` into `buf` and returns their count.
 sig [Word, Ptr] => Word
 machine def zr_digits_of(n, buf)
   tmp = Machine.slot(24)
@@ -900,8 +904,8 @@ Machine.import "log1p", [F64] => F64
 Machine.import "ldexp", [F64, I32] => F64
 Machine.import "frexp", [F64, Ptr] => F64
 
-# cos(pi * x) and sin(pi * x) as complex.c computes them where libm has
-# no __cospi and __sinpi: pi times x first.
+# cos(pi * x) and sin(pi * x), as complex.c computes them when libm has
+# no __cospi and __sinpi: it multiplies x by pi first.
 PI_BITS = 4614256656552045848
 
 sig [F64] => F64
@@ -920,11 +924,11 @@ machine def zr_digit_at(p, i)
   c >= 48 && c <= 57
 end
 
-# Ruby's decimal Float syntax read from `s`: sign, digits with single
+# Reads Ruby's decimal Float syntax from `s`: sign, digits with single
 # underscores between them, a fraction (or a bare point after digits),
-# an exponent. The digits go to
-# `b` without underscores, for strtod. Answers how many bytes were
-# read, or -1 when the text starts with no number.
+# and an exponent. The digits go to `b` without underscores, for
+# strtod. Returns the number of bytes read, or -1 when the text does
+# not start with a number.
 sig [Value, Ptr] => Word
 machine def zr_float_scan(s, b)
   p = RString.ptr(s)
@@ -997,7 +1001,7 @@ machine def zr_buf_strtod(b)
   d
 end
 
-# `String#to_f`: the number the text starts with, or 0.0.
+# `String#to_f`: the number at the start of the text, or 0.0.
 sig [Value] => Value
 machine def zr_str_to_f(s)
   b = Machine.slot(Buf.size)
@@ -1010,8 +1014,8 @@ machine def zr_str_to_f(s)
   zr_float_new(zr_buf_strtod(b))
 end
 
-# `Float(text)`: the whole text, whitespace aside, must be a number;
-# nil says it is not. A hex form waits.
+# `Float(text)`: all the text, except whitespace, must be a number.
+# Returns nil when it is not. A hex form goes to `zr_hex_to_f`.
 sig [Value] => Value
 machine def zr_str_to_f_strict(s)
   b = Machine.slot(Buf.size)
@@ -1037,8 +1041,8 @@ machine def zr_str_to_f_strict(s)
   zr_float_new(zr_buf_strtod(b))
 end
 
-# `Float("0x1p+3")`: strtod reads the hex form itself, so the whole
-# text goes to it and the end pointer says whether it read all of it.
+# `Float("0x1p+3")`: strtod reads the hex form itself, so all the text
+# goes to it. The end pointer shows whether it read all the text.
 sig [Value] => Value
 machine def zr_hex_to_f(s)
   p = RString.ptr(s)
@@ -1082,10 +1086,10 @@ machine def zr_math_sqrt(x)
   zr_float_new(Machine.sqrt(zr_float_value(x)))
 end
 
-# `Math.sqrt(x)` for a Float or fixnum `x` in the domain, else nil:
-# the send of `check`, the two compares and the call of the general
-# road, all in one. A zero answers +0.0, as CRuby's math_sqrt does
-# for -0.0.
+# `Math.sqrt(x)` for a Float or fixnum `x` in the domain, else nil. It
+# does the send of `check`, the two comparisons and the call of the
+# general path in one function. A zero gives +0.0, as CRuby's math_sqrt
+# does for -0.0.
 sig [Value] => Value
 machine def zr_math_sqrt_fast(x)
   d = Machine.f64(0)
@@ -1105,8 +1109,8 @@ machine def zr_math_sqrt_fast(x)
   zr_float_new(Machine.sqrt(d))
 end
 
-# `zr_math_call(which, x)` for a Float or fixnum `x`, else nil: what
-# the functions with no domain to check take first.
+# `zr_math_call(which, x)` for a Float or fixnum `x`, else nil. The
+# functions with no domain check try this first.
 sig [Value, Value] => Value
 machine def zr_math_call_fast(which, x)
   if zr_fixnum_p(x)
@@ -1118,7 +1122,7 @@ machine def zr_math_call_fast(which, x)
   zr_math_call(which, x, Machine.value(QNIL))
 end
 
-# One libm function by number, over one or two doubles.
+# Calls one libm function, selected by number, on one or two doubles.
 sig [Value, Value, Value] => Value
 machine def zr_math_call(which, x, y)
   w = zr_fix2long(which)
@@ -1206,8 +1210,9 @@ machine def zr_math_lgamma(x)
   out
 end
 
-# The adjacent double: `up` moves toward +Infinity. The zeros meet at
-# the smallest subnormal; an infinity stays; NaN stays NaN.
+# The adjacent double. `up` moves toward +Infinity. From a zero, the
+# result is the smallest subnormal. An infinity does not change, and
+# NaN stays NaN.
 sig [Value, Word] => Value
 machine def zr_float_adjacent(recv, up)
   d = zr_float_value(recv)
@@ -1234,8 +1239,8 @@ machine def zr_flo_prev_float(recv, argc, argv, cref, blk)
   zr_float_adjacent(recv, 0)
 end
 
-# The shortest digits that read back as the double, and where the
-# decimal point falls among them: `0.d1d2... * 10^point`.
+# The shortest digits that read back as the same double, and the
+# position of the decimal point: `0.d1d2... * 10^point`.
 sig [Value] => Value
 machine def zr_float_shortest(v)
   d = zr_float_value(v)
@@ -1273,9 +1278,9 @@ machine def zr_float_of_halves(low, high)
   zr_float_from_bits((zr_fix2long(high) << 32) | zr_fix2long(low))
 end
 
-# CRuby's float_decode_internal: [mantissa, exponent] with the double
-# equal to mantissa * 2**exponent, the mantissa an Integer of 53 bits
-# (with the sign) so a Rational can hold the exact value.
+# CRuby's float_decode_internal: [mantissa, exponent], where the double
+# is mantissa * 2**exponent. The mantissa is a 53-bit Integer (with the
+# sign), so a Rational can contain the exact value.
 sig [Value] => Value
 machine def zr_float_decode(v)
   bits = Machine.ptr(Machine.bits(zr_float_value(v)))

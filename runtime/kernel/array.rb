@@ -1,47 +1,48 @@
 # Arrays: a length, a capacity and a buffer of Values outside the arena.
-# `base` is the block malloc gave; `ptr` is the first element, past the
-# gap a shift from the front leaves, and `capa` counts from `ptr`.
+# `base` is the block from malloc. `ptr` is the first element, after the
+# gap that a shift from the front leaves. `capa` counts from `ptr`.
 Machine.struct :RArray, basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
 G_ARRAY = 25
 G_INDEX_ERROR = 26
-# CRuby's ARY_MAX_SIZE: the most elements an Array can hold, LONG_MAX
-# over the size of a Value.
+# CRuby's ARY_MAX_SIZE: the maximum number of elements in an Array,
+# LONG_MAX divided by the size of a Value.
 ARY_MAX_SIZE = 1152921504606846975
 
-# The limit, for the core code that sizes `*` and `fill` by it.
+# Returns the limit, for the core code that checks `*` and `fill`
+# against it.
 sig [] => Value
 machine def zr_ary_max_size
   zr_fix(ARY_MAX_SIZE)
 end
 
-# An Array whose elements live in its own cell, after the header, as
-# many as the cell has room for. A longer one keeps them in a malloc'd
-# block, `base`, which `ptr` may start inside once a shift has moved
-# it. Either way `ptr` reaches the elements and `capa` counts the room
-# from there, so a reader never asks which (FL_EMBED, a String's flag
-# too).
+# An embedded Array (FL_EMBED, which String also uses) keeps its
+# elements in its own cell, after the header, as many as the cell has
+# space for. A longer Array keeps them in a malloc'd block, `base`.
+# After a shift, `ptr` can point inside that block. In both cases `ptr`
+# points to the elements and `capa` counts the space from there, so a
+# reader does not need to check which case applies.
 sig [Value] => Bool
 machine def zr_ary_embedded_p(a)
   (RBasic.flags(a) & FL_EMBED) != 0
 end
 
-# The elements `a`'s own cell holds: 2 in a 64-byte cell, 10 in 128,
-# 26 in 256.
+# The number of elements that the cell of `a` can contain: 2 in a
+# 64-byte cell, 10 in 128, 26 in 256.
 sig [Value] => Word
 machine def zr_ary_embed_capa(a)
   (zr_cell_bytes(a) - RArray.size) / 8
 end
 
-# The cell an Array of `capa` elements takes: one that holds them all,
-# else the smallest, with the elements malloc'd.
+# The cell size for an Array of `capa` elements: a cell that contains
+# them all, else the smallest cell, with the elements in a malloc'd block.
 sig [Word] => Word
 machine def zr_ary_cell_bytes(capa)
   bytes = RArray.size + (capa * 8)
   bytes <= CELL_MAX ? bytes : RArray.size
 end
 
-# Room for `capa` elements in `a`, whose old ones are gone: the cell's
-# own tail when they fit, else a malloc'd block.
+# Makes space for `capa` elements in `a`, which has no old elements:
+# the tail of its own cell when they fit, else a malloc'd block.
 sig [Value, Word] => Void
 machine def zr_ary_buf_new(a, capa)
   if capa <= zr_ary_embed_capa(a)
@@ -58,8 +59,8 @@ machine def zr_ary_buf_new(a, capa)
   RArray.set_capa(a, capa)
 end
 
-# The block given back when it is malloc'd; the cell's own tail goes
-# with the cell.
+# Frees the buffer when it is a malloc'd block. An embedded buffer is
+# part of the cell and goes with it.
 sig [Value] => Void
 machine def zr_ary_buf_free(a)
   if !zr_ary_embedded_p(a)
@@ -67,10 +68,10 @@ machine def zr_ary_buf_free(a)
   end
 end
 
-# The bytes of `a`'s buffer, which starts at `base`: its capacity in
-# words, and the front gap a shift left behind `ptr`. A shift moves
-# `ptr` up and takes the same count off `capa`, so the two together are
-# what was asked for however often the array has been shifted.
+# The byte size of the buffer of `a`, which starts at `base`: its
+# capacity in words, plus the front gap that shifts left before `ptr`.
+# A shift moves `ptr` up and subtracts the same count from `capa`, so
+# the sum is always the size that was allocated.
 sig [Value] => Word
 machine def zr_ary_buf_bytes(a)
   (RArray.capa(a) * 8) + (RArray.ptr(a) - RArray.base(a))
@@ -83,13 +84,13 @@ machine def zr_ary_new(capa)
   a
 end
 
-# The length as a fixnum, for core code that must not dispatch.
+# Returns the length as a fixnum, for core code that must not dispatch.
 sig [Value] => Value
 machine def zr_ary_len_m(a)
   zr_fix(RArray.len(a))
 end
 
-# The element at `i`, for the same reason.
+# Returns the element at `i`, for the same reason.
 sig [Value, Value] => Value
 machine def zr_ary_at_m(a, i)
   zr_ary_at(a, zr_fix2long(i))
@@ -121,9 +122,10 @@ machine def zr_ary_reserve(a, n)
   if n > RArray.capa(a)
     len = RArray.len(a)
     gap = (RArray.ptr(a) - RArray.base(a)) / 8
-    # A front gap as long as the array goes back to the block's start
-    # when that makes room: the copy costs no more than the shifts that
-    # made the gap, so a queue stays linear.
+    # If the front gap is at least as long as the array and closing it
+    # gives enough space, move the elements back to the start of the
+    # block. The copy costs no more than the shifts that made the gap,
+    # so a queue stays linear.
     if gap >= len && n <= RArray.capa(a) + gap
       zr_memmove(RArray.base(a), RArray.ptr(a), len * 8)
       RArray.set_ptr(a, RArray.base(a))
@@ -131,7 +133,7 @@ machine def zr_ary_reserve(a, n)
       return
     end
     capa = RArray.capa(a) * 2
-    # Doubling stops at CRuby's limit, so the byte count cannot wrap.
+    # Doubling stops at CRuby's limit, so the byte count cannot overflow.
     if capa < n || capa > ARY_MAX_SIZE
       capa = n
     end
@@ -211,8 +213,8 @@ machine def zr_ary_of(argc, argv)
   a
 end
 
-# `(a..b).to_a` over two fixnums, filled here rather than pushed one
-# yield at a time through Enumerable.
+# `(a..b).to_a` for two fixnums. It fills the Array here, not with one
+# yield for each element through Enumerable.
 sig [Value, Value, Value] => Value
 machine def zr_fixnum_range_ary(low, high, excl)
   a = zr_fix2long(low)
@@ -235,8 +237,9 @@ machine def zr_fixnum_range_ary(low, high, excl)
   out
 end
 
-# The Array a splat spreads: nil spreads nothing, an Array is itself,
-# an object that answers `to_a` gives that, anything else is one item.
+# Returns the Array for a splat: nil gives no elements, an Array gives
+# itself, an object with `to_a` gives its result, and all other values
+# give one element.
 sig [Value] => Value
 machine def zr_splat_to_a(v)
   if v == QNIL
@@ -260,7 +263,7 @@ machine def zr_splat_to_a(v)
   r
 end
 
-# `*v` spread into the Array `a`.
+# Adds the elements of the splat `*v` to the Array `a`.
 sig [Value, Value] => Value
 machine def zr_ary_splat(a, v)
   v = zr_splat_to_a(v)
@@ -300,8 +303,8 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
   if zr_fixnum_p(first)
     n = zr_fix2long(first)
   else
-    # One argument that answers to_ary is copied, as rb_check_array_type
-    # finds it; a size converts as NUM2LONG does.
+    # One argument with to_ary is copied, as rb_check_array_type finds
+    # it. A size converts as NUM2LONG does.
     if argc == 1 && !zr_special_p(first) && zr_find_method(zr_class_of(first), Machine.id(:to_ary)) != 0
       given = zr_send(first, Machine.id(:to_ary), 0, 0)
       return given if given == QUNDEF
@@ -355,7 +358,7 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
   recv
 end
 
-# The index of `v` in `a` by identity, or -1.
+# Returns the index of `v` in `a`, compared by identity, or -1.
 sig [Value, Value] => Word
 machine def zr_ary_index_of(a, v)
   i = 0
@@ -368,9 +371,9 @@ machine def zr_ary_index_of(a, v)
   0 - 1
 end
 
-# A bignum's value into `out` when it fits a signed 64-bit word, as
-# NUM2LONG takes it: at most three base-2^30 limbs, the top one below 8,
-# or exactly -2^63.
+# Writes the value of a bignum to `out` when it fits a signed 64-bit
+# word, as NUM2LONG does: at most three base-2^30 limbs with the top
+# limb below 8, or exactly -2^63.
 sig [Value, Ptr] => Bool
 machine def zr_big_to_long(v, out)
   limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
@@ -460,8 +463,8 @@ machine def zr_index_operand(v, out)
   Machine.value(QNIL)
 end
 
-# `a[beg, len]`: a new Array of the elements from `beg`, or nil past
-# the end; a start at the end answers an empty Array.
+# `a[beg, len]`: a new Array of the elements from `beg`, or nil after
+# the end. A start at the end returns an empty Array.
 sig [Value, Word, Word] => Value
 machine def zr_ary_subseq(a, beg, len)
   n = RArray.len(a)
@@ -474,8 +477,8 @@ machine def zr_ary_subseq(a, beg, len)
   zr_ary_of(len, RArray.ptr(a) + (beg * 8))
 end
 
-# A Range as a start and a length against `n` elements, into `out`:
-# false when the start is out of range.
+# Converts a Range to a start and a length for `n` elements, into `out`.
+# Returns false when the start is out of range.
 sig [Value, Word, Ptr] => Value
 machine def zr_range_beg_len(range, n, out)
   low = zr_ivar_get(range, Machine.id(:begin))
@@ -562,9 +565,9 @@ machine def zr_ary_aref(recv, argc, argv, cref, blk)
   zr_ary_at(recv, Machine.load64(out, 0))
 end
 
-# `a[x]` and `a[beg, len]` for the core: what Array#[] answers, never
-# through a `[]` a subclass defines, as the C calls rb_ary_aref1 and
-# rb_ary_subseq.
+# `a[x]` and `a[beg, len]` for the core: the result of Array#[], never
+# through a `[]` that a subclass defines, as the C calls rb_ary_aref1
+# and rb_ary_subseq do.
 sig [Value, Value] => Value
 machine def zr_ary_aref1_m(a, x)
   slot = Machine.slot(8)
@@ -606,12 +609,12 @@ machine def zr_ary_push_m(recv, argc, argv, cref, blk)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
-# Array's stack operations, `pop`, `shift` and `unshift` (`first` and
-# `last` are ruby's own Ruby, runtime/core/array.rb). The count of `pop(n)`
-# and `shift(n)` is read here (zr_ary_count), so a call with none stays
-# a few loads; a shift leaves the elements where they are and moves
-# `ptr` past the first (the gap an unshift takes back, and
-# zr_ary_reserve closes).
+# The stack operations of Array: `pop`, `shift` and `unshift` (`first`
+# and `last` are Ruby, in runtime/core/array.rb). This code reads the
+# count of `pop(n)` and `shift(n)` (zr_ary_count), so a call with no
+# count is only a few loads. A shift does not move the elements. It
+# moves `ptr` past the first element. An unshift uses that gap again,
+# and zr_ary_reserve closes it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_pop(recv, argc, argv, cref, blk)
   if zr_modify_frozen_p(recv)
@@ -657,8 +660,8 @@ machine def zr_ary_shift(recv, argc, argv, cref, blk)
   taken
 end
 
-# `reverse!` in place, and the reversed copy `reverse` and
-# `reverse_each` read.
+# `reverse!` in place, and the reversed copy that `reverse` and
+# `reverse_each` use.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_reverse_bang(recv, argc, argv, cref, blk)
   if zr_modify_frozen_p(recv)
@@ -721,8 +724,8 @@ machine def zr_ary_unshift_m(recv, argc, argv, cref, blk)
   recv
 end
 
-# The count `pop(n)` and `shift(n)` take, capped at the `n` elements
-# there are, into `out`.
+# Writes the count for `pop(n)` and `shift(n)` into `out`, limited to
+# the `n` elements that there are.
 sig [Word, Ptr, Word, Ptr] => Value
 machine def zr_ary_count(argc, argv, n, out)
   if argc != 1
@@ -760,10 +763,11 @@ machine def zr_ary_last(recv, argc, argv, cref, blk)
   zr_ary_at(recv, 0 - 1)
 end
 
-# `[1, 2]`: each element's inspect may run Ruby, so the buffer is
-# re-read by index. The text takes the first element's encoding and
-# each later one joins it, as inspect_ary appends them; every inspect
-# rb_inspect answers can join, so no pair of them is an error.
+# `[1, 2]`: the inspect of each element can run Ruby, so the code reads
+# the buffer again by index. The text gets the encoding of the first
+# element, and each later element is appended to it, as inspect_ary
+# does. The results of rb_inspect are always compatible, so no pair
+# causes an error.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_inspect(recv, argc, argv, cref, blk)
   if RArray.len(recv) == 0
@@ -810,14 +814,14 @@ machine def zr_ary_eq(recv, argc, argv, cref, blk)
   if recv == other
     return Machine.value(QTRUE)
   end
-  # The same two Arrays compared again inside their own comparison is a
-  # recursion, which answers equal (rb_exec_recursive_paired).
+  # A comparison of the same two Arrays inside their own comparison is a
+  # recursion, and it returns equal (rb_exec_recursive_paired).
   if zr_guard_enter_paired(recv, other, Machine.id(:==))
     return Machine.value(QTRUE)
   end
   i = 0
   while i < RArray.len(recv)
-    # The same object is equal before == is asked, as rb_equal has it.
+    # The same object is equal without a call to ==, as in rb_equal.
     if zr_ary_at(recv, i) != zr_ary_at(other, i)
       slot = Machine.slot(8)
       Machine.store64(slot, 0, Machine.word(zr_ary_at(other, i)))
@@ -837,8 +841,8 @@ machine def zr_ary_eq(recv, argc, argv, cref, blk)
   Machine.value(QTRUE)
 end
 
-# `recv[i]` as CRuby's opt_aref instruction runs it: an Array or a Hash
-# whose `[]` is its own is read directly, with no frame for a backtrace.
+# `recv[i]` as CRuby's opt_aref instruction runs it. An Array or a Hash
+# with its original `[]` is read directly, with no frame for a backtrace.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_aref(recv, mid, argc, argv, mode)
   if !zr_special_p(recv)
@@ -854,9 +858,9 @@ machine def zr_opt_aref(recv, mid, argc, argv, mode)
 end
 
 # `recv.push(v)`, `recv.pop`, `recv.shift` and `recv.empty?` on an Array
-# whose method is its own: the builtin's body at once, with no frame,
-# as `<<` takes. The builtin road (zr_builtin_fn) was a third of
-# `bm_so_lists`, which is these four on two lists.
+# with its original methods. These run the builtin body directly, with
+# no frame, as `<<` does. The builtin path (zr_builtin_fn) was a third
+# of the time of `bm_so_lists`, which uses these four on two lists.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_push(recv, mid, argc, argv, mode)
   if argc == 1 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.gates & GATE_PUSH) == 0
@@ -889,8 +893,8 @@ machine def zr_opt_empty_p(recv, mid, argc, argv, mode)
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
-# `recv[k] = v` likewise: an Array for an Integer index, a Hash for any
-# key.
+# `recv[k] = v`, the same way: an Array for an Integer index, a Hash for
+# all keys.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_aset(recv, mid, argc, argv, mode)
   if argc == 2 && !zr_special_p(recv)
@@ -905,8 +909,8 @@ machine def zr_opt_aset(recv, mid, argc, argv, mode)
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
-# The Array a multiple assignment takes apart: the value itself, its
-# `to_ary` when it has one, else the value alone.
+# Returns the Array for a multiple assignment: the value if it is an
+# Array, its `to_ary` if it has one, else an Array of the value.
 sig [Value] => Value
 machine def zr_masgn_ary(v)
   if !zr_special_p(v) && zr_type(v) == T_ARRAY
@@ -930,7 +934,7 @@ machine def zr_masgn_ary(v)
 end
 
 # `a, *rest, b = ary`: the elements between the first `nlefts` and the
-# last `nrights`, or none.
+# last `nrights`, or an empty Array.
 sig [Value, Word, Word] => Value
 machine def zr_masgn_rest(ary, nlefts, nrights)
   from = nlefts
@@ -947,8 +951,9 @@ machine def zr_masgn_rest(ary, nlefts, nrights)
   out
 end
 
-# The `i`th of the `nrights` targets after a rest: from the end when
-# the Array is long enough, else right after the `nlefts`.
+# The value of the `i`th of the `nrights` targets after a rest: from
+# the end when the Array is long enough, else immediately after the
+# `nlefts`.
 sig [Value, Word, Word, Word] => Value
 machine def zr_masgn_right(ary, nlefts, nrights, i)
   start = RArray.len(ary) - nrights
@@ -958,9 +963,9 @@ machine def zr_masgn_right(ary, nlefts, nrights, i)
   zr_ary_at(ary, start + i)
 end
 
-# `a[beg, len] = vals`, the one edit every mutation is: the `len`
-# elements from `beg` leave and `vals`'s elements take their place. A
-# start past the end fills with nil first.
+# `a[beg, len] = vals`, the one edit that all mutations use. It removes
+# the `len` elements from `beg` and puts the elements of `vals` in their
+# place. A start after the end first fills with nil.
 sig [Value, Value, Value, Value] => Value
 machine def zr_ary_splice(a, beg_v, len_v, vals)
   if zr_modify_frozen_p(a)
@@ -997,8 +1002,8 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
     len = n - beg
   end
   m = RArray.len(vals)
-  # At the front, the elements stay where they are and `ptr` moves: a
-  # shift leaves a gap, and an unshift that fits takes it back.
+  # At the front, the elements do not move and `ptr` moves: a shift
+  # leaves a gap, and an unshift that fits uses the gap again.
   if beg == 0 && m <= len
     RArray.set_ptr(a, RArray.ptr(a) + ((len - m) * 8))
     RArray.set_capa(a, RArray.capa(a) - (len - m))
@@ -1027,8 +1032,8 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
   a
 end
 
-# Bytes moved between overlapping ranges, in whichever order keeps
-# them intact.
+# Moves bytes between overlapping ranges, in the order that keeps them
+# correct.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_memmove(to, from, n)
   memmove(to, from, n)
@@ -1043,10 +1048,10 @@ machine def zr_ary_clear(a, unused)
   a
 end
 
-# An Integer index for the core, as NUM2LONG reads it: the Integer, or
-# its `to_int`, anywhere in a signed 64-bit word, so one past the
-# fixnum range comes back a bignum; else CRuby's TypeError or
-# RangeError.
+# Converts to an Integer index for the core, as NUM2LONG does: the
+# Integer, or its `to_int`, in the range of a signed 64-bit word. A
+# value past the fixnum range comes back as a bignum. Other values get
+# CRuby's TypeError or RangeError.
 sig [Value] => Value
 machine def zr_index_operand_m(v)
   if zr_fixnum_p(v)

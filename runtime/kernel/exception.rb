@@ -1,26 +1,27 @@
-# Exceptions and the signal protocol. A function that can raise answers
-# a Value, and `undef` means the exception is in the task's pending
-# slot; every call site tests for it and leaves through its landing
-# block. An exception captures the frame chain when it is raised; the
-# report prints it as CRuby does.
+# Exceptions and the pending unwind protocol. A function that can raise
+# returns a Value. `undef` means that the exception is in the pending
+# slot of the task. Each call site checks for `undef` and leaves through
+# its landing block. A raise captures the frame list, and the report
+# prints it as CRuby does.
 #
-# Every frame record carries a FrameMeta: what the backtrace prints for
-# it. A builtin method's frame is pushed by dispatch and borrows the
-# file and line of the nearest Ruby frame outside it.
-# `locals` names the scope's locals in slot order (the count, then a
-# symbol id each), and `env` is 1 when the record's first slot holds
-# the Env that keeps them, which is what an eval and a Binding read.
-# `box` is the Ruby::Box the function belongs to, nil where it is
-# main's, which is what makes a box's reach the code it holds.
-# `ruby` is 1 on a core def CRuby itself writes in Ruby, which answers
-# its own parameters where a method written in C answers `[[:rest]]`.
-# `node` is the id of the prism node that defines the function, which
-# a frame raised on its entry reports.
-# `cover` is the def-site row this scope holds in a program Coverage
-# measures methods of, plus one, and 0 in every other program: a
-# definition made from this scope claims that row and so learns the
-# span ruby names the method by. It stands here, on what a Proc and a
-# method entry both reach, because `define_method` names a block.
+# Each frame record has a FrameMeta, which gives what the backtrace
+# prints for the frame. Dispatch pushes the frame of a builtin method,
+# and that frame uses the file and line of the nearest Ruby frame
+# outside it.
+# `locals` gives the locals of the scope in slot order (the count, then
+# one symbol id for each). `env` is 1 when the first slot of the record
+# contains the Env that keeps them. An eval and a Binding read this.
+# `box` is the Ruby::Box that the function belongs to, or nil for main.
+# It makes the code in a box see the definitions of that box.
+# `ruby` is 1 on a core def that CRuby itself writes in Ruby. Such a
+# method returns its real parameters, where a C method returns `[[:rest]]`.
+# `node` is the id of the prism node that defines the function. A frame
+# that raises on entry reports it.
+# `cover` is the def-site record of this scope plus one, in a program
+# where Coverage measures methods, and 0 in all other programs. A
+# definition from this scope takes that record, which gives the span
+# that ruby reports for the method. It is here, where both a Proc and a
+# method entry can read it, because `define_method` takes a block.
 Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word, hidden: Word, cover: Word
 KIND_MAIN = 0
 KIND_DEF = 1
@@ -30,20 +31,22 @@ KIND_MODULE = 4
 KIND_BLOCK = 5
 KIND_SCLASS = 6
 # A frame of the runtime's own Ruby (a block in a builtin written in
-# Ruby): no row in a backtrace.
+# Ruby). It has no frame in a backtrace.
 KIND_HIDDEN = 7
 # The toplevel of a required file.
 KIND_TOP = 8
-# The toplevel of an eval, which shows the label of the frame that
-# asked for it: `parent` is that frame's meta, written at the call.
+# The toplevel of an eval. It shows the label of the frame that called
+# eval: `parent` is the meta of that frame, written at the call.
 KIND_EVAL = 9
-# A snippet a box ran, which names itself rather than its caller.
+# A snippet that a box ran. It shows its own label, not the label of
+# its caller.
 KIND_COMPILED = 10
 
-# `node` is the id of the prism node the row's line ran, or 0.
+# One backtrace frame. `node` is the id of the prism node that the line
+# ran, or 0.
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word, node: Word
-# `bt` is a backtrace the program set, else nil and the captured rows
-# stand; `cause` is undef until the raise decides it.
+# `bt` is a backtrace that the program set, or nil to use the captured
+# frames. `cause` is undef until the raise sets it.
 Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word, bt: Value, cause: Value
 T_EXCEPTION = 24
 
@@ -56,8 +59,9 @@ G_TYPE_ERROR = 21
 G_ZERO_DIVISION_ERROR = 22
 G_RUNTIME_ERROR = 23
 
-# A captured row's label reads its method's owner, so the rows keep
-# those classes alive until the backtrace is printed or replaced.
+# The label of a captured frame reads the owner of its method, so the
+# frames keep those classes alive until the backtrace is printed or
+# replaced.
 sig [Value] => Void
 machine def zr_mark_backtrace_rows(exc)
   rows = RException.rows(exc)
@@ -68,8 +72,8 @@ machine def zr_mark_backtrace_rows(exc)
   end
 end
 
-# A frame's line word holds the line in its low half and the id of the
-# prism node that runs in its high half.
+# The line word of a frame contains the line in its low half and the id
+# of the prism node that runs in its high half.
 sig [Ptr] => Word
 machine def zr_frame_line(rec)
   Frame.line(rec) & 4294967295
@@ -89,11 +93,11 @@ machine def zr_frame_with_file(rec)
   rec
 end
 
-# Whether `rec` has a row in a backtrace. A helper the core library
-# keeps for itself has none, and neither has a builtin that a helper
-# called on a core value or on itself: CRuby's C reaches that work with
-# no frame at all. A builtin a helper called on another plain object
-# keeps its row, as the frame rb_funcall pushes for it does.
+# Whether `rec` shows in a backtrace. A private helper of the core
+# library does not show. A builtin that a helper calls on a core value
+# or on itself also does not show, because CRuby's C does that work with
+# no frame. A builtin that a helper calls on another plain object shows,
+# as the frame that rb_funcall pushes for it does.
 sig [Ptr] => Bool
 machine def zr_frame_shown_p(rec)
   kind = FrameMeta.kind(Frame.meta(rec))
@@ -109,8 +113,8 @@ machine def zr_frame_shown_p(rec)
 end
 
 # Whether `rec` runs a helper: a hidden def, or a block written in one.
-# A block of the core library is hidden too, and its parent names the
-# def it was written in; a def has no parent.
+# A block of the core library is also hidden, and its parent refers to
+# the def that contains it. A def has no parent.
 sig [Ptr] => Bool
 machine def zr_frame_helper_p(rec)
   meta = Frame.meta(rec)
@@ -120,9 +124,10 @@ machine def zr_frame_helper_p(rec)
   FrameMeta.kind(meta) == KIND_HIDDEN
 end
 
-# One row per shown frame from `top` outward, into a fresh buffer sized
-# to the whole chain: which frames show is decided once, on the walk
-# that fills the rows, not on a walk that counts them first.
+# Captures one backtrace frame for each visible frame from `top`
+# outward. The new buffer has space for the full frame list, so the
+# visibility check runs once, while the frames are filled, and not also
+# in a first counting pass.
 sig [Value, Ptr] => Void
 machine def zr_backtrace_capture(exc, top)
   n = 0
@@ -170,9 +175,9 @@ machine def zr_exc_new(klass, message)
   e
 end
 
-# Raise `exc` from the frame `top`: the backtrace is captured here
-# unless the exception has one, the exception parked in the task, and
-# `undef` answered for the caller to pass on.
+# Raises `exc` from the frame `top`. It captures the backtrace if the
+# exception has none, puts the exception in the pending slot of the
+# task, and returns `undef` for the caller to pass on.
 sig [Value, Ptr] => Value
 machine def zr_raise_from(exc, top)
   if RException.rows(exc) == 0 && RException.bt(exc) == QNIL
@@ -202,8 +207,9 @@ machine def zr_raise(exc)
   zr_raise_from(exc, Task.top(zr_task()))
 end
 
-# In a landing block with a rescue clause: the pending exception when
-# the signal is a raise, else undef (a break or return passes through).
+# For a landing block with a rescue clause. Returns the pending
+# exception when the pending unwind is a raise, else undef (a break or
+# a return passes through).
 sig [] => Value
 machine def zr_rescuable
   t = zr_task()
@@ -213,7 +219,7 @@ machine def zr_rescuable
   Machine.value(QUNDEF)
 end
 
-# Whether a rescue clause naming `klass` takes `exc`.
+# Whether a rescue clause for `klass` catches `exc`.
 sig [Value, Value] => Value
 machine def zr_exc_match(exc, klass)
   if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
@@ -221,8 +227,8 @@ machine def zr_exc_match(exc, klass)
   end
   e = zr_find_method(zr_box_view(zr_class_of(klass)), Machine.id(:===))
   if e != 0 && (FrameMeta.owner(MEntry.meta(e)) != zr_global(G_MODULE) || zr_trace_c_p())
-    # The class answers `===` itself, so it decides; a traced `:c_call`
-    # sees Module#=== as ruby sends it.
+    # The class defines its own `===`, so that method decides. A traced
+    # `:c_call` sees Module#=== as ruby sends it.
     arg = Machine.slot(8)
     Machine.store64(arg, 0, Machine.word(exc))
     r = zr_send(klass, Machine.id(:===), 1, arg)
@@ -232,7 +238,7 @@ machine def zr_exc_match(exc, klass)
   zr_bool(zr_is_a(exc, klass))
 end
 
-# `rescue *list`: whether any class the splat spreads takes `exc`.
+# `rescue *list`: whether a class in the splat catches `exc`.
 sig [Value, Value] => Value
 machine def zr_exc_match_any(exc, list)
   list = zr_splat_to_a(list)
@@ -249,7 +255,7 @@ machine def zr_exc_match_any(exc, list)
   Machine.value(QFALSE)
 end
 
-# `when *list`: whether any element answers `=== subject` truthily.
+# `when *list`: whether `=== subject` is truthy for an element.
 sig [Value, Value] => Value
 machine def zr_case_any(subject, list)
   list = zr_splat_to_a(list)
@@ -268,8 +274,8 @@ machine def zr_case_any(subject, list)
   Machine.value(QFALSE)
 end
 
-# `when *list` with no subject: whether the splat spreads anything
-# truthy.
+# `when *list` with no subject: whether the splat contains a truthy
+# element.
 sig [Value] => Value
 machine def zr_any_truthy(list)
   list = zr_splat_to_a(list)
@@ -285,8 +291,8 @@ machine def zr_any_truthy(list)
   Machine.value(QFALSE)
 end
 
-# Entering a rescue clause: the exception leaves the pending slot and
-# becomes `$!`. The previous `$!` is answered, for the clause's end.
+# Starts a rescue clause: the exception moves from the pending slot to
+# `$!`. Returns the previous `$!`, for the end of the clause.
 sig [] => Value
 machine def zr_rescue_enter
   t = zr_task()
@@ -306,9 +312,10 @@ machine def zr_errinfo_set(v)
   Task.set_errinfo(zr_task(), v)
 end
 
-# An ensure body runs with the signal set aside: the pending value is
-# answered, for the caller's record, and the kind, home and site go to
-# `out`, three words. A raise stays visible as `$!` meanwhile.
+# An ensure body runs with the pending unwind set aside. Returns the
+# pending value, for the caller to keep, and writes the kind, home and
+# site to the three words at `out`. During the body, a raise stays
+# visible as `$!`.
 sig [Ptr] => Value
 machine def zr_signal_take(out)
   t = zr_task()
@@ -329,20 +336,18 @@ machine def zr_signal_restore(v, out)
   zr_signal(Machine.load64(out, 0), v, Machine.ptr(Machine.load64(out, 8)), Machine.load64(out, 16))
 end
 
-# `Kernel#raise`: `$!` again with no arguments; a String makes a
-# RuntimeError; a class is sent `new` with the message; an exception is
-# raised as it is. The frame of `raise` itself is not in the backtrace.
-# `Kernel#raise`: nothing re-raises `$!`; a String is a RuntimeError;
-# anything else answers `exception` with the message, as a class does
-# through `new`; a third argument is the backtrace; `cause:` sets the
-# cause, else `$!` is.
+# `Kernel#raise`. With no arguments, it raises `$!` again. A String
+# gives a RuntimeError. For all other values, it calls `exception` with
+# the message (a class does this through `new`). A third argument is
+# the backtrace. `cause:` sets the cause, else `$!` is the cause. The
+# frame of `raise` itself is not in the backtrace.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_raise(recv, argc, argv, cref, blk)
   top = Frame.prev(Task.top(zr_task()))
   cause = Machine.value(QUNDEF)
   if zr_kw_take() != 0
-    # `cause:` is raise's own; any other keywords go on to `exception`
-    # as one Hash argument.
+    # `raise` uses `cause:` itself. It gives all other keywords to
+    # `exception` as one Hash argument.
     opts = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     cause = zr_hash_lookup(opts, zr_sym(Machine.id(:cause)))
     if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
@@ -397,8 +402,8 @@ machine def zr_kernel_raise(recv, argc, argv, cref, blk)
   zr_raise_from(e, top)
 end
 
-# `circular causes` when `e` is among the causes of `cause`; an
-# exception as its own cause simply has none.
+# Raises `circular causes` when `e` is in the cause list of `cause`.
+# An exception that is its own cause gets no cause.
 sig [Value, Value] => Value
 machine def zr_exc_check_cause(e, cause)
   if cause == e
@@ -419,13 +424,13 @@ machine def zr_raise_msg(klass, bytes, len)
   zr_raise(zr_exc_new(klass, zr_str_new(bytes, len)))
 end
 
-# Raise with a message built in `b`, which is taken.
+# Raises with the message in `b`, and takes ownership of `b`.
 sig [Value, Ptr] => Value
 machine def zr_raise_buf(klass, b)
   zr_raise(zr_exc_new(klass, zr_buf_take(b)))
 end
 
-# A class the core library defines, by its constant's name.
+# Returns a class of the core library, found by its constant name.
 sig [Word] => Value
 machine def zr_core_class(id)
   e = zr_const_row_in(zr_global(G_OBJECT), id, false)
@@ -441,8 +446,9 @@ machine def zr_buf_label(b, meta)
   zr_buf_label_as(b, meta, true)
 end
 
-# The label, with a method named by its owner as a backtrace names it
-# when `qualified`, or by its name alone as an instruction sequence is.
+# Writes the label. When `qualified`, a method label includes the
+# owner, as in a backtrace. Otherwise it is the name only, as in an
+# instruction sequence.
 sig [Ptr, Ptr, Bool] => Void
 machine def zr_buf_label_as(b, meta, qualified)
   if FrameMeta.kind(meta) == KIND_BLOCK
@@ -481,8 +487,9 @@ machine def zr_buf_label_as(b, meta, qualified)
   end
 end
 
-# `Owner#name`; `Owner.name` for a class's singleton method; the name
-# alone for an object's singleton method or an anonymous owner.
+# Writes `Owner#name`, or `Owner.name` for a singleton method of a
+# class, or the name only for a singleton method of an object or for an
+# anonymous owner.
 sig [Ptr, Value, Word] => Void
 machine def zr_buf_method_label(b, owner, name)
   if zr_type(owner) == T_ICLASS
@@ -502,7 +509,7 @@ machine def zr_buf_method_label(b, owner, name)
   zr_buf_sym(b, name)
 end
 
-# `file:line:in 'label'` for one row.
+# Writes `file:line:in 'label'` for one backtrace frame.
 sig [Ptr, Ptr] => Void
 machine def zr_buf_row(b, row)
   zr_buf_push(b, BtRow.file(row), BtRow.file_len(row))
@@ -513,8 +520,8 @@ machine def zr_buf_row(b, row)
   zr_buf_byte(b, 39)
 end
 
-# `Exception#backtrace`: what set_backtrace gave, else the raise's own
-# rows, or nil before the exception is raised.
+# `Exception#backtrace`: the value from set_backtrace, else the frames
+# that the raise captured, or nil before the raise.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   if RException.bt(recv) != QNIL
@@ -523,9 +530,9 @@ machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   zr_exc_raise_rows(recv)
 end
 
-# The rows the raise recorded, one `file:line:in 'label'` String each,
-# or nil before a raise. set_backtrace leaves them as they are, so
-# `backtrace_locations` answers them.
+# Returns the frames that the raise captured, one `file:line:in 'label'`
+# String each, or nil before a raise. set_backtrace does not change
+# them, so `backtrace_locations` returns them.
 sig [Value] => Value
 machine def zr_exc_raise_rows(recv)
   rows = RException.rows(recv)
@@ -545,8 +552,8 @@ machine def zr_exc_raise_rows(recv)
   out
 end
 
-# The prism node id of each row the raise recorded, in the order of
-# `zr_exc_raise_rows`, or nil before a raise.
+# Returns the prism node id of each frame that the raise captured, in
+# the order of `zr_exc_raise_rows`, or nil before a raise.
 sig [Value] => Value
 machine def zr_exc_raise_nodes(recv)
   rows = RException.rows(recv)
@@ -563,8 +570,9 @@ machine def zr_exc_raise_nodes(recv)
   out
 end
 
-# The prism node id of each row `caller(start, limit)` would answer for
-# the frame that asks, which is the Ruby method calling this primitive.
+# Returns the prism node id of each frame that `caller(start, limit)`
+# would return for the caller, which is the Ruby method that calls this
+# primitive.
 sig [Value, Value] => Value
 machine def zr_caller_nodes(start, limit)
   skip = zr_fix2long(start)
@@ -585,7 +593,7 @@ machine def zr_caller_nodes(start, limit)
   out
 end
 
-# The class of an error no rescue sees by name: a deadlock.
+# The class of an error that no rescue can catch by name: a deadlock.
 G_FATAL = 41
 
 sig [] => Value
@@ -599,19 +607,19 @@ machine def zr_error_print_m(exc)
   Machine.value(QNIL)
 end
 
-# An uncaught exception on stderr, as CRuby prints it, then exit 1.
+# Prints an uncaught exception on stderr, as CRuby does, then exits 1.
 sig [Value] => Void
 machine def zr_report(exc)
   zr_error_print(exc)
   exit(1)
 end
 
-# An exception on stderr, then each exception it was raised from, as
-# CRuby's rb_error_write prints the cause chain, stopping short of
-# `stop`. While the at_exit handlers run, `$!` is the exception that
-# ends the program, so it becomes the cause of everything a handler
-# raises; CRuby prints it once, at the end, and not again under each
-# handler. The kernel refuses a circular cause, so the walk ends.
+# Prints an exception on stderr, then each exception in its cause list,
+# as CRuby's rb_error_write does, and stops before `stop`. While the
+# at_exit handlers run, `$!` is the exception that ends the program, so
+# it becomes the cause of all that a handler raises. CRuby prints it
+# once, at the end, not again under each handler. The kernel refuses a
+# circular cause, so the loop always ends.
 sig [Value, Value] => Void
 machine def zr_error_print_upto(exc, stop)
   e = exc
@@ -621,20 +629,20 @@ machine def zr_error_print_upto(exc, stop)
   end
 end
 
-# The whole cause chain, which is what everything but an at_exit
-# handler prints.
+# Prints the full cause list. All callers except an at_exit handler
+# use this.
 sig [Value] => Void
 machine def zr_error_print(exc)
   zr_error_print_upto(exc, Machine.value(QUNDEF))
 end
 
-# One exception on stderr: its own `detailed_message` after the first
-# row. A SystemStackError past 18 rows shows the first 9 and the last 4,
-# with the count of the levels between.
+# Prints one exception on stderr, with its `detailed_message` after the
+# first backtrace frame. A SystemStackError with more than 18 frames
+# shows the first 9 and the last 4, and the count of the levels between.
 sig [Value] => Void
 machine def zr_error_print_one(exc)
-  # `highlight:` is whether stderr is still the terminal ruby started
-  # with, as rb_stderr_tty_p decides.
+  # `highlight:` is true when stderr is still the original terminal, as
+  # rb_stderr_tty_p decides.
   opts = zr_hash_new()
   out = zr_gvar_get(Machine.id(:$stderr))
   original = zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
@@ -685,7 +693,7 @@ end
 
 G_SYSTEM_STACK_ERROR = 35
 
-# A Ruby frame about to start below the task's stack limit.
+# Raises for a Ruby frame that starts below the stack limit of the task.
 sig [] => Value
 machine def zr_stack_overflow
   zr_raise_msg(zr_global(G_SYSTEM_STACK_ERROR), Machine.bytes("stack level too deep"), 20)
@@ -732,23 +740,22 @@ machine def zr_exc_cause(recv, argc, argv, cref, blk)
   c
 end
 
-# An exception's details as the program reads them: `NameError#name`
-# and the like live in ivars the raise sets.
+# Sets a detail of an exception that the program reads. `NameError#name`
+# and similar values are in ivars that the raise sets.
 sig [Value, Word, Value] => Void
 machine def zr_exc_detail(exc, id, v)
   zr_ivar_set(exc, id, v)
 end
 
-# `SystemCallError.new(message, errno)`: the error becomes the Errno
-# class that stands for its errno, as syserr_initialize sets the class
-# of the object it fills.
+# `SystemCallError.new(message, errno)`: changes the class of the error
+# to the Errno class for its errno, as syserr_initialize does.
 sig [Value, Value] => Value
 machine def zr_exc_set_class(exc, klass)
   RBasic.set_klass(exc, klass)
   exc
 end
 
-# `file:line:in 'label'` for the live frame `rec`.
+# Writes `file:line:in 'label'` for the live frame `rec`.
 sig [Ptr, Ptr] => Void
 machine def zr_buf_frame(b, rec)
   source = zr_frame_with_file(rec)
@@ -762,11 +769,12 @@ machine def zr_buf_frame(b, rec)
   zr_buf_byte(b, 39)
 end
 
-# The meta a backtrace names the frame `rec` by. A module function runs
-# the one def's code from both of its methods, and that code names the
-# module as its owner. A module is no instance of itself, so a frame
-# whose self is that module came through the singleton class: the row
-# takes that method's own meta, which CRuby labels `Mod.name`.
+# Returns the meta that gives the backtrace label of the frame `rec`. A
+# module function runs the code of one def from both of its methods, and
+# that code has the module as its owner. A module is not an instance of
+# itself, so a frame whose self is that module came through the
+# singleton class. The frame then uses the meta of that method, which
+# CRuby labels `Mod.name`.
 sig [Ptr] => Ptr
 machine def zr_frame_label_meta(rec)
   meta = Frame.meta(rec)
@@ -785,8 +793,8 @@ machine def zr_frame_label_meta(rec)
   MEntry.meta(e)
 end
 
-# `Kernel#caller(start = 1, length = nil)`: the rows outward from the
-# caller's frame, the first `start` of them skipped.
+# `Kernel#caller(start = 1, length = nil)`: the frames outward from the
+# frame of the caller, after the first `start` frames.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_caller(recv, argc, argv, cref, blk)
   if argc > 2
@@ -840,10 +848,10 @@ machine def zr_kernel_caller(recv, argc, argv, cref, blk)
   out
 end
 
-# The frames of a task that is parked somewhere else, innermost first,
-# each as `file:line:in 'label'`: `Thread#backtrace` reads another
-# thread this way. `limit` below zero means every row, and a `start`
-# past the outermost frame answers nil, as `caller` answers.
+# Returns the frames of a suspended task, innermost first, each as
+# `file:line:in 'label'`. `Thread#backtrace` reads another thread this
+# way. A `limit` below zero means all frames. A `start` past the
+# outermost frame returns nil, as `caller` does.
 sig [Value, Value, Value] => Value
 machine def zr_fiber_backtrace_m(fiber, start, limit)
   t = RFiber.task(fiber)
