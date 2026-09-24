@@ -4,16 +4,16 @@ require_relative "../record"
 
 module Zr
   module Hir
-    # The error a source that does not parse raises, built as CRuby builds
-    # it from prism's diagnostics (`pm_parse_process_error` in
-    # prism_compile.c): a SyntaxError whose message names the first
-    # error's line, then shows each line in error, with the lines around
-    # it and one caret row per diagnostic. A diagnostic about an argument
-    # (an encoding comment ruby does not know) is an ArgumentError of its
-    # own, and one about a load a LoadError.
+    # The error for a source that does not parse, built as CRuby builds it
+    # from prism's diagnostics (`pm_parse_process_error` in
+    # prism_compile.c). It is a SyntaxError whose message gives the first
+    # error's line, then shows each line with an error, the lines around
+    # it, and one caret line per diagnostic. A diagnostic about an
+    # argument (an unknown encoding comment) is an ArgumentError, and one
+    # about a load is a LoadError.
     class SyntaxReport
-      # A line is cut this many bytes past its last caret, or before the
-      # first one when that sits this far in.
+      # A line is cut this many bytes after its last caret, or before the
+      # first caret if it is this far in.
       TRUNCATE = 30
 
       class Row < Record
@@ -78,7 +78,7 @@ module Zr
       end
 
       # The errors in source order, each with its line and byte columns.
-      # One that sits where an earlier one does goes ahead of it.
+      # An error at the same position as an earlier one goes before it.
       def sorted(errors)
         errors.each_with_object([]) do |e, rows|
           loc = e.location
@@ -106,8 +106,8 @@ module Zr
         last_line = @start_line - 1
         last_column_start = 0
         rows.each_with_index do |row, index|
-          # Up to two lines of the source ahead of the error, and a divider
-          # when a stretch of it goes unshown.
+          # Up to two source lines before the error, and a divider if some
+          # lines are not shown.
           if row.line - last_line > 1
             if row.line - last_line > 2
               out << divider if index != 0 && row.line - last_line > 3
@@ -128,7 +128,7 @@ module Zr
           out << " " << row.error.message.b if inline
           out << "\n"
 
-          # Up to two lines after it, short of the next error's.
+          # Up to two lines after it, before the next error's lines.
           last_line = row.line
           next_line = rows[index + 1]&.line || last_source_line + 1
           2.times do
@@ -169,8 +169,8 @@ module Zr
         out
       end
 
-      # Line `line` of the source with its number, cut short after
-      # `column_end` and before `column_start` when either is far along.
+      # Line `line` of the source with its number, cut after `column_end`
+      # and before `column_start` if either is far into the line.
       def source_line(number, line, column_start = 0, column_end = 0)
         index = line - @start_line
         start = @offsets[index]
@@ -207,8 +207,8 @@ module Zr
 
       def step(at) = [char_width(at), 1].max
 
-      # The bytes of the character at `at` in the source's encoding, or 0
-      # when none is there or it is not valid.
+      # The byte count of the character at `at` in the source's encoding,
+      # or 0 if there is none or it is not valid.
       def char_width(at)
         return 0 if at >= @bytes.bytesize
 

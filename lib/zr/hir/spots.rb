@@ -5,20 +5,21 @@ require "error_highlight"
 
 module Zr
   module Hir
-    # The spots error_highlight shows for a file, found when the file is
-    # compiled. CRuby parses the file again with prism when it reports an
-    # error and finds the node a backtrace row names by its id; a program
-    # here carries no parser, so the compiler asks error_highlight's own
-    # Spotter about each node a row can name while it still holds the
-    # tree, and the program keeps the answers.
+    # The spots that error_highlight shows for a file, found when the file
+    # is compiled. When CRuby reports an error, it parses the file again
+    # with prism and finds a backtrace entry's node by its id. A zr
+    # program contains no parser. So while the compiler has the tree, it
+    # calls error_highlight's own Spotter for each node that a backtrace
+    # entry can refer to, and the program keeps the results.
     #
-    # One row a line: `id point name first_line first_column last_line
-    # last_column`, where `point` is `n` for `point_type: :name` and `a`
-    # for `:args`, and `name` is the constant a NameError names, or `-`
-    # where the spot does not depend on it.
+    # One record per line: `id point name first_line first_column
+    # last_line last_column`. `point` is `n` for `point_type: :name` and
+    # `a` for `:args`. `name` is the constant in the NameError, or `-` if
+    # the spot does not depend on it.
     module Spots
       # Spotter reads the file's lines once per spot, and prism splits the
-      # source again each time; a compiled file's source never changes.
+      # source again each time. A compiled file's source never changes, so
+      # keep the lines.
       module Lines
         def lines = @lines ||= super
       end
@@ -26,10 +27,10 @@ module Zr
 
       module_function
 
-      # The spots of a file's tree, kept beside its parse where the
-      # parse cache is on (ParseCache.derived): finding them is a third
-      # of what a warm build spends on its HIR, and a file's spots are
-      # the same for the same tree and the same Spotter.
+      # The spots of a file's tree, cached next to its parse when the
+      # parse cache is on (ParseCache.derived). Finding them is a third of
+      # a warm build's HIR time, and the spots are the same for the same
+      # tree and the same Spotter.
       def for(result, source, options)
         return of(result.value) unless defined?(ParseCache)
 
@@ -37,8 +38,7 @@ module Zr
         ParseCache.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
       end
 
-      # The node types Spotter spots, each with the point types it
-      # answers for.
+      # The node types that Spotter handles, each with its point types.
       POINTS = {
         call_node: %i[name args],
         local_variable_operator_write_node: %i[name args],
@@ -71,8 +71,8 @@ module Zr
         rows
       end
 
-      # The constant names a NameError at `node` can carry, where the spot
-      # depends on which one it is; `[nil]` where it does not.
+      # The constant names that a NameError at `node` can contain, if the
+      # spot depends on the name. `[nil]` if it does not.
       def names(node)
         case node.type
         when :constant_path_node
@@ -85,8 +85,8 @@ module Zr
           chain << part.name if part.is_a?(Prism::ConstantReadNode)
           chain.uniq
         when :constant_path_operator_write_node then [node.target.name, nil]
-        # The read, the write and the operator each spot apart; the
-        # operator's spot is any other name's.
+        # The read, the write and the operator each have a different spot.
+        # The operator's spot is used for any other name.
         when :call_operator_write_node then [node.read_name, node.write_name, nil]
         when :index_operator_write_node then [:[], :[]=, nil]
         else [nil]

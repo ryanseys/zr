@@ -4,9 +4,9 @@ module Zr
   module Hir
     class Build
       # Pattern matching, as CRuby compiles it: `case/in`, `value => pattern`
-      # and `value in pattern` become tests over hidden locals. A test
-      # answers true and binds its captures on the way; a failed check in a
-      # single-pattern form records why, and the raise at the end reads it.
+      # and `value in pattern` become tests on hidden locals. A test returns
+      # true and binds its captures as it runs. A failed check in a
+      # single-pattern form records the reason, and the final raise reads it.
       module Patterns
         # A hidden local of the innermost scope.
         def temp(hint)
@@ -24,18 +24,18 @@ module Zr
           Send.new(recv, name, args, line, false, nil, opts[:block], opts[:kwargs], nil, nil)
         end
 
-        # A core class by name, which no constant of the program shadows.
+        # A core class by name. No constant of the program can shadow it.
         def core(name, line) = Core.new(name, line)
 
-        # `!value` on truthiness alone, which no program's `!` can change:
-        # what `until` and an `unless` guard test, as compile.c branches.
+        # `!value` on truthiness only, so a program's `!` cannot change it.
+        # `until` and an `unless` guard test this, as compile.c branches.
         def falsy(value, line) = If.new(value, Literal.new(false, line), Literal.new(true, line), line)
 
         # `case value; in pattern [if guard] then body; ...; else other; end`
         def case_match(node, taken = true)
           line = node.location.start_line
-          # Numbered before the chain is built, since the chain is built
-          # from the last clause back and ruby numbers from the first.
+          # Number the branches before the chain is built, because the chain
+          # is built from the last clause and ruby numbers from the first.
           covers = branch_covers(:case, span(node.location), case_sides(node, :in))
           subject = temp(:subject)
           single = node.conditions.size == 1 && node.else_clause.nil?
@@ -68,12 +68,12 @@ module Zr
           Seq.new([set(subject, expr(node.value), line), If.new(test, Literal.new(true, line), Literal.new(false, line), line)], line)
         end
 
-        # `/(?<x>.)/ =~ text`: the named groups assigned to locals, nil
-        # when nothing matched; the value is what `=~` answered.
+        # `/(?<x>.)/ =~ text`: the named groups are assigned to locals (nil if
+        # nothing matched). The value is the result of `=~`.
         #
-        # One assignment a name, whose value is the group or nil, and not
-        # one in each arm of a branch: ruby binds a named group once, and
-        # `Ractor.shareable_proc` counts the bindings a local has.
+        # One assignment per name, with the group or nil as its value, not
+        # one in each branch: ruby binds a named group once, and
+        # `Ractor.shareable_proc` counts a local's bindings.
         def match_write(node)
           line = node.location.start_line
           result = temp(:matched)
@@ -85,10 +85,10 @@ module Zr
           Seq.new([set(result, expr(node.call), line), *writes, read(result, line)], line)
         end
 
-        # The raise when nothing matched: the subject's to_s alone when
-        # several patterns were tried; its inspect and the recorded reason
-        # after a single one, as the key error with its key and matchee
-        # when a key was missing.
+        # The raise if nothing matched. After several patterns, the message
+        # is only the subject's to_s. After a single pattern, it is the
+        # subject's inspect and the recorded reason. For a missing key, it
+        # is the key error with its key and matchee.
         def no_match(subject, match, line)
           return send_to(core(:Kernel, line), :raise, [core(:NoMatchingPatternError, line),send_to(read(subject, line), :to_s, [], line)], line) if match.why.nil?
 
@@ -155,7 +155,7 @@ module Zr
             end
           end
 
-          # `pattern === subject`; the reason names both.
+          # `pattern === subject`. The reason gives both.
           def value_pattern(value, subject, line)
             return @b.send_to(value, :===, [@b.read(subject, line)], line) if @why.nil?
 
@@ -178,12 +178,12 @@ module Zr
 
           def inspect_of(name, line) = @b.send_to(@b.read(name, line), :inspect, [], line)
 
-          # `Const === subject` when the pattern names one.
+          # `Const === subject` if the pattern has a constant.
           def constant_test(node, subject, line)
             node.constant ? [value_pattern(@b.expr(node.constant), subject, line)] : []
           end
 
-          # `subject.deconstruct`, asked once per subject and kept: an
+          # `subject.deconstruct`, called once per subject and kept: an
           # Array, or a TypeError.
           def deconstructed(subject, line)
             cache = (@caches ||= {})[subject] ||= @b.temp(:deconstructed)
@@ -226,7 +226,7 @@ module Zr
             conjunction(steps, line)
           end
 
-          # `[*pre, a, b, *post]`: the first place the middle matches.
+          # `[*pre, a, b, *post]`: the first position where the middle matches.
           def find_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
             d, ask = deconstructed(subject, line)
@@ -238,8 +238,8 @@ module Zr
             found = @b.temp(:found)
             before = (@caches ||= {}).keys
             tries = middle.each_with_index.map { |p, k| nested(p, element(d, @b.send_to(@b.read(i, line), :+, [Literal.new(k, line)], line), line), line) }
-            # Each place the loop tries is a new subject for the parts, so
-            # their deconstruct caches start empty each time round.
+            # Each position that the loop tries is a new subject for the
+            # parts, so their deconstruct caches start empty on each iteration.
             fresh = (@caches.keys - before).map { |s| @b.set(@caches[s], Literal.new(nil, line), line) }
             test = If.new(conjunction(tries, line), @b.set(found, Literal.new(true, line), line), @b.set(i, @b.send_to(@b.read(i, line), :+, [Literal.new(1, line)], line), line), line)
             body = Seq.new([*fresh, test], line)
@@ -308,8 +308,8 @@ module Zr
             Seq.new([@b.set(copy, @b.send_to(@b.read(d, line), :dup, [], line), line), *deletes, @b.read(copy, line)], line)
           end
 
-          # A sub-pattern against `value`, held in a hidden local of its
-          # own so its deconstruct is asked once.
+          # A sub-pattern against `value`, kept in its own hidden local so
+          # its deconstruct is called once.
           def nested(node, value, line)
             inner = @b.temp(:part)
             Seq.new([@b.set(inner, value, line), pattern(node, inner)], line)

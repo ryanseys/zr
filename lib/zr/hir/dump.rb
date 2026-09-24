@@ -4,8 +4,8 @@ require_relative "node"
 
 module Zr
   module Hir
-    # One S-expression per node, one node per line, indented by depth: the
-    # form `test/hir/` holds byte for byte.
+    # One S-expression per node, one node per line, indented by depth. The
+    # files in `test/hir/` contain this exact form.
     module Dump
       module_function
 
