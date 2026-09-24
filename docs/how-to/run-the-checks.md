@@ -5,12 +5,11 @@ units, the specs, the end-to-end programs and the bootstrap. Run the
 smallest set that covers your change, and the full set before you
 merge.
 
-Build first. The checks run on a runtime that `rake build` writes
-ahead of time -- the runtime object, its prelinked image and the eval
-road for this host, about three minutes; once, and again after any
-edit under `lib` or `rt`, since every byte of both is in the runtime's
-digest. A tier that finds it missing stops at once and says so; no
-tier builds it for you.
+The tests run on a runtime that is built ahead of time: the runtime
+object, its prelinked image and the eval support object for this host.
+`bin/setup` builds it, and `bin/test` builds it again when a change
+under `lib` or `rt` makes it out of date. A build takes about three
+minutes. To build without running tests:
 
 ```console
 $ rake build
@@ -34,16 +33,18 @@ requires the library, for a vendored one -- and says to run `rake
 test` when the edit reaches everything (the compiler, the kernel, the
 checks' own support). It reads the diff against `main`, or `BASE=`.
 
-Three tiers, in the order you reach for them:
+`bin/test` runs the tests. With no arguments it runs three tiers, one
+after the other:
 
 | Tier | Holds | Costs |
 |---|---|---|
-| `rake test:unit` | zr's own internals | minutes |
-| `rake test:spec` | Ruby held to ruby, one compile an example | minutes |
-| `rake test:e2e` | whole programs through a real link | a minute |
+| `bin/test test/unit` | zr's own internals | minutes |
+| `bin/test test/spec` | Ruby specs, each checked against ruby 4.0.6 | minutes |
+| `bin/test test/e2e` | whole programs, built and linked | a minute |
 
-Each tier is a `Minitest::TestTask`, so each takes minitest's own
-switches rather than a language of ours:
+`rake test:unit`, `rake test:spec` and `rake test:e2e` do the same.
+Minitest options follow the paths (`bin/test test/spec -n /utf8/`), or
+come from the environment:
 
 | Say | To |
 |---|---|
@@ -52,10 +53,8 @@ switches rather than a language of ours:
 | `A="--verbose"` | pass anything else to minitest |
 | `MT_CPU=4` | run four workers instead of the default |
 
-A tier also defines three tasks beside it: `rake test:spec:slow` names
-the slowest 25 files, `rake test:unit:isolated` says which files
-fail when run on their own, and `rake test:spec:cmd` prints the command
-without running it.
+`SLOW=1 bin/test test/spec` (or `rake test:spec:slow`) also reports
+the 25 slowest files.
 
 A tier writes where it stands to `tmp/test-progress.txt` as it goes --
 how many examples of how many, what failed so far, the rate and what

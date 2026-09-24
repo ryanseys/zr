@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# An IRB session with zr loaded, for example:
+#   Zr::Target.default.triple
+require "bundler/setup"
+require_relative "../lib/zr/zr"
+require "irb"
+IRB.start(__FILE__)

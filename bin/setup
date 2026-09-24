@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Sets up a checkout: installs the gems, then builds the zr runtime for
+# this host. The first build takes a few minutes. After that, bin/test
+# runs the tests.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+bundle install
+
+if ! command -v wasmtime >/dev/null; then
+  echo "note: wasmtime is not installed; the tests that run WebAssembly modules will skip (https://wasmtime.dev)"
+fi
+
+bundle exec rake build
+
+echo
+echo "Ready. Run the tests with: bin/test"

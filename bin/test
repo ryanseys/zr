@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Runs zr's tests.
+#
+#   bin/test                            test/unit, then test/spec, then test/e2e
+#   bin/test test/unit                  one directory
+#   bin/test test/unit/cli_test.rb      one file; a bare cli_test.rb also works
+#   bin/test test/spec -n /blocks/      minitest options follow the paths
+#
+# The tests need the runtime for this host. If it is not built, this
+# script builds it first (see `rake build`).
+#
+# Environment:
+#   TARGET=<triple>   build and run the programs for that target
+#   GC=stress         collect at every allocation (ZR_GC_STRESS=1)
+#   SLOW=1            report the 25 slowest files
+#   N=, X=, A=        the same as minitest's -n, -e, and extra options
+#   MT_CPU=<n>        the number of worker processes
+
+require "rbconfig"
+
+root = File.expand_path("..", __dir__)
+test_dir = File.join(root, "test")
+
+# The words up to the first option are paths. The rest go to minitest.
+split = ARGV.index { |word| word.start_with?("-") } || ARGV.size
+words = ARGV.take(split)
+options = ARGV.drop(split).reject { |word| word == "--" }
+
+# A word is a path from here or from the root, or a file name under test/.
+# `test` itself, or no word, means every tier.
+paths = words.flat_map do |word|
+  path = [File.expand_path(word), File.expand_path(word, root)].find { |p| File.exist?(p) }
+  path ||= Dir[File.join(test_dir, "**", word)].min
+  next [] if path == test_dir
+  abort "bin/test: no test at #{word}" unless path&.start_with?(File.join(test_dir, ""))
+  [path]
+end
+paths = %w[unit spec e2e].map { |tier| File.join(test_dir, tier) } if paths.empty?
+
+ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
+ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
+ENV["ZR_SELF"] ||= "0" # the tests run the compiler under ruby
+
+# The tier of a path is test/spec, test/e2e, or test/unit for the rest.
+# Each tier runs in its own process, because each loads its own helper.
+tiers = paths.group_by do |path|
+  below = path.delete_prefix(File.join(test_dir, "")).split("/").first
+  %w[spec e2e].include?(below) ? below : "unit"
+end
+if tiers.size > 1
+  tiers.each_value do |group|
+    system(RbConfig.ruby, __FILE__, *group, *options) || exit($?.exitstatus || 1)
+  end
+  exit
+end
+
+$LOAD_PATH.unshift(File.join(root, "lib"), test_dir)
+require "zr/cli"
+Zr::CLI.tune!(__FILE__) # a test is a compile: the same GC limits and YJIT
+
+# Before the helper forks its workers, so they share one loaded copy.
+require "support/built"
+Zr::Test::Built.ready!
+
+files = paths.flat_map { |path| File.directory?(path) ? Dir[File.join(path, "**/*_test.rb")].sort : [path] }
+ARGV.replace(options)
+ARGV.push("-n", ENV["N"]) if ENV["N"]
+ARGV.push("-e", ENV["X"]) if ENV["X"]
+ARGV.concat(ENV["A"].split) if ENV["A"]
+
+require(tiers.keys.first == "spec" ? "spec_helper" : "test_helper")
+files.each { |file| require file }

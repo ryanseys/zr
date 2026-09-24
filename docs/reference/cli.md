@@ -73,26 +73,27 @@ build for it now.
 
 | Task | Runs |
 |---|---|
-| `rake build` | the runtime: its object, the prelinked image and the eval road |
-| `rake build:self` | the compiler compiled by itself, which `exe/zr` then gives each build to while no file under `lib`, `rt`, `vendor` or the library tree moves (`ZR_SELF`) |
-| `rake` or `rake test` | the units, the specs and the end-to-end programs |
-| `rake test:unit [N=/Exe/]` | zr's own internals |
-| `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, one compile an example |
-| `rake test:e2e [TARGET=]` | whole programs through a real link |
-| `rake test:spec:slow` | the slowest 25 files |
-| `rake test:unit:isolated` | which files fail when run on their own |
-| `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
+| `bin/setup` | installs the gems and builds the runtime |
+| `bin/test [paths] [minitest options]` | the tests; with no paths, the three tiers |
+| `rake build` | the runtime for this host: its object, the prelinked image and the eval support object |
+| `rake build:self` | the compiler compiled by itself, which `exe/zr` then uses until a file under `lib`, `rt`, `vendor` or the library tree changes (`ZR_SELF`) |
+| `rake` or `rake test` | the three tiers: unit, spec, e2e |
+| `rake test:unit` | zr's own internals |
+| `rake test:spec` | Ruby specs, each checked against ruby 4.0.6 |
+| `rake test:e2e` | whole programs, built and linked |
+| `rake test:spec:slow` | the spec tier, and its 25 slowest files |
+| `rake test test/unit/zr_test.rb N=/gc/` | one file, or one example |
 
-A tier does not build the runtime. Run `rake build` first. After an
-edit under `lib` or `rt`, that build takes some minutes. A tier that
-finds no current build stops and tells you to run `rake build`.
+`bin/test` and the tiers build the runtime first when it is missing or
+out of date. After a change under `lib` or `rt`, that build takes a
+few minutes.
 
-Each tier is a `Minitest::TestTask`, so `N=` names the examples to run,
-`X=` the ones to leave out, `A=` passes anything else to minitest, and
-`MT_CPU=` says how many workers fork. `GC=stress` collects at every
-allocation (`ZR_GC_STRESS=1`). `TARGET` names a triple to build and run
-for; a target on its way in is held to `test/baselines/<triple>.txt`
-rather than to the whole tier.
+`N=` names the examples to run, `X=` the ones to leave out, `A=`
+passes other options to minitest, and `MT_CPU=` sets the number of
+workers. `GC=stress` collects at every allocation (`ZR_GC_STRESS=1`).
+`TARGET` names a triple to build and run for. A target that zr does not
+fully support yet is checked against `test/baselines/<triple>.txt`
+instead of the whole tier.
 
 A spec example that zr refuses, or whose build produced no binary,
 skips and is counted. Only a wrong answer, a crash or a timeout fails.

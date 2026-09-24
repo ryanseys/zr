@@ -89,10 +89,15 @@ Read more in [Architecture](docs/explanation/architecture.md) and
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
-$ bundle install
-$ rake test:spec N=/blocks/  # Ruby held to ruby, program by program
-$ rake test:unit                # zr's own internals
+$ bin/setup                      # install the gems and build the runtime (a few minutes)
+$ bin/test test/unit             # zr's own internals
+$ bin/test test/spec -n /blocks/ # Ruby specs, checked against ruby 4.0.6
+$ bin/test                       # every tier: unit, spec, e2e
 ```
+
+`bin/test` builds the runtime again when a change under `lib/` or
+`rt/` makes it out of date. The runtime and other build products go to
+the cache in `tmp/rt/`.
 
 The tutorial [Add your first spec](docs/tutorials/add-your-first-spec.md)
 walks through the loop behind most changes. Then see:

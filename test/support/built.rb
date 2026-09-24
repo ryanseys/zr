@@ -8,35 +8,20 @@ require_relative "harness/wasmtime"
 
 module Zr
   module Test
-    # The runtime a check tier runs on: built ahead of time by
-    # `rake build`, and only checked for by the tiers.
+    # The runtime that the tests run on, built by `rake build`.
     #
-    # The runtime object, the prelinked image and the eval road (for a
-    # native target), or the module prelude (for wasm), are file caches
-    # named by a digest of what made them, so the first build after an
-    # edit under `lib` or `rt` writes them all again: twenty-five
-    # megabytes of runtime, as much prelink, and seventy of compiler.
-    # Alone on a quiet machine that is three minutes, and five more for
-    # the wasm prelude and its road.
+    # For a native target the build makes the runtime object, the
+    # prelinked runtime image and the eval support object. For wasm it
+    # makes the module prelude. Each is a file in the cache, named by a
+    # digest of its sources. After a change under `lib` or `rt`, the next
+    # build makes them again: about three minutes, and five more for wasm.
     #
-    # A tier never pays it. The tiers once built the caches themselves
-    # in the process that forks the workers, behind rules about which
-    # runs were allowed to and which were not, and a run that started
-    # cold had eight workers build the same runtime at once and report
-    # timeouts that were not defects. Now a tier asks whether the caches
-    # for its targets are there, and where one is not it stops at once
-    # and names `rake build`. Building is one command, taken on purpose.
-    #
-    # What the tier does before it forks is load: the runtime's
-    # description and symbol table, the prelinked image, the wasm
-    # prelude. A worker is a fork of that process, so the eight of them
-    # share one copy of all of it rather than reading and parsing it
-    # each; `ForkPool#start` calls `Process.warmup` before the first
-    # fork so what is shared stays shared past a worker's first
-    # collection.
+    # `ready!` builds what is missing before the tier forks its workers.
+    # (If each worker built it, eight builds ran at once and timed out.)
+    # Then it loads the caches, so that all workers share one copy.
     module Built
-      # A program that evals, so the eval road is built as well as the
-      # runtime: nothing smaller reaches all three caches.
+      # A program that calls eval, so that the build also makes the eval
+      # support object.
       EVALS = %(eval("1")\n)
       PLAIN = %(puts 1\n)
 
@@ -52,26 +37,18 @@ module Zr
         [Target.default, *(Target::WASM32_WASI if wasm && Harness::Wasmtime.installed?)].uniq
       end
 
-      # Stops the run where a target's caches are not built, else loads
-      # them into this process for the workers to share. `ZR_BUILT=0`
-      # asks for neither: for a file that builds no program -- the IR,
-      # the encoders, the parsers -- while the runtime is being built
-      # for something else. A file that does build then builds the
-      # runtime for itself, cold, as `zr build` would.
+      # Builds the caches of each target that has none, then loads them
+      # into this process for the workers to share. `ZR_BUILT=0` skips
+      # both, for a test file that builds no program.
       def ready!(wasm: false)
         return if ENV["ZR_BUILT"] == "0"
 
-        targets(wasm: wasm).each do |target|
-          abort("zr is not built for #{target.triple}: run `rake build` first") unless built?(target)
-          load(target)
-        end
+        build(targets(wasm: wasm))
+        targets(wasm: wasm).each { |target| load(target) }
       end
 
-      # Whether `target`'s caches are there: a build leaves a mark under
-      # the runtime's digest once the last of them is written. The
-      # runtime object alone would not do -- the prelink and the road
-      # follow it by minutes, and a tier that started between the two
-      # ran a road half written.
+      # Whether the caches of `target` are complete. A build writes the
+      # mark file last, after every cache file is written.
       def built?(target) = File.exist?(mark(target))
 
       def mark(target) = File.join(Zr.cache, "built-#{Zr.runtime(target).digest}.ok")
@@ -85,12 +62,15 @@ module Zr
         Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Zr.program(PLAIN, "built.rb", target: target)))
       end
 
-      # Builds every cache of each of `targets`, and says how long each
-      # took. The targets build at once, each in a child of its own
-      # with half the jobs, where the machine has the memory for two
-      # builds (12 GB: a build holds three to four); else one after
-      # another. Two at once on the M2 Pro: 5 minutes, not 7.5.
+      # Builds the caches of each of `targets` that are not current, and
+      # says how long each build took. When the machine has the memory
+      # for two builds (12 GB), the targets build at the same time, each
+      # in its own child process with half the jobs.
       def build(targets, say: $stderr)
+        current, targets = targets.partition { |target| built?(target) }
+        current.each { |target| say&.puts("zr runtime for #{target.triple} is up to date (cache: #{cache_dir})") }
+        return if targets.empty?
+
         at_once = targets.size > 1 && Native::Parallel.machine_bytes >= 12 * (1 << 30)
         jobs = at_once ? [Native::Build.jobs / 2, 1].max : Native::Build.jobs
         statuses = if at_once
@@ -102,17 +82,24 @@ module Zr
         abort("#{failed} of #{targets.size} builds did not finish") unless failed.zero?
       end
 
-      # A child that builds `target`'s caches, and its pid. `ZR_JOBS` is
-      # how a build is told its workers, and the child is the build's
-      # alone.
+      # Starts a child process that builds the caches of `target`, and
+      # returns its pid. `ZR_JOBS` gives the child its number of workers.
       def start(target, jobs:, say:)
-        say&.puts("building zr for #{target.triple}: the runtime, its image and the eval road")
+        say&.puts("building the zr runtime for #{target.triple} (a few minutes after a change under lib/ or rt/)")
         Process.fork do
           ENV["ZR_JOBS"] = jobs.to_s
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           target.link ? build_binary(target) : build_module(target)
-          say&.puts(format("built zr for %s in %.1f s", target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began))
+          say&.puts(format("built the zr runtime for %s in %.1f s (cache: %s)",
+                           target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began, cache_dir))
         end
+      end
+
+      # The cache directory, relative to the working directory when it
+      # is below it.
+      def cache_dir
+        dir = Zr.cache
+        dir.start_with?(File.join(Dir.pwd, "")) ? dir.delete_prefix(File.join(Dir.pwd, "")) : dir
       end
 
       def build_binary(target)
