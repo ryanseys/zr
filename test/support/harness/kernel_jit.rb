@@ -16,7 +16,7 @@ module Zr
     # code runs on the host only after zr compiles it.
     class KernelJIT
       TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
-                "Bool" => Fiddle::TYPE_CHAR, "Void" => Fiddle::TYPE_VOID }.freeze
+                "Bool" => Fiddle::TYPE_CHAR, "F64" => Fiddle::TYPE_DOUBLE, "Void" => Fiddle::TYPE_VOID }.freeze
 
       # `patterns` are globs under runtime/kernel. `constants` sets the
       # constants that the files read from a kernel file outside the unit

@@ -206,7 +206,7 @@ module Zr
     # process parses with the code that it loaded, but the key identifies
     # the files on disk.
     def write(path, bytes)
-      Zr.settled! if defined?(Zr)
+      Zr.settled! if Zr.respond_to?(:settled!)
       moved = (@stamps || {}).find { |file, was| Paths.stamp(file) != was }
       raise (defined?(Zr::SourceChanged) ? Zr::SourceChanged : RuntimeError), "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
 

@@ -3,6 +3,7 @@
 require "fileutils"
 require "minitest"
 require "tmpdir"
+require_relative "baseline"
 require_relative "harness/answer"
 require_relative "fixtures"
 require_relative "reader"
@@ -114,6 +115,16 @@ module Zr
       @target ||= Harness::Runner.named(ENV["ZR_TARGET"])
     end
 
+    # The examples that this target can fail, and why (`Test::Baseline`).
+    def allowed = @allowed ||= Test::Baseline.for(target)
+
+    # The baseline key of `example`: its file below `test/` and its
+    # description.
+    def key(example)
+      file = example.class.instance_method(example.name).source_location.first
+      "#{file.delete_prefix("#{DSL::ROOT}/test/")}: #{example.name.sub(/\Atest_\d+_/, "")}"
+    end
+
     # The runner that starts the output of this target: a binary on its
     # host, or a WASI module under wasmtime.
     def runner = @runner ||= Harness::Runner.new(DSL::ROOT, target)
@@ -167,7 +178,7 @@ module Zr
           program = Test::Slow.clock(phases, :lower) { Dir.chdir(run) { lower(source, path, target) } }
           return program if program.is_a?(Symbol) || program.is_a?(Array)
 
-          if (why = Test::Slow.clock(phases, :link) { Native::Build.program(program, bin, work: work) })
+          if (why = Test::Slow.clock(phases, :link) { write(program, bin, work, target) })
             return [:backend, why]
           end
           Binaries.keep(kept, bin, program, work)
@@ -204,7 +215,7 @@ module Zr
 
     # Returns the program, or `[kind, why]` when zr does not build it.
     def lower(source, rb, target)
-      Native::Build.lower(source, rb, target: target)
+      compile(source, rb, target)
     rescue *REFUSALS => e
       [:refused, e.message]
     rescue Backend::Refused => e
@@ -216,7 +227,19 @@ module Zr
       report = syntax_report(rb)
       return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
 
-      Native::Build.lower("$stderr.write(#{report.inspect})\nexit 1\n", rb, target: target)
+      compile("$stderr.write(#{report.inspect})\nexit 1\n", rb, target)
+    end
+
+    # A native target builds its runtime object before it lowers the
+    # program. A WASI module takes the runtime from the cached prelude.
+    def compile(source, rb, target)
+      target.link ? Native::Build.lower(source, rb, target: target) : Zr.program(source, rb, target: target)
+    end
+
+    # Writes `program` to `bin`. Returns nil, or the message of the step
+    # that refused.
+    def write(program, bin, work, target)
+      target.link ? Native::Build.program(program, bin, work: work) : Native::Build.wasm_program(program, bin)
     end
 
     # The program that a bare ruby runs to write the report. It prints the
@@ -275,6 +298,23 @@ module Zr
         signal.nil? ? ctx.assert_nil(result.signal, "signal") : ctx.assert_equal(signal, result.signal, "signal")
         status.nil? ? ctx.assert_nil(result.status, "exit status") : ctx.assert_equal(status, result.status, "exit status")
         result
+      end
+    end
+
+    # Applies the target's baseline to each example. A listed example
+    # that fails is a skip with the reason. A listed example that passes
+    # fails, so the baseline stays current.
+    module Baselined
+      def after_teardown
+        super
+        why = Spec.allowed[Spec.key(self)] or return
+
+        triple = Spec.target.triple
+        if failures.empty?
+          failures << Minitest::Assertion.new("this now passes: take it off test/baselines/#{triple}.txt")
+        elsif failures.none?(Minitest::Skip)
+          failures.replace([Minitest::Skip.new("the #{triple} baseline allows this: #{why}")])
+        end
       end
     end
 

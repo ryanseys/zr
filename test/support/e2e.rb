@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "tmpdir"
+require_relative "baseline"
 require_relative "harness/answer"
 require_relative "harness/child"
 require_relative "harness/runner"
@@ -70,29 +71,11 @@ module Zr
     # `-n /socket/` runs one program and `-n /core_process/` runs five.
     def self.key(rb) = rb.delete_prefix("#{File.join(ROOT, "test/e2e")}/").delete_suffix(".rb")
 
-    # Returns the programs that a target can fail, and the reasons, from
-    # `test/baselines/<triple>.txt`. A new target is checked against its
-    # baseline, not the whole tier. A listed program that passes fails
-    # the run, so the file stays current.
-    def self.baseline(target)
-      path = File.join(ROOT, "test/baselines", "#{target.triple}.txt")
-      return {} unless File.file?(path)
-
-      File.readlines(path, chomp: true).each_with_index.filter_map do |line, n|
-        next if line.empty? || line.start_with?("#")
-
-        rb, why = line.split("\t", 2)
-        raise ArgumentError, "#{path}: line #{n + 1}: a row is a path and a reason, separated by a tab" unless why
-
-        [rb, why]
-      end.to_h
-    end
-
     # Defines one test on `suite` for each program.
     def self.define(suite, how = HOW)
       target = Harness::Runner.named(ENV["ZR_TARGET"])
       runner = Harness::Runner.new(ROOT, target)
-      allowed = baseline(target)
+      allowed = Test::Baseline.for(target)
       unknown = how.keys - programs.map { |rb| key(rb) }
       raise ArgumentError, "no such program: #{unknown.join(", ")}" unless unknown.empty?
 

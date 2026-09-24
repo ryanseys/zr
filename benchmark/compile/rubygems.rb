@@ -8,9 +8,9 @@
 # not these lines.
 #
 # This file used to enter at `rubygems/version` and four siblings because the
-# umbrella did not compile. It does now; `tests/milestones/require_rubygems.rb`
+# umbrella did not compile. It does now; `test/e2e/stdlib/rubygems/require_rubygems.rb`
 # is the regression test, and `crates/zeo/tests/e2e/gems_vendored.rs` asserts
-# separately that every class in the graph reaches codegen.
+# that each class in the graph compiles.
 require "rubygems"
 
 # --- Gem::Version: the ordering every gemspec and lockfile depends on -------

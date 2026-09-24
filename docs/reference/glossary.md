@@ -2,8 +2,9 @@
 
 The docs use one term for one concept. This page defines the terms.
 
-**Baseline.** The file `test/baselines/<triple>.txt`: the whole
-programs that a target is allowed to fail, each with a reason. See
+**Baseline.** The file `test/baselines/<triple>.txt`: the e2e
+programs and spec examples that a target is allowed to fail, each with
+a reason. See
 [How to test on another target](../how-to/test-on-another-target.md).
 
 **Binary.** A native executable that zr builds, for

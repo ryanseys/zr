@@ -61,7 +61,7 @@ module Stages
     outs = started.map do |n, pid_or_status|
       status = pid_or_status.is_a?(Integer) ? Process.wait2(pid_or_status).last : pid_or_status
       abort("rake stage1: self-compile #{n} failed; its work is in #{work}") unless status.success?
-      runtime = Dir[File.join(work, "#{n}-cache", "rt-*.o")]
+      runtime = Dir[File.join(work, "#{n}-cache", "runtime-*.o")]
       abort("rake stage1: the runtime object was not cached; the work is in #{work}") unless runtime.size == 1
 
       [File.binread(File.join(work, "#{n}.o")), File.binread(runtime.first)]
@@ -75,7 +75,7 @@ module Stages
       abort("rake stage1: the two #{what} objects differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, " \
             "first at #{at}; both are kept in #{work}")
     end
-    puts "stage 1 holds: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
+    puts "stage 1 passes: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
     FileUtils.rm_rf(work)
     puts "nothing is kept: #{work} is gone"
   end
@@ -126,7 +126,7 @@ module Stages
     end
 
     if x == y
-      puts format("stage 2 holds: %d bytes, the same from stage 1 and from ruby, in %.1f s", a.bytesize, elapsed)
+      puts format("stage 2 passes: %d bytes, the same from stage 1 and from ruby, in %.1f s", a.bytesize, elapsed)
       unless stamps.empty?
         puts "the linker's own stamps are not compared: #{stamps.map { |r| "#{r.first}..#{r.last}" }.join(", ")}"
       end

@@ -1,8 +1,10 @@
-# The end-to-end programs that can fail on wasm32-wasi, and why. Each
-# line is a path and a reason, separated by a tab. A `#` line is a comment.
+# The end-to-end programs and spec examples that can fail on wasm32-wasi,
+# and why. Each line is a key and a reason, separated by a tab: a program
+# path, or a spec file and its example's description separated by `: `.
+# A `#` line is a comment (test/support/baseline.rb).
 #
-# The run skips a listed program that fails, and prints its reason. A
-# listed program that PASSES fails the run, with a message to remove it
+# The run skips a listed test that fails, and prints its reason. A
+# listed test that PASSES fails the run, with a message to remove it
 # from this file. Thus the file cannot become out of date.
 
 # wasi has no processes and no signals.
@@ -12,19 +14,44 @@ e2e/core/process/signal_trap.rb	kill has no wasm form
 # wasi cannot allocate a fiber stack, so no Thread or Fiber can start.
 e2e/core/fiber/fiber_resume.rb	can't allocate fiber stack: Function not implemented
 e2e/core/thread/threads_join.rb	can't allocate fiber stack: Function not implemented
+e2e/core/thread/thread_queue_handoff.rb	can't allocate fiber stack: Function not implemented
 
 # On wasi, eval uses the tree-walking interpreter (lib/zr/eval/walk.rb).
-# These two programs use eval, but eval support does not cause their
+# These programs use eval, but eval support does not cause their
 # failure.
 e2e/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
 e2e/stdlib/rubygems/require_rubygems.rb	rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory
+e2e/stdlib/testing/a_test_unit_suite_runs.rb	rubygems reads its own source by absolute path, and a WASI guest is given no such directory
+e2e/stdlib/testing/a_minitest_suite_runs.rb	rubygems reads its own source by absolute path, and a WASI guest is given no such directory
 
-# A 32-bit module needs more memory than the limit, to build or to run.
+# A build of these programs for wasm needs more memory than the limit.
 e2e/stdlib/bundler/bundler_resolves_a_gemfile.rb	the build holds more than 2048 MB
 e2e/stdlib/bundler/require_bundler.rb	the build holds more than 3072 MB
-e2e/stdlib/testing/a_minitest_suite_runs.rb	the build holds more than 2048 MB
-e2e/core/thread/thread_queue_handoff.rb	the program holds more than 1024 MB
-e2e/stdlib/zlib/zlib_roundtrip.rb	the program holds more than 1024 MB
 
 # socket has no wasi part yet: `socket/constants` has no wasi table.
 e2e/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants
+
+# The spec examples of the slice that CI runs on wasm32-wasi
+# (lang/methods, core/array, core/hash).
+
+# A WASI module has no libm. The WASI layer defines frexp and ldexp only
+# (runtime/kernel/os/wasi/libm.rb).
+spec/core/array/array_test.rb: float round digits cruby	pow has no wasm form
+spec/core/array/array_test.rb: float round ndigits return type	pow has no wasm form
+spec/core/array/array_test.rb: float round truncate ndigits	pow has no wasm form
+spec/core/array/array_test.rb: ivar array filled from outside	pow has no wasm form
+spec/lang/methods/dispatch_test.rb: a user to_f beside the builtin one widens the call's return	strtod has no wasm form
+spec/core/hash/regressions_test.rb: any?, none?, one? and count take a pair argument, and a hash serves as a block	fmod has no wasm form
+spec/lang/methods/methods_test.rb: class method site stays correct when the class changes	hypot has no wasm form
+
+# wasi cannot allocate a fiber stack: no Thread, and no external
+# Enumerator (`next`).
+spec/core/hash/hash_test.rb: thread value hash tail	can't allocate fiber stack: Function not implemented
+spec/core/hash/enumeration_test.rb: a blockless each or each_pair is an Enumerator over the pairs in insertion order	can't allocate fiber stack: Function not implemented
+spec/core/hash/formatting_test.rb: eql? compares by value, and replace widens the receiver to hold what it is given	can't allocate fiber stack: Function not implemented
+
+# WASI has no working directory to change.
+spec/core/hash/hash_test.rb: dir chdir block form restores the previous directory	chdir has no wasm form
+
+# The tree-walking interpreter (lib/zr/eval/walk.rb) does not run every form yet.
+spec/lang/methods/methods_test.rb: eval return belongs to the enclosing method	return from an eval is not walked yet

@@ -75,6 +75,22 @@ The first release as a RubyGem.
 
 ### Fixed
 
+- A WASI module that uses eval runs. The tree-walking interpreter reads
+  the library directories that its build recorded, and no longer tries
+  to resolve gems in the guest (a `getpwuid` or `pipe` trap).
+- A WASI module that uses eval builds in about a second, not five
+  minutes: eval support is in the cached prelude, and is not compiled
+  again for each program.
+- `Float#round`, `Float#floor` and `Math.frexp` on wasm: the WASI layer
+  defines `frexp` and `ldexp`. Other libm calls (`pow`, `fmod`,
+  `strtod`, `hypot`) have no wasm form yet.
+- The spec tier builds WASI modules with `TARGET=wasm32-wasi`, and a
+  target's baseline can list spec examples as well as e2e programs.
+- A test worker that the pool stops also stops the builds that it
+  started. A wasm build continued for fifteen minutes after its example
+  timed out.
+- `rake stage1` finds the runtime object under its current cache name.
+
 - A class method that the core library sends by name reaches a program
   subclass's own definition: `OpenSSL::Digest.hexdigest("SHA1", data)`
   called `Digest::Class.digest` and skipped the override.

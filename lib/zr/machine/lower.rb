@@ -22,9 +22,15 @@ module Zr
     class Refused < Zr::Refused
       attr_reader :line
 
-      def initialize(node, message, file = nil)
-        @line = node.location.start_line
-        super("#{file ? "#{file}:" : "line "}#{@line}: #{message}")
+      # Minitest copies an exception that it cannot marshal with only its
+      # message, so a message alone is also accepted.
+      def initialize(node, message = nil, file = nil)
+        if message
+          @line = node.location.start_line
+          super("#{file ? "#{file}:" : "line "}#{@line}: #{message}")
+        else
+          super(node)
+        end
       end
     end
 

@@ -70,12 +70,16 @@ module Zr
       # guest gets the test directory and its own temporary directory. A
       # WASI guest sees only the directories and variables that it is
       # given. Without a temporary directory, `Dir.tmpdir` fails, and a
-      # program that writes a file fails where the binary does not.
+      # program that writes a file fails where the binary does not. The
+      # module is compiled first (`Wasmtime.precompile`), so the memory
+      # limit of a run counts the program and not wasmtime's compiler.
       def run(out, args, env)
         return [[out, *args], env] unless wasm?
 
         dirs = { "." => ".", Dir.tmpdir => "/tmp" }
-        [Wasmtime.run(out, *args, dirs: dirs, env: { "TMPDIR" => "/tmp" }.merge(env), compiler: @compiler), {}]
+        compiled = Wasmtime.precompile(out, compiler: @compiler)
+        [Wasmtime.run(compiled || out, *args, dirs: dirs, env: { "TMPDIR" => "/tmp" }.merge(env), compiler: @compiler,
+                                              argv0: (out if compiled)), {}]
       end
 
       # True when wasmtime reports a trap. A trap stops the module as

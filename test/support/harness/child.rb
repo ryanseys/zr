@@ -37,6 +37,10 @@ module Zr
       # How often the group's memory is read, in seconds.
       EVERY = 0.2
 
+      # The process group of each child that runs now. Each child has its
+      # own group, so a kill of the caller's group does not stop it.
+      LIVE = {}
+
       module_function
 
       # Returns the output and the seconds it took. The output's code is
@@ -73,6 +77,17 @@ module Zr
         [Answer.new(stdout, stderr, status.exitstatus || -1, status.termsig), seconds]
       end
 
+      # Kills every child that runs now, with its process group. A test
+      # worker calls this before it stops, so that no build continues
+      # after the worker.
+      def stop_all
+        LIVE.each_key do |pid|
+          Process.kill("KILL", -pid)
+        rescue Errno::ESRCH, Errno::EPERM
+          nil
+        end
+      end
+
       # How often the limits are checked while the child runs, in seconds.
       LOOK = 0.05
 
@@ -81,6 +96,7 @@ module Zr
       # soon as the child ends. Polling would add up to one poll interval
       # to each run of a tier. This thread checks the limits between joins.
       def watch(pid, deadline, megabytes)
+        LIVE[pid] = true
         Watch.add(pid) if megabytes
         waiter = Thread.new { Process.wait2(pid).last }
         loop do
@@ -96,6 +112,7 @@ module Zr
           return [nil, over]
         end
       ensure
+        LIVE.delete(pid)
         Watch.drop(pid) if megabytes
       end
 

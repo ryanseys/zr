@@ -25,37 +25,37 @@ and install [wasmtime](https://wasmtime.dev).
 
 ## Let a target fail what it cannot do yet
 
-A new target does not pass the whole e2e tier at first. Its baseline
-file, `test/baselines/<triple>.txt`, lists the whole programs that the
-target is allowed to fail, and the reason for each. One line has a
-path below `test/`, a tab, and the reason. A line that starts with `#`
-is a comment:
+A new target does not pass every test at first. Its baseline file,
+`test/baselines/<triple>.txt`, lists the e2e programs and the spec
+examples that the target is allowed to fail, and the reason for each.
+One line has a key, a tab, and the reason. The key of a program is its
+path below `test/`. The key of a spec example is its file below `test/`,
+`: `, and its description. A line that starts with `#` is a comment:
 
 ```
 # wasi has no processes and no signals.
 e2e/core/process/process_spawn.rb	spawn() is unimplemented on wasi
-e2e/core/process/signal_trap.rb	kill has no wasm form
+spec/core/hash/hash_test.rb: dir chdir block form restores the previous directory	chdir has no wasm form
 ```
 
-The e2e tier reads the baseline of the target that it runs:
+The e2e and spec tiers read the baseline of the target that they run:
 
-- A program in the baseline that fails is skipped, with the reason.
-- A program in the baseline that **passes** makes the run fail, with
-  the message `this now passes: take it off test/baselines/<triple>.txt`.
-  Thus you learn when a change fixes a program, and the file cannot
-  become out of date.
+- A test in the baseline that fails is skipped, with the reason.
+- A test in the baseline that **passes** makes the run fail, with the
+  message `this now passes: take it off test/baselines/<triple>.txt`.
+  Thus you learn when a change fixes a test, and the file cannot become
+  out of date.
 
 To add a line:
 
-1. Make sure that the target cannot do what the program needs. A line
-   is not a place for a bug.
-2. Write the path and the reason. Tell what the target does instead.
+1. Make sure that the target cannot do what the test needs. A line is
+   not a place for a bug.
+2. Write the key and the reason. Tell what the target does instead.
 
-To remove a line, delete it when the run tells you that the program
-passes.
+To remove a line, delete it when the run tells you that the test passes.
 
-The baselines apply only to the e2e tier. For the spec tier, run a
-directory that the target supports, as CI does.
+The spec tier is large, so on another target run the directories that
+CI runs, and give the baseline the examples in them that fail.
 
 ## When the correct output is different on a target
 

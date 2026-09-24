@@ -153,6 +153,14 @@ module Zr
             # more processes. An orphan keeps its pipe open and uses about
             # 100 MB after the run stops the example.
             Process.setpgid(0, 0)
+            # `stop!` sends SIGTERM first. The children that
+            # `Harness::Child` starts have their own process groups, so the
+            # worker kills them before it stops.
+            Signal.trap("TERM") do
+              Zr::Harness::Child.stop_all if defined?(Zr::Harness::Child)
+              Signal.trap("TERM", "DEFAULT")
+              Process.kill("TERM", Process.pid)
+            end
             jobs.last.close
             back.first.close
             serve(jobs.first, back.last)
@@ -313,8 +321,7 @@ module Zr
             # After a pipe error, the worker is not usable. Kill it first,
             # because `wait2` waits forever for a live process. A kill of a
             # process that is already gone does not change its status.
-            stop!
-            _, @status = Process.wait2(@pid)
+            @status = stop!
             if @overdue
               seconds, resident = @overdue
               "the worker ran past #{seconds}s on this example, holding #{resident} MB " \
@@ -347,18 +354,33 @@ module Zr
           result
         end
 
-        # Kills the worker and all processes it started. Kill the group
-        # first, because the forks of a build are in it. Then kill the
-        # worker, in case the group does not exist.
+        # Stops the worker and all processes it started, and returns its
+        # status. SIGTERM lets the worker kill the children in other
+        # process groups. After one second, SIGKILL stops the worker's
+        # group, which contains the forks of a build, and then the worker.
         def stop!
-          Process.kill("KILL", -@pid)
+          signal("TERM", @pid)
+          status = reap(1.0)
+          signal("KILL", -@pid)
+          signal("KILL", @pid)
+          status || Process.wait2(@pid).last
+        end
+
+        def signal(name, pid)
+          Process.kill(name, pid)
         rescue Errno::ESRCH, Errno::EPERM
           nil
-        ensure
-          begin
-            Process.kill("KILL", @pid)
-          rescue Errno::ESRCH
-            nil
+        end
+
+        # The worker's status, or nil when it does not stop in `seconds`.
+        def reap(seconds)
+          deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + seconds
+          loop do
+            pid, status = Process.wait2(@pid, Process::WNOHANG)
+            return status if pid
+            return nil if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+            sleep 0.01
           end
         end
 
@@ -366,10 +388,7 @@ module Zr
         def close
           @jobs.close unless @jobs.closed?
           @back.close unless @back.closed?
-          unless @why
-            stop!
-            Process.wait(@pid)
-          end
+          stop! unless @why
           nil
         rescue Errno::ESRCH, Errno::ECHILD, IOError
           nil

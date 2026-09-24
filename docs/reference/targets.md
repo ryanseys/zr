@@ -34,7 +34,8 @@ status 3.
 | Preemption | a timer thread | a timer thread | a count at each safe point |
 | Expected output | ruby's recording | the same, or a spec's `linux:` | the same, or a spec's `wasi:` |
 
-The e2e programs that a target is allowed to fail are in its baseline.
+The e2e programs and spec examples that a target is allowed to fail are
+in its baseline.
 See [How to test on another target](../how-to/test-on-another-target.md).
 
 ### What wasm cannot do
@@ -53,9 +54,11 @@ Two groups in the `wasm32-wasi` baseline are not work to do later:
   `kill`, and no proposal adds them. `spawn` and `Signal.trap` stay in
   the baseline.
 
-The other lines are work to do: a memory limit of a 32-bit module, a
-socket table that nobody has written, and `dlopen`, which wasm does not
-have.
+The other lines are work to do: the memory that some builds need, a
+socket table that nobody has written, rubygems' reads of its own files
+by absolute path, libm (the WASI layer defines only `frexp` and
+`ldexp`), `chdir`, one form that the tree-walking interpreter does not
+run, and `dlopen`, which wasm does not have.
 
 A darwin or linux program that evals writes the machine code that it
 compiles into itself. The engine fixes a module's code when it

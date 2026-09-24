@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# The front end reads the library directories of the program's build
+# from `Zr::Eval::Runtime` (Libraries.carried). Without it, the front end
+# tries to resolve the gems in the guest, which has no gems.
+require "zr/eval/runtime"
 require "zr/eval/walking"
 require "zr/eval/walk_forms"
 require_relative "walk/tree"

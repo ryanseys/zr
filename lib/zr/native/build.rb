@@ -240,18 +240,15 @@ module Zr
       # Writes a `Zr::Program` as one WASI module. The runtime comes from
       # the cached prelude; this emits only the program's own functions.
       #
-      # A program that uses eval includes eval support, as the binary
-      # does. Wasm has no second object to link, so the eval support
-      # functions and data go in with the program's own. On wasm, eval
-      # support is the tree-walking interpreter (lib/zr/eval/walk.rb): the
-      # front end and no backend. It adds the parser and its tree.
+      # On wasm, eval support is the tree-walking interpreter
+      # (lib/zr/eval/walk.rb): the front end and no backend. Wasm has no
+      # second object to link, so a program that uses eval gets a prelude
+      # that also contains eval support. Its 16,000 functions then compile
+      # once for each cache, not once for each program (about 280 s).
       def wasm_program(program, out)
-        rt = program.runtime
-        support = program.evals
-        functions = support ? program.functions + support.functions : program.functions
-        data = support ? program.data + support.data : program.data
-        pre = wasm_prelude(rt, pending_for(program))
-        data = data.dup
+        pre = wasm_prelude(program.runtime, pending_for(program), program.evals || nil)
+        functions = program.functions
+        data = program.data.dup
         zero_words(functions, data, pre.data_at.keys)
         functions += stops(functions, [], data, pre.functions)
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
@@ -261,32 +258,31 @@ module Zr
         e.message
       end
 
-      # The runtime symbols that `program` (with its eval support) defines.
-      # The runtime's prelude leaves these symbols pending.
+      # The runtime symbols that `program` defines. The runtime's prelude
+      # leaves these symbols pending.
       def pending_for(program)
-        rt = program.runtime
-        support = program.evals
-        functions = support ? program.functions + support.functions : program.functions
-        data = support ? program.data + support.data : program.data
-        { functions: rt.wants[:functions] & functions.map(&:name), data: rt.wants[:data] & data.map(&:name) }
+        wants = program.runtime.wants
+        { functions: wants[:functions] & program.functions.map(&:name), data: wants[:data] & program.data.map(&:name) }
       end
 
-      # The runtime's wasm prelude, emitted once for each digest and set
-      # of pending symbols, and kept in the cache.
+      # The runtime's wasm prelude, with eval support when `support` is
+      # given. It is emitted once for each digest and set of pending
+      # symbols, and kept in the cache.
       #
       # It is also kept in memory for the life of the process, as the
       # prelink is. The prelude is 41 MB of Marshal, and a test tier builds
       # one module for each example. A worker forked after the first build
       # shares the one copy. A build never writes to it.
-      def wasm_prelude(runtime, pending)
-        key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{pending.inspect}")
+      def wasm_prelude(runtime, pending, support = nil)
+        key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
         path = File.join(Zr.cache, "wasm-#{key}.marshal")
         kept = (@wasm_preludes ||= {})[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 
-        data = runtime.data.dup
-        zero_words(runtime.functions, data, pending[:data])
-        functions = runtime.functions + stops(runtime.functions, runtime.raw, data, pending[:functions])
+        functions = support ? runtime.functions + support.functions : runtime.functions
+        data = support ? runtime.data + support.data : runtime.data.dup
+        zero_words(functions, data, pending[:data])
+        functions += stops(functions, runtime.raw, data, pending[:functions])
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         pre = Backend::Wasm.prelude(functions, data, pending: pending)
         Zr.write_cache(path, Marshal.dump(pre))
@@ -314,7 +310,7 @@ module Zr
           params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name)
           stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data)
         end
-        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm.libc_shims + known
+        defined = Set.new(functions.map(&:name) + out.map(&:name) + Backend::Wasm.libc_shims + known)
         functions.each do |f|
           f.callees.each do |c|
             next if c.from || defined.include?(c.symbol)

@@ -49,11 +49,26 @@ module Zr
       # The `wasmtime run` command for `module_path` with `args`. It
       # preopens the directories in `dirs` (`{ "." => "." }` gives the
       # guest the current directory with the same name) and passes each
-      # variable in `env` by name.
-      def run(module_path, *args, dirs: {}, env: {}, compiler: self.compiler)
+      # variable in `env` by name. `argv0` gives the program name that the
+      # guest sees, for a precompiled module with a different file name.
+      def run(module_path, *args, dirs: {}, env: {}, compiler: self.compiler, argv0: nil)
         opened = dirs.flat_map { |host, guest| ["--dir", "#{host}::#{guest}"] }
         named = env.flat_map { |name, value| ["--env", "#{name}=#{value}"] }
-        [executable, "run", *flags(compiler: compiler), *opened, *named, module_path, *args]
+        precompiled = module_path.end_with?(".cwasm") ? ["--allow-precompiled"] : []
+        [executable, "run", *flags(compiler: compiler), *precompiled, *(["--argv0", argv0] if argv0), *opened, *named,
+         module_path, *args]
+      end
+
+      # Compiles `module_path` to `<module_path>.cwasm` and returns that
+      # path, or nil when the compile fails (a run of the module then
+      # reports why). Winch uses 3.3 GB to compile a 157 MB module with
+      # eval support, and the run of that module uses 0.5 GB. A test
+      # limits the memory of the run, so it must not count the compile.
+      def precompile(module_path, compiler: self.compiler)
+        out = "#{module_path}.cwasm"
+        ok = system(executable, "compile", *flags(compiler: compiler), "-o", out, module_path,
+                    out: File::NULL, err: File::NULL)
+        ok ? out : nil
       end
     end
   end

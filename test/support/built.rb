@@ -12,7 +12,7 @@ module Zr
     #
     # For a native target the build makes the runtime object, the
     # prelinked runtime image and the eval support object. For wasm it
-    # makes the module prelude. Each is a file in the cache, named by a
+    # makes two module preludes, without and with eval support. Each is a file in the cache, named by a
     # digest of its sources. After a change under `lib` or `runtime`, the next
     # build makes them again: about three minutes, and five more for wasm.
     #
@@ -112,8 +112,8 @@ module Zr
       end
 
       # A WASI module has no linker. Build a plain program and a program
-      # that evals, because each has different undefined symbols and so
-      # uses a different prelude.
+      # that evals, because each uses a different prelude: the second
+      # prelude also contains eval support.
       def build_module(target)
         Dir.mktmpdir("zr-build-") do |work|
           [PLAIN, EVALS].each_with_index do |source, i|

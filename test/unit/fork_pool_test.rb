@@ -79,6 +79,32 @@ class ForkPoolTest < Minitest::Test
     end
   end
 
+  # `Harness::Child` starts each child in its own process group, so a kill
+  # of the worker's group does not reach it. The worker kills those
+  # groups when the pool stops it. A wasm build that ran past the
+  # deadline continued for fifteen minutes after its example failed.
+  GROUPER = <<~'RUBY'
+    require "test_helper"
+
+    class Grouper < Minitest::Test
+      def test_one_that_leaves_a_grouped_child
+        kept = ENV.fetch("ZR_POOL_PID")
+        Zr::Harness::Child.run(["sh", "-c", "echo $$ > #{kept}; exec sleep 300"],
+                               cwd: Dir.pwd, seconds: 300, megabytes: nil)
+      end
+    end
+  RUBY
+
+  def test_a_worker_past_the_deadline_stops_its_grouped_children
+    Dir.mktmpdir("zr-pool-") do |work|
+      kept = File.join(work, "pid")
+      child(GROUPER, work, "ZR_TEST_TIMEOUT" => "3", "ZR_POOL_PID" => kept)
+      pid = Integer(File.read(kept))
+
+      assert_raises(Errno::ESRCH, "the worker's grouped child outlived it") { Process.kill(0, pid) }
+    end
+  end
+
   # The pool replaces a worker because of the memory that the worker
   # allocates, not the memory that it inherits. The parent loads the
   # compiler before it forks, so each worker shares a few hundred MB with
@@ -118,31 +144,31 @@ class ForkPoolTest < Minitest::Test
     end
   end
 
-# Minitest does not catch `exit`, a signal or NoMemoryError, so these
-# reach the worker loop. The worker reports the exception for the example
-# that it ran, and does not exit silently ("exited 0 without answering").
-# The examples after it run in a new worker.
-LEAVER = <<~'RUBY'
-  require "test_helper"
+  # Minitest does not catch `exit`, a signal or NoMemoryError, so these
+  # reach the worker loop. The worker reports the exception for the example
+  # that it ran, and does not exit silently ("exited 0 without answering").
+  # The examples after it run in a new worker.
+  LEAVER = <<~'RUBY'
+    require "test_helper"
 
-  class Leaver < Minitest::Test
-    def test_a_one_that_exits = exit(0)
-    def test_b_one_after_it = assert(true)
-    def test_c_one_more = assert(true)
+    class Leaver < Minitest::Test
+      def test_a_one_that_exits = exit(0)
+      def test_b_one_after_it = assert(true)
+      def test_c_one_more = assert(true)
+    end
+  RUBY
+
+  def test_exception_past_minitest_is_reported_for_its_example
+    Dir.mktmpdir("zr-pool-") do |work|
+      out, status = child(LEAVER, work, "MT_CPU" => "1")
+
+      assert_includes out, "Leaver#test_a_one_that_exits"
+      assert_includes out, "the example raised SystemExit past minitest: exit"
+      refute_includes out, "without answering"
+      assert_match(/3 runs, 2 assertions, 0 failures, 1 errors/, out)
+      refute_predicate status, :success?
+    end
   end
-RUBY
-
-def test_exception_past_minitest_is_reported_for_its_example
-  Dir.mktmpdir("zr-pool-") do |work|
-    out, status = child(LEAVER, work, "MT_CPU" => "1")
-
-    assert_includes out, "Leaver#test_a_one_that_exits"
-    assert_includes out, "the example raised SystemExit past minitest: exit"
-    refute_includes out, "without answering"
-    assert_match(/3 runs, 2 assertions, 0 failures, 1 errors/, out)
-    refute_predicate status, :success?
-  end
-end
 
   private
 

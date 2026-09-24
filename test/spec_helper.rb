@@ -12,6 +12,7 @@ require_relative "support/spec"
 # `_(result).must_answer "1\n"`.
 Minitest::Spec.include(Zr::Spec::DSL)
 Minitest::Expectation.include(Zr::Spec::Expectation)
+Minitest::Spec.include(Zr::Spec::Baselined)
 
 
 # Before the workers start: trim the kept binaries to their size limit.
