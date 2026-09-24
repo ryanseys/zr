@@ -28,7 +28,7 @@ class SourceChangedTest < Minitest::Test
   def stamps = @runtime.instance_variable_get(:@stamps)
 
   def watching
-    stamps[@file] = Zr.stamp_of(@file)
+    stamps[@file] = Zr::Paths.stamp(@file)
     yield
   end
 

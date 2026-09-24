@@ -2354,9 +2354,9 @@ describe "Blocks programs" do
   end
 
   it "proc arg channel released" do
-    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GC" => "1"})
       # This golden reads `GC.stat[:heap_live_slots]`, which only the allocation
-      # registry can answer, and only `ZEO_GC=1` arms it. CRuby always tracks, so the
+      # registry can answer, and only `ZR_TEST_GC=1` arms it. CRuby always tracks, so the
       # oracle needs no counterpart.
 
       # The boxed-argument and result channels a proc call publishes through were GC
@@ -2366,7 +2366,7 @@ describe "Blocks programs" do
       #
       # `GC.stat[:heap_live_slots]` is what makes that measurable rather than merely
       # asserted, and it is why this golden carries a `.gc` sidecar: the count comes
-      # from the allocation registry, which only `ZEO_GC=1` arms. Without it the key
+      # from the allocation registry, which only `ZR_TEST_GC=1` arms. Without it the key
       # is absent, because a heap with no record of an allocation cannot answer
       # truthfully and inventing a number is worse than the `nil` a caller can read
       # as "this heap cannot say".

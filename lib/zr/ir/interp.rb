@@ -136,7 +136,7 @@ module Zr
 
       # One call's state: the values it has defined, and the addresses of
       # the stack slots it owns.
-      class Frame < ::Zr::Record
+      class Frame < Record
         FIELDS = %i[values slot_at types].freeze
         attr_accessor :values, :slot_at, :types
 

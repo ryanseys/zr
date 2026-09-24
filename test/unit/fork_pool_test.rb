@@ -112,7 +112,7 @@ class ForkPoolTest < Minitest::Test
   def test_a_worker_is_retired_for_what_it_allocates_and_not_what_it_inherits
     Dir.mktmpdir("zr-pool-") do |work|
       kept = File.join(work, "pids")
-      out, = child(SHARER, work, "ZR_RECYCLE_MB" => "150", "MT_CPU" => "1", "ZR_POOL_PIDS" => kept)
+      out, = child(SHARER, work, "ZR_TEST_RECYCLE_MB" => "150", "MT_CPU" => "1", "ZR_POOL_PIDS" => kept)
 
       assert_match(/3 runs, 3 assertions, 0 failures, 0 errors/, out)
       assert_equal 1, File.read(kept).lines.uniq.size,

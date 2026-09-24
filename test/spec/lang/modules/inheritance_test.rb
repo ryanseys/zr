@@ -721,7 +721,7 @@ describe "Modules: inheritance and ancestors" do
       # below), so this is about reaching the builtin THROUGH a module in the
       # ancestry rather than about the value-super channel itself.
       #
-      # Not a sharing bug: `ZEO_SHARE=0` panics identically. Found while building
+      # Not a sharing bug: `ZR_TEST_SHARE=0` panics identically. Found while building
       # divergence shapes for `codegen::class_query`, whose `ValueSuper` question
       # exists precisely because this channel is per-receiver -- `DoubledArray`
       # reaches `Array#size` where `DoubledPlain` reaches a user body.

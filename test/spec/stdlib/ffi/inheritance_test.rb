@@ -210,7 +210,7 @@ describe "FFI: inheritance and ancestors" do
         attach_function :fabsf, [:float], :float
       end
       p LibC.abs(-7), LibC.labs(-(2**40)), LibC.my_strlen("hello")
-      p LibC.getenv("ZEO_NO_SUCH_VARIABLE")
+      p LibC.getenv("ZR_TEST_NO_SUCH_VARIABLE")
       d = LibC.strdup("copied")
       p d.read_string
       p LibC.free(d)
@@ -236,7 +236,7 @@ describe "FFI: inheritance and ancestors" do
   end
 
   it "a string argument's copy is released when a later argument's coercion raises" do
-    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_RT_LEAKCHECK" => "1"})
       # A `:string` argument's NUL-terminated copy is owned by a pooled temp.
       # When a LATER argument's coercion raises, the copy is released on the
       # raise edge like any other temp -- the leak checker is what proves it,
@@ -408,7 +408,7 @@ describe "FFI: inheritance and ancestors" do
 
       module RtMath
         extend FFI::Library
-        lib = ENV["ZEO_TEST_NO_SUCH_ENV"] || "m"
+        lib = ENV["ZR_TEST_TEST_NO_SUCH_ENV"] || "m"
         ffi_lib lib
         attach_function :fabs, [:double], :double
       end
@@ -616,7 +616,7 @@ describe "FFI: inheritance and ancestors" do
 
       module Net
         extend FFI::Library
-        lib = ENV["ZEO_TEST_NO_SUCH_ENV"] || "c"
+        lib = ENV["ZR_TEST_TEST_NO_SUCH_ENV"] || "c"
         ffi_lib lib
 
         class InAddr < FFI::Struct

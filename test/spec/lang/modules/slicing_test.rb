@@ -158,7 +158,7 @@ describe "Modules: slicing" do
       end
 
       class Widened
-        case ENV.fetch("ZEO_MIXIN_MODE", "on")
+        case ENV.fetch("ZR_TEST_MIXIN_MODE", "on")
         when "on" then prepend Tagger
         else nil
         end

@@ -272,7 +272,7 @@ describe "Hash: blocks and yields" do
       # The block outranks the default at every site.
       p([1, 2].fetch(9, :dflt) { |i| [:blk, i] })
       p({ a: 1 }.fetch(:z, :dflt) { |k| [:blk, k] })
-      p(ENV.fetch("ZEO_NO_SUCH_VAR", "dflt") { |k| "blk #{k}" })
+      p(ENV.fetch("ZR_TEST_NO_SUCH_VAR", "dflt") { |k| "blk #{k}" })
       p(Thread.current.fetch(:nope, :dflt) { |k| [:blk, k] })
       p(Array.new(3, :fill) { |i| i })
 
@@ -283,14 +283,14 @@ describe "Hash: blocks and yields" do
       # One argument plus a block is the ordinary form -- no warning.
       p([1, 2].fetch(9) { |i| [:blk, i] })
       p({ a: 1 }.fetch(:z) { |k| [:blk, k] })
-      p(ENV.fetch("ZEO_NO_SUCH_VAR") { |k| "blk #{k}" })
+      p(ENV.fetch("ZR_TEST_NO_SUCH_VAR") { |k| "blk #{k}" })
       p(Thread.current.fetch(:nope) { |k| [:blk, k] })
       p(Array.new(3) { |i| i * 2 })
 
       # Two arguments and no block is the other ordinary form -- no warning.
       p([1, 2].fetch(9, :dflt))
       p({ a: 1 }.fetch(:z, :dflt))
-      p(ENV.fetch("ZEO_NO_SUCH_VAR", "dflt"))
+      p(ENV.fetch("ZR_TEST_NO_SUCH_VAR", "dflt"))
       p(Thread.current.fetch(:nope, :dflt))
       p(Array.new(2, :fill))
 
@@ -303,14 +303,14 @@ describe "Hash: blocks and yields" do
     _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [:blk, 9]
       [:blk, :z]
-      "blk ZEO_NO_SUCH_VAR"
+      "blk ZR_TEST_NO_SUCH_VAR"
       [:blk, :nope]
       [0, 1, 2]
       1
       1
       [:blk, 9]
       [:blk, :z]
-      "blk ZEO_NO_SUCH_VAR"
+      "blk ZR_TEST_NO_SUCH_VAR"
       [:blk, :nope]
       [0, 2, 4]
       :dflt

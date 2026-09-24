@@ -22,7 +22,7 @@ class CompiledCompilerTest < Minitest::Test
   end
 
   def zr(cache, *args, self_env: nil)
-    env = { "ZR_CACHE" => cache, "ZR_SELF" => self_env, "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
+    env = { "ZR_CACHE" => cache, "ZR_COMPILED" => self_env, "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
     out, status = Open3.capture2e(env, RbConfig.ruby, EXE, *args, chdir: ROOT)
     [out, status]
   end
@@ -69,7 +69,7 @@ class CompiledCompilerTest < Minitest::Test
   end
 
   # A checkout builds no compiled compiler for a build that finds none;
-  # `ZR_SELF=1` or `rake build:self` does.
+  # `ZR_COMPILED=1` or `rake build:self` does.
   def test_a_checkout_with_no_compiled_compiler_stays_with_ruby
     skip "not a checkout" unless Zr::Paths.checkout?
     Dir.mktmpdir("zr-self-host-") do |cache|

@@ -62,7 +62,7 @@ module Zr
     def unit
       raise "the runtime's IR was released" if @released
 
-      @unit ||= ::Zr.clock("kernel lowered") do
+      @unit ||= Zr.clock("kernel lowered") do
         Machine::Lower.new(Zr.kernel_files(target).map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
     end
@@ -75,6 +75,9 @@ module Zr
 
     def raw = @raw || unit.raw
 
+    # The runtime object in the cache (`Native::Build.runtime_object`).
+    def object_path = File.join(Zr.cache, "runtime-#{digest}.o")
+
     def digest
       # The target goes in first: two targets never share a built form.
       # A path goes in beside its bytes: the runtime object carries the
@@ -83,7 +86,7 @@ module Zr
       # the root goes in too.
       @digest ||= begin
         files = sources.keys + gem_prelude_files
-        @stamps = files.to_h { |path| [path, Zr.stamp_of(path)] }
+        @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
         digest_of(files)
       end
     end
@@ -101,7 +104,7 @@ module Zr
     def moved
       return nil unless @stamps
 
-      @stamps.each { |path, stamp| return path if Zr.stamp_of(path) != stamp }
+      @stamps.each { |path, stamp| return path if Paths.stamp(path) != stamp }
       nil
     end
 
@@ -198,7 +201,7 @@ module Zr
 
     # The core library's `[functions, data]`, lowered over the kernel.
     def lowered
-      @lowered ||= ::Zr.clock("core lowered") { Zr.core(unit, kernel_symbols, target, sources) }
+      @lowered ||= Zr.clock("core lowered") { Zr.core(unit, kernel_symbols, target, sources) }
     end
   end
 
@@ -207,7 +210,7 @@ module Zr
   # that takes everything as one unit. `evals` says the program carries
   # the compiler, whose JIT finds kernel functions by name: it is the
   # Road the program links beside the runtime, or nil.
-  class Program < ::Zr::Record
+  class Program < Record
     FIELDS = %i[runtime functions data evals].freeze
     attr_accessor :runtime, :functions, :data, :evals
 
@@ -267,7 +270,13 @@ module Zr
     # symbol table is cached under it.
     def key = meta.fetch("key")
 
-    def object_path = File.join(Zr.cache, "eval-#{key}.o")
+    def object_path = self.class.object_path(key)
+
+    # The cache files of eval support: the object, by the key in its
+    # metadata, and the metadata, by the runtime's digest and the kind
+    # of eval (`jit` or `walk`). `rake cache:prune` reads these too.
+    def self.object_path(key) = File.join(Zr.cache, "eval-#{key}.o")
+    def self.meta_path(runtime, kind) = File.join(Zr.cache, "eval-#{runtime.digest}-#{kind}.json")
 
     def functions = lowered.fetch(:functions)
     def data = lowered.fetch(:data)
@@ -279,7 +288,7 @@ module Zr
     # meta of one must never answer for the other.
     def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
 
-    def meta_path = File.join(Zr.cache, "eval-#{@runtime.digest}-#{kind}.json")
+    def meta_path = self.class.meta_path(@runtime, kind)
 
     def meta
       @meta ||= begin
@@ -296,7 +305,7 @@ module Zr
     end
 
     def lowered
-      @lowered ||= ::Zr.clock("eval support lowered") do
+      @lowered ||= Zr.clock("eval support lowered") do
         loader = Hir::Build.eval_support(target)
         program = Hir::Program.new(Hir::Build.eval_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
         symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
@@ -326,7 +335,7 @@ module Zr
   def program(source, file, target: Target.default, &finish)
     rt = runtime(target)
     support = eval_support(target)
-    hir = ::Zr.clock("hir built") { Hir.build(source, file, eval_support: support, target: target) }
+    hir = Zr.clock("hir built") { Hir.build(source, file, eval_support: support, target: target) }
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
     # Every name the table already holds has an id no program can
     # move; every other name is the link's to number, which is what
@@ -338,7 +347,7 @@ module Zr
     units = finish && UnitCache.for(hir, dir: Zr.cache, runtime: rt.digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
-    functions, data = ::Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
+    functions, data = Zr.clock(finish ? "program lowered and assembled" : "program lowered") do
       finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
     end
     units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
@@ -463,14 +472,6 @@ module Zr
     end.hexdigest
   end
 
-  # What a file is on disk, as far as a stat says: its mtime to the
-  # nanosecond and its size; nil for a file that is gone.
-  def stamp_of(path)
-    stat = File.stat(path)
-    [stat.mtime.to_r, stat.size]
-  rescue SystemCallError
-    nil
-  end
 
   # The source file that has changed under this process since a
   # runtime's digest was taken, or nil (`Runtime#moved`).
@@ -493,11 +494,7 @@ module Zr
   # a source has moved (`settled!`).
   def write_cache(path, content)
     settled!
-    Paths.mkdir_p(Zr.cache)
-    fresh = "#{path}.#{Process.pid}.#{rand(0x100000000).to_s(36)}"
-    File.binwrite(fresh, content)
-    File.rename(fresh, path)
-    path
+    Paths.write_atomic(path, content)
   end
 
   # The core library over the kernel `unit`: `[functions, data]`, the

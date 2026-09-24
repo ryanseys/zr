@@ -41,7 +41,7 @@ to the compiler.
 stage 2, and compares the two binaries. zr's own linker links both,
 and stage 2's link runs inside the compiled compiler, so the check
 covers the linker too. The UUID and the signature are left out of the
-comparison, because under `ZR_LINK=cc` the system linker writes them
+comparison, because under `ZR_LINKER=cc` the system linker writes them
 and no input decides them.
 
 This is a much larger test than any spec or program. The compiler is

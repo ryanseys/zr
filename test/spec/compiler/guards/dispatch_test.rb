@@ -955,7 +955,7 @@ describe "Guards: dispatch" do
       # A predicate whose body zeo cannot decide leaves its guard to run, exactly as
       # an undecidable guard written inline would.
       module Runtime
-        def self.enabled? = ENV.fetch("ZEO_NAMED_PREDICATE_UNSET", "off") == "on"
+        def self.enabled? = ENV.fetch("ZR_TEST_NAMED_PREDICATE_UNSET", "off") == "on"
       end
 
       if Runtime.enabled?
@@ -1194,7 +1194,7 @@ describe "Guards: dispatch" do
       # A guard whose predicate zeo cannot decide keeps BOTH branches and settles it
       # at runtime, which is what protects every gate this fold does not reach.
       class Dynamic
-        if ENV.fetch("ZEO_NOT_SET", "") == "yes"
+        if ENV.fetch("ZR_TEST_NOT_SET", "") == "yes"
           def pick = :env
         else
           def pick = :default
@@ -1345,9 +1345,9 @@ describe "Guards: dispatch" do
         def narrow = :narrow
       end
 
-      # `ENV["ZEO_UNSET_AT_BUILD"]` is nil, so the branch does not run -- but it still
+      # `ENV["ZR_TEST_UNSET_AT_BUILD"]` is nil, so the branch does not run -- but it still
       # has to COMPILE, and the class must come out untouched.
-      if ENV["ZEO_UNSET_AT_BUILD"] then
+      if ENV["ZR_TEST_UNSET_AT_BUILD"] then
         class L
           alias old_size size
           include Extra
@@ -1385,9 +1385,9 @@ describe "Guards: dispatch" do
         def a = :a
       end
 
-      if ENV["ZEO_UNSET_AT_BUILD"] then
+      if ENV["ZR_TEST_UNSET_AT_BUILD"] then
         class N
-          if ENV["ZEO_ALSO_UNSET"] then
+          if ENV["ZR_TEST_ALSO_UNSET"] then
             alias b a
           else
             alias c a

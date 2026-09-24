@@ -44,7 +44,7 @@ module Zr
     # reads it too: a program is asked of ruby the way it is asked of
     # zr, or the answer is not an answer to the same question.
     HOW = {
-      "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZEO_AOT_SMOKE" => "on" } },
+      "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZR_TEST_AOT_SMOKE" => "on" } },
       "stdlib/bundler/require_bundler" => { build_mb: 3072 },
       # A wasm module that evals carries the whole front end inside
       # itself, since there is no second object to link a road in as.

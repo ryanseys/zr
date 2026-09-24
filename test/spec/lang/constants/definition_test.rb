@@ -209,7 +209,7 @@ describe "Constants: defining and naming methods" do
       # Ordered` below raised `uninitialized constant Ns::Uses::Ordered` where CRuby
       # includes Comparable.
       module Ns
-        case ENV.fetch("ZEO_BASE", "a")
+        case ENV.fetch("ZR_TEST_BASE", "a")
         when "a" then Ordered = Comparable
         else Ordered = Comparable
         end

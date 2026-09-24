@@ -475,8 +475,8 @@ describe "Cache programs" do
       # apart for exactly this reason; regexp literals and `attach_function` symbol
       # sites did not.
 
-      text = "a ZEO_ONE b ZEO_TWO c"
-      names = /\bZEO_[A-Z0-9_]+\b/
+      text = "a ZR_TEST_ONE b ZR_TEST_TWO c"
+      names = /\bZR_TEST_[A-Z0-9_]+\b/
 
       # The snippet's own literals come first, so its site 0 is minted before the
       # program reaches its own.
@@ -489,7 +489,7 @@ describe "Cache programs" do
       p words("hi there")
       p digits("a1 b22 c333")
       p text.scan(names)
-      p text.scan(/\bZEO_[A-Z0-9_]+\b/)
+      p text.scan(/\bZR_TEST_[A-Z0-9_]+\b/)
 
       # A second snippet must not collide with the first either.
       eval(%q{ def caps(s) = s.scan(/[A-Z]+/) })
@@ -503,11 +503,11 @@ describe "Cache programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["ZEO_ONE", "ZEO_TWO"]
+      ["ZR_TEST_ONE", "ZR_TEST_TWO"]
       ["hi", "there"]
       ["1", "22", "333"]
-      ["ZEO_ONE", "ZEO_TWO"]
-      ["ZEO_ONE", "ZEO_TWO"]
+      ["ZR_TEST_ONE", "ZR_TEST_TWO"]
+      ["ZR_TEST_ONE", "ZR_TEST_TWO"]
       ["B", "D"]
       ["still", "here"]
       true

@@ -7,7 +7,7 @@
 # ran.
 #
 #   rake repro              # the native binary and the object
-#   REPRO_WASM=1 rake repro # and the wasm module
+#   rake repro[wasm]        # and the wasm module
 #
 # Each copy builds its own runtime under the root, so this takes two
 # runtime builds (four with wasm).
@@ -44,12 +44,11 @@ module Repro
 
   module_function
 
-  def run
+  def run(wasm: false)
     work = Dir.mktmpdir("zr-repro-")
     puts "work (kept if this fails): #{work}"
     copies = [File.join(work, "a/zr"), File.join(work, "b/other/place/zr")]
     copies.each { |copy| copy_tree(copy) }
-    wasm = ENV["REPRO_WASM"] == "1"
     at_once = Zr::Native::Parallel.machine_bytes >= 12 * (1 << 30)
     outs = copies.each_with_index.map { |copy, i| [copy, i] }.then do |pairs|
       if at_once
@@ -120,5 +119,5 @@ module Repro
   end
 end
 
-desc "Build one program from two copies of the tree at two paths, and compare the bytes"
-task(:repro) { Repro.run }
+desc "Build one program from two copies of the tree at two paths, and compare the bytes (repro[wasm] adds the module)"
+task(:repro, [:wasm]) { |_, args| Repro.run(wasm: args[:wasm] == "wasm") }

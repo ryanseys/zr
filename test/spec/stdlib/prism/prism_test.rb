@@ -42,7 +42,7 @@ describe "Prism programs" do
   end
 
   it "store prism gem takes the ffi road" do
-    result = zr(<<~'RUBY', env: {"ZEO_DISABLE_BUILTIN" => "prism"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_DISABLE_BUILTIN" => "prism"})
       # `require "prism"` out of the gem store reaches `prism/ffi.rb` even though
       # zeo builds and loads the gem's C extension: the DEBUG log shows
       # `load C extension .../ext/prism/prism.bundle`, and `Prism.parse` still

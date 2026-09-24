@@ -611,7 +611,7 @@ describe "Kernel: loading files" do
 
       # A real file on a load-path root: the kind is :rb and the path is absolute.
       Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "zeo_probe_feature.rb"), "ZEO_PROBE_FEATURE = 1\n")
+        File.write(File.join(dir, "zeo_probe_feature.rb"), "ZR_TEST_PROBE_FEATURE = 1\n")
         $LOAD_PATH.unshift(dir)
         r = $LOAD_PATH.resolve_feature_path("zeo_probe_feature")
         # Absolute and REAL: the tmpdir is a symlink on macOS, so the answer is the

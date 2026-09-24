@@ -13,7 +13,7 @@ module Zr
     # needs a stack argument path.
     REGISTER_ARGS = 8
 
-    class Slot < ::Zr::Record
+    class Slot < Record
       FIELDS = %i[bytes align].freeze
       attr_accessor :bytes, :align
 
@@ -24,7 +24,7 @@ module Zr
 
       def to_a = [@bytes, @align]
     end
-    class Global < ::Zr::Record
+    class Global < Record
       FIELDS = %i[gv symbol colocated].freeze
       attr_accessor :gv, :symbol, :colocated
 
@@ -36,7 +36,7 @@ module Zr
 
       def to_a = [@gv, @symbol, @colocated]
     end
-    class Sig < ::Zr::Record
+    class Sig < Record
       FIELDS = %i[sig params ret].freeze
       attr_accessor :sig, :params, :ret
 
@@ -50,7 +50,7 @@ module Zr
     end
     # `from`: the wasm module an imported callee comes from, or nil.
     # `effects`: the `IR::Effects` bits a call may write.
-    class Callee < ::Zr::Record
+    class Callee < Record
       FIELDS = %i[fn symbol sig colocated from effects].freeze
       attr_accessor :fn, :symbol, :sig, :colocated, :from, :effects
 

@@ -90,11 +90,11 @@ module Zr
     def self.output(emit) = emit ? emit.to_sym : :native
 
     # Whether this host can link a binary for this target. zr's own
-    # Mach-O linker needs no tool, on any host, unless `ZR_LINK=cc`
+    # Mach-O linker needs no tool, on any host, unless `ZR_LINKER=cc`
     # asks for the system linker; every other link runs the target's C
     # compiler driver, the host's own or a cross toolchain's.
     def linkable?
-      return true if link == :darwin && ENV["ZR_LINK"] != "cc"
+      return true if link == :darwin && ENV["ZR_LINKER"] != "cc"
 
       !tool("cc").nil?
     end

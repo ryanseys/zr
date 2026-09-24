@@ -41,6 +41,6 @@ class TargetTest < Minitest::Test
   def test_a_darwin_binary_needs_no_toolchain
     darwin = Zr::Target::AARCH64_DARWIN
     assert_nil darwin.refusal("obj")
-    assert_nil darwin.refusal(nil) unless ENV["ZR_LINK"] == "cc"
+    assert_nil darwin.refusal(nil) unless ENV["ZR_LINKER"] == "cc"
   end
 end

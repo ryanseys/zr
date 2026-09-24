@@ -905,7 +905,7 @@ describe "Exceptions programs" do
         puts "TypeError"
       end
       begin
-        ENV.fetch("ZEO_DEFINITELY_ABSENT")
+        ENV.fetch("ZR_TEST_DEFINITELY_ABSENT")
       rescue KeyError => e
         puts "KeyError"
       end

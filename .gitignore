@@ -1,9 +1,5 @@
-# Fetched tiers, never committed.
-/vendor/ruby/
 /vendor/bundle/
-# Build output.
-/ext/zr/Makefile
-/ext/zr/mkmf.log
+# Build output and caches.
 /tmp/
 /pkg/
 *.gem

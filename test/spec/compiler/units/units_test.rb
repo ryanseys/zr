@@ -159,7 +159,7 @@ describe "Units programs" do
       # it in every compile -- the divergence minitest's hell.rb recorded). The
       # true direction: HOME is set in any test environment, so `second.rb` loads
       # at runtime through its compiled-in unit.
-      require_relative "conditional_require/loud" if ENV["ZEO_TEST_NEVER_SET"]
+      require_relative "conditional_require/loud" if ENV["ZR_TEST_TEST_NEVER_SET"]
       puts "between"
       require_relative "conditional_require/second" if ENV["HOME"]
       puts "after"
@@ -659,7 +659,7 @@ describe "Units programs" do
         end
       end
 
-      require_relative "unit_visibility/never_loaded" if ENV["ZEO_NEVER_SET"]
+      require_relative "unit_visibility/never_loaded" if ENV["ZR_TEST_NEVER_SET"]
 
       w = Widget.new
       p w.poke
@@ -668,7 +668,7 @@ describe "Units programs" do
       p w.prod
       p Widget.assemble
 
-      require_relative "unit_visibility/loaded_late" if ENV["ZEO_NEVER_SET"].nil?
+      require_relative "unit_visibility/loaded_late" if ENV["ZR_TEST_NEVER_SET"].nil?
 
       begin
         w.prod

@@ -7,7 +7,7 @@ module Zr
   module Native
     # The link step through a target's `cc`: objects to a binary.
     # `Link::Darwin` runs it only for what zr's own Mach-O linker refuses,
-    # or under `ZR_LINK=cc`; `Link::Static` for every ELF binary.
+    # or under `ZR_LINKER=cc`; `Link::Static` for every ELF binary.
     module Link
       # The main thread's stack, which holds ruby frames as native frames.
       # `runtime/kernel/fiber.rb` sizes every other task's.

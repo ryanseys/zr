@@ -1,9 +1,19 @@
 # frozen_string_literal: true
 
+require "rbconfig"
+
 module Zr
+  # Whether this process is a program that zr compiled (the compiled
+  # compiler, or a program with eval support) and not CRuby. A zr binary
+  # gives the same RUBY_ENGINE and RubyVM as ruby 4.0.6, but its RbConfig
+  # names zr as the interpreter (runtime/ext/rbconfig.rb).
+  def self.compiled? = RbConfig::CONFIG["ruby_install_name"] == "zr"
+
   # Where zr reads its sources and writes what it builds. ROOT is the
-  # checkout or the installed gem: `runtime/` and `vendor/` sit beside `lib/`
-  # in both, and neither is ever on the host's load path.
+  # checkout or the installed gem. `runtime/` and `vendor/` are beside
+  # `lib/` in both, and neither is on the host's load path. The host
+  # loads a few namespaced files from them by path (Regexp::Onig,
+  # Prism::Ruby, zr_description).
   module Paths
     ROOT = File.expand_path("../..", __dir__)
 
@@ -93,6 +103,25 @@ module Zr
       Dir.mkdir(dir)
     rescue Errno::EEXIST
       raise unless File.directory?(dir)
+    end
+
+    # Writes `bytes` to `path` through a temporary file and a rename, so
+    # that another process never reads half a file. Returns `path`.
+    def self.write_atomic(path, bytes)
+      mkdir_p(File.dirname(path))
+      fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
+      File.binwrite(fresh, bytes)
+      File.rename(fresh, path)
+      path
+    end
+
+    # The mtime (to the nanosecond) and size of the file at `path`, or
+    # nil when there is no file. A change to either shows the file changed.
+    def self.stamp(path)
+      stat = File.stat(path)
+      [stat.mtime.to_r, stat.size]
+    rescue SystemCallError
+      nil
     end
 
     # A fresh directory for the block, named as Dir.mktmpdir names one

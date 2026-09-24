@@ -3,6 +3,7 @@
 require_relative "../prism"
 require_relative "../ir"
 require_relative "../obj/model"
+require_relative "../refused"
 require_relative "../backend/aarch64/stub"
 require_relative "description"
 
@@ -17,7 +18,7 @@ module Zr
   # unit, or goes through a pointer with `Machine.call`. A form outside
   # the dialect is refused by name at its line.
   module Machine
-    class Refused < StandardError
+    class Refused < Zr::Refused
       attr_reader :line
 
       def initialize(node, message, file = nil)
@@ -75,7 +76,7 @@ module Zr
 
       def run
         @sources.each do |source, file|
-          result = ::Zr.parse(source, filepath: file)
+          result = Zr.parse(source, filepath: file)
           unless result.errors.empty?
             e = result.errors.first
             raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"

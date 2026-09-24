@@ -331,7 +331,7 @@ describe "Exceptions: blocks and yields" do
   end
 
   it "raise in an argument keeps the block unbuilt" do
-    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_RT_LEAKCHECK" => "1"})
 
       # A literal block's proc is MOVED to the callee, so no landing can release
       # it: on every path but the raise the callee has already taken the value
@@ -344,7 +344,7 @@ describe "Exceptions: blocks and yields" do
       # an argument, and each leaked one `Proc` (tag 24) per iteration. The block
       # is now built last, which is also ruby's own order.
       #
-      # `ZEO_RT_LEAKCHECK=1` is what makes this a test: the answers printed here
+      # `ZR_TEST_RT_LEAKCHECK=1` is what makes this a test: the answers printed here
       # are the same either way, and the ledger's exit balance is the measurement.
 
       def missing

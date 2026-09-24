@@ -2,6 +2,7 @@
 
 require_relative "../prism"
 require_relative "../paths"
+require_relative "../refused"
 require_relative "../libraries"
 require_relative "../target"
 require_relative "node"
@@ -9,7 +10,7 @@ require_relative "syntax_report"
 
 module Zr
   module Hir
-    class Refused < StandardError; end
+    class Refused < Zr::Refused; end
 
     # A form ruby itself refuses as it compiles, rather than one the HIR
     # does not hold yet. A build treats it as any other refusal -- it
@@ -619,7 +620,7 @@ module Zr
         def data_at(file) = @data[file]
 
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
-          result = scopes ? ::Zr.parse(source, filepath: file, line: line, scopes: scopes) : ::Zr.parse(source, filepath: file, line: line)
+          result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes) : Zr.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
           if (marker = result.data_loc)
             @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
@@ -653,7 +654,7 @@ module Zr
         # is not told the string runs inside other scopes, so it is asked
         # that way; ruby names every one, a line each.
         def invalid_yields(source, file, line)
-          yields = ::Zr.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
+          yields = Zr.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
           return nil if yields.empty?
 
           SyntaxError.new(yields.map { |e| "#{file}:#{e.location.start_line}: #{e.message}" }.join("\n")).tap do |exc|

@@ -47,7 +47,7 @@ module Zr
         # A slot that holds an external's address: in which segment, where
         # in its bytes, the distance to the next slot's entry, the name,
         # and the addend.
-        class Late < ::Zr::Record
+        class Late < Record
           FIELDS = %i[segment offset next name addend].freeze
           attr_accessor :segment, :offset, :next, :name, :addend
 

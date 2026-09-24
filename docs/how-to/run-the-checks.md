@@ -23,7 +23,7 @@ that build modules skip by name, and say so.
 The spec tier keeps what it builds. Each example's binary is kept
 under the cache, named by everything its bytes came from, and the next
 run of an example nothing has changed takes the binary and runs it: a
-directory of specs reruns in a third of the time. `ZR_BINARIES=0`
+directory of specs reruns in a third of the time. `ZR_TEST_BINARIES=0`
 turns that off; `rake cache:size` says how much is kept.
 
 After an edit, `rake affected` runs the specs the edit can reach --
@@ -68,7 +68,7 @@ to a forked worker, several at a time. Forking is what makes this
 parallel at all -- a zr compile is the compiler's own Ruby, and the
 GVL lets one thread at a time hold it -- and it is also what bounds
 memory, because ruby never gives heap pages back. A worker that grows
-past `ZR_RECYCLE_MB` is closed and another is forked in its place.
+past `ZR_TEST_RECYCLE_MB` is closed and another is forked in its place.
 
 `MT_CPU` says how many workers. The default is one per core, or one per
 2 GB of the machine's memory when that is fewer: a compile and the

@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
+require_relative "flags"
+
 module Zr
   # `ZR_TIMING=1` prints the seconds each phase of a build takes to
   # stderr, one line a phase, as it ends, and the collector's count
   # and its marking and sweeping milliseconds over the phase, which
   # ruby and a zr binary both report (GC.stat).
   def self.clock(label)
-    return yield unless ENV["ZR_TIMING"]
+    return yield unless Zr.flag?("ZR_TIMING")
 
     began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     before = collector

@@ -3,6 +3,7 @@
 require "rbconfig"
 require_relative "version"
 require_relative "paths"
+require_relative "flags"
 require_relative "target"
 
 module Zr
@@ -84,22 +85,18 @@ module Zr
     # them starts `script` again with them set (3.17 s against 3.47 s
     # for the runtime's 4,733 functions). With no `script` (a rake task),
     # the limits go only to the child processes. Only CRuby reads them.
-    # `ZR_GC=0` keeps ruby's limits; `ZR_YJIT=0` leaves YJIT off.
+    # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
 
     def tune!(script = nil)
-      if ENV["ZR_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT") && cruby?
+      return unless Zr.flag?("ZR_TUNE", default: true)
+
+      if !ENV.key?("RUBY_GC_MALLOC_LIMIT") && !Zr.compiled?
         ENV.update(GC_ENV)
         exec(RbConfig.ruby, script, *ARGV) if script
       end
-      RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZR_YJIT"] != "0"
+      RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable)
     end
-
-    # Whether this compiler runs on CRuby, and not as a program that zr
-    # compiled. A zr binary gives the same RUBY_ENGINE and RubyVM as
-    # ruby 4.0.6, but its RbConfig names zr as the interpreter
-    # (runtime/ext/rbconfig.rb).
-    def cruby? = RbConfig::CONFIG["ruby_install_name"] != "zr"
 
     # Why this compiler must not build on a ruby of `version`, or nil
     # when it is the ruby that zr pins. zr checks its output against that
@@ -266,7 +263,7 @@ module Zr
       return Zr.program(source, input, target: target) unless assemble
 
       Native::Build.lower(source, input, target: target)
-    rescue Machine::Refused, Hir::Refused, Zr::Lower::Refused => e
+    rescue Refused => e
       warn "zr: #{e.message}"
       exit REFUSED
     rescue Backend::Refused, Libraries::Unresolved => e
@@ -285,7 +282,7 @@ module Zr
         # carries none of it; there the report is the parser's.
         # A ruby that booted with gems has loaded it already, and a
         # second core_ext would wrap the message twice.
-        if cruby? && !defined?(SyntaxSuggest.module_for_detailed_message)
+        if !Zr.compiled? && !defined?(SyntaxSuggest.module_for_detailed_message)
           require_relative "libraries"
           syntax_suggest = File.join(Libraries.root, "syntax_suggest")
           require File.join(syntax_suggest, "api")

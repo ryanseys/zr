@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: splitting and joining" do
   it "armed each line streams a pipe the writer fills incrementally" do
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # each_line re-enters the with_file seam once per line, so the
       # consumer parks BETWEEN lines while main wakes to write the next
       # one; the closed write end ends the stream.

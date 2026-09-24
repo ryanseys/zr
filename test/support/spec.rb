@@ -56,13 +56,13 @@ module Zr
     # miscompile that loops does not stall the run. A collection at
     # every allocation marks the live set each time, so a stress run
     # gets four times as long.
-    LIMIT = Integer(ENV.fetch("ZR_LIMIT", 60))
+    LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
 
     def self.limit = ENV["ZR_GC_STRESS"] == "1" ? LIMIT * 4 : LIMIT
 
-    # The forms zr names as outside its subset. A refusal is not a
-    # defect: it is the roadmap, and it skips the example by name.
-    REFUSALS = [Machine::Refused, Hir::Refused, Zr::Lower::Refused].freeze
+    # A refusal is not a defect: zr does not support the form yet, and
+    # the example skips with the refusal's message.
+    REFUSALS = [Zr::Refused].freeze
 
     # A stop at run time the program did not rescue: ruby's report of
     # the NotImplementedError or LoadError it raised, or a kernel stop.

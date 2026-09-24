@@ -16,8 +16,8 @@ module Zr
     module Child
       # The most a build and a run may hold, in megabytes, summed over the
       # process group.
-      BUILD_MB = Integer(ENV.fetch("ZR_BUILD_MB", "2048"))
-      RUN_MB = Integer(ENV.fetch("ZR_RUN_MB", "1024"))
+      BUILD_MB = Integer(ENV.fetch("ZR_TEST_BUILD_MB", "2048"))
+      RUN_MB = Integer(ENV.fetch("ZR_TEST_RUN_MB", "1024"))
 
       # The environment a program gets when the question is "what does
       # ruby say", which is not the environment `bundle exec rake` runs

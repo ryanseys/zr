@@ -29,7 +29,7 @@ module Zr
     # `branches` holds each measured file's branch rows, by file name, in
     # the order Coverage numbers them, and `defs` each file's def and
     # block spans, which a definition claims to become a method row.
-    class Program < ::Zr::Record
+    class Program < Record
       FIELDS = %i[file locals body units warnings evals entries traced node_ids spots coverable activations branches
                   defs].freeze
       attr_accessor :file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable,
@@ -64,7 +64,7 @@ module Zr
     # not a digest of them, because the loader runs inside a program
     # that evals as well, and nothing there may reach for a library the
     # loader would then have to load.
-    class Unit < ::Zr::Record
+    class Unit < Record
       FIELDS = %i[file locals body warnings internal spots hidden source activates].freeze
       attr_accessor :file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates
 
@@ -86,7 +86,7 @@ module Zr
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.
-    class Require < ::Zr::Record
+    class Require < Record
       FIELDS = %i[kind feature path unit line].freeze
       attr_accessor :kind, :feature, :path, :unit, :line
 
@@ -105,7 +105,7 @@ module Zr
     # so that a build at run time can take the rows after them. Only a
     # program that carries the compiler needs it: nothing else compiles
     # anything once it has started.
-    class Activations < ::Zr::Record
+    class Activations < Record
       FIELDS = %i[count line].freeze
       attr_accessor :count, :line
 
@@ -120,7 +120,7 @@ module Zr
     # A form this runtime does not answer, held until the program runs
     # it. Reaching it stops the program by name; never reaching it costs
     # nothing.
-    class Stop < ::Zr::Record
+    class Stop < Record
       FIELDS = %i[what line].freeze
       attr_accessor :what, :line
 
@@ -136,7 +136,7 @@ module Zr
     # `declared` is an autoload of a feature a require would read no
     # file for: the name is declared and no row is kept, so nothing
     # waits for a file and `autoload?` answers nil.
-    class Autoload < ::Zr::Record
+    class Autoload < Record
       FIELDS = %i[recv name feature path unit line declared].freeze
       attr_accessor :recv, :name, :feature, :path, :unit, :line, :declared
 
@@ -153,7 +153,7 @@ module Zr
       def to_a = [@recv, @name, @feature, @path, @unit, @line, @declared]
     end
     # A statement list; its value is the last statement's.
-    class Seq < ::Zr::Record
+    class Seq < Record
       FIELDS = %i[stmts line].freeze
       attr_accessor :stmts, :line
 
@@ -175,7 +175,7 @@ module Zr
     # `covers` is a safe call's two branches, `[then, else]`, which
     # Coverage counts where a receiver was and was not nil; nil for
     # every other call.
-    class Send < ::Zr::Record
+    class Send < Record
       FIELDS = %i[recv name args line vcall opt block kwargs safe write using covers].freeze
       attr_accessor :recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using, :covers
 
@@ -200,7 +200,7 @@ module Zr
 
     # `using mod`: row `id` holds what row `from` held plus every
     # refinement `mod` carries. `from` is -1 where nothing was in use.
-    class Using < ::Zr::Record
+    class Using < Record
       FIELDS = %i[id from value line].freeze
       attr_accessor :id, :from, :value, :line
 
@@ -215,7 +215,7 @@ module Zr
     end
     # Before a statement that holds a `using` a condition may skip: each
     # `[id, from]` row holds what row `from` held until its `using` runs.
-    class UsingDefaults < ::Zr::Record
+    class UsingDefaults < Record
       FIELDS = %i[rows line].freeze
       attr_accessor :rows, :line
 
@@ -228,7 +228,7 @@ module Zr
     end
     # A value the lowering has already put in record slot `index`: the
     # lowering's own node, for a receiver or argument evaluated once.
-    class Slot < ::Zr::Record
+    class Slot < Record
       FIELDS = %i[index line].freeze
       attr_accessor :index, :line
 
@@ -243,7 +243,7 @@ module Zr
     # arguments evaluated once; `op` is an operator, or :or / :and.
     # `using` is the refinements in force, as a Send's, for each of the
     # sends it makes.
-    class IndexOpAssign < ::Zr::Record
+    class IndexOpAssign < Record
       FIELDS = %i[recv args op value line using].freeze
       attr_accessor :recv, :args, :op, :value, :line, :using
 
@@ -260,7 +260,7 @@ module Zr
     end
     # `safe` is `recv&.name op= value`: nil, with nothing else run,
     # when the receiver is nil.
-    class AttrOpAssign < ::Zr::Record
+    class AttrOpAssign < Record
       FIELDS = %i[recv name op value line safe using].freeze
       attr_accessor :recv, :name, :op, :value, :line, :safe, :using
 
@@ -277,7 +277,7 @@ module Zr
       def to_a = [@recv, @name, @op, @value, @line, @safe, @using]
     end
     # `*value` among arguments or elements.
-    class Splat < ::Zr::Record
+    class Splat < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -289,7 +289,7 @@ module Zr
       def to_a = [@value, @line]
     end
     # `**value` among a hash literal's pairs: the key, with a nil value.
-    class HashSplat < ::Zr::Record
+    class HashSplat < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -301,7 +301,7 @@ module Zr
       def to_a = [@value, @line]
     end
     # `&value`: the block a call passes on.
-    class BlockPass < ::Zr::Record
+    class BlockPass < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -314,7 +314,7 @@ module Zr
     end
     # A block literal: its parameters, every local of its scope
     # (parameters first), and its body.
-    class Block < ::Zr::Record
+    class Block < Record
       FIELDS = %i[params locals body line end_line cover].freeze
       attr_accessor :params, :locals, :body, :line, :end_line, :cover
 
@@ -330,7 +330,7 @@ module Zr
       def to_a = [@params, @locals, @body, @line, @end_line, @cover]
     end
     # `-> (params) { body }`: a Block that is a lambda from the start.
-    class Lambda < ::Zr::Record
+    class Lambda < Record
       FIELDS = %i[block line].freeze
       attr_accessor :block, :line
 
@@ -345,7 +345,7 @@ module Zr
     # `optional` and `keywords` are `[name, default]` pairs (a keyword
     # with no default is required), `rest`, `kwrest` and `block` are a
     # name or nil; a block's `|a, |` has the rest `:implicit`.
-    class Params < ::Zr::Record
+    class Params < Record
       FIELDS = %i[required optional rest post keywords kwrest block].freeze
       attr_accessor :required, :optional, :rest, :post, :keywords, :kwrest, :block
 
@@ -413,7 +413,7 @@ module Zr
         ]
       end
     end
-    class Yield < ::Zr::Record
+    class Yield < Record
       FIELDS = %i[args line kwargs].freeze
       attr_accessor :args, :line, :kwargs
 
@@ -431,7 +431,7 @@ module Zr
     # the block runs as a method `define_method` made.
     # `using` is the activation in force where the super stands, as on
     # a Send: ruby resolves a super under the refinements of its scope.
-    class Super < ::Zr::Record
+    class Super < Record
       FIELDS = %i[args kwargs block line in_block using].freeze
       attr_accessor :args, :kwargs, :block, :line, :in_block, :using
 
@@ -446,7 +446,7 @@ module Zr
 
       def to_a = [@args, @kwargs, @block, @line, @in_block, @using]
     end
-    class ZSuper < ::Zr::Record
+    class ZSuper < Record
       FIELDS = %i[block line].freeze
       attr_accessor :block, :line
 
@@ -457,7 +457,7 @@ module Zr
 
       def to_a = [@block, @line]
     end
-    class Break < ::Zr::Record
+    class Break < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -468,7 +468,7 @@ module Zr
 
       def to_a = [@value, @line]
     end
-    class Next < ::Zr::Record
+    class Next < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -482,7 +482,7 @@ module Zr
     # An Integer, String, Symbol, nil, true or false.
     # `chilled` marks a String literal of a file that sets no
     # frozen_string_literal: the String it makes warns on its first change.
-    class Literal < ::Zr::Record
+    class Literal < Record
       FIELDS = %i[value line chilled].freeze
       attr_accessor :value, :line, :chilled
 
@@ -494,7 +494,7 @@ module Zr
 
       def to_a = [@value, @line, @chilled]
     end
-    class SelfRef < ::Zr::Record
+    class SelfRef < Record
       FIELDS = %i[line].freeze
       attr_accessor :line
 
@@ -507,7 +507,7 @@ module Zr
     # `def name(params) body end`; its value is the name. `params` is a
     # Params; `receiver` is the expression of a singleton def
     # (`def self.x`, `def obj.x`), or nil.
-    class Def < ::Zr::Record
+    class Def < Record
       FIELDS = %i[name params locals body line receiver evals end_line cover].freeze
       attr_accessor :name, :params, :locals, :body, :line, :receiver, :evals, :end_line, :cover
 
@@ -527,7 +527,7 @@ module Zr
       def to_a = [@name, @params, @locals, @body, @line, @receiver, @evals, @end_line, @cover]
     end
     # `depth` counts block scopes up to the one that holds the local.
-    class Local < ::Zr::Record
+    class Local < Record
       FIELDS = %i[name depth line].freeze
       attr_accessor :name, :depth, :line
 
@@ -542,7 +542,7 @@ module Zr
     # The point a traced program fires a TracePoint `event` from: a
     # `:line` event, as ruby's compiler places one where a statement
     # starts a new line.
-    class Trace < ::Zr::Record
+    class Trace < Record
       FIELDS = %i[event line].freeze
       attr_accessor :event, :line
 
@@ -558,7 +558,7 @@ module Zr
     # one counter array, and `Program#branches` says which rows belong
     # to which file. Its value is nil, so it stands wherever a statement
     # may, including as the else a source never wrote.
-    class Cover < ::Zr::Record
+    class Cover < Record
       FIELDS = %i[id line].freeze
       attr_accessor :id, :line
 
@@ -569,7 +569,7 @@ module Zr
 
       def to_a = [@id, @line]
     end
-    class Assign < ::Zr::Record
+    class Assign < Record
       FIELDS = %i[name depth value line].freeze
       attr_accessor :name, :depth, :value, :line
 
@@ -585,7 +585,7 @@ module Zr
     # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
     # `taken` is false where nothing takes that value: a statement before
     # the last of a sequence, a loop body.
-    class MultiAssign < ::Zr::Record
+    class MultiAssign < Record
       FIELDS = %i[target value line taken].freeze
       attr_accessor :target, :value, :line, :taken
 
@@ -603,7 +603,7 @@ module Zr
     # or IvarWrite with a nil value, a Send with the value to append
     # (`h[k]`, `o.attr`), or a nested MultiTarget. As a block parameter,
     # a MultiTarget stands among the required names.
-    class MultiTarget < ::Zr::Record
+    class MultiTarget < Record
       FIELDS = %i[lefts rest rights line whole].freeze
       attr_accessor :lefts, :rest, :rights, :line, :whole
 
@@ -628,7 +628,7 @@ module Zr
       end
     end
     # `if`; `unless` arrives with its arms swapped. An arm may be nil.
-    class If < ::Zr::Record
+    class If < Record
       FIELDS = %i[cond yes no line].freeze
       attr_accessor :cond, :yes, :no, :line
 
@@ -643,7 +643,7 @@ module Zr
     end
     # `body_first` is a `begin ... end while cond`: the body runs once
     # before the first test.
-    class While < ::Zr::Record
+    class While < Record
       FIELDS = %i[cond body line body_first].freeze
       attr_accessor :cond, :body, :line, :body_first
 
@@ -656,7 +656,7 @@ module Zr
 
       def to_a = [@cond, @body, @line, @body_first]
     end
-    class Return < ::Zr::Record
+    class Return < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -668,7 +668,7 @@ module Zr
       def to_a = [@value, @line]
     end
     # `a && b`, `a || b`, `!a`: on truthiness, short circuit.
-    class And < ::Zr::Record
+    class And < Record
       FIELDS = %i[left right line].freeze
       attr_accessor :left, :right, :line
 
@@ -680,7 +680,7 @@ module Zr
 
       def to_a = [@left, @right, @line]
     end
-    class Or < ::Zr::Record
+    class Or < Record
       FIELDS = %i[left right line].freeze
       attr_accessor :left, :right, :line
 
@@ -692,7 +692,7 @@ module Zr
 
       def to_a = [@left, @right, @line]
     end
-    class Not < ::Zr::Record
+    class Not < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -706,7 +706,7 @@ module Zr
     # A class or module the core defines, read from the runtime and never
     # through lexical scope: what a desugaring names (`Array` in a
     # pattern), so a program's own `Array` cannot stand in for it.
-    class Core < ::Zr::Record
+    class Core < Record
       FIELDS = %i[name line].freeze
       attr_accessor :name, :line
 
@@ -719,7 +719,7 @@ module Zr
     end
     # A body that runs the first time its site is reached and never again
     # (CRuby's `once` instruction), as `END { }` registers.
-    class Once < ::Zr::Record
+    class Once < Record
       FIELDS = %i[body line].freeze
       attr_accessor :body, :line
 
@@ -732,7 +732,7 @@ module Zr
     end
     # `class Name < superclass; body; end`. `scope` is nil for a bare
     # name, `:top` for `::Name`, else the expression before `::`.
-    class ClassDef < ::Zr::Record
+    class ClassDef < Record
       FIELDS = %i[scope name superclass locals body line end_line].freeze
       attr_accessor :scope, :name, :superclass, :locals, :body, :line, :end_line
 
@@ -748,7 +748,7 @@ module Zr
 
       def to_a = [@scope, @name, @superclass, @locals, @body, @line, @end_line]
     end
-    class ModuleDef < ::Zr::Record
+    class ModuleDef < Record
       FIELDS = %i[scope name locals body line end_line].freeze
       attr_accessor :scope, :name, :locals, :body, :line, :end_line
 
@@ -765,7 +765,7 @@ module Zr
     end
     # `class << target; body; end`: the body runs with the singleton
     # class as self and as the definee.
-    class SingletonClassDef < ::Zr::Record
+    class SingletonClassDef < Record
       FIELDS = %i[target locals body line end_line].freeze
       attr_accessor :target, :locals, :body, :line, :end_line
 
@@ -779,7 +779,7 @@ module Zr
 
       def to_a = [@target, @locals, @body, @line, @end_line]
     end
-    class ConstRead < ::Zr::Record
+    class ConstRead < Record
       FIELDS = %i[scope name line].freeze
       attr_accessor :scope, :name, :line
 
@@ -791,7 +791,7 @@ module Zr
 
       def to_a = [@scope, @name, @line]
     end
-    class ConstWrite < ::Zr::Record
+    class ConstWrite < Record
       FIELDS = %i[scope name value line].freeze
       attr_accessor :scope, :name, :value, :line
 
@@ -804,7 +804,7 @@ module Zr
 
       def to_a = [@scope, @name, @value, @line]
     end
-    class IvarRead < ::Zr::Record
+    class IvarRead < Record
       FIELDS = %i[name line].freeze
       attr_accessor :name, :line
 
@@ -815,7 +815,7 @@ module Zr
 
       def to_a = [@name, @line]
     end
-    class GvarRead < ::Zr::Record
+    class GvarRead < Record
       FIELDS = %i[name line].freeze
       attr_accessor :name, :line
 
@@ -827,7 +827,7 @@ module Zr
       def to_a = [@name, @line]
     end
     # `shown` is the name the program wrote, where it is not `name`.
-    class GvarWrite < ::Zr::Record
+    class GvarWrite < Record
       FIELDS = %i[name value line shown].freeze
       attr_accessor :name, :value, :line, :shown
 
@@ -840,7 +840,7 @@ module Zr
 
       def to_a = [@name, @value, @line, @shown]
     end
-    class CvarRead < ::Zr::Record
+    class CvarRead < Record
       FIELDS = %i[name line].freeze
       attr_accessor :name, :line
 
@@ -851,7 +851,7 @@ module Zr
 
       def to_a = [@name, @line]
     end
-    class CvarWrite < ::Zr::Record
+    class CvarWrite < Record
       FIELDS = %i[name value line].freeze
       attr_accessor :name, :value, :line
 
@@ -864,7 +864,7 @@ module Zr
       def to_a = [@name, @value, @line]
     end
     # `Name ||= value`: set only when unset or falsy.
-    class ConstOrWrite < ::Zr::Record
+    class ConstOrWrite < Record
       FIELDS = %i[scope name value line].freeze
       attr_accessor :scope, :name, :value, :line
 
@@ -878,7 +878,7 @@ module Zr
       def to_a = [@scope, @name, @value, @line]
     end
     # `alias new old`.
-    class Alias < ::Zr::Record
+    class Alias < Record
       FIELDS = %i[new_name old_name line].freeze
       attr_accessor :new_name, :old_name, :line
 
@@ -891,7 +891,7 @@ module Zr
       def to_a = [@new_name, @old_name, @line]
     end
     # `alias $new $old`: one global under two names.
-    class GvarAlias < ::Zr::Record
+    class GvarAlias < Record
       FIELDS = %i[new_name old_name line].freeze
       attr_accessor :new_name, :old_name, :line
 
@@ -904,7 +904,7 @@ module Zr
       def to_a = [@new_name, @old_name, @line]
     end
     # `undef name, ...`.
-    class Undef < ::Zr::Record
+    class Undef < Record
       FIELDS = %i[names line].freeze
       attr_accessor :names, :line
 
@@ -917,7 +917,7 @@ module Zr
     end
 
     # `alias :"#{a}" :"#{b}"` and `undef :"#{a}"`: the names are values.
-    class AliasValue < ::Zr::Record
+    class AliasValue < Record
       FIELDS = %i[new_name old_name line].freeze
       attr_accessor :new_name, :old_name, :line
 
@@ -930,7 +930,7 @@ module Zr
       def to_a = [@new_name, @old_name, @line]
     end
 
-    class UndefValue < ::Zr::Record
+    class UndefValue < Record
       FIELDS = %i[names line].freeze
       attr_accessor :names, :line
 
@@ -945,7 +945,7 @@ module Zr
     # :cvar, :const, :method, :yield, :super, :self, :nil, :true, :false,
     # :assignment, :expression); `target` is the name, the ConstRead, or
     # the Send the form asks about.
-    class Defined < ::Zr::Record
+    class Defined < Record
       FIELDS = %i[kind target line].freeze
       attr_accessor :kind, :target, :line
 
@@ -959,7 +959,7 @@ module Zr
     end
     # `case subject; when a, b then body; ... else else_body end`. Each
     # clause is `[values, body]`; a nil subject tests each value itself.
-    class Case < ::Zr::Record
+    class Case < Record
       FIELDS = %i[subject clauses else_body line].freeze
       attr_accessor :subject, :clauses, :else_body, :line
 
@@ -972,7 +972,7 @@ module Zr
 
       def to_a = [@subject, @clauses, @else_body, @line]
     end
-    class IvarWrite < ::Zr::Record
+    class IvarWrite < Record
       FIELDS = %i[name value line].freeze
       attr_accessor :name, :value, :line
 
@@ -987,7 +987,7 @@ module Zr
     # `[a, b]`; `frozen` where a `# shareable_constant_value: literal`
     # constant holds it, built frozen with no send (compile.c freezes it
     # in the compiler).
-    class ArrayLit < ::Zr::Record
+    class ArrayLit < Record
       FIELDS = %i[elements line frozen].freeze
       attr_accessor :elements, :line, :frozen
 
@@ -1002,7 +1002,7 @@ module Zr
     # The keywords of an array literal made only of double splats, as an
     # Array to splat: `[h]`, or `[]` when they come out empty, so `[**{}]`
     # adds no element (CRuby's pushtoarraykwsplat).
-    class KwSplatElement < ::Zr::Record
+    class KwSplatElement < Record
       FIELDS = %i[pairs line].freeze
       attr_accessor :pairs, :line
 
@@ -1015,7 +1015,7 @@ module Zr
     end
     # `{k => v, ...}`: `pairs` is a flat list, key then value; `frozen`
     # as an ArrayLit's.
-    class HashLit < ::Zr::Record
+    class HashLit < Record
       FIELDS = %i[pairs line frozen].freeze
       attr_accessor :pairs, :line, :frozen
 
@@ -1031,7 +1031,7 @@ module Zr
     # `$1` and the other numbered groups (`kind` :nth, `number` the
     # group, 0 for `$&`), `` $` `` (:pre), `$'` (:post) and `$+` (:last),
     # read from `$~`'s registers, never through MatchData's methods.
-    class BackRef < ::Zr::Record
+    class BackRef < Record
       FIELDS = %i[kind number line].freeze
       attr_accessor :kind, :number, :line
 
@@ -1045,7 +1045,7 @@ module Zr
     end
     # `static` when both ends are Integer or nil literals: one frozen
     # Range for the site.
-    class RangeLit < ::Zr::Record
+    class RangeLit < Record
       FIELDS = %i[low high exclusive line static].freeze
       attr_accessor :low, :high, :exclusive, :line, :static
 
@@ -1060,7 +1060,7 @@ module Zr
       def to_a = [@low, @high, @exclusive, @line, @static]
     end
     # `"a#{b}c"`: literal and expression parts in order.
-    class Interp < ::Zr::Record
+    class Interp < Record
       FIELDS = %i[parts line].freeze
       attr_accessor :parts, :line
 
@@ -1073,7 +1073,7 @@ module Zr
     end
     # A regexp literal: its source and option bits; one object per site.
     # `/#{x}/o`: the interpolated regexp its site keeps after the first run.
-    class RegexpOnce < ::Zr::Record
+    class RegexpOnce < Record
       FIELDS = %i[value line].freeze
       attr_accessor :value, :line
 
@@ -1085,7 +1085,7 @@ module Zr
       def to_a = [@value, @line]
     end
 
-    class RegexpLit < ::Zr::Record
+    class RegexpLit < Record
       FIELDS = %i[source options pinned line].freeze
       attr_accessor :source, :options, :pinned, :line
 
@@ -1104,7 +1104,7 @@ module Zr
     # the shared String with no send, as the compiler's own fstring; false
     # is the same for a text outside UTF-8, frozen with no send but not
     # shared.
-    class FrozenString < ::Zr::Record
+    class FrozenString < Record
       FIELDS = %i[value line shared].freeze
       attr_accessor :value, :line, :shared
 
@@ -1121,7 +1121,7 @@ module Zr
     # every way out. `rescues` are Rescue nodes in order; `else_body` and
     # `ensure_body` may be nil. A `rescue` modifier is a Begin with one
     # clause and no classes.
-    class Begin < ::Zr::Record
+    class Begin < Record
       FIELDS = %i[body rescues else_body ensure_body line].freeze
       attr_accessor :body, :rescues, :else_body, :ensure_body, :line
 
@@ -1139,7 +1139,7 @@ module Zr
     # may be a Splat), the target that takes the exception (`=> e`, an
     # Assign, IvarWrite or Send target with a nil value) or nil, and the
     # handler.
-    class Rescue < ::Zr::Record
+    class Rescue < Record
       FIELDS = %i[classes target body line].freeze
       attr_accessor :classes, :target, :body, :line
 
@@ -1153,7 +1153,7 @@ module Zr
       def to_a = [@classes, @target, @body, @line]
     end
     # `retry`: the begin body again, from a rescue clause.
-    class Retry < ::Zr::Record
+    class Retry < Record
       FIELDS = %i[line].freeze
       attr_accessor :line
 
@@ -1165,7 +1165,7 @@ module Zr
     end
     # `redo`: the loop body or block body again, without a new test or
     # new arguments.
-    class Redo < ::Zr::Record
+    class Redo < Record
       FIELDS = %i[line].freeze
       attr_accessor :line
 

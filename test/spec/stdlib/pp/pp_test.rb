@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "PP programs" do
   it "compiled code releases a dead slot" do
-    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_RT_LEAKCHECK" => "1"})
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -14,7 +14,7 @@ describe "PP programs" do
 
       # At exit: cycle leak: 11 objects (Array x7, PP x1, PrettyPrint::Group x1, PrettyPrint::GroupQueue x1, Proc x1)
       # Compiled code must not hand `zeo_rt_release` a stack slot that holds no
-      # live value. This program did, and `ZEO_RT_LEAKCHECK=1` reported tag byte
+      # live value. This program did, and `ZR_TEST_RT_LEAKCHECK=1` reported tag byte
       # 176 -- not a value tag (they run 0..33) and not the poison byte a released
       # slot is stamped with (0xFF). The release then ran `drop_in_place` over
       # whatever the stack had there.
@@ -47,7 +47,7 @@ describe "PP programs" do
       # a path-insensitive site counter, and an uninitialised slot is not an
       # ownership event.
       #
-      # The `.leakcheck` sidecar is load-bearing: without `ZEO_RT_LEAKCHECK=1` the
+      # The `.leakcheck` sidecar is load-bearing: without `ZR_TEST_RT_LEAKCHECK=1` the
       # program prints the right answer either way.
       #
       # Oracle: the program prints its line and exits 0.

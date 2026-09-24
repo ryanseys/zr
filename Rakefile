@@ -44,9 +44,9 @@ end
 # `GC=stress` collects at every allocation. bin/test reads the same two.
 ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
-# Every task runs the compiler under ruby, unless `ZR_SELF=1` asks for
+# Every task runs the compiler under ruby, unless `ZR_COMPILED=1` asks for
 # the compiled compiler (lib/zr/compiled_compiler.rb).
-ENV["ZR_SELF"] ||= "0"
+ENV["ZR_COMPILED"] ||= "0"
 
 desc "Build the zr runtime for this host (bin/test also builds it when it is missing)"
 task("build") { zr_build("Zr::Test::Built.targets") }

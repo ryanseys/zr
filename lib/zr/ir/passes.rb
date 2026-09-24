@@ -3,6 +3,7 @@
 require "set"
 
 require_relative "function"
+require_relative "../flags"
 require_relative "gvn"
 require_relative "licm"
 require_relative "statics"
@@ -76,7 +77,7 @@ module Zr
       # dominance and type checks cost a pass of their own, so a build
       # runs them only under `ZR_VERIFY=1`; the checks that run the IR
       # against the interpreter always do.
-      def prepare(f, strict: ENV["ZR_VERIFY"] == "1")
+      def prepare(f, strict: Zr.flag?("ZR_VERIFY"))
         run(f)
         Verify.check(f, strict: strict)
       end

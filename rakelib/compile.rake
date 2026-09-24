@@ -83,7 +83,8 @@ module CompileBench
   # under "" -- measured here rather than summed, since the phases do
   # not cover the process's own start.
   def build(rb, out, compiled: false)
-    env = { "ZR_TIMING" => "1", "ZR_GC" => "0" }
+    # The GC limits set here stop `zr` from starting itself again.
+    env = { "ZR_TIMING" => "1", **Zr::CLI::GC_ENV }
     command = [RbConfig.ruby, File.join(ROOT, "exe/zr")]
     if compiled
       env["ZR_CACHE"] = COMPILED_CACHE
@@ -123,7 +124,7 @@ module CompileBench
     Dir.mktmpdir("zr-compile-") { |work| build(rung, File.join(work, "out")) }
     print "the compiled compiler ... "
     took = Benchmark.realtime do
-      system({ "ZR_GC" => "0" }, RbConfig.ruby, File.join(ROOT, "exe/zr"), "build", File.join(ROOT, "exe/zr"),
+      system(Zr::CLI::GC_ENV, RbConfig.ruby, File.join(ROOT, "exe/zr"), "build", File.join(ROOT, "exe/zr"),
              "-o", COMPILED, out: File::NULL, chdir: ROOT) or abort("rake compile: the compiler did not build")
     end
     puts format("%.1fs", took)

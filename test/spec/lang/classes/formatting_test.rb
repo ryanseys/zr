@@ -1380,15 +1380,15 @@ describe "Classes: formatting and inspection" do
 
       # --- ENV: an Object with Hash-shaped methods, not a Hash -------------------
       p ENV.class
-      ENV["ZEO_EXAMPLE"] = "set"
-      p ENV["ZEO_EXAMPLE"]
-      p ENV.key?("ZEO_EXAMPLE")
-      p ENV.fetch("ZEO_EXAMPLE")
-      p ENV.fetch("ZEO_ABSENT", "default")
-      p ENV.fetch("ZEO_ABSENT") { |k| "computed:#{k}" }
-      p ENV["ZEO_ABSENT"]
-      p ENV.delete("ZEO_EXAMPLE")
-      p ENV.key?("ZEO_EXAMPLE")
+      ENV["ZR_TEST_EXAMPLE"] = "set"
+      p ENV["ZR_TEST_EXAMPLE"]
+      p ENV.key?("ZR_TEST_EXAMPLE")
+      p ENV.fetch("ZR_TEST_EXAMPLE")
+      p ENV.fetch("ZR_TEST_ABSENT", "default")
+      p ENV.fetch("ZR_TEST_ABSENT") { |k| "computed:#{k}" }
+      p ENV["ZR_TEST_ABSENT"]
+      p ENV.delete("ZR_TEST_EXAMPLE")
+      p ENV.key?("ZR_TEST_EXAMPLE")
       p ENV.to_h.class
       p ENV.keys.class
 
@@ -1400,7 +1400,7 @@ describe "Classes: formatting and inspection" do
       true
       "set"
       "default"
-      "computed:ZEO_ABSENT"
+      "computed:ZR_TEST_ABSENT"
       nil
       "set"
       false
@@ -1476,7 +1476,7 @@ describe "Classes: formatting and inspection" do
 
   it "env gated class stays concealed" do
     result = zr(<<~'RUBY')
-      if ENV["ZEO_NOPE"]
+      if ENV["ZR_TEST_NOPE"]
         class Gated
           def x = 1
         end

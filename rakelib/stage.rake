@@ -96,7 +96,7 @@ module Stages
   # so the comparison holds the linker to the same fixed point. Its UUID
   # is the image's hash, and the signature hashes the image, so both
   # follow from the rest. They are blanked all the same: under
-  # `ZR_LINK=cc`, `ld` writes a fresh UUID each link and the signature
+  # `ZR_LINKER=cc`, `ld` writes a fresh UUID each link and the signature
   # over its page, and no input decides those.
   def two
     zr_tune!

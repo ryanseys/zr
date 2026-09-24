@@ -2166,7 +2166,7 @@ describe "Fusion programs" do
   end
 
   it "raise before a fused loop reaches the landing" do
-    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_RT_LEAKCHECK" => "1"})
 
       # The landing block is shared: `Fx::new` creates ONE of it and every
       # `Fx::fallible` branches there, so a raise anywhere in a method reaches the
@@ -2178,7 +2178,7 @@ describe "Fusion programs" do
       # was emitted, and a raise BEFORE the loop reached the landing without ever
       # running that block. This pins the path.
       #
-      # Runs under `ZEO_RT_LEAKCHECK=1`; the printed output is the same either way.
+      # Runs under `ZR_TEST_RT_LEAKCHECK=1`; the printed output is the same either way.
       #
       # HONEST LIMIT: this golden does NOT reproduce the bug on the pre-fix
       # emitter -- it was tried, and it came out clean. The released bytes are

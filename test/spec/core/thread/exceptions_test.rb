@@ -557,8 +557,8 @@ describe "Thread: raising and rescuing" do
   end
 
   it "retired scheduler knobs are silently ignored" do
-    result = zr(<<~'RUBY', argv: ["--no-gvl"], env: {"ZEO_THREADS" => "not-a-number"})
-      # `ZEO_THREADS`/`--no-gvl` configure nothing -- threads are always real OS
+    result = zr(<<~'RUBY', argv: ["--no-gvl"], env: {"ZR_TEST_THREADS" => "not-a-number"})
+      # `ZR_TEST_THREADS`/`--no-gvl` configure nothing -- threads are always real OS
       # threads. A value, even a malformed one, is silently ignored rather than a
       # startup error, so existing scripts keep running.
 

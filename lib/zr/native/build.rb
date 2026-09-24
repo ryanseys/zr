@@ -28,8 +28,12 @@ module Zr
     module Build
       module_function
 
-      # Which linker writes a binary: `auto`, `ruby` or `cc`.
-      LINKER = ENV.fetch("ZR_LINK", "auto")
+      # Which linker writes a binary (`ZR_LINKER`): `auto` (zr's own, and
+      # cc for what it cannot link), `ruby` (zr's own only) or `cc`.
+      LINKERS = %w[auto ruby cc].freeze
+      LINKER = (ENV["ZR_LINKER"].to_s.empty? ? "auto" : ENV["ZR_LINKER"]).tap do |name|
+        raise ArgumentError, "ZR_LINKER=#{name}: use #{LINKERS.join(", ")}" unless LINKERS.include?(name)
+      end
 
       # A unit of fewer IR instructions than this assembles in this
       # process: a worker costs more than a program's own functions do.
@@ -69,7 +73,7 @@ module Zr
 
       # Answers nil, or the message of the step that refused. `objects` are
       # prebuilt objects linked in beside this one; `strip` leaves out what
-      # nothing calls. `road` (`ZR_LINK`) picks the linker where the
+      # nothing calls. `road` (`ZR_LINKER`) picks the linker where the
       # target has more than one.
       def binary(functions, data, out, work:, raw: [], objects: [], strip: false, linker: LINKER, target: Target.default, jobs: Build.jobs)
         image = unit(functions, data, raw: raw, export: !objects.empty?, target: target, jobs: jobs)
@@ -87,7 +91,7 @@ module Zr
         objects = [runtime_object(program.runtime, jobs: jobs)]
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
         functions, raw = program.functions.partition { |f| f.is_a?(IR::Function) }
-        ::Zr.clock("program object written and linked") do
+        Zr.clock("program object written and linked") do
           binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs)
         end
@@ -126,7 +130,7 @@ module Zr
         kept = (@prelinks ||= {})[path] ||= File.exist?(path) && Obj::MachO::Prelink.load(File.binread(path))
         return kept if kept
 
-        ::Zr.clock("objects prelinked") do
+        Zr.clock("objects prelinked") do
           Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Zr.write_cache(path, base.dump) }
         end
       end
@@ -144,24 +148,26 @@ module Zr
         File.join(Zr.cache, "prelink-#{key}.bin")
       end
 
+      # Where the skeleton of `objects` is kept, beside their prelink.
+      def skeleton_path(objects) = prelink_path(objects)&.sub(/prelink-(\h+)\.bin\z/, 'skeleton-\1.bin')
+
       # The skeleton of a binary linked beside `objects` -- the bytes every
       # such binary begins with (`Obj::MachO::Skeleton`) -- as a file under
       # the cache, beside the prelink it is cut from; nil where the prelink
       # is not a cached one. Written once per prelink and kept.
       def skeleton(objects)
-        path = prelink_path(objects) or return nil
-        path = path.sub(/prelink-(\h+)\.bin\z/, 'skeleton-\1.bin')
+        path = skeleton_path(objects) or return nil
         (@skeletons ||= {})[path] ||= File.exist?(path) ? path : Zr.write_cache(path, Obj::MachO::Skeleton.bytes(prelink(objects)))
       end
 
-      # The compiler's object, built once per road.
+      # The eval support object, built once for each key.
       def eval_support_object(support, jobs: Build.jobs)
         obj = support.object_path
         return obj if File.exist?(obj)
 
         Paths.tmpdir("zr-eval-") do |work|
           fresh = File.join(work, "eval.o")
-          why = ::Zr.clock("eval support object assembled and written") { object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs) }
+          why = Zr.clock("eval support object assembled and written") { object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs) }
           raise "the compiler did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -171,12 +177,12 @@ module Zr
 
       # The runtime's object, built once per digest (which names the target).
       def runtime_object(runtime, jobs: Build.jobs)
-        obj = File.join(Zr.cache, "rt-#{runtime.digest}.o")
+        obj = runtime.object_path
         return obj if File.exist?(obj)
 
-        Paths.tmpdir("zr-rt-") do |work|
-          fresh = File.join(work, "rt.o")
-          why = ::Zr.clock("runtime object assembled and written") do
+        Paths.tmpdir("zr-runtime-") do |work|
+          fresh = File.join(work, "runtime.o")
+          why = Zr.clock("runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs)
           end
           raise "the runtime did not build: #{why}" if why

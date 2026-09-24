@@ -333,12 +333,12 @@ describe "GC programs" do
   end
 
   it "cycle is collected without being asked" do
-    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
-      # The collector only exists under `ZEO_GC=1`; without it `GC.start` bumps a
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GC" => "1"})
+      # The collector only exists under `ZR_TEST_GC=1`; without it `GC.start` bumps a
       # counter and nothing is reclaimed, so both answers read false. CRuby always
       # collects, so the oracle needs no counterpart.
       # The cycle this program builds on purpose, and the census the
-      # `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
+      # `ZR_TEST_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
       # defect: it is a ring the program never broke. What the leg gates is a
       # CHANGE to the line below.
       #
@@ -386,7 +386,7 @@ describe "GC programs" do
       p GC.count > before
       p watch.size == 0
 
-      # The exit census is what `ZEO_RT_GCCHECK=1` writes, and it has to be the same
+      # The exit census is what `ZR_TEST_RT_GCCHECK=1` writes, and it has to be the same
       # every run or it gates nothing. What the automatic trigger leaves behind is
       # the LAST generation, and how big that is depends on exactly where the
       # trigger fired -- it moved between 1002 and 1010 objects under load. One
@@ -399,8 +399,8 @@ describe "GC programs" do
   end
 
   it "cycle is reclaimed" do
-    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
-      # This golden needs zeo's cycle collector armed (`ZEO_GC=1`), which is what
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GC" => "1"})
+      # This golden needs zeo's cycle collector armed (`ZR_TEST_GC=1`), which is what
       # the harness sets when this sidecar is present. The oracle needs no
       # counterpart: CRuby always collects.
       # zeo's heap is reference counted, so a cycle's counts never reach zero and
@@ -725,8 +725,8 @@ describe "GC programs" do
   end
 
   it "cycle is reclaimed beside live threads" do
-    result = zr(<<~'RUBY', env: {"ZEO_GC" => "1"})
-      # This golden needs the cycle collector armed: without `ZEO_GC=1` zeo has no
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GC" => "1"})
+      # This golden needs the cycle collector armed: without `ZR_TEST_GC=1` zeo has no
       # collector at all and both counts read 2. CRuby always collects, so the oracle
       # needs no counterpart.
 
@@ -737,7 +737,7 @@ describe "GC programs" do
       # other Ruby thread first, and before this it simply refused to run whenever
       # it was not alone.
       #
-      # Both shapes below leaked under `ZEO_GC=1`: one busy worker thread was enough
+      # Both shapes below leaked under `ZR_TEST_GC=1`: one busy worker thread was enough
       # to make `GC.start` a no-op.
       #
       # The threads park at a `check_ints` checkpoint, never at an allocation site.

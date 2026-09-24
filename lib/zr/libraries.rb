@@ -92,7 +92,7 @@ module Zr
     # is. Only a build that evals writes them (Zr.load_tables); any
     # other compiled compiler finds the tree as ruby does.
     def carried
-      return nil unless RbConfig::CONFIG["ruby_install_name"] == "zr" && defined?(::Zr::Eval::Runtime)
+      return nil unless Zr.compiled? && defined?(::Zr::Eval::Runtime)
 
       names = ::Zr::Eval::Runtime.library_roots
       names.size > APART.size ? names : nil
@@ -144,12 +144,12 @@ module Zr
 
     # The resolve, in a ruby with rubygems. Its refusal is this build's.
     def resolve
-      ruby = RbConfig::CONFIG["ruby_install_name"] == "zr" ? ENV.fetch("ZR_RUBY", "ruby") : RbConfig.ruby
+      ruby = Zr.compiled? ? ENV.fetch("ZR_HOST_RUBY", "ruby") : RbConfig.ruby
       script = File.join(__dir__, "libraries/resolve.rb")
       out = IO.popen(UNBUNDLED, [ruby, script, dir], err: %i[child out], &:read)
       raise Unresolved, out.strip.sub(/\Azr: /, "") unless $?.success?
     rescue SystemCallError => e
-      raise Unresolved, "no ruby to resolve the pinned gems with (#{e.message}); ZR_RUBY names one"
+      raise Unresolved, "no ruby to resolve the pinned gems with (#{e.message}); ZR_HOST_RUBY names one"
     end
   end
 end

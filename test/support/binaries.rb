@@ -28,9 +28,9 @@ module Zr
     # them back from the prelink in memory -- the text as the link
     # leaves it -- and what is kept is deflated. A whole spec tier is
     # then five gigabytes, not two hundred, and `trim` keeps the
-    # directory under `ZR_BINARIES_GB` by dropping what was used
+    # directory under `ZR_TEST_BINARIES_GB` by dropping what was used
     # longest ago. A module has no prelink to draw on and is kept whole,
-    # so it is kept only when asked (`ZR_BINARIES=1`); `ZR_BINARIES=0`
+    # so it is kept only when asked (`ZR_TEST_BINARIES=1`); `ZR_TEST_BINARIES=0`
     # keeps nothing.
     #
     # The key fails closed. It holds the runtime's digest for the target
@@ -47,13 +47,13 @@ module Zr
       # The environment a build reads that decides its bytes -- and
       # `ZR_VERIFY`, which decides whether the lowering checks itself,
       # so a verifying run lowers rather than takes.
-      ENVIRONMENT = %w[ZR_LINK ZR_EVAL ZR_VERIFY ZR_WASM_NAMES ZR_WASM_WIDTH].freeze
+      ENVIRONMENT = %w[ZR_LINKER ZR_EVAL ZR_VERIFY ZR_WASM_NAMES ZR_WASM_WIDTH].freeze
       PAGE = Obj::MachO::Prelink::PAGE
 
       module_function
 
       def wanted?(target)
-        case ENV["ZR_BINARIES"]
+        case ENV["ZR_TEST_BINARIES"]
         when "1" then true
         when "0" then false
         else target.link
@@ -62,7 +62,7 @@ module Zr
 
       def directory = File.join(Zr.cache, "binaries")
 
-      def limit = Float(ENV.fetch("ZR_BINARIES_GB", 8)) * (1 << 30)
+      def limit = Float(ENV.fetch("ZR_TEST_BINARIES_GB", 8)) * (1 << 30)
 
       # Where the binary of this example is kept, or nil where no key
       # can describe it.

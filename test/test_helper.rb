@@ -4,9 +4,10 @@ require "minitest/autorun"
 
 # The checks hold ruby's own road; a compiled compiler of the tree runs
 # only where a check asks for it (lib/zr/compiled_compiler.rb).
-ENV["ZR_SELF"] ||= "0"
+ENV["ZR_COMPILED"] ||= "0"
 
 require_relative "../lib/zr/target"
+require_relative "../lib/zr/flags"
 require_relative "support/fork_pool"
 require_relative "support/harness/clean_env"
 require "tmpdir"
@@ -36,10 +37,10 @@ Minitest::Test.parallelize_me!
 # a second read as `(57.20s)` for having failed late in a tier. `SLOW`
 # asks for the times, and CI writes the JUnit file a failure renders
 # from in the web view.
-if ENV["SLOW"] || ENV["CI"]
+if Zr.flag?("SLOW") || ENV["CI"]
   require "minitest/reporters"
   Minitest::Reporters.use!(
-    [*(Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false) if ENV["SLOW"]),
+    [*(Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false) if Zr.flag?("SLOW")),
      *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
   )
 end
@@ -62,8 +63,8 @@ module Checks
   # The memory is watched rather than asked for: wasmtime's own
   # `max-memory-size` bounds the module's linear memory and not what the
   # process resides in, which is what runs the machine out.
-  LIMIT = Integer(ENV.fetch("ZR_LIMIT", 60))
-  RESIDENT = Integer(ENV.fetch("ZR_RESIDENT", 2048))
+  LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
+  RESIDENT = Integer(ENV.fetch("ZR_TEST_RESIDENT_MB", 2048))
 
   module_function
 

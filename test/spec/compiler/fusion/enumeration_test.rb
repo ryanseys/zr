@@ -246,7 +246,7 @@ describe "Fusion: enumeration" do
       # Both loops splice into the enclosing scope and both first-assign `r`, so
       # each gets storage of its own for its loop's extent. The two storages are
       # registered under synthetic keys, and a key collision left the first loop's
-      # value with no release -- visible only under `ZEO_RT_LEAKCHECK`, which the
+      # value with no release -- visible only under `ZR_TEST_RT_LEAKCHECK`, which the
       # memcheck leg runs over every golden.
       1.times do |i|
         r = "a" + i.to_s

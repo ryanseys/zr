@@ -99,7 +99,7 @@ module Zr
         # A segment of the image. `pieces` are its file bytes, one after
         # another, each `[bytes, hashes, dirty pages]`: `hashes` are the
         # pages' hashes kept with a base, and nil for bytes made here.
-        class Segment < ::Zr::Record
+        class Segment < Record
           FIELDS = %i[name vm vmsize fileoff filesize prot flags sections pieces starts].freeze
           attr_accessor :name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts
 
@@ -120,7 +120,7 @@ module Zr
           def to_a = [@name, @vm, @vmsize, @fileoff, @filesize, @prot, @flags, @sections, @pieces, @starts]
         end
         # A section: its name, address, size, alignment and flags.
-        class Section < ::Zr::Record
+        class Section < Record
           FIELDS = %i[name vm size align flags].freeze
           attr_accessor :name, :vm, :size, :align, :flags
 

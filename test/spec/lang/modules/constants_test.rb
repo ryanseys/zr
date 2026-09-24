@@ -175,7 +175,7 @@ describe "Modules: constants" do
         def prompt(q) = "clear: #{q}"
       end
 
-      Prompt = ENV.key?("ZEO_USES_HIGHLINE") ? Highline : Clear
+      Prompt = ENV.key?("ZR_TEST_USES_HIGHLINE") ? Highline : Clear
 
       class KeyFactory
         include Prompt

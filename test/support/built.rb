@@ -38,10 +38,10 @@ module Zr
       end
 
       # Builds the caches of each target that has none, then loads them
-      # into this process for the workers to share. `ZR_BUILT=0` skips
+      # into this process for the workers to share. `ZR_TEST_BUILT=0` skips
       # both, for a test file that builds no program.
       def ready!(wasm: false)
-        return if ENV["ZR_BUILT"] == "0"
+        return unless Zr.flag?("ZR_TEST_BUILT", default: true)
 
         build(targets(wasm: wasm))
         targets(wasm: wasm).each { |target| load(target) }

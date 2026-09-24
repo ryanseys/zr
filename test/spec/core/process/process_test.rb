@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Process programs" do
   it "armed gvl holder waiting on a child process does not stall its siblings" do
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # The process-family probe: the backtick child spins until main
       # creates its flag file, and main can only run if the thread parked
       # in read_to_end/wait(2) released the armed Gvl -- without the
@@ -2402,13 +2402,13 @@ describe "Process programs" do
       puts "sh=#{$?.exitstatus}"
 
       # A leading env hash is passed through to the child.
-      pid = Process.spawn({ "ZEO_X" => "9" }, "sh", "-c", 'exit $ZEO_X')
+      pid = Process.spawn({ "ZR_TEST_X" => "9" }, "sh", "-c", 'exit $ZR_TEST_X')
       Process.wait(pid)
       puts "env=#{$?.exitstatus}"
 
-      # :unsetenv_others wipes the inherited environment (so ZEO_X is gone unless given).
-      ENV["ZEO_Y"] = "7"
-      pid = Process.spawn("sh", "-c", 'exit ${ZEO_Y:-3}', unsetenv_others: true)
+      # :unsetenv_others wipes the inherited environment (so ZR_TEST_X is gone unless given).
+      ENV["ZR_TEST_Y"] = "7"
+      pid = Process.spawn("sh", "-c", 'exit ${ZR_TEST_Y:-3}', unsetenv_others: true)
       Process.wait(pid)
       puts "unsetenv=#{$?.exitstatus}"
 

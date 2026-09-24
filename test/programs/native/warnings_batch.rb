@@ -8,7 +8,7 @@ p h.except("a")["z"], h.dup["z"], h.merge({})["z"], h.compact["z"]
 begin; [1, 2].max_by(-1) { |n| n }; rescue => e; p e.message; end
 p([1, 2].fetch(9, :dflt) { |i| [:blk, i] })
 p({ a: 1 }.fetch(:z, :dflt) { |k| [:blk, k] })
-p(ENV.fetch("ZEO_NO_SUCH_VAR", "dflt") { |k| "blk #{k}" })
+p(ENV.fetch("ZR_TEST_NO_SUCH_VAR", "dflt") { |k| "blk #{k}" })
 p(Thread.current.fetch(:nope, :dflt) { |k| [:blk, k] })
 p(Array.new(3, :fill) { |i| i })
 p([1, 2].fetch(0, :dflt) { :blk })

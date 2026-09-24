@@ -14,7 +14,7 @@ module Zr
         # `slot` is the first of the record slots the region keeps its
         # values in: the value on the way out or the exception, the `$!`
         # the region replaced, and for an ensure the `$!` it began with.
-        class Region < ::Zr::Record
+        class Region < Record
           FIELDS = %i[landing ensure_body slot].freeze
           attr_accessor :landing, :ensure_body, :slot
 

@@ -259,7 +259,7 @@ describe "Fusion: control flow" do
   end
 
   it "fused loop guard fails at run time" do
-    result = zr(<<~'RUBY', env: {"ZEO_RT_LEAKCHECK" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_RT_LEAKCHECK" => "1"})
 
       # A fused `arr.each` splice is guarded twice at run time -- the receiver's
       # tag must be Array, and `zeo_rt_iter_inline_ok_for` must still hold -- and
@@ -279,7 +279,7 @@ describe "Fusion: control flow" do
       # that is `tests/gaps/a_later_def_on_a_builtin_reaches_back.rb`, a separate
       # gap this file must not depend on.
       #
-      # Runs under `ZEO_RT_LEAKCHECK=1`, which is what makes it a memory-safety
+      # Runs under `ZR_TEST_RT_LEAKCHECK=1`, which is what makes it a memory-safety
       # test rather than an output test.
       #
       # HONEST LIMIT: this golden does NOT reproduce the bug on the pre-fix

@@ -26,6 +26,7 @@
 # no table of arguments written by hand.
 
 require "timeout"
+require "zr/flags"
 
 module Dispatch
   # Argument lists to try, in order. A block is tried with each before none.
@@ -93,7 +94,7 @@ module Dispatch
     TRIES.each do |args|
       [true, false].each do |block|
         receiver = fresh(name, make)
-        warn "#{name}##{m} #{args.inspect} #{block}" if ENV["DISPATCH_TRACE"]
+        warn "#{name}##{m} #{args.inspect} #{block}" if Zr.flag?("ZR_DISPATCH_TRACE")
         begin
           Timeout.timeout(1) do
             block ? receiver.__send__(m, *args) { |*x| x.first } : receiver.__send__(m, *args)

@@ -27,7 +27,7 @@ module Zr
 
     # `from`: the module a wasm import comes from, or nil for a symbol
     # the link finds.
-    class Import < ::Zr::Record
+    class Import < Record
       FIELDS = %i[name params ret from].freeze
       attr_accessor :name, :params, :ret, :from
 
@@ -42,7 +42,7 @@ module Zr
     end
     # `effects`: the `IR::Effects` bits a call of the def may write,
     # closed over the defs it calls; nil until the unit's fixpoint says.
-    class Def < ::Zr::Record
+    class Def < Record
       FIELDS = %i[name params ret node file effects].freeze
       attr_accessor :name, :params, :ret, :node, :file, :effects
 
@@ -58,7 +58,7 @@ module Zr
       def to_a = [@name, @params, @ret, @node, @file, @effects]
     end
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
-    class Raw < ::Zr::Record
+    class Raw < Record
       FIELDS = %i[name params ret].freeze
       attr_accessor :name, :params, :ret
 
@@ -71,7 +71,7 @@ module Zr
       def to_a = [@name, @params, @ret]
     end
     # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
-    class Signature < ::Zr::Record
+    class Signature < Record
       FIELDS = %i[name params ret].freeze
       attr_accessor :name, :params, :ret
 
@@ -84,7 +84,7 @@ module Zr
       def to_a = [@name, @params, @ret]
     end
     # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
-    class Layout < ::Zr::Record
+    class Layout < Record
       FIELDS = %i[name fields size align].freeze
       attr_accessor :name, :fields, :size, :align
 

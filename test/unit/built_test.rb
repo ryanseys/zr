@@ -8,13 +8,13 @@ require_relative "../support/built"
 class BuiltTest < Minitest::Test
   Built = Zr::Test::Built
 
-  # `ZR_BUILT=0` would make `ready!` skip everything that these tests check.
+  # `ZR_TEST_BUILT=0` would make `ready!` skip everything that these tests check.
   def setup
-    @built = ENV.delete("ZR_BUILT")
+    @built = ENV.delete("ZR_TEST_BUILT")
   end
 
   def teardown
-    ENV["ZR_BUILT"] = @built if @built
+    ENV["ZR_TEST_BUILT"] = @built if @built
   end
 
   def test_ready_builds_a_target_that_is_not_built_then_loads_it

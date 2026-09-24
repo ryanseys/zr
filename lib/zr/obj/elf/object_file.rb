@@ -60,7 +60,7 @@ module Zr
           bss: [".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE]
         }.freeze
 
-        class Section < ::Zr::Record
+        class Section < Record
           FIELDS = %i[name type flags bytes size align link info entsize offset item].freeze
           attr_accessor :name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item
 

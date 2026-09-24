@@ -33,7 +33,7 @@ describe "IO programs" do
   end
 
   it "armed gvl holder blocked on a full pipe write does not stall its siblings" do
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # The write-side twin (the `write_rio` seam): 200KB overflows the
       # kernel pipe buffer, so the writer blocks mid-`write_all` until main
       # drains the pipe -- which main can only do if the writer released
@@ -52,8 +52,8 @@ describe "IO programs" do
   end
 
   it "armed gvl holder blocked on a pipe read does not stall its siblings" do
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
-      # The io-family without_gvl probe, in ZEO_GVL=1 fidelity mode: the
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
+      # The io-family without_gvl probe, in ZR_TEST_GVL=1 fidelity mode: the
       # reader parks on an EMPTY pipe while main sleeps, so without the
       # release at the `with_file` seam the reader would block INSIDE the
       # Gvl and main could never wake to perform the write -- this test
@@ -486,16 +486,16 @@ describe "IO programs" do
 
   it "env select shadowed by kernel" do
     result = zr(<<~'RUBY')
-      ENV["ZEO_PROBE_X"] = "1"
-      p ENV.select { |k, v| k == "ZEO_PROBE_X" }
-      p ENV.reject { |k, v| k != "ZEO_PROBE_X" }
-      p ENV.filter { |k, v| k == "ZEO_PROBE_X" }
+      ENV["ZR_TEST_PROBE_X"] = "1"
+      p ENV.select { |k, v| k == "ZR_TEST_PROBE_X" }
+      p ENV.reject { |k, v| k != "ZR_TEST_PROBE_X" }
+      p ENV.filter { |k, v| k == "ZR_TEST_PROBE_X" }
     RUBY
 
     _(result).must_answer <<~'OUT'
-      {"ZEO_PROBE_X" => "1"}
-      {"ZEO_PROBE_X" => "1"}
-      {"ZEO_PROBE_X" => "1"}
+      {"ZR_TEST_PROBE_X" => "1"}
+      {"ZR_TEST_PROBE_X" => "1"}
+      {"ZR_TEST_PROBE_X" => "1"}
     OUT
   end
 

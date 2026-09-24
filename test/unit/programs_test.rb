@@ -14,7 +14,7 @@ require_relative "../support/harness/answer"
 # switches -- and only the native road runs it. The directory says so,
 # so nothing here reads a comment back out of a program.
 #
-# `ZR_STRESS=1` adds the collect-at-every-allocation column.
+# `ZR_GC_STRESS=1` adds the collect-at-every-allocation column.
 #
 # Compiling a program peaks high, and ruby grows its heap to the peak
 # and does not give the pages back: over eight programs the live slots
@@ -37,7 +37,7 @@ class ProgramsTest < Minitest::Test
   # Each is a program whose native road is right and whose wasm road is
   # not, and each skips with what it does instead.
   #
-  # `ZR_WASM_DEFECTS=0` runs them anyway. A row here is a claim about
+  # `ZR_TEST_WASM_DEFECTS=0` runs them anyway. A row here is a claim about
   # what the road does today, and a claim goes stale: the only way to
   # find out that one has is to ask, and asking should not mean editing
   # this file. A row that passes under it comes out, with what it now
@@ -84,7 +84,7 @@ class ProgramsTest < Minitest::Test
         bin = File.join(dir, name)
         assert_nil Zr::Native::Build.program(program, bin, work: dir)
         check(name, {}, [bin], want, rb)
-        stress = ENV["ZR_STRESS"] == "1" && !NO_STRESS.include?(name)
+        stress = ENV["ZR_GC_STRESS"] == "1" && !NO_STRESS.include?(name)
         check(name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if stress
       end
     end
@@ -93,7 +93,7 @@ class ProgramsTest < Minitest::Test
 
     define_method("test_wasm_#{name}") do
       skip Checks.wasm_missing if Checks.wasm_missing
-      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZR_WASM_DEFECTS"] != "0"
+      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZR_TEST_WASM_DEFECTS"] != "0"
 
       want = oracle(rb)
       program = Zr.program(File.read(rb), rb, target: Zr::Target::WASM32_WASI)

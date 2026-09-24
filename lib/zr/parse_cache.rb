@@ -149,7 +149,7 @@ module Zr
       return ::Zr::Eval::Runtime.sources.select { |path, _| parser_file?(path) } unless HOSTED
 
       files = parser_files
-      @stamps = files.to_h { |file| [file, stamp(file)] }
+      @stamps = files.to_h { |file| [file, Paths.stamp(file)] }
       files.to_h { |file| [file, Digest::SHA256.hexdigest(File.binread(file))] }
     end
 
@@ -181,7 +181,7 @@ module Zr
                   files.to_h { |file| [file, carried[file]] }
                 end
       parser
-      @stamps&.merge!(files.to_h { |file| [file, stamp(file)] })
+      @stamps&.merge!(files.to_h { |file| [file, Paths.stamp(file)] })
       @makers[files] = digests.values.all? && parser_key(digests)
       @makers[files] || nil
     end
@@ -196,13 +196,6 @@ module Zr
       FILES.include?(path) || (path.end_with?(".rb") && TREES.any? { |tree| path.start_with?("#{tree}/") })
     end
 
-    # What a file is as far as a stat says, or nil for one that is gone.
-    def stamp(file)
-      stat = File.stat(file)
-      [stat.mtime.to_r, stat.size]
-    rescue SystemCallError
-      nil
-    end
 
     def read(path)
       result = Marshal.load(File.binread(path))
@@ -217,13 +210,10 @@ module Zr
     # parses with the code it loaded, and the key names what is on disk.
     def write(path, bytes)
       Zr.settled! if defined?(Zr)
-      moved = (@stamps || {}).find { |file, was| stamp(file) != was }
+      moved = (@stamps || {}).find { |file, was| Paths.stamp(file) != was }
       raise (defined?(Zr::SourceChanged) ? Zr::SourceChanged : RuntimeError), "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
 
-      Paths.mkdir_p(directory)
-      fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
-      File.binwrite(fresh, bytes)
-      File.rename(fresh, path)
+      Paths.write_atomic(path, bytes)
     end
   end
 end

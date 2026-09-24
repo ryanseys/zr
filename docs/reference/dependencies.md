@@ -10,7 +10,7 @@ assembler source in the repository.
 | ruby 4.0.6 exactly | runs the compiler; zr checks its output against this version | everything |
 | libSystem | the only dynamic library a macOS binary links | macOS binaries |
 | OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else Homebrew's or MacPorts' prefix. Without them that `require` raises `LoadError`; nothing else needs them | programs that require `openssl` |
-| `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZR_LINK=cc`, or when zr's own linker refuses one | optional |
+| `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZR_LINKER=cc`, or when zr's own linker refuses one | optional |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `zr run --emit wasm` calls it | running WASI modules |
 

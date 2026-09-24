@@ -4,6 +4,7 @@ require "digest/sha2"
 require_relative "hir"
 require_relative "ir"
 require_relative "obj/model"
+require_relative "refused"
 require_relative "lower/function"
 
 module Zr
@@ -39,7 +40,7 @@ module Zr
       end
     end
 
-    class Refused < StandardError; end
+    class Refused < Zr::Refused; end
 
     # `id` as the Value a Symbol is: the id above the tag the kernel
     # reads it by (runtime/kernel/object.rb).

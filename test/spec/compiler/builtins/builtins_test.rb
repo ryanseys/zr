@@ -1974,23 +1974,23 @@ describe "Builtins programs" do
       # does not declare falls through to `Object`/`Kernel` -- which is how
       # `ENV.select` once reached the private `Kernel#select`.
       ENV.keys.each { |k| ENV.delete(k) unless k == "PATH" }
-      ENV["ZEO_A"] = "1"
-      ENV["ZEO_B"] = "2"
+      ENV["ZR_TEST_A"] = "1"
+      ENV["ZR_TEST_B"] = "2"
 
-      p ENV.select { |k, v| k.start_with?("ZEO_") }
-      p ENV.filter { |k, v| k.start_with?("ZEO_") }
-      p ENV.reject { |k, v| !k.start_with?("ZEO_") }
+      p ENV.select { |k, v| k.start_with?("ZR_TEST_") }
+      p ENV.filter { |k, v| k.start_with?("ZR_TEST_") }
+      p ENV.reject { |k, v| !k.start_with?("ZR_TEST_") }
       p ENV.select { |k, v| false }
       p ENV.select.class, ENV.each_key.class, ENV.each_value.class
-      p ENV.to_a.class, ENV.to_a.include?(["ZEO_A", "1"])
+      p ENV.to_a.class, ENV.to_a.include?(["ZR_TEST_A", "1"])
       p ENV.invert["1"], ENV.rassoc("1")
       p ENV.has_value?("1"), ENV.value?("2"), ENV.value?("nope-zzz")
-      p ENV.except("PATH", "ZEO_B")
+      p ENV.except("PATH", "ZR_TEST_B")
       p ENV.rehash
 
       ks = []
       ENV.each_key { |k| ks << k }
-      p ks.include?("ZEO_A")
+      p ks.include?("ZR_TEST_A")
       vs = []
       ENV.each_value { |v| vs << v }
       p vs.include?("2")
@@ -2006,28 +2006,28 @@ describe "Builtins programs" do
       # The Enumerable half, served by a snapshot.
       p ENV.count > 0
       p ENV.map { |k, v| k }.class, ENV.min.class, ENV.sort.class
-      p ENV.find { |k, v| k == "ZEO_A" }
+      p ENV.find { |k, v| k == "ZR_TEST_A" }
       p ENV.each_with_index.to_a.first.class
       p ENV.tally.class, ENV.grep(/x/).class, ENV.lazy.class
-      p ENV.include?("ZEO_A"), ENV.any? { |k, v| k == "ZEO_A" }, ENV.length
+      p ENV.include?("ZR_TEST_A"), ENV.any? { |k, v| k == "ZR_TEST_A" }, ENV.length
     RUBY
 
     _(result).must_answer <<~'OUT'
-      {"ZEO_A" => "1", "ZEO_B" => "2"}
-      {"ZEO_A" => "1", "ZEO_B" => "2"}
-      {"ZEO_A" => "1", "ZEO_B" => "2"}
+      {"ZR_TEST_A" => "1", "ZR_TEST_B" => "2"}
+      {"ZR_TEST_A" => "1", "ZR_TEST_B" => "2"}
+      {"ZR_TEST_A" => "1", "ZR_TEST_B" => "2"}
       {}
       Enumerator
       Enumerator
       Enumerator
       Array
       true
-      "ZEO_A"
-      ["ZEO_A", "1"]
+      "ZR_TEST_A"
+      ["ZR_TEST_A", "1"]
       true
       true
       false
-      {"ZEO_A" => "1"}
+      {"ZR_TEST_A" => "1"}
       nil
       true
       true
@@ -2043,7 +2043,7 @@ describe "Builtins programs" do
       Array
       Array
       Array
-      ["ZEO_A", "1"]
+      ["ZR_TEST_A", "1"]
       Array
       Hash
       Array

@@ -6,6 +6,7 @@ require_relative "../../ir/types"
 require_relative "../../obj/model"
 require_relative "locals"
 require_relative "../../record"
+require_relative "../../flags"
 
 module Zr
   module Backend
@@ -61,7 +62,7 @@ module Zr
         WASI = "wasi_snapshot_preview1"
         # An import: the module it comes from, its name, and its wasm
         # parameter and result types.
-        class Import < ::Zr::Record
+        class Import < Record
           FIELDS = %i[from name params results].freeze
           attr_accessor :from, :name, :params, :results
 
@@ -91,7 +92,7 @@ module Zr
         # that a program defines, at the indices and addresses promised to
         # its bodies. A program's module lays its own part after this one
         # and must honour the promises (`pending`).
-        class Prelude < ::Zr::Record
+        class Prelude < Record
           FIELDS = %i[imports shims sigs bodies types data_at data_end segments table pending].freeze
           attr_accessor :imports, :shims, :sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending
 
@@ -163,7 +164,7 @@ module Zr
           out << section(10, vec(bodies))
           placed = (pre ? pre.segments : []) + @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }
           out << section(11, vec(segments(placed).map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
-          out << names_section if ENV["ZR_WASM_NAMES"]
+          out << names_section if Zr.flag?("ZR_WASM_NAMES")
           out
         end
 

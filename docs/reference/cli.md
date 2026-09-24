@@ -86,7 +86,7 @@ outputs that this host can make now.
 | `bin/setup` | installs the gems and builds the runtime |
 | `bin/test [paths] [minitest options]` | the tests; with no paths, the three tiers |
 | `rake build` | the runtime for this host: its object, the prelinked image and the eval support object |
-| `rake build:self` | the compiler compiled by itself, which `exe/zr` then uses until a file under `lib`, `runtime`, `vendor` or the library tree changes (`ZR_SELF`) |
+| `rake build:self` | the compiler compiled by itself, which `exe/zr` then uses until a file under `lib`, `runtime`, `vendor` or the library tree changes (`ZR_COMPILED`) |
 | `rake` or `rake test` | the three tiers: unit, spec, e2e |
 | `rake test:unit` | zr's own internals |
 | `rake test:spec` | Ruby specs, each checked against ruby 4.0.6 |
@@ -116,7 +116,7 @@ skips and is counted. Only a wrong answer, a crash or a timeout fails.
 | `rake 'record[test/e2e/lang/programs/hello.rb]'` | runs ruby and writes its answer beside the program |
 | `rake 'bench[--runs 5 fib]'` | builds each program in `benchmark/` that matches, checks its answer, and prints the median of `--runs` runs (default 5) beside `ruby` and `ruby --yjit`, with the binary's CPU time; a run of the whole bank writes its report to `benchmark/results/<stamp>-<revision>.txt` |
 | `rake stage1` | compiles the compiler (`exe/zr`) twice, in two processes with separate caches, and compares the compiler's and the runtime's object bytes |
-| `rake repro` | builds one program from two copies of the tree at two paths, under another home, clock zone, locale and job count, with one `--path-root`, and compares the binaries and the objects (`REPRO_WASM=1` adds the wasm module) |
+| `rake repro` | builds one program from two copies of the tree at two paths, under another home, clock zone, locale and job count, with one `--path-root`, and compares the binaries and the objects (`rake repro[wasm]` adds the wasm module) |
 | `rake stage2` | builds `exe/zr` with ruby, then with that binary (`tmp/stage1/zr build exe/zr`), and compares the two binaries |
 
 ### The rest

@@ -1066,8 +1066,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # The guard is false, so the method is not there -- not to a call, not to
       # `respond_to?`, and not to `instance_methods`.
@@ -1105,8 +1105,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # The guard is true, so it is there, by every one of those readings.
       class Present
@@ -1139,8 +1139,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # A conditional `def` does not displace one that always runs: last-def-wins is
       # a rule about `def`s that RAN.
@@ -1173,8 +1173,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # ...and when the guard IS true, the overlay it writes wins, which is the same
       # answer from the other direction.
@@ -1205,8 +1205,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # Nor does it shadow an ancestor's: with the guard false the inherited body
       # answers, which takes the name not claiming a row on the subclass at all.
@@ -1250,8 +1250,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # Both branches defining the same name is the compat-shim shape, and the taken
       # branch is the one that answers.
@@ -1283,8 +1283,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # The top-level `class X ... end if cond` form reopens through the same
       # machinery (`analyze::try_conditional_reopen` pushes the guard into the class
@@ -1321,8 +1321,8 @@ describe "Guards programs" do
       # `extend` and the method tables can see it. Registering it is not the same as
       # promising it.
 
-      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
-      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+      OFF = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZR_TEST_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # Ruby lets a definition carry more than one trailing modifier, and the pair
       # pushes into the class body exactly as a single one does. sexp_processor
@@ -3597,7 +3597,7 @@ describe "Guards programs" do
       end if ENV["HOME"]
       puts maybe_here
 
-      alias missing_alias maybe_here if ENV["ZEO_TEST_NEVER_SET"]
+      alias missing_alias maybe_here if ENV["ZR_TEST_TEST_NEVER_SET"]
       begin
         missing_alias
       rescue NameError

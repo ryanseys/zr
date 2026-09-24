@@ -62,21 +62,21 @@ describe "Hash: substitution" do
       # `Object` -- oracle-verified), and it reads the LIVE environment.
 
       p ENV.class
-      ENV["ZEO_E2E"] = "set"
-      p ENV["ZEO_E2E"]
-      p ENV.key?("ZEO_E2E")
-      p ENV.fetch("ZEO_E2E")
-      p ENV.fetch("ZEO_E2E_ABSENT", "default")
-      p ENV.fetch("ZEO_E2E_ABSENT") { |k| "computed:#{k}" }
-      p ENV["ZEO_E2E_ABSENT"]
-      p ENV.delete("ZEO_E2E")
-      p ENV.key?("ZEO_E2E")
-      p ENV.delete("ZEO_E2E")
+      ENV["ZR_TEST_E2E"] = "set"
+      p ENV["ZR_TEST_E2E"]
+      p ENV.key?("ZR_TEST_E2E")
+      p ENV.fetch("ZR_TEST_E2E")
+      p ENV.fetch("ZR_TEST_E2E_ABSENT", "default")
+      p ENV.fetch("ZR_TEST_E2E_ABSENT") { |k| "computed:#{k}" }
+      p ENV["ZR_TEST_E2E_ABSENT"]
+      p ENV.delete("ZR_TEST_E2E")
+      p ENV.key?("ZR_TEST_E2E")
+      p ENV.delete("ZR_TEST_E2E")
       p ENV.to_h.class
       p ENV.keys.class
-      ENV["ZEO_E2E2"] = "x"
-      ENV["ZEO_E2E2"] = nil
-      p ENV["ZEO_E2E2"]
+      ENV["ZR_TEST_E2E2"] = "x"
+      ENV["ZR_TEST_E2E2"] = nil
+      p ENV["ZR_TEST_E2E2"]
     RUBY
 
     _(result).must_answer <<~'OUT'
@@ -85,7 +85,7 @@ describe "Hash: substitution" do
       true
       "set"
       "default"
-      "computed:ZEO_E2E_ABSENT"
+      "computed:ZR_TEST_E2E_ABSENT"
       nil
       "set"
       false

@@ -46,7 +46,7 @@ The first release as a RubyGem.
 - `Obj::MachO::Executable` links a program beside the runtime's objects
   and writes the signed binary. The runtime is linked once, at fixed
   addresses, and kept in the cache (`prelink-<digest>.bin`), so a link
-  relocates only the program: 0.08 s for a small program. `ZR_LINK=cc`
+  relocates only the program: 0.08 s for a small program. `ZR_LINKER=cc`
   links with the system linker instead, and `cc` links what zr's linker
   refuses.
 - In a binary, `String#index` from an offset, `bytesplice`, `unpack` and

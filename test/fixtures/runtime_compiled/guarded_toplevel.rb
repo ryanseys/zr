@@ -1,4 +1,4 @@
-if ENV["ZEO_A_NAME_NOTHING_SETS"]
+if ENV["ZR_TEST_A_NAME_NOTHING_SETS"]
   def guarded_choice = :then_branch
   GUARDED_WHICH = :then_branch
 else

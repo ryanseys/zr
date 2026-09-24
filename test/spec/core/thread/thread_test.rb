@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Thread programs" do
   it "armed gvl holder blocked in fifo open does not stall its siblings" do
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # File.open's open(2) ITSELF blocks on a FIFO until the other end
       # shows up -- the reason the release wraps the open, not just reads.
       # Without it the reader parks inside the armed Gvl and main can never
@@ -24,7 +24,7 @@ describe "Thread programs" do
   end
 
   it "armed read family parks per call without stalling the writer" do
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # The with_file seam beyond gets: readline and a LENGTHED read(n)
       # each park on the pipe in their own Gvl-released section, with main
       # feeding the pipe in stages between sleeps -- two consecutive

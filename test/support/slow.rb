@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest"
+require_relative "../../lib/zr/flags"
 
 module Zr
   module Test
@@ -23,9 +24,10 @@ module Zr
       PARTS = %i[lower link run].freeze
       DEFAULT = 20
 
-      def self.asked? = ENV.key?("ZR_SLOW") || ENV.key?("SLOW")
+      # `SLOW=1` reports the slowest examples; `SLOW=<n>` reports <n>.
+      def self.asked? = Zr.flag?("SLOW")
 
-      def self.count = ENV["ZR_SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
+      def self.count = ENV["SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
 
       def self.minitest_plugin_init(options)
         Minitest.reporter << Reporter.new(options[:io], count) if asked?

@@ -14,8 +14,8 @@ module Zr
   # and the same list of files. Anything else is a miss, and ruby runs
   # the command. An installed gem builds the compiled compiler at its
   # first build and says so; a checkout, whose files change all day,
-  # builds one only under `ZR_SELF=1` or `rake build:self`.
-  # `ZR_SELF=0` never hands the command over.
+  # builds one only under `ZR_COMPILED=1` or `rake build:self`.
+  # `ZR_COMPILED=0` never hands the command over.
   module CompiledCompiler
     # The commands a compiled compiler takes over. The others answer at
     # once under ruby.
@@ -32,13 +32,13 @@ module Zr
     # compiled compiler itself, and for any other command, nothing
     # happens here.
     def hand_over(argv, env = ENV)
-      return unless RbConfig::CONFIG["ruby_install_name"] != "zr" && VERBS.include?(argv.first)
-      return if env["ZR_SELF"] == "0"
+      return if Zr.compiled? || !VERBS.include?(argv.first)
+      return if env["ZR_COMPILED"] == "0"
 
-      build if !current? && (env["ZR_SELF"] == "1" || !Paths.checkout?)
+      build if !current? && (env["ZR_COMPILED"] == "1" || !Paths.checkout?)
       # The compiled compiler has no rubygems, so a pin it must resolve
       # again is resolved by this ruby.
-      exec({ "ZR_RUBY" => RbConfig.ruby }, binary, *argv) if current?
+      exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current?
     end
 
     # Every file a compiled compiler is built from, and its stamp.
@@ -87,14 +87,13 @@ module Zr
         out = "#{binary}.#{Process.pid}"
         warn "zr: building the compiler with itself for faster builds, once for this zr (about a minute)"
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        ok = system({ "ZR_SELF" => "0" }, RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "build",
+        ok = system({ "ZR_COMPILED" => "0" }, RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "build",
                     File.join(Paths::ROOT, "exe/zr"), "-o", out, out: File::NULL)
-        answers = ok && IO.popen({ "ZR_SELF" => "0" }, [out, "version"], &:read) ==
-                        IO.popen({ "ZR_SELF" => "0" }, [RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "version"], &:read)
+        answers = ok && IO.popen({ "ZR_COMPILED" => "0" }, [out, "version"], &:read) ==
+                        IO.popen({ "ZR_COMPILED" => "0" }, [RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "version"], &:read)
         if answers && stamps == before
           File.rename(out, binary)
-          File.binwrite("#{manifest}.#{Process.pid}", Marshal.dump(before))
-          File.rename("#{manifest}.#{Process.pid}", manifest)
+          Paths.write_atomic(manifest, Marshal.dump(before))
           warn format("zr: built the compiled compiler in %.0f s", Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
         else
           warn "zr: the compiled compiler did not build; ruby runs zr"

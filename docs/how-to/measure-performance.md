@@ -86,8 +86,8 @@ The compiler is Ruby, so a Ruby profiler works on it. The Gemfile has
 group:
 
 ```console
-$ ZR_GC=0 bundle exec vernier run -- ruby exe/zr build app.rb -o app
+$ ZR_TUNE=0 bundle exec vernier run -- ruby exe/zr build app.rb -o app
 ```
 
-`ZR_GC=0` stops `zr` from starting itself again with its
+`ZR_TUNE=0` stops `zr` from starting itself again with its
 collector settings, so the profile is of the process vernier started.

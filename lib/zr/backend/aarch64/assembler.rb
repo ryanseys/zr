@@ -44,7 +44,7 @@ module Zr
 
         # A branch whose distance is known only when every instruction has
         # an index.
-        class Branch < ::Zr::Record
+        class Branch < Record
           FIELDS = %i[base label shift bits].freeze
           attr_accessor :base, :label, :shift, :bits
 

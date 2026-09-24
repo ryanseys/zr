@@ -12,7 +12,7 @@ module Zr
       # A Mach-O binary for aarch64-apple-darwin. `Obj::MachO::Executable`
       # links the program beside the runtime's objects, linked once and kept
       # (`Native::Build.prelink`), and writes the binary; `cc` links only
-      # what it refuses, or every program under `ZR_LINK=cc`.
+      # what it refuses, or every program under `ZR_LINKER=cc`.
       module Darwin
         # `ld` turns this into `LC_MAIN.stacksize`. `Obj::MachO::Executable`
         # writes that field itself from the same number, so a program gets

@@ -69,10 +69,7 @@ module Zr
       key = key(unit, prefix) or return nil
 
       Zr.settled!
-      Paths.mkdir_p(@dir)
-      tmp = "#{path(key)}.#{Process.pid}"
-      File.binwrite(tmp, Marshal.dump([functions, data]))
-      File.rename(tmp, path(key))
+      Paths.write_atomic(path(key), Marshal.dump([functions, data]))
     rescue SystemCallError
       nil
     end

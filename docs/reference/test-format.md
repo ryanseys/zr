@@ -50,7 +50,7 @@ of its own and no conditions. The few that need something are named in
 
 ```ruby
 HOW = {
-  "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZEO_AOT_SMOKE" => "on" } },
+  "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZR_TEST_AOT_SMOKE" => "on" } },
   "stdlib/bundler/require_bundler" => { build_mb: 3072 },
   "stdlib/openssl/openssl_digest" => { needs: ["libssl"] }
 }.freeze

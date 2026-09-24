@@ -168,8 +168,7 @@ module Zr
           end
           manifest = { env: GEM_ENV.map { |name| ENV[name] }, stamps: stamps, tree: tree }
           path = Libraries.manifest_path
-          File.binwrite("#{path}.#{Process.pid}", Marshal.dump(manifest))
-          File.rename("#{path}.#{Process.pid}", path)
+          Paths.write_atomic(path, Marshal.dump(manifest))
         end
       end
 

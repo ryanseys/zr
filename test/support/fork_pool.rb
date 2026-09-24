@@ -88,7 +88,7 @@ module Zr
       # here that is not free. Growth is also the honest measure: a
       # worker is retired because Ruby does not give heap pages back,
       # which is a fact about what it has allocated.
-      RECYCLE_MB = Integer(ENV.fetch("ZR_RECYCLE_MB", 600))
+      RECYCLE_MB = Integer(ENV.fetch("ZR_TEST_RECYCLE_MB", 600))
 
       attr_reader :size
 

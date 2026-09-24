@@ -122,7 +122,7 @@ module Zr
       # block or loop, which `break`, `next` and `redo` leave; `home`
       # marks the method a `return` leaves, and is nil where the walk
       # stands in no method it can return from.
-      class Ctx < ::Zr::Record
+      class Ctx < Record
         FIELDS = %i[self_ cref chain block name owner args kwargs tag home].freeze
         attr_accessor :self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home
 

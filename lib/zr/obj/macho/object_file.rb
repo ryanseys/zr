@@ -52,7 +52,7 @@ module Zr
           ["__bss", "__DATA", S_ZEROFILL, [:bss]]
         ].freeze
 
-        class Placed < ::Zr::Record
+        class Placed < Record
           FIELDS = %i[item section addr].freeze
           attr_accessor :item, :section, :addr
 
@@ -69,7 +69,7 @@ module Zr
         # symbol, as `nlist_64` packs them: the string offset, type,
         # section and description in the first, the value in the second.
         # `strings` is the string table.
-        class Read < ::Zr::Record
+        class Read < Record
           FIELDS = %i[sections symbols strings].freeze
           attr_accessor :sections, :symbols, :strings
 
@@ -107,7 +107,7 @@ module Zr
 
         # A section as `read` answers it: `relocs` holds two words a
         # `relocation_info`, the address and the packed rest.
-        class Section < ::Zr::Record
+        class Section < Record
           FIELDS = %i[name segment addr size align flags bytes relocs].freeze
           attr_accessor :name, :segment, :addr, :size, :align, :flags, :bytes, :relocs
 
@@ -193,7 +193,7 @@ module Zr
         # sections and their bytes, the symbol table, the relocations and
         # the string table. Both roads out of a unit -- an object's bytes
         # and `of` -- start here.
-        class Laid < ::Zr::Record
+        class Laid < Record
           FIELDS = %i[sections symbols strtab vmsize data_start data_end symoff stroff sizeofcmds segment_cmd].freeze
           attr_accessor :sections, :symbols, :strtab, :vmsize, :data_start, :data_end, :symoff, :stroff, :sizeofcmds, :segment_cmd
 

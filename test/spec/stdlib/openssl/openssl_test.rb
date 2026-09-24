@@ -2349,9 +2349,9 @@ describe "OpenSSL programs" do
   it "yaml loads and entropy draws run concurrently under the armed gvl" do
     skip "needs libssl" unless Zr::Spec.need?("libssl")
 
-    result = zr(<<~'RUBY', env: {"ZEO_GVL" => "1"})
+    result = zr(<<~'RUBY', env: {"ZR_TEST_GVL" => "1"})
       # The ext tail of the sweep: two threads Psych-load the same file
-      # while a third draws OS entropy, all in ZEO_GVL=1 mode.
+      # while a third draws OS entropy, all in ZR_TEST_GVL=1 mode.
 
 
       require "yaml"

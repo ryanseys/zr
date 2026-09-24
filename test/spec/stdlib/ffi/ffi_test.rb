@@ -781,7 +781,7 @@ describe "FFI programs" do
 
       # 2. `attach_function`'s options hash. `blocking: true` releases the GVL for
       #    the call, which is a no-op under zeo's default parallel threads and the
-      #    real handoff under ZEO_GVL=1.
+      #    real handoff under ZR_TEST_GVL=1.
       module Blocking
         extend FFI::Library
         ffi_lib FFI::Library::LIBC

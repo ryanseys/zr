@@ -16,7 +16,7 @@ module Zr
     # eval road, 70 s against 12 s. stdout, stderr and the exit status
     # were the same under both, on every module tried. `rake bench`
     # keeps Cranelift, since there the speed is the answer, and
-    # `ZR_WASM_COMPILER=cranelift` asks a tier for it.
+    # `ZR_TEST_WASM_COMPILER=cranelift` asks a tier for it.
     #
     # None of this reaches `lib`: `zr run` starts wasmtime as wasmtime
     # is, and these names are the checks' own.
@@ -28,12 +28,12 @@ module Zr
       def executable = ENV.fetch("WASMTIME", "wasmtime")
 
       def compiler
-        ENV.fetch("ZR_WASM_COMPILER", "winch").tap do |name|
-          raise ArgumentError, "ZR_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(' and ')}" unless COMPILERS.include?(name)
+        ENV.fetch("ZR_TEST_WASM_COMPILER", "winch").tap do |name|
+          raise ArgumentError, "ZR_TEST_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(' and ')}" unless COMPILERS.include?(name)
         end
       end
 
-      def memory = Integer(ENV.fetch("ZR_WASM_MEMORY", 1 << 30))
+      def memory = Integer(ENV.fetch("ZR_TEST_WASM_MEMORY", 1 << 30))
 
       def installed? = system(executable, "--version", out: File::NULL, err: File::NULL)
 

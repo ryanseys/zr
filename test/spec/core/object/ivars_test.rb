@@ -2516,7 +2516,7 @@ describe "Object: instance and class variables" do
       # slot 1, while on `B` it is slot 0.
       #
       # The two must therefore behave identically despite being emitted differently,
-      # which is the property `ZEO_VERIFY_SHARE=1` reports on.
+      # which is the property `ZR_TEST_VERIFY_SHARE=1` reports on.
 
       class Base
         def initialize

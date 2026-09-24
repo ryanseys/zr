@@ -20,7 +20,7 @@ module Zr
     # leaves the number to the link, so that its code does not depend
     # on what was compiled before it; no object writer ever sees one of
     # these (`Zr.number_symbols`).
-    class Reloc < ::Zr::Record
+    class Reloc < Record
       FIELDS = %i[offset kind symbol addend].freeze
       attr_accessor :offset, :kind, :symbol, :addend
 
@@ -35,7 +35,7 @@ module Zr
     end
 
     # `linkage`: :export (visible to the link), :local (this object only).
-    class Function < ::Zr::Record
+    class Function < Record
       FIELDS = %i[name bytes relocs align linkage].freeze
       attr_accessor :name, :bytes, :relocs, :align, :linkage
 
@@ -57,7 +57,7 @@ module Zr
     # `section`: :text_const (pure bytes), :data_const (holds pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
-    class Data < ::Zr::Record
+    class Data < Record
       FIELDS = %i[name section bytes relocs align linkage].freeze
       attr_accessor :name, :section, :bytes, :relocs, :align, :linkage
 

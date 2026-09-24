@@ -16,7 +16,7 @@ module Zr
       # first one when that sits this far in.
       TRUNCATE = 30
 
-      class Row < ::Zr::Record
+      class Row < Record
         FIELDS = %i[error line column_start column_end].freeze
         attr_accessor :error, :line, :column_start, :column_end
 

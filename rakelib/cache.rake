@@ -58,18 +58,18 @@ module Caches
 
   def live_for(target)
     runtime = Zr.runtime(target)
-    object = File.join(Zr.cache, "rt-#{runtime.digest}.o")
-    metas = Dir[File.join(Zr.cache, "eval-#{runtime.digest}-{jit,walk}.json")]
+    object = runtime.object_path
+    metas = %w[jit walk].map { |kind| Zr::EvalSupport.meta_path(runtime, kind) }.select { |path| File.exist?(path) }
     evals = metas.filter_map { |meta| eval_object(meta) }
-    images = [prelink([object]), *evals.map { |eval| prelink([object, eval]) }]
-    [object, *metas, *evals, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
+    sets = [[object], *evals.map { |eval| [object, eval] }]
+    [object, *metas, *evals, *sets.map { |set| prelink(set) }, *sets.map { |set| Zr::Native::Build.skeleton_path(set) }] +
       Dir[File.join(Zr.cache, "*-#{runtime.digest}.*")]
   end
 
   # The road's object, which only its meta names.
   def eval_object(meta)
     key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
-    key && File.join(Zr.cache, "eval-#{key}.o")
+    key && Zr::EvalSupport.object_path(key)
   end
 
   # The image `Native::Build.prelink` writes for those objects.
