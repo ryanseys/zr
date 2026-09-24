@@ -5,8 +5,8 @@
 class Array
   include Enumerable
 
-  # rb_ary_find: the first element the block accepts, else what
-  # `ifnone` answers.
+  # rb_ary_find: the first element that the block accepts, else the
+  # value that `ifnone` returns.
   def find(ifnone = (omitted = true; nil))
     return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
 
@@ -21,7 +21,7 @@ class Array
   end
   alias detect find
 
-  # The last element the block accepts, else what `ifnone` answers.
+  # The last element that the block accepts, else the value that `ifnone` returns.
   def rfind(ifnone = (omitted = true; nil))
     return to_enum(:rfind, *([ifnone] unless omitted)) unless block_given?
 
@@ -174,7 +174,7 @@ class Array
     end
   end
 
-  # What one element stands for in `join`: its text, or an Array whose
+  # What one element becomes in `join`: its text, or an Array whose
   # elements join in its place.
   def join_part(x)
     Primitive.attr! :hidden
@@ -248,7 +248,7 @@ class Array
     best
   end
 
-  # `a <=> b`, or the block's answer, as an Integer; nil fails as
+  # `a <=> b`, or the block's return value, as an Integer; nil fails as
   # ruby's comparison does.
   def compared(a, b, block = nil)
     Primitive.attr! :hidden
@@ -281,8 +281,8 @@ class Array
     at && Primitive.zr_ary_aref1_m(self, at)
   end
 
-  # Binary search in find-minimum mode (the block answers true or
-  # false) or find-any mode (the block answers a number's sign).
+  # Binary search in find-minimum mode (the block returns true or
+  # false) or find-any mode (the block returns a number's sign).
   def bsearch_index(&block)
     return to_enum(:bsearch_index) unless block
 
@@ -414,7 +414,7 @@ class Array
   end
 
   # `Array[1, 2]` is the constructor spelling of `[1, 2]`. A subclass
-  # takes its own instance, which is what `Array[...].class` answers.
+  # makes its own instance, which `Array[...].class` shows.
   def self.[](*args)
     return args if self == Array
 
@@ -504,7 +504,7 @@ class Array
     end
   end
 
-  # A subclass answers a plain Array.
+  # A subclass returns a plain Array.
   def to_a = instance_of?(Array) ? self : Array.new(self)
   # Over the elements themselves, as rb_ary_count walks them: never
   # through `each`, with the length read again each time round.
@@ -727,10 +727,10 @@ class Array
 
 
 
-  # Nested Arrays (and what `to_ary` answers) spread out `depth` levels;
-  # a recursive Array is an error only when the depth is unbounded.
-  # A level of 0 flattens nothing, and so does an Array with no element
-  # to flatten: either way the answer is a copy, a plain Array.
+  # Nested Arrays (and the values that `to_ary` returns) spread out
+  # `depth` levels. A recursive Array is an error only when the depth is
+  # unbounded. A level of 0 flattens nothing, and so does an Array with no
+  # element to flatten. In both cases the result is a copy, a plain Array.
   def flatten(depth = nil)
     level = depth.nil? ? -1 : Numeric.send(:int_operand, depth)
     return Array.new(self) if level == 0
@@ -750,9 +750,9 @@ class Array
 
   # CRuby's flatten: the walk keeps its own stack of (Array, index)
   # pairs, so an Array nested deeper than any call stack flattens. With
-  # no level, an identity table of the Arrays open on the walk catches
-  # one that holds itself. Each element answers to_ary once at most, as
-  # rb_check_array_type asks it. The receiver itself when nothing
+  # no level, an identity table of the Arrays open on the walk finds
+  # one that contains itself. Each element gets at most one to_ary call,
+  # as rb_check_array_type makes it. The receiver itself when nothing
   # converts.
   def flattened(level)
     Primitive.attr! :hidden
@@ -853,7 +853,7 @@ class Array
     rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
-  # Each index fetched, a block answering for one out of bounds.
+  # Each index fetched; the block gives the value for an index out of bounds.
   def fetch_values(*indexes, &block)
     Primitive.attr! :ruby
     indexes.map { |i| fetched(i, [], &block) }
@@ -1087,8 +1087,8 @@ class Array
   private
 
   # `a[seq]` for an ArithmeticSequence, as rb_arithmetic_sequence_beg_len_step
-  # bounds it and rb_ary_subseq_step reads it: a stride past 1 either way
-  # raises where a Range would answer nil.
+  # bounds it and rb_ary_subseq_step reads it: a stride past 1 in either
+  # direction raises where a Range would return nil.
   def stride_slice(seq)
     Primitive.attr! :hidden
     first = seq.begin

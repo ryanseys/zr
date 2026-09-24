@@ -3,8 +3,8 @@
 # zlib.c, in ruby, over zr's port of zlib (runtime/kernel/zlib_*.rb, reached
 # through runtime/kernel/zlib.rb). The extension's structs are classes here: Stream
 # is `struct zstream`, the z_stream and the buffers around it, and
-# GzFile is `struct gzfile`, a stream and the gzip container's fields. A Deflate, an Inflate or a GzipFile holds its own
-# in a hidden slot, as a TypedData object holds its struct.
+# GzFile is `struct gzfile`, a stream and the gzip container's fields. A Deflate, an Inflate or a GzipFile keeps its own
+# in a hidden slot, as a TypedData object keeps its struct.
 module Zlib
   VERSION = "3.2.3"
   ZLIB_VERSION = "1.3.1"
@@ -116,7 +116,7 @@ module Zlib
       end
     end
 
-    # zlib_gunzip: the one member `src` holds, its footer checked.
+    # zlib_gunzip: the one member in `src`, with its footer checked.
     def gunzip(src)
       src = Primitive.zr_str_operand(src)
       gz = GzFile.new(:gunzip)
@@ -233,7 +233,7 @@ module Zlib
       str.force_encoding(encoding)
     end
 
-    # rb_str_resize and a copy: `str` holds `bytes` and keeps its encoding.
+    # rb_str_resize and a copy: `str` contains `bytes` and keeps its encoding.
     def fill_in(str, bytes)
       Primitive.attr! :hidden
       encoding = str.encoding
@@ -274,7 +274,7 @@ module Zlib
     UNUSED = 1 << 7
 
     INITIAL_BUFSIZE = 1024
-    # The most a String holds inside its own slot.
+    # The maximum number of bytes that a String keeps inside its own slot.
     EMBED_MAX = 615
     AVAIL_OUT_STEP_MAX = 16384
     AVAIL_OUT_STEP_MIN = 2048
@@ -345,7 +345,7 @@ module Zlib
       @input_hidden = true
       @buf = other.buf&.dup
       # rb_str_dup shares a buffer too big to embed, and a shared String
-      # holds no room past its end and takes no new length.
+      # has no room past its end and takes no new length.
       @shared = !@buf.nil? && other.capa > EMBED_MAX
       @capa = @shared ? buf_filled : other.capa
       @avail_out = other.avail_out
@@ -654,9 +654,9 @@ module Zlib
       end
     end
 
-    # What follows one pass of zlib: the input it left kept for the
-    # next run, and an error raised. Answers true when a dictionary the
-    # stream asked for was set and the pass runs again.
+    # What follows one pass of zlib: the input it left is kept for the
+    # next run, and an error is raised. Returns true when a dictionary
+    # that the stream asked for was set and the pass runs again.
     def settle(source, err, flush)
       left = avail_in
       @flags |= IN_STREAM if flush != FINISH && err == Z_BUF_ERROR && @avail_out > 0
@@ -897,7 +897,7 @@ module Zlib
     end
 
     # do_deflate: nil finishes the stream; an empty String with no flush
-    # runs nothing, since zlib would answer Z_BUF_ERROR.
+    # runs nothing, because zlib would return Z_BUF_ERROR.
     def run_deflate(z, src, flush, block)
       Primitive.attr! :hidden
       return z.run("", FINISH, block) if src.nil?
@@ -1084,7 +1084,7 @@ module Zlib
 
     READ_SIZE = 2048
 
-    # The io of Zlib.gunzip, which reads a String it already holds.
+    # The io of Zlib.gunzip, which reads a String that it already has.
     STRING = Object.new.freeze
 
     # The most bytes one character takes, which a read that must not
@@ -1772,7 +1772,7 @@ module Zlib
       gz.close(true) if gz.z.ready?
     end
 
-    # The io's path, which this file answers as its own once it has one.
+    # The io's path, which this file returns as its own after it has one.
     def take_path(gz)
       Primitive.attr! :hidden
       return unless gz.io.respond_to?(:path)

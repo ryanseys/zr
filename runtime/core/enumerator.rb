@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# Enumerator: an iteration held as an object. One made by `to_enum`
-# sends its method with the block it is given; one made with a block
-# runs the block with a Yielder. External iteration (`next`, `peek`)
-# runs the iteration on its own fiber, one value per resume, so an
-# endless iteration is fine.
+# Enumerator: an iteration as an object. One made by `to_enum` sends
+# its method with the block it is given. One made with a block runs the
+# block with a Yielder. External iteration (`next`, `peek`) runs the
+# iteration on its own fiber, one value per resume, so an endless
+# iteration is fine.
 class Enumerator
   include Enumerable
 
@@ -28,8 +28,8 @@ class Enumerator
     end
   end
 
-  # The block an `Enumerator.new` runs, which is an Enumerable of its own
-  # and holds the block where no program sees it.
+  # The block that an `Enumerator.new` runs. It is an Enumerable of its
+  # own and keeps the block hidden from programs.
   class Generator
     include Enumerable
 
@@ -40,8 +40,8 @@ class Enumerator
       self
     end
 
-    # Any arguments a caller adds are the yielder's to ignore, as CRuby's
-    # own row takes them and answers an arity of -1.
+    # The yielder ignores any arguments that a caller adds, as CRuby's
+    # own method entry takes them and returns an arity of -1.
     def each(*, &block)
       Primitive.zr_hidden_get(self, :__block__).call(Yielder.new(&block))
     end
@@ -68,7 +68,7 @@ class Enumerator
   end
 
   # `Enumerator.produce(initial) { |prev| }`: the initial value, then
-  # each block answer, until the block raises StopIteration.
+  # each block return value, until the block raises StopIteration.
   class Producer
     def initialize(initial, has_initial, block)
       Primitive.zr_hidden_set(self, :__initial__, initial)
@@ -101,7 +101,7 @@ class Enumerator
   end
 
   # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
-  # answers it.
+  # returns it.
   def self.for(receiver, method, args, kwargs, size)
     Primitive.attr! :hidden
     e = allocate
@@ -185,7 +185,7 @@ class Enumerator
     self
   end
 
-  # The value the paused `yield` answers at the next `next`.
+  # The value that the paused `yield` returns at the next `next`.
   def feed(value)
     initialized!
     raise TypeError, +"feed value already set" if @feed
@@ -218,12 +218,12 @@ class Enumerator
     raise ArgumentError, +"uninitialized enumerator" unless @method
   end
 
-  # enumerator_with_index_i: the values `each` yields packed as
-  # rb_enum_values_pack packs them, with the index beside them, and the
-  # block's own answer handed back to `each`. The packing is the
-  # kernel's (`zr_enum_each`) and not a `|*values|` parameter, which
-  # made an Array of every element -- and the assembler walks every
-  # instruction of every function this way.
+  # enumerator_with_index_i: the values that `each` yields, packed as
+  # rb_enum_values_pack packs them, with the index next to them. The
+  # block's own return value goes back to `each`. The kernel does the
+  # packing (`zr_enum_each`), not a `|*values|` parameter: that would make
+  # an Array for each element, and the assembler walks every instruction
+  # of every function this way.
   def indexed(offset)
     Primitive.attr! :hidden
     i = offset - 1
@@ -235,8 +235,8 @@ class Enumerator
 
   # Each `next` resumes the fiber that runs the iteration; the block
   # yields every value set back as an array. When the iteration ends,
-  # its answer becomes the StopIteration's result, and every later
-  # `next` raises a fresh StopIteration caused by the first.
+  # its return value becomes the StopIteration's result, and every later
+  # `next` raises a new StopIteration caused by the first.
   def take_next
     Primitive.attr! :hidden
     raise_stop if @stop
@@ -296,7 +296,7 @@ module Kernel
 
   alias enum_for to_enum
 
-  # What a builtin iterator answers without a block: its count comes
+  # What a builtin iterator returns without a block: its count comes
   # last.
   private def enum_with_size(method, *args, size)
     Primitive.attr! :hidden
@@ -305,7 +305,7 @@ module Kernel
 end
 
 # `1.step(10, 3)` and `(1..10).step(3)` without a block: an Enumerator
-# that also answers its bounds and step, CRuby's enumerator.c arith_seq.
+# that also returns its bounds and step, CRuby's enumerator.c arith_seq.
 # It keeps the call that made it, which `inspect` replays.
 class Enumerator::ArithmeticSequence < Enumerator
   attr_reader :begin, :end, :step
@@ -515,8 +515,8 @@ class Enumerator::ArithmeticSequence < Enumerator
     (n + 1).to_f
   end
 
-  # ruby_float_step: `count` values, each `begin + i * step`, held to the
-  # end.
+  # ruby_float_step: `count` values, each `begin + i * step`, limited to
+  # the end.
   def float_walk(count)
     Primitive.attr! :hidden
     first = @begin.to_f
@@ -540,12 +540,12 @@ class Enumerator::ArithmeticSequence < Enumerator
 end
 
 # A lazy enumerator is an Enumerator whose `each` runs a chain of steps.
-# Each lazy holds one Step: the receiver it reads, and the runner that
-# streams what it produces to the block `each` is given; a step that
-# stops early breaks out of its receiver's `each`. What a step yields
-# keeps the receiver's value packing unless CRuby's step passes one
-# value. `inspect` shows the receiver, method and arguments the lazy was
-# made with, which CRuby keeps apart from what `each` runs, as here.
+# Each lazy has one Step: the receiver it reads, and the runner that
+# streams the output to the block that `each` gets. A step that stops
+# early breaks out of its receiver's `each`. A step's yields keep the
+# receiver's value packing unless CRuby's step passes one value.
+# `inspect` shows the receiver, method and arguments that made the lazy.
+# CRuby keeps these separate from what `each` runs, and so does this file.
 class Enumerator::Lazy < Enumerator
   def self.from(receiver)
     Primitive.attr! :hidden
@@ -664,9 +664,9 @@ class Enumerator::Lazy < Enumerator
 
   def slice_after(*, &block) = Enumerator::Lazy.from(super)
 
-  # The eager forms, under the names CRuby keeps them by: aliases of
-  # Enumerable's, and a definition of `with_index` of its own, so the
-  # enumerator it answers without a block names it.
+  # The eager forms, under CRuby's names for them: aliases of
+  # Enumerable's, and a separate definition of `with_index`, so the
+  # enumerator that it returns without a block shows that name.
   %i[map collect flat_map collect_concat select filter find_all filter_map reject grep grep_v zip take take_while drop drop_while uniq].each do |name|
     define_method(:"_enumerable_#{name}", Enumerable.instance_method(name))
     private :"_enumerable_#{name}"
@@ -840,8 +840,8 @@ class Enumerator::Lazy < Enumerator
       nil
     end
 
-    # Arrays are read by index; anything else is read with `next`, and
-    # answers nil once it stops.
+    # Arrays are read by index; any other object is read with `next`,
+    # and gives nil after it stops.
     def run_zip
       cursors = @args.map { |other| other.is_a?(Array) ? other : other.to_enum }
       i = 0

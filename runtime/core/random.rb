@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 # Random: CRuby's MT19937, seeded and drawn as CRuby does it, so a
-# seeded stream answers the same numbers.
+# seeded stream returns the same numbers.
 #
 # CRuby keeps the generator's words in a struct of its own and puts the
-# draws on Random::Base, which leaves Random itself with `==` alone. The
-# words live in hidden slots here for the same reason: a program sees no
+# draws on Random::Base, which leaves Random itself with only `==`. The
+# words are in hidden slots here for the same reason: a program sees no
 # instance variable on a generator.
 random_base = Class.new
 
@@ -40,8 +40,8 @@ class Random < random_base
 
   def marshal_dump = [state, left, seed]
 
-  # rand_mt_load: the words, where the stream stands in them, and the
-  # seed, the last two optional.
+  # rand_mt_load: the words, the position in them, and the seed. The
+  # last two are optional.
   def marshal_load(dump)
     raise TypeError, "wrong argument type #{dump.class} (expected Array)" unless dump.is_a?(Array)
     raise ArgumentError, +"wrong dump data" unless dump.size.between?(1, 3)
@@ -98,8 +98,8 @@ end
 Random::Base = random_base
 
 # Random::Formatter's own draws, which random.c defines for every
-# generator and for any object that answers `bytes`, SecureRandom among
-# them: a Random draws from its stream, anything else from its bytes.
+# generator and for any object that responds to `bytes`, SecureRandom
+# included. A Random draws from its stream, any other object from its bytes.
 module Random::Formatter
   def random_number(*args)
     value = Random.send(:rand_random, self, args)
@@ -126,7 +126,7 @@ class Random
       obj.is_a?(Random) ? obj : nil
     end
 
-    # obj_random_bytes: `n` bytes the object's public `bytes` answers.
+    # obj_random_bytes: `n` bytes that the object's public `bytes` returns.
     def bytes_of(obj, n)
       Primitive.attr! :hidden
       bytes = obj.public_send(:bytes, n)
@@ -327,7 +327,7 @@ class Random
       value
     end
 
-    # rb_check_to_float: a Float, or what a Numeric's to_f answers.
+    # rb_check_to_float: a Float, or the value of a Numeric's to_f.
     def float_of(value)
       Primitive.attr! :hidden
       return value if value.is_a?(Float)
@@ -349,7 +349,7 @@ class Random
   end
 end
 
-# The draws themselves, where CRuby keeps them: a generator answers `rand`,
+# The draws themselves, where CRuby keeps them: a generator gets `rand`,
 # `bytes` and `seed` from Random::Base, and the words of the state never
 # leave this class.
 class Random::Base
@@ -490,8 +490,8 @@ class Random::Base
     end
   end
 
-  # The generator's words, and where it stands in them: state CRuby keeps
-  # in a struct, so no instance variable holds it here.
+  # The generator's words, and the position in them: CRuby keeps this
+  # state in a struct, so no instance variable contains it here.
   def mt
     Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :__mt__)
@@ -619,7 +619,7 @@ module Kernel
 end
 
 # CRuby writes shuffle and sample in Ruby (its array.rb), so they
-# answer their own parameters, under CRuby's names.
+# return their own parameters, under CRuby's names.
 class Array
   # A plain copy shuffled, as rb_ary_shuffle shuffles rb_ary_dup's.
   def shuffle(random: Random.default)

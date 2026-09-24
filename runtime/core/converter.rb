@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# One conversion, held open between the pieces of text it is given. A
+# One conversion, kept open between the pieces of text it is given. A
 # piece that ends inside a character keeps its tail until the next piece
-# arrives, output that will not fit in the destination waits for room,
-# and where a conversion stopped is answered in ruby's own words.
+# arrives. Output that does not fit in the destination waits for room.
+# Where a conversion stopped is reported in ruby's own words.
 #
 # The first line of this file must not spell the class's full name: ruby
 # reads `coding:` inside it as a magic comment, and then looks for an
@@ -49,13 +49,13 @@ class Encoding
               end
       @source = @path.first
       @destination = @path.last
-      # Ruby holds no converter from an encoding to itself, whatever the
-      # decorators say. A decorator stands alone only where the two ends
-      # are named by empty Strings, and then there is no path at all.
+      # Ruby has no converter from an encoding to itself, whatever the
+      # decorators say. A decorator is used alone only when the two ends
+      # are empty Strings, and then there is no path at all.
       if @source && @source.equal?(@destination)
         raise ConverterNotFoundError, "code converter not found (#{@source_name} to #{@destination_name}#{description})"
       end
-      # A line end is one choice: ruby holds no converter that writes two
+      # A line end is one choice: ruby has no converter that writes two
       # kinds of it.
       if (@decorators & %i[universal_newline crlf_newline cr_newline lf_newline]).size > 1
         raise ConverterNotFoundError, "code converter not found (#{@source_name} to #{@destination_name}#{description})"
@@ -79,8 +79,8 @@ class Encoding
       @reading = @source && Encoding.send(:stateful?, @source) ? :ascii : nil
     end
 
-    # A name as rb_to_encoding reads it: an Encoding answers its own, and
-    # anything else must be a String.
+    # A name as rb_to_encoding reads it: an Encoding gives its own name,
+    # and any other object must be a String.
     def self.name_of(value)
       Primitive.attr! :hidden
       return value.name if value.is_a?(Encoding)
@@ -260,9 +260,9 @@ class Encoding
       "#{@source.name} to #{@destination.name}#{shown.empty? ? '' : " with #{shown}"}"
     end
 
-    # The conversion itself: the pieces held over and `text`, into `out`,
+    # The conversion itself: the kept pieces and `text`, into `out`,
     # with at most `room` bytes of it. Output made past that room waits
-    # inside the converter, as CRuby's own buffer holds it.
+    # inside the converter, as in CRuby's own buffer.
     def run(text, out, room, partial)
       Primitive.attr! :hidden
       @rest = +"".b
@@ -286,9 +286,9 @@ class Encoding
           return broken(bytes, at, width) if piece.nil?
         else
           width = @source ? Primitive.zr_str_char_len_at_m(tagged, at) : 1
-          # The piece carries the source's encoding, so its own code point
-          # is what the step reads. Sliced out of the plain bytes it would
-          # answer its first byte instead.
+          # The piece has the source's encoding, so the step reads its own
+          # code point. If it were sliced out of the plain bytes, it would
+          # give its first byte instead.
           piece = tagged.byteslice(at, width)
         end
         if @source && !@reading && !piece.valid_encoding?
@@ -324,10 +324,10 @@ class Encoding
       @errinfo.first
     end
 
-    # How many bytes a stateful source's next piece holds: an escape,
-    # which sets the set the bytes after it read in, or one character of
-    # that set. nil where the text ends inside one, 0 for an escape the
-    # encoding has no set for.
+    # How many bytes are in a stateful source's next piece: an escape,
+    # which selects the set for the bytes after it, or one character of
+    # that set. nil when the text ends inside one, 0 for an escape that
+    # the encoding has no set for.
     def stateful_width(bytes, at)
       Primitive.attr! :hidden
       if bytes.getbyte(at) == 0x1B
@@ -366,8 +366,8 @@ class Encoding
       @held.empty?
     end
 
-    # A character the text ends inside: held back where more is coming,
-    # else an error, or the replacement where the caller asked for one.
+    # A character that the text ends inside: kept back when more is
+    # coming, else an error, or the replacement if the caller asked for one.
     def held_tail(bytes, at, partial, out, room)
       Primitive.attr! :hidden
       tail = bytes.byteslice(at, bytes.bytesize - at)
@@ -378,8 +378,8 @@ class Encoding
       end
       return stop(:incomplete_input, incomplete_error(tail), tail) unless @flags & INVALID_REPLACE != 0
 
-      # The replacement stands for the broken tail, and reaches the
-      # destination through the same buffer every other piece does.
+      # The replacement is in place of the broken tail, and goes to the
+      # destination through the same buffer as every other piece.
       @held << written(replacement)
       @errinfo = [:finished, nil, nil, nil, nil]
       return :destination_buffer_full unless drain(out, room)
@@ -411,8 +411,8 @@ class Encoding
       symbol
     end
 
-    # One character's bytes in the destination, after the decorators have
-    # had their say. A Symbol answers instead where the conversion stops.
+    # One character's bytes in the destination, after the decorators
+    # apply. A Symbol is returned in their place where the conversion stops.
     def made_of(piece)
       Primitive.attr! :hidden
       point = code_of(piece)
@@ -506,7 +506,7 @@ class Encoding
       units.map { |u| [0xE0 | (u >> 12), 0x80 | ((u >> 6) & 0x3F), 0x80 | (u & 0x3F)].pack("C*") }.join.b
     end
 
-    # ISO-2022-JP holds a state: an escape says that what follows is
+    # ISO-2022-JP keeps a state: an escape says that the next bytes are
     # two-byte, and another says the text is back in ASCII.
     def jis_bytes_for(point)
       Primitive.attr! :hidden

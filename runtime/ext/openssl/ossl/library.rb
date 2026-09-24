@@ -4,9 +4,9 @@ module OpenSSL
   # libssl and libcrypto 3, as the host installs them: found and opened
   # once, when the program requires openssl. Each file of the port binds
   # the functions it calls with Lib.attach, which gives the module a
-  # method of the C name, and writes the header macros it uses as Ruby
-  # beside them. A function this library lacks gets no method, so
-  # `Lib.respond_to?(name)` answers what extconf.rb's have_func answers.
+  # method with the C name, and writes the header macros it uses as Ruby
+  # next to them. A function that this library does not have gets no
+  # method, so `Lib.respond_to?(name)` gives the same result as extconf.rb's have_func.
   module Lib
     # The oldest release the port runs on: OpenSSL 3.0.0.
     MINIMUM_VERSION = 0x30000000
@@ -15,8 +15,8 @@ module OpenSSL
     WORD_MASK = (1 << WORD_BITS) - 1
     SIGN_BIT = 1 << (WORD_BITS - 1)
 
-    # How each C answer becomes a Ruby value, from the signed word x0
-    # holds. A narrower type takes the low bits, as C's caller does.
+    # How each C return value becomes a Ruby value, from the signed word
+    # in x0. A narrower type takes the low bits, as C's caller does.
     RETURNS = {
       void: ->(_) {},
       int: ->(word) { ((word & 0xffff_ffff) ^ 0x8000_0000) - 0x8000_0000 },
@@ -53,8 +53,8 @@ module OpenSSL
       def file_name = RUBY_PLATFORM.include?("darwin") ? "libssl.3.dylib" : "libssl.so.3"
 
       # Opens libssl, whose image brings its own libcrypto, so every
-      # symbol the port binds comes through this one handle. Raises
-      # LoadError naming each place looked in when none holds OpenSSL 3.
+      # symbol that the port binds comes through this one handle. Raises
+      # LoadError with each searched path when none contains OpenSSL 3.
       def load
         return @handle if @handle
 
@@ -82,14 +82,14 @@ module OpenSSL
 
       def path = @path
 
-      # Binds `name`, a function taking `params` and answering `returns`
-      # (the names in PARAMS and RETURNS), as a method of that name.
+      # Binds `name`, a function that takes `params` and returns `returns`
+      # (the names in PARAMS and RETURNS), as a method with that name.
       # Integers pass as they are, nil as NULL, true and false as 1 and
-      # 0. A :string argument is text C reads up to a NUL; a :buffer is a
-      # String whose bytes C reads or writes in place; a :double, which
-      # only the last parameter may be, a Float. With `errno`, the method
-      # answers [answer, errno] as errno stood when C returned; `as` names
-      # the method when it is not the function's own name.
+      # 0. A :string argument is text that C reads up to a NUL. A :buffer is
+      # a String whose bytes C reads or writes in place. A :double (only the
+      # last parameter can be one) is a Float. With `errno`, the method
+      # returns [result, errno], with errno as it was when C returned. `as`
+      # gives the method name when it is not the function's own name.
       def attach(name, params, returns, errno: false, as: name)
         address = Native.symbol(@handle, name.to_s)
         return if address.zero?
@@ -128,7 +128,7 @@ module OpenSSL
       # Binds each of `table`'s rows: name => [params, returns].
       def attach_all(table) = table.each { |name, (params, returns)| attach(name, params, returns) }
 
-      # An argument as the signed word x0-x7 carry.
+      # An argument as the signed word in x0-x7.
       def word(value)
         case value
         when Integer then value & SIGN_BIT == 0 ? value & WORD_MASK : (value & WORD_MASK) - (1 << WORD_BITS)
@@ -156,16 +156,16 @@ module OpenSSL
 
       def read_int(address) = Native.read(address, 4).unpack1("l")
 
-      # The address a buffer of pointers holds at `index`.
+      # The address in a buffer of pointers at `index`.
       def pointer_at(buffer, index = 0) = buffer.unpack1("J", offset: index * 8)
 
       # -- callbacks -------------------------------------------------------
 
       # A C function, for OpenSSL to call back, that runs `block` with its
       # arguments as signed Integers (seven of them; C passes fewer, and
-      # the rest mean nothing) and answers what the block answers, an
+      # the rest mean nothing) and returns the block's return value, an
       # Integer. Each is made once, where the C extension has a static
-      # function, since the kernel keeps a fixed number of entries.
+      # function, because the kernel keeps a fixed number of entries.
       def callback(&block)
         @callbacks ||= []
         Native.dispatch(->(index, args) { @callbacks[index].call(*args) }) if @callbacks.empty?

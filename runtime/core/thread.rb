@@ -130,7 +130,7 @@ class Thread
 
     # A limit in seconds, as `rb_to_float` takes one: a wait that
     # takes a limit rather than an interval reads it this way, and a
-    # limit that has passed simply answers at once. A String names a
+    # limit that has passed returns immediately. A String gives a
     # number that no conversion reads.
     def seconds(limit)
       Primitive.attr! :hidden
@@ -164,8 +164,8 @@ class Thread
       @native_ids = (@native_ids || Primitive.zr_process_id) + 1
     end
 
-    # A forked child holds the one thread that forked, which is its main
-    # thread now; every other one stayed behind in the parent.
+    # A forked child has only the thread that forked, which is its main
+    # thread after the fork; all other threads stay in the parent.
     def after_fork
       Primitive.attr! :hidden
       @threads.each { |thread| Primitive.zr_hidden_set(thread, :status, :dead) unless thread.equal?(@current) }
@@ -487,9 +487,9 @@ class Thread
 
   def group = @group || ThreadGroup::Default
 
-  # The frames the thread stands in, innermost first, and nil once it has
-  # ended. This thread answers from the line that asked, as `caller` does;
-  # any other thread is read where it parked.
+  # The frames of the thread, innermost first, and nil after it has
+  # ended. The current thread returns them from the calling line, as
+  # `caller` does; another thread is read where it is parked.
   def backtrace(start = 0, length = nil)
     return caller(start + 1, length) if equal?(Thread.current)
     return nil unless alive?
@@ -536,7 +536,7 @@ class Thread
     (@masks ||= []) << mask
   end
 
-  # The mask goes, and anything it held back arrives now.
+  # The mask is removed, and anything it kept back arrives now.
   def pop_mask
     Primitive.attr! :hidden
     @masks.pop
@@ -681,7 +681,7 @@ class Thread
 
   # Sleep until `wakeup`, or until `deadline` nanoseconds on the
   # monotonic clock. A deadly wait counts toward a deadlock.
-  # Sleeps until woken or the deadline; answers false on the deadline.
+  # Sleeps until woken or the deadline; returns false on the deadline.
   def wait(deadline, deadly)
     Primitive.attr! :hidden
     @status = :sleep
@@ -762,9 +762,9 @@ class Thread
   send(:boot)
 end
 
-# What `Process.detach` answers: a thread of its own that waits for
-# the child, so no zombie stays behind. Both stand here, where Thread
-# exists; CRuby leaves the class with no `new` of its own.
+# The value that `Process.detach` returns: a separate thread that waits
+# for the child, so no zombie stays. Both are defined here, where Thread
+# exists; CRuby gives the class no `new` of its own.
 class Process::Waiter < Thread
   attr_reader :pid
 
@@ -810,8 +810,8 @@ class ThreadGroup
 end
 
 class Fiber
-  # A fiber that waits through its scheduler, as a waiter list holds a
-  # thread: waking it asks the scheduler to unblock it, once.
+  # A fiber that waits through its scheduler, as a thread waits in a
+  # waiter list: waking it tells the scheduler to unblock it, once.
   class Blocked
     def initialize(scheduler, blocker, fiber)
       @scheduler = scheduler
@@ -933,8 +933,8 @@ class Fiber
             @status = :queued
           end
 
-          # What the operation gave, or the block's answer where it never
-          # ran; either way it runs no more.
+          # The operation's result, or the block's return value when the
+          # operation never ran. In both cases it does not run again.
           def finish
             queued = @status == :queued
             @work = nil
@@ -1013,7 +1013,7 @@ class Fiber
       Kernel.raise(action)
     end
 
-    # The exception `Fiber#raise` carries, as `rb_make_exception`
+    # The exception that `Fiber#raise` raises, as `rb_make_exception`
     # builds it.
     def make_exception(args)
       Primitive.attr! :hidden
@@ -1048,7 +1048,7 @@ class Fiber
   def transfer(*args) = Fiber.send(:take_action, __transfer__(*args))
 
   # `raise`: the exception arrives in the fiber where it yielded, and
-  # the answer is what the fiber does next.
+  # the return value is what the fiber does next.
   def raise(*args)
     exception = Fiber.send(:make_exception, args)
     Kernel.raise FiberError, +"cannot raise exception on unborn fiber" if Primitive.zr_fiber_unborn_p(self)
@@ -1111,8 +1111,8 @@ class Fiber
   end
 end
 
-# A mutex holds its owner and its waiters in core-only state, which
-# `freeze` does not hold still: a frozen Mutex still locks, as CRuby's
+# A mutex keeps its owner and its waiters in core-only state, which
+# `freeze` does not freeze: a frozen Mutex still locks, as CRuby's
 # C fields let it.
 class Thread::Mutex
   def initialize
@@ -1178,8 +1178,8 @@ class Thread::Mutex
 
   private
 
-  # The fiber that holds the lock, or nil. A thread that ends lets go of
-  # every lock it held (rb_threadptr_unlock_all_locking_mutexes), so a
+  # The fiber that has the lock, or nil. A thread that ends releases
+  # every lock it had (rb_threadptr_unlock_all_locking_mutexes), so a
   # lock whose thread has ended is free. The thread that is ending is
   # still the current one while it wakes its waiters, and a lock it
   # takes then is its own.
@@ -1207,7 +1207,7 @@ class Thread::ConditionVariable
     nil
   end
 
-  # What Mutex#sleep answers: the seconds slept, or nil on the timeout.
+  # The value that Mutex#sleep returns: the seconds slept, or nil on the timeout.
   def wait(mutex, timeout = nil)
     Primitive.attr! :ruby
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
@@ -1313,7 +1313,7 @@ class Thread::Queue
 
   private
 
-  # check_array: an allocated queue holds no items until initialize.
+  # check_array: an allocated queue has no items until initialize.
   def items
     Primitive.attr! :hidden
     @items or raise TypeError, "#{inspect} not initialized"

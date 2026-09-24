@@ -90,8 +90,8 @@ class Time
       end
     end
 
-    # num_exact: what `to_r` answers for a value that also has `to_int`,
-    # else what `to_int` answers; a String, nil or anything else has no
+    # num_exact: the value of `to_r` for a value that also has `to_int`,
+    # else the value of `to_int`. A String, nil or any other object has no
     # exact number.
     def exact(value)
       if !value.nil? && !value.is_a?(String)
@@ -107,7 +107,7 @@ class Time
       raise TypeError, "can't convert #{value.class} into an exact number"
     end
 
-    # A Rational that holds a whole number is that Integer.
+    # A Rational that contains a whole number becomes that Integer.
     def canonical(count) = count.is_a?(Rational) && count.denominator == 1 ? count.numerator : count
 
     # A zone argument: a fixed offset, `:utc`, or a local zone with
@@ -167,8 +167,8 @@ class Time
     end
 
     # `Time.new("2021-12-25 10:00:00 +09:00")`: CRuby's time_init_parse,
-    # which reads an ISO-8601-shaped string and nothing else. A zone the
-    # string carries takes the place of the one the caller named.
+    # which reads only an ISO-8601-shaped string. A zone in the string
+    # replaces the zone that the caller gave.
     def string_parts(str, zone, precision)
       raise ArgumentError, +"time string should have ASCII compatible encoding" unless str.encoding.ascii_compatible?
       raise ArgumentError, "can't parse: #{str.inspect}" if !str.empty? && (space?(str[0]) || space?(str[-1]))
@@ -200,8 +200,8 @@ class Time
     end
 
     # What follows the year: `-mm-dd`, then `hh:mm:ss` and a fraction.
-    # CRuby stops at the first part the string does not carry, and reads
-    # what is left as the zone, so each part that is missing ends this.
+    # CRuby stops at the first part that the string does not have, and
+    # reads the rest as the zone, so each missing part ends this.
     def date_parts(str, pos, precision)
       return [[], pos] unless str[pos] == +"-"
 
@@ -376,10 +376,10 @@ class Time
     end
 
     # The zone's offset, daylight flag and name at `secs`, as localtimew
-    # finds them. On this platform rb_localtime_r answers only for a
-    # time an int holds, and guess_local_offset stands in past that: no
+    # finds them. On this platform rb_localtime_r works only for a time
+    # that fits in an int, and guess_local_offset is used past that. No
     # zone kept daylight time before 1916, so an earlier time takes the
-    # epoch's zone, and a time past 2038 the zone of the year before
+    # epoch's zone. A time past 2038 takes the zone of the year before
     # 2038 whose month starts on the same day of the week.
     def zone_at(secs)
       return Primitive.zr_time_local(secs) if secs.between?(-0x8000_0000, 0x7fff_ffff)
@@ -482,8 +482,8 @@ class Time
   alias gmt_offset utc_offset
   alias gmtoff utc_offset
 
-  # A zone name holds no character above ASCII, and ruby answers it in
-  # the encoding that says so.
+  # A zone name contains no character above ASCII, and ruby returns it
+  # in the encoding that says so.
   def zone
     case kind
     when :utc then (+"UTC").force_encoding(Encoding::US_ASCII)
@@ -504,8 +504,8 @@ class Time
   def friday? = wday == 5
   def saturday? = wday == 6
 
-  # time_gmtime: a Time that is UTC already is answered as it stands,
-  # before anything asks whether it is frozen.
+  # time_gmtime: a Time that is already UTC is returned as it is,
+  # before the frozen check.
   def utc
     return self if kind == :utc
 
@@ -518,7 +518,7 @@ class Time
   def getutc = dup.utc
   alias getgm getutc
 
-  # time_localtime answers a local Time as it stands; with a zone,
+  # time_localtime returns a local Time as it is; with a zone,
   # time_zonelocal changes it, and a frozen one refuses.
   def localtime(zone = nil)
     return self if zone.nil? && kind == :local
@@ -611,8 +611,8 @@ class Time
 
   private
 
-  # A copy takes the instant of the Time it comes from, so a Time that
-  # holds none cannot be copied, and one that already holds an instant
+  # A copy takes the instant of its source Time, so a Time with no
+  # instant cannot be copied, and one that already has an instant
   # cannot take another.
   def initialize_copy(other)
     raise TypeError, +"already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
@@ -664,8 +664,8 @@ class Time
     format("%s%02d%02d%02d", sign, offset / 3600, (offset % 3600) / 60, offset % 60)
   end
 
-  # A Time that no constructor filled holds no instant, and ruby says so
-  # of every reader.
+  # A Time that no constructor filled has no instant, and every reader
+  # raises an error that says so, as in ruby.
   def built!
     Primitive.attr! :hidden
     raise TypeError, +"uninitialized Time" unless Primitive.zr_hidden_get(self, :__built__)
@@ -740,10 +740,10 @@ class Time
   end
 
   # One directive, from the `%` at `from`: flags, a width and colons,
-  # each at most where strftime.c takes it, then the conversion. Answers
-  # where the format goes on. What names no directive is copied as it
-  # is written; a directive that runs off the end answers a place past
-  # it.
+  # each only where strftime.c accepts it, then the conversion. Returns
+  # the position where the format continues. Text that is not a
+  # directive is copied as it is written. A directive that runs off the
+  # end returns a position past it.
   def directive(format, from, out)
     Primitive.attr! :hidden
     width = -1
@@ -875,8 +875,8 @@ class Time
     end
   end
 
-  # STRFTIME: a directive that stands for a format of others, upcased
-  # by `^` and right-aligned in `width`.
+  # STRFTIME: a directive that represents a format of other directives,
+  # upcased by `^` and right-aligned in `width`.
   def put_compound(out, format, width, padding, upper)
     Primitive.attr! :hidden
     text = rendered(format)
@@ -1058,8 +1058,8 @@ class Time
   end
   private_class_method :extended_year
 
-  # The nanoseconds under a microsecond: the exact pair where the dump
-  # carries one, else the digits ruby 1.9.1 wrote.
+  # The nanoseconds under a microsecond: the exact pair when the dump
+  # contains one, else the digits that ruby 1.9.1 wrote.
   def self.sub_nanoseconds(extras)
     Primitive.attr! :hidden
     return Rational(extras[:nano_num], extras[:nano_den] || 1) if extras[:nano_num]

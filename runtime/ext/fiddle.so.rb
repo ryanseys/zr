@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
-# `fiddle.so`: the C half of the fiddle gem (1.1.8), in ruby over the ffi
-# gem. Each section stands for the C file it names and follows the order
-# Init_fiddle defines things in: fiddle.c, function.c, closure.c,
-# handle.c, pointer.c, pinned.c and memory_view.c. conversions.c lives in
-# Fiddle::Native, with the libc calls and the rules CRuby's NUM2INT,
-# NUM2DBL and StringValueCStr follow, so that a bad argument raises what
-# the C extension raises.
+# `fiddle.so`: the C part of the fiddle gem (1.1.8), in ruby over the ffi
+# gem. Each section represents the C file in its heading and follows the
+# order in which Init_fiddle defines things: fiddle.c, function.c,
+# closure.c, handle.c, pointer.c, pinned.c and memory_view.c.
+# conversions.c is in Fiddle::Native, with the libc calls and the rules
+# that CRuby's NUM2INT, NUM2DBL and StringValueCStr follow, so that a bad
+# argument raises the same error as the C extension.
 #
-# Addresses cross between the classes as Integers, and FFI::Pointer reads
-# and writes the memory they name. Three things the C extension does
-# cannot be done over ffi, and this file comes as close as it can:
+# Addresses go between the classes as Integers, and FFI::Pointer reads
+# and writes the memory at those addresses. Three things that the C
+# extension does are not possible over ffi. This file comes as close as it can:
 #
-# * A String has no address a Ruby program can see. Fiddle::Pointer[string]
+# * A String has no address that a Ruby program can see. Fiddle::Pointer[string]
 #   copies the string into native memory, and copies changes back and forth
 #   when fiddle reads or writes through the pointer or passes it to a C
 #   function (see Native::Mirror).
@@ -20,7 +20,7 @@
 #   false, small Integers and Floats as CRuby does, and gives any other
 #   object an address from a table, which Fiddle.dlunwrap reads back.
 # * The C structs behind Pointer, Handle, Closure, Pinned and MemoryView
-#   live in one hidden instance variable, @__fiddle__, which inspect omits.
+#   are in one hidden instance variable, @__fiddle__, which inspect omits.
 require "ffi"
 
 module Fiddle
@@ -67,7 +67,7 @@ module Fiddle
     QTRUE = 20
     QUNDEF = 36
 
-    # libffi's status codes, which fiddle's error messages carry.
+    # libffi's status codes, which fiddle's error messages include.
     FFI_BAD_ABI = 2
     FFI_BAD_ARGTYPE = 3
 
@@ -78,7 +78,7 @@ module Fiddle
     # An address as C's unsigned pointer.
     def unsigned(address) = address & ADDRESS_MASK
 
-    # An address as PTR2NUM answers it: a signed long.
+    # An address as PTR2NUM returns it: a signed long.
     def signed(address)
       address &= ADDRESS_MASK
       address[ADDRESS_BITS - 1] == 1 ? address - (1 << ADDRESS_BITS) : address
@@ -215,7 +215,7 @@ module Fiddle
     end
 
     # rb_fiddle_value_to_generic: an argument in the form ffi passes for
-    # `type`. `keep` holds native memory that must outlive the call.
+    # `type`. `keep` contains native memory that must outlive the call.
     def to_native(type, value, keep)
       case type
       when 0 then 0
@@ -248,7 +248,7 @@ module Fiddle
     end
 
     # rb_fiddle_generic_to_value: a C result, which ffi read as `type`, as
-    # the Ruby value fiddle answers.
+    # the Ruby value that fiddle returns.
     def from_native(type, value)
       case type
       when 0 then nil
@@ -475,8 +475,8 @@ module Fiddle
     @next_address = 0x10_0000_0000
 
     # The VALUE of a Ruby object: CRuby's encoding for the immediates, and
-    # an address from a table for anything else. The table holds the
-    # object, so its address stays good for the life of the process.
+    # an address from a table for all other objects. The table keeps the
+    # object, so its address stays valid for the life of the process.
     def value_to_address(object)
       case object
       when false then QFALSE
@@ -497,7 +497,7 @@ module Fiddle
       end
     end
 
-    # The Ruby object at a VALUE that value_to_address answered.
+    # The Ruby object at a VALUE that value_to_address returned.
     def address_to_value(address)
       address = signed(address)
       return address >> 1 if address.odd?
@@ -547,7 +547,7 @@ module Fiddle
   end
 
   # The C types, whose values Init_fiddle defines. They are listed in the
-  # order CRuby's Fiddle::Types.constants answers.
+  # order that CRuby's Fiddle::Types.constants returns.
   module Types
     # The C integer type as wide as a pointer, which size_t, ssize_t,
     # ptrdiff_t and intptr_t are.
@@ -649,8 +649,8 @@ module Fiddle
   SIZEOF_BOOL = builtin::BOOL.size
 
   # The address of the function that frees what Pointer.malloc allocates.
-  # The C extension answers ruby_xfree; this runtime allocates with libc,
-  # so it answers libc's free.
+  # The C extension returns ruby_xfree. This runtime allocates with libc,
+  # so it returns libc's free.
   Native::RUBY_FREE_ADDRESS = Native.unsigned(Native.dlsym(FFI::Pointer.new(Native.unsigned(Native::RTLD_DEFAULT)), "free").address)
   RUBY_FREE = Native.signed(Native::RUBY_FREE_ADDRESS)
 
@@ -670,13 +670,13 @@ module Fiddle
 
   # call-seq: Fiddle.malloc(size)
   #
-  # Allocates +size+ zeroed bytes and answers their address.
+  # Allocates +size+ zeroed bytes and returns their address.
   def malloc(size) = Native.signed(Native.allocate(Native.num2ulong(size), checked: false))
 
   # call-seq: Fiddle.realloc(addr, size)
   #
-  # Resizes the memory at +addr+ to +size+ bytes and answers its address,
-  # which can differ from +addr+.
+  # Resizes the memory at +addr+ to +size+ bytes and returns its address,
+  # which can be different from +addr+.
   def realloc(addr, size)
     address = Native.num2ulong(addr)
     Native.signed(Native.reallocate(address, Native.num2ulong(size)))
@@ -773,8 +773,8 @@ module Fiddle
       ffi_params = types.map { |type| Native.ffi_type(type) }
       Native.check_abi(@abi, "error creating CIF")
       ffi_params[fixed..].each { |type| Native.variadic_ffi_type(type) } if variadic
-      # A void argument passes nothing libffi reads; ffi has no void
-      # argument, so a zero int stands in for it.
+      # A void argument passes nothing that libffi reads. ffi has no void
+      # argument, so a zero int is used in its place.
       ffi_params.map! { |type| type == :void ? :int32 : type }
 
       keep = []
@@ -940,8 +940,8 @@ module Fiddle
         when 1 then FFI::Pointer.new(Native.num2ulong(value))
         when 7, 8 then Native.num2dbl(value)
         when 10
-          # C answers the String's own bytes, which the callback must keep
-          # alive. The closure keeps the copy it answers until its next call.
+          # C returns the String's own bytes, which the callback must keep
+          # alive. The closure keeps the copy that it returns until its next call.
           state.result = FFI::MemoryPointer.from_string(Native.string_value_cstr(value))
         when 11 then value ? true : false
         else raise RuntimeError, "closure retval: #{type}"
@@ -1076,8 +1076,8 @@ module Fiddle
   end
 
   module Native
-    # The C struct behind a Handle: what dlopen answered, whether the handle
-    # is open, and whether garbage collection closes it.
+    # The C struct behind a Handle: the value that dlopen returned, whether
+    # the handle is open, and whether garbage collection closes it.
     class HandleState
       attr_accessor :address, :open, :enable_close, :finalizer_defined
 
@@ -1177,7 +1177,7 @@ module Fiddle
       #    to_ptr(val)           => cptr
       #
       # The pointer behind +val+: a FILE* for an IO, the bytes of a String,
-      # what +val+.to_ptr answers, or the address +val+ converts to.
+      # the value of +val+.to_ptr, or the address that +val+ converts to.
       def to_ptr(val)
         wrap = val
         if val.is_a?(IO)
@@ -1283,7 +1283,7 @@ module Fiddle
 
     # call-seq: to_i
     #
-    # The address this pointer holds.
+    # The address that this pointer contains.
     def to_i = Native.signed(Native.state(self, Native::PointerState).address)
     alias to_int to_i
 
@@ -1305,7 +1305,7 @@ module Fiddle
     # call-seq: ref
     #
     # A pointer to this pointer, like C's & operator. Writes through it
-    # change the address this pointer holds.
+    # change the address that this pointer contains.
     def ref = Native::PointerState.pointer(Native.state(self, Native::PointerState).cell_address)
     alias -@ ref
 
@@ -1366,7 +1366,7 @@ module Fiddle
     # call-seq:
     #    ptr <=> other   => -1, 0, 1, or nil
     #
-    # Compares the addresses, or answers nil when +other+ is no pointer.
+    # Compares the addresses, or returns nil when +other+ is not a pointer.
     def <=>(other)
       return nil unless other.is_a?(Pointer)
 
@@ -1539,7 +1539,7 @@ module Fiddle
         @cell&.put_pointer(0, FFI::Pointer.new(@address))
       end
 
-      # The native cell that holds the address, for a pointer to it.
+      # The native cell that contains the address, for a pointer to it.
       def cell_address
         unless @cell
           @cell = FFI::MemoryPointer.new(:pointer)
@@ -1565,12 +1565,12 @@ module Fiddle
         ObjectSpace.define_finalizer(pointer, finalizer)
       end
 
-      # A proc made here holds this state and not the pointer, which a
-      # finalizer must not reach.
+      # A proc made here keeps this state and not the pointer, because a
+      # finalizer must not reach the pointer.
       def finalizer = proc { release }
 
-      # The copy of a String this pointer holds, brought up to date before
-      # a read, and copied back after a write.
+      # The copy of a String that this pointer contains. It is updated
+      # before a read, and copied back after a write.
       def refresh = Mirror.of_state(self)&.refresh
       def flush = Mirror.of_state(self)&.flush
     end
@@ -1591,7 +1591,7 @@ module Fiddle
         @mirrors[string] = new(string)
       end
 
-      # The mirror a pointer holds, directly or through the pointer it was
+      # The mirror of a pointer, directly or through the pointer it was
       # made from.
       def self.of(pointer) = of_state(Native.state(pointer, PointerState))
 
@@ -1674,8 +1674,8 @@ module Fiddle
   end
 
   module Native
-    # The C struct behind a Pinned: the VALUE it holds. A cleared one holds
-    # 0, which is the VALUE of false, so pinning false reads as cleared.
+    # The C struct behind a Pinned: the VALUE it contains. A cleared one
+    # contains 0, which is the VALUE of false, so pinning false reads as cleared.
     class PinnedState
       attr_accessor :ref
 
@@ -1758,7 +1758,7 @@ module Fiddle
     # call-seq: to_s
     #
     # The viewed bytes, as a frozen binary String. C's String shares the
-    # memory; this one holds a copy.
+    # memory; this one contains a copy.
     def to_s
       state = Native.state(self, Native::MemoryViewState)
       return "".b.freeze if state.obj.nil?

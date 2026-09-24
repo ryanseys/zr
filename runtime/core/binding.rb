@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# A Binding names a scope: the locals it holds, the self it runs under
-# and the lexical scope its constants read. It shares the scope's slots
-# rather than copying them, so a write on either side is seen on both,
-# and a local declared after the capture is already in it.
+# A Binding represents a scope: its locals, its self and the lexical
+# scope that its constants read. It shares the scope's slots rather
+# than copying them, so a write on either side is seen on both, and a
+# local declared after the capture is already in it.
 class Binding
   Primitive.zr_undef_alloc(self)
 
@@ -27,8 +27,8 @@ class Binding
     Primitive.zr_binding_get(self, at[0], at[1])
   end
 
-  # A name no scope holds becomes the Binding's own, in a scope inside
-  # the one it named, as ruby gives it.
+  # A name that is in no scope becomes the Binding's own, in a scope
+  # inside the one it represents, as in ruby.
   def local_variable_set(name, value)
     name = symbol_name(name)
     Primitive.zr_binding_add(self, name.to_s) unless place(name)
@@ -53,8 +53,8 @@ class Binding
     Primitive.zr_binding_get(self, 0, at)
   end
 
-  # The eval road defines this again over the compiler the program
-  # brought, as it does Kernel#eval.
+  # Eval support defines this again over the compiler that the program
+  # links in, as it does Kernel#eval.
   def eval(source, file = nil, line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
 
   IRB_SESSION = []
@@ -65,8 +65,8 @@ class Binding
     IRB_SESSION[0] = load
   end
 
-  # The load `irb` arms, taken once: irb's own Binding#irb answers every
-  # call after the first.
+  # The load that `irb` arms, done once: irb's own Binding#irb handles
+  # every call after the first.
   def self.irb_session
     Primitive.attr! :hidden
     IRB_SESSION.pop
@@ -74,16 +74,16 @@ class Binding
 
   # CRuby's prelude: the first `binding.irb` requires irb, whose own
   # Binding#irb replaces this one, and then calls it. A program that
-  # names `irb` carries runtime/ext/zr/irb_session.rb ahead of its body, and
-  # that file arms the require, so irb joins $LOADED_FEATURES only on
-  # that first call.
+  # calls `irb` by name includes runtime/ext/zr/irb_session.rb before its
+  # body. That file arms the require, so irb joins $LOADED_FEATURES only
+  # on that first call.
   #
-  # ruby suppresses the bundled-gem warning around its require, because
-  # irb is a bundled gem there and reline and rdoc come with it, and
-  # falls back on `Gem::BUNDLED_GEMS.force_activate`. Here irb is part
-  # of the library the program was compiled against: there is no warning
-  # to suppress and nothing to activate, and a program that did not
-  # carry irb raises the LoadError a ruby without it raises.
+  # ruby suppresses the bundled-gem warning around its require, and uses
+  # `Gem::BUNDLED_GEMS.force_activate` as a fallback, because irb (with
+  # reline and rdoc) is a bundled gem there. Here irb is part of the
+  # library that the program was compiled against, so there is no warning
+  # and nothing to activate. A program that does not include irb raises
+  # the same LoadError as a ruby without irb.
   def irb(...)
     Primitive.attr! :ruby
     load = Binding.send(:irb_session) or raise LoadError, "cannot load such file -- irb"
@@ -133,8 +133,8 @@ class Binding
     raise TypeError, "#{name.inspect} is not a symbol nor a string"
   end
 
-  # `[depth, index]` of `name`, or nil where no scope holds it. A hidden
-  # local of the lowering keeps its slot but takes no name.
+  # `[depth, index]` of `name`, or nil when no scope contains it. A hidden
+  # local of the lowering keeps its slot but has no name.
   def place(name)
     Primitive.attr! :hidden
     scopes.each_with_index do |names, depth|
@@ -144,7 +144,7 @@ class Binding
     nil
   end
 
-  # The names each scope holds, innermost first, hidden ones dropped.
+  # The names in each scope, innermost first, with hidden ones dropped.
   def scopes
     Primitive.attr! :hidden
     Primitive.zr_binding_scopes(self).map { |names| names.map { |n| named?(n) ? n : nil } }
@@ -157,9 +157,9 @@ class Binding
 end
 
 module Kernel
-  # The scope this call stands in.
+  # The scope of this call.
   def binding = Primitive.zr_binding
 
-  # The names the caller's scope holds, which is what its Binding names.
+  # The names in the caller's scope, which are the names of its Binding.
   def local_variables = Primitive.zr_binding.local_variables
 end

@@ -18,7 +18,7 @@ module Marshal
   end
   module_function :dump
 
-  # CRuby writes load in Ruby (its marshal.rb), so it answers its own
+  # CRuby writes load in Ruby (its marshal.rb), so it returns its own
   # parameters, under CRuby's names.
   def self.load(source, proc = nil, freeze: false)
     Primitive.attr! :ruby
@@ -37,8 +37,8 @@ module Marshal
     alias restore load
   end
 
-  # What holds a task, a lock, a descriptor or compiled code, which no
-  # wire format can carry.
+  # Objects that contain a task, a lock, a descriptor or compiled code,
+  # which no wire format can contain.
   UNDUMPABLE = %w[Proc Method UnboundMethod Binding Enumerator Fiber Dir MatchData Ractor StringIO
                   Thread Thread::Mutex Thread::Queue Thread::SizedQueue Thread::ConditionVariable].freeze
   private_constant :UNDUMPABLE
@@ -80,9 +80,9 @@ module Marshal
     [value, text.byteslice((1 + count)..)]
   end
 
-  # What a `_dump` payload carries beside its bytes: the names the C API
-  # sets on the payload itself, with no `@` in front, which only the
-  # `_load` of that class reads. Time writes its zone and offset so.
+  # What a `_dump` payload contains next to its bytes: the names that the
+  # C API sets on the payload itself, with no `@` in front, which only the
+  # `_load` of that class reads. Time writes its zone and offset this way.
   def self.extras_of(text) = Primitive.zr_hidden_get(text, :__extras__) || []
 
   def self.extra_set(text, name, value)
@@ -169,9 +169,9 @@ module Marshal
       write_ivars(ivars, limit) if wrapped
     end
 
-    # A Set writes as the pure-Ruby Set of Ruby 3 did, an object whose
-    # @hash names its members, which set.c's compat dumper stands in; its
-    # own instance variables wrap that.
+    # A Set writes as the pure-Ruby Set of Ruby 3 did: an object whose
+    # @hash contains its members, which set.c's compat dumper is in place
+    # of. Its own instance variables wrap that.
     def set(obj, limit)
       ivars = ivars_of(obj)
       @out << "I" unless ivars.empty?
@@ -185,8 +185,8 @@ module Marshal
       [[:excl, range.exclude_end?], [:begin, range.begin], [:end, range.end]]
     end
 
-    # Ruby holds an exception's message, its backtrace and an errno beside
-    # its instance variables, under names of its own.
+    # Ruby keeps an exception's message, its backtrace and an errno next
+    # to its instance variables, under names of its own.
     def exception_parts(exception)
       parts = [[:mesg, Primitive.zr_exc_raw_message(exception)], [:bt, exception.backtrace]]
       parts << [:errno, exception.errno] if exception.is_a?(SystemCallError)
@@ -237,11 +237,11 @@ module Marshal
       @out
     end
 
-    # `e` names each module the object alone was extended with.
+    # `e` gives each module that only the object was extended with.
     # The modules an object was extended with, as w_extended walks them:
-    # those between its singleton class and its class, never one the
-    # class itself holds. An object with no singleton class has none,
-    # and the walk makes it none.
+    # those between its singleton class and its class, never one that the
+    # class itself includes. An object with no singleton class has none,
+    # and the walk does not make one.
     def extended(obj)
       return if obj.is_a?(Numeric) || obj.is_a?(Module)
 
@@ -282,7 +282,7 @@ module Marshal
       obj
     end
 
-    # What an object carries beside its parts: its instance variables, and
+    # What an object has next to its parts: its instance variables, and
     # for a String, a Regexp or a Symbol the name of its encoding.
     def ivars_of(obj)
       # A class or module is written by its name alone.
@@ -581,7 +581,7 @@ module Marshal
       when String then built.replace(value)
       when Array then built.replace(value)
       when Hash then built.replace(value)
-      # A regexp husk takes the pattern the record carried, never the
+      # A regexp husk takes the pattern from the record, never through the
       # subclass's own initialize, which CRuby does not call either.
       when Regexp then Regexp.send(:seat, built, value.source, value.options)
       end
@@ -688,16 +688,14 @@ module Marshal
     end
 
     # `d`, what CRuby's `_dump_data` writes for a T_DATA object. The name
-    # comes first, so an absent class raises what it raises for every
-    # other tag; then marshal.c allocates the class and refuses unless
-    # what it made is T_DATA.
+    # comes first, so an absent class raises the same error as for every
+    # other tag. Then marshal.c allocates the class and refuses unless the
+    # result is T_DATA.
     #
-    # Only a C extension makes a T_DATA object, and this runtime writes
-    # no C: a class that would be one there is an ordinary class here.
-    # So that check refuses every `d` a program can hand this reader,
-    # which is what ruby does with the same bytes -- `_load_data` is
-    # unreachable in both, and writing the call would answer where ruby
-    # refuses. The payload is left unread, as marshal.c leaves it.
+    # Only a C extension makes a T_DATA object, and this runtime has no C.
+    # So that check refuses every `d` that a program can give this reader,
+    # as ruby does with the same bytes: `_load_data` is unreachable in
+    # both. The payload is left unread, as marshal.c leaves it.
     def data
       constant(symbol_or_link, Class)
       raise ArgumentError, "dump format error"
@@ -729,8 +727,8 @@ module Marshal
       sym
     end
 
-    # The class or module `path` names, a String or a Symbol; a name
-    # asked before answers what it answered, kind and all.
+    # The class or module that `path` gives, a String or a Symbol. A name
+    # that was looked up before returns the same result, kind included.
     def constant(path, kind)
       found = @constants[path]
       return found if found && found.is_a?(kind)

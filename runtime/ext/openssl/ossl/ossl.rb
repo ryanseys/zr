@@ -193,9 +193,9 @@ module OpenSSL
         raise TypeError, "wrong argument type #{type_name(value)} (expected Array)" unless value.is_a?(Array)
       end
 
-      # An Integer a C struct's ex_data or callback argument carries in
-      # place of a Ruby object, which #dereference gives back while
-      # something else keeps the object alive; 0 stands for nil.
+      # An Integer that a C struct's ex_data or callback argument contains
+      # in place of a Ruby object. #dereference gives the object back while
+      # something else keeps it alive; 0 represents nil.
       def reference(object)
         return 0 if object.nil?
 
@@ -224,7 +224,7 @@ module OpenSSL
       def d2i(function, der) = Lib.public_send(function, nil, [Native.address(der)].pack("J"), der.bytesize)
 
       # What `yield` writes into a new memory BIO, raising `klass` with
-      # `message` when it answers false or 0.
+      # `message` when it returns false or 0.
       def bio_output(klass, message = nil)
         bio = Lib.BIO_new(Lib.BIO_s_mem)
         raise error(klass, message) if bio.zero?
@@ -382,8 +382,8 @@ module OpenSSL
         @passwords.delete(id)
       end
 
-      # ossl_pem_passwd_cb: the password `with_password` holds, or what its
-      # block answers, copied into OpenSSL's buffer; -1 when there is none.
+      # ossl_pem_passwd_cb: the password in `with_password`, or its block's
+      # return value, copied into OpenSSL's buffer; -1 when there is none.
       def pem_password(buffer, max_length, flag, id)
         password, block = @passwords&.fetch(id, nil)
         unless password.nil?
@@ -433,20 +433,20 @@ module OpenSSL
         free.is_a?(Proc) ? proc { free.(address) } : proc { Lib.public_send(free, address) }
       end
 
-      # The address, which the handle no longer frees: the library took
-      # the struct over, or freed it itself.
+      # The address, which the handle does not free after this: the
+      # library took the struct over, or freed it itself.
       def take
         ObjectSpace.undefine_finalizer(self)
         @address
       end
     end
 
-    # A C struct type the port wraps, as an rb_data_type_t describes one:
-    # `name`, which a TypeError names, `klass`, whose instances hold one,
-    # `free`, which frees it, what the Get macro raises for an object that
-    # holds none, and `alloc`, the allocator that makes one with the
-    # object, where the C extension's allocation function does; it is
-    # given the object when it takes an argument.
+    # A C struct type that the port wraps, as an rb_data_type_t describes
+    # one. `name` shows in a TypeError. `klass` is the class whose
+    # instances contain one. `free` frees it. The Get macro raises an error
+    # for an object that contains none. `alloc` is the allocator that makes
+    # one with the object, where the C extension's allocation function
+    # does; it gets the object when it takes an argument.
     class DataType
       def name = @name
 
@@ -458,7 +458,7 @@ module OpenSSL
         @alloc = alloc
       end
 
-      # TypedData_Get_Struct: the address `object` holds, or nil when
+      # TypedData_Get_Struct: the address in `object`, or nil when
       # nothing set one yet; a TypeError for an object of another type.
       def get(object)
         check(object)
@@ -481,9 +481,9 @@ module OpenSSL
         address
       end
 
-      # The address `object` holds, which it no longer owns, for a library
-      # call that frees or replaces the struct; the object holds nothing
-      # until #set.
+      # The address in `object`, which the object stops owning, for a
+      # library call that frees or replaces the struct. The object
+      # contains nothing until #set.
       def take(object)
         check(object)
         handle = Native.hidden_get(object, :data)
@@ -491,8 +491,8 @@ module OpenSSL
         handle&.take
       end
 
-      # The object holds `address` without owning it: a struct the library
-      # lends for the length of a callback.
+      # The object contains `address` but does not own it: a struct that
+      # the library lends for the length of a callback.
       def borrow(object, address)
         Native.hidden_set(object, :data, Handle.new(address, nil))
         object

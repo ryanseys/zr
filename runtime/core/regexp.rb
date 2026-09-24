@@ -2,8 +2,8 @@
 
 # Regexp and MatchData over Regexp::Onig (runtime/core/regexp/onig, the
 # compiler) and the kernel's matcher (runtime/kernel/onig_*.rb). A match
-# answers byte offsets; MatchData turns them into strings and
-# character positions. The last match lives in the asking method's
+# returns byte offsets; MatchData turns them into strings and
+# character positions. The last match is in the calling method's
 # frame (`$~`), which the kernel reads and writes.
 class Regexp
   # What a match past `Regexp.timeout` raises.
@@ -149,9 +149,9 @@ class Regexp
   end
   private_class_method :warn_of
 
-  # rb_reg_init_copy: what `dup` and `clone` fill a husk with -- the
-  # other Regexp's pattern, which the copy shares -- and a refusal for
-  # a Regexp that already holds one.
+  # rb_reg_init_copy: what `dup` and `clone` fill a husk with (the
+  # other Regexp's pattern, which the copy shares), and a refusal for
+  # a Regexp that already has one.
   def initialize_copy(other)
     return self if equal?(other)
 
@@ -178,10 +178,10 @@ class Regexp
     ascii = Primitive.zr_str_ascii_only_m(text)
     raise ArgumentError, "invalid byte sequence in #{Encoding.at(index)}" unless ascii || Primitive.zr_str_valid_p(text)
 
-    # The road a text like the last one takes -- the same encoding, ASCII
-    # or not, with the engine still the one that call ended with -- is
-    # the answer that call kept. A `scan` over a text asks this once a
-    # match, and the choosing below is a dozen sends.
+    # For a text like the last one (the same encoding, ASCII or not, and
+    # the engine unchanged since that call), the program is the one that
+    # call kept. A `scan` over a text calls this once per match, and the
+    # selection below costs a dozen sends.
     programs = Primitive.zr_regexp_alt(self)
     last = programs && programs[:last]
     return last[3] if last && last[0] == index && last[1] == ascii && last[2].equal?(programs[:engine])
@@ -201,7 +201,7 @@ class Regexp
       end
     end
     program = engine == encoding ? nil : programs[engine][0]
-    # A road that warns is not kept: ruby warns on every match of it.
+    # A program that warns is not kept: ruby warns on every match with it.
     programs[:last] = [index, ascii, engine, program] unless warning
     program
   end
@@ -251,8 +251,8 @@ class Regexp
   private_constant :QUOTED
 
   # rb_reg_quote: a String whose regexp meaning is its own characters,
-  # read a character at a time in its own encoding and written back in
-  # it. Text of plain ASCII answers in US-ASCII.
+  # read one character at a time in its own encoding and written back in
+  # it. Text of plain ASCII is returned in US-ASCII.
   def self.escape(text)
     text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
     enc = text.encoding
@@ -362,8 +362,8 @@ class Regexp
     Primitive.zr_regexp_options(self)
   end
 
-  # `Regexp.allocate` answers an object with no pattern in it. Ruby
-  # names that here, at the first read, rather than at the first match.
+  # `Regexp.allocate` returns an object with no pattern in it. Ruby
+  # reports that here, at the first read, not at the first match.
   def pattern
     Primitive.attr! :hidden
     text = Primitive.zr_regexp_source(self)
@@ -392,11 +392,11 @@ class Regexp
 
   def timeout = Regexp.send(:seconds, Primitive.zr_regexp_limit(self))
 
-  # `/n` or a binary source reads the pattern as bytes: one that names a
-  # byte past ASCII, written out or escaped, is a binary pattern, and one
-  # that does not is plain ASCII that any string can match.
-  # The encoding the pattern took as it was seated; an allocated Regexp
-  # holds none and reads as binary.
+  # `/n` or a binary source reads the pattern as bytes. A pattern that
+  # contains a byte past ASCII, written out or escaped, is a binary
+  # pattern. One that does not is plain ASCII that any string can match.
+  # The encoding the pattern took when it was set; an allocated Regexp
+  # has none and reads as binary.
   def encoding = Primitive.zr_hidden_get(self, :encoding) || Encoding::BINARY
 
   def fixed_encoding?
@@ -500,7 +500,7 @@ class Regexp
 
   # The linear matcher gives up on a backreference, a subexpression call
   # or the absent operator. Inside a `[...]` class `\1` is an octal
-  # escape and `\k` is a literal k, so a class holds none of them.
+  # escape and `\k` is a literal k, so a class contains none of them.
   def self.backref?(source, captures)
     in_class = false
     i = 0
@@ -574,8 +574,8 @@ class Regexp
   end
 
   # The match at byte `from`, searching forward, or backward to it.
-  # A regexp whose source holds a byte past ASCII reads one encoding
-  # alone, so a subject in another one is an error unless the subject
+  # A regexp whose source contains a byte past ASCII reads only one
+  # encoding, so a subject in another one is an error unless the subject
   # is plain ASCII.
   def search(text, from, backward)
     Primitive.attr! :hidden
@@ -683,7 +683,7 @@ class MatchData
     end
   end
 
-  # More keys than named groups answer an empty Hash; a key with no
+  # More keys than named groups return an empty Hash; a key with no
   # group ends the walk.
   def deconstruct_keys(keys)
     raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.nil? || keys.is_a?(Array)

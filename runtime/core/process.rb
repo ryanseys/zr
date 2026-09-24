@@ -2,14 +2,14 @@
 
 # Child processes: `system`, backticks and Process.spawn over
 # posix_spawn. A single command string goes through /bin/sh when it
-# holds shell syntax or starts with a shell word; else its words run
+# contains shell syntax or starts with a shell word; else its words run
 # directly.
 module Process
   SHELL_META = "*?{}[]<>()~&|\\$;'`\"\n#".freeze
   SHELL_WORDS = %w[! . : break case continue do done elif else esac eval exec exit export fi for if in readonly return set shift then times trap unset until while].freeze
   private_constant :SHELL_META, :SHELL_WORDS
 
-  # An answer from the kernel, or the errno it carries instead.
+  # A result from the kernel, or the errno that it gives in its place.
   def self.checked(result)
     Primitive.attr! :hidden
     raise SystemCallError.new(nil, -result) if result.is_a?(Integer) && result < 0
@@ -49,7 +49,7 @@ module Process
   end
   private_class_method :reap
 
-  # What waitpid answered for a child.
+  # The value that waitpid returned for a child.
   class Status
     # An allocated status is pid 0 with a status word of 0.
     def self.allocate
@@ -104,10 +104,10 @@ module Process
     def inspect = Primitive.zr_obj_form(@pid.zero? ? "#<#{self.class}: uninitialized>" : "#<Process::Status: #{self}>")
   end
 
-  # What a spawn's options ask the child for: `dups` are (child
+  # What a spawn's options set up for the child: `dups` are (child
   # descriptor, source descriptor) pairs applied in order, `closes` the
-  # child's descriptors to shut, and `opened` the parent's own streams
-  # to close once the child holds copies of them.
+  # child's descriptors to close, and `opened` the parent's own streams
+  # to close after the child has copies of them.
   class Redirects
     STREAMS = { in: 0, out: 1, err: 2 }.freeze
     private_constant :STREAMS
@@ -115,10 +115,10 @@ module Process
     attr_reader :dups, :closes, :opened, :chdir, :pgroup, :umask, :limits
 
     def initialize(options)
-      # The standard streams cross into the child; every other
-      # descriptor the parent holds stays behind, so a pipe end the
-      # parent keeps cannot hold the child's own read open. An option
-      # that names one of the three comes later and wins.
+      # The standard streams go into the child. All other descriptors of
+      # the parent stay in the parent, so a pipe end that the parent keeps
+      # cannot keep the child's own read open. An option that refers to
+      # one of the three comes later and wins.
       @dups = [0, 0, 1, 1, 2, 2]
       @closes = []
       @opened = []
@@ -271,7 +271,7 @@ module Process
 
   def ppid = Primitive.zr_proc_ppid
 
-  # The process group and the session. Each call answers an id, and a
+  # The process group and the session. Each call returns an id, and a
   # failure arrives as its errno.
   def getpgrp = Process.send(:checked, Primitive.zr_proc_getpgrp)
 
@@ -303,8 +303,8 @@ module Process
     Process.send(:checked, Primitive.zr_proc_groups)
   end
 
-  # The most groups `groups=` takes: what sysconf answers, until a
-  # program asks for fewer.
+  # The maximum number of groups that `groups=` takes: the value that
+  # sysconf returns, until a program sets fewer.
   def maxgroups = Process.send(:group_limit)
 
   def maxgroups=(count)
@@ -368,8 +368,8 @@ module Process
   # was.
   def argv0 = Primitive.zr_program_name
 
-  # The title `ps` shows. Darwin gives a process no way to set one, and
-  # ruby answers the title whether or not it took.
+  # The title that `ps` shows. Darwin gives a process no way to set one,
+  # and ruby returns the title whether or not the change worked.
   def setproctitle(title)
     Process.send(:c_string, title)
     title
@@ -381,8 +381,8 @@ module Process
     true
   end
 
-  # A niceness is a number that can be negative, so the errno beside
-  # it, and not the answer, says whether the call failed.
+  # A niceness is a number that can be negative, so the errno next to
+  # it, not the return value, shows whether the call failed.
   def getpriority(which, who)
     value, errno = Primitive.zr_proc_getpriority(Integer.send(:int_operand, which), Integer.send(:int_operand, who))
     raise SystemCallError.new(nil, errno) if value == -1 && errno != 0
@@ -402,7 +402,7 @@ module Process
   end
 
   # rb_f_kill: a negative signal goes to each process group. A signal
-  # this process sends itself is handled before the call answers.
+  # that this process sends to itself is handled before the call returns.
   def kill(*args)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2+)" if args.size < 2
 
@@ -492,8 +492,8 @@ module Process
   end
   private_class_method :forked, :replaced
 
-  # An answer that is a failure raises as `rb_sys_fail(0)` does, with
-  # no word beside the error's own.
+  # A result that is a failure raises as `rb_sys_fail(0)` does, with
+  # no text added to the error's own message.
   def self.set_ids(group, real, effective)
     Primitive.attr! :hidden
     result = Primitive.zr_proc_setreid(group, real, effective)
@@ -654,7 +654,7 @@ module Process
   end
 
   # The program and its arguments. One string goes through the shell
-  # when it holds shell syntax; a list is the argument vector itself.
+  # when it contains shell syntax; a list is the argument vector itself.
   def self.command_words(args)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
 
@@ -688,9 +688,9 @@ module Process
     return [+"sh", +"-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
 
     words = command.split(" ")
-    # A command of no words at all still names a program: rb_exec_fillarg
-    # leaves the name empty, and the exec of it answers ENOENT. An empty
-    # list would leave the spawn with no program name to read.
+    # A command of no words still gives a program: rb_exec_fillarg
+    # leaves the name empty, and the exec of it returns ENOENT. An empty
+    # list would give the spawn no program name to read.
     words.empty? ? [+""] : words
   end
 
@@ -839,8 +839,8 @@ module Process
     end
 
     # The real and effective ids become `value`: root sets all three at
-    # once, and anyone else moves them one at a time through the saved
-    # id, which only a value the process already holds gets past.
+    # once. Any other user changes them one at a time through the saved
+    # id, which accepts only a value that the process already has.
     def change_privilege(value, group)
       Primitive.attr! :hidden
       switching!(group)

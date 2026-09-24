@@ -33,7 +33,7 @@ class BigDecimal < Numeric
   SIGN_NEGATIVE_INFINITE = -3
   VERSION = "4.1.2"
 
-  # Ruby holds its digits nine at a time, in base a thousand million.
+  # Ruby keeps its digits nine at a time, in base a thousand million.
   BASE = 1_000_000_000
 
   # A class with no allocator of its own, which every reader of the
@@ -43,8 +43,8 @@ class BigDecimal < Numeric
 
   def self.allocate = raise(TypeError, "allocator undefined for BigDecimal")
 
-  # As many digits as a Float carries, which is what a division adds
-  # to the wider operand before it stops.
+  # As many digits as a Float has, which is the number that a division
+  # adds to the wider operand before it stops.
   DOUBLE_FIG = 16
   private_constant :DOUBLE_FIG
 
@@ -60,8 +60,7 @@ class BigDecimal < Numeric
       @flags = value ? @flags | selector : @flags & ~selector
     end
 
-    # The limit answers what it held before, so a caller can put it
-    # back.
+    # The limit returns its old value, so a caller can restore it.
     def limit(digits = nil)
       @limit ||= 0
       was = @limit
@@ -93,7 +92,7 @@ class BigDecimal < Numeric
       mode(was, true) unless was.zero?
     end
 
-    # The answers ruby refuses to hand back when the matching bit is
+    # The results that ruby refuses to return when the matching bit is
     # set in the mode word.
     def nan_result
       raise FloatDomainError, "Computation results in 'NaN' (Not a Number)" unless (mode(EXCEPTION_ALL) & EXCEPTION_NaN).zero?
@@ -113,7 +112,7 @@ class BigDecimal < Numeric
       infinity_result(sign)
     end
 
-    # The rounding a name or a number stands for.
+    # The rounding that a name or a number represents.
     def rounding(value)
       return value if value.is_a?(Integer) && (ROUND_UP..ROUND_HALF_EVEN).cover?(value)
 
@@ -167,8 +166,8 @@ class BigDecimal < Numeric
       build(sign, digits, exponent)
     end
 
-    # A Float carries no more digits than its own round trip shows, so
-    # with no precision asked for those are the digits it gives.
+    # A Float has no more digits than its own round trip shows, so with
+    # no precision given, those are the digits it gives.
     def from_float(value, precision)
       raise TypeError, "can't convert #{value} into BigDecimal" if value.nan? || value.infinite?
       raise ArgumentError, "negative precision" if precision.negative?
@@ -336,10 +335,10 @@ class BigDecimal < Numeric
 
   def ceil(digits = nil) = shortened(digits, ROUND_CEILING)
 
-  # `round` alone answers an Integer, and so does a place at or left
-  # of the point; only a place to the right keeps the decimal.
-  # `half:` names the tie the way Float#round does; a positional mode
-  # names a rounding of BigDecimal's own.
+  # `round` with no argument returns an Integer, and so does a place at
+  # or left of the point; only a place to the right keeps the decimal.
+  # `half:` gives the tie rule as Float#round does; a positional mode
+  # gives a rounding of BigDecimal's own.
   HALVES = { up: ROUND_HALF_UP, down: ROUND_HALF_DOWN, even: ROUND_HALF_EVEN }.freeze
   private_constant :HALVES
 
@@ -524,7 +523,7 @@ class BigDecimal < Numeric
     digits.positive? ? answer : limited(answer)
   end
 
-  # Ruby's process-wide limit on how many digits an answer keeps.
+  # Ruby's process-wide limit on how many digits a result keeps.
   def limited(answer)
     BigDecimal.limit.zero? ? answer : answer.round_significant(BigDecimal.limit)
   end

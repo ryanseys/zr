@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 # `require "io/console"`: a terminal's modes, its size, its name, and the
-# cursor escapes. ruby ships this as an extension whose rows appear at
-# the require, so a program that never asks for it answers none of them.
+# cursor escapes. ruby ships this as an extension whose methods appear at
+# the require, so a program that never requires it has none of them.
 #
-# The mode itself crosses from the kernel as the bytes of struct termios,
-# and the OS's layer (io/console/termios) names where its fields are and
-# the flags a mode changes.
+# The mode itself comes from the kernel as the bytes of struct termios,
+# and the OS's layer (io/console/termios) gives the positions of its
+# fields and the flags that a mode changes.
 require "io/console/termios"
 
 class IO
@@ -14,8 +14,8 @@ class IO
   CSI = "\e["
   private_constant :CSI
 
-  # A terminal's mode, held as the bytes tcgetattr gave. ruby names the
-  # class IO::ConsoleMode and keeps the bytes to itself.
+  # A terminal's mode, kept as the bytes that tcgetattr gave. ruby calls
+  # the class IO::ConsoleMode and keeps the bytes hidden.
   class ConsoleMode
     def initialize_copy(other)
       Primitive.zr_hidden_set(self, :__mode__, other.__send__(:mode_bytes).dup)
@@ -62,10 +62,10 @@ class IO
 
   # ---- the mode rows ---------------------------------------------------
 
-  # The mode a block runs under, and the mode back as it was after it.
-  # Both descriptors of a duplex handle take it. A failure here names no
-  # path, because CRuby reaches these calls through a helper that holds
-  # none to name.
+  # The mode that a block runs under, and the old mode restored after it.
+  # Both descriptors of a duplex handle take it. A failure here gives no
+  # path, because CRuby reaches these calls through a helper that has
+  # no path to give.
   def ttymode(setter, options = nil)
     Primitive.attr! :hidden
     fds = console_fds
@@ -137,8 +137,8 @@ class IO
     mode
   end
 
-  # Whether a read would answer at once, which a buffer already holding
-  # bytes always does.
+  # Whether a read would return immediately, which is always true when
+  # the buffer already contains bytes.
   def input_pending?
     check_open
     buffered? || !would_block?(READABLE)
@@ -222,8 +222,8 @@ class IO
     goto(0, 0)
   end
 
-  # The position the terminal itself reports. Anything that does not
-  # answer the query in the shape ESC [ row ; column R answers nil.
+  # The position that the terminal itself reports. A reply that is not in
+  # the shape ESC [ row ; column R gives nil.
   def cursor
     check_open
     write("#{CSI}6n")
@@ -243,7 +243,7 @@ class IO
     goto(position[0], position[1])
   end
 
-  # Windows carries these two, and ruby says so by name here.
+  # Only Windows has these two, and ruby refuses them here with their names.
   def pressed?(*) = raise(NotImplementedError, "pressed?() function is unimplemented on this machine")
   def check_winsize_changed(*) = raise(NotImplementedError, "check_winsize_changed() function is unimplemented on this machine")
   def console_input_events(*) = raise(NotImplementedError, "console_input_events() function is unimplemented on this machine")
@@ -251,8 +251,8 @@ class IO
   # ---- the terminal of the process ------------------------------------
 
   # The controlling terminal, opened once and kept. A process that has
-  # none answers nil, which is CRuby's answer as well -- it does not
-  # raise. A Symbol names a row to send to the terminal instead.
+  # none returns nil, as in CRuby: it does not raise. A Symbol gives an
+  # entry to send to the terminal instead.
   def self.console(*args)
     name = args.first
     raise TypeError, "wrong argument type #{conversion_name(name)} (expected Symbol)" unless args.empty? || name.is_a?(Symbol)
@@ -289,8 +289,8 @@ class IO
 
   # ---- the helpers ----------------------------------------------------
 
-  # The descriptors a mode covers: the one a read uses, and the one a
-  # write uses when a duplex handle holds two.
+  # The descriptors that a mode covers: the one that a read uses, and the
+  # one that a write uses when a duplex handle has two.
   def console_fds
     Primitive.attr! :hidden
     console_write_fd == console_read_fd ? [console_read_fd] : [console_read_fd, console_write_fd]
@@ -324,8 +324,8 @@ class IO
     bytes
   end
 
-  # Nothing at all for a distance of zero, and a flipped direction for a
-  # negative one: the letter carries the direction, never a sign.
+  # Nothing for a distance of zero, and a flipped direction for a
+  # negative one: the letter gives the direction, never a sign.
   def console_move(lines, columns)
     Primitive.attr! :hidden
     return self if lines.zero? && columns.zero?
@@ -469,7 +469,7 @@ class IO
       n & 0xffffffff
     end
 
-    # The number an escape carries. CRuby counts from one inside an
+    # The number in an escape. CRuby counts from one inside an
     # unsigned int and prints the result as a signed one, so a position
     # of -1 comes out as 0 and -2 as -1.
     def shown(value)

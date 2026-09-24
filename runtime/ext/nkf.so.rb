@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# nkf.so, the C half of the nkf gem 0.3.0: Network Kanji Filter 2.1.5
+# nkf.so, the C part of the nkf gem 0.3.0: Network Kanji Filter 2.1.5
 # (ext/nkf/nkf.c over nkf-utf8/nkf.c), in Ruby. The gem's own nkf.rb
-# requires this file, and its kconv.rb stands on NKF.
+# requires this file, and its kconv.rb is built on NKF.
 #
 # nkf reads one byte at a time through a chain of input filters (MIME
 # decoding, broken-JIS repair, hex and character-reference escapes, NFC
@@ -10,14 +10,14 @@
 # candidate, decodes each character to nkf's internal form, and sends it
 # through a chain of output filters (katakana folding, -Z, hiragana,
 # ROT13, line folding, newline conversion, MIME encoding) to the encoder
-# the options name. The internal form is the one nkf.c uses: a pair
+# that the options select. The internal form is the one nkf.c uses: a pair
 # (c2, c1) where c2 is 0 for ASCII, a JIS X 0208 row, a JIS X 0212 row
 # with 0x8F00 set, or a marker for JIS X 0201 katakana or ISO-8859-1, and
-# c1 is the byte or cell; a Unicode code point outside the JIS tables
-# travels as c1 with 0x01000000 set.
+# c1 is the byte or cell. A Unicode code point outside the JIS tables
+# goes as c1 with 0x01000000 set.
 #
 # The converter keeps nkf.c's function names, so each method can be read
-# against the C. A chain link that C holds as a function pointer is a
+# against the C. A chain link that C keeps as a function pointer is a
 # method name here, which the converter sends to.
 require_relative "nkf/tables"
 
@@ -186,8 +186,8 @@ module NKF
       "UTF-32LE" => UTF_32LE, "UTF-32LE-BOM" => UTF_32LE_BOM, "BINARY" => BINARY
     }.freeze
 
-    # The long options Ruby's nkf accepts, in nkf.c's order, each with the
-    # short options it stands for ("" for one handled by name).
+    # The long options that Ruby's nkf accepts, in nkf.c's order, each with
+    # the short options it represents ("" for one handled by name).
     LONG_OPTIONS = [
       ["ic=", ""], ["oc=", ""], ["base64", "jMB"], ["euc", "e"], ["euc-input", "E"],
       ["fj", "jm"], ["help", ""], ["jis", "j"], ["jis-input", "J"], ["mac", "sLm"],
@@ -228,8 +228,8 @@ module NKF
         raise TypeError, "no implicit conversion of #{value.nil? || value == true || value == false ? value.inspect : value.class} into String"
     end
 
-    # rb_nkf_enc_get: the Ruby encoding an nkf encoding name stands for,
-    # else the one its base encoding names.
+    # rb_nkf_enc_get: the Ruby encoding that an nkf encoding name
+    # represents, else the one that its base encoding name represents.
     def self.ruby_encoding(name)
       Encoding.find(name)
     rescue ArgumentError
@@ -964,7 +964,7 @@ module NKF
 
     # --- Code conversion primitives -----------------------------------
     #
-    # A primitive that writes through pointers in C answers [ret, c2, c1]
+    # A primitive that writes through pointers in C returns [ret, c2, c1]
     # here, with nil for a value it leaves unwritten.
 
     SJ0162 = 0x00e1
@@ -1311,7 +1311,7 @@ module NKF
     # --- Input decoders -----------------------------------------------
     #
     # An iconv takes the bytes of one character and sends its internal
-    # form to oconv. It answers 0 when it is done, -1 or -2 when it needs
+    # form to oconv. It returns 0 when it is done, -1 or -2 when it needs
     # one or two more bytes, -3 when it waits for a combining character,
     # and 16 or 32 for the UTF-16 and UTF-32 decoders, which kanji_convert
     # drives on their own.
@@ -2240,8 +2240,8 @@ module NKF
       @hold_count >= HOLD_SIZE * 2 ? EOF : @hold_count
     end
 
-    # h_conv: bytes held while the guess is still open, then converted
-    # with the decoder the guess settles on.
+    # h_conv: bytes kept while the guess is still open, then converted
+    # with the decoder that the guess selects.
     def h_conv(c1, c2)
       @hold_count = 0
       push_hold_buf(c1)
@@ -2362,8 +2362,8 @@ module NKF
       ret
     end
 
-    # The six-byte case of h_conv: a three-byte UTF-8 character that may
-    # combine with the three bytes after it. Answers the hold index.
+    # The six-byte case of h_conv: a three-byte UTF-8 character that can
+    # combine with the three bytes after it. Returns the hold index.
     def h_conv_combine6(c1, c2, c3, fromhold_count, hold_index)
       take = lambda do
         if hold_index < @hold_count
@@ -3456,7 +3456,7 @@ module NKF
     end
 
     # One base64 character, skipping white space unless the decoding is
-    # strict. Answers [c, nil] or [nil, value to return].
+    # strict. Returns [c, nil] or [nil, value to return].
     def mime_b_char
       loop do
         c = __send__(@i_mgetc)

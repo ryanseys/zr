@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# Enumerable over `each`, in the shape CRuby's C implementation has: a
-# block passed on to `each`, with what it yields taken as the element,
-# packed into an Array when there are several. Each such block answers
-# nil, so an `each` that stops on a truthy answer, as `find_index`
-# does, sees every element.
+# Enumerable over `each`, in the shape of CRuby's C implementation: a
+# block passed on to `each`, whose yields are the element, packed into
+# an Array when there are several values. Each such block returns nil,
+# so an `each` that stops on a truthy return value (as `find_index`
+# does) sees every element.
 module Enumerable
   def map(&blk)
     return to_enum(:map) { enumerable_size } unless blk
@@ -247,11 +247,11 @@ module Enumerable
     [yes, no]
   end
 
-  # The count an enumerator reports: the receiver's own, so an endless
-  # source answers without being walked. A receiver with no size, or
-  # one whose size is unknown, leaves the enumerator's unknown too.
-  # `enum_size` asks with rb_check_funcall, which calls a method the
-  # receiver keeps private, and takes whatever it answers as it stands.
+  # The count that an enumerator reports: the receiver's own, so an
+  # endless source returns it without being walked. A receiver with no
+  # size, or one whose size is unknown, leaves the enumerator's unknown
+  # too. `enum_size` calls rb_check_funcall, which calls a method that the
+  # receiver keeps private, and takes its return value as it is.
   def enumerable_size
     Primitive.attr! :hidden
     respond_to?(:size, true) ? size : nil
@@ -372,7 +372,7 @@ module Enumerable
     return [] if n == 0
     raise ArgumentError, +"too big size" if (((1 << 63) - 1) / 4 / (by ? 2 : 1)) < n
 
-    # OPTIMIZED_CMP, or the block's answer, read as rb_cmpint reads it.
+    # OPTIMIZED_CMP, or the block's return value, read as rb_cmpint reads it.
     cmp = lambda do |a, b|
       c = by || block.nil? ? (a <=> b) : block.call(a, b)
       Primitive.zr_cmperr(a, b) if c.nil?
@@ -528,8 +528,8 @@ module Enumerable
     [low, high]
   end
 
-  # `a <=> b` through `block` when given, refused as CRuby refuses an
-  # answer of nil.
+  # `a <=> b` through `block` when given, refused as CRuby refuses a
+  # result of nil.
   def compared(a, b, block = nil)
     Primitive.attr! :hidden
     c = block ? block.call(a, b) : (a <=> b)
@@ -893,7 +893,7 @@ module Enumerable
     out
   end
 
-  # The slicing methods stream: each answers an enumerator that reads
+  # The slicing methods stream: each returns an enumerator that reads
   # its source as it runs, so an endless source still gives its first
   # slices.
   def chunk_while(&block)
@@ -1006,7 +1006,7 @@ module Enumerable
 
   def lazy = Enumerator::Lazy.from(self)
 
-  # CRuby writes this one in Ruby, so it answers its own parameters.
+  # CRuby writes this one in Ruby, so it returns its own parameters.
   def to_set(*args, &block)
     Primitive.attr! :ruby
     Set.new(self, *args, &block)
