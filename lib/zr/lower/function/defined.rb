@@ -14,14 +14,14 @@ module Zr
 
         private
 
-        # The forms whose own test raises nothing, so they need no guard.
-        # An instance variable is one of them: the one refusal it meets,
-        # a shareable object read outside the main ractor, is the
-        # program's to see, not an answer of nil.
+        # The forms whose test raises nothing, so they need no guard. An
+        # instance variable is one of them: its only error (a read of a
+        # non-shareable object outside the main ractor) must reach the
+        # program, not become nil.
         PLAIN = %i[ivar gvar backref yield].freeze
 
-        # The forms that ask at run time do so under a guard: a receiver
-        # that raises means nil, as CRuby answers.
+        # The forms with a run-time test use a guard: if the receiver
+        # raises, the result is nil, as in CRuby.
         def defined(node)
           return defined_name(node.kind) unless %i[ivar gvar backref cvar const method attrasgn yield super list].include?(node.kind)
           return @f.csel(defined_test(node), defined_name(node.kind), @qnil) if PLAIN.include?(node.kind)
@@ -50,7 +50,8 @@ module Zr
         end
 
         # Whether an expression used as a receiver or argument is itself
-        # defined: a name asks its form; anything else is.
+        # defined. A name is tested by its form. All other expressions are
+        # defined.
         def part_defined(node)
           case node
           when Hir::Send then defined_test(Hir::Defined.new(:method, node, node.line))
@@ -76,8 +77,8 @@ module Zr
           kernel("zr_str_frozen", @f.symbol_value(@f.symbol(@l.literal(NAMES.fetch(kind)))), imm(NAMES.fetch(kind).bytesize))
         end
 
-        # A constant: through the scope when it is an expression, whose
-        # own failure means nil.
+        # A constant: looked up through its scope if the scope is an
+        # expression. If the scope fails, the result is nil.
         def const_defined(read)
           if read.scope.nil?
             truthy(kernel("zr_const_defined", @cref, sym_word(read.name)))
@@ -87,13 +88,13 @@ module Zr
           end
         end
 
-        # A method: its receiver and arguments must be defined, then the
-        # receiver is evaluated and its class asked.
+        # A method: its receiver and arguments must be defined. Then the
+        # receiver is evaluated and its class is checked.
         #
-        # Any receiver makes the call explicit, `self` too: `defined?`
-        # asks whether `self.helper` could be called as written, and a
-        # private `helper` could not -- nor a private writer, though a call
-        # of `self.x = v` reaches one.
+        # Any receiver, also `self`, makes the call explicit. `defined?`
+        # checks whether `self.helper` can be called as written, and a
+        # private `helper` cannot. A private writer also cannot, although a
+        # call of `self.x = v` can call one.
         def method_defined(send)
           all_defined([send.recv, *send.args].compact) do
             recv = send.recv ? expr(send.recv) : @self
@@ -101,8 +102,8 @@ module Zr
           end
         end
 
-        # Every part defined, then what the block answers. The tests short
-        # circuit, so nothing after an undefined part runs.
+        # If every part is defined, returns the block's value. The tests
+        # short-circuit, so nothing after an undefined part runs.
         def all_defined(parts)
           merge, (ok,) = @f.block(["i8"])
           parts.each do |part|

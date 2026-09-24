@@ -3,8 +3,8 @@
 module Zr
   class Lower
     class Function
-      # The Value of each HIR node, in a register. A caller that holds it
-      # across a call stores it to the record first.
+      # The Value of each HIR node, in a register. A caller that keeps it
+      # across a call stores it in the record first.
       module Expressions
         private
 
@@ -89,9 +89,9 @@ module Zr
           end
         end
 
-        # The one shared frozen String of a UTF-8 literal: made the first
-        # time the site runs (zr_str_literal_shared, which keeps it
-        # rooted), then read from a word of the site's own, with no call.
+        # The one shared frozen String of a UTF-8 literal. The site's first
+        # run makes it (zr_str_literal_shared, which keeps it rooted).
+        # Later runs read it from the site's own word, with no call.
         def shared_literal(text)
           cell = @f.symbol_value(@f.symbol(@l.cache_cell("lit", 8)))
           hit = @f.label
@@ -108,8 +108,8 @@ module Zr
           result
         end
 
-        # The body the first time the site runs, nil every time: a flag
-        # word of the site's own, set before the body runs.
+        # Runs the body only the first time the site runs, and returns nil
+        # each time. The site has a flag word, set before the body runs.
         def once(node)
           cell = @f.symbol_value(@f.symbol(@l.cache_cell("once", 8)))
           run = @f.label
@@ -126,18 +126,18 @@ module Zr
           result
         end
 
-        # `-> { }`: a Proc marked a lambda; its `break` and `return` stay
-        # inside it, so it has no call site to answer to.
+        # `-> { }`: a Proc with the lambda flag. Its `break` and `return`
+        # stay inside it, so it has no call site to return to.
         def lambda_literal(node)
           _, block = make_block(node.block)
           kernel("zr_proc_lambda", block)
         end
 
-        # `[a, b]`: the elements staged in the record and copied into a
-        # new Array, or, where every one is an immediate, copied from
-        # data the link wrote once (`word_table`). A splat pushes as it
-        # goes. A frozen literal (a shareable constant's) takes the flag
-        # and no send, as compile.c freezes what it built.
+        # `[a, b]`: the elements are staged in the record and copied into a
+        # new Array. If every element is an immediate, they are copied from
+        # data that the link wrote once (`word_table`). A splat pushes its
+        # elements. A frozen literal (a shareable constant's) gets the flag
+        # with no send, as compile.c freezes what it built.
         def array_literal(node)
           elements = node.elements
           ary = if (words = immediate_words(elements))
@@ -153,9 +153,9 @@ module Zr
           node.frozen ? kernel("zr_literal_freeze", ary) : ary
         end
 
-        # The words of `nodes` where each is an immediate literal -- a
-        # fixnum, a flonum, a Symbol (its name, for the link), nil, true
-        # or false -- else nil.
+        # The words of `nodes` if each is an immediate literal (a fixnum, a
+        # flonum, a Symbol (its name, for the link), nil, true or false),
+        # else nil.
         def immediate_words(nodes)
           return nil if nodes.empty?
 
@@ -175,10 +175,8 @@ module Zr
           end
         end
 
-        # `{k => v, **h}`: pairs stored one by one into a Hash kept in a
-        # record slot when a double splat is among them.
-        # `@name`: the guessed row's value inline, nil for a row unset;
-        # else the kernel's read.
+        # `@name`: the guessed ivar entry's value inline (nil for an unset
+        # entry), else the kernel's read.
         def ivar_read(node)
           ivar = ivar_name(node.name)
           ic = site_cache(node, "iv", "IvarCache")
@@ -193,6 +191,8 @@ module Zr
           v
         end
 
+        # `{k => v, **h}`: if there is a double splat, the pairs are stored
+        # one at a time into a Hash in a record slot.
         def hash_literal(node)
           if (words = immediate_words(node.pairs))
             hash = checked(kernel("zr_hash_of", imm(words.size / 2), @f.symbol_value(@f.symbol(@l.word_table(words)))))
@@ -245,9 +245,9 @@ module Zr
           end
         end
 
-        # A Float literal that fits a flonum is its bits rotated, known
-        # now, exactly as zr_float_new would make it; +0.0 is the flonum
-        # zero; any other double is a heap cell made at run time.
+        # A Float literal that fits a flonum is its rotated bits, computed
+        # now, exactly as zr_float_new makes it. +0.0 is the flonum zero.
+        # All other doubles are heap cells made at run time.
         def float_literal(v)
           word = flonum_word(v)
           return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
@@ -255,8 +255,8 @@ module Zr
           imm(word)
         end
 
-        # The flonum word of `v` as a signed 64-bit value, or nil where
-        # the double does not fit one.
+        # The flonum word of `v` as a signed 64-bit value, or nil if the
+        # double does not fit.
         def flonum_word(v)
           b = [v].pack("E").unpack1("Q<")
           top = (b >> 60) & 7
@@ -267,23 +267,21 @@ module Zr
           word && [word].pack("Q<").unpack1("q<")
         end
 
-        # `"a#{b}c"`. The pieces between the embedded expressions are
-        # never handed to the program: `zr_str_interp` (runtime/kernel/string.rb)
-        # reads their bytes and answers a String of its own. So each one is
-        # the shared frozen String of those bytes and not a String made
-        # again every time control passes the literal, which is what a
-        # piece cost before -- an allocation, a malloc and a copy each.
+        # `"a#{b}c"`. The program never gets the literal parts between the
+        # embedded expressions: `zr_str_interp` (runtime/kernel/string.rb)
+        # reads their bytes and returns a new String. So each part is the
+        # shared frozen String of its bytes, not a new String on each run.
+        # This saves an allocation, a malloc and a copy per part.
         def interp(node)
           staged(node.parts, evaluate: method(:interp_part)) do |argv|
             checked(kernel("zr_str_interp", imm(node.parts.size), argv))
           end
         end
 
-        # A piece of an interpolation: the shared String where it is a
-        # literal this file wrote in UTF-8, and lowered as anything else
-        # otherwise. The shared table keys on bytes alone and so cannot
-        # tell two encodings apart, which is why a file of another script
-        # encoding keeps the plain form.
+        # A part of an interpolation: the shared String if it is a UTF-8
+        # literal of this file, else lowered as usual. The shared table
+        # keys only on bytes and cannot tell two encodings apart, so a file
+        # with a different script encoding uses the plain form.
         def interp_part(node)
           text = node.is_a?(Hir::Literal) ? node.value : nil
           return expr(node) unless text.is_a?(String) && text.encoding == ::Encoding::UTF_8
@@ -291,9 +289,8 @@ module Zr
           string_literal(text, "zr_str_literal_shared")
         end
 
-        # A String literal, built by `fn` and tagged with the script
-        # encoding the file declared. UTF-8 is the usual answer and needs
-        # no number.
+        # A String literal, built by `fn` and tagged with the file's script
+        # encoding. UTF-8 is the usual encoding and needs no number.
         def string_literal(text, fn)
           bytes = @f.symbol_value(@f.symbol(@l.literal(text)))
           index = ENCODING_INDEX.fetch(text.encoding)
@@ -302,35 +299,36 @@ module Zr
           kernel("#{fn}_at", bytes, imm(text.bytesize), imm(index))
         end
 
-        # ruby's own number for an encoding, which is what a String
-        # carries at run time.
+        # ruby's own index for an encoding. A String contains this index
+        # at run time.
         ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze
 
-        # The globals with meanings of their own: `$!` is the task's, `$~`
-        # and `$_` the frame's, and `$<` is ARGF. Any other, `$.` among
-        # them, lives in the globals table, where the core sets it.
+        # The special globals: `$!` is in the task, `$~` and `$_` are in
+        # the frame, and `$<` is ARGF. All others (`$.` too) are in the
+        # globals table, where the core sets them.
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!
           return kernel("zr_backref_get") if node.name == :$~
           return kernel("zr_lastline_get") if node.name == :$_
 
-          # `$<` is ARGF itself, whatever a program names ARGF.
+          # `$<` is the real ARGF, even if a program redefines ARGF.
           return kernel("zr_core_class", sym_word(:ARGF)) if node.name == :$<
 
-          # A program's global outside the main ractor is refused unless
-          # it is one CRuby keeps for each ractor; the core reads its own.
+          # Outside the main ractor, a program's global read raises unless
+          # CRuby keeps that global per ractor. The core reads without this
+          # check.
           @l.internal? ? kernel("zr_gvar_get", sym_word(node.name)) : checked(kernel("zr_gvar_read", sym_word(node.name)))
         end
 
-        # The globals ruby hooks: a write checks the value, or refuses a
-        # read-only name. The core library writes them unchecked.
+        # The globals that ruby hooks: a write checks the value, or raises
+        # for a read-only name. The core library writes them unchecked.
         HOOKED_GVARS = %i[
           $! $@ $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W
           $; $, $/ $\\ $stdout $stderr $0 $VERBOSE $.
         ].to_set.freeze
 
-        # `$~` and `$_` live in the frame; the rest are globals, and a
-        # command trace_var put on one runs on this line.
+        # `$~` and `$_` are in the frame. The others are globals, and a
+        # trace_var command on one runs at this line.
         def gvar_write(node, v)
           name = node.name
           return kernel("zr_backref_set", v) if name == :$~ && @l.internal?
@@ -344,8 +342,8 @@ module Zr
           checked(kernel("zr_gvar_hooked", sym_word(node.shown || name), sym_word(name), v))
         end
 
-        # `$1`, `$&`, `` $` ``, `$'` and `$+`: `$~`'s registers, nil
-        # without a match.
+        # `$1`, `$&`, `` $` ``, `$'` and `$+`: the groups of `$~`, or nil
+        # with no match.
         def back_ref(node)
           match = kernel("zr_backref_get")
           case node.kind
@@ -372,9 +370,8 @@ module Zr
           checked(kernel("zr_alias", cref_class, sym_word(node.new_name), sym_word(node.old_name)))
         end
 
-        # The names wait in record slots, since making one may collect.
-        # `/#{x}/o` runs its site once: the regexp waits in the literal
-        # table, and every later run reads it back.
+        # `/#{x}/o` runs its site once. The regexp stays in the literal
+        # table, and every later run reads it from there.
         def regexp_once(node)
           index = site_word
           cached = kernel("zr_regexp_once", index)
@@ -392,6 +389,8 @@ module Zr
           result
         end
 
+        # The names stay in record slots, because making one can start a
+        # collection.
         def alias_value(node)
           staged([node.new_name, node.old_name]) do |slots, _base|
             at_node(node)
@@ -420,8 +419,8 @@ module Zr
           checked(kernel("zr_cvar_set", @cref, sym_word(node.name), v))
         end
 
-        # `Name ||= value`: the constant when it is set and truthy, else
-        # the assignment.
+        # `Name ||= value`: the constant if it is set and truthy, else the
+        # assignment.
         def const_or_write(node)
           at_node(node)
           current = if node.scope.nil?

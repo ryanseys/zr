@@ -13,13 +13,13 @@ module Zr
           @f.icmp("ne", @f.band(v, imm(-9)), imm(0))
         end
 
-        # `node`, a test, as a branch: to `yes` when it is truthy, to
-        # `no` when it is not. An `&&` or `||` branches on its left side
-        # and asks its right side only when the left decided nothing;
-        # the value it would have answered is never made, so a test of
-        # several parts is a chain of branches with no join between.
-        # A relation over plain reads branches on the comparison
-        # (`Sends#relation_jump`). Anything else is tested as a value.
+        # Lowers the test `node` as a branch: to `yes` if it is truthy,
+        # else to `no`. An `&&` or `||` branches on its left side, and
+        # evaluates its right side only if the left side does not decide.
+        # Its value is never made, so a test with several parts is a chain
+        # of branches with no join. A comparison of plain reads branches
+        # on the comparison (`Sends#relation_jump`). All other nodes are
+        # tested as values.
         def jump_if(node, yes, no)
           case node
           when Hir::And, Hir::Or
@@ -68,8 +68,8 @@ module Zr
           expr(node.body) if node.body
           @loops.pop
           unless @f.terminated?
-            # The back edge is where a thread that only computes hands
-            # the turn on; without it a spinner starves its siblings.
+            # A thread that only computes yields to the scheduler at the
+            # back edge. Without this, a busy loop starves other threads.
             preempt
             @f.jump(head)
           end
@@ -77,14 +77,14 @@ module Zr
           result
         end
 
-        # A safe point (runtime/kernel/send.rb): the poll word read, and the
-        # kernel run only when it is set. Under wasm the count is the
-        # clock, and one tick comes off it here.
+        # A safe point (runtime/kernel/send.rb): read the poll word, and
+        # call the kernel only if it is set. Under wasm, the count is the
+        # clock, and this subtracts one tick.
         #
         # Not in the runtime's own Ruby. The scheduler and the waits are
-        # written there, and a turn handed on from inside them is a
-        # switch in the middle of a switch; its loops that run long are
-        # the iterators, whose yields the kernel ticks.
+        # written there, and a yield from inside them would be a switch
+        # during a switch. The runtime's long loops are the iterators, and
+        # the kernel counts ticks at their yields.
         def preempt
           return if @l.internal?
 
@@ -104,7 +104,7 @@ module Zr
           switch(go)
         end
 
-        # `a && b` answers `a` when it is falsy, else `b`; `||` the reverse.
+        # `a && b` returns `a` if it is falsy, else `b`. `||` is the reverse.
         def logical(node)
           left = expr(node.left)
           rest = @f.label
@@ -121,11 +121,10 @@ module Zr
           result
         end
 
-        # `case`: the subject waits in a record slot; each `when` value
-        # asks `value === subject` through a cell of its own, as any
-        # receiver's method with no visibility rule (or is tested itself
-        # when there is no subject), and the first truthy one's body
-        # answers.
+        # `case`: the subject stays in a record slot. Each `when` value
+        # sends `value === subject` through its own cell, with no
+        # visibility check (or, with no subject, the value itself is
+        # tested). The body of the first truthy one gives the result.
         def case_when(node)
           base = @sp
           subject_at = value_offset(reserve(1))
@@ -188,14 +187,14 @@ module Zr
           end
         end
 
-        # The block called as zr_yield calls it, at the site: the test
-        # that there is one, then its function through the Proc. The
-        # kernel's own yield polls for preemption first, which a
-        # program's function does at its entry and at every back edge
-        # -- the core's functions poll nowhere (`preempt`), so a core
-        # iterator's `yield` keeps the kernel's, or `loop { }` would
-        # never hand the turn on. No block given takes the kernel's road
-        # too, which raises.
+        # Calls the block at the site, as zr_yield does: test that there
+        # is a block, then call its function through the Proc. The
+        # kernel's yield first polls for preemption. A program's function
+        # polls at its entry and at each back edge, but the core's
+        # functions never poll (`preempt`). So a core iterator's `yield`
+        # uses the kernel's yield, or `loop { }` would never yield to the
+        # scheduler. With no block, the kernel's yield also runs, and it
+        # raises.
         def block_call(argc, argv)
           return kernel("zr_yield", @blk, argc, argv) if @l.internal?
 
@@ -212,8 +211,8 @@ module Zr
           result
         end
 
-        # `return`: out of the method, or from a block through the runtime
-        # to the method that made it.
+        # `return`: leaves the method, or, from a block, unwinds through
+        # the runtime to the method that made the block.
         def return_from(node)
           v = expr(node.value)
           if @kind == :eval
@@ -230,14 +229,14 @@ module Zr
           @qnil
         end
 
-        # zr_require's kinds; the eval road's own load is hidden from the
-        # program.
-        # `declared` is an autoload alone: the feature is held already, so
-        # the name is declared and no row waits for a file.
+        # zr_require's kinds. `hidden` is eval support's own load, which the
+        # program does not see. `declared` is an autoload only: the
+        # feature is already loaded, so the name is declared and no entry
+        # waits for a file.
         REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, hidden: 3, computed: 4, declared: 5 }.freeze
 
-        # A require of a file the program holds runs that file's toplevel,
-        # once unless it is a load; a relative name with no file is a
+        # A require of a file in the program runs that file's toplevel,
+        # once unless it is a load. A relative name with no file raises
         # LoadError.
         def require_unit(node)
           at_node(node)
@@ -249,10 +248,10 @@ module Zr
           checked(kernel("zr_require", kernel("zr_str_new", path, imm(shown.bytesize)), fn, imm(REQUIRE_KINDS.fetch(node.kind))))
         end
 
-        # `autoload :Name, "feature"`: the constant's row waits for the
-        # unit, which its first read runs.
-        # The receiver and the feature wait in record slots while the path
-        # is made, whose allocation may collect.
+        # `autoload :Name, "feature"`: the constant's entry waits for the
+        # unit, and the first read runs it. The receiver and the feature
+        # stay in record slots while the path is made, because its
+        # allocation can start a collection.
         def autoload_unit(node)
           at_node(node)
           base = reserve(2)
@@ -286,8 +285,8 @@ module Zr
           @qnil
         end
 
-        # `break`/`next`: out of the innermost loop when one encloses the
-        # statement, else out of the block.
+        # `break`/`next`: leave the innermost loop if one encloses the
+        # statement, else leave the block.
         def jump_out(node, kind)
           v = expr(node.value)
           if (loop = @loops.last)

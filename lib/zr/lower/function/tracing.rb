@@ -3,15 +3,15 @@
 module Zr
   class Lower
     class Function
-      # The points a traced program fires TracePoint events from: a
-      # statement's `:line`, a scope's opening and closing events, each a
-      # test of the kernel's event mask, so a program whose TracePoints are
-      # all disabled pays one load and one branch at each.
+      # The points where a traced program fires TracePoint events: a
+      # statement's `:line`, and a scope's opening and closing events.
+      # Each one tests the kernel's event mask, so if all TracePoints are
+      # disabled, each point costs one load and one branch.
       module Tracing
         # ruby's RUBY_EVENT_* bits.
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze
-        # The event a scope fires as it starts, and the one it fires as it
-        # leaves, a raise unwinding it included.
+        # The event that a scope fires when it starts, and the one that it
+        # fires when it leaves (also when a raise unwinds it).
         OPENING = { def: :call, block: :b_call, class: :class, module: :class, sclass: :class }.freeze
         CLOSING = { def: :return, block: :b_return, class: :end, module: :end, sclass: :end }.freeze
 
@@ -28,8 +28,8 @@ module Zr
           @qnil
         end
 
-        # `Hir::Cover`: one more run of a branch Coverage measures. The
-        # kernel holds the counters, so this is a call and no more.
+        # `Hir::Cover`: counts one run of a branch that Coverage measures.
+        # The kernel keeps the counters, so this is only a call.
         def cover_branch(node)
           at_node(node)
           cover(node.id)
@@ -38,10 +38,10 @@ module Zr
 
         def cover(id) = kernel("zr_coverage_branch", imm(id))
 
-        # One more run of the method this scope makes, which is what
-        # CRuby counts on the :call event. The entry a compiled method
-        # is called with names the row, so an alias and a method a
-        # `define_method` copied both count where their original does.
+        # Counts one run of the method that this scope makes, as CRuby
+        # counts on the :call event. The method entry of the call
+        # identifies the coverage entry, so an alias and a method copied
+        # by `define_method` both count for the original.
         def cover_method = kernel("zr_coverage_method", arg_entry)
 
         # The scope's opening event, once its parameters are bound.
@@ -50,9 +50,9 @@ module Zr
           fire(event) if event && traced?
         end
 
-        # The scope's closing event, with the value it leaves with: on the
-        # line of its `return`, else its `end` line, or on the line a raise
-        # unwinds it from. Answers that value, or undef when a hook raised.
+        # The scope's closing event, with its return value. The line is
+        # the line of its `return`, else its `end` line, or the line where
+        # a raise unwinds it. Returns that value, or undef if a hook raised.
         def trace_close(value, unwinding, line)
           event = CLOSING[@kind]
           return value unless event && traced?
@@ -81,7 +81,7 @@ module Zr
           switch(off)
         end
 
-        # Whether some enabled TracePoint asks for `event`.
+        # Whether an enabled TracePoint listens for `event`.
         def armed?(event)
           mask = @f.fetch("i64", static("trace_events"), 0)
           @f.icmp("ne", @f.band(mask, imm(EVENTS.fetch(event))), imm(0))

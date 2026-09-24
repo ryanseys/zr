@@ -3,33 +3,31 @@
 module Zr
   class Lower
     class Function
-      # `recv.each { |x| ... }` and `n.times { |i| ... }` run in place:
-      # the loop at the site, and the block's body in the site's own
-      # function, where its locals are record slots of the site's and
-      # the scope's locals are read as the site reads them. What a
-      # block call cost -- the descriptor, the builtin's frame, the
-      # yield, the block's prologue and its record -- goes once a loop
-      # instead of once a turn.
+      # `recv.each { |x| ... }` and `n.times { |i| ... }` run inline. The
+      # loop is at the site, and the block's body is in the site's own
+      # function. The block's locals are record slots of the site, and it
+      # reads the scope's locals as the site does. The cost of a block
+      # call (the descriptor, the builtin's frame, the yield, the block's
+      # prologue and record) occurs once per loop, not once per iteration.
       #
-      # What a program sees is what the call gave it. Two frames stand
-      # under the caller's for the loop's duration (`zr_iter_enter`):
-      # the builtin's and the block's, which is where the body's lines
-      # go, so a backtrace from inside reads as before. A signal from
-      # the body lands in a region of the site's own, which puts the
-      # caller's frame back on top before passing the signal on; the
-      # loop's end and a `break` put it back too, and a `return` leaves
-      # through the caller's epilogue, which unlinks everything. `break`
-      # answers the site, `next` and `redo` are the loop's own, as in a
-      # `while`. The receiver is tested once at the site -- an Array, or
-      # a fixnum, with the method's gate clear -- and anything else takes
-      # the call with the block descriptor as before.
+      # The program sees the same behavior as the call. During the loop,
+      # two frames are under the caller's (`zr_iter_enter`): the builtin's
+      # and the block's, which gets the body's lines, so a backtrace is
+      # the same. An unwind from the body goes to the site's own region,
+      # which puts the caller's frame back on top, then continues the
+      # unwind. The loop's end and a `break` also restore it. A `return`
+      # leaves through the caller's epilogue, which unlinks everything.
+      # `break` returns from the site, and `next` and `redo` act on the
+      # loop, as in a `while`. The site tests the receiver once (an Array
+      # or a fixnum, with the method's gate clear). All other receivers
+      # use the normal call with the block descriptor.
       #
-      # Only a block `Scope.iterator_template?` takes is run this way:
-      # a parameter at most, no block of its own inside (its locals
-      # would need an Env of the block's), no binding, no super, no def.
+      # Only a block that passes `Scope.iterator_template?` runs this way:
+      # at most one parameter, no inner block (its locals would need an
+      # Env), no binding, no super, no def.
       module Iterators
-        # The block's locals as record slots of the site's function,
-        # standing where the block's scope stands while its body lowers.
+        # The block's locals as record slots of the site's function. It
+        # is used in place of the block's scope while its body lowers.
         class InlineScope
           attr_reader :raw_block
 
@@ -44,13 +42,13 @@ module Zr
 
         private
 
-        # Whether the site runs `node` in place.
+        # Whether the site runs `node` inline.
         def iterator_template?(node)
           !traced? && !@l.internal? && Scope.iterator_template?(node)
         end
 
-        # The send with its block, in place when the receiver allows it,
-        # else as a call.
+        # The send with its block: inline if the receiver permits it, else
+        # as a call.
         def iterate(node, recv, argv, argc)
           fast = @f.label
           slow = @f.label
@@ -70,7 +68,7 @@ module Zr
             switch(other)
             @f.brif(@f.band(@f.icmp("eq", klass, global("G_RANGE")), gate_clear("GATE_RANGE_EACH")), ranged, slow)
             switch(ranged)
-            # A Range of fixnums walks its ends; any other takes the call.
+            # A Range of fixnums loops over its ends. Other ranges use the call.
             bounds = @f.stack_addr(@f.slot(16))
             @f.brif(kernel("zr_range_fix_bounds", recv, bounds), fast, slow)
             switch(fast)
@@ -87,12 +85,12 @@ module Zr
           result
         end
 
-        # The loop: the two frames linked, the block's locals reserved
-        # (the index after them, a fixnum), then each turn takes the next
-        # value into the parameter's slot, nils the block's other locals
-        # as a call would, and runs the body. An Array's length is read
-        # again each turn, as `zr_ary_each` reads it; a Range's ends are
-        # in `bounds`. The receiver is the answer.
+        # The loop. Link the two frames and reserve the block's locals
+        # (then the index, a fixnum). Each iteration puts the next value
+        # into the parameter's slot, sets the block's other locals to nil
+        # as a call does, and runs the body. It reads an Array's length
+        # again in each iteration, as `zr_ary_each` does. A Range's ends
+        # are in `bounds`. Returns the receiver.
         def loop_in_place(node, recv, kind, bounds = nil)
           block = node.block
           frame = @l.layout("Frame")
@@ -146,8 +144,8 @@ module Zr
           @loops.pop
           switch(out)
           @f.jump(done, [recv])
-          # A signal from the body: the caller's frame back on top, then
-          # the landing outside.
+          # An unwind from the body: put the caller's frame back on top,
+          # then go to the outer landing block.
           switch(unlink.landing, open: true)
           @f.store(@rec, @task_addr, off(@task, "top"), region: :task)
           @f.jump(landing)

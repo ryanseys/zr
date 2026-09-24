@@ -7,9 +7,8 @@ module Zr
       module Definitions
         private
 
-        # `def`: the body becomes its own function, registered on the
-        # cref's class, or on the receiver's singleton class; the value
-        # is the name.
+        # `def`: the body becomes its own function, defined on the cref's
+        # class or on the receiver's singleton class. The value is the name.
         def define_method(node)
           fn = @l.define(node)
           owner = if node.receiver
@@ -25,8 +24,8 @@ module Zr
           at_node(node)
           entry = node.receiver || inside_method? ? "zr_define_method_public" : "zr_define_method"
           if direct
-            # The generic entry is the kernel's, which checks what a site
-            # proves and calls the body; the body is the direct entry.
+            # The generic entry is the kernel's. It checks what a direct
+            # site proves, then calls the body. The body is the direct entry.
             d = @l.kernel_def("zr_direct_fn")
             generic = @f.func_addr(@f.callee("zr_direct_fn", d.params.map { |_, t| Machine::TYPES.fetch(t) }, "i64", effects: d.effects || IR::Effects::ALL))
             checked(kernel("#{entry}_direct", owner, sym_word(node.name), generic, addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
@@ -36,8 +35,8 @@ module Zr
           symbol(node.name)
         end
 
-        # A def in a method body (or a block in one) is public whatever
-        # the class body's visibility verb was.
+        # A def in a method body (or in a block in one) is public, whatever
+        # the class body's visibility was.
         def inside_method?
           fn = self
           fn = fn.outer while fn && fn.kind == :block
@@ -70,7 +69,7 @@ module Zr
           checked(@f.call_val(@f.callee(fn, ABI.fetch(:class), "i64"), [klass, cref]))
         end
 
-        # The class a constant path's scope names: the lexical scope for a
+        # The class of a constant path's scope: the lexical scope for a
         # bare name, Object for `::`, else the expression's value.
         def scope_class(scope)
           case scope
@@ -86,11 +85,12 @@ module Zr
           end
 
           id = sym_word(node.name)
-          # The scope is read first, so the row names this read's node.
+          # Read the scope first, so the line record refers to this read's
+          # node.
           scope = scope_class(node.scope) if node.scope
           at_node(node)
-          # A program's read asks, outside the main ractor, whether it may
-          # share the value; the core's reads are its own, as C's are.
+          # Outside the main ractor, a program's read checks whether it can
+          # share the value. The core's reads skip this check, as C's do.
           if node.scope.nil?
             cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id)
           else
@@ -98,10 +98,10 @@ module Zr
           end
         end
 
-        # A constant through the site's own cell (runtime/kernel/cache.rb):
-        # the value the kernel answered under `key` (the cref, or the
-        # scope) at the constant stamp, read here while both hold; else
-        # the kernel's lookup, which fills the cell.
+        # A constant read through the site's own cell (runtime/kernel/cache.rb).
+        # The cell keeps the kernel's value for `key` (the cref or the
+        # scope) at a constant stamp. If both still match, read the value
+        # here. Else call the kernel's lookup, which fills the cell.
         def cached_const(key, lookup, id)
           cc = cache("cc", "ConstCache")
           cell = @l.layout("ConstCache")
@@ -119,8 +119,8 @@ module Zr
           result
         end
 
-        # The line is the constant's location, which a later mistaken
-        # `class Name` names.
+        # Set the line to the constant's location. A later incorrect
+        # `class Name` reports it.
         def const_write(node)
           scope = scope_class(node.scope)
           v = expr(node.value)

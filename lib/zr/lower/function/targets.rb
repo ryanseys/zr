@@ -3,16 +3,16 @@
 module Zr
   class Lower
     class Function
-      # Multiple assignment and destructuring: the value becomes an Array
-      # (`to_ary` when it has one) kept in a record slot, and each target
-      # takes its element; a nested target takes its element apart again.
-      # A target that is a send (`h[k]`, `o.attr`) stages its receiver
-      # and arguments before the value is evaluated, as CRuby orders it.
+      # Multiple assignment and destructuring. The value becomes an Array
+      # (through `to_ary` if it has one) in a record slot, and each target
+      # gets its element. A nested target destructures its element again.
+      # A send target (`h[k]`, `o.attr`) stages its receiver and arguments
+      # before the value is evaluated, in CRuby's order.
       #
-      # `a, b = x, y` where nothing takes the value makes no Array: the
-      # elements go into slots and each target takes its own, as CRuby's
-      # compiler does for a popped `masgn`. A rest still gets its Array
-      # of what is left after the targets before it.
+      # If the value of `a, b = x, y` is not used, no Array is made: the
+      # elements go into slots and each target gets its own, as CRuby's
+      # compiler does for a popped `masgn`. A rest target still gets an
+      # Array of the remaining elements.
       module Targets
         private
 
@@ -53,14 +53,14 @@ module Zr
           @qnil
         end
 
-        # The send targets' receivers and arguments into slots: each
-        # send gets a receiver slot, its arguments, and one for the value.
+        # Stages the send targets' receivers and arguments into slots. Each
+        # send gets a receiver slot, its argument slots, and a value slot.
         def prepare(target, prepared = {})
           (target.lefts + [target.rest] + target.rights).each do |t|
             case t
             when Hir::Send
-              # A splat gathers the indexes into one Array beside the
-              # receiver; the value joins them at the write.
+              # A splat collects the indexes into one Array next to the
+              # receiver. The write adds the value to them.
               wide = t.args.any?(Hir::Splat)
               slot = reserve(wide ? 2 : 2 + t.args.size)
               @f.store(expr(t.recv), @rec, value_offset(slot))
@@ -71,8 +71,8 @@ module Zr
               end
               prepared[t] = slot
             when Hir::ConstWrite
-              # `a::B, c = value` asks for `a` before the value, as CRuby
-              # orders it.
+              # `a::B, c = value` evaluates `a` before the value, in CRuby's
+              # order.
               next if t.scope.nil? || t.scope == :top
 
               slot = reserve(1)
@@ -96,13 +96,13 @@ module Zr
           @sp -= 1
         end
 
-        # `recv[args] op= value`: receiver and arguments evaluated once
-        # into slots, then `[]`, the operation, and `[]=` as sends.
+        # `recv[args] op= value`: the receiver and arguments are evaluated
+        # once into slots, then `[]`, the operation, and `[]=` are sent.
         def index_op_assign(node)
           base = @sp
           slots = reserve(1 + node.args.size)
           @f.store(expr(node.recv), @rec, value_offset(slots))
-          # A splat holds its array in the slot and splats it at both
+          # A splat keeps its array in the slot and splats it at both
           # sends, so the indexes are evaluated once.
           node.args.each_with_index { |a, i| @f.store(expr(a.is_a?(Hir::Splat) ? a.value : a), @rec, value_offset(slots + 1 + i)) }
           recv = Hir::Slot.new(slots, node.line)
@@ -185,8 +185,9 @@ module Zr
           end
         end
 
-        # `@name = v`: a store into the guessed row inline; else the
-        # kernel's write, which a frozen receiver refuses at this line.
+        # `@name = v`: an inline store into the guessed ivar entry, else
+        # the kernel's write, which raises for a frozen receiver at this
+        # line.
         def ivar_write(node, v)
           at_node(node)
           ivar = ivar_name(node.name)
@@ -207,8 +208,8 @@ module Zr
           v
         end
 
-        # A row for `ivar` holding `v` past the last of table `t`, whose
-        # length is `len`, and the name's bit in the table's names.
+        # Appends an entry for `ivar` with `v` after the last entry of table
+        # `t` (length `len`), and sets the name's bit in the table's names.
         def append_ivar_row(t, len, ivar, v)
           table = @l.layout("IvTab")
           entry = @l.layout("IvEntry")
@@ -256,7 +257,7 @@ module Zr
           at_node(target)
           return checked(opt_send(target, recv, argc, argv)) if target.opt
 
-          # An explicit receiver may not reach a private writer; `self` may.
+          # An explicit receiver cannot call a private writer. `self` can.
           checked(cached_send(target, recv, argc, argv, @qnil))
         end
       end

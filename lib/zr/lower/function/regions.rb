@@ -6,14 +6,14 @@ module Zr
   class Lower
     class Function
       # `begin`/`rescue`/`else`/`ensure` and `retry`. A protected region
-      # has a landing block of its own: a signal inside it lands there
-      # instead of leaving the function. A rescue landing tests each
-      # clause against the pending exception; an ensure landing runs the
-      # ensure body with the signal set aside, then passes it on.
+      # has its own landing block: an unwind inside it goes there and does
+      # not leave the function. A rescue landing tests each clause against
+      # the pending exception. An ensure landing saves the pending unwind,
+      # runs the ensure body, then continues the unwind.
       module Regions
-        # `slot` is the first of the record slots the region keeps its
-        # values in: the value on the way out or the exception, the `$!`
-        # the region replaced, and for an ensure the `$!` it began with.
+        # `slot` is the first record slot for the region's values: the
+        # exit value or the exception, the `$!` that the region replaced,
+        # and for an ensure, the `$!` at its start.
         class Region < Record
           FIELDS = %i[landing ensure_body slot].freeze
           attr_accessor :landing, :ensure_body, :slot
@@ -29,7 +29,7 @@ module Zr
 
         private
 
-        # The landing block a signal takes from here: the innermost
+        # The landing block for an unwind from here: the innermost
         # region's, or the function's own.
         def landing
           @regions.last&.landing || (@landing ||= @f.label)
@@ -41,12 +41,11 @@ module Zr
           with_ensure(node.ensure_body) { rescue_region(node) }
         end
 
-        # The ensure body (a node, or a block of the lowering's own) runs
-        # after the block's code on the normal way out, and in the
-        # landing block on the signal's way out, where a raise shows as
-        # `$!` meanwhile unless `errinfo` is false. An ensure body that
-        # jumps away drops the raise, and `$!` goes back to what it was
-        # when the region began, as ruby's does.
+        # The ensure body (a node, or a lowering block) runs after the
+        # block's code on a normal exit. During an unwind, it runs in the
+        # landing block, and a raise is visible as `$!` unless `errinfo`
+        # is false. An ensure body that jumps out discards the raise, and
+        # `$!` is restored to its value at the region's start, as in ruby.
         def with_ensure(body, errinfo: true)
           region = Region.new(@f.label, body, reserve(errinfo ? 3 : 2))
           value_at = value_offset(region.slot)
@@ -86,8 +85,8 @@ module Zr
           body.is_a?(Proc) ? body.call : expr(body)
         end
 
-        # The body under its rescue clauses, and the else arm after a
-        # body that raised nothing.
+        # The body in its rescue clauses, and the else branch after a body
+        # that raised nothing.
         def rescue_region(node)
           return expr(node.body) if node.rescues.empty?
 
@@ -96,8 +95,8 @@ module Zr
           prev_at = value_offset(region.slot + 1)
           head = @f.label
           merge, (result,) = @f.block(["i64"])
-          # `$!` goes back to what it was here when a clause ends, not to
-          # what an ensure on the way out left in it.
+          # When a clause ends, `$!` is restored to its value here, not to
+          # the value that an ensure on the way out put in it.
           @f.store(kernel("zr_errinfo"), @rec, prev_at)
           @f.jump(head)
           switch(head)
@@ -121,11 +120,11 @@ module Zr
           handlers.each do |handler, clause|
             switch(handler)
             kernel("zr_rescue_enter")
-            # The clause that matched is where `:rescue` fires, so the
-            # call stands here and not in `zr_rescue_enter`, which
-            # `guarded` also uses to swallow a raise `defined?` made.
-            # ruby names the clause's first statement and not the
-            # `rescue` word, which is where its program counter lands.
+            # `:rescue` fires at the matched clause, so the call is here,
+            # not in `zr_rescue_enter` (`guarded` also uses that to discard
+            # a raise from `defined?`). Ruby reports the clause's first
+            # statement, not the `rescue` keyword, because its program
+            # counter goes there.
             kernel("zr_trace_rescue", imm((clause.body || clause).line))
             if clause.target
               prepared = clause.target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([clause.target], nil, [], clause.line)) : {}
@@ -145,8 +144,8 @@ module Zr
           result
         end
 
-        # The block's value, or nil when a raise leaves it: `defined?`
-        # asks about a receiver this way.
+        # The block's value, or nil if a raise leaves it. `defined?` uses
+        # this to test a receiver.
         def guarded
           region = Region.new(@f.label, nil, reserve(1))
           prev_at = value_offset(region.slot)
@@ -169,7 +168,7 @@ module Zr
         end
 
         # The tests for one clause, each a branch to the handler block
-        # answered here; a miss falls through to the next test.
+        # that this returns. A miss falls through to the next test.
         def rescue_test(clause, exc_at)
           handler = @f.label
           classes = clause.classes.empty? ? [nil] : clause.classes
@@ -187,7 +186,7 @@ module Zr
           handler
         end
 
-        # `retry`: `$!` back as it was, then the begin body again.
+        # `retry`: restore `$!`, then run the begin body again.
         def retry_region(node)
           @l.refuse(node, "retry outside a rescue clause is not lowered yet") if @retries.empty?
           head, prev_at, depth = @retries.last
@@ -199,8 +198,8 @@ module Zr
         end
 
         # The ensure bodies between here and region depth `depth`,
-        # innermost first: a `return` or a loop's jump runs them on its
-        # way out.
+        # innermost first. A `return` or a loop's jump runs them when it
+        # leaves.
         def unwind(depth)
           left = []
           while @regions.size > depth && !@f.terminated?
@@ -211,8 +210,8 @@ module Zr
           @regions.concat(left)
         end
 
-        # `v` after the ensure bodies down to region depth `depth` ran,
-        # kept in the record meanwhile.
+        # Runs the ensure bodies down to region depth `depth`, then returns
+        # `v`. The record keeps `v` during the ensure bodies.
         def through_ensures(v, depth = 0)
           return v if @regions.size <= depth
 
@@ -220,13 +219,14 @@ module Zr
           @f.store(v, @rec, at)
           unwind(depth)
           @sp -= 1
-          # An ensure body that itself returned or jumped ended the block;
-          # what follows is unreachable and goes in a block of its own.
+          # An ensure body that returned or jumped ended the block. The code
+          # after it is unreachable and goes in a new block.
           switch(@f.label, open: true) if @f.terminated?
           @f.fetch("i64", @rec, at)
         end
 
-        # `n` fresh record slots; the scope's budget must cover them.
+        # Reserves `n` new record slots. The scope's slot count must
+        # include them.
         def reserve(n)
           base = @sp
           @sp += n
