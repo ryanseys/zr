@@ -761,9 +761,9 @@ module Zr
           File.file?("#{path}.rb") ? "#{path}.rb" : nil
         end
 
-        # The directories a file adds to $LOAD_PATH with a literal, in the
-        # order it adds them: `[true, paths]` for an `unshift`, which puts
-        # them ahead of every root, `[false, paths]` for `push` and `<<`.
+        # The directories that a file adds to $LOAD_PATH with a literal, in
+        # order: `[true, paths]` for an `unshift`, which puts them before
+        # all roots, and `[false, paths]` for `push` and `<<`.
         def load_path_roots(node, file)
           roots = []
           walk = lambda do |n|
@@ -778,8 +778,8 @@ module Zr
           roots
         end
 
-        # A path a literal names, absolute: a String, `File.expand_path(str,
-        # __dir__)` or `File.join(__dir__, str...)`; nil for anything else.
+        # The absolute path of a literal: a String, `File.expand_path(str,
+        # __dir__)` or `File.join(__dir__, str...)`. nil for all others.
         def literal_path(node, file)
           dir = File.dirname(file)
           case node
@@ -819,29 +819,28 @@ module Zr
         @body_marks = []
         @block_depth = 0
         @using = nil
-        # How many `using` rows this build has made. `statement` reads it
-        # to know whether searching the statement it just built for one
-        # can find anything at all.
+        # The number of `using` entries that this build made. `statement`
+        # reads it to know if a search of its new statement can find one.
         @usings = 0
         @in_def = false
         @dead = 0
         @activations = -1
         @temps = [[]]
         @scopes = [@temps.first]
-        # The line each scope fired its last `:line` event on, in the order
-        # the compiler meets statements; ruby's last_line.
+        # The line of each scope's last `:line` event, in the compiler's
+        # statement order (ruby's last_line).
         @last_lines = [-1]
         @warnings = []
-        # How deep each parameter of the method an eval runs inside
-        # stands, outside the eval's own scope; nil inside a def of the
-        # file's own, whose parameters stand in its scope.
+        # The depth of each parameter of the method that an eval runs in,
+        # outside the eval's own scope. nil inside a def of the file,
+        # whose parameters are in its own scope.
         @def_depths = nil
       end
 
-      # An eval's string runs inside a method: a bare `super` passes on
-      # the parameters `rows` names, each read from the scope in `scopes`
-      # (innermost first) that holds it. A parameter with no name, a
-      # destructured one, cannot be passed on, and neither `super` can.
+      # An eval's string runs inside a method. A bare `super` passes the
+      # parameters in `rows`, each read from the scope in `scopes`
+      # (innermost first) that contains it. A parameter with no name (a
+      # destructured one) cannot be passed, so neither `super` can.
       def within_method(rows, scopes)
         return if rows.any? { |_, name| name.nil? || scopes.none? { |names| names.include?(name) } }
 
@@ -873,8 +872,8 @@ module Zr
       # as locals of the def that declares them.
       ANONYMOUS = { rest: :*, kwrest: :**, block: :& }.freeze
 
-      # `body` built inside a branch a literal condition never takes
-      # when `never` holds.
+      # Builds `body` in a branch that a literal condition never takes,
+      # if `never` is true.
       def dead(never)
         @dead += 1 if never
         yield
@@ -882,9 +881,9 @@ module Zr
         @dead -= 1 if never
       end
 
-      # `body` lowered one block scope deeper. A `using` in a block at
-      # the top level of a file refines the file's own scope, so it
-      # reaches the rest of the file after the block, as ruby's does.
+      # Builds `body` one block scope deeper. A `using` in a block at the
+      # top level of a file refines the file's own scope, so it applies to
+      # the rest of the file after the block, as in ruby.
       def in_block
         @block_depth += 1
         using = @using
@@ -898,7 +897,7 @@ module Zr
         @last_lines.pop
       end
 
-      # `body` lowered in a fresh scope: a def or a class body.
+      # Builds `body` in a new scope: a def or a class body.
       def in_scope
         was = [@block_depth, @def_params, @def_depths]
         @block_depth = 0
@@ -915,11 +914,11 @@ module Zr
         @last_lines.pop
       end
 
-      # A scope's locals: the parser's, then the hidden ones its body made.
+      # A scope's locals: the parser's, then the hidden ones from its body.
       def with_temps(locals) = locals + @temps.last
 
-      # The globals that live in the frame or the task, not the global
-      # table: an alias of one is a second spelling the lowering resolves.
+      # The globals that are in the frame or the task, not the global
+      # table. An alias of one is a second name that the lowering resolves.
       FRAME_GVARS = %i[$~ $_ $! $@].freeze
 
       # The other names ruby gives one global.
@@ -932,7 +931,7 @@ module Zr
         GVAR_ALIASES.fetch(name, name)
       end
 
-      # `$name` read: through an alias of a frame special, `$@` as the
+      # A `$name` read: through an alias of a frame global, `$@` as the
       # backtrace of `$!`, or the global itself.
       def gvar_read(name, line)
         aliased = @loader&.back_ref(name)
@@ -945,9 +944,9 @@ module Zr
         GvarRead.new(gvar_name(name), line)
       end
 
-      # `$name = value`: through an alias of a frame special the write goes
-      # to that special, and keeps the name the program wrote for an error
-      # to show. Every back reference is read-only, as `$&` is.
+      # `$name = value`: a write through an alias of a frame global goes to
+      # that global, and keeps the program's name for error messages.
+      # Every back reference is read-only, as `$&` is.
       def gvar_write(name, value, line)
         aliased = @loader&.back_ref(name)
         target = if aliased.is_a?(Prism::GlobalVariableReadNode) then aliased.name
@@ -959,8 +958,8 @@ module Zr
         flag ? If.new(GvarRead.new(flag, line), write, GvarWrite.new(gvar_name(name), value, line, nil), line) : write
       end
 
-      # `$&`, `` $` ``, `$'` and `$+`: what the last match answers, nil
-      # without one.
+      # `$&`, `` $` ``, `$'` and `$+`: from the last match, or nil if there
+      # is none.
       def back_reference(node, line)
         case node.name
         when :$& then BackRef.new(:nth, 0, line)
@@ -971,16 +970,16 @@ module Zr
         end
       end
 
-      # `a..b` in a condition is a flip-flop: it answers true from the run
-      # where the left side is true to the run where the right side is. The
-      # state is a hidden local of the enclosing def, so a block shares the
-      # state of the method it hangs in, which is where ruby keeps it too.
+      # `a..b` in a condition is a flip-flop: it is true from the run where
+      # the left side is true to the run where the right side is true. The
+      # state is a hidden local of the enclosing def, so a block shares its
+      # method's state, as in ruby.
       def flip_flop(node, line)
         state = flip_flop_state
         depth = @block_depth
         ends = -> { If.new(end_test(node.right, line), Assign.new(state, depth, Literal.new(false, line), line), nil, line) }
-        # `...` waits for the next run before it can turn off; `..` asks the
-        # right side at once, so a one-run range ends where it started.
+        # `...` waits for the next run before it can turn off. `..` tests
+        # the right side at once, so a one-run range ends where it started.
         started = [Assign.new(state, depth, Literal.new(true, line), line)]
         started << ends.call unless node.exclude_end?
         started << Literal.new(true, line)
@@ -990,7 +989,7 @@ module Zr
                line)
       end
 
-      # An end of a flip-flop. A missing one never fires, and an integer
+      # An end of a flip-flop. A missing end never fires. An integer
       # literal is a test of the last line read, `$. == n`, as ruby's
       # compiler makes it.
       def end_test(node, line)
@@ -1007,9 +1006,9 @@ module Zr
         name
       end
 
-      # `# shareable_constant_value:` over a constant write. A value the
-      # compiler can see is a literal is deep-frozen; any other value must
-      # already be shareable, which is ruby's own split.
+      # `# shareable_constant_value:` on a constant write. A value that the
+      # compiler knows is a literal is deep-frozen. Any other value must
+      # already be shareable, as in ruby.
       def shareable_constant(node, line)
         write = expr(node.write)
         ractor = ConstRead.new(nil, :Ractor, line)
@@ -1025,11 +1024,11 @@ module Zr
       end
 
       # `literal`'s value, as prism_compile.c's
-      # pm_compile_shareable_constant_value builds it: an Array or Hash
-      # literal holds each of its elements so built, and is made shareable
-      # as a whole; a value of literals alone is made shareable; any other
-      # value must be shareable already, an interpolated String once it is
-      # deduplicated. `top` is the constant's own value, not an element.
+      # pm_compile_shareable_constant_value builds it. An Array or Hash
+      # literal builds each element the same way, then is made shareable
+      # as a whole. A value of only literals is made shareable. Any other
+      # value must already be shareable (an interpolated String after
+      # deduplication). `top` is the constant's own value, not an element.
       def literally_shareable(node, value, name, line, top: true)
         node, value = unparenthesized(node, value)
         return frozen_literal(node, value, line) if shareable_literal?(node)
@@ -1050,7 +1049,7 @@ module Zr
         end
       end
 
-      # `(value)`: the one statement inside, with what it built, as
+      # `(value)`: the one statement inside, and its built value, as
       # compile.c reads through the parentheses of `X = (1..2)`.
       def unparenthesized(node, value)
         while node.is_a?(Prism::ParenthesesNode) && node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 &&
@@ -1061,18 +1060,12 @@ module Zr
         [node, value]
       end
 
-      # A value built only of literals (`shareable_literal?`), frozen as
-      # it is built and sent nothing, as compile.c freezes the object it
-      # makes at compile time: an Array or Hash literal is marked frozen
-      # and holds its elements so built, a String is the shared frozen
-      # one of its text, a Range's ends are frozen, and every other
-      # literal is frozen by nature.
-      # Whether CRuby leaves a Range of two String literals a new Range at
-      # each run: its peephole folds the two strings and the newrange into
-      # one static Range only where no label stands before the first
-      # string, and a label starts a block's body, a loop's body, the else
-      # arm of an `if`, the then arm of an `unless` (a `case` has none),
-      # and a body a rescue covers.
+      # Whether CRuby makes a new Range of two String literals at each run.
+      # Its peephole optimizer folds the two strings and the newrange into
+      # one static Range only if no label is before the first string. A
+      # label starts a block's body, a loop's body, the else branch of an
+      # `if`, the then branch of an `unless` (a `case` has none), and a
+      # body that a rescue covers.
       def after_label?(node)
         @after_label ||= {}.compare_by_identity.tap { |found| labeled(@root, found) if @root }
         @after_label.key?(node)
@@ -1093,9 +1086,9 @@ module Zr
         node.compact_child_nodes.each { |child| labeled(child, found) }
       end
 
-      # The Range whose code comes first in `node`'s, if one does: a
-      # receiver comes before its call, a value before the variable it
-      # sets, a condition before its arms.
+      # The Range whose code comes first in `node`'s code, if any: a
+      # receiver comes before its call, a value before the variable that
+      # it sets, a condition before its branches.
       def leading(node)
         case node
         when Prism::RangeNode then node
@@ -1112,6 +1105,12 @@ module Zr
         end
       end
 
+      # A value built only of literals (`shareable_literal?`), frozen when
+      # it is built and with no send, as compile.c freezes the object that
+      # it makes at compile time. An Array or Hash literal is marked frozen
+      # and its elements are built the same way. A String is the shared
+      # frozen String of its text. A Range's ends are frozen. All other
+      # literals are always frozen.
       def frozen_literal(node, value, line)
         case node
         when Prism::ArrayNode
@@ -1132,16 +1131,17 @@ module Zr
         value
       end
 
-      # The name a shareable constant write names, for the error.
+      # The constant name of a shareable constant write, for the error.
       def constant_written(write)
         write.respond_to?(:name) ? write.name.to_s : write.target.name.to_s
       end
 
-      # Whether a value is built only of literals, so freezing it can hurt
-      # nothing that the program still holds. A Range of literal ends is
-      # one as the constant's own value and not as an element: compile.c's
-      # static_literal_node_p, which reads an Array's or a Hash's
-      # elements, has no case for one, so `[(1..2)]` takes make_shareable.
+      # Whether a value is built only of literals, so a freeze cannot
+      # affect an object that the program still uses. A Range with literal
+      # ends counts as the constant's own value, but not as an element:
+      # compile.c's static_literal_node_p, which reads an Array's or a
+      # Hash's elements, has no case for it, so `[(1..2)]` uses
+      # make_shareable.
       def shareable_literal?(node, top: true)
         case node
         when Prism::IntegerNode, Prism::FloatNode, Prism::RationalNode, Prism::ImaginaryNode,
@@ -1165,7 +1165,7 @@ module Zr
           (regexp_encoding(node) ? 16 : 0) | (node.ascii_8bit? ? 32 : 0)
       end
 
-      # The encoding a flag letter pins the pattern to, or nil.
+      # The encoding that a flag letter sets for the pattern, or nil.
       def regexp_encoding(node)
         if node.euc_jp? then ::Encoding::EUC_JP
         elsif node.windows_31j? then ::Encoding::Windows_31J
@@ -1173,37 +1173,37 @@ module Zr
         end
       end
 
-      # ruby, the oracle, checks the pattern: one it refuses is a syntax
-      # error here too.
+      # Ruby checks the pattern. A pattern that ruby refuses is also a
+      # syntax error here.
       def interpolated_regexp(node, line)
         pinned = regexp_encoding(node)
-        # Each fragment a String of its own: ruby reads every one in its own
-        # encoding before it joins them.
+        # Each fragment is a separate String: ruby reads each one in its
+        # own encoding before it joins them.
         fragments = ArrayLit.new(interpolation(node, line).parts.map { |part| Interp.new([part], line) }, line)
         args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
         made = Send.new(ConstRead.new(nil, :Regexp, line), :interpolated, args, line, false)
         node.once? ? RegexpOnce.new(made, line) : made
       end
 
-      # Stands in for $stderr while a check compiles a pattern, and keeps
-      # what the engine writes there.
+      # Used in place of $stderr while a check compiles a pattern. It keeps
+      # what the engine writes.
       class Written < String
         def write(*parts) = parts.sum { |part| concat(part.to_s) && part.to_s.bytesize }
       end
 
-      # Whether this build keeps the engine's warnings rather than
-      # letting them out where they are made.
+      # Whether this build keeps the engine's warnings, and does not let
+      # the engine print them.
       def keeps_warnings? = !@loader&.eval?
 
-      # What the engine wrote to $stderr while it read `held`. Reading
-      # the pattern is also the check: one the engine refuses raises.
+      # What the engine wrote to $stderr while it read `held`. The read is
+      # also the check: an invalid pattern raises.
       #
-      # Taking $stderr and $VERBOSE is the only way to keep those
-      # warnings, and a build may take them: it forks, and nothing else
-      # in that process writes. A compile the eval road makes runs inside
-      # the program, where the two belong to every thread it has -- and
-      # where ruby lets the engine warn on the program's own stderr, as
-      # `eval("/(?:a?)*b/")` does. So there the pattern is read plainly.
+      # The only way to keep those warnings is to replace $stderr and
+      # $VERBOSE. A build can do this, because it forks and nothing else
+      # in that process writes. An eval compile runs inside the program,
+      # where all threads share the two, and where ruby lets the engine
+      # warn on the program's stderr (as `eval("/(?:a?)*b/")` does). So
+      # there, the pattern is read with no redirection.
       def read_pattern(held, options)
         unless keeps_warnings?
           Regexp.new(held, options)
@@ -1222,10 +1222,10 @@ module Zr
         end
       end
 
-      # Which branch a condition written as a literal always chooses, or
-      # nil where the program decides. ruby's compiler writes nothing for
-      # the other branch, so it reads nothing there either: `if false
-      # then /[q-a]/ end` runs, and `if 1 == 2 then /[q-a]/ end` does not.
+      # The branch that a literal condition always selects, or nil if the
+      # program decides. Ruby's compiler writes no code for the other
+      # branch and does not read it: `if false then /[q-a]/ end` runs, and
+      # `if 1 == 2 then /[q-a]/ end` does not.
       def chooses?(node)
         case node
         when Prism::TrueNode then true
@@ -1234,15 +1234,15 @@ module Zr
       end
 
       def regexp_literal(node, line, taken = true)
-        # Nothing takes this literal's value, so ruby never reads the
-        # pattern and neither does zr: an invalid one here is a program
-        # that runs. An interpolated regexp is a Send, not this, and it
-        # still runs its parts.
+        # This literal's value is not used, so ruby never reads the
+        # pattern, and zr does not either. An invalid one here is a
+        # program that runs. An interpolated regexp is a Send, not this,
+        # and it still runs its parts.
         return Seq.new([], line) unless taken
 
         pinned = regexp_encoding(node)
-        # `n` reads the pattern as bytes, so an escape past ASCII is
-        # legal there and nowhere else; the check must read it that way.
+        # `n` reads the pattern as bytes, so a non-ASCII escape is valid
+        # only there. The check must read it the same way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
         written = read_pattern(held, regexp_options(node) & 7)
         written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{Paths.shown(@file)}:#{line}: warning: #{message}" }
@@ -1263,12 +1263,12 @@ module Zr
           else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
           end
         end
-        # A lone embedded part joins an empty literal, whose encoding the
-        # result starts from, as ruby's compiler joins one.
+        # A single embedded part is joined to an empty literal, which gives
+        # the result's start encoding, as ruby's compiler does.
         parts.unshift(Literal.new(+"", line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
-        # Where refinements are active, a piece is sent `to_s` at a site
-        # of its own, which looks the name up under them. ruby folds a
-        # String or Symbol piece into the text first.
+        # If refinements are active, each part gets `to_s` at its own site,
+        # which does the lookup with them. Ruby folds a String or Symbol
+        # part into the text first.
         parts = parts.map { |part| folded?(part) ? part : Send.new(part, :to_s, [], line, false) } if @using
         Interp.new(parts, line)
       end
@@ -1281,9 +1281,8 @@ module Zr
       # `hoist` puts the `BEGIN { }` blocks of a file first, in their
       # order, before anything else runs.
       #
-      # A sequence answers with its last statement, so every statement
-      # before that one stands where nothing takes its value, whatever
-      # the sequence itself stands in.
+      # A sequence returns its last statement's value, so the value of each
+      # earlier statement is never used, in every context.
       def seq(node, hoist: false, taken: true)
         return Seq.new([], 1) if node.nil?
 
@@ -1293,15 +1292,14 @@ module Zr
         Seq.new(body.each_with_index.map { |s, i| statement(s, taken: taken && i == last) }, node.location.start_line)
       end
 
-      # One statement, with the activation in force where it stands
-      # written on every send it holds. A `using` moves that activation
-      # on for the statements after it.
+      # One statement. Each send in it gets the activation that is active
+      # at the statement. A `using` changes the activation for the
+      # statements after it.
       def statement(node, taken: true)
-        # Every `using` row there is was made by `using_activation`, so a
-        # statement that made none holds none, and the walk below -- which
-        # reads the whole of what was just built, for every statement of
-        # every file -- can be skipped outright. Almost every file has no
-        # `using` in it at all.
+        # `using_activation` makes every `using` entry, so a statement that
+        # made none contains none. Then skip the walk below, which reads
+        # all of the new statement, for every statement of every file.
+        # Almost no file has a `using`.
         made = @usings
         traced = line_event(node)
         out = using_activation(node) || expr(node, taken: taken)
