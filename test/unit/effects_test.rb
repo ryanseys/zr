@@ -3,12 +3,13 @@
 require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 
-# What a kernel def may write (`IR::Effects`), as `Machine::Lower`
-# computes it over a small unit: the region of each store, closed over
-# the defs called; an import or a call through a pointer writes
-# everything; a def that only answers a static's address, which every
-# caller inlines, does not make a store through a pointer a write to
-# the word.
+# Tests what a kernel def can write (`IR::Effects`), as `Machine::Lower`
+# computes it for a small unit:
+# - A def writes the region of each store, and the regions of the defs
+#   that it calls.
+# - An import or a call through a pointer writes everything.
+# - A def that only returns the address of a static (every caller inlines
+#   it) does not make a store through a pointer a write to that word.
 class EffectsTest < Minitest::Test
   SOURCE = <<~'RB'
     Machine.import "write", [I32, Ptr, Word] => Word
@@ -73,7 +74,7 @@ class EffectsTest < Minitest::Test
 
   def bit(region) = Zr::IR::Effects.bit(region)
 
-  def test_a_store_to_a_static_is_a_write_to_its_region_closed_over_the_calls
+  def test_static_store_writes_its_region_through_calls
     assert_equal bit(:gates), effects.fetch("set_gates")
     assert_equal bit(:gates), effects.fetch("set_slowly"), "through a call"
     assert_equal 0, effects.fetch("pure")
@@ -85,18 +86,18 @@ class EffectsTest < Minitest::Test
     assert_equal bit(:malloc), effects.fetch("fill")
   end
 
-  def test_a_store_through_a_pointer_writes_what_a_pointer_can_reach_and_no_guard_word
+  def test_pointer_store_writes_unknown_region
     assert_equal Zr::IR::Effects::UNKNOWN, effects.fetch("poke")
   end
 
-  def test_an_import_writes_what_a_pointer_reaches_and_a_call_through_a_pointer_everything
+  def test_import_writes_unknown_and_indirect_call_writes_all
     assert_equal Zr::IR::Effects::UNKNOWN, effects.fetch("tell")
     assert_equal Zr::IR::Effects::ALL, effects.fetch("jump")
     assert_equal Zr::IR::Effects::ALL, Zr::IR::Effects.import("pthread_create")
     assert_equal Zr::IR::Effects::ALL, Zr::IR::Effects.import("zr_toplevel")
   end
 
-  def test_the_description_carries_the_effects
+  def test_description_includes_effects
     unit = Zr::Machine::Lower.new([[SOURCE, "effects_test.rb"]])
     unit.run
     text = Zr::Machine::Description.of(unit).to_text
@@ -105,17 +106,17 @@ class EffectsTest < Minitest::Test
   end
 end
 
-# The kernel's own answers, as the blessed darwin description carries
-# them: allocation may run the collector, which moves the stamps when
-# it frees a class, and never touches the gate word; a send may do
-# anything.
+# Tests the effects of kernel defs in the recorded darwin description.
+# Allocation can run the collector, which changes the method stamps when
+# it frees a class. Allocation never writes the gate word. A send can
+# write anything.
 class KernelEffectsTest < Minitest::Test
   def kernel
     text = File.read(File.join(ROOT, "runtime/ext/os/darwin/zr_description.rb"))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
     Zr::Machine::Description.parse(text)
   end
 
-  def test_allocation_moves_the_stamps_and_leaves_the_gates_alone
+  def test_allocation_writes_stamps_and_not_gates
     alloc = kernel.def_for("zr_alloc").effects
     assert Zr::IR::Effects.writes?(alloc, :stamps)
     refute Zr::IR::Effects.writes?(alloc, :gates)

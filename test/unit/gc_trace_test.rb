@@ -4,13 +4,13 @@ require "test_helper"
 require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 
-# `ZR_GC_TRACE=1` makes a binary's collector print one line to stderr a
-# collection, as it ends; without it the collector prints nothing. The
-# lines carry heap sizes no recording could pin, so the check is a
-# shape: one line a collection, each of the documented form, the last
-# one the major that `GC.start` asked for. A unit test and not a spec
-# because the boot's own collections print before any program code
-# runs, and a spec holds stderr to a literal.
+# With `ZR_GC_TRACE=1`, the collector of a binary prints one line to
+# stderr at the end of each collection. Without it, the collector prints
+# nothing. The lines contain heap sizes that change, so the test checks
+# the form: one line for each collection, each in the documented form,
+# and the last one is the major collection from `GC.start`. This is a
+# unit test and not a spec, because collections during boot print before
+# the program runs, and a spec compares stderr exactly.
 class GcTraceTest < Minitest::Test
   SHAPE = /\Azr_gc \d+ (major( old| every| short)?|minor)( asked| malloc| room)( pressed)? heap \d+ live \d+ -> \d+ malloced \d+ of \d+ MB mark \d+ sweep \d+ ms\z/
 

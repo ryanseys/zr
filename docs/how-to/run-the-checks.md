@@ -109,7 +109,7 @@ The units are minitest files in `test/unit/`, named after the class
 they hold:
 
 ```console
-$ bundle exec minitest test/unit/hygiene_test.rb test/unit/exe_test.rb
+$ bundle exec minitest test/unit/method_name_collision_test.rb test/unit/exe_test.rb
 $ rake test:unit N=/Hygiene|Exe|Target/
 ```
 

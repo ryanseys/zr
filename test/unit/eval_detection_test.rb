@@ -3,62 +3,57 @@
 require "test_helper"
 require_relative "../../lib/zr/runtime"
 
-# Which programs carry the compiler.
+# Tests which programs include eval support.
 #
-# A program that compiles ruby while it runs is linked beside the eval
-# road -- the compiler, compiled -- which is 44 MB of the binary and a
-# minute of the build. So the question the loader answers, `evals?`, is
-# worth being exact about: too narrow an answer is a program that cannot
-# compile what it must, and too wide is every user of a common library
-# paying for a compiler it never calls.
-class EvalRoadTest < Minitest::Test
-  def test_a_string_the_program_compiles_carries_it
+# A program that compiles ruby code while it runs links in eval support
+# (the compiled compiler). That adds 44 MB to the binary and a minute to
+# the build. Thus the loader's `evals?` must be exact. If it is too
+# narrow, a program cannot compile the code it must. If it is too wide,
+# each user of a common library pays for a compiler that it never calls.
+class EvalDetectionTest < Minitest::Test
+  def test_eval_of_a_string_includes_eval_support
     assert carried?(%(eval("1 + 1")\n))
     assert carried?(%(class K; end\nK.class_eval("def a = 1")\n))
     assert carried?(%(v = "1"\n1.instance_eval(v)\n))
   end
 
-  def test_a_block_is_not_a_string
+  def test_eval_of_a_block_does_not_include_eval_support
     refute carried?(%(class K; end\nK.class_eval { def a = 1 }\n))
     refute carried?(%(1.instance_eval { self }\n))
   end
 
-  # `require` of a feature the runtime already holds loads no file, and
-  # `autoload` of one registers nothing: ruby answers nil for
-  # `Object.autoload?(:Set)` after `autoload :Set, "set"`. Neither needs
-  # a compiler, and a library that writes the second used to hand one to
-  # every program that required it.
-  def test_a_feature_the_runtime_already_holds_carries_nothing
+  # `require` of a feature that is in the runtime loads no file.
+  # `autoload` of such a feature registers nothing: ruby returns nil for
+  # `Object.autoload?(:Set)` after `autoload :Set, "set"`. Neither one
+  # needs eval support.
+  def test_builtin_feature_does_not_include_eval_support
     refute carried?(%(require "set"\np Set[1]\n))
     refute carried?(%(autoload :Set, "set"\np Set[1]\n))
   end
 
-  def test_a_feature_that_resolves_to_a_file_carries_nothing_either
+  def test_autoload_of_a_file_does_not_include_eval_support
     refute carried?(%(autoload :URI, "uri"\np URI.name\n))
   end
 
-  # What is left, and why it stays. `fileutils` and `json` define their
-  # methods by evaluating a heredoc, and the heredoc is built from names
-  # the program computes -- `names.each { |name| module_eval("def
-  # #{name}...") }` -- so there is no string for the compiler to read
-  # where it stands. Of the 36 heredoc evals in the vendored stdlib, 31
-  # interpolate. These libraries want a compiler because they write their
-  # own methods while they run, and `require "fileutils"` costs a
-  # program 44 MB for it.
-  def test_a_library_that_evaluates_a_literal_string_still_carries_it
+  # These cases still need eval support. `fileutils` and `json` define
+  # methods with an eval of a heredoc that interpolates computed names,
+  # for example `names.each { |name| module_eval("def #{name}...") }`.
+  # Thus the compiler cannot read the string at build time. Of the 36
+  # heredoc evals in the vendored stdlib, 31 interpolate. Thus
+  # `require "fileutils"` adds 44 MB to a program.
+  def test_heredoc_eval_includes_eval_support
     assert carried?(%(class K; end\nK.class_eval <<~R\n  def a = 1\nR\n))
     assert carried?(%(require "fileutils"\np FileUtils.respond_to?(:mkdir_p)\n))
     assert carried?(%(require "json"\np JSON.name\n))
   end
 
-  # A `using` fills a row of one table the whole program shares, and it
-  # is the compiler that numbers the rows. The road holds `using`
-  # statements of its own -- the prism port reaches its node writers
-  # through one -- and it loads on the first eval, so a program that
-  # numbered its rows from zero as well would have the road take them
-  # back the moment it compiled anything. The rows go on from the
-  # road's, as the symbol ids and the site indices already do.
-  def test_a_program_numbers_its_using_rows_past_the_roads
+  # Each `using` fills an entry in one refinement table for the whole
+  # program, and the compiler gives each entry its id. Eval support has
+  # its own `using` statements (the prism port uses one) and loads on
+  # the first eval. If the program also started its ids at zero, eval
+  # support would overwrite them. Thus program ids start after the ids
+  # of eval support, as symbol ids and site indices do.
+  def test_refinement_ids_start_after_eval_support_ids
     road = Zr.eval_support(Zr::Target.default)
     assert_operator road.activations, :>, 0, "the road activates refinements of its own"
 
@@ -76,7 +71,7 @@ class EvalRoadTest < Minitest::Test
 
   private
 
-  # Whether the program in `source` would be linked beside the compiler.
+  # Returns true if the program in `source` links in eval support.
   def carried?(source)
     Dir.mktmpdir("zr-road-") do |work|
       rb = File.join(work, "road.rb")

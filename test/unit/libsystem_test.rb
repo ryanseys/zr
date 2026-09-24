@@ -4,12 +4,13 @@ require "test_helper"
 require "fiddle"
 require_relative "../../lib/zr/obj/macho/executable"
 
-# The libSystem names `Obj::MachO::Executable` links against. The list is committed
-# so that a build answers the same on every host; a stale one refuses a
-# link `Obj::MachO::Executable` could make, so the check writes it again and demands
-# the same bytes. `ZR_BLESS=1` rewrites it.
+# Tests the list of libSystem symbols that `Obj::MachO::Executable` links
+# against. The list is in the repository, so that a build gives the same
+# result on each host. A stale list refuses a link that the writer can
+# make. Thus the test writes the list again and requires the same bytes.
+# `ZR_BLESS=1` writes it again.
 class LibsystemTest < Minitest::Test
-  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  # Only a darwin host has Mach-O, libSystem and the darwin JIT.
   def setup
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end

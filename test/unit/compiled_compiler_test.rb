@@ -4,10 +4,10 @@ require "test_helper"
 require "open3"
 require_relative "../../lib/zr/compiled_compiler"
 
-# exe/zr hands a build to the compiled compiler only while every file it
-# was built from is as it was. A shell script stands in for the compiled
-# compiler here, so the check builds nothing and changes no file under
-# lib, runtime or vendor.
+# exe/zr gives a build to the compiled compiler only when no source file
+# of the compiled compiler has changed. Here a shell script is in place
+# of the compiled compiler. Thus the test builds nothing and changes no
+# file under lib, runtime or vendor.
 class CompiledCompilerTest < Minitest::Test
   EXE = File.join(ROOT, "exe/zr")
 
@@ -36,7 +36,7 @@ class CompiledCompilerTest < Minitest::Test
     end
   end
 
-  def test_a_moved_file_leaves_the_build_to_ruby
+  def test_changed_source_file_builds_with_ruby
     with_cache do |cache, manifest|
       stamps = Zr::CompiledCompiler.stamps
       file = stamps.keys.first
@@ -68,8 +68,8 @@ class CompiledCompilerTest < Minitest::Test
     end
   end
 
-  # A checkout builds no compiled compiler for a build that finds none;
-  # `ZR_COMPILED=1` or `rake build:self` does.
+  # In a checkout, a build does not make a compiled compiler when there
+  # is none. `ZR_COMPILED=1` or `rake build:self` makes one.
   def test_a_checkout_with_no_compiled_compiler_stays_with_ruby
     skip "not a checkout" unless Zr::Paths.checkout?
     Dir.mktmpdir("zr-self-host-") do |cache|

@@ -3,17 +3,17 @@
 require "test_helper"
 require "rbconfig"
 
-# A child of the checks runs outside this bundle.
+# A child process of the tests runs outside this bundle.
 #
-# `bundle exec` names `bundler/setup` in `RUBYOPT` and again in
-# `BUNDLER_SETUP`, so a ruby started from here loads bundler before it
-# reads the program it was given. That ruby is not the ruby the contract
-# names: it has handed out fifty-six object ids before the first line
-# runs, and it refuses a gem ruby bundles but this Gemfile does not.
+# `bundle exec` puts `bundler/setup` in `RUBYOPT` and in `BUNDLER_SETUP`.
+# Thus a child ruby loads bundler before it reads its program. That ruby
+# is different from a plain ruby: it gives out 56 object ids before the
+# first line runs. It also refuses a gem that ruby bundles but that this
+# Gemfile does not list.
 class CleanEnvTest < Minitest::Test
   CleanEnv = Zr::Harness::CleanEnv
 
-  def test_the_environment_it_hands_out_does_not_carry_bundler
+  def test_env_does_not_include_bundler
     refute_includes CleanEnv.env.fetch("RUBYOPT", ""), "bundler"
     refute_operator CleanEnv.env, :key?, "BUNDLER_SETUP"
   end
@@ -27,10 +27,10 @@ class CleanEnvTest < Minitest::Test
     assert_equal "nil\n", ruby("p defined?(Bundler)")
   end
 
-  # What the divergence was. ruby answers 16 for the first object id it
-  # is asked for, and 464 once bundler has run first, so the oracle and
-  # the binary it is compared with answered differently.
-  def test_a_child_of_a_check_counts_object_ids_from_where_ruby_does
+  # A plain ruby returns 16 for the first object id. After bundler runs,
+  # it returns 464. Thus ruby and the binary under test gave different
+  # output.
+  def test_child_object_ids_start_where_plain_ruby_starts
     assert_equal "16\n", ruby(%(p "x".object_id))
   end
 

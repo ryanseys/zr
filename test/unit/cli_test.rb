@@ -4,11 +4,11 @@ require "test_helper"
 require "stringio"
 require_relative "../../lib/zr/cli"
 
-# The command builds on the one ruby zr answers for, and no other: a
-# build reads that ruby's standard library, and the tests hold zr to
-# what that ruby said.
+# The command builds only on the one pinned ruby version. A build reads
+# the standard library of that ruby, and the tests check zr against the
+# output of that ruby.
 class CliTest < Minitest::Test
-  def test_the_pinned_ruby_is_the_one_ruby_version_names
+  def test_pinned_ruby_matches_ruby_version_file
     assert_equal File.read(File.expand_path("../../.ruby-version", __dir__)).strip, Zr::RUBY
   end
 
@@ -16,7 +16,7 @@ class CliTest < Minitest::Test
     assert_nil Zr::CLI.host_refusal(Zr::RUBY)
   end
 
-  def test_another_ruby_is_refused_by_name
+  def test_other_ruby_is_refused_with_message
     assert_equal "zr #{Zr::VERSION} builds on ruby #{Zr::RUBY}, the ruby .ruby-version pins; this is ruby 4.0.7",
                  Zr::CLI.host_refusal("4.0.7")
   end
@@ -116,7 +116,8 @@ class CliParseTest < Minitest::Test
 
   private
 
-  # The stdout and stderr of the block, which must exit with `status`.
+  # Returns the stdout and stderr of the block. The block must exit with
+  # `status`.
   def assert_exit(status)
     out, err = $stdout, $stderr
     $stdout, $stderr = StringIO.new, StringIO.new

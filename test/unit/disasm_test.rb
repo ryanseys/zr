@@ -4,17 +4,17 @@ require "test_helper"
 require_relative "../../lib/zr/backend/aarch64/listing"
 require_relative "../native/ops"
 
-# What the backend picks, pinned. One function per opcode compiles to a
-# listing of the instructions `Backend::Aarch64::Codegen` chose and the relocations it
-# recorded, and the whole set is one snapshot. A change in instruction
-# selection then arrives as a diff to read rather than as a corpus
-# program that answers differently for a reason nobody can see.
+# Keeps the instruction selection of the backend in a snapshot. One
+# function per opcode compiles to a listing of the instructions that
+# `Backend::Aarch64::Codegen` selects and the relocations that it records.
+# A change in instruction selection then shows as a diff, not as a
+# program with different output for an unknown reason.
 #
 # `ZR_BLESS=1 ruby -Ilib -Itest test/unit/disasm_test.rb` rewrites it.
 class DisasmTest < Minitest::Test
   SNAPSHOT = File.join(ROOT, "test/native/disasm.txt")
-  # The symbols the fixtures name that this link defines; `elsewhere` is
-  # the import, so an import and a local symbol can be told apart.
+  # The symbols in the fixtures that this link defines. `elsewhere` is an
+  # import, so the listing shows the difference between the two kinds.
   DEFINED = %w[other here].freeze
 
   def render
@@ -32,8 +32,8 @@ class DisasmTest < Minitest::Test
     assert_equal File.read(SNAPSHOT), text, "run with ZR_BLESS=1 to record"
   end
 
-  # A snapshot that covers less than the backend does is a snapshot that
-  # can go stale without saying so.
+  # If the snapshot does not cover all of the backend, it can become
+  # stale with no failure.
   def test_the_snapshot_covers_every_opcode
     lowered = Zr::Native::Ops.all.values.flat_map { |f| f.blocks.flat_map { |b| b.insts.map(&:op) } }.uniq
     missing = (Zr::IR::Inst::BINOPS + Zr::IR::Inst::BITOPS + Zr::IR::Inst::FBINOPS + Zr::IR::Inst::FUNOPS +

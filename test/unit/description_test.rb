@@ -4,29 +4,28 @@ require "test_helper"
 require "zr/runtime"
 require "zr/native/build"
 
-# The kernel description a program carries for its evals, one per OS
-# layer. A stale one is a miscompile, so the check writes each again and
-# demands the same bytes. `ZR_BLESS=1` rewrites them.
+# Tests the kernel description that a program includes for eval support.
+# There is one description for each OS layer. A stale description causes
+# a miscompile, so the test writes each one again and requires the same
+# bytes. `ZR_BLESS=1` writes them again.
 class DescriptionTest < Minitest::Test
   # One target per OS layer that is its own.
   TARGETS = Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.uniq(&:os_layer)
 
   def path(target) = File.join(ROOT, "runtime/ext/os", target.os_layer, "zr_description.rb")
 
-  # The kernel lowered for this file alone, and never `Zr.runtime`,
-  # which the whole process shares. `Native::Build.lower` lets the
-  # shared one's IR go as soon as the runtime object is named
-  # (lib/zr/native/build.rb:105), and it does so on a warm cache too,
-  # where nothing was lowered to let go of. What the IR answered is
-  # refused from then on rather than lowered again, which is right for
-  # a build and leaves a test that reads it holding nothing.
+  # Lowers the kernel for this file only. Do not use `Zr.runtime`: the
+  # whole process shares it, and `Native::Build.lower` releases its IR
+  # when the runtime object is known (lib/zr/native/build.rb:105). It
+  # does this also on a warm cache. After that, a read of the IR is
+  # refused and not lowered again. That is correct for a build, but a
+  # test that reads the IR then gets nothing.
   def kernel(target) = Zr::Runtime.new(target).unit
 
-  # `immediate?` is `zr_special_p` (runtime/kernel/value.rb) asked at compile
-  # time, so that a lowering can drop a test a word it made has already
-  # answered. The two must agree, and the kernel's own constants are
-  # what says whether they do.
-  def test_the_description_calls_a_word_immediate_where_the_kernel_would
+  # `immediate?` is `zr_special_p` (runtime/kernel/value.rb) at compile
+  # time. A lowering uses it to remove a test when the result is already
+  # known. The two must agree, and the kernel's own constants decide.
+  def test_description_immediate_matches_kernel_special_check
     carried = Zr::Machine::Description.parse(File.read(path(TARGETS.first))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
     special = ->(w) { (w & 7) != 0 || w == carried.const_for("QFALSE") || w == carried.const_for("QNIL") }
 
@@ -56,7 +55,7 @@ class DescriptionTest < Minitest::Test
       assert_equal File.read(path(target)), text, "#{path(target)} is stale (ZR_BLESS=1 to accept)"
     end
 
-    define_method("test_the_#{target.os_layer}_description_answers_as_its_kernel_unit_does") do
+    define_method("test_the_#{target.os_layer}_description_equals_the_lowered_kernel_unit") do
       unit = kernel(target)
       carried = Zr::Machine::Description.parse(File.read(path(target))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, ""))
       live = Zr::Machine::Description.of(unit)
@@ -75,10 +74,9 @@ class DescriptionTest < Minitest::Test
     end
   end
 
-  # A build before this file left it nothing to read: under seed 55324
-  # on 2026-09-19 the darwin row failed with "the runtime's IR was
-  # released", and every other seed passed. This runs the build first,
-  # so the order that broke it is the order it is held to.
+  # A build that runs first releases the shared IR. Seed 55324 found this:
+  # the darwin test failed with "the runtime's IR was released". This test
+  # runs a build first, so that it always checks that order.
   def test_a_build_leaves_this_file_a_kernel_to_read
     Zr::Native::Build.lower("p 1\n", "description_test.rb", target: TARGETS.first)
     assert_predicate Zr::Machine::Description.of(kernel(TARGETS.first)).defs, :any?

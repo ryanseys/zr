@@ -3,8 +3,8 @@
 require "test_helper"
 require_relative "../support/built"
 
-# The runtime that a tier runs on: which targets it needs, what counts
-# as built, and that a tier builds only what is missing.
+# Tests the runtime build that a tier uses: which targets a tier needs,
+# when a target is built, and that a tier builds only missing targets.
 class BuiltTest < Minitest::Test
   Built = Zr::Test::Built
 
@@ -30,7 +30,7 @@ class BuiltTest < Minitest::Test
     assert_equal [Zr::Target.default], loaded
   end
 
-  def test_build_says_a_built_target_is_up_to_date_and_builds_nothing
+  def test_build_reports_up_to_date_target_and_builds_nothing
     stub_method(Built, :built?, true) do
       stub_method(Built, :start, ->(*) { flunk "started a build" }) do
         _, err = capture_io { Built.build([Zr::Target.default], say: $stderr) }
@@ -48,7 +48,7 @@ class BuiltTest < Minitest::Test
     assert_equal [Zr::Target.default], loaded
   end
 
-  def test_the_unit_tier_asks_for_wasm_beside_this_host_where_wasmtime_is
+  def test_ready_with_wasm_loads_host_and_wasm_targets
     stub_method(Built, :targets, [Zr::Target.default, Zr::Target::WASM32_WASI]) do
       loaded = []
       stub_method(Built, :built?, true) do
@@ -60,7 +60,7 @@ class BuiltTest < Minitest::Test
   end
 
   # The mark is the last file that a build writes.
-  def test_every_target_is_marked_built_by_its_build_under_its_digest
+  def test_build_mark_path_contains_target_digest
     assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target.default))
     assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target::WASM32_WASI))
     refute_equal Built.mark(Zr::Target.default), Built.mark(Zr::Target::WASM32_WASI)

@@ -3,8 +3,9 @@
 require "test_helper"
 require_relative "../../lib/zr/hir"
 
-# The HIR of each `test/hir/<name>.rb`, dumped as S-expressions, held
-# byte for byte in `<name>.hir`; `ZR_BLESS=1` rewrites.
+# Dumps the HIR of each `test/hir/<name>.rb` as S-expressions and
+# compares it byte for byte with `<name>.hir`. `ZR_BLESS=1` writes the
+# `.hir` files again.
 class HirTest < Minitest::Test
   Dir[File.join(ROOT, "test/hir/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
@@ -20,13 +21,13 @@ class HirTest < Minitest::Test
     end
   end
 
-  # The three nodes no fixture can hold. `Trace` is placed only where
-  # the program arms line events and `Cover` only where it names
-  # Coverage, neither of which `Hir.build` has a way to ask for, and
-  # `Slot` is the lowering's own node for a receiver it has already
-  # evaluated -- `Hir::Build` never writes one. Their arms are asked for
-  # here, so that all of `Hir`'s nodes are covered between the two.
-  def test_the_nodes_no_program_of_ours_holds
+  # Tests the three nodes that no fixture can contain. `Hir::Build` adds
+  # `Trace` only where the program arms line events, and `Cover` only
+  # where it refers to Coverage. `Hir.build` has no option for either.
+  # `Slot` is a lowering node for a receiver that is already evaluated,
+  # and `Hir::Build` never makes one. With this test and the fixtures,
+  # the tests cover all `Hir` nodes.
+  def test_dump_of_nodes_that_no_fixture_contains
     assert_equal "(trace line)", dump(Zr::Hir::Trace.new(:line, 1))
     assert_equal "(cover 7)", dump(Zr::Hir::Cover.new(7, 1))
     assert_equal "(slot 3)", dump(Zr::Hir::Slot.new(3, 1))

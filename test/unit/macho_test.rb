@@ -4,10 +4,10 @@ require "test_helper"
 require_relative "../../lib/zr/obj/macho/object_file"
 require_relative "../../lib/zr/native/link"
 
-# The Mach-O writer, held to what `ld` accepts: a Ruby-written object
-# links and runs.
+# Checks the Mach-O writer against `ld`: an object that Ruby writes must
+# link and run.
 class MachOTest < Minitest::Test
-  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  # Only a darwin host has Mach-O, libSystem and the darwin JIT.
   def setup
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
@@ -49,12 +49,11 @@ class MachOTest < Minitest::Test
     end
   end
 
-  # The two roads from a unit to the shape a link reads. `of` builds it,
-  # and `read(write(...))` gets there by writing a whole object file into
-  # a string and parsing the string straight back. The linker took the
-  # long road for every binary zr ever made -- 18% of a link -- and it
-  # may take the short one only while the two agree exactly.
-  def test_of_answers_what_an_object_written_and_read_back_answers
+  # There are two ways to get the form that a link reads from a unit.
+  # `of` builds it directly. `read(write(...))` writes a whole object file
+  # to a string and parses the string. The long way costs 18% of a link.
+  # The linker can use `of` only while the two results are exactly equal.
+  def test_of_returns_what_write_then_read_returns
     long = Obj::MachO::ObjectFile.read(Obj::MachO::ObjectFile.write(unit))
     short = Obj::MachO::ObjectFile.of(unit)
 

@@ -4,42 +4,41 @@ require "test_helper"
 require_relative "../../lib/zr/hir"
 require "stringio"
 
-# A pattern the engine will not compile.
+# Tests a pattern that the regexp engine does not compile.
 #
-# ruby reads a regexp literal as it compiles the string around it, so
-# such a pattern is a syntax error and not a run-time one. zr asks the
-# host's engine the same question, and answers with
-# `Hir::Hir::Invalid`: a build reports it as a refusal and names the
-# line, and a program that compiles the pattern while it runs sees the
-# SyntaxError ruby raises there.
+# ruby reads a regexp literal when it compiles the code around it, so an
+# invalid pattern is a syntax error, not a run-time error. zr checks the
+# pattern with the host's engine and raises `Hir::Invalid`. A build
+# reports it as a refusal with the line. A program that compiles the
+# pattern while it runs gets the SyntaxError that ruby raises.
 #
-# ruby 4.0.6 is the oracle for every message below.
+# Each message below was checked against ruby 4.0.6.
 class InvalidRegexpTest < Minitest::Test
   Hir = Zr::Hir
 
-  def test_a_pattern_the_engine_refuses_is_named_at_its_line
+  def test_invalid_pattern_error_gives_its_line
     error = assert_raises(Hir::Invalid) { build("p 1\np(/[z-a]/)\n") }
 
     assert_equal "pattern.rb:2: empty range in char class: /[z-a]/", error.message
   end
 
-  def test_a_repeat_range_that_counts_backwards_reads_as_ruby_reads_it
+  def test_backwards_repeat_range_gives_ruby_message
     error = assert_raises(Hir::Invalid) { build("p(/a{2,1}/)\n") }
 
     assert_equal "pattern.rb:1: upper is smaller than lower in repeat range: /a{2,1}/", error.message
   end
 
-  # It is still a refusal, so the build road keeps the exit and the line
-  # it has always had.
+  # `Hir::Invalid` is a refusal, so a build gives the refusal exit status
+  # and the line.
   def test_it_is_a_refusal_as_well
     assert_operator Hir::Invalid, :<, Hir::Refused
   end
 
-  # ruby warns about a pattern from an eval too, on the program's own
-  # stderr, whether or not `-w` is given. A compile the eval road makes
-  # runs inside the program, so it lets the engine warn there rather than
-  # taking $stderr and $VERBOSE from every thread the program has.
-  def test_a_warning_from_a_run_time_compile_goes_where_ruby_sends_it
+  # ruby also warns about a pattern in an eval, on the program's stderr,
+  # with or without `-w`. Eval support compiles inside the program, so
+  # it lets the engine write the warning there. It does not take
+  # $stderr and $VERBOSE from all threads of the program.
+  def test_run_time_compile_warning_goes_to_stderr
     program = nil
     said = capturing_stderr { program = build("x = /(?:a?)*b/\n") }
 
@@ -47,17 +46,17 @@ class InvalidRegexpTest < Minitest::Test
     assert_empty program.warnings
   end
 
-  # ruby's compiler writes nothing for an expression whose value nothing
-  # takes, so it never reads a regexp written there: the pattern that is
-  # a SyntaxError as a scope's value is a program that runs one line up.
-  # Each program below was asked of ruby 4.0.6, and each one runs.
+  # ruby's compiler writes no code for an expression whose value is not
+  # used, so it never reads a regexp there. The same pattern is a
+  # SyntaxError when it is the value of a scope. Each program below was
+  # checked against ruby 4.0.6, and each one runs.
   def test_a_pattern_nothing_takes_the_value_of_is_never_read
     [
       "puts 1\n/[z-a]/\nputs 2\n",                   # before the last statement
       "def m\n  /[z-a]/\n  1\nend\n",                # of a method's body
       "[1].each { /[z-a]/; 1 }\n",                   # of a block's
       "class K\n  /[z-a]/\n  1\nend\n",              # of a class body's
-      "while false do /[z-a]/ end\n",                # a loop answers nil
+      "while false do /[z-a]/ end\n",                # a loop returns nil
       "true && /[z-a]/\nputs 1\n",                   # the right of a pair
       "if true then /[z-a]/ end\nputs 1\n",          # a branch, where the if is
       "puts 1\n(/[z-a]/)\nputs 2\n",                 # inside parentheses
@@ -66,23 +65,23 @@ class InvalidRegexpTest < Minitest::Test
       "puts 1\ncase 1\nwhen 1 then /[z-a]/\nend\nputs 2\n",
       "puts 1\ncase 9\nwhen 1 then 2\nelse /[z-a]/\nend\nputs 2\n",
       "puts 1\ncase [1]\nin [x] then /[z-a]/\nend\nputs 2\n",
-      "begin\n 2\nensure\n /[z-a]/\nend\n"           # an ensure answers nothing
+      "begin\n 2\nensure\n /[z-a]/\nend\n"           # an ensure returns no value
     ].each { |source| build(source) }
   end
 
-  # Where ruby does read one, though the shape looks alike: a `rescue`
-  # body answers for the region, and a `for` body is a block's, whose
-  # last expression is the block's value.
+  # ruby reads the pattern in these cases, although they look similar.
+  # A `rescue` body gives the value of the region. A `for` body is a
+  # block, and its last expression is the value of the block.
   def test_a_pattern_ruby_still_reads_is_still_refused
     assert_raises(Hir::Invalid) { build("puts 1\nbegin\n raise 1\nrescue\n /[z-a]/\nend\nputs 2\n") }
     assert_raises(Hir::Invalid) { build("for i in [1] do /[z-a]/ end\nputs 1\n") }
     assert_raises(Hir::Invalid) { build("p(case 1\nwhen 1 then /[z-a]/\nend)\n") }
   end
 
-  # A condition written as a literal chooses its branch as the program is
-  # built, and ruby writes nothing for the branch it never chooses. One
-  # the program decides is not that, and both branches are read.
-  def test_a_branch_a_literal_condition_never_chooses_is_never_read
+  # A literal condition selects its branch at build time, and ruby writes
+  # no code for the other branch. If the program computes the condition,
+  # ruby reads both branches.
+  def test_pattern_in_unchosen_literal_branch_is_not_read
     ["if false then /[z-a]/ end\n", "if nil then /[z-a]/ end\n", "unless true then /[z-a]/ end\n",
      "if true then 1 else /[z-a]/ end\n"].each { |source| build(source) }
 
@@ -92,8 +91,8 @@ class InvalidRegexpTest < Minitest::Test
 
   private
 
-  # The HIR of `source`, built as the eval road builds one: no road
-  # carried, and the loader in the mode a run-time compile uses.
+  # Returns the HIR of `source`, built as eval support builds it: with no
+  # eval support linked in, and the loader in the run-time compile mode.
   def build(source) = Zr::Hir.build(source, "pattern.rb", eval_support: false)
 
   def capturing_stderr

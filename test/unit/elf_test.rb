@@ -4,9 +4,9 @@ require "test_helper"
 require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 
-# The ELF writer, read back in Ruby: what a link on an aarch64-linux host
-# needs to find in the object is there. On that host each native fixture
-# also links statically and runs.
+# Tests the ELF writer by reading its output back in Ruby. The object must
+# contain what a link on an aarch64-linux host needs. On that host, each
+# native fixture also links statically and runs.
 class ElfTest < Minitest::Test
   Obj = Zr::Obj
   Elf = Zr::Obj::Elf::ObjectFile
@@ -26,7 +26,8 @@ class ElfTest < Minitest::Test
     u
   end
 
-  # `[sections, symbols, relocations by section name]` of an object's bytes.
+  # Returns `[sections, symbols, relocations by section name]` of an
+  # object's bytes.
   def read(bytes)
     assert_equal "\x7FELF".b, bytes[0, 4]
     assert_equal [2, 1, 1], bytes[4, 3].unpack("C3"), "64-bit, little-endian, version 1"
@@ -83,7 +84,7 @@ class ElfTest < Minitest::Test
     assert_equal 11, globals.find { |s| s.name == "msg" }.size
   end
 
-  def test_relocations_carry_their_type_symbol_and_addend
+  def test_relocations_include_type_symbol_and_addend
     _, _, relocs = read(Elf.write(unit))
     assert_equal [[4, Elf::RELOC.fetch(:branch26), "exit", 0]], relocs.fetch(".text.main")
     assert_equal [[0, Elf::RELOC.fetch(:abs64), "msg", 4]], relocs.fetch(".data.rel.ro.table")
@@ -103,9 +104,10 @@ class ElfTest < Minitest::Test
     end
   end
 
-  # Past SHN_LORESERVE sections the header's fields cannot hold the count:
-  # section 0 and `.symtab_shndx` carry the real indices.
-  def test_more_sections_than_the_header_holds
+  # With SHN_LORESERVE or more sections, the header fields are too small
+  # for the count. Section 0 and `.symtab_shndx` then contain the real
+  # indices.
+  def test_section_count_past_header_limit_uses_extended_indices
     u = Obj::Unit.new
     count = Elf::SHN_LORESERVE + 16
     count.times { |i| u.datum("d#{i}", :data, "\0" * 8, linkage: :export) }
@@ -129,8 +131,9 @@ class ElfTest < Minitest::Test
     end
   end
 
-  # A cross toolchain links here what only an aarch64-linux-musl host
-  # runs: off that host the check reads the binary's header instead.
+  # A cross toolchain can link here, but only an aarch64-linux-musl host
+  # can run the binary. On other hosts, the test reads the binary's
+  # header.
   def test_a_native_fixture_links_statically_and_runs
     target = Zr::Target::AARCH64_LINUX_MUSL
     skip "a static link needs an aarch64-linux-musl host or toolchain" unless target.linkable?
@@ -149,7 +152,8 @@ class ElfTest < Minitest::Test
     end
   end
 
-  # ET_EXEC for EM_AARCH64, with no PT_INTERP: no loader runs first.
+  # Checks for ET_EXEC for EM_AARCH64, with no PT_INTERP, so no loader
+  # runs first.
   def assert_static_aarch64_executable(bytes, name)
     assert_equal "\x7FELF".b, bytes.byteslice(0, 4), name
     type, machine = bytes.byteslice(16, 4).unpack("S<S<")

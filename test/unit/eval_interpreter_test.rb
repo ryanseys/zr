@@ -3,42 +3,42 @@
 require "test_helper"
 require_relative "../../lib/zr/runtime"
 
-# Which eval road a target carries.
+# Tests which kind of eval support each target includes.
 #
-# A program that evals carries the compiler, and the compiler's back half
-# writes machine code into the running process. A wasm module cannot take
-# it: its code is fixed when the engine instantiates it, and WASI hands a
-# guest no way to make a second module. So a wasm program carries the
-# front end and walks the tree instead (lib/zr/eval/walk.rb), and this
-# pins which road each target gets and that the two never share a cache.
-class EvalWalkTest < Minitest::Test
+# On most targets, eval support is the eval compiler (JIT). Its backend
+# writes machine code into the running process. A wasm module cannot do
+# this: its code is fixed when the engine instantiates it, and WASI gives
+# a guest no way to make a second module. Thus a wasm program includes
+# the front end and the tree-walking interpreter (lib/zr/eval/walk.rb).
+# The two kinds must never share a cache.
+class EvalInterpreterTest < Minitest::Test
   Build = Zr::Hir::Build
   Target = Zr::Target
 
-  def test_a_target_that_writes_its_own_code_carries_the_compiler
+  def test_jit_target_uses_eval_compiler
     assert_predicate Target::AARCH64_DARWIN, :jits?
     assert_predicate Target::AARCH64_LINUX_MUSL, :jits?
     assert_equal Build::EVAL_COMPILER, Build.eval_file(Target::AARCH64_DARWIN)
     assert_equal Build::EVAL_COMPILER, Build.eval_file(Target::AARCH64_LINUX_MUSL)
   end
 
-  def test_a_wasm_program_carries_the_walk
+  def test_wasm_target_uses_tree_walking_interpreter
     refute_predicate Target::WASM32_WASI, :jits?
     assert_equal Build::EVAL_INTERPRETER, Build.eval_file(Target::WASM32_WASI)
   end
 
-  # The walk is checked by running it where the compiler would do, so
-  # that its answers can be held against the compiling road's own.
-  def test_the_environment_asks_for_the_walk_on_a_target_that_could_compile
+  # The tests can run the tree-walking interpreter on a JIT target. Thus
+  # its output can be compared with the output of the eval compiler.
+  def test_zr_eval_walk_selects_interpreter_on_jit_target
     with_env("ZR_EVAL" => "walk") do
       assert_equal Build::EVAL_INTERPRETER, Build.eval_file(Target::AARCH64_DARWIN)
     end
   end
 
-  # Both roads are lowered over the same runtime, so the digest alone
-  # does not tell them apart: a meta of one answering for the other would
-  # name units the program does not hold.
-  def test_the_two_roads_keep_their_caches_apart
+  # Both kinds are lowered against the same runtime, so the digest alone
+  # does not make them different. If the meta file of one is used for the
+  # other, it refers to units that the program does not contain.
+  def test_compiler_and_interpreter_use_different_caches
     jit = Zr.eval_support(Target::AARCH64_DARWIN).send(:meta_path)
     walk = with_env("ZR_EVAL" => "walk") { Zr::EvalSupport.new(Zr.runtime(Target::AARCH64_DARWIN)).send(:meta_path) }
 
@@ -47,9 +47,9 @@ class EvalWalkTest < Minitest::Test
     assert_includes walk, "-walk.json"
   end
 
-  # The walk holds the front end and no backend, and the compiler holds
-  # both. Neither file is the other's, and each one names `Zr::Eval`.
-  def test_each_road_is_a_file_that_names_the_same_class
+  # The interpreter contains the front end and no backend. The compiler
+  # contains both. They are different files, and each defines `Zr::Eval`.
+  def test_compiler_and_interpreter_files_define_eval_class
     [Build::EVAL_COMPILER, Build::EVAL_INTERPRETER].each do |path|
       assert_path_exists path
       assert_match(/^\s*class Eval\b/, File.read(path), path)

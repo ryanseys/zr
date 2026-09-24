@@ -3,8 +3,8 @@
 require "test_helper"
 require_relative "../../lib/zr/hir"
 
-# `Hir::Escape`: which uses of a `&b` parameter let it stay the block
-# it was given, and which keep its value.
+# Tests `Hir::Escape`: which uses of a `&b` parameter let it stay a raw
+# block, and which uses need the Proc value.
 class EscapeTest < Minitest::Test
   RAW = {
     "call" => "b.call(1, 2)",
@@ -28,7 +28,7 @@ class EscapeTest < Minitest::Test
     "the same name in a block of its own" => "xs.each { |b| b.arity }",
     "a def inside cannot reach it" => "def inner(b) = b.arity",
     "a singleton class body cannot reach it" => "class << self; b = 1; b.arity; end",
-    # The builder answers `defined?` of a local itself.
+    # The builder evaluates `defined?` of a local itself.
     "asked defined?" => "defined?(b)",
     "a block with a default reading it" => "xs.each { |x = b.call| x }",
     "other locals" => "c = b.call; d = c; [c, d]"
@@ -62,8 +62,8 @@ class EscapeTest < Minitest::Test
     define_method("test_#{name.tr(' ', '_')}_keeps_the_proc") { refute raw?(body), body }
   end
 
-  # A default cannot name the block parameter: it is declared after
-  # every other, so `b` in a default is a call.
+  # A default cannot refer to the block parameter: it is declared after
+  # all other parameters, so `b` in a default is a method call.
   def test_a_default_expression_cannot_reach_it
     assert raw?("x", "def f(x = b, &b)")
   end
@@ -81,7 +81,7 @@ class EscapeTest < Minitest::Test
     Zr::Hir::Escape.raw_block?([d.body, *defaults], :b)
   end
 
-  # The one Def a program of `source` holds.
+  # Returns the one Def in the program `source`.
   def def_of(source)
     program = Zr::Hir.build(source, "escape.rb")
     find = lambda do |node|

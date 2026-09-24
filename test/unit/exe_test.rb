@@ -7,13 +7,13 @@ require_relative "../../lib/zr/obj/macho/executable"
 require_relative "../../lib/zr/obj/macho/stamps"
 require_relative "../native/fixtures"
 
-# The link, in Ruby. Every program whose imports are all libSystem's --
-# the hand-written IR floor, the whole kernel dialect, and a Ruby program
-# with the runtime's object -- becomes a signed `MH_EXECUTE` that
-# `Obj::MachO::Executable` wrote by itself, and it prints what the linked
-# binary prints. The checks that link through `cc` say so by name.
+# Tests the Ruby linker. `Obj::MachO::Executable` writes a signed
+# `MH_EXECUTE` for each program whose imports all come from libSystem:
+# the hand-written IR fixtures, the machine dialect programs, and a Ruby
+# program with the runtime object. Each binary must print the expected
+# output. The tests that link through `cc` have `cc` in their names.
 class ExeTest < Minitest::Test
-  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  # Only a darwin host has Mach-O, libSystem and the darwin JIT.
   def setup
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
@@ -52,8 +52,8 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # Apple Silicon runs nothing unsigned, and a zr binary loads libSystem
-  # and nothing else.
+  # Apple Silicon runs only signed code. A zr binary loads only
+  # libSystem.
   def test_the_image_is_signed_and_alone
     functions, data = Zr::Native::Fixtures.build("hello")
     Dir.mktmpdir("zr-exe-") do |dir|
@@ -64,9 +64,9 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # Nothing writes `LC_MAIN.stacksize` for an image no linker touched,
-  # and a program left on the 8 MB default recurses an eighth as deep.
-  # `ld` writes it from `-stack_size`; this writes the same number.
+  # The writer must set `LC_MAIN.stacksize` itself. With the 8 MB
+  # default, a program can recurse only one eighth as deep. `ld` sets it
+  # from `-stack_size`, and this writer must set the same value.
   def test_the_main_stack_is_the_size_the_build_asks_for
     functions, data = Zr::Native::Fixtures.build("hello")
     Dir.mktmpdir("zr-exe-") do |dir|
@@ -82,10 +82,10 @@ class ExeTest < Minitest::Test
     Integer(IO.popen(["otool", "-l", bin], &:read)[/cmd LC_MAIN.*?stacksize (\d+)/m, 1])
   end
 
-  # `ld` gives every link a fresh UUID and the signature then hashes the
-  # page it sits in, which is why `Obj::MachO::Stamps` has to blank two ranges
-  # before two links can be compared. This writer derives the UUID from
-  # the image, so the bytes are a function of the program and its name.
+  # `ld` gives each link a new UUID, and the signature hashes the page
+  # that contains it. Thus `Obj::MachO::Stamps` must clear two ranges
+  # before it can compare two `ld` links. This writer computes the UUID
+  # from the image, so the bytes depend only on the program and its name.
   def test_two_writes_give_the_same_bytes
     functions, data = Zr::Native::Fixtures.build("loops")
     Dir.mktmpdir("zr-exe-") do |dir|
@@ -97,10 +97,9 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # The image says what it holds: `nm` reads the symbol table, and the
-  # exports trie holds the one symbol an executable exports and nothing
-  # else, which is what `-no_exported_symbols` leaves behind.
-  def test_the_image_names_what_it_holds
+  # `nm` reads the symbol table. The exports trie contains only the one
+  # symbol that an executable exports, as `-no_exported_symbols` gives.
+  def test_image_lists_its_symbols_and_exports_only_the_header
     functions, data = Zr::Native::Fixtures.build("hello")
     Dir.mktmpdir("zr-exe-") do |dir|
       bin = written(Zr::Native::Build.unit(functions, data), dir, "hello")
@@ -111,8 +110,8 @@ class ExeTest < Minitest::Test
   end
 
   # A program that imports nothing has no stubs, no GOT and no
-  # __DATA_CONST at all, and an image with a zero-length segment does not
-  # load.
+  # __DATA_CONST. The writer must leave out these segments, because an
+  # image with a zero-length segment does not load.
   def test_a_program_that_imports_nothing_runs
     f = Zr::IR::Function.new("main", %w[i32 i64], "i32")
     f.ret(f.iconst("i32", 7))
@@ -124,10 +123,10 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A symbol this unit defines, reached through the GOT as an import
-  # would be: the slot holds the symbol's address, so the load answers
-  # the address and not the symbol's first eight bytes.
-  def test_a_defined_symbol_reached_through_the_got_answers_its_address
+  # A symbol that this unit defines, loaded through the GOT like an
+  # import. The slot contains the symbol's address, so the load returns
+  # the address and not the first eight bytes of the symbol.
+  def test_got_load_of_defined_symbol_returns_its_address
     f = Zr::IR::Function.new("main", %w[i32 i64], "i32")
     write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
     f.call_val(write, [f.iconst("i32", 1), f.symbol_value(f.symbol("msg", colocated: false)), f.iconst("i64", 8)])
@@ -138,10 +137,10 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A symbol libSystem does not define is another object's, and reading
-  # objects is a real linker. It says which symbol, so a fallback to
-  # `cc` is never a mystery.
-  def test_a_symbol_libsystem_does_not_define_is_refused_by_name
+  # A symbol that libSystem does not define must come from another
+  # object, and only the full linker reads other objects. The message
+  # gives the symbol, so the reason for a fallback to `cc` is clear.
+  def test_symbol_not_in_libsystem_is_refused_with_its_name
     f = Zr::IR::Function.new("main", %w[i32 i64], "i32")
     f.call(f.callee("zr_elsewhere", %w[i64], nil, colocated: false), [f.iconst("i64", 0)])
     f.ret(f.iconst("i32", 0))
@@ -152,8 +151,8 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # The object the next checks link beside a unit of their own: a
-  # function that writes what it is given, and a message.
+  # Returns the object that the next tests link with their own unit: a
+  # function that writes its argument, and a message.
   def other_object(name = "shout")
     f = Zr::IR::Function.new(name, %w[i64 i64], "i64")
     write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
@@ -162,9 +161,9 @@ class ExeTest < Minitest::Test
     Zr::Obj::MachO::ObjectFile.write(Zr::Native::Build.unit([f], data, export: true))
   end
 
-  # A unit that reaches into `other_object` three ways: a call, an
-  # address loaded through the GOT, and a pointer in its own data whose
-  # addend skips into the message.
+  # Returns a unit that refers to `other_object` in three ways: a call,
+  # an address loaded through the GOT, and a pointer in its own data with
+  # an addend into the message.
   def reaching_unit
     f = Zr::IR::Function.new("main", %w[i32 i64], "i32")
     shout = f.callee("shout", %w[i64 i64], "i64", colocated: false)
@@ -184,10 +183,10 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A program's JIT finds symbols by a binary search of the image's own
-  # symbol table, so the table holds every global sorted by name, and the
-  # exports trie holds the header alone whatever the program does.
-  def test_the_symbol_table_holds_every_global_sorted_by_name
+  # The JIT of a program finds symbols with a binary search of the
+  # image's symbol table. Thus the table must contain every global,
+  # sorted by name. The exports trie always contains only the header.
+  def test_symbol_table_contains_every_global_sorted_by_name
     Dir.mktmpdir("zr-exe-") do |dir|
       bin = File.join(dir, "sorted")
       assert_nil Zr::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object])
@@ -201,7 +200,7 @@ class ExeTest < Minitest::Test
     end
   end
 
-  def test_a_global_defined_twice_is_refused_by_name
+  def test_global_defined_twice_is_refused_with_its_name
     Dir.mktmpdir("zr-exe-") do |dir|
       bin = File.join(dir, "twice")
       why = Zr::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object, other_object])
@@ -210,9 +209,9 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # The other object reaches back into the unit: a call to a function
-  # the unit defines, and a pointer to its data. A base's external slots
-  # are the ones the image writes again for each program.
+  # Returns an object that refers back into the unit: a call to a
+  # function that the unit defines, and a pointer to its data. The image
+  # writes the external slots of a base again for each program.
   def calling_object
     f = Zr::IR::Function.new("shout", %w[i64 i64], "i64")
     f.ret(f.call_val(f.callee("hook", %w[i64 i64], "i64", colocated: false), [f.args[0], f.args[1]]))
@@ -244,8 +243,8 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A base read back from its bytes links the same image as the base
-  # linked just now.
+  # A base loaded from its bytes links the same image as the original
+  # base.
   def test_a_kept_base_links_the_same_bytes
     base = Zr::Obj::MachO::Prelink.build([calling_object])
     kept = Zr::Obj::MachO::Prelink.load(base.dump)
@@ -260,17 +259,17 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # A binary cloned from the base's skeleton, or written over the last
-  # binary at its path, holds the bytes a binary written whole holds:
-  # the skeleton is the header page and the text, the last binary holds
-  # the same text, and the link writes the header and everything after
-  # the text.
-  def test_a_binary_cloned_or_written_over_is_the_binary_written_whole
+  # A binary cloned from the skeleton of the base, or written over the
+  # last binary at its path, must equal a binary written whole. The
+  # skeleton contains the header page and the text. The last binary has
+  # the same text. The link writes the header and all data after the text.
+  def test_cloned_or_overwritten_binary_equals_whole_write
     base = Zr::Obj::MachO::Prelink.build([calling_object])
     Dir.mktmpdir("zr-exe-") do |dir|
       skeleton = File.join(dir, "skeleton")
       File.binwrite(skeleton, Zr::Obj::MachO::Skeleton.bytes(base))
-      # One name in every directory: the signature carries the name.
+      # Use one name in each directory, because the signature includes
+      # the name.
       whole, cloned = %w[whole cloned].zip([nil, skeleton]).map do |name, skeleton|
         bin = File.join(dir, name, "hooked")
         Dir.mkdir(File.dirname(bin))
@@ -279,19 +278,22 @@ class ExeTest < Minitest::Test
       end
       assert_equal whole, cloned
 
-      # Over the last binary: a longer one first, so the end is cut.
+      # Write over the last binary. The old file is longer, so the link
+      # must truncate it.
       over = File.join(dir, "hooked")
       File.binwrite(over, whole + ("\xAA".b * 1000))
       assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, over, prelink: base, skeleton: nil)
       assert_equal whole, File.binread(over)
-      # A file whose text is not the base's is nobody's to write over.
+      # If the text of the file is not the text of the base, the link
+      # writes the whole file.
       torn = whole.dup
       torn.setbyte(Zr::Obj::MachO::Prelink::PAGE + 100, torn.getbyte(Zr::Obj::MachO::Prelink::PAGE + 100) ^ 1)
       File.binwrite(over, torn)
       assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, over, prelink: base, skeleton: skeleton)
       assert_equal whole, File.binread(over)
 
-      # A skeleton of another size is somebody else's: the link writes whole.
+      # A skeleton of a different size is not valid, so the link writes
+      # the whole file.
       File.binwrite(skeleton, "not a skeleton")
       bin = File.join(dir, "hooked")
       assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, bin, prelink: base, skeleton: skeleton)
@@ -300,7 +302,7 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # The same program, both roads, one answer.
+  # The same program must give the same output with both linkers.
   def test_both_linkers_agree
     Dir.mktmpdir("zr-exe-") do |dir|
       %w[hello loops].each do |name|

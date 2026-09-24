@@ -5,27 +5,27 @@ require_relative "../../lib/zr/hir"
 
 # `alias $hit $&`.
 #
-# ruby's alias of a global reaches the whole program, and it happens
-# where it is written: an alias under a branch that does not run leaves
-# the name the ordinary global it looks like. Asked of ruby 4.0.6:
+# In ruby, an alias of a global applies to the whole program, and it
+# takes effect when it runs. An alias under a branch that does not run
+# leaves the name an ordinary global. Checked against ruby 4.0.6:
 #
 #   if false; alias $x $&; end; "hello" =~ /ll/; p $x   # nil
 #
-# zr cannot carry such a row. `$&` is a register of the frame that last
-# matched and not a global, so the name is resolved as the file is
-# lowered -- which is right as it stands only for an alias the file runs
-# whenever it loads. One written where it may not run sets a flag of its
-# own when it runs, and each use of the name asks the flag: the back
-# reference once the alias ran, the ordinary global before.
+# zr cannot store such an alias in the runtime table. `$&` is a value in
+# the frame of the last match, not a global, so zr resolves the name when
+# it lowers the file. That is correct only for an alias that always runs
+# when the file loads. An alias that may not run sets its own flag when
+# it runs. Each use of the name checks the flag: after the alias ran, it
+# reads the back reference; before, it reads the ordinary global.
 class GvarAliasTest < Minitest::Test
-  def test_an_alias_a_file_always_runs_makes_the_name_a_back_reference
+  def test_unconditional_alias_makes_name_a_back_reference
     ["alias $hit $&", "class K\n  alias $hit $&\nend", "module M\n  alias $hit $&\nend",
      "begin\n  alias $hit $&\nrescue\n  nil\nend"].each do |where|
       assert_includes dump("#{where}\np $hit\n"), "(backref nth 0)", where
     end
   end
 
-  def test_an_alias_where_it_may_not_run_sets_a_flag_each_use_asks
+  def test_conditional_alias_sets_a_flag_that_each_use_checks
     wheres = {
       "a branch" => "if false\n  alias $x $&\nend",
       "a loop" => "while false\n  alias $x $&\nend",
@@ -41,8 +41,8 @@ class GvarAliasTest < Minitest::Test
     end
   end
 
-  # An alias of one ordinary global to another is a row the runtime
-  # carries, so it runs where it is written, wherever that is.
+  # An alias of one ordinary global to another is an entry in the runtime
+  # table, so it takes effect when it runs, wherever it is.
   def test_an_alias_of_an_ordinary_global_is_left_alone
     assert_includes dump("if false\n  alias $x $stdout\nend\n"), "(alias $x $stdout)"
   end

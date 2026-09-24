@@ -5,21 +5,20 @@ require "fileutils"
 require "tmpdir"
 require_relative "../../lib/zr/runtime"
 
-# What the runtime's digest covers, and what it leaves out.
+# Tests which files the runtime digest includes and which it leaves out.
 #
-# The digest names the cached runtime object, the prelinked image and the
-# eval road, so a file it leaves out is a file whose change goes
-# unnoticed -- and a stale runtime object is a silently wrong binary. So
-# everything under `lib` counts unless `Zr::LINK_ONLY` names it, and what
-# it names is folded into the image the link writes instead. A second
-# list, `Zr::PER_TARGET`, leaves a backend and an object writer out of
-# every target but the one that emits with them.
+# The digest identifies the cached runtime object, the prelinked image
+# and eval support. A change to a file that it leaves out is not seen,
+# and a stale runtime object gives a wrong binary with no error. Thus all
+# of `lib` counts, except the files in `Zr::LINK_ONLY`; those go into the
+# link digest. `Zr::PER_TARGET` keeps a backend and an object writer only
+# in the digest of the target that uses them.
 class DigestTest < Minitest::Test
   LIB = File.join(ROOT, "lib/zr")
 
   def compiler = Dir[File.join(LIB, "**/*.rb")].sort
 
-  def test_every_file_of_the_compiler_is_in_one_digest_or_the_other
+  def test_every_compiler_file_is_in_a_digest
     covered = Zr::Target.all.flat_map { |target| Zr.compiler_files(target) } + Zr::LINK_ONLY
 
     assert_equal compiler, covered.uniq.sort
@@ -30,10 +29,10 @@ class DigestTest < Minitest::Test
     assert_empty Zr::LINK_ONLY & Zr.sources
   end
 
-  # The default is to count: a file no prefix names is in every target's
-  # digest, so a new file of the compiler is covered until someone takes
-  # it out by name.
-  def test_a_file_no_prefix_names_counts_for_every_target
+  # By default a file counts. A file that no prefix matches is in the
+  # digest of every target. Thus a new compiler file is included until
+  # someone removes it explicitly.
+  def test_file_without_target_prefix_is_in_every_target_digest
     named = compiler.select do |path|
       Zr::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
     end
@@ -42,7 +41,7 @@ class DigestTest < Minitest::Test
     assert_equal (compiler - named - Zr::LINK_ONLY).sort, shared.sort
   end
 
-  def test_a_backend_and_an_object_writer_belong_to_the_target_they_emit_for
+  def test_backend_files_are_only_in_their_target_digest
     darwin = Zr.compiler_files(Zr::Target::AARCH64_DARWIN)
     wasm = Zr.compiler_files(Zr::Target::WASM32_WASI)
 
@@ -55,10 +54,10 @@ class DigestTest < Minitest::Test
     refute_includes wasm, File.join(LIB, "obj/macho/object_file.rb")
   end
 
-  # The runtime is lowered again when the lowering changes, and not when
-  # a linker does. Both are asked of a copy of the compiler, since the
-  # answer depends on the bytes on disk.
-  def test_a_lowering_file_moves_the_runtime_digest_and_a_linker_does_not
+  # The runtime is lowered again when a lowering file changes, but not
+  # when a linker changes. The test uses a copy of the compiler, because
+  # the digest depends on the bytes on disk.
+  def test_runtime_digest_changes_for_lowering_and_not_for_linker
     copied do |root|
       was = digests(root)
       touching(File.join(root, "lib/zr/hir/build.rb")) do
@@ -76,11 +75,11 @@ class DigestTest < Minitest::Test
 
   private
 
-  # A copy of the compiler to write into, with the runtime and the
-  # vendored libraries beside it as links and a cache of its own. The
-  # check never writes under `lib`: other workers of this run read those
-  # files for their own digests, and one that read a file mid-write took
-  # a runtime nobody had built and spent its deadline building it.
+  # Yields a copy of the compiler that the test can write. The runtime
+  # and vendored libraries are symlinks, and the copy has its own cache.
+  # The test never writes under the real `lib`: other workers read those
+  # files for their digests. A worker that read a half-written file got
+  # an unbuilt runtime and used all its time to build it.
   def copied
     Dir.mktmpdir("zr-digest-") do |dir|
       root = File.realpath(dir)
@@ -90,8 +89,8 @@ class DigestTest < Minitest::Test
     end
   end
 
-  # `[runtime digest, link digest]` of the compiler under `root`, asked
-  # in a child so this process keeps neither answer.
+  # Returns `[runtime digest, link digest]` of the compiler under `root`.
+  # A child process computes them, so that this process caches neither.
   def digests(root)
     env = Zr::Harness::CleanEnv.env.merge("ZR_CACHE" => File.join(root, "cache"))
     said = IO.popen(env, [RbConfig.ruby, "-I#{root}/lib", "-e", <<~RUBY],
@@ -104,7 +103,7 @@ class DigestTest < Minitest::Test
     said.lines(chomp: true)
   end
 
-  # `path` with a comment added for the block, and put back after.
+  # Adds a comment to `path` for the block, and restores the file after.
   def touching(path)
     was = File.binread(path)
     File.binwrite(path, "#{was}\n# a comment this check wrote\n")

@@ -5,11 +5,11 @@ require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/jit/fiddle"
 require_relative "../../test/native/fixtures"
 
-# The in-process road: a unit the Ruby backend wrote, loaded into this
-# ruby and called through Fiddle. `exit` is swapped for a call that
-# returns, so the program's own exit does not end the test.
+# Runs code in this process: the test loads a unit from the Ruby backend
+# into this ruby and calls it through Fiddle. A call that returns
+# replaces `exit`, so that the program's exit does not stop the test.
 class JITTest < Minitest::Test
-  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  # Only a darwin host has Mach-O, libSystem and the darwin JIT.
   def setup
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
@@ -32,7 +32,7 @@ class JITTest < Minitest::Test
     assert_equal "hello, zr!\n", call_main("hello")
   end
 
-  def test_arith_holds_in_process
+  def test_arith_passes_in_process
     assert_equal "", call_main("arith")
   end
 end

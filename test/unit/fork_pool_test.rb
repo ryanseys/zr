@@ -4,20 +4,20 @@ require "test_helper"
 require "tmpdir"
 require "rbconfig"
 
-# The bound on one example. A worker that does not answer inside
-# `ZR_TEST_TIMEOUT` is killed and the example it was holding is reported
-# as a failure by name, so a compile that loops -- or a machine that has
-# begun to swap -- costs one example and not the whole tier.
+# Tests the time limit on one example. If a worker does not reply within
+# `ZR_TEST_TIMEOUT`, the pool kills it and reports its example as a
+# failure, with the example's name. Thus a compile that loops, or a
+# machine that swaps, costs one example and not the whole tier.
 #
-# This runs a suite of its own in a child process, because the thing under
-# test is the pool this process is already running in.
+# The test runs its own suite in a child process, because this process
+# already runs in the pool under test.
 class ForkPoolTest < Minitest::Test
   SUITE = <<~'RUBY'
     require "test_helper"
 
     class Bounded < Minitest::Test
       def test_a_quick_one = assert(true)
-      def test_one_that_never_answers = sleep(300)
+      def test_one_that_never_returns = sleep(300)
       def test_a_slow_one_that_fails
         sleep(1.5)
         flunk("on purpose")
@@ -28,13 +28,13 @@ class ForkPoolTest < Minitest::Test
   def test_an_example_past_the_deadline_fails_by_name
     out, status = suite("3")
 
-    assert_includes out, "Bounded#test_one_that_never_answers"
+    assert_includes out, "Bounded#test_one_that_never_returns"
     assert_includes out, "the worker ran past 3s on this example"
     assert_includes out, "ZR_TEST_TIMEOUT changes the bound"
     refute_predicate status, :success?
   end
 
-  def test_the_examples_beside_it_still_answer
+  def test_other_examples_still_run
     out, = suite("3")
 
     assert_match(/3 runs, 2 assertions, 1 failures, 1 errors/, out)
@@ -44,7 +44,7 @@ class ForkPoolTest < Minitest::Test
     assert_equal 180, Zr::Test::ForkPool::DEADLINE
   end
 
-  # A suite whose work is slow rather than stuck asks for its own bound.
+  # A suite that is slow, but not stuck, can set its own time limit.
   class Patient < Minitest::Test
     def self.deadline = 600
   end
@@ -54,10 +54,10 @@ class ForkPoolTest < Minitest::Test
     assert_equal Zr::Test::ForkPool::DEADLINE, Zr::Test::ForkPool.deadline_for(ForkPoolTest)
   end
 
-  # A worker that has to be killed takes with it whatever it started. A
-  # zr build forks six more processes, and one orphaned by a killed
-  # worker held its pipe open, and a hundred megabytes, for eight minutes
-  # after the run had given up on the example.
+  # When the pool kills a worker, it also kills the processes that the
+  # worker started. A zr build forks six processes. An orphan of a killed
+  # worker kept its pipe open, and 100 MB, for eight minutes after the
+  # example failed.
   SPAWNER = <<~'RUBY'
     require "test_helper"
 
@@ -79,24 +79,22 @@ class ForkPoolTest < Minitest::Test
     end
   end
 
-  # A worker is retired for what it has allocated, and not for what it
-  # was born holding. The parent warms the compiler before it forks, so
-  # every worker comes to hold a few hundred megabytes that it shares
-  # with the parent and never dirties, and counted against that a worker
-  # would be retired after a single example. Forking is the one thing
-  # here that is not free.
+  # The pool replaces a worker because of the memory that the worker
+  # allocates, not the memory that it inherits. The parent loads the
+  # compiler before it forks, so each worker shares a few hundred MB with
+  # the parent. If that memory counted, the pool would replace a worker
+  # after each example, and a fork is expensive.
   #
-  # Each example reads the whole of the inherited string, which is what
-  # makes this a real question: a page the parent holds is not resident
-  # for the worker until the worker touches it, so the worker's own
-  # figure climbs to the parent's as it reads. Both a fork-time floor
-  # and an absolute bound report that climb as this worker's doing; only
-  # a floor taken once an example has run does not.
+  # Each example reads all of the inherited string. A page of the parent
+  # is not resident for the worker until the worker reads it, so the
+  # worker's resident size grows as it reads. A baseline taken at fork
+  # time, or a fixed limit, counts that growth against the worker. Only a
+  # baseline taken after the first example does not.
   SHARER = <<~'RUBY'
     require "test_helper"
 
-    # Held by the parent, so every worker is forked already resident in
-    # it -- which is what this suite is about.
+    # The parent allocates this, so each worker starts with it shared.
+    # This suite tests that case.
     BALLAST = "x" * (200 << 20)
 
     class Thrifty < Minitest::Test
@@ -109,7 +107,7 @@ class ForkPoolTest < Minitest::Test
     end
   RUBY
 
-  def test_a_worker_is_retired_for_what_it_allocates_and_not_what_it_inherits
+  def test_worker_recycle_counts_only_memory_it_allocates
     Dir.mktmpdir("zr-pool-") do |work|
       kept = File.join(work, "pids")
       out, = child(SHARER, work, "ZR_TEST_RECYCLE_MB" => "150", "MT_CPU" => "1", "ZR_POOL_PIDS" => kept)
@@ -120,11 +118,10 @@ class ForkPoolTest < Minitest::Test
     end
   end
 
-# What minitest lets pass -- `exit`, a signal, NoMemoryError --
-# leaves the example and reaches the worker's own loop. The worker
-# names it for the example it was running, rather than going quiet
-# and reading as "exited 0 without answering", and the examples
-# after it still run in a fresh worker.
+# Minitest does not catch `exit`, a signal or NoMemoryError, so these
+# reach the worker loop. The worker reports the exception for the example
+# that it ran, and does not exit silently ("exited 0 without answering").
+# The examples after it run in a new worker.
 LEAVER = <<~'RUBY'
   require "test_helper"
 
@@ -135,7 +132,7 @@ LEAVER = <<~'RUBY'
   end
 RUBY
 
-def test_an_exception_past_minitest_is_named_for_its_example
+def test_exception_past_minitest_is_reported_for_its_example
   Dir.mktmpdir("zr-pool-") do |work|
     out, status = child(LEAVER, work, "MT_CPU" => "1")
 
@@ -149,16 +146,17 @@ end
 
   private
 
-  # The suite run in a child, under `timeout` seconds an example.
+  # Runs SUITE in a child, with a limit of `timeout` seconds for each
+  # example.
   def suite(timeout)
     Dir.mktmpdir("zr-pool-") { |work| child(SUITE, work, "ZR_TEST_TIMEOUT" => timeout) }
   end
 
-  # `source` run as a suite of its own in `work`, and what it said. Not
-  # `run`: that is `Minitest::Runnable`'s own, and a private one here
-  # would answer the pool in its place. The child gets a clean bundler
-  # environment, since this process runs under one and a nested `bundle
-  # exec` would refuse the load path we hand it.
+  # Runs `source` as its own suite in `work`, and returns its output and
+  # status. Do not name this `run`: `Minitest::Runnable` has a `run`, and
+  # the pool would call this one in its place. The child gets a clean
+  # bundler environment, because this process runs under bundler, and a
+  # nested `bundle exec` refuses the load path that the test gives it.
   def child(source, work, env)
     file = File.join(work, "bounded_suite.rb")
     File.write(file, source)

@@ -5,20 +5,20 @@ require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/backend/aarch64/codegen"
 require_relative "../../lib/zr/backend/aarch64/stub"
 
-# The encoder, held to the `aarch64` gem. The gem is generated from the
-# ARM specification, so it is the authority on what an instruction
-# encodes to; it is not a dependency, because it builds its own methods
-# with `class_eval` on strings and so cannot load in a program that has
-# no eval yet. Every function of the runtime assembles through both and
-# must give the same bytes.
+# Checks the AArch64 encoder against the `aarch64` gem. The gem is
+# generated from the ARM specification, so it is the reference for
+# instruction encodings. The gem is not a dependency: it defines its
+# methods with `class_eval` on strings, so it cannot load in a program
+# without eval support. Each runtime function must assemble to the same
+# bytes through both assemblers.
 class Aarch64Test < Minitest::Test
   Aarch64 = Zr::Backend::Aarch64
 
-  # The gem's assembler, taking our registers: the one emitter drives
-  # both, so a difference is the encoding and nothing else. The gem has
-  # no SIMD&FP registers, so an instruction on a double takes the word
-  # the ARM specification gives it, in the place of a `nop` the gem
-  # assembles to keep the positions.
+  # Wraps the gem's assembler so that it takes our registers. One emitter
+  # drives both assemblers, so a difference can only be in the encoding.
+  # The gem has no SIMD&FP registers. For an instruction on a double, the
+  # gem assembles a `nop` to keep the positions, and `to_binary` puts the
+  # word from the ARM specification in its place.
   class Gem
     NAMES = { [true, true] => :SP, [false, true] => :WSP, [true, false] => :XZR, [false, false] => :WZR }.freeze
     FLOAT3 = { fadd: 0x1E602800, fsub: 0x1E603800, fmul: 0x1E600800, fdiv: 0x1E601800 }.freeze
@@ -57,8 +57,8 @@ class Aarch64Test < Minitest::Test
 
     private
 
-    # The word of an instruction on doubles, as the specification's
-    # encoding diagrams read.
+    # Returns the word for an instruction on doubles, as given by the
+    # encoding diagrams in the ARM specification.
     def float_word(name, args)
       d, n, m = args
       case name
@@ -100,13 +100,11 @@ class Aarch64Test < Minitest::Test
     end
   end
 
-  # The whole runtime through both encoders, as SHARDS tests over a
-  # quarter of its functions each. A test is one worker's, and as one
-  # test this took a worker 143 s -- the gem builds its methods with
-  # class_eval and encodes slowly -- while the others stood idle. Each
-  # shard lowers the runtime for itself: six seconds and 1.4 GB, which
-  # is why there are four and not eight, and why the process the
-  # workers fork from does not hold one copy for the tier's whole life.
+  # Encodes the whole runtime through both assemblers, split into SHARDS
+  # tests. Each test gets one worker. As one test, this took 143 s on one
+  # worker, because the gem encodes slowly. Each shard lowers the runtime
+  # itself, which takes 6 s and 1.4 GB. That cost limits the count to
+  # four, and it is why the parent process does not keep one copy.
   SHARDS = 4
 
   SHARDS.times do |n|
@@ -126,8 +124,8 @@ class Aarch64Test < Minitest::Test
     end
   end
 
-  # Every opcode's smallest function, through both: what the runtime
-  # does not reach yet is held to the gem here.
+  # Encodes the smallest function for each opcode through both
+  # assemblers. This checks the opcodes that the runtime does not use.
   def test_every_opcode_fixture_encodes_as_the_gem_does
     require "aarch64"
     require_relative "../native/ops"

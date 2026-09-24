@@ -3,15 +3,13 @@
 require "test_helper"
 require_relative "../../lib/zr/hir"
 
-# `Zr::Hir::Build.eval_call?` answers one question that two callers ask:
-# whether a call compiles ruby that runs in the frame the call stands in.
-# The loader asks it to decide whether the program carries the compiler,
-# and `Build#evals?` asks it to decide whether the method the call sits in
-# arms the catch for a `return` the source writes.
+# `Zr::Hir::Build.eval_call?` tells if a call compiles ruby code that runs
+# in the frame of the call. Two callers use it. The loader uses it to
+# decide if the program includes eval support. `Build#evals?` uses it to
+# decide if the enclosing method arms the catch for a `return`.
 #
-# ruby 4.0.6 is the oracle for every row below: each one was asked of the
-# interpreter first, and `test/spec/lang/eval/eval_test.rb` holds the
-# answers end to end.
+# Each case below was checked against ruby 4.0.6 first.
+# `test/spec/lang/eval/eval_test.rb` checks the same cases end to end.
 class EvalCallTest < Minitest::Test
   Build = Zr::Hir::Build
 
@@ -27,7 +25,7 @@ class EvalCallTest < Minitest::Test
     end
   end
 
-  def test_a_send_is_read_through_to_the_method_it_names
+  def test_send_counts_when_its_method_is_an_eval
     assert Build.eval_call?(:send, named: :eval, argc: 2)
     assert Build.eval_call?(:__send__, named: :instance_eval, argc: 2)
     refute Build.eval_call?(:public_send, named: :instance_eval, argc: 1)
@@ -45,8 +43,8 @@ class EvalCallTest < Minitest::Test
     refute Build.eval_call?(:evaluate, argc: 1)
   end
 
-  # What the bug was: the catch armed for a call written `eval` and for
-  # nothing else, so `instance_eval("return 1")` lost its return.
+  # Each spelling of an eval call must arm the catch. If only `eval` arms
+  # it, `instance_eval("return 1")` loses its return.
   def test_every_spelling_arms_the_return_catch
     sources = {
       "eval" => %q{eval("return 1")},
@@ -71,9 +69,9 @@ class EvalCallTest < Minitest::Test
 
   private
 
-  # Whether `def m`, holding `body`, arms the return catch. `eval_support: false`
-  # leaves the compiler out: the question is what the front end decides,
-  # and carrying the road would build its two hundred units for each row.
+  # Returns true if `def m` with `body` arms the return catch.
+  # `eval_support: false` leaves out eval support: the test checks only
+  # the front end, and eval support would build 200 units for each case.
   def armed?(body)
     program = Zr::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", eval_support: false)
     defs(program.body).find { |d| d.name == :m }.evals

@@ -10,21 +10,18 @@ require_relative "../../lib/zr/ir/interp"
 require_relative "../../lib/zr/backend/aarch64/listing"
 require_relative "../support/e2e"
 
-# One limit on zr's Ruby: no method it defines may share a name with an
-# `Object` or `Kernel` method. `Lower#send` did, for a while: a private
-# method on `Lower`, it overrode `Object#send` for every instance of the
-# class, silently and only inside zr.
-# It loads the library itself rather than inspecting whatever an earlier
-# check happened to require: what this covers must not depend on the
-# order minitest loads files in.
-class HygieneTest < Minitest::Test
-  # A Zr::Record is equal by value, as the Struct it stands in for was.
+# No method that zr defines can have the name of an `Object` or `Kernel`
+# method. For example, a private `Lower#send` overrode `Object#send` for
+# each instance of `Lower`, with no error.
+# The test loads the library itself. It does not examine what earlier
+# tests loaded, so the result does not depend on the load order.
+class MethodNameCollisionTest < Minitest::Test
+  # A Zr::Record is equal by value, like a Struct.
   DELIBERATE = %i[initialize to_s inspect == eql? hash].freeze
 
-  # The library, and only the library. The checks put modules of their
-  # own in `Zr` too, and `test/support/reader.rb` names one `describe`
-  # on purpose, after minitest's own. Walking whatever a run happens to
-  # have loaded is the thing this check says it does not do.
+  # Examine only the library. The tests also put modules in `Zr`, and
+  # `test/support/reader.rb` defines `describe` on purpose, like
+  # minitest. Thus the test must not examine everything that is loaded.
   LIB = File.join(ROOT, "lib")
 
   def under(mod, seen)
@@ -39,9 +36,9 @@ class HygieneTest < Minitest::Test
     seen
   end
 
-  # Where a constant was written. A module built at run time answers for
-  # the file that built it, and one that will not say at all is left
-  # out: this asks about the Ruby in `lib`.
+  # Returns true if the constant is defined in `lib`. A module built at
+  # run time gives the file that built it. A module with no source
+  # location is left out.
   def library?(mod, name)
     mod.const_source_location(name)&.first&.start_with?(LIB)
   end
@@ -56,9 +53,10 @@ class HygieneTest < Minitest::Test
   end
 
   # The compiler parses with prism through lib/zr/prism.rb, which puts the
-  # Ruby port in place of the C extension: a file that required prism
-  # itself would load the C first, and the port would not load. The
-  # harness that holds the port to the C loads the C on purpose.
+  # Ruby port in place of the C extension. If a file required prism
+  # directly, the C extension would load first, and the port would not
+  # load. The harness that checks the port against the C extension loads
+  # the C extension on purpose.
   def test_the_compiler_requires_prism_only_through_zr_prism
     direct = Dir[File.join(ROOT, "{lib,tools,exe}/**/*.rb")].select do |file|
       File.read(file).match?(/^\s*require ["']prism["']/) && !file.end_with?("/lib/zr/prism.rb")

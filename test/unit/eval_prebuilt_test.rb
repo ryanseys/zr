@@ -40,7 +40,7 @@ class EvalPrebuiltTest < Minitest::Test
     end
   end
 
-  def test_first_build_stops_reading_eval_support_files_once_it_finds_eval
+  def test_first_build_skips_eval_support_files_after_eval_found
     Counting::PARSED.clear
     Zr.singleton_class.prepend(Counting) unless Zr.singleton_class < Counting
     program = Zr::Hir::Build.program("require \"rubygems\"\nputs Gem::VERSION\n", "probe.rb", eval_support: Prebuilt.new(HELD))

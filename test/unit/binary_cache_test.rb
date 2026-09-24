@@ -4,9 +4,9 @@ require "test_helper"
 require "tmpdir"
 require "support/binaries"
 
-# The spec tier's kept binaries: a binary kept sparse comes back byte
-# for byte, holds only what is the program's own, and a kept file that
-# cannot come back whole is a miss rather than a wrong binary.
+# Tests the binary cache of the spec tier. A cached binary is stored
+# sparse: it contains only the program's own bytes. It must come back
+# byte for byte. A damaged cache file is a miss, not a wrong binary.
 class BinaryCacheTest < Minitest::Test
   Binaries = Zr::Spec::Binaries
   SOURCE = "S = Struct.new(:a, :b)\nputs S.new(1, 2).inspect\n"
@@ -36,7 +36,7 @@ class BinaryCacheTest < Minitest::Test
     assert_equal `#{@bin}`, `#{back}`
   end
 
-  def test_the_kept_form_holds_the_programs_own_bytes_only
+  def test_kept_binary_contains_only_program_bytes
     kept = File.join(@work, "kept")
     Binaries.keep(kept, @bin, @program, @work)
 

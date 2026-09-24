@@ -7,17 +7,19 @@ require_relative "../../lib/zr/ir/passes"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../native/fixtures"
 
-# The second oracle: every program the kernel dialect can write, answered
-# by `IR::Interp` instead of by a binary. The compiled road and this one
-# read the same `.stdout`, so a miscompile in `Backend::Aarch64::Codegen` shows up as a
-# disagreement rather than as a wrong answer with nowhere to look.
+# A second reference: `IR::Interp` runs each machine dialect program in
+# place of a binary. The compiled binary and the interpreter compare with
+# the same expected output. Thus a miscompile in
+# `Backend::Aarch64::Codegen` shows as a difference between the two, not
+# as a wrong result with no clue.
 class InterpTest < Minitest::Test
-  # Machine code has no IR to interpret, so a program that calls some is
-  # refused by name. `switch.rb` is the only one.
+  # Machine code has no IR to interpret. Thus the interpreter refuses a
+  # program that calls machine code, with a message. `switch.rb` is the
+  # only one.
   RAW = %w[switch].freeze
 
-  # Every function goes through the passes a build runs, checked
-  # strictly, so the interpreter answers for what the passes made.
+  # Runs each function through the passes of a build, with strict
+  # checks, so the interpreter runs the output of the passes.
   def answers(functions, data, raw, argv)
     functions.each { |f| Zr::IR::Passes.prepare(f, strict: true) }
     out = StringIO.new
@@ -59,8 +61,8 @@ class InterpTest < Minitest::Test
     end
   end
 
-  # The collector under stress, the case the compiled road also runs: a
-  # program that drops a root out of its record must abort.
+  # Runs the collector under stress, as the compiled binary also does. A
+  # program that removes a root from its record must abort.
   def test_a_missed_root_aborts
     source = File.read(File.join(ROOT, "test/machine/gc.rb"))
     bad = source.sub("    Machine.store64(rec, 24, leaf)\n    leaf = 0\n", "    Machine.store64(rec, 24, 0)\n")
@@ -74,8 +76,8 @@ class InterpTest < Minitest::Test
     assert_equal "a live object points at a freed cell\n", out.string
   end
 
-  # An oracle that answers the same whatever the program does is no
-  # oracle: break one constant and the interpreter must see it.
+  # A reference that gives the same result for any program is useless.
+  # Thus the test breaks one constant, and the interpreter must see it.
   def test_a_failing_fact_is_visible
     functions, data = Zr::Native::Fixtures.build("arith")
     broken = functions.last.blocks.flat_map(&:insts).find { |i| i.args == [81_985_529_216_486_894] }
@@ -86,7 +88,7 @@ class InterpTest < Minitest::Test
     assert_equal 8, status, "the broken fact was not seen"
   end
 
-  # A null dereference traps rather than reading whatever is at zero.
+  # A null dereference traps. It does not read the memory at address 0.
   def test_a_null_load_traps
     f = Zr::IR::Function.new("main", %w[i32 i64], "i32")
     f.ret(f.ireduce("i32", f.fetch("i64", f.iconst("i64", 0))))

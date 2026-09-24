@@ -4,12 +4,11 @@ require "test_helper"
 require_relative "../../lib/zr/ir/analysis"
 require_relative "../../lib/zr/ir/verify"
 
-# One cache of what the passes ask about a function's shape -- its
-# predecessors, its blocks in reverse postorder, the dominator tree and
-# the natural loops -- built once and kept until a pass says the
-# function changed. A pass that edits the graph and says nothing is
-# caught by the strict check, which builds the answers again and
-# compares.
+# Tests the analysis cache of a function: predecessors, blocks in reverse
+# postorder, the dominator tree and the natural loops. The cache is
+# built once and kept until a pass reports that the function changed.
+# If a pass edits the graph and does not report it, the strict check
+# finds it: it builds the analysis again and compares.
 class AnalysisTest < Minitest::Test
   Analysis = Zr::IR::Analysis
 
@@ -84,7 +83,7 @@ class AnalysisTest < Minitest::Test
     assert_equal 1, uses.fetch(param.call(b[:join])), "step is read by the add"
   end
 
-  def test_a_change_the_pass_reports_builds_the_answers_again
+  def test_reported_change_rebuilds_the_analysis
     f, b = looped
     was = f.analysis
     extra = f.label
@@ -96,7 +95,7 @@ class AnalysisTest < Minitest::Test
     assert_includes f.analysis.preds.fetch(b[:done]), extra
   end
 
-  def test_a_change_the_pass_did_not_report_is_refused_by_the_strict_check
+  def test_unreported_change_fails_the_strict_check
     f, b = looped
     f.analysis.preds
     extra = f.label
@@ -110,7 +109,7 @@ class AnalysisTest < Minitest::Test
     assert_same f, Zr::IR::Verify.check(f, strict: true)
   end
 
-  def test_an_instruction_change_keeps_the_graph_and_drops_the_uses
+  def test_instruction_change_keeps_graph_and_drops_uses
     f, = looped
     a = f.analysis
     idom = a.idom

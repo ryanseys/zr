@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 
-# The machine dialect, compiled alone (as `zr machine` does):
+# Tests the machine dialect, compiled alone (as `zr machine` does it):
 # - each `test/machine/<name>.rb` compiles to a binary that prints
 #   `<name>.out`;
 # - each `test/machine/units/<name>/` is one unit of several files that
@@ -40,8 +40,9 @@ class MachineTest < Minitest::Test
     end
   end
 
-  # The collector under stress: the same answer with a collection at every
-  # allocation, and a program that drops a root out of its record aborts.
+  # Runs the collector under stress, with a collection at each
+  # allocation. The output must not change. A program that removes a
+  # root from its record must abort.
   def test_gc_under_stress
     source = File.read(File.join(ROOT, "test/machine/gc.rb"))
     bad = source.sub("    Machine.store64(rec, 24, leaf)\n    leaf = 0\n", "    Machine.store64(rec, 24, 0)\n")
@@ -63,9 +64,10 @@ class MachineTest < Minitest::Test
     end
   end
 
-  # A small def that opens with a guard clause is lowered in place: main
-  # of `guards.rb` calls only the two imports, though it names every def.
-  def test_a_guard_clause_does_not_keep_a_small_def_from_being_inlined
+  # A small def that starts with a guard clause is inlined. `main` of
+  # `guards.rb` calls each def, but after inlining it calls only the two
+  # imports.
+  def test_small_def_with_guard_clause_is_inlined
     rb = File.join(ROOT, "test/machine/guards.rb")
     functions, = Zr::Machine.compile(File.read(rb), rb)
     main = functions.find { |f| f.name == "main" }
