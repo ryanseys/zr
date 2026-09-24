@@ -1021,10 +1021,6 @@ machine def zr_kw_missing(hash, ids, n)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
-# zr_kw_unknown (below) raises `unknown keyword: :x` or `unknown
-# keywords: :x, :y` for the keys of `hash` that the method does not
-# declare. It returns nil when there are none.
-sig [Value, Ptr, Word] => Value
 # `**nil`: raises for any keyword.
 sig [Value] => Value
 machine def zr_kw_none(hash)
@@ -1034,6 +1030,9 @@ machine def zr_kw_none(hash)
   zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no keywords accepted"), 20)
 end
 
+# Raises `unknown keyword: :x` or `unknown keywords: :x, :y` for the
+# keys of `hash` that the method does not declare. Returns nil when
+# there are none.
 sig [Value, Ptr, Word] => Value
 machine def zr_kw_unknown(hash, ids, n)
   if hash == QNIL
