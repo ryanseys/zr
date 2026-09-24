@@ -4,12 +4,11 @@ require "minitest"
 
 module Zr
   module Test
-    # Where a run stands, written to a file as it goes, so a tier left
-    # running in the background can be looked in on: how many examples
-    # of how many are done, how many have failed and which, the rate
-    # and what is left at it, and the example answered last. `rake
-    # test:progress` prints it. The file is written at most once a
-    # second and once more at the end, and says so.
+    # Writes the status of a run to a file, so that you can check a tier
+    # that runs in the background. The file gives the examples done and
+    # the total, the failures, the rate, the time left and the last
+    # example. `rake test:progress` prints it. The reporter writes the
+    # file at most once a second, and one more time at the end.
     module Progress
       PATH = File.expand_path("../../tmp/test-progress.txt", __dir__)
       EVERY = 1.0
@@ -18,7 +17,7 @@ module Zr
         Minitest.reporter << Reporter.new(options)
       end
 
-      # The file's text, or nil where no run has written one.
+      # Returns the text of the file, or nil when no run wrote it.
       def self.read = File.exist?(PATH) ? File.read(PATH) : nil
 
       class Reporter < Minitest::AbstractReporter
@@ -55,7 +54,8 @@ module Zr
 
         def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-        # The examples the run will hand out, as minitest filters them.
+        # The number of examples that the run will start, after the
+        # minitest filters.
         def counted = Minitest::Runnable.runnables.sum { |klass| klass.filter_runnable_methods(@options).size }
 
         def write(final: false)
@@ -77,7 +77,7 @@ module Zr
 
         def clock(seconds) = format("%d:%02d", seconds / 60, seconds % 60)
 
-        # The helper that loaded the tier names it.
+        # The helper file that the tier loaded identifies the tier.
         def tier = $LOADED_FEATURES.any? { |f| f.end_with?("/spec_helper.rb") } ? "spec tier" : "unit/e2e tier"
       end
     end

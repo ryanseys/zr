@@ -5,21 +5,21 @@ require_relative "../../lib/zr/flags"
 
 module Zr
   module Test
-    # Where a run's time went: the slowest tests by name, and for the
-    # examples that build a program, what each part of the build cost,
-    # added up by directory.
+    # Reports where the time of a run went: the slowest tests by name,
+    # and, for examples that build a program, the time of each build
+    # part, added up by directory.
     #
-    # `SLOW=1` already asks minitest-reporters for the slowest *suites*,
-    # which says which file to look in and not which test. A tier's
-    # time is a handful of tests -- one that lowers the whole runtime,
-    # one that reads five thousand fixtures -- and this names them. A
-    # test's time is taken in the worker that ran it and comes back in
-    # its result, so the numbers are the test's own and not the pool's.
+    # `SLOW=1` also makes minitest-reporters show the slowest *suites*.
+    # That gives the file, not the test. Most of the time of a tier is in
+    # a few tests (for example, one that lowers the whole runtime), and
+    # this report gives their names. The worker that runs a test measures
+    # its time and returns it in the result, so the time does not include
+    # the pool.
     #
-    # `ZR_SLOW=30` prints thirty; `ZR_SLOW=1`, or `SLOW=1`, prints
-    # twenty. Unset, the run reports as it always did.
+    # `SLOW=30` prints 30 tests. `SLOW=1` prints 20. When `SLOW` is not
+    # set, this report is off.
     module Slow
-      # The key an example leaves its build's parts under, in seconds.
+      # The metadata key for the build part times of an example, in seconds.
       KEY = :zr_phases
       PARTS = %i[lower link run].freeze
       DEFAULT = 20
@@ -33,9 +33,9 @@ module Zr
         Minitest.reporter << Reporter.new(options[:io], count) if asked?
       end
 
-      # Runs the block and adds what it took to `row[part]`. `row` is
-      # the example's own, so an example that builds twice counts both;
-      # nil, where nobody asked, only runs the block.
+      # Runs the block and adds its time to `row[part]`. Each example has
+      # its own `row`, so an example that builds twice counts both builds.
+      # When `row` is nil (no report), it only runs the block.
       def self.clock(row, part)
         return yield unless row
 
@@ -49,8 +49,8 @@ module Zr
 
       def self.now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-      # What one directory's examples spent, part by part: a count and
-      # the seconds, whole and by part.
+      # The time of the examples in one directory: the number of
+      # examples, the total seconds, and the seconds for each part.
       class Spent
         attr_reader :examples, :whole, :parts
 
@@ -113,8 +113,9 @@ module Zr
           @io.puts format("%-36s %s", "all #{rows.size} directories", rows.sum(Spent.zero, &:last))
         end
 
-        # `test/spec/core/string`, from a file under it; the file's own
-        # path where it is not that deep.
+        # Returns the area directory of the test file, for example
+        # `test/spec/core/string`. For a file that is not that deep, it
+        # returns the path of the file.
         def directory(result)
           file = result.source_location.first.to_s
           file[%r{test/(?:spec|e2e)/[^/]+/[^/]+}] || file[%r{test/.*\z}] || file

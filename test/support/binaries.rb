@@ -10,43 +10,39 @@ require_relative "../../lib/zr/obj/macho/skeleton"
 
 module Zr
   module Spec
-    # The binaries the examples built, kept for the next run.
+    # Keeps the binaries that the examples build, for the next run.
     #
-    # An example is a build and a run, and on a warm cache the build is
-    # more than half of it. A run after an edit that reached no part of
-    # the compiler -- a spec's own sentence, a fixture, a test file --
-    # builds every example again to the same bytes, since a build is a
-    # function of its inputs and `rake stage1` proves it. So each
-    # example's binary is kept under the cache, named by every input of
-    # its bytes, and a later run takes the binary and skips to the run.
+    # On a warm cache, the build is more than half the time of an example.
+    # A build is a function of its inputs (`rake stage1` checks this). So
+    # each binary is kept in the cache under a key made from all its
+    # inputs. A later run with the same key uses the kept binary and does
+    # not build. This helps most after an edit to a spec, a fixture or a
+    # test file, which does not change the compiler.
     #
-    # A binary is 24 MB, and all but a few hundred kilobytes of it are
-    # the runtime's: the text the link clones from its skeleton, the
-    # `__DATA` segment, and the base's symbol and string tables, which
-    # every binary linked beside one prelink holds byte for byte. A kept
-    # binary leaves those out and says where they went, and a take puts
-    # them back from the prelink in memory -- the text as the link
-    # leaves it -- and what is kept is deflated. A whole spec tier is
-    # then five gigabytes, not two hundred, and `trim` keeps the
-    # directory under `ZR_TEST_BINARIES_GB` by dropping what was used
-    # longest ago. A module has no prelink to draw on and is kept whole,
-    # so it is kept only when asked (`ZR_TEST_BINARIES=1`); `ZR_TEST_BINARIES=0`
-    # keeps nothing.
+    # A binary is 24 MB. Almost all of it is the same in each binary linked
+    # with one prelinked image: the text cloned from the skeleton, the
+    # `__DATA` segment, and the symbol and string tables of the image. The
+    # kept form leaves out these parts ("holes"), records where they were,
+    # and deflates the rest. `take` writes the holes back from the prelinked
+    # image in memory. A full spec tier is then 5 GB, not 200 GB. `trim`
+    # keeps the directory under `ZR_TEST_BINARIES_GB` and removes the least
+    # recently used files first. A WASI module has no prelinked image, so
+    # it is kept whole, and only with `ZR_TEST_BINARIES=1`.
+    # `ZR_TEST_BINARIES=0` keeps nothing.
     #
-    # The key fails closed. It holds the runtime's digest for the target
-    # (everything that lowers and emits the runtime), the link digest,
-    # the target, the environment names that reach a build's bytes, the
-    # program's path and source, and every fixture written beside it,
-    # a link by where it points. An example that writes no key -- one
-    # whose fixtures this cannot describe -- is built as before. A hole
-    # is cut only where the binary's bytes equal the prelink's, and a
-    # take that cannot put a binary back whole answers false, and the
-    # example builds.
+    # The key fails closed. It contains the runtime digest for the target
+    # (all code that lowers and emits the runtime), the link digest, the
+    # target, the environment variables that change the bytes of a build,
+    # the path and source of the program, and each fixture written next to
+    # it (a symbolic link by its target). An example whose fixtures have no
+    # key builds as usual. A hole is cut only where the bytes of the binary
+    # are equal to the bytes of the prelinked image. When `take` cannot
+    # restore the whole binary, it returns false and the example builds.
     module Binaries
       VERSION = 3
-      # The environment a build reads that decides its bytes -- and
-      # `ZR_VERIFY`, which decides whether the lowering checks itself,
-      # so a verifying run lowers rather than takes.
+      # The environment variables that change the bytes of a build. Also
+      # `ZR_VERIFY`, which makes the lowering verify itself: with it, a
+      # run lowers again and does not use a kept binary.
       ENVIRONMENT = %w[ZR_LINKER ZR_EVAL ZR_VERIFY ZR_WASM_NAMES ZR_WASM_WIDTH].freeze
       PAGE = Obj::MachO::Prelink::PAGE
 
@@ -64,8 +60,8 @@ module Zr
 
       def limit = Float(ENV.fetch("ZR_TEST_BINARIES_GB", 8)) * (1 << 30)
 
-      # Where the binary of this example is kept, or nil where no key
-      # can describe it.
+      # Returns the path of the kept binary for this example, or nil when
+      # no key can describe it.
       def path(target, source, rb, files)
         parts = files.sort.map { |name, bytes| [name, bytes.is_a?(Hash) ? "-> #{bytes.fetch(:symlink)}" : bytes] }
         return nil unless parts.all? { |_, bytes| bytes.is_a?(String) }
@@ -76,8 +72,8 @@ module Zr
         File.join(directory, "#{key.hexdigest}#{'.wasm' unless target.link}")
       end
 
-      # The kept binary put back at `bin`, or false where there is none
-      # or it cannot be put back whole.
+      # Restores the kept binary to `bin`. Returns false when there is no
+      # kept binary, or when it cannot restore the whole binary.
       def take(kept, bin)
         return false unless kept && File.exist?(kept)
 
@@ -90,25 +86,23 @@ module Zr
         false
       end
 
-      # `bin`, the binary of `program` built under `work`, kept: sparse
-      # where it was linked beside the cache's objects, whole otherwise.
+      # Keeps `bin`, the binary of `program` built in `work`. It keeps the
+      # sparse form when the binary was linked with the cached objects,
+      # and the whole binary otherwise.
       #
-      # A binary that spells the directory it was built in is not kept:
-      # a required file's path is resolved when it is compiled, and a
-      # box that loads beside it at run time would look in a directory
-      # the run before this one has removed. Such a binary is a
-      # function of where it was built as well as of what, and the key
-      # does not say where.
+      # It does not keep a binary that contains the path of `work`. The
+      # compiler resolves the path of a required file at compile time. At
+      # run time, that binary looks in a directory that an earlier run
+      # removed. The key does not include the build directory.
       def keep(kept, bin, program, work)
         return unless kept
 
         bytes = File.binread(bin)
         return if bytes.include?(work)
 
-        # A binary built while a source moved under the tier is a
-        # function of two versions of the tree, and its key names one:
-        # kept, it would answer for that key until the source moved
-        # again. The tier stops on the file's name instead.
+        # If a source file changed during the tier, the binary comes from
+        # two versions of the tree, but the key identifies only one. So
+        # do not keep it: `settled!` stops the tier and gives the file name.
         Zr.settled!
         FileUtils.mkdir_p(directory)
         tmp = "#{kept}.#{Process.pid}"
@@ -118,8 +112,8 @@ module Zr
         File.rename(tmp, kept)
       end
 
-      # Drops the binaries used longest ago until what is kept fits
-      # `limit`. Run once, ahead of the workers.
+      # Removes the least recently used binaries until the total size is
+      # at most `limit`. Call it once, before the workers start.
       def trim(limit = self.limit, directory = self.directory)
         files = Dir[File.join(directory, "*")].map { |path| [path, File.mtime(path), File.size(path)] }
         held = files.sum { |_, _, size| size }
@@ -131,8 +125,8 @@ module Zr
         end
       end
 
-      # The cached objects `program` was linked beside: the runtime, and
-      # the road where the program evals (`Native::Build.program`).
+      # Returns the cached objects that `program` links with: the runtime,
+      # and eval support when the program evals (`Native::Build.program`).
       def objects_of(program)
         objects = [Native::Build.runtime_object(program.runtime)]
         objects << Native::Build.eval_support_object(program.evals) if program.evals
@@ -146,11 +140,12 @@ module Zr
 
       # --- the sparse form ---------------------------------------------
 
-      # `bytes` of a binary linked beside `objects`, less every hole
-      # whose bytes are the prelink's: a head that says the binary's
-      # size, the objects and the holes, then the bytes between them,
-      # deflated. Machine code deflates by half at the fastest level,
-      # in 10 ms a megabyte; inflating is a third of that.
+      # Returns the sparse form of `bytes`, a binary linked with `objects`.
+      # It leaves out each hole whose bytes are equal to the prelinked
+      # image. The form is a head (binary size, objects, holes), then the
+      # deflated bytes between the holes. At the fastest level, machine
+      # code deflates to half its size at 10 ms per MB. Inflate takes a
+      # third of that time.
       def sparse(bytes, objects)
         base = Native::Build.prelink(objects)
         holes = cuts(bytes, base).select { |at, size, name| bytes[at, size] == filling(base, name) }
@@ -165,9 +160,9 @@ module Zr
         [head.bytesize].pack("Q<") + head + Zlib::Deflate.deflate(body, Zlib::BEST_SPEED)
       end
 
-      # Where the holes of a binary linked beside `base` would be, each
+      # Returns the possible holes of a binary linked with `base`, each
       # `[at, size, name]`: the text after the header page, the `__DATA`
-      # segment, and the base's parts of the two symbol tables.
+      # segment, and the parts of the two symbol tables that come from `base`.
       def cuts(bytes, base)
         data = symbols = strings = nil
         each_command(bytes) do |cmd, at|
@@ -193,7 +188,7 @@ module Zr
         end
       end
 
-      # The prelink's bytes for the hole `name`.
+      # Returns the bytes of the prelinked image for the hole `name`.
       def filling(base, name)
         case name
         when :text then base.blobs.fetch(:text)
@@ -204,10 +199,10 @@ module Zr
         end
       end
 
-      # The binary at `bin` from its sparse form at `kept`, whole: the
-      # text left in place or cloned as a link leaves it
-      # (`Skeleton.write_over`), every other hole written from the
-      # prelink.
+      # Writes the whole binary to `bin` from its sparse form in `kept`.
+      # The text is cloned or kept in place, as the linker does
+      # (`Skeleton.write_over`). Each other hole comes from the prelinked
+      # image.
       def restore(kept, bin)
         File.open(kept, "rb") do |file|
           head = Marshal.load(file.read(file.read(8).to_s.unpack1("Q<").to_i))

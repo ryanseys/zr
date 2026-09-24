@@ -17,7 +17,7 @@ module Zr
     # build makes them again: about three minutes, and five more for wasm.
     #
     # `ready!` builds what is missing before the tier forks its workers.
-    # (If each worker built it, eight builds ran at once and timed out.)
+    # If each worker built it, eight builds would run at once and time out.
     # Then it loads the caches, so that all workers share one copy.
     module Built
       # A program that calls eval, so that the build also makes the eval
@@ -27,11 +27,11 @@ module Zr
 
       module_function
 
-      # The targets a run builds for: this host's, and wasm32-wasi where
-      # wasmtime is installed and the run was given that target or asks
-      # for it (the unit tier, whose files build modules). Another native
-      # target is built by a `zr` of its own (`E2E.build`), with a
-      # toolchain this process may not have, and is left to it.
+      # Returns the targets that a run builds for: the host, and also
+      # wasm32-wasi when wasmtime is installed and the run selects that
+      # target or `wasm` is true (the unit tier builds WASI modules). This
+      # process does not build other native targets. `E2E.build` builds
+      # them with a separate `zr`, which can need a different toolchain.
       def targets(wasm: false)
         wasm ||= ENV["ZR_TARGET"] == Target::WASM32_WASI.triple
         [Target.default, *(Target::WASM32_WASI if wasm && Harness::Wasmtime.installed?)].uniq
@@ -53,7 +53,7 @@ module Zr
 
       def mark(target) = File.join(Zr.cache, "built-#{Zr.runtime(target).digest}.ok")
 
-      # The caches of `target`, read into this process once.
+      # Reads the caches of `target` into this process one time.
       def load(target)
         runtime = Zr.runtime(target)
         runtime.description
@@ -62,10 +62,10 @@ module Zr
         Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Zr.program(PLAIN, "built.rb", target: target)))
       end
 
-      # Builds the caches of each of `targets` that are not current, and
-      # says how long each build took. When the machine has the memory
-      # for two builds (12 GB), the targets build at the same time, each
-      # in its own child process with half the jobs.
+      # Builds the caches of each target in `targets` that is not current,
+      # and prints the time of each build. When the machine has the memory
+      # for two builds (12 GB), the targets build at the same time. Each
+      # build is a child process with half the jobs.
       def build(targets, say: $stderr)
         current, targets = targets.partition { |target| built?(target) }
         current.each { |target| say&.puts("zr runtime for #{target.triple} is up to date (cache: #{cache_dir})") }
@@ -111,8 +111,9 @@ module Zr
         Zr.write_cache(mark(target), "")
       end
 
-      # A module with no linker: a plain program and one that evals, since
-      # each waits on symbols of its own and so reads a prelude of its own.
+      # A WASI module has no linker. Build a plain program and a program
+      # that evals, because each has different undefined symbols and so
+      # uses a different prelude.
       def build_module(target)
         Dir.mktmpdir("zr-build-") do |work|
           [PLAIN, EVALS].each_with_index do |source, i|

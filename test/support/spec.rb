@@ -15,18 +15,18 @@ require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/record"
 
 module Zr
-  # What a spec example is: a Ruby program zr compiles, runs, and is
-  # held to ruby 4.0.6's answer for.
+  # Runs spec examples. An example is a Ruby program that zr compiles and
+  # runs, and the test checks its output against ruby 4.0.6.
   #
-  # The compile happens in the worker that was handed the example. A
-  # fresh ruby would reload the whole compiler for every one, and that
-  # fixed cost is the whole cost of a small program; loading it once and
-  # compiling many is what makes a suite of thousands finish. Ruby does
-  # not give heap pages back, so `ForkPool` closes a worker that has
-  # grown and forks another from the parent, which has not.
+  # The worker that gets the example compiles it in process. A new ruby
+  # process for each example would load the whole compiler each time,
+  # and for a small program that load is almost all of the cost. Ruby
+  # does not release heap pages, so `ForkPool` replaces a worker that
+  # grows too much with a new fork of the parent.
   module Spec
-    # What a compiled program said. `signal` is set and `status` nil
-    # when a signal ended it, as a process a signal ends has no status.
+    # The output of a compiled program. When a POSIX signal stopped the
+    # process, `signal` is set and `status` is nil, because such a
+    # process has no exit status.
     class Result < ::Zr::Record
       FIELDS = %i[stdout stderr status signal].freeze
       attr_accessor :stdout, :stderr, :status, :signal
@@ -43,38 +43,38 @@ module Zr
       def success? = status.zero? && signal.nil?
     end
 
-    # A stream reads as text where it is text, and as bytes where it is
-    # not, so an example compares against `"\u00e9\n"` and not against
-    # the four bytes that spells. A program may write anything, so the
-    # bytes are what survive when they are not UTF-8.
+    # Returns a stream as UTF-8 text when it is valid UTF-8, and as bytes
+    # when it is not. Thus an example can compare with `"\u00e9\n"`, not
+    # with its bytes. A program can write any bytes, so invalid UTF-8
+    # stays binary.
     def self.text(bytes)
       out = bytes.dup.force_encoding(Encoding::UTF_8)
       out.valid_encoding? ? out : bytes
     end
 
-    # Long enough for the slowest program, short enough that a
-    # miscompile that loops does not stall the run. A collection at
-    # every allocation marks the live set each time, so a stress run
-    # gets four times as long.
+    # Long enough for the slowest program, and short enough that a
+    # miscompiled infinite loop does not stop the run. With GC stress, a
+    # collection at each allocation marks all live objects, so a stress
+    # run gets four times the limit.
     LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
 
     def self.limit = ENV["ZR_GC_STRESS"] == "1" ? LIMIT * 4 : LIMIT
 
-    # A refusal is not a defect: zr does not support the form yet, and
-    # the example skips with the refusal's message.
+    # A refusal is not a defect: zr does not support the form. The
+    # example skips with the message of the refusal.
     REFUSALS = [Zr::Refused].freeze
 
-    # A stop at run time the program did not rescue: ruby's report of
-    # the NotImplementedError or LoadError it raised, or a kernel stop.
+    # An unrescued stop at run time: the ruby report of a
+    # NotImplementedError or LoadError, or a stop from the kernel.
     STOP = /^(?:zr: |.*?:in '[^']*': )?(.* is not implemented yet)(?: \((?:NotImplementedError|LoadError)\))?$/
 
-    # The buckets `zr test` counted, added up at the end of a run.
+    # A Minitest plugin that counts refusals by kind and message, and
+    # prints the totals at the end of a run.
     #
-    # An example zr refused makes no claim about ruby and skips, but
-    # which forms it refused is the roadmap. Each one leaves its bucket
-    # and the sentence it named in the result's metadata, which minitest
-    # carries back from the worker that ran it, and this counts them.
-    # It is a minitest plugin, which is how a run gains a report.
+    # An example that zr refuses skips. The refused forms show what zr
+    # must support next. Each skip writes its kind and message to the
+    # metadata of the result. Minitest sends the metadata back from the
+    # worker, and this reporter counts it.
     module Census
       KEY = :zr_refusal
 
@@ -107,37 +107,36 @@ module Zr
 
     module_function
 
-    # The target every example is built for. `ZR_TARGET` names another
-    # one, as the cross-target rows of CI do; a triple this host cannot
-    # run is refused where it is named rather than at every example.
+    # The target for all examples. `ZR_TARGET` selects a different
+    # target, as the cross-target CI jobs do. A triple that this host
+    # cannot run fails here one time, not at each example.
     def target
       @target ||= Harness::Runner.named(ENV["ZR_TARGET"])
     end
 
-    # The runner that knows how to start what this target builds: a
-    # binary on its own host, a module under wasmtime.
+    # The runner that starts the output of this target: a binary on its
+    # host, or a WASI module under wasmtime.
     def runner = @runner ||= Harness::Runner.new(DSL::ROOT, target)
 
-    # The name the recordings use for the machine these examples run on.
+    # The platform name that the recordings use for this machine.
     def platform = runner.platform
 
-    # Whether this machine has what a `needs:` name asks for.
+    # Returns true if this machine has the item that a `needs:` name
+    # requires.
     def need?(name) = Harness::Needs.met?(name, platform)
 
-    # Compile `source` with zr and run what it built. `path` is the
-    # name the program answers to -- its backtraces carry it -- and is
-    # relative to the directory the program runs in. `files` writes the
-    # program's own fixtures beside it.
+    # Compiles `source` with zr and runs the result. `path` is the path of
+    # the program, relative to the directory it runs in. Backtraces show
+    # it. `files` writes the fixtures of the program next to it.
     #
-    # `phases` is a row the build's parts add their seconds to, for the
-    # report `ZR_SLOW` asks for (`Zr::Test::Slow`).
+    # `phases` is a hash; each build part adds its seconds to it, for the
+    # `SLOW` report (`Zr::Test::Slow`).
     def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, phases: nil)
       Dir.mktmpdir("zr-spec-") do |work|
-        # The resolved path, not the one `mktmpdir` hands back: on macOS
-        # `/var` is a link to `/private/var`, and a program that prints a
-        # path of its own prints the resolved one. The scrub that turns
-        # an absolute path back into a relative one has to be looking at
-        # the same bytes, or it leaves `/private` glued to the front.
+        # Use the resolved path, not the path from `mktmpdir`. On macOS,
+        # `/var` is a link to `/private/var`, and a program prints the
+        # resolved path. The normalization that makes an absolute path
+        # relative must see the same bytes, or `/private` stays in front.
         work = File.realpath(work)
         run = File.join(work, "run")
         rb = File.join(run, path)
@@ -145,24 +144,23 @@ module Zr
         File.write(rb, source)
         files.each do |name, bytes|
           beside = File.expand_path(name, File.dirname(rb))
-          # A fixture that lands on the program would overwrite it --
-          # `files:` is written after the source -- and the example would
-          # quietly run the fixture instead, answering something that
-          # looks like an answer. Name the program with `path:` instead.
+          # A fixture with the same path as the program overwrites it,
+          # because `files:` is written after the source. Then the example
+          # runs the fixture and gives wrong output with no error. Give
+          # the program a different name with `path:`.
           raise ArgumentError, "the fixture #{name.inspect} lands on the program itself" if beside == rb
 
           FileUtils.mkdir_p(File.dirname(beside))
-          # `{ symlink: "lib" }` is a link, not a file: a program that
-          # asks whether two paths reach one file needs one.
+          # `{ symlink: "lib" }` makes a symbolic link, not a file. A
+          # program that checks if two paths are the same file needs one.
           bytes.is_a?(Hash) ? File.symlink(bytes.fetch(:symlink), beside) : File.binwrite(beside, bytes)
         end
 
-        # From the directory the program runs in, under the name it
-        # answers to: `zr build` is given a relative path, and what it
-        # is given is what the binary's backtraces carry. Compiling with
-        # an absolute path would name the temporary directory instead.
-        # The chdir is safe because a worker is a process of its own and
-        # runs the examples it is handed one at a time.
+        # Compile from the directory where the program runs, with its
+        # relative path. The backtraces of the binary show the path that
+        # the compiler gets. An absolute path would show the temporary
+        # directory. The chdir is safe because each worker is a separate
+        # process and runs one example at a time.
         bin = binary_path
         kept = Binaries.path(target, source, path, files) if Binaries.wanted?(target)
         unless Binaries.take(kept, bin)
@@ -175,8 +173,8 @@ module Zr
           Binaries.keep(kept, bin, program, work)
         end
 
-        # A binary starts on its own host; a wasm module starts under
-        # wasmtime, with the directory it runs in preopened.
+        # A binary starts on its host. A WASI module starts under wasmtime,
+        # with its run directory preopened.
         command, child_env = runner.run(bin, argv, env)
         out, = Test::Slow.clock(phases, :run) do
           Harness::Child.run(command, cwd: run, stdin: stdin, env: child_env,
@@ -187,13 +185,13 @@ module Zr
       end
     end
 
-    # Where this worker writes each example's binary: over the last one.
-    # A binary written over the last one's file keeps the runtime's text
-    # pages in memory, where a fresh file's are read from disk at every
-    # exec (`Obj::MachO::Skeleton`): 40 ms a run, and eight workers
-    # reading at once wait on each other. The directory is the tier's,
-    # made ahead of the workers (`binaries_dir`) and removed when the
-    # tier ends; each worker writes under its own pid.
+    # Returns the path where this worker writes each binary. Each binary
+    # overwrites the previous one. Then the text pages of the runtime stay
+    # in memory. A new file reads them from disk at each exec
+    # (`Obj::MachO::Skeleton`): 40 ms a run, and eight workers that read
+    # at the same time wait for each other. The tier makes the directory
+    # before the workers start (`binaries_dir`) and removes it at the end.
+    # Each worker writes in a subdirectory named by its pid.
     def binary_path
       dir = File.join(binaries_dir, Process.pid.to_s)
       FileUtils.mkdir_p(dir)
@@ -204,7 +202,7 @@ module Zr
       @binaries_dir ||= Dir.mktmpdir("zr-bins-").tap { |dir| at_exit { FileUtils.rm_rf(dir) } }
     end
 
-    # The program, or `[bucket, why]` when zr would not build it.
+    # Returns the program, or `[kind, why]` when zr does not build it.
     def lower(source, rb, target)
       Native::Build.lower(source, rb, target: target)
     rescue *REFUSALS => e
@@ -212,18 +210,18 @@ module Zr
     rescue Backend::Refused => e
       [:backend, e.message]
     rescue SyntaxError => e
-      # ruby reports a program that does not parse and exits 1, and so
-      # does the binary, with ruby's own report. `Zr::CLI.lower` does
-      # this the same way, and the two must stay the same way.
+      # For a program that does not parse, ruby prints a report and exits
+      # 1. The binary does the same, with the ruby report. `Zr::CLI.lower`
+      # does the same, and the two must stay the same.
       report = syntax_report(rb)
       return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
 
       Native::Build.lower("$stderr.write(#{report.inspect})\nexit 1\n", rb, target: target)
     end
 
-    # The program a bare ruby runs to write the report. It names the file
-    # the way it was given it, since that is the name the binary carries.
-    # The parse's warnings come first, as ruby prints them first.
+    # The program that a bare ruby runs to write the report. It prints the
+    # file path as given, because the binary contains that path. The
+    # parse warnings come first, as in ruby.
     REPORT = <<~'RUBY'
       $stderr = $stdout
       begin
@@ -233,18 +231,16 @@ module Zr
       end
     RUBY
 
-    # ruby's own report for a file that does not parse, or nil when ruby
-    # parses it and the stop came from something it required.
+    # Returns the ruby report for a file that does not parse. Returns nil
+    # when ruby parses it, and the error came from a required file.
     #
-    # A bare ruby writes it, not this process. The report goes through
-    # syntax_suggest, and `bundle exec` hides a gem this Gemfile does not
-    # name: what answers here is the older copy ruby keeps under
-    # lib/ruby, 2.0.3 against the gem's 3.0.0, and the two write
-    # different sentences for the same program. The recordings were made
-    # by a bare ruby, so this asks one, as every other road that asks
-    # "what does ruby say" already does. `Zr::CLI.lower` asks the ruby
-    # it runs under, which for someone building a program is this same
-    # bare one.
+    # A bare ruby writes the report, not this process. The report uses
+    # syntax_suggest. Under `bundle exec`, a gem that the Gemfile does
+    # not list is hidden, so this process gets the older copy in lib/ruby
+    # (2.0.3, not 3.0.0), which writes different text. A bare ruby made
+    # the recordings, so a bare ruby writes this report too.
+    # `Zr::CLI.lower` uses the ruby that it runs under, which for a user
+    # is also a bare ruby.
     def syntax_report(rb)
       out, = Harness::Child.run([RbConfig.ruby, "-e", REPORT, rb], cwd: Dir.pwd, seconds: Spec.limit,
                                                                    megabytes: Harness::Child::RUN_MB,
@@ -252,7 +248,8 @@ module Zr
       out.stdout.empty? ? nil : Spec.text(out.stdout)
     end
 
-    # What the binary said, or why it does not count as an answer.
+    # Returns the Result of the binary, or `[kind, why]` when the output
+    # does not count.
     def verdict(answer)
       return [:timeout, "ran past #{Spec.limit}s"] if answer.code == :timeout
       return [:backend, "held more than #{Harness::Child::RUN_MB} MB"] if answer.code == :memory
@@ -281,16 +278,16 @@ module Zr
       end
     end
 
-    # What a spec example says: `zr "puts 1"` answers a Result, or
-    # skips when zr refused the program or could not build it.
+    # The spec DSL. `zr "puts 1"` returns a Result, or skips when zr
+    # refuses the program or cannot build it.
     module DSL
       include Fixtures
 
       ROOT = File.expand_path("../..", __dir__)
 
-      # `ruby:` names flags for the oracle alone, which zr has no use
-      # for: it is carried so that `rake oracle` can ask ruby the same
-      # question this example asked zr.
+      # `ruby:` gives flags for ruby only; zr does not use them. They are
+      # kept so that `rake oracle` runs ruby with the same program and
+      # input as zr.
       def zr(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
         phases = (metadata[Test::Slow::KEY] ||= {}) if Test::Slow.asked?
         out = Spec.build_and_run(source, path: path || default_path, argv: argv, env: env,
@@ -304,15 +301,14 @@ module Zr
         skip("#{bucket}: #{why}")
       end
 
-      # The name the program answers to when an example does not name
-      # one: the spec file's own, so a backtrace says where the example
-      # lives. `it` defines a method, and the method knows which file it
-      # was written in -- which is the one thing here that does not
-      # change when the sentence does.
+      # The path of the program when an example gives none: the path of
+      # the spec file, so a backtrace shows where the example is. `it`
+      # defines a method, and the method knows its source file. The path
+      # does not change when the example description changes.
       def default_path = Reader.path_for(method(name).source_location.first)
 
-      # The sentence a refusal names, with the file and line taken off,
-      # so the census counts gaps and not places.
+      # Returns the refusal message without the file and line, so that
+      # `Census` counts unsupported forms, not locations.
       def shape(why)
         (why[/(?:line \d+|run time): (.*)\z/, 1] || why).delete_suffix(" is not in zr's subset")
       end

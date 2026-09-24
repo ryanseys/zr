@@ -2,12 +2,12 @@
 
 module Zr
   module Test
-    # Stand-ins for a test, since minitest 6 has no minitest/mock.
-    # test_helper includes this module in every test.
+    # Stub helpers for tests, because minitest 6 does not include
+    # minitest/mock. test_helper includes this module in every test.
     module Stubs
       # Replaces the singleton method `owner.name` with `answer` while the
-      # block runs. A callable answer is called with the method's
-      # arguments; any other answer is returned as it is.
+      # block runs. If `answer` is callable, the stub calls it with the
+      # arguments of the method. Otherwise the stub returns `answer`.
       def stub_method(owner, name, answer)
         was = owner.method(name)
         owner.define_singleton_method(name) { |*args, **kw| answer.respond_to?(:call) ? answer.call(*args, **kw) : answer }

@@ -7,51 +7,48 @@ require_relative "harness/child"
 require_relative "harness/runner"
 
 module Zr
-  # The end-to-end tier: whole programs, built the way anyone builds one
-  # -- the CLI, in its own process, through a real link -- and held to
-  # what ruby answered.
+  # The end-to-end tier. It builds whole programs as a user does (the
+  # CLI, in its own process, with a real link) and checks the output
+  # against the recording from ruby.
   #
-  # The specs compile in process and answer for the language. These
-  # answer for the product: that `zr build` writes a binary, and that
-  # the binary a link produced starts, reads its ARGV, opens a socket,
-  # takes a signal, resolves a Gemfile and flushes its output at exit.
-  # They are filed by area, as the specs are, so `test/e2e/core/process`
-  # and `test/spec/core/process` are about the same thing at two
-  # different costs.
+  # The specs compile in process and test the language. These tests
+  # test the product: `zr build` writes a binary, and the linked binary
+  # starts, reads ARGV, opens a socket, receives a POSIX signal, resolves
+  # a Gemfile and flushes its output at exit. The directories follow the
+  # specs, so `test/e2e/core/process` and `test/spec/core/process` test
+  # the same area at two different costs.
   #
-  # A program is a `.rb` file anyone can run under ruby, and nothing
-  # else: no header, no trailer, nothing to parse. What ruby answered
-  # sits beside it, in files that hold those bytes and no others --
-  # `<name>.out`, and `<name>.err` and `<name>.status` when there is
-  # something to say. `rake record` writes them.
+  # A program is a plain `.rb` file that ruby can run. It has no header
+  # or trailer. Its recording is next to it: `<name>.out`, and also
+  # `<name>.err` and `<name>.status` when they are not empty.
+  # `rake record` writes them.
   module E2E
     ROOT = File.expand_path("../..", __dir__)
 
-    # The few programs that need something. A program not named here is
-    # built and run with no arguments, no environment of its own and no
-    # conditions, which is nearly all of them.
+    # Settings for the few programs that need them. A program that is not
+    # in this table runs with no arguments, no added environment and no
+    # conditions. Almost all programs are not in it.
     #
-    #   argv:      what the binary is started with
-    #   env:       what it is started under
-    #   stdin:     a file beside the program, fed to it
+    #   argv:      the arguments of the binary
+    #   env:       the environment of the binary
+    #   stdin:     a file next to the program, sent to its stdin
     #   needs:     what this machine must have, or the program skips
     #   only:      the platforms that run it
-    #   build_mb:  a memory bound for the build, above the usual one
-    #   run_mb:    a memory bound for the run, above the usual one
-    #   skip:      why it does not run at all, in words
+    #   build_mb:  a memory limit for the build, above the usual one
+    #   run_mb:    a memory limit for the run, above the usual one
+    #   skip:      the reason that it does not run
     #
-    # It lives here rather than in the test file because `rake record`
-    # reads it too: a program is asked of ruby the way it is asked of
-    # zr, or the answer is not an answer to the same question.
+    # `rake record` also reads this table, so ruby and zr run each program
+    # with the same arguments, environment and input.
     HOW = {
       "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZR_TEST_AOT_SMOKE" => "on" } },
       "stdlib/bundler/require_bundler" => { build_mb: 3072 },
-      # A wasm module that evals carries the whole front end inside
-      # itself, since there is no second object to link a road in as.
-      # That is about 90 MB of module, which costs near 3 GB to emit
-      # and, because an engine compiles a module whole before it runs a
-      # line of it, near 2.1 GB to instantiate. The same programs built
-      # native read the road off the cache and stay far under both.
+      # A WASI module that evals includes the whole front end, because
+      # there is no second object to link eval support from. The module
+      # is about 90 MB. It takes near 3 GB to emit and near 2.1 GB to
+      # instantiate, because the engine compiles the whole module before
+      # it runs. Native builds link eval support from the cache and use
+      # much less memory.
       "core/io/file_io_roundtrip" => { build_mb: 4096, run_mb: 3072 },
       "lang/eval/eval_in_a_binary" => { build_mb: 3584, run_mb: 3072 },
       "lang/require/require_a_bundled_library" => { build_mb: 4096, run_mb: 3072 },
@@ -61,24 +58,22 @@ module Zr
       "stdlib/testing/a_minitest_suite_runs" => { argv: %w[--seed 42] }
     }.freeze
 
-    # Long enough for the slowest of them -- one resolves a Gemfile --
-    # and short enough that a miscompile that loops does not hold the
-    # suite.
+    # Long enough for the slowest program (one resolves a Gemfile), and
+    # short enough that a miscompiled infinite loop does not stop the suite.
     LIMIT = 300
 
-    # Every program, in a stable order. A program sits two directories
-    # under `test/e2e`, which is what keeps the driver beside them from
-    # being one.
+    # Returns all programs, in a stable order. A program is two directories
+    # below `test/e2e`, so the driver files in `test/e2e` are not programs.
     def self.programs = Dir[File.join(ROOT, "test/e2e/*/*/*.rb")].sort
 
-    # The name a program answers to: its area and its own, so
-    # `-n /socket/` runs the one and `-n /core_process/` runs the five.
+    # Returns the test name of a program: its area and its file name. So
+    # `-n /socket/` runs one program and `-n /core_process/` runs five.
     def self.key(rb) = rb.delete_prefix("#{File.join(ROOT, "test/e2e")}/").delete_suffix(".rb")
 
-    # The programs a target is allowed to fail, and why, read from
-    # `test/baselines/<triple>.txt`. A target on its way in is held to
-    # what it did rather than to the whole tier -- and a row that now
-    # passes fails the run, so the file never grows stale.
+    # Returns the programs that a target can fail, and the reasons, from
+    # `test/baselines/<triple>.txt`. A new target is checked against its
+    # baseline, not the whole tier. A listed program that passes fails
+    # the run, so the file stays current.
     def self.baseline(target)
       path = File.join(ROOT, "test/baselines", "#{target.triple}.txt")
       return {} unless File.file?(path)
@@ -93,7 +88,7 @@ module Zr
       end.to_h
     end
 
-    # The programs as tests on `suite`.
+    # Defines one test on `suite` for each program.
     def self.define(suite, how = HOW)
       target = Harness::Runner.named(ENV["ZR_TARGET"])
       runner = Harness::Runner.new(ROOT, target)
@@ -108,8 +103,8 @@ module Zr
       end
     end
 
-    # What the driver does with one program: build it, run it, and say
-    # where the answer parts from ruby's.
+    # Builds and runs one program, and shows where its output is
+    # different from the ruby recording.
     module DSL
       def build_and_answer(rb, runner, how, baselined = nil)
         return within(rb, runner, how, baselined) if baselined
@@ -130,14 +125,13 @@ module Zr
         end
       end
 
-      # A program the target's baseline names: it is allowed to fail,
-      # and a pass is what the run reports, so the file cannot go stale
-      # without anyone noticing.
+      # Runs a program that is in the baseline of the target. A failure is
+      # a skip. A pass is a failure, so the baseline file stays current.
       def within(rb, runner, how, why)
         build_and_answer(rb, runner, how)
       rescue Minitest::Skip
-        # A program this machine cannot run says so for itself; the
-        # baseline is about what the target answers, not about that.
+        # A skip because of this machine is not a baseline failure, so
+        # it stays a skip.
         raise
       rescue Minitest::Assertion
         skip "the #{runner.target.triple} baseline allows this: #{why}"
@@ -145,8 +139,7 @@ module Zr
         flunk "this now passes: take it off test/baselines/#{runner.target.triple}.txt"
       end
 
-      # `zr build`, in its own process, from `test/`, as a person
-      # would build one of these programs.
+      # Runs `zr build` in its own process, from `test/`, as a user does.
       def build(rb, bin, how, runner)
         megabytes = [how[:build_mb] || 0, Harness::Child::BUILD_MB].max
         argv = runner.build_argv(rel(rb), bin)
@@ -156,8 +149,9 @@ module Zr
         flunk "the build #{why(out, megabytes)}\n  #{argv.join(" ")}\n#{tail(out)}"
       end
 
-      # The binary's answer, scrubbed as the recording was, held to
-      # ruby's part by part so a failure names which part parted.
+      # Runs the binary, normalizes the output as the recording was
+      # normalized, and compares each part with the recording. A failure
+      # gives the part that is different.
       def answer(rb, bin, how, recorded, runner)
         megabytes = [how[:run_mb] || 0, Harness::Child::RUN_MB].max
         stdin = how[:stdin] && File.binread(File.join(File.dirname(rb), how[:stdin]))
@@ -168,19 +162,18 @@ module Zr
         got = Harness::Normalize.answer(out, rb, cwd)
         want = Harness::Normalize.answer(recorded, rb, cwd)
         refute runner.trapped?(got) && !want.signal, "the module trapped:\n#{got.stderr}"
-        # stderr first: a program that wrote nothing to stdout has
-        # almost always said why on stderr, and an empty-vs-empty
-        # comparison costs nothing when it has not.
+        # Compare stderr first. A program that wrote nothing to stdout
+        # usually gives the reason on stderr.
         assert_equal want.stderr, got.stderr, "stderr"
         assert_equal want.stdout, got.stdout, "stdout"
-        # A signalled process has no exit status, and a process that
-        # exited took no signal, so either part may be absent.
+        # A process that a POSIX signal stopped has no exit status, and a
+        # process that exited has no signal, so either part can be nil.
         want.signal.nil? ? assert_nil(got.signal, "signal") : assert_equal(want.signal, got.signal, "signal")
         want.code.nil? ? assert_nil(got.code, "exit status") : assert_equal(want.code, got.code, "exit status")
       end
 
-      # Where a program is built and run: `test/`, which is what the
-      # paths in its recording are relative to.
+      # The directory where a program is built and run: `test/`. The
+      # paths in a recording are relative to it.
       def cwd = File.join(E2E::ROOT, "test")
       def rel(rb) = rb.delete_prefix("#{cwd}/")
 
@@ -188,7 +181,7 @@ module Zr
         Harness::Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: E2E::LIMIT, megabytes: megabytes).first
       end
 
-      # Why a child produced no answer, in words.
+      # Returns the reason, in words, that a child did not succeed.
       def why(out, megabytes)
         case out.code
         when :timeout then "ran past #{E2E::LIMIT}s"

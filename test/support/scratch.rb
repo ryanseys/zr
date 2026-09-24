@@ -5,16 +5,16 @@ require "fileutils"
 
 module Zr
   module Test
-    # The directories the tiers make under the system's temporary one.
-    # Each is removed by whoever made it -- a block's end, the tier's
-    # `at_exit` -- but a tier that is killed runs neither, and a
-    # directory a pool worker made outlives it, since a worker ends in
-    # `exit!`. They were 35 GB on 2026-09-23. `mktmpdir` spells its
-    # maker's pid into the name (`zr-bins-20260923-4711-x1y2z3`), and
-    # no process uses a directory whose maker is gone, so a tier sweeps
-    # those as it starts. A pid that is alive keeps its directory, even
-    # when the system has handed the number to someone else: a sweep
-    # may leave a directory too many, never take one in use.
+    # Removes old directories that the tiers make in the system temporary
+    # directory. Usually the maker removes each one (at the end of a
+    # block, or in `at_exit`). A killed tier does not, and a pool worker
+    # ends in `exit!`, so its directories stay. These can grow to tens of
+    # GB. `mktmpdir` puts the pid of its maker in the name
+    # (`zr-bins-20260923-4711-x1y2z3`). When that process is gone, no
+    # process uses the directory, so a tier removes it when it starts. A
+    # live pid keeps its directory, even if the system gave the pid to a
+    # different process: a sweep can leave extra directories, but it
+    # never removes one in use.
     module Scratch
       PATTERN = /\Azr-.+?-\d{8}-(\d+)-/
 
@@ -26,7 +26,7 @@ module Zr
           FileUtils.rm_rf(File.join(root, name)) unless alive?(Integer(pid))
         end
       rescue SystemCallError
-        nil # a sweep is housekeeping; a tier does not fail for it
+        nil # the sweep is only cleanup; a tier does not fail because of it
       end
 
       def alive?(pid)
@@ -35,7 +35,7 @@ module Zr
       rescue Errno::ESRCH
         false
       rescue Errno::EPERM
-        true # someone else's process
+        true # a process of a different user
       end
     end
   end
