@@ -50,11 +50,9 @@ class ProgramsTest < Minitest::Test
   # a bound is killed, and its status says which bound rather than
   # nothing, so the check fails and names the program.
   def capture(env, argv)
-    Dir.mktmpdir("zr-programs-err-") do |dir|
-      err = File.join(dir, "err")
-      out, why = Checks.bounded(env, argv, err: err)
-      [out, File.read(err), why ? "killed at #{why}" : $?.exitstatus]
-    end
+    answer = Checks.run(argv, env: env)
+    why = Checks.killed(answer)
+    [answer.stdout, answer.stderr, why ? "killed at #{why}" : answer.code]
   end
 
   def oracle(rb)

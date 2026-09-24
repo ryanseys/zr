@@ -12,8 +12,8 @@ AllCops:
     - "test/e2e/**/*"
     - "test/programs/**/*"
     - "test/fixtures/**/*"
-    - "test/rt/**/*"
-    - "test/zr/**/*"
+    - "test/runtime/**/*"
+    - "test/machine/**/*"
     - "test/hir/**/*"     # input programs for the HIR snapshots
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated

@@ -35,19 +35,19 @@ class ExeTest < Minitest::Test
       Dir.mktmpdir("zr-exe-") do |dir|
         status, out = ran(written(Zr::Native::Build.unit(functions, data), dir, name))
         assert_equal 0, status, "#{name} exited #{status}: #{out}"
-        assert_equal File.binread(File.join(ROOT, "test/native/#{name}.stdout")), out
+        assert_equal File.binread(File.join(ROOT, "test/native/#{name}.out")), out
       end
     end
   end
 
-  Dir[File.join(ROOT, "test/zr/*.rb")].sort.each do |rb|
+  Dir[File.join(ROOT, "test/machine/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_zr_#{name}") do
       functions, data, raw = Zr::Machine.compile(File.read(rb), rb)
       Dir.mktmpdir("zr-exe-") do |dir|
         status, out = ran(written(Zr::Native::Build.unit(functions, data, raw: raw), dir, name), name)
         assert_equal 0, status, "#{name} exited #{status}: #{out}"
-        assert_equal File.binread(rb.sub(/\.rb\z/, ".stdout")), out
+        assert_equal File.binread(rb.sub(/\.rb\z/, ".out")), out
       end
     end
   end

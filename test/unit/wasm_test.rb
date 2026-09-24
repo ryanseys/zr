@@ -4,7 +4,7 @@ require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
-require "support/rt_programs"
+require "support/runtime_programs"
 
 # The wasm road: every hand-written IR program, every kernel-dialect
 # program that names no raw function, and every kernel core becomes one
@@ -12,15 +12,15 @@ require "support/rt_programs"
 #
 # Every wasm row is here, so a failure names the wasm backend and
 # nothing else. The same programs go through the aarch64 backend in
-# `native_test.rb`, `zr_test.rb` and `rt_test.rb`.
+# `native_test.rb`, `machine_test.rb` and `runtime_test.rb`.
 class WasmTest < Minitest::Test
   def run_module(wasm, expected, *args, status: 0)
     skip "wasmtime is not installed" unless Checks.wasmtime?
 
-    out, why = Checks.bounded({}, Zr::Harness::Wasmtime.run(wasm, *args), err: %i[child out])
-    refute why, "wasmtime was killed at #{why}: #{out}"
-    assert_equal status, $?.exitstatus, "wasmtime exited #{$?.exitstatus}: #{out}"
-    assert_equal expected, out
+    answer = Checks.run(Zr::Harness::Wasmtime.run(wasm, *args), merge: true)
+    refute Checks.killed(answer), "wasmtime was killed at #{Checks.killed(answer)}: #{answer.stdout}"
+    assert_equal status, answer.code, "wasmtime exited #{answer.code}: #{answer.stdout}"
+    assert_equal expected, answer.stdout
   end
 
   Zr::Native::Fixtures::NAMES.each do |name|
@@ -29,7 +29,7 @@ class WasmTest < Minitest::Test
       Dir.mktmpdir("zr-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm(functions, data, wasm)
-        run_module(wasm, File.binread(File.join(ROOT, "test/native/#{name}.stdout")))
+        run_module(wasm, File.binread(File.join(ROOT, "test/native/#{name}.out")))
       end
     end
   end
@@ -145,9 +145,9 @@ class WasmTest < Minitest::Test
       wasm = File.join(dir, "host.wasm")
       assert_nil Zr::Native::Build.wasm_program(program, wasm)
       argv = Zr::Harness::Wasmtime.run(wasm, "a", "b", dirs: { "." => "." }, env: { "X" => "1" })
-      out, why = Checks.bounded({}, argv, err: %i[child out], chdir: dir)
-      refute why, "wasmtime was killed at #{why}: #{out}"
-      assert_equal <<~'OUT', out
+      answer = Checks.run(argv, chdir: dir, merge: true)
+      refute Checks.killed(answer), "wasmtime was killed at #{Checks.killed(answer)}: #{answer.stdout}"
+      assert_equal <<~'OUT', answer.stdout
         ["a", "b"]
         "1"
         false
@@ -165,7 +165,7 @@ class WasmTest < Minitest::Test
     end
   end
 
-  Dir[File.join(ROOT, "test/zr/*.rb")].sort.each do |rb|
+  Dir[File.join(ROOT, "test/machine/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_zr_#{name}") do
       functions, data, raw = Zr::Machine.compile(File.read(rb), rb)
@@ -174,20 +174,20 @@ class WasmTest < Minitest::Test
       Dir.mktmpdir("zr-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm(functions, data, wasm)
-        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")))
-        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")), "stress") if name == "gc"
+        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".out")))
+        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".out")), "stress") if name == "gc"
       end
     end
   end
 
-  # The kernel core, as `rt_test.rb` links it natively.
-  RtPrograms::FILES.each do |rb|
+  # The kernel core, as `runtime_test.rb` links it natively.
+  Zr::Test::RuntimePrograms::FILES.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_rt_#{name}") do
       skip Checks.wasm_missing if Checks.wasm_missing
 
-      want, status = RtPrograms.expected(rb)
-      program = RtPrograms.compile(rb, Zr::Target::WASM32_WASI)
+      want, status = Zr::Test::RuntimePrograms.expected(rb)
+      program = Zr::Test::RuntimePrograms.compile(rb, Zr::Target::WASM32_WASI)
       Dir.mktmpdir("zr-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm_program(program, wasm)
@@ -196,14 +196,14 @@ class WasmTest < Minitest::Test
     end
   end
 
-  Dir[File.join(ROOT, "test/zr/units/*/")].sort.each do |unit|
+  Dir[File.join(ROOT, "test/machine/units/*/")].sort.each do |unit|
     name = File.basename(unit)
     define_method("test_zr_unit_#{name}") do
       functions, data, raw = Zr::Machine.compile_unit(Dir[File.join(unit, "*.rb")].sort)
       Dir.mktmpdir("zr-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm(functions, data, wasm, raw: raw)
-        run_module(wasm, File.binread(File.join(unit, "stdout")))
+        run_module(wasm, File.binread(File.join(unit, "out")))
       end
     end
   end

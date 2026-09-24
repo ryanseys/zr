@@ -14,9 +14,9 @@ class PrismTest < Minitest::Test
   PrismDiff = Zr::Harness::PrismDiff
 
   def test_the_generated_files_are_current
-    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/oracle/prism_generate.rb"), "--check"], err: %i[child out], &:read)
+    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/generators/prism_generate.rb"), "--check"], err: %i[child out], &:read)
     assert $?.success?, out
-    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/oracle/prism_encoding_tables.rb"), "--check"], err: %i[child out], &:read)
+    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/generators/prism_encoding_tables.rb"), "--check"], err: %i[child out], &:read)
     assert $?.success?, out
   end
 

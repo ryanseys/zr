@@ -30,11 +30,11 @@ class InterpTest < Minitest::Test
       functions, data = Zr::Native::Fixtures.build(name)
       status, out = answers(functions, data, [], [name])
       assert_equal 0, status, "#{name} exited #{status}"
-      assert_equal File.binread(File.join(ROOT, "test/native/#{name}.stdout")), out
+      assert_equal File.binread(File.join(ROOT, "test/native/#{name}.out")), out
     end
   end
 
-  Dir[File.join(ROOT, "test/zr/*.rb")].sort.each do |rb|
+  Dir[File.join(ROOT, "test/machine/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_zr_#{name}") do
       functions, data, raw = Zr::Machine.compile(File.read(rb), rb)
@@ -44,25 +44,25 @@ class InterpTest < Minitest::Test
       else
         status, out = answers(functions, data, raw, [name])
         assert_equal 0, status, "#{name} exited #{status}"
-        assert_equal File.binread(rb.sub(/\.rb\z/, ".stdout")), out
+        assert_equal File.binread(rb.sub(/\.rb\z/, ".out")), out
       end
     end
   end
 
-  Dir[File.join(ROOT, "test/zr/units/*/")].sort.each do |unit|
+  Dir[File.join(ROOT, "test/machine/units/*/")].sort.each do |unit|
     name = File.basename(unit)
     define_method("test_zr_unit_#{name}") do
       functions, data, raw = Zr::Machine.compile_unit(Dir[File.join(unit, "*.rb")].sort)
       status, out = answers(functions, data, raw, [name])
       assert_equal 0, status, "#{name} exited #{status}"
-      assert_equal File.binread(File.join(unit, "stdout")), out
+      assert_equal File.binread(File.join(unit, "out")), out
     end
   end
 
   # The collector under stress, the case the compiled road also runs: a
   # program that drops a root out of its record must abort.
   def test_a_missed_root_aborts
-    source = File.read(File.join(ROOT, "test/zr/gc.rb"))
+    source = File.read(File.join(ROOT, "test/machine/gc.rb"))
     bad = source.sub("    Machine.store64(rec, 24, leaf)\n    leaf = 0\n", "    Machine.store64(rec, 24, 0)\n")
                 .sub("    Machine.store64(pair, 8, Machine.load64(rec, 24))", "    Machine.store64(pair, 8, leaf)")
     refute_equal source, bad

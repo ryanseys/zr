@@ -20,9 +20,9 @@ class BuiltTest < Minitest::Test
   def test_ready_builds_a_target_that_is_not_built_then_loads_it
     started = []
     loaded = []
-    standing_in(:built?, ->(target) { started.include?(target) }) do
-      standing_in(:start, ->(target, **) { started << target; fork { exit! 0 } }) do
-        standing_in(:load, ->(target) { loaded << target }) { capture_io { Built.ready! } }
+    stub_method(Built, :built?, ->(target) { started.include?(target) }) do
+      stub_method(Built, :start, ->(target, **) { started << target; fork { exit! 0 } }) do
+        stub_method(Built, :load, ->(target) { loaded << target }) { capture_io { Built.ready! } }
       end
     end
 
@@ -31,8 +31,8 @@ class BuiltTest < Minitest::Test
   end
 
   def test_build_says_a_built_target_is_up_to_date_and_builds_nothing
-    standing_in(:built?, true) do
-      standing_in(:start, ->(*) { flunk "started a build" }) do
+    stub_method(Built, :built?, true) do
+      stub_method(Built, :start, ->(*) { flunk "started a build" }) do
         _, err = capture_io { Built.build([Zr::Target.default], say: $stderr) }
         assert_match(/zr runtime for #{Zr::Target.default.triple} is up to date \(cache: /, err)
       end
@@ -41,18 +41,18 @@ class BuiltTest < Minitest::Test
 
   def test_a_tier_loads_what_is_built_and_builds_nothing
     loaded = []
-    standing_in(:built?, true) do
-      standing_in(:load, ->(target) { loaded << target }) { capture_io { Built.ready! } }
+    stub_method(Built, :built?, true) do
+      stub_method(Built, :load, ->(target) { loaded << target }) { capture_io { Built.ready! } }
     end
 
     assert_equal [Zr::Target.default], loaded
   end
 
   def test_the_unit_tier_asks_for_wasm_beside_this_host_where_wasmtime_is
-    standing_in(:targets, [Zr::Target.default, Zr::Target::WASM32_WASI]) do
+    stub_method(Built, :targets, [Zr::Target.default, Zr::Target::WASM32_WASI]) do
       loaded = []
-      standing_in(:built?, true) do
-        standing_in(:load, ->(target) { loaded << target }) { capture_io { Built.ready!(wasm: true) } }
+      stub_method(Built, :built?, true) do
+        stub_method(Built, :load, ->(target) { loaded << target }) { capture_io { Built.ready!(wasm: true) } }
       end
 
       assert_equal [Zr::Target.default, Zr::Target::WASM32_WASI], loaded
@@ -64,18 +64,5 @@ class BuiltTest < Minitest::Test
     assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target.default))
     assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target::WASM32_WASI))
     refute_equal Built.mark(Zr::Target.default), Built.mark(Zr::Target::WASM32_WASI)
-  end
-
-  private
-
-  # `name` answering `answer` (called, where it is callable) while the
-  # block runs. minitest 6 leaves `minitest/mock` out, and standing in
-  # for one method is the whole of what it was wanted for.
-  def standing_in(name, answer)
-    was = Built.method(name)
-    Built.define_singleton_method(name) { |*args, **kw| answer.respond_to?(:call) ? answer.call(*args, **kw) : answer }
-    yield
-  ensure
-    Built.define_singleton_method(name, was)
   end
 end

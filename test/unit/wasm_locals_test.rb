@@ -72,9 +72,9 @@ class WasmLocalsTest < Minitest::Test
     Dir.mktmpdir("zr-wasm-locals-") do |dir|
       wasm = File.join(dir, "search.wasm")
       assert_nil Zr::Native::Build.wasm(functions, data, wasm)
-      out, why = Checks.bounded({}, Zr::Harness::Wasmtime.run(wasm), err: %i[child out])
-      refute why, "wasmtime was killed at #{why}: #{out}"
-      assert_equal IN_RANGES, $?.exitstatus, out
+      answer = Checks.run(Zr::Harness::Wasmtime.run(wasm), merge: true)
+      refute Checks.killed(answer), "wasmtime was killed at #{Checks.killed(answer)}: #{answer.stdout}"
+      assert_equal IN_RANGES, answer.code, answer.stdout
     end
   end
 

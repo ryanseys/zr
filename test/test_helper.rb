@@ -27,6 +27,8 @@ Zr::Test::Scratch.sweep
 # which every later worker then inherits, because a fork starts from
 # whatever this process has become. The parent stays a dispatcher.
 Minitest.parallel_executor = Zr::Test::ForkPool.new
+require_relative "support/stubs"
+Minitest::Test.include(Zr::Test::Stubs)
 require_relative "support/slow"
 require_relative "support/progress"
 Minitest::Test.parallelize_me!
@@ -48,21 +50,17 @@ end
 ROOT = File.expand_path("..", __dir__)
 
 require_relative "support/harness/wasmtime"
+require_relative "support/harness/child"
 require_relative "support/built"
 
 # What the checks share. A module and not the top level: a method
 # defined there is a method on `Object`, which is exactly the collision
 # `hygiene_test.rb` exists to refuse.
 module Checks
-  # A program a check runs must not be able to take the machine with it.
-  # `test/programs/native/utf8.rb` on the wasm road allocates in a loop -- five
-  # gigabytes in twelve seconds, and it never ends -- so a run is bounded
-  # in time and in resident memory, and one that passes either bound is
-  # killed and reads as a failure rather than as a hung machine.
-  #
-  # The memory is watched rather than asked for: wasmtime's own
-  # `max-memory-size` bounds the module's linear memory and not what the
-  # process resides in, which is what runs the machine out.
+  # The bounds on a program that a test runs, in seconds and in resident
+  # megabytes. A program that passes one is killed, and the test fails.
+  # wasmtime's own `max-memory-size` bounds only the module's linear
+  # memory, so the process's resident size is watched instead.
   LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
   RESIDENT = Integer(ENV.fetch("ZR_TEST_RESIDENT_MB", 2048))
 
@@ -82,43 +80,24 @@ module Checks
     nil
   end
 
-  # `[stdout, why]` of `argv` under `env`, `why` naming the bound it
-  # passed and nil when it stopped on its own. `$?` is the child's, as
-  # `IO.popen` leaves it.
-  #
-  # The child runs outside this bundle; `Harness::CleanEnv` says why.
-  def bounded(env, argv, err:, chdir: Dir.pwd)
-    why = nil
-    out = IO.popen(Zr::Harness::CleanEnv.env(env), argv, err: err, chdir: chdir,
-                   unsetenv_others: true) do |io|
-      watchdog = Thread.new { why = watch(io.pid) }
-      io.read.tap { watchdog.kill }
-    end
-    [out, why]
+  # The answer (`Harness::Answer`) of `argv` under `env`, run in its
+  # own process group under the bounds above. Its code is the exit
+  # status, or :timeout or :memory for a bound it passed. With `merge`,
+  # stderr goes into stdout. The output is in the default external
+  # encoding, as `IO.popen` gives it. The child runs outside this bundle
+  # (`Harness::CleanEnv`).
+  def run(argv, env: {}, chdir: Dir.pwd, merge: false)
+    answer, = Zr::Harness::Child.run(argv, cwd: chdir, seconds: LIMIT, megabytes: RESIDENT, env: env, merge: merge)
+    answer.stdout.force_encoding(Encoding.default_external)
+    answer.stderr.force_encoding(Encoding.default_external)
+    answer
   end
 
-  # Watch `pid` until it stops or passes a bound, and kill it if it does.
-  def watch(pid)
-    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + LIMIT
-    loop do
-      passed = beyond(pid, deadline)
-      return nil if passed == :done
-      return passed.tap { Process.kill("KILL", pid) } if passed
-
-      sleep 0.25
+  # Why `answer` did not finish on its own, or nil when it did.
+  def killed(answer)
+    case answer.code
+    when :timeout then "#{LIMIT}s"
+    when :memory then "#{RESIDENT} MB resident"
     end
-  rescue StandardError
-    nil
-  end
-
-  # Which bound `pid` has passed, nil while it is within both, and
-  # `:done` once it has gone, which is what stops the watching.
-  def beyond(pid, deadline)
-    return "#{LIMIT}s" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-
-    rss = `ps -o rss= -p #{pid} 2>/dev/null`.to_i
-    return :done if rss.zero?
-
-    "#{RESIDENT} MB resident" if rss > RESIDENT * 1024
   end
 end

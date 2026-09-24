@@ -25,7 +25,7 @@ class NativeTest < Minitest::Test
         assert_nil Zr::Native::Link.run([obj], bin)
         out = IO.popen([bin], &:read)
         assert_equal 0, $?.exitstatus, "#{name} exited #{$?.exitstatus}"
-        assert_equal File.binread(File.join(ROOT, "test/native/#{name}.stdout")), out
+        assert_equal File.binread(File.join(ROOT, "test/native/#{name}.out")), out
         libs = IO.popen(["otool", "-L", bin], &:read).scan(%r{^\t(\S+)}).flatten
         assert_equal ["/usr/lib/libSystem.B.dylib"], libs
       end

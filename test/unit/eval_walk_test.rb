@@ -56,14 +56,4 @@ class EvalWalkTest < Minitest::Test
     end
     refute_equal Build::EVAL_COMPILER, Build::EVAL_INTERPRETER
   end
-
-  private
-
-  def with_env(overlay)
-    was = overlay.to_h { |key, _| [key, ENV[key]] }
-    ENV.update(overlay)
-    yield
-  ensure
-    was.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
-  end
 end

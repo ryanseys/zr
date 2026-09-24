@@ -92,7 +92,7 @@ outputs that this host can make now.
 | `rake test:spec` | Ruby specs, each checked against ruby 4.0.6 |
 | `rake test:e2e` | whole programs, built and linked |
 | `rake test:spec:slow` | the spec tier, and its 25 slowest files |
-| `rake test test/unit/zr_test.rb N=/gc/` | one file, or one example |
+| `rake test test/unit/machine_test.rb N=/gc/` | one file, or one example |
 
 `bin/test` and the tiers build the runtime first when it is missing or
 out of date. After a change under `lib` or `runtime`, that build takes a

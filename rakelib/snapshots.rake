@@ -11,7 +11,7 @@
 #   rake gen:prism_generate          runtime/ext/prism/ruby/*.rb
 #   rake gen:prism_encoding_tables   runtime/ext/prism/ruby/encoding_tables.rb
 #
-# The generators live in `test/support/oracle/`, beside the tests that
+# The generators live in `test/support/generators/`, beside the tests that
 # run them, and the tasks here run the same scripts the same way:
 # `test/unit/description_test.rb`, `libsystem_test.rb` and
 # `prism_test.rb` are the ones that fail when a file has gone stale, and
@@ -19,7 +19,7 @@
 # the first two again.
 
 module Snapshots
-  ORACLE = File.expand_path("../test/support/oracle", __dir__)
+  ORACLE = File.expand_path("../test/support/generators", __dir__)
 
   module_function
 
@@ -28,7 +28,7 @@ module Snapshots
   def run(name, *argv)
     argv = [Gem.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ORACLE, "#{name}.rb"), *argv]
     out = IO.popen(argv, &:read)
-    abort("rake gen:#{name}: #{File.join("test/support/oracle", "#{name}.rb")} failed") unless $?.success?
+    abort("rake gen:#{name}: #{File.join("test/support/generators", "#{name}.rb")} failed") unless $?.success?
     out
   end
 end

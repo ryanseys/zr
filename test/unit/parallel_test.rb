@@ -52,7 +52,7 @@ class ParallelTest < Minitest::Test
   end
 
   def test_a_machine_that_will_not_say_its_memory_is_treated_as_a_small_one
-    standing_in(Etc, :sysconf, -> { raise NotImplementedError }) do
+    stub_method(Etc, :sysconf, -> { raise NotImplementedError }) do
       assert_equal 8 << 30, Parallel.machine_bytes
     end
   end
@@ -72,25 +72,7 @@ class ParallelTest < Minitest::Test
 
   Parallel = Zr::Native::Parallel
 
-  def on_a_machine_of(gigabytes, &block) = standing_in(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block)
+  def on_a_machine_of(gigabytes, &block) = stub_method(Parallel, :machine_bytes, -> { gigabytes << 30 }, &block)
 
-  def holding(gigabytes, &block) = standing_in(Parallel, :held_bytes, -> { gigabytes << 30 }, &block)
-
-  # minitest 6 leaves `minitest/mock` out, and standing in for one
-  # method is the whole of what it was wanted for.
-  def standing_in(owner, name, answer)
-    was = owner.method(name)
-    owner.define_singleton_method(name) { |*args| answer.call(*args) }
-    yield
-  ensure
-    owner.define_singleton_method(name, was)
-  end
-
-  def with_env(pairs)
-    was = pairs.transform_values { nil }.merge(ENV.slice(*pairs.keys))
-    ENV.update(pairs)
-    yield
-  ensure
-    was.each { |name, value| value.nil? ? ENV.delete(name) : ENV[name] = value }
-  end
+  def holding(gigabytes, &block) = stub_method(Parallel, :held_bytes, -> { gigabytes << 30 }, &block)
 end

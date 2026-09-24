@@ -17,8 +17,8 @@ class LibsystemTest < Minitest::Test
   PATH = File.join(ROOT, "lib/zr/obj/macho/libsystem.rb")
 
   def test_the_list_matches_the_imports
-    text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "test/support/oracle/libsystem.rb")], &:read)
-    assert $?.success?, "test/support/oracle/libsystem.rb failed"
+    text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "test/support/generators/libsystem.rb")], &:read)
+    assert $?.success?, "test/support/generators/libsystem.rb failed"
 
     if ENV["ZR_BLESS"] == "1"
       File.write(PATH, text)

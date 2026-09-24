@@ -464,7 +464,7 @@ describe "IO programs" do
       # program already wrote, so the output comes first -- and an at_exit handler
       # that writes goes out before the report of its own raise. (The order between
       # two streams on two descriptors is not visible to a case, which keeps stdout
-      # and stderr apart; test/rt/no_method.rb holds that one.)
+      # and stderr apart; test/runtime/no_method.rb holds that one.)
       $stderr = $stdout
 
       at_exit { puts "at_exit wrote this" }

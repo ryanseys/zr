@@ -40,9 +40,9 @@ class CleanEnvTest < Minitest::Test
     Dir.mktmpdir("zr-unbundled-") do |work|
       rb = File.join(work, "child.rb")
       File.write(rb, source)
-      out, why = Checks.bounded({}, [RbConfig.ruby, rb], err: File.join(work, "err"))
-      assert_nil why
-      out
+      answer = Checks.run([RbConfig.ruby, rb])
+      assert_nil Checks.killed(answer)
+      answer.stdout
     end
   end
 end

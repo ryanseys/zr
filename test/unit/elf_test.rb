@@ -144,7 +144,7 @@ class ElfTest < Minitest::Test
 
         out = IO.popen([bin], &:read)
         assert_equal 0, $?.exitstatus, "#{name} exited #{$?.exitstatus}"
-        assert_equal File.binread(File.join(ROOT, "test/native/#{name}.stdout")), out
+        assert_equal File.binread(File.join(ROOT, "test/native/#{name}.out")), out
       end
     end
   end

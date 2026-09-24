@@ -13,7 +13,7 @@ its full usage.
 | `rake test:unit [N=/Exe/]` | zr's own internals |
 | `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, program by program |
 | `rake test:e2e [TARGET=]` | whole programs through a real link |
-| `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
+| `minitest test/unit/machine_test.rb -n /gc/` | one file, or one example |
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6 |
 | `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer beside the program |
 | `rake 'bench[--runs 5 fib]'` | how long does what zr built take? |
@@ -39,7 +39,7 @@ edit it by hand.
 
 Four more are written again on every `rake test:unit` and compared with
 what is committed, so a stale one is a failing test rather than
-something to remember. Their generators live in `test/support/oracle/`,
+something to remember. Their generators live in `test/support/generators/`,
 beside the tests that run them.
 
 | Task | Writes | Held by |

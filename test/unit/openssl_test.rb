@@ -37,9 +37,9 @@ class OpenSSLTest < Minitest::Test
 
   # The program's stdout, built once per process.
   def run_program(env)
-    out, why = Checks.bounded(env, [binary], err: File::NULL)
-    assert_nil why, "the program passed #{why}"
-    out
+    answer = Checks.run([binary], env: env)
+    assert_nil Checks.killed(answer), "the program was killed"
+    answer.stdout
   end
 
   def binary
