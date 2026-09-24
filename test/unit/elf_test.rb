@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "../support/obj_unit"
 require_relative "../../lib/zr/native/build"
 require_relative "../../test/native/fixtures"
 
@@ -11,20 +12,12 @@ class ElfTest < Minitest::Test
   Obj = Zr::Obj
   Elf = Zr::Obj::Elf::ObjectFile
 
-  # `mov w0, #3; bl exit`, the branch patched by the link.
-  MAIN_EXIT_3 = [0x60, 0x00, 0x80, 0x52, 0x00, 0x00, 0x00, 0x94].pack("C*")
+  MAIN_EXIT_3 = Zr::Test::ObjUnit::MAIN_EXIT_3
 
   Section = Struct.new(:name, :type, :flags, :offset, :size, :link, :info, :align, :entsize)
   Sym = Struct.new(:name, :bind, :type, :shndx, :size)
 
-  def unit
-    u = Obj::Unit.new
-    u.function("main", MAIN_EXIT_3, relocs: [Obj::Reloc.new(4, :branch26, "exit")])
-    u.datum("msg", :text_const, "hello, zr!\n", linkage: :export)
-    u.datum("table", :data_const, "\0" * 8, relocs: [Obj::Reloc.new(0, :abs64, "msg", 4)])
-    u.datum("counter", :bss, 16)
-    u
-  end
+  def unit = Zr::Test::ObjUnit.unit(addend: 4)
 
   # Returns `[sections, symbols, relocations by section name]` of an
   # object's bytes.

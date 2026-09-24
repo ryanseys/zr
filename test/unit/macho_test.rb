@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "../support/obj_unit"
 require_relative "../../lib/zr/obj/macho/object_file"
 require_relative "../../lib/zr/native/link"
 
@@ -14,17 +15,9 @@ class MachOTest < Minitest::Test
 
   Obj = Zr::Obj
 
-  # `mov w0, #3; bl _exit`, the branch patched by the link.
-  MAIN_EXIT_3 = [0x60, 0x00, 0x80, 0x52, 0x00, 0x00, 0x00, 0x94].pack("C*")
+  MAIN_EXIT_3 = Zr::Test::ObjUnit::MAIN_EXIT_3
 
-  def unit
-    u = Obj::Unit.new
-    u.function("main", MAIN_EXIT_3, relocs: [Obj::Reloc.new(4, :branch26, "exit")])
-    u.datum("msg", :text_const, "hello, zr!\n", linkage: :export)
-    u.datum("table", :data_const, "\0" * 8, relocs: [Obj::Reloc.new(0, :abs64, "msg")])
-    u.datum("counter", :bss, 16)
-    u
-  end
+  def unit = Zr::Test::ObjUnit.unit
 
   def test_the_symbol_table_reads_back
     Dir.mktmpdir("zr-macho-") do |dir|

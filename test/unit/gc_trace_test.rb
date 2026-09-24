@@ -40,12 +40,11 @@ class GcTraceTest < Minitest::Test
     end
   end
 
+  # `[stdout, stderr]` of `bin` under `env`, run with the limits of the
+  # tests (`Checks.run`).
   def capture(env, bin)
-    Dir.mktmpdir("zr-gc-trace-err-") do |dir|
-      err = File.join(dir, "err")
-      out = IO.popen(env, [bin], err: [err, "w"], &:read)
-      assert_equal 0, $?.exitstatus, "exited #{$?.exitstatus}: #{out}#{File.read(err)}"
-      [out, File.read(err)]
-    end
+    answer = Checks.run([bin], env: env)
+    assert_equal 0, answer.code, "exited #{Checks.killed(answer) || answer.code}: #{answer.stdout}#{answer.stderr}"
+    [answer.stdout, answer.stderr]
   end
 end

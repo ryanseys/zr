@@ -54,10 +54,11 @@ module Zr
     end
 
     # Long enough for the slowest program, and short enough that a
-    # miscompiled infinite loop does not stop the run. With GC stress, a
-    # collection at each allocation marks all live objects, so a stress
-    # run gets four times the limit.
-    LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
+    # miscompiled infinite loop does not stop the run (the limit of every
+    # test, `Checks::LIMIT`). With GC stress, a collection at each
+    # allocation marks all live objects, so a stress run gets four times
+    # the limit.
+    LIMIT = Checks::LIMIT
 
     def self.limit = ENV["ZR_GC_STRESS"] == "1" ? LIMIT * 4 : LIMIT
 
