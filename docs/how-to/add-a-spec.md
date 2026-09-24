@@ -1,261 +1,131 @@
 # How to add a spec
 
-A spec holds zr to ruby for one program. The program is written inline,
-zr compiles it, the binary runs, and what it said is what the example
-asserts.
+This guide shows you how to add a spec example, how to change an
+existing spec file safely, and how to split a large example. For the
+keywords and the format rules, see [The spec DSL](../reference/spec-dsl.md).
 
-## Write one
+## Add an example
 
-Specs live in `test/spec/<suite>/<area>/<subject>_test.rb`. Find the
-file whose subject your program is about — `core/string/frozen_test.rb`,
-`lang/blocks/enumeration_test.rb` — and add an example to it:
+1. Get the expected output from ruby 4.0.6. Never write it yourself:
 
-```ruby
-it "keeps the receiver's encoding" do
-  _(zr(<<~'RUBY')).must_answer "UTF-8\n"
-    puts "ab".upcase.encoding
-  RUBY
-end
-```
+   ```console
+   $ ruby -e 'puts "ab".upcase.encoding'
+   UTF-8
+   ```
 
-`must_answer` holds the whole answer, not a part of it: stderr must be
-empty and the status zero unless you say otherwise. That is what the
-oracle means — a program that also wrote a backtrace has not matched.
+2. Find the file for the subject of your program, for example
+   `test/spec/core/string/case_mapping_test.rb` or
+   `test/spec/lang/blocks/enumeration_test.rb`. Add the example to it:
 
-When there is more to say, name the result and let the output read as
-output:
+   ```ruby
+   it "keeps the receiver's encoding" do
+     result = zr(<<~'RUBY')
+       puts "ab".upcase.encoding
+     RUBY
 
-```ruby
-it "writes the message to stderr and exits 1" do
-  result = zr(<<~'RUBY')
-    puts "out"
-    abort "stopping here"
-  RUBY
+     _(result).must_answer "UTF-8\n"
+   end
+   ```
 
-  _(result).must_answer <<~'OUT', stderr: "stopping here\n", status: 1
-    out
-  OUT
-end
-```
+   If the program also writes to stderr or exits with a status that is
+   not 0, give that too:
 
-## What `zr` takes
+   ```ruby
+   _(result).must_answer "out\n", stderr: "stopping here\n", status: 1
+   ```
 
-| Keyword | For |
-|---|---|
-| `argv:` | the program's `ARGV` |
-| `env:` | the environment it runs under |
-| `stdin:` | the bytes piped to it |
-| `files:` | the program's own files, keyed by the name it reaches for them by |
-| `path:` | the name the program answers to, when its own output carries it |
+3. Run the example:
 
-`path:` matters only for a program whose answer names its source — a
-backtrace, or `__FILE__` — **and** wants a name other than the default.
-The default is the spec file's own path under `test/spec`: an example in
-`test/spec/core/fiber/fiber_test.rb` writes its program as
-`core/fiber/fiber_test.rb`, so a backtrace names the file the example is
-written in (`Zr::Reader.path_for`).
+   ```console
+   $ bin/test test/spec/core/string -n "/keeps the receiver's encoding/"
+   ```
 
-It used to be the example's sentence, slugified, which is why no
-description in this suite holds an apostrophe, a comma or a `#` — a
-sentence had to survive being turned into a filename. It does not any
-more, so write the sentence you mean, and know that renaming an example
-cannot move the program it introduces.
+4. Check your literal against ruby:
 
-Spell `path:` out when the program is *about* its own path — the
-`zr/...` examples, a program given an absolute name, one that asks what
-`/` or `/a b/c` expands to.
+   ```console
+   $ rake 'oracle[test/spec/core/string]'
+   ```
 
-The `_test` in the derived name stays on purpose. `core/fiber/fiber.rb`
-reads better but collides: `stdlib/etc/etc_test.rb` hands its programs an
-`etc.rb` of their own, `files:` is written after the program, and the
-fixture would land on top of it — the example would then run the fixture
-and answer something that looks like an answer. That collision is refused
-now rather than silently taken.
+5. Check the format of the file:
 
-Two things about those keywords are easy to get wrong:
+   ```console
+   $ rake 'spec:check[test/spec/core/string]'
+   ```
 
-- A `files:` key is resolved against the directory the **program** sits in,
-  but a filename in `argv:` is resolved against the directory the program
-  **runs in**. When `path:` names a subdirectory the two differ, and the
-  same file needs two spellings — see `core/io/io_test.rb`, where
-  `files: {"argf_input.txt" => …}` is reached as
-  `argv: ["core/io/argf_input.txt"]`.
-- A `files:` value is bytes, not a filename. `{ symlink: "lib" }` in place
-  of the bytes makes a link instead, for a program that asks whether two
-  paths reach one file.
+   `spec:check` with a path compares sentences only in that path. Run
+   `rake spec:check` without a path before you push many new sentences,
+   because a sentence must be unique in the whole suite.
 
-## How an example is written
+If zr refuses the program, the example skips and gives the form. That
+is not a failure. A wrong output, a crash or a timeout is a failure.
 
-One example is one behaviour. The call and the assertion are already
-separated everywhere in the suite — name the result, leave a blank line,
-then assert:
+## Get the expected output for a candidate program
 
-```ruby
-it "keeps the receiver's encoding" do
-  result = zr(<<~'RUBY')
-    # one sentence saying what this pins
-
-    s = "ab"
-    out = s.upcase
-    puts out.encoding
-  RUBY
-
-  _(result).must_answer "UTF-8\n"
-end
-```
-
-Assemble, act and assert cannot live in the spec file, because the program
-*is* the thing under test. So they live inside the heredoc, in that order,
-and the program prints exactly what the claim is about. A program that
-prints many rows should label them — `puts "#{name}\t#{value}"` — so a
-failure names the row that moved instead of showing a wall of output.
-
-Write the sentence for a reader who has not seen the program: present
-tense, no trailing period, and no repetition of what the `describe`
-already said. `describe "Hash: comparison and equality"` plus
-`it "hash equality ignores order"` says "hash" twice; the example is
-`it "ignores insertion order"`.
-
-Say what the program shows, not what it is about. A tracker number
-(`it "issue 3016"`) names something the reader does not have; a noun
-phrase (`it "range one sided search"`) names a subject and leaves the
-claim out. The sentence a reader wants is the claim: "Math.lgamma is
-exactly [Infinity, 1] at every non-positive integer pole", "find, detect
-and take_while over an endless range stop at their answer".
-
-Two examples may not share a sentence, in one file or across two —
-`spec:check` refuses it, because a failure report that names a sentence,
-or a `-n` filter written from one, has to name one example. The single
-exception is a sentence a generator writes into one file per subject;
-`SpecStyle::GENERATED` lists it and says which generator.
-
-Two examples may not share a *program* either. When the same program
-answers a question in two areas, the area whose behaviour it is evidence
-for keeps it and the other drops it — `rake spec:check` does not catch
-this one, so read what the program demonstrates rather than which file
-it sits in.
-
-The `describe` names the subject and, in a file that is not the
-subject's own, the facet: `describe "Hash programs"` in
-`core/hash/hash_test.rb`, `describe "Hash: comparison and equality"` in
-`core/hash/comparison_test.rb`. Spell a library the way ruby does —
-`BigDecimal`, `CGI`, `FileUtils` — not the way its directory does.
-
-## Split a program that holds more than one behaviour
-
-A program over about a hundred lines usually holds several claims. Cut
-it, and let ruby say whether the cut held.
-
-The shape of a cut. One fragment is the **quiet setup** that came before
-it — the requires, the classes and modules, the values nothing prints —
-plus the one run of statements that makes its own answer. The printing
-rows of an earlier section do not come along, or the fragment says that
-section's answer again.
-
-The rule that makes a cut safe:
-
-> The fragments' answers, in order, concatenated, are the answer the
-> bundle asserted — byte for byte.
-
-That statement is exactly "these sections do not interact", which is the
-only thing that can make a split wrong. Where it does not hold, the
-sections lean on each other: merge two of them and try again, or leave
-the program whole.
-
-Ask ruby for each fragment's answer; never carry a slice of the old
-literal across by hand:
+`rake spec:ask` runs a program the same way as `rake oracle`, with the
+same path, cleanup and environment. It prints the assertion to paste:
 
 ```console
-$ rake 'spec:ask[test/spec/core/hash/hash_test.rb fragment.rb]'
+$ rake 'spec:ask[test/spec/core/thread/thread_test.rb /tmp/fragment.rb]'
 _(result).must_answer <<~'OUT'
-  {a: 1}
-  true
+  42
 OUT
 ```
 
-Then `rake oracle` over the file, which re-asks every example in it.
+Add `-n "<sentence>"` to use the keywords (`files:`, `argv:`) of an
+existing example.
 
-One fragment may need state an earlier section left behind — a file the
-write rows overwrote, a local a later row reads. Write that state into
-the fragment's own setup and say so in a comment. The program changed,
-so ask ruby again; the concatenation rule still judges the result.
+## Change a spec file safely
 
-## Keep the file in shape
-
-```console
-$ rake 'spec:check[test/spec/core/string]'   # line length, heredoc tags, trailing space
-```
-
-Scoped to a path, it compares sentences only within that path. Run it
-bare over the whole suite before you push a batch of renames, or a
-sentence you wrote can collide with one in an area you were not looking
-at.
-
-A program is `<<~'RUBY'`, what it printed is `<<~'OUT'` and what it
-wrote to stderr is `<<~'ERR'`, all with the tag quoted — an unquoted tag
-makes `#{}` inside a Ruby program interpolate before zr ever sees it.
-Use `<<~'PROGRAM'` for a program that opens a `RUBY` heredoc of its own,
-since a `<<~` terminator may be indented and the inner one would
-otherwise end the outer.
-
-A heredoc earns its keep when what it holds is **lines**. One or two
-lines that need no escaping are a string, and a string is one line of
-spec file instead of four:
-
-```ruby
-_(result).must_answer "6\n[3, 4, 5]\n"          # yes
-_(result).must_answer <<~'OUT'                  # not for two lines
-  6
-  [3, 4, 5]
-OUT
-```
-
-Three lines or more, anything holding a `"` or a `\`, and anything with
-a trailing space on a line stay heredocs — a string of those is a wall
-of escapes, which is what the heredocs are here to avoid. The same cut
-goes the other way: an answer too large to read at all belongs in
-`test/fixtures` behind `fixture("area/name.out")`.
-
-## Run it
+A wrong edit to a spec can look like a passing run. `rake spec:verify`
+reads each example without a compile or a run, and compares its
+sentence, program, keywords and expected output with the same example
+at a revision:
 
 ```console
-$ bundle exec minitest test/spec/core/string/frozen_test.rb
-$ ruby -Ilib -Itest test/spec/core/string/frozen_test.rb -n "/encoding/"
-$ bundle exec minitest test/spec/core/string
+$ rake 'spec:verify[HEAD]'                   # nothing changed since HEAD
+$ rake 'spec:verify[HEAD --renames]'         # only the sentences changed
+$ rake 'spec:verify[main test/spec/core]'    # one revision, one area
+$ rake spec:fingerprint > before.txt         # or keep the digests yourself
 ```
 
-## Where the answer comes from
+It compares examples by position, so an example that moved or that you
+deleted is a failure. A report gives the part that changed:
+`describe`, `program`, `keywords` or `answer`.
 
-Never from you. Every literal in `test/spec/` was written by ruby 4.0.6
-and lifted from the recording it wrote. If you are adding a program zr
-does not answer yet, write what **ruby** says, and check it:
+`spec:verify` does not see anything outside an example, such as a
+comment or a `require` line. It evaluates a guard for macOS with all
+features. Run `rake oracle` too.
 
-```console
-$ ruby -e 'puts "ab".upcase.encoding'
-UTF-8
-```
+## Split a large example
 
-## What zr will not compile
+A program of more than about a hundred lines usually tests more than
+one behavior. To split it:
 
-An example whose program uses a form outside zr's subset **skips**,
-naming the form, and joins the refusal census at the end of the run.
-That is the roadmap, not a failure. A program that diverges, crashes or
-runs past its limit fails.
+1. Cut the program into fragments. Each fragment contains the setup
+   that the program had before it (the requires, the classes, the
+   values that print nothing), and one group of statements that makes
+   its own output. Do not copy the print statements of an earlier
+   group.
+2. Get the output of each fragment with `rake spec:ask`. Do not copy a
+   part of the old literal.
+3. Check the split. The outputs of the fragments, in order and joined,
+   must be the same bytes as the old expected output. If they are
+   different, the groups depend on each other: merge two groups and try
+   again, or keep the program as one example.
+4. If a fragment needs state that an earlier group made (a file, a
+   local), write that state into the fragment's setup, and add a
+   comment. Get its output from ruby again.
+5. Run `rake oracle` on the file.
 
-## Hold the literal to ruby again
+`rake 'spec:split[<path>]'` lists the examples that can be split.
 
-`rake oracle` runs each example's program under the ruby the
-`.ruby-version` pins and holds the example to what it said, compiling
-nothing. It is how a hand-written literal earns the same standing as a
-lifted one:
+## When zr cannot pass the example yet
 
-```console
-$ rake 'oracle[test/spec/core/string/frozen_test.rb]'
-```
+Keep the example in its place, and add a `skip` that tells what it
+needs. See [The spec DSL](../reference/spec-dsl.md#a-gap).
 
-## A whole program, end to end
+## A whole program
 
-A program that needs a real link or a whole require graph is not a
-spec. Those live in `test/e2e/<suite>/<area>/` as programs with ruby's
-answer in the files beside it; see
-[Whole programs](../reference/test-format.md).
+A program that needs a real link, or a large graph of required files,
+is not a spec. Put it in `test/e2e/<suite>/<area>/` with its recording.
+See [Whole programs](../reference/test-format.md).
