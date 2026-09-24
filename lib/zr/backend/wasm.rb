@@ -16,7 +16,7 @@ module Zr
       def prelude(functions, data, pending:) = Codegen.new(functions, data, pending: pending).prelude
 
       # The libc names a module answers itself where nothing defines them.
-      def floor = Codegen::FLOOR.keys
+      def libc_shims = Codegen::LIBC_SHIMS.keys
     end
   end
 end

@@ -64,13 +64,13 @@ It refuses a few forms by name where it stands, which
 ## Runtime layers
 
 The portable runtime calls a fixed set of OS functions, which
-`rt/kernel/os.rb` lists. Each OS layer implements all of them:
+`runtime/kernel/os.rb` lists. Each OS layer implements all of them:
 
 | Directory | Holds |
 |---|---|
-| `rt/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, signals, JIT mapping |
-| `rt/kernel/arch/<arch>/` | the machine context a task switch saves |
-| `rt/core/os/<os>/` | the numbers the OS gives errno, IO, File and Process constants |
-| `rt/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the eval description |
+| `runtime/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, signals, JIT mapping |
+| `runtime/kernel/arch/<arch>/` | the machine context a task switch saves |
+| `runtime/core/os/<os>/` | the numbers the OS gives errno, IO, File and Process constants |
+| `runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the eval description |
 
 The table files come from the ruby of that OS (`rake tables`).

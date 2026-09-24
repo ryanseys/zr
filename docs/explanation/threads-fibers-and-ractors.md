@@ -23,7 +23,7 @@ the direct mapping, and it is fast: there is no copying of stacks.
 ## Threads
 
 A `Thread` is green: each one runs on a fiber of its own, and one thread
-runs at a time. A scheduler in the core library (`rt/core/thread.rb`)
+runs at a time. A scheduler in the core library (`runtime/core/thread.rb`)
 keeps the run queue, the sleepers, and the threads that wait on a
 descriptor. A thread gives up its turn when it blocks: on `join`,
 `sleep`, a `Queue`, a `Mutex`, or a read that would wait.

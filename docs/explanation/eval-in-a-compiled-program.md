@@ -70,13 +70,13 @@ For each string, the carried compiler:
    into the runtime and the program are resolved by name: the image's
    own symbol table is sorted by name (`Obj::MachO::Executable`), so the
    kernel finds each one by a binary search of it (`zr_os_symbol`,
-   rt/kernel/os/darwin/jit.rb), and asks dlsym only for a name of
+   runtime/kernel/os/darwin/jit.rb), and asks dlsym only for a name of
    libSystem's -- or for everything, in an image `ld` linked, whose
    table is in no order and whose exports trie holds every name.
 
 An eval must agree with the code around it about the kernel's
 functions, layouts and symbol ids. The program carries the kernel's
-*description* for this (`rt/ext/os/<os>/zr_description.rb`), and the
+*description* for this (`runtime/ext/os/<os>/zr_description.rb`), and the
 eval's symbol table starts from the one the program runs on.
 
 ## The walking road
@@ -88,7 +88,7 @@ same runtime, and two back halves that must agree with ruby.
 The walk evaluates HIR node by node and reaches the program through the
 calls any Ruby program makes -- `__send__`, `define_method`,
 `instance_variable_get`. What only the runtime can answer it asks
-through `Zr::Eval::World` (`rt/ext/zr/eval/walking.rb`): the lexical
+through `Zr::Eval::World` (`runtime/ext/zr/eval/walking.rb`): the lexical
 scope a cref stands for, the scopes a Binding names, and the constant,
 class-variable and global tables, each one standing for something the
 compiler emits inline.
@@ -126,6 +126,6 @@ Backtraces name the walk's own files rather than the string's line.
   The program's own memory is a fraction of it. `wasmtime compile`
   ahead of time moves the cost out of the run.
 - A binary that carries the compiler names the absolute paths of the
-  gem's `rt/ext` and `vendor/ext/*/lib`, and of the library tree it was
+  gem's `runtime/ext` and `vendor/ext/*/lib`, and of the library tree it was
   built against. A computed `require` in such a binary works only while
   that version of the gem, and its pinned gems, stay installed.

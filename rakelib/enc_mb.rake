@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # How the runtime walks a String in a multibyte encoding, written as
-# rt/kernel/enc_mb.rb from the Onigmo encoders Regexp reads with
-# (rt/core/regexp/onig/encoding_multibyte.rb). A String and a Regexp
+# runtime/kernel/enc_mb.rb from the Onigmo encoders Regexp reads with
+# (runtime/core/regexp/onig/encoding_multibyte.rb). A String and a Regexp
 # over it then agree on every character: both read the lead-byte
 # lengths and state tables of CRuby's enc/*.c, through the same
 # descriptor the matcher takes.
@@ -15,7 +15,7 @@
 
 module Gen
   module EncMb
-    OUT = File.expand_path("../rt/kernel/enc_mb.rb", __dir__)
+    OUT = File.expand_path("../runtime/kernel/enc_mb.rb", __dir__)
 
     module_function
 
@@ -55,10 +55,10 @@ module Gen
     def def_name(enc) = "zr_enc_mb_#{enc.name.downcase.tr('-', '_')}"
 
     def write
-      require_relative "../lib/zr/zr"
+      require_relative "../lib/zr/runtime"
       Gen.pinned!("gen:enc_mb")
 
-      Zr::Zr.require_onig
+      Zr.require_onig
 
       # The encodings a String walks with an encoder of their own: ASCII meets
       # them, a character spans bytes, and they are not UTF-8 under a name.
@@ -128,6 +128,6 @@ module Gen
 end
 
 namespace :gen do
-  desc "Write rt/kernel/enc_mb.rb"
+  desc "Write runtime/kernel/enc_mb.rb"
   task(:enc_mb) { Gen::EncMb.write }
 end

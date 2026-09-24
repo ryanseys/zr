@@ -64,7 +64,7 @@ module Zr
         Usage: zr machine [options] <file.rb> -o <out>
 
         Compiles one file of the machine dialect (the typed Ruby that
-        rt/kernel is written in), without the zr runtime.
+        runtime/kernel is written in), without the zr runtime.
 
         #{OPTIONS.sub("Options:\n", "Options:\n#{OUTPUT}")}
       TEXT
@@ -98,7 +98,7 @@ module Zr
     # Whether this compiler runs on CRuby, and not as a program that zr
     # compiled. A zr binary gives the same RUBY_ENGINE and RubyVM as
     # ruby 4.0.6, but its RbConfig names zr as the interpreter
-    # (rt/ext/rbconfig.rb).
+    # (runtime/ext/rbconfig.rb).
     def cruby? = RbConfig::CONFIG["ruby_install_name"] != "zr"
 
     # Why this compiler must not build on a ruby of `version`, or nil
@@ -200,10 +200,10 @@ module Zr
       abort "zr: no such file: #{input}" unless File.file?(input)
 
       target = target_for(opts[:triple], opts[:emit], command)
-      emit = opts[:emit] || ("wasm" if target.roads == [:wasm])
+      emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
       refuse(input, command, emit, target)
 
-      require_relative "zr"
+      require_relative "runtime"
       require_relative "native/build"
       # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
       # compiler turns it on here. A program that calls eval includes the
@@ -211,7 +211,7 @@ module Zr
       require_relative "parse_cache" unless HOSTED
       Paths.root = opts[:root]
       program = lower(input, command, target, assemble: emit.nil?)
-      Paths.scratch("zr-build-") do |work|
+      Paths.tmpdir("zr-build-") do |work|
         out = command == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
         case emit
         when "obj" then object(program, out, target)
@@ -232,10 +232,10 @@ module Zr
     # A table of each target, the outputs zr makes for it, and the
     # outputs that this host can make now.
     def targets
-      name = ->(road) { road == :native ? "binary" : road.to_s }
+      name = ->(output) { output == :native ? "binary" : output.to_s }
       rows = Target.all.map do |target|
-        here = target.roads.select { |road| target.refusal(road == :native ? nil : road.to_s).nil? }
-        [target.triple, target.roads.map(&name).join(", "), here.empty? ? "none" : here.map(&name).join(", ")]
+        here = target.outputs.select { |output| target.refusal(output == :native ? nil : output.to_s).nil? }
+        [target.triple, target.outputs.map(&name).join(", "), here.empty? ? "none" : here.map(&name).join(", ")]
       end
       [["TARGET", "OUTPUTS", "ON THIS HOST"], *rows].each do |row|
         puts format("%-22s %-18s %s", *row).rstrip

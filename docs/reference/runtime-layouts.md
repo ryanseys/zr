@@ -1,6 +1,6 @@
 # Runtime layouts
 
-The runtime's values and objects, as `rt/kernel/` declares them. The
+The runtime's values and objects, as `runtime/kernel/` declares them. The
 declarations are the source of truth; this page lists the main ones.
 To learn how the collector and dispatch use them, read
 [Memory and the collector](../explanation/memory-and-the-collector.md)
@@ -8,7 +8,7 @@ and [Method dispatch and signals](../explanation/method-dispatch-and-signals.md)
 
 ## Values
 
-A `Value` is a 64-bit word with CRuby's tagging (`rt/kernel/value.rb`).
+A `Value` is a 64-bit word with CRuby's tagging (`runtime/kernel/value.rb`).
 
 | Value | Encoding |
 |---|---|

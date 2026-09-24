@@ -9,9 +9,9 @@ and how the ports stay correct.
 
 | Library | Role | Now |
 |---|---|---|
-| prism 1.9.0 | the parser ruby uses | a Ruby port in `rt/ext/prism/ruby`, under prism's own Ruby half |
-| Onigmo | CRuby 4.0.6's regular expression engine | a Ruby port: the pattern compiler in `rt/core/regexp/onig/`, the matcher in the kernel dialect in `rt/kernel/onig_*.rb` |
-| zlib 1.3.1 | compression | a port in the kernel dialect, `rt/kernel/zlib_*.rb` |
+| prism 1.9.0 | the parser ruby uses | a Ruby port in `runtime/ext/prism/ruby`, under prism's own Ruby half |
+| Onigmo | CRuby 4.0.6's regular expression engine | a Ruby port: the pattern compiler in `runtime/core/regexp/onig/`, the matcher in the kernel dialect in `runtime/kernel/onig_*.rb` |
+| zlib 1.3.1 | compression | a port in the kernel dialect, `runtime/kernel/zlib_*.rb` |
 
 ## Why remove the C
 

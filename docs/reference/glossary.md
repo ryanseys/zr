@@ -6,14 +6,14 @@ kernel, as opposed to a method the program defines.
 **Cell.** A fixed-size block of the heap that holds one object: 32, 64,
 128 or 256 bytes.
 
-**Core library.** `rt/core/`: Ruby's core classes, written in ordinary
+**Core library.** `runtime/core/`: Ruby's core classes, written in ordinary
 Ruby over the kernel.
 
 **Cref.** The lexical scope a method or block runs in: where a `def`
 lands and where constants are looked up.
 
 **Description.** The kernel's signatures, effects, constants and struct
-layouts as text (`rt/ext/os/<os>/zr_description.rb`). A program that
+layouts as text (`runtime/ext/os/<os>/zr_description.rb`). A program that
 evals carries it instead of the kernel's sources.
 
 **Effects.** What a call may write, as a bit a region of memory: the
@@ -48,7 +48,7 @@ address and serial.
 **IR.** The compiler's CFG in SSA form, with block parameters. Every
 lowering writes it and every backend reads it.
 
-**Kernel.** `rt/kernel/`: the runtime's lowest layer, in the kernel
+**Kernel.** `runtime/kernel/`: the runtime's lowest layer, in the kernel
 dialect.
 
 **Kernel dialect.** Ruby syntax with machine semantics, for the kernel.

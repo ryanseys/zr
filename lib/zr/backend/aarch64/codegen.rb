@@ -176,7 +176,7 @@ module Zr
         # select reads them.
         #
         # Without it the pair costs `cmp`, `cset`, a store of the byte, a
-        # load of it back, a `uxtb` and a `cbz`. `Zr::Function#checked`
+        # load of it back, a `uxtb` and a `cbz`. `Zr::Lower::Function#checked`
         # writes one after every call a compiled Ruby method makes, so this
         # is the shape most branches in the program have. The stack check
         # at the top of every Ruby function has a load between the two.
@@ -373,7 +373,7 @@ module Zr
         # that does not pays the `movz` where it paid an `ldr`. A constant
         # read once costs the same made at its read as made once, and a
         # constant read nowhere then costs nothing: the line words
-        # `Zr::Function` stores before every send are read once each, and
+        # `Zr::Lower::Function` stores before every send are read once each, and
         # `IR::Function#hoisted` put every one in the entry block, where
         # each held a register for the whole function. What is read again
         # and again and takes several instructions is still made once.
@@ -420,7 +420,7 @@ module Zr
         # every read's offset fits the scaled immediate: one that is also
         # read as a value, or reaches past the immediate somewhere, is
         # made as before and its reads go through it. The record slots
-        # `Zr::Function` stages a send's arguments in are addressed this
+        # `Zr::Lower::Function` stages a send's arguments in are addressed this
         # way at every send, and a struct field a kernel def reads is
         # `iadd` of the pointer and the field's offset.
         def plan_addresses
@@ -463,7 +463,7 @@ module Zr
             elsif (at = @stack[root])
               # Read as a value, but a slot's address and a constant: one
               # `add` from sp, which reads none of the chain. The argument
-              # vector `Zr::Function` passes a send is one of these.
+              # vector `Zr::Lower::Function` passes a send is one of these.
               @from_sp[v] = at + k
               other[base] -= 1
             end
@@ -1230,7 +1230,7 @@ module Zr
 
         # `cmp`, and the arm64 condition to read its flags by. A constant
         # of twelve bits is the immediate form and takes no register: the
-        # check `Zr::Function#checked` makes after every call is `cmp x, #52`.
+        # check `Zr::Lower::Function#checked` makes after every call is `cmp x, #52`.
         # A constant on the left goes to the right, and the condition turns
         # round with it.
         def emit_compare(i)

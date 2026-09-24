@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "zr/zr"
+require "zr/runtime"
 require "zr/native/build"
 
 # The kernel description a program carries for its evals, one per OS
@@ -11,7 +11,7 @@ class DescriptionTest < Minitest::Test
   # One target per OS layer that is its own.
   TARGETS = Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.uniq(&:os_layer)
 
-  def path(target) = File.join(ROOT, "rt/ext/os", target.os_layer, "zr_description.rb")
+  def path(target) = File.join(ROOT, "runtime/ext/os", target.os_layer, "zr_description.rb")
 
   # The kernel lowered for this file alone, and never `Zr.runtime`,
   # which the whole process shares. `Native::Build.lower` lets the
@@ -20,9 +20,9 @@ class DescriptionTest < Minitest::Test
   # where nothing was lowered to let go of. What the IR answered is
   # refused from then on rather than lowered again, which is right for
   # a build and leaves a test that reads it holding nothing.
-  def kernel(target) = Zr::Zr::Runtime.new(target).unit
+  def kernel(target) = Zr::Runtime.new(target).unit
 
-  # `immediate?` is `zr_special_p` (rt/kernel/value.rb) asked at compile
+  # `immediate?` is `zr_special_p` (runtime/kernel/value.rb) asked at compile
   # time, so that a lowering can drop a test a word it made has already
   # answered. The two must agree, and the kernel's own constants are
   # what says whether they do.

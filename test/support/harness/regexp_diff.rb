@@ -4,8 +4,8 @@ require "json"
 require "strscan"
 require_relative "onig_jit"
 
-Zr::Zr.require_onig
-require File.join(Zr::Paths::RT, "core/regexp_pattern.rb")
+Zr.require_onig
+require File.join(Zr::Paths::RUNTIME, "core/regexp_pattern.rb")
 
 module Zr
   module Harness

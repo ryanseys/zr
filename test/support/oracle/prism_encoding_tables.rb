@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# rt/ext/prism/ruby/encoding_tables.rb from prism 1.9.0's
+# runtime/ext/prism/ruby/encoding_tables.rb from prism 1.9.0's
 # src/encoding.c and include/prism/encoding.h: the Unicode code point
 # ranges, the byte tables, the UTF-8 decoder's state table, each
 # encoding's name and functions in pm_encoding_t order, and the names
@@ -11,7 +11,7 @@
 #   rake 'gen:prism_encoding_tables[--check]'  fails on a stale one
 module PrismEncodingTables
   ROOT = File.expand_path("../../..", __dir__)
-  OUT = File.join(ROOT, "rt/ext/prism/ruby/encoding_tables.rb")
+  OUT = File.join(ROOT, "runtime/ext/prism/ruby/encoding_tables.rb")
 
   module_function
 

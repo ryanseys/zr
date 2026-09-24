@@ -5,10 +5,10 @@
 #
 # require_relative, not require: the collector tuning starts this file
 # again, and it must load this same copy of zr. The compiled compiler
-# takes a build over first where one is current (lib/zr/self_host.rb),
+# takes a build over first where one is current (lib/zr/compiled_compiler.rb),
 # before ruby loads the rest of zr.
-require_relative "../lib/zr/self_host"
-Zr::SelfHost.hand_over(ARGV)
+require_relative "../lib/zr/compiled_compiler"
+Zr::CompiledCompiler.hand_over(ARGV)
 require_relative "../lib/zr/cli"
 
 Zr::CLI.tune!(__FILE__)

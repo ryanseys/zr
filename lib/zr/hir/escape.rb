@@ -4,7 +4,7 @@ module Zr
   module Hir
     # Whether every use a scope makes of a name is one a block still on
     # its maker's stack can serve, so a `&b` parameter need make no Proc
-    # cell when it is bound (`Zr::Function::Params#raw_block?`).
+    # cell when it is bound (`Zr::Lower::Function::Params#raw_block?`).
     #
     # The uses a stack block serves: the receiver of a plain `call`
     # (`b.call(x)`, `b&.call(x)`, with no block of its own), the block

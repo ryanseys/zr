@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/macho/executable"

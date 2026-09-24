@@ -45,7 +45,7 @@ end
 ENV["ZR_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
 ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # Every task runs the compiler under ruby, unless `ZR_SELF=1` asks for
-# the compiled compiler (lib/zr/self_host.rb).
+# the compiled compiler (lib/zr/compiled_compiler.rb).
 ENV["ZR_SELF"] ||= "0"
 
 desc "Build the zr runtime for this host (bin/test also builds it when it is missing)"
@@ -57,12 +57,12 @@ task("build:wasm") { zr_build("[Zr::Target::WASM32_WASI]") }
 desc "Build the zr runtime for this host and for wasm32-wasi"
 task("build:all") { zr_build("Zr::Test::Built.targets(wasm: true)") }
 
-desc "Build the compiler with itself (exe/zr uses it until a file under lib, rt or vendor changes)"
+desc "Build the compiler with itself (exe/zr uses it until a file under lib, runtime or vendor changes)"
 task("build:self") do
-  require_relative "lib/zr/self_host"
-  Zr::SelfHost.build
-  abort("rake build:self: the compiled compiler did not build") unless Zr::SelfHost.current?
-  puts "the compiled compiler: #{Zr::SelfHost.binary}"
+  require_relative "lib/zr/compiled_compiler"
+  Zr::CompiledCompiler.build
+  abort("rake build:self: the compiled compiler did not build") unless Zr::CompiledCompiler.current?
+  puts "the compiled compiler: #{Zr::CompiledCompiler.binary}"
 end
 
 def zr_build(targets)

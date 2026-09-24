@@ -3,7 +3,7 @@
 require "test_helper"
 require_relative "../support/harness/regexp_diff"
 
-# The core's compiler (rt/core/regexp/onig/*) over every regexp the
+# The core's compiler (runtime/core/regexp/onig/*) over every regexp the
 # corpus writes, under this ruby: each pattern ruby compiles compiles
 # here too, into a program String the kernel reads, holding as many
 # groups as ruby's MatchData has and the names ruby's Regexp#names

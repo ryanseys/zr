@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "answer"
-require_relative "unbundled"
+require_relative "clean_env"
 
 module Zr
   module Harness
@@ -45,7 +45,7 @@ module Zr
       # the child: what a benchmark asks, since its CPU time is read
       # from the process's children as a whole.
       def run(argv, cwd:, seconds:, megabytes:, stdin: nil, env: {})
-        env = Unbundled.env(env)
+        env = CleanEnv.env(env)
         out_r, out_w = IO.pipe
         err_r, err_w = IO.pipe
         in_r, in_w = IO.pipe

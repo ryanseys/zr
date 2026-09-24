@@ -5,7 +5,7 @@
 # its template driver (vendor/ext/prism/templates/template.rb):
 #
 # * zr's templates (test/support/oracle/prism/templates/*.rb.erb) render into
-#   rt/ext/prism/ruby/*.rb;
+#   runtime/ext/prism/ruby/*.rb;
 # * upstream's templates (vendor/ext/prism/templates/lib) must render the
 #   vendored vendor/ext/prism/lib files byte for byte. Vendored files are
 #   never written; a difference fails.
@@ -21,7 +21,7 @@ module PrismGenerate
   ROOT = File.expand_path("../../..", __dir__)
   UPSTREAM = File.join(ROOT, "vendor/ext/prism")
   TEMPLATES = File.join(ROOT, "test/support/oracle/prism/templates")
-  OUT = File.join(ROOT, "rt/ext/prism/ruby")
+  OUT = File.join(ROOT, "runtime/ext/prism/ruby")
 
   module_function
 

@@ -1,11 +1,11 @@
-# The compiler reads its kernel description from rt/ext.
+# The compiler reads its kernel description from runtime/ext.
 # The compiler runs inside the program it compiled: prism parses a string
 # of ruby, the HIR builder lowers it, and the zr lowering turns it into IR
 # functions over the kernel description the program carries.
 
 require_relative "../../lib/zr/hir"
-require_relative "../../lib/zr/zr/lower"
-require_relative "../../rt/ext/os/darwin/zr_description"
+require_relative "../../lib/zr/lower"
+require_relative "../../runtime/ext/os/darwin/zr_description"
 
 desc = Zr::Machine::Description.parse(Zr::Machine::Description::KERNEL)
 # Counts change with every kernel change, so the program prints only that
@@ -16,7 +16,7 @@ puts desc.const_for("QNIL")
 
 hir = Zr::Hir.build("def twice(n) = n * 2\nputs twice(21)", "(eval)")
 puts hir.locals.inspect
-functions, data = Zr::Zr::Lower.new(hir, desc, Zr::Machine::Symbols.new, entry: "zr_eval_1").run
+functions, data = Zr::Lower.new(hir, desc, Zr::Machine::Symbols.new, entry: "zr_eval_1").run
 puts functions.map(&:name).inspect
 puts functions.all? { |f| f.blocks.any? }
 puts data.any?

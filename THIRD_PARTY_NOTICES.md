@@ -34,18 +34,18 @@ under each gem's own license.
 `vendor/prelude/gem_prelude.rb` is ruby 4.0.6's own `gem_prelude.rb`,
 unedited, under Ruby or BSD-2-Clause.
 
-## Code in `rt/` derived from other work
+## Code in `runtime/` derived from other work
 
 | File | Derived from | License |
 |---|---|---|
-| `rt/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as vendored by the json gem | MIT |
-| `rt/kernel/float.rb` (the Ryu section), `rt/kernel/ryu_tables.rb` | Ryu (Ulf Adams) | Apache-2.0 or Boost-1.0 |
-| `rt/ext/date/parse.rb` | CRuby's `date_parse.c` (date gem) | Ruby or BSD-2-Clause |
-| `rt/core/regexp/onig.rb`, `rt/core/regexp/onig/*.rb`, `rt/core/regexp/unicode_tables.rb`, `rt/kernel/regexp.rb`, `rt/kernel/onig_enc.rb`, `rt/kernel/onig_stack.rb`, `rt/kernel/onig_match.rb`, `rt/kernel/onig_cache.rb`, `rt/kernel/onig_search.rb` | Onigmo, the regular expression engine of CRuby 4.0.6 (K. Kosako, K. Takata); the license text is in `rt/kernel/regexp.rb` | BSD-2-Clause |
-| `rt/core/regexp_pattern.rb` | CRuby 4.0.6's `re.c` (the preprocess, encoding and description functions) | Ruby or BSD-2-Clause |
-| `rt/ext/prism/prism.rb`, `rt/ext/prism/ruby/*.rb` | prism 1.9.0's C (the parser, lexer, encodings, options, serializer and extension); the license text is in `vendor/ext/prism/LICENSE.md` | MIT |
-| `rt/ext/openssl.so.rb`, `rt/ext/openssl/ossl/*.rb` | the C half of ruby's openssl gem 4.0.2 (`ext/openssl/ossl*.c` in CRuby 4.0.6); the license text is in `vendor/ext/openssl/COPYING` | Ruby or BSD-2-Clause |
-| `rt/kernel/zlib_check.rb`, `rt/kernel/zlib_tables.rb`, `rt/kernel/zlib_stream.rb`, `rt/kernel/zlib_inftrees.rb`, `rt/kernel/zlib_inffast.rb`, `rt/kernel/zlib_inflate.rb`, `rt/kernel/zlib_trees.rb`, `rt/kernel/zlib_deflate.rb`, `rt/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `rt/kernel/zlib.rb` | Zlib |
+| `runtime/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as vendored by the json gem | MIT |
+| `runtime/kernel/float.rb` (the Ryu section), `runtime/kernel/ryu_tables.rb` | Ryu (Ulf Adams) | Apache-2.0 or Boost-1.0 |
+| `runtime/ext/date/parse.rb` | CRuby's `date_parse.c` (date gem) | Ruby or BSD-2-Clause |
+| `runtime/core/regexp/onig.rb`, `runtime/core/regexp/onig/*.rb`, `runtime/core/regexp/unicode_tables.rb`, `runtime/kernel/regexp.rb`, `runtime/kernel/onig_enc.rb`, `runtime/kernel/onig_stack.rb`, `runtime/kernel/onig_match.rb`, `runtime/kernel/onig_cache.rb`, `runtime/kernel/onig_search.rb` | Onigmo, the regular expression engine of CRuby 4.0.6 (K. Kosako, K. Takata); the license text is in `runtime/kernel/regexp.rb` | BSD-2-Clause |
+| `runtime/core/regexp_pattern.rb` | CRuby 4.0.6's `re.c` (the preprocess, encoding and description functions) | Ruby or BSD-2-Clause |
+| `runtime/ext/prism/prism.rb`, `runtime/ext/prism/ruby/*.rb` | prism 1.9.0's C (the parser, lexer, encodings, options, serializer and extension); the license text is in `vendor/ext/prism/LICENSE.md` | MIT |
+| `runtime/ext/openssl.so.rb`, `runtime/ext/openssl/ossl/*.rb` | the C half of ruby's openssl gem 4.0.2 (`ext/openssl/ossl*.c` in CRuby 4.0.6); the license text is in `vendor/ext/openssl/COPYING` | Ruby or BSD-2-Clause |
+| `runtime/kernel/zlib_check.rb`, `runtime/kernel/zlib_tables.rb`, `runtime/kernel/zlib_stream.rb`, `runtime/kernel/zlib_inftrees.rb`, `runtime/kernel/zlib_inffast.rb`, `runtime/kernel/zlib_inflate.rb`, `runtime/kernel/zlib_trees.rb`, `runtime/kernel/zlib_deflate.rb`, `runtime/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `runtime/kernel/zlib.rb` | Zlib |
 
 ## Benchmarks (repository only, not in the gem)
 

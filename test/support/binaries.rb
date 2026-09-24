@@ -4,7 +4,7 @@ require "digest"
 require "fileutils"
 require "stringio"
 require "zlib"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/macho/skeleton"
 
@@ -135,7 +135,7 @@ module Zr
       # the road where the program evals (`Native::Build.program`).
       def objects_of(program)
         objects = [Native::Build.runtime_object(program.runtime)]
-        objects << Native::Build.road_object(program.evals) if program.evals
+        objects << Native::Build.eval_support_object(program.evals) if program.evals
         objects
       end
 

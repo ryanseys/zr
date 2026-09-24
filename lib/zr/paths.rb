@@ -2,14 +2,14 @@
 
 module Zr
   # Where zr reads its sources and writes what it builds. ROOT is the
-  # checkout or the installed gem: `rt/` and `vendor/` sit beside `lib/`
+  # checkout or the installed gem: `runtime/` and `vendor/` sit beside `lib/`
   # in both, and neither is ever on the host's load path.
   module Paths
     ROOT = File.expand_path("../..", __dir__)
 
     # The runtime zr compiles into every program, in kernel Ruby and
     # ordinary Ruby.
-    RT = File.join(ROOT, "rt")
+    RUNTIME = File.join(ROOT, "runtime")
 
     # The Ruby halves of extension gems, and ruby's own pure-Ruby
     # standard library.
@@ -76,7 +76,7 @@ module Zr
     # there cost a program its whole run on a target that has none: on
     # wasi `getpwuid` has no wasm form, so the module stopped before its
     # first line.
-    def self.cache = @cache ||= ENV["ZR_CACHE"] || (checkout? ? File.join(ROOT, "tmp/rt") : File.join(user_cache, "rt"))
+    def self.cache = @cache ||= ENV["ZR_CACHE"] || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)
 
     # The two things the compiler asks of fileutils and tmpdir, without
     # them: a compiled compiler loads a library as it runs its first
@@ -98,7 +98,7 @@ module Zr
     # A fresh directory for the block, named as Dir.mktmpdir names one
     # (`<prefix><date>-<pid>-<random>`, which the test harness's sweep
     # reads the maker's pid from), and removed with what it holds after.
-    def self.scratch(prefix, root = nil)
+    def self.tmpdir(prefix, root = nil)
       root ||= [ENV.fetch("TMPDIR", ""), "/tmp"].find { |dir| File.directory?(dir) && File.writable?(dir) }
       dir = nil
       until dir

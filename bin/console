@@ -4,6 +4,6 @@
 # An IRB session with zr loaded, for example:
 #   Zr::Target.default.triple
 require "bundler/setup"
-require_relative "../lib/zr/zr"
+require_relative "../lib/zr/runtime"
 require "irb"
 IRB.start(__FILE__)

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "zr/zr"
+require "zr/runtime"
 
-# The OS layer's contract: rt/kernel/os.rb names every `zr_os_*` call and
-# its signature, and each OS layer under rt/kernel/os/ defines exactly
+# The OS layer's contract: runtime/kernel/os.rb names every `zr_os_*` call and
+# its signature, and each OS layer under runtime/kernel/os/ defines exactly
 # those, where the rest of the kernel defines none of them.
 class OsApiTest < Minitest::Test
-  SPEC = File.join(ROOT, "rt/kernel/os.rb")
+  SPEC = File.join(ROOT, "runtime/kernel/os.rb")
   ROW = /\A#\s+(zr_(?:os|arch)_\w+)\s+\[([^\]]*)\]\s*=>\s*(\w+)\s*\z/
 
   # `{ name => [[param types], return type] }` from the comment rows.
@@ -19,7 +19,7 @@ class OsApiTest < Minitest::Test
   end
 
   def layers
-    Dir[File.join(ROOT, "rt/kernel/os/*")].select { |dir| File.directory?(dir) }.map { |dir| File.basename(dir) }.sort
+    Dir[File.join(ROOT, "runtime/kernel/os/*")].select { |dir| File.directory?(dir) }.map { |dir| File.basename(dir) }.sort
   end
 
   # The constants the spec says each OS defines.
@@ -36,39 +36,39 @@ class OsApiTest < Minitest::Test
   # RUBY_PLATFORM comes from the layer, and says what the target does.
   def test_the_layer_names_the_target_s_platform
     Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.each do |target|
-      text = File.read(File.join(ROOT, "rt/kernel/os/#{target.os}/env.rb"))
+      text = File.read(File.join(ROOT, "runtime/kernel/os/#{target.os}/env.rb"))
       assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple
     end
   end
 
   def test_every_core_layer_file_exists
     Zr::Target.all.each do |target|
-      Zr::Zr.core_files(target).each { |path| assert File.file?(path), "#{target.triple}: #{path}" }
+      Zr.core_files(target).each { |path| assert File.file?(path), "#{target.triple}: #{path}" }
     end
   end
 
   def test_every_target_takes_a_layer_that_exists
     Zr::Target.all.each do |target|
       assert_includes layers, target.os_layer, target.triple
-      assert File.directory?(File.join(ROOT, "rt/kernel/arch", target.arch_layer)), target.triple
+      assert File.directory?(File.join(ROOT, "runtime/kernel/arch", target.arch_layer)), target.triple
     end
   end
 
   def test_each_layer_defines_the_spec_and_nothing_else_does
     expected = spec
     Zr::Target.all.map { |target| [target.os_layer, target] }.uniq(&:first).each do |layer, target|
-      unit = Zr::Machine.unit(Zr::Zr.kernel_files(target))
+      unit = Zr::Machine.unit(Zr.kernel_files(target))
       calls = unit.declared_defs.select { |name, _| name.start_with?("zr_os_", "zr_arch_") }
       got = calls.transform_values { |d| [d.params.map(&:last), d.ret] }
       assert_equal expected.keys.sort, got.keys.sort, "#{layer}: the zr_os_ and zr_arch_ defs"
       expected.each { |name, sig| assert_equal sig, got[name], "#{layer}: #{name}" }
       calls.each do |name, d|
-        dir = name.start_with?("zr_os_") ? "rt/kernel/os/#{layer}/" : "rt/kernel/arch/#{target.arch_layer}/"
+        dir = name.start_with?("zr_os_") ? "runtime/kernel/os/#{layer}/" : "runtime/kernel/arch/#{target.arch_layer}/"
         assert d.file.start_with?(File.join(ROOT, dir)), "#{name} is in #{d.file}, not #{dir}"
       end
       constants.each do |name|
         assert_includes unit.declared_consts, name, "#{layer}: #{name}"
-        assert unit.const_file(name).start_with?(File.join(ROOT, "rt/kernel/os/#{layer}/")), "#{layer}: #{name} is in #{unit.const_file(name)}"
+        assert unit.const_file(name).start_with?(File.join(ROOT, "runtime/kernel/os/#{layer}/")), "#{layer}: #{name} is in #{unit.const_file(name)}"
       end
     end
   end

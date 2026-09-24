@@ -4,7 +4,7 @@ require "test_helper"
 require "rbconfig"
 require_relative "../../lib/zr/prism"
 require_relative "../../lib/zr/parse_cache"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../support/harness/prism_diff"
 
 # The host parses with the Ruby port, and keeps each parse in the cache
@@ -21,7 +21,7 @@ class ParseCacheTest < Minitest::Test
   def test_the_host_parses_with_the_ruby_port_and_the_vendored_ruby_half
     parse, gem, node, native = compiler_process.lines(chomp: true)
 
-    assert_equal File.join(ROOT, "rt/ext/prism/prism.rb"), parse
+    assert_equal File.join(ROOT, "runtime/ext/prism/prism.rb"), parse
     assert_equal File.join(ROOT, "vendor/ext/prism/lib/prism.rb"), gem
     assert_equal "true", node
     assert_equal "[]", native
@@ -43,7 +43,7 @@ class ParseCacheTest < Minitest::Test
   def test_the_parser_digest_covers_the_port_the_backend_and_the_gems_ruby_half
     files = ParseCache.parser_files
     [
-      "rt/ext/prism/ruby/parser/core.rb", "rt/ext/prism/ruby/lexer.rb", "rt/ext/prism/ruby/ast.rb", "rt/ext/prism/prism.rb",
+      "runtime/ext/prism/ruby/parser/core.rb", "runtime/ext/prism/ruby/lexer.rb", "runtime/ext/prism/ruby/ast.rb", "runtime/ext/prism/prism.rb",
       "lib/zr/prism_backend/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/parse_cache.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last
@@ -59,16 +59,16 @@ class ParseCacheTest < Minitest::Test
     assert_equal ParseCache.parser, ParseCache.parser_key(digests)
     assert_equal ParseCache.parser, ParseCache.parser_key(digests.to_a.reverse.to_h)
 
-    port = File.join(ROOT, "rt/ext/prism/ruby/lexer.rb")
+    port = File.join(ROOT, "runtime/ext/prism/ruby/lexer.rb")
     refute_equal ParseCache.parser, ParseCache.parser_key(digests.merge(port => "0" * 64))
     refute_equal ParseCache.parser, ParseCache.parser_key(digests.except(port))
   end
 
   def test_a_path_is_a_parser_file_by_the_patterns_alone
     ParseCache.parser_files.each { |file| assert ParseCache.parser_file?(file), file }
-    refute ParseCache.parser_file?(File.join(ROOT, "lib/zr/zr.rb"))
-    refute ParseCache.parser_file?(File.join(ROOT, "rt/ext/prism.rb"))
-    assert ParseCache.parser_file?(File.join(ROOT, "rt/ext/prism/ruby/parser/core.rb"))
+    refute ParseCache.parser_file?(File.join(ROOT, "lib/zr/runtime.rb"))
+    refute ParseCache.parser_file?(File.join(ROOT, "runtime/ext/prism.rb"))
+    assert ParseCache.parser_file?(File.join(ROOT, "runtime/ext/prism/ruby/parser/core.rb"))
   end
 
   # The process parses with the port it loaded, and the key names the
@@ -80,7 +80,7 @@ class ParseCacheTest < Minitest::Test
     file = stamps.keys.first
     ParseCache.instance_variable_set(:@stamps, stamps.merge(file => [0, 0]))
     Dir.mktmpdir("zr-parse-") do |dir|
-      error = assert_raises(Zr::Zr::Moved) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
+      error = assert_raises(Zr::SourceChanged) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
       assert_includes error.message, file
       refute File.exist?(File.join(dir, "x.marshal"))
     end
@@ -191,7 +191,7 @@ class ParseCacheTest < Minitest::Test
 
   # What a fresh `require "zr/prism"` leaves standing, one fact a line.
   def compiler_process
-    said = IO.popen(Zr::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
+    said = IO.popen(Zr::Harness::CleanEnv.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
       require "zr/prism"
       gem = $LOAD_PATH.resolve_feature_path("prism").last
       puts Prism.method(:parse).source_location.first

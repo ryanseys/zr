@@ -6,13 +6,13 @@ These change what `zr` and the rake tasks do.
 
 | Variable | Values | Effect |
 |---|---|---|
-| `ZR_CACHE` | a directory | Where zr keeps the compiled runtime. The default is `~/Library/Caches/zr/rt` on macOS, `$XDG_CACHE_HOME/zr/rt` or `~/.cache/zr/rt` elsewhere, and `tmp/rt` in a checkout. |
+| `ZR_CACHE` | a directory | Where zr keeps the compiled runtime. The default is `~/Library/Caches/zr` on macOS, `$XDG_CACHE_HOME/zr` or `~/.cache/zr` elsewhere, and `tmp/cache` in a checkout. |
 | `ZR_LINK` | `auto` (default), `ruby`, `cc` | The macOS linker. `auto`: zr's own Mach-O linker, and `cc` for a link it refuses. `ruby`: zr's linker only; it names what it cannot link. `cc`: the system linker always. |
 | `ZR_JOBS` | a number | How many worker processes assemble a large unit (default: one per core, at most 6). |
 | `ZR_TIMING` | `1` | Prints the seconds each phase of a build takes to stderr. |
 | `ZR_VERIFY` | `1` | Checks dominance and types in every IR function before it is assembled, and that every pass reported the changes it made to the kept analysis (`IR::Analysis`). |
 | `ZR_YJIT` | `0` | Runs the compiler without YJIT. |
-| `ZR_SELF` | `0` or `1` | Whether `exe/zr` gives `run`, `build` and `machine` to the compiler zr compiled (the cache's `self/zr`). Unset: an installed gem builds that compiler at its first build (about a minute) and gives it every build after; a checkout gives a build to it only while one is current (`rake build:self`). A build is current while no file under `exe/zr`, `lib`, `rt` or `vendor` has changed since. `1`: build one on a miss in a checkout too. `0`: ruby runs every command. rake tasks and the checks set `0` unless it is set. |
+| `ZR_SELF` | `0` or `1` | Whether `exe/zr` gives `run`, `build` and `machine` to the compiler zr compiled (the cache's `self/zr`). Unset: an installed gem builds that compiler at its first build (about a minute) and gives it every build after; a checkout gives a build to it only while one is current (`rake build:self`). A build is current while no file under `exe/zr`, `lib`, `runtime` or `vendor` has changed since. `1`: build one on a miss in a checkout too. `0`: ruby runs every command. rake tasks and the checks set `0` unless it is set. |
 | `ZR_GC` | `0` | Starts the compiler with ruby's own collector settings, and not with zr's. |
 | `ZR_WASM_NAMES` | any value | A wasm module carries a `name` section, so wasmtime's traps and profiles name zr's functions. It changes the module's bytes. |
 | `ZR_WASM_WIDTH` | a number | Past this many blocks, a wasm function dispatches to its blocks in two steps, in groups of this size (default 256). |

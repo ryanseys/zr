@@ -13,7 +13,7 @@ module Zr
 
     # Whether a word is an immediate and not a pointer to a cell: a
     # Fixnum, a flonum, a Symbol, nil, true or false. This is
-    # `zr_special_p` (rt/kernel/value.rb), spelled the same way and asked
+    # `zr_special_p` (runtime/kernel/value.rb), spelled the same way and asked
     # of a word the compiler already holds, so a lowering can drop a
     # sequence the answer has already decided.
     #

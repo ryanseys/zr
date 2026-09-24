@@ -10,7 +10,7 @@ module Zr
     # or under `ZR_LINK=cc`; `Link::Static` for every ELF binary.
     module Link
       # The main thread's stack, which holds ruby frames as native frames.
-      # `rt/kernel/fiber.rb` sizes every other task's.
+      # `runtime/kernel/fiber.rb` sizes every other task's.
       STACK = 0x400_0000
 
       module_function

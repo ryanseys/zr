@@ -47,7 +47,7 @@ Set `ZR_TIMING=1` to print how long each phase of a build takes:
 $ ZR_TIMING=1 exe/zr build app.rb -o app
 ```
 
-The first build after a change under `rt/` or `lib/` compiles the
+The first build after a change under `runtime/` or `lib/` compiles the
 runtime again. Build twice, and time the second build, unless you want
 to measure the cold build.
 

@@ -23,9 +23,9 @@ module Tables
 
   module_function
 
-  # `text` written at `rt/<part>/os/<os>/<name>`, and a line saying so.
+  # `text` written at `runtime/<part>/os/<os>/<name>`, and a line saying so.
   def write(part, name, text)
-    target = File.join(ROOT, "rt", part, "os", OS, name)
+    target = File.join(ROOT, "runtime", part, "os", OS, name)
     Dir.mkdir(File.dirname(target)) unless File.directory?(File.dirname(target))
     File.write(target, text)
     puts "#{target.delete_prefix("#{ROOT}/")}: #{text.lines.size} lines"
@@ -182,5 +182,5 @@ task :tables do
   Tables.fcntl
   Tables.etc
   Tables.socket(mkconstants)
-  sh("git", "diff", "--exit-code", "--", "rt/core/os/#{Tables::OS}", "rt/ext/os/#{Tables::OS}")
+  sh("git", "diff", "--exit-code", "--", "runtime/core/os/#{Tables::OS}", "runtime/ext/os/#{Tables::OS}")
 end

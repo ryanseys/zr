@@ -8,7 +8,7 @@ merge.
 The tests run on a runtime that is built ahead of time: the runtime
 object, its prelinked image and the eval support object for this host.
 `bin/setup` builds it, and `bin/test` builds it again when a change
-under `lib` or `rt` makes it out of date. A build takes about three
+under `lib` or `runtime` makes it out of date. A build takes about three
 minutes. To build without running tests:
 
 ```console
@@ -28,7 +28,7 @@ turns that off; `rake cache:size` says how much is kept.
 
 After an edit, `rake affected` runs the specs the edit can reach --
 the class's own directory and every spec that spells the class, for a
-file under `rt/core`; the stdlib directory and every spec that
+file under `runtime/core`; the stdlib directory and every spec that
 requires the library, for a vendored one -- and says to run `rake
 test` when the edit reaches everything (the compiler, the kernel, the
 checks' own support). It reads the diff against `main`, or `BASE=`.
@@ -125,11 +125,11 @@ When your change is meant to change one of these, write it again with
 
 ```console
 $ ZR_BLESS=1 rake test:unit N=/Description/
-$ git diff rt/ext/os/
+$ git diff runtime/ext/os/
 ```
 
 A change to a kernel def's signature, a struct or a constant under
-`rt/kernel/` always needs the description written again.
+`runtime/kernel/` always needs the description written again.
 
 ## Run the specs that cover a change
 

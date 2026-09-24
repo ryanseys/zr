@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 
 # The targets zr builds for. Every built form hangs off a runtime's
 # digest, so two targets must never share one: a cache that mixed them
@@ -13,7 +13,7 @@ class TargetTest < Minitest::Test
   end
 
   def test_two_targets_never_share_a_digest
-    digests = Zr::Target.all.map { |target| Zr::Zr::Runtime.allocate.tap { |rt| rt.instance_variable_set(:@target, target) }.digest }
+    digests = Zr::Target.all.map { |target| Zr::Runtime.allocate.tap { |rt| rt.instance_variable_set(:@target, target) }.digest }
     assert_equal digests.uniq.size, digests.size
   end
 

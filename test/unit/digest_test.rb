@@ -3,7 +3,7 @@
 require "test_helper"
 require "fileutils"
 require "tmpdir"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 
 # What the runtime's digest covers, and what it leaves out.
 #
@@ -20,14 +20,14 @@ class DigestTest < Minitest::Test
   def compiler = Dir[File.join(LIB, "**/*.rb")].sort
 
   def test_every_file_of_the_compiler_is_in_one_digest_or_the_other
-    covered = Zr::Target.all.flat_map { |target| Zr::Zr.compiler_files(target) } + Zr::Zr::LINK_ONLY
+    covered = Zr::Target.all.flat_map { |target| Zr.compiler_files(target) } + Zr::LINK_ONLY
 
     assert_equal compiler, covered.uniq.sort
   end
 
   def test_the_files_left_out_are_left_out_by_name
-    Zr::Zr::LINK_ONLY.each { |path| assert_path_exists path }
-    assert_empty Zr::Zr::LINK_ONLY & Zr::Zr.sources
+    Zr::LINK_ONLY.each { |path| assert_path_exists path }
+    assert_empty Zr::LINK_ONLY & Zr.sources
   end
 
   # The default is to count: a file no prefix names is in every target's
@@ -35,16 +35,16 @@ class DigestTest < Minitest::Test
   # it out by name.
   def test_a_file_no_prefix_names_counts_for_every_target
     named = compiler.select do |path|
-      Zr::Zr::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
+      Zr::PER_TARGET.keys.any? { |prefix| path.delete_prefix("#{LIB}/").start_with?(prefix) }
     end
-    shared = Zr::Target.all.map { |target| Zr::Zr.compiler_files(target) }.reduce(:&)
+    shared = Zr::Target.all.map { |target| Zr.compiler_files(target) }.reduce(:&)
 
-    assert_equal (compiler - named - Zr::Zr::LINK_ONLY).sort, shared.sort
+    assert_equal (compiler - named - Zr::LINK_ONLY).sort, shared.sort
   end
 
   def test_a_backend_and_an_object_writer_belong_to_the_target_they_emit_for
-    darwin = Zr::Zr.compiler_files(Zr::Target::AARCH64_DARWIN)
-    wasm = Zr::Zr.compiler_files(Zr::Target::WASM32_WASI)
+    darwin = Zr.compiler_files(Zr::Target::AARCH64_DARWIN)
+    wasm = Zr.compiler_files(Zr::Target::WASM32_WASI)
 
     assert_includes darwin, File.join(LIB, "backend/aarch64/codegen.rb")
     assert_includes darwin, File.join(LIB, "obj/macho/object_file.rb")
@@ -85,7 +85,7 @@ class DigestTest < Minitest::Test
     Dir.mktmpdir("zr-digest-") do |dir|
       root = File.realpath(dir)
       FileUtils.cp_r(File.join(ROOT, "lib"), File.join(root, "lib"))
-      %w[rt vendor].each { |name| File.symlink(File.join(ROOT, name), File.join(root, name)) }
+      %w[runtime vendor].each { |name| File.symlink(File.join(ROOT, name), File.join(root, name)) }
       yield root
     end
   end
@@ -93,11 +93,11 @@ class DigestTest < Minitest::Test
   # `[runtime digest, link digest]` of the compiler under `root`, asked
   # in a child so this process keeps neither answer.
   def digests(root)
-    env = Zr::Harness::Unbundled.env.merge("ZR_CACHE" => File.join(root, "cache"))
+    env = Zr::Harness::CleanEnv.env.merge("ZR_CACHE" => File.join(root, "cache"))
     said = IO.popen(env, [RbConfig.ruby, "-I#{root}/lib", "-e", <<~RUBY],
-      require "zr/zr"
-      puts Zr::Zr::Runtime.new(Zr::Target.default).digest
-      puts Zr::Zr.link_digest
+      require "zr/runtime"
+      puts Zr::Runtime.new(Zr::Target.default).digest
+      puts Zr.link_digest
     RUBY
                     unsetenv_others: true, &:read)
     assert_predicate $?, :success?, "the child did not answer: #{said}"

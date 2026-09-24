@@ -4779,7 +4779,7 @@ describe "Methods: dispatch" do
       # A small def of the file -- required positionals, a body of reads of
       # self's ivars, of readers and type questions of its arguments, fixnum
       # arithmetic, branches and a return -- runs as a copy at each site
-      # whose cell holds it (Zr::Function::Inline): no frame, no call. Every
+      # whose cell holds it (Zr::Lower::Function::Inline): no frame, no call. Every
       # guard the copy makes fails to the ordinary call, which runs the def
       # from its start, so a redefinition, an operator past the fixnums, a
       # receiver of another kind, a reader that is not one, and a missing

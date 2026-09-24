@@ -2,7 +2,7 @@
 
 ## The gem
 
-The gem ships `exe/`, `lib/`, `rt/` and `vendor/ext`, `vendor/lib`,
+The gem ships `exe/`, `lib/`, `runtime/` and `vendor/ext`, `vendor/lib`,
 `vendor/prelude`, with the license files. Its only require path is
 `lib/`. The pure-Ruby library a program requires is not in the gem: it
 is the gems `zr.gemspec` depends on (`lib/zr/libraries.rb`).
@@ -17,7 +17,7 @@ is the gems `zr.gemspec` depends on (`lib/zr/libraries.rb`).
 | `lib/zr/prism.rb` | loads prism on the host; `Zr.parse` |
 | `lib/zr/parse_cache.rb` | the host's cache of parse results |
 | `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
-| `lib/zr/zr/` | the HIR to IR against the `zr` runtime |
+| `lib/zr/lower/` | the HIR to IR against the `zr` runtime |
 | `lib/zr/machine/` | the kernel dialect to IR, and the kernel's description |
 | `lib/zr/ir/` | the IR, its passes, its verifier, and an interpreter |
 | `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
@@ -26,19 +26,19 @@ is the gems `zr.gemspec` depends on (`lib/zr/libraries.rb`).
 | `lib/zr/obj/macho/`, `lib/zr/obj/elf/` | the Mach-O object and executable writers; the ELF object writer |
 | `lib/zr/native/` | the build driver, parallel assembly, the linkers |
 | `lib/zr/eval.rb` | the compiler a program that evals carries |
-| `rt/kernel/` | the runtime's kernel, in the kernel dialect |
-| `rt/kernel/os/<os>/`, `rt/kernel/arch/<arch>/` | the OS and machine layers |
-| `rt/core/` | the core library, in ordinary Ruby, one file per class |
-| `rt/core/regexp/onig/` | the Onigmo port's pattern compiler |
-| `rt/core/os/<os>/` | each OS's numbers for errno, IO, File and Process constants |
-| `rt/ext/` | the native halves of extensions, in ordinary Ruby |
-| `rt/ext/prism/` | the prism port: `prism.rb` and `ruby/` |
-| `rt/ext/os/<os>/` | extension tables and the eval description |
+| `runtime/kernel/` | the runtime's kernel, in the kernel dialect |
+| `runtime/kernel/os/<os>/`, `runtime/kernel/arch/<arch>/` | the OS and machine layers |
+| `runtime/core/` | the core library, in ordinary Ruby, one file per class |
+| `runtime/core/regexp/onig/` | the Onigmo port's pattern compiler |
+| `runtime/core/os/<os>/` | each OS's numbers for errno, IO, File and Process constants |
+| `runtime/ext/` | the native halves of extensions, in ordinary Ruby |
+| `runtime/ext/prism/` | the prism port: `prism.rb` and `ruby/` |
+| `runtime/ext/os/<os>/` | extension tables and the eval description |
 | `vendor/ext/<gem>/lib/` | the Ruby halves of extension gems, unedited |
 | `vendor/lib/` | the files of ruby 4.0.6's library that no gem ships, unedited |
 | `vendor/prelude/` | ruby's `gem_prelude.rb` |
 
-`rt/` and `vendor/` sit beside `lib/`, not in it. zr compiles them
+`runtime/` and `vendor/` sit beside `lib/`, not in it. zr compiles them
 into programs, and the host ruby never loads them. A file such as
 `vendor/lib/pathname.rb` must never shadow ruby's own.
 

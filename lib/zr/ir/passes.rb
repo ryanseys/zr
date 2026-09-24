@@ -343,7 +343,7 @@ module Zr
       # a constant offset, in the block of the last store there with
       # nothing between that could write it, is that store's value: the
       # load goes and the store stays, as a root the collector reads.
-      # `Zr::Function` stages a send's receiver and arguments in record
+      # `Zr::Lower::Function` stages a send's receiver and arguments in record
       # slots and reads them back at once, which is this shape at every
       # send. What can write a slot: a call, which may reach the frame
       # through an address the function passed out, and a store through
@@ -446,7 +446,7 @@ module Zr
       # the block, since it would then read after them; a chain that
       # cannot move, or a `c` made elsewhere, stays computed ahead of
       # both branches, which it was. Both halves are split in turn, so
-      # `a || b || c` is three branches. `Zr::Function` writes this shape at
+      # `a || b || c` is three branches. `Zr::Lower::Function` writes this shape at
       # every gated operator: the fixnum test and the gate test joined.
       class Chains
         MOVABLE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast

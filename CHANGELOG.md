@@ -23,7 +23,7 @@ The first release as a RubyGem.
   WASI modules and objects. A native build this host cannot link exits
   with status 3 and says why.
 - zr has no C. prism 1.9.0 parses through its Ruby half over a Ruby
-  port of its C (`rt/ext/prism/ruby`), on the host and in every binary;
+  port of its C (`runtime/ext/prism/ruby`), on the host and in every binary;
   zlib is a port of zlib 1.3.1 in the kernel dialect, and `Regexp` a port
   of Onigmo, CRuby 4.0.6's engine, in Ruby. All of them work on wasm, and
   the install compiles nothing.

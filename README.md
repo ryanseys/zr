@@ -96,8 +96,8 @@ $ bin/test                       # every tier: unit, spec, e2e
 ```
 
 `bin/test` builds the runtime again when a change under `lib/` or
-`rt/` makes it out of date. The runtime and other build products go to
-the cache in `tmp/rt/`.
+`runtime/` makes it out of date. The runtime and other build products go to
+the cache in `tmp/cache/`.
 
 The tutorial [Add your first spec](docs/tutorials/add-your-first-spec.md)
 walks through the loop behind most changes. Then see:

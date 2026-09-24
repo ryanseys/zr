@@ -5,7 +5,7 @@ why the compiler has the layers it has.
 
 ```
 app.rb ─┐
-rt/**   ├─ prism ─► HIR ─► IR ─► passes ─┬─► aarch64 backend ─► Obj ─┬─► Mach-O executable writer ─► binary
+runtime/**   ├─ prism ─► HIR ─► IR ─► passes ─┬─► aarch64 backend ─► Obj ─┬─► Mach-O executable writer ─► binary
         │                                │                          ├─► ELF object ─► cc ─► Linux binary
         │                                │                          └─► JIT loader (eval, in process)
         │                                ├─► wasm emitter ─► WASI module
@@ -20,7 +20,7 @@ Linux binary, and wasmtime, to run modules.
 zr parses with prism, the parser ruby itself uses. Using ruby's own
 parser is the only practical way to accept exactly the programs ruby
 accepts, with the same syntax errors. prism's C is ported to Ruby
-(`rt/ext/prism/ruby`), so the compiler parses with the same code on the
+(`runtime/ext/prism/ruby`), so the compiler parses with the same code on the
 host and inside a compiled program. See
 [Why zr has no C](why-zr-has-no-c.md).
 
@@ -41,7 +41,7 @@ a form that zr cannot compile is refused, by name, at its line.
 
 ## The IR: one form for every backend
 
-`lib/zr/zr/` lowers the HIR to the IR (`lib/zr/ir/`), a control-flow
+`lib/zr/lower/` lowers the HIR to the IR (`lib/zr/ir/`), a control-flow
 graph in SSA form with block parameters. It has 54 opcodes and four
 types: `i8`, `i32`, `i64` and `f64`. The kernel dialect
 (`lib/zr/machine/`) lowers to the same IR. So every backend reads one

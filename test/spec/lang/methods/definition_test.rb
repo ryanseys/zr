@@ -2779,7 +2779,7 @@ describe "Methods: defining and naming methods" do
   it "a def of required positionals alone has a direct entry the site calls" do
     result = zr(<<~'RUBY')
       # The def reads its arguments out of registers when the site hands
-      # it exactly its count (rt/kernel/class.rb, MEntry.direct); every
+      # it exactly its count (runtime/kernel/class.rb, MEntry.direct); every
       # other road -- send, Method#call, an alias, a hook, a wrong count,
       # keywords, super -- reads as before.
       def one(a) = a

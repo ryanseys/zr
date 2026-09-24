@@ -6,11 +6,11 @@ require_relative "../../../lib/zr/machine/lower"
 require_relative "../../../lib/zr/native/build"
 require_relative "../../../lib/zr/obj/jit/fiddle"
 require_relative "../../../lib/zr/paths"
-require_relative "../../../lib/zr/zr"
+require_relative "../../../lib/zr/runtime"
 
 module Zr
   module Harness
-    # The kernel matcher (rt/kernel/onig_*.rb) JIT-loaded into this ruby,
+    # The kernel matcher (runtime/kernel/onig_*.rb) JIT-loaded into this ruby,
     # searching programs the core compiled under this ruby: what the
     # checks hold to ruby's own engine.
     class OnigJIT
@@ -24,7 +24,7 @@ module Zr
         Dir.mktmpdir("zr-onig-") do |dir|
           consts = File.join(dir, "consts.rb")
           File.write(consts, "CLOCK_MONOTONIC = 6\n")
-          lower = Machine.unit(Dir[File.join(Paths::RT, "kernel/onig_*.rb")].sort + [consts])
+          lower = Machine.unit(Dir[File.join(Paths::RUNTIME, "kernel/onig_*.rb")].sort + [consts])
           unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
           @symbols = Obj::JIT.load(unit, host: Obj::JIT::Fiddle.new)
           @defs = lower.instance_variable_get(:@defs)

@@ -27,7 +27,7 @@ module Zr
 
       # The extensions whose native half is ours. A file here is part of
       # the runtime, so it may name a kernel def through `Primitive`.
-      EXT = File.join(Paths::RT, "ext")
+      EXT = File.join(Paths::RUNTIME, "ext")
       # The runtime's files whose instance variables a program sees as ruby
       # shows them: prism's port, which changes the prism gem's nodes after
       # they are built, and openssl's, whose C names every instance
@@ -38,9 +38,9 @@ module Zr
       ].freeze
       # The runtime's own Ruby, the core library and the extensions: code
       # a TracePoint never sees.
-      RUNTIME = Paths::RT
+      RUNTIME = Paths::RUNTIME
       # The named calls a site lowers to a kernel entry with a core fast
-      # path (Zr::Function::Sends::OPT_ENTRIES), by the arguments each
+      # path (Zr::Lower::Function::Sends::OPT_ENTRIES), by the arguments each
       # takes. A call of any other count, or with a block, keywords or a
       # splat, raises or means something else, and only the call says.
       OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
@@ -66,14 +66,14 @@ module Zr
       # walk a program carries where it cannot write machine code into
       # itself. Both hold the same front end; `Zr::Eval` names the back
       # half each one runs.
-      EVAL_ROAD = File.expand_path("../eval.rb", __dir__)
-      WALK_ROAD = File.expand_path("../eval/walk.rb", __dir__)
+      EVAL_COMPILER = File.expand_path("../eval.rb", __dir__)
+      EVAL_INTERPRETER = File.expand_path("../eval/walk.rb", __dir__)
 
       # The road for `target`. `ZR_EVAL=walk` asks for the walk where
       # machine code would do, which is how the walk is checked against
       # the answers the compiling road gives.
-      def self.eval_road_file(target = Target.default)
-        target.jits? && ENV["ZR_EVAL"] != "walk" ? EVAL_ROAD : WALK_ROAD
+      def self.eval_file(target = Target.default)
+        target.jits? && ENV["ZR_EVAL"] != "walk" ? EVAL_COMPILER : EVAL_INTERPRETER
       end
 
       # `road` is false for an eval: the program it runs inside already
@@ -87,14 +87,14 @@ module Zr
       # inside, as Method#parameters answers them, or nil outside one: a
       # `yield` has a block to reach only inside a method, and a bare
       # `super` passes those parameters on.
-      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
+      def self.program(source, file, roots: [], eval_support: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
         # The main file's name came from the build's command line, in the
         # build's locale; a program's locale is UTF-8 (Encoding.locale_charmap),
         # and the name must not carry the machine it was built on.
-        file = file.dup.force_encoding(::Encoding::UTF_8) if road && file.encoding != ::Encoding::UTF_8
+        file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
         built = lambda do |external, trace, evals, covers|
-          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, evals: evals,
-                              covers: covers, activations: activations, ahead_road: road.respond_to?(:units) ? road : nil)
+          loader = Loader.new(roots + stdlib(target), eval: !eval_support, external: external, trace: trace, evals: evals,
+                              covers: covers, activations: activations, prebuilt_eval: eval_support.respond_to?(:units) ? eval_support : nil)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         # Three things a build learns only by reading every file: that
@@ -112,8 +112,8 @@ module Zr
         external = nil
         loop do
           loader, main = built.call(external, trace, evals, covers)
-          preludes = road ? Build.preludes(loader, target) : []
-          over = loader.evals? && road.respond_to?(:units) ? road : nil
+          preludes = eval_support ? Build.preludes(loader, target) : []
+          over = loader.evals? && eval_support.respond_to?(:units) ? eval_support : nil
           break if over.equal?(external) && loader.traces? == trace && loader.covers? == covers
 
           evals = loader.evals?
@@ -126,12 +126,12 @@ module Zr
         # a row under a condition is made only where the condition
         # holds. So the rows are all taken before the first line, and a
         # build at run time starts after the last of them.
-        preludes += [Activations.new(loader.activations, 0)] if road && loader.evals? && loader.activations.positive?
+        preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.evals? && loader.activations.positive?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?,
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, eval_support && loader.evals?, loader.entries, loader.tracing?,
                     loader.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {})
       end
@@ -155,7 +155,7 @@ module Zr
       def self.preludes(loader, target)
         asking = {
           configures?: -> { [rbconfig(loader)] },
-          evals?: -> { [eval_road(loader, target)] },
+          evals?: -> { [eval_require(loader, target)] },
           gems?: -> { rubygems(loader) },
           normalizes?: -> { [normalizer(loader)] },
           pretty_prints?: -> { [pretty_printer(loader)] },
@@ -175,9 +175,9 @@ module Zr
       # the normalizer, the pretty printer, the syntax tree translator):
       # a program that evals may need any of them, and lowered here they
       # are lowered once, not with every such program.
-      def self.road(target = Target.default)
+      def self.eval_support(target = Target.default)
         Loader.new(stdlib(target)).tap do |loader|
-          eval_road(loader, target)
+          eval_require(loader, target)
           rubygems(loader)
           rbconfig(loader)
           normalizer(loader)
@@ -207,7 +207,7 @@ module Zr
       NORMALIZER = File.join(EXT, "zr/normalizer.rb")
 
       def self.normalizer(loader)
-        Require.new(:eval_road, "zr/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
+        Require.new(:hidden, "zr/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
       end
 
       # The file that arms Kernel#pp's load of ruby's own pp.rb, as
@@ -220,11 +220,11 @@ module Zr
       # which a program that names the module carries ahead of its body.
       # Both stay out of $LOADED_FEATURES.
       def self.ast_translator(loader)
-        Require.new(:eval_road, "zr/syntax_tree", SYNTAX_TREE, loader.hidden(SYNTAX_TREE), 0)
+        Require.new(:hidden, "zr/syntax_tree", SYNTAX_TREE, loader.hidden(SYNTAX_TREE), 0)
       end
 
       def self.pretty_printer(loader)
-        Require.new(:eval_road, "zr/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
+        Require.new(:hidden, "zr/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
       end
 
       # The messages irb loads for the locale it runs under. irb finds
@@ -239,7 +239,7 @@ module Zr
       # requires it on the first call.
       def self.irb_session(loader)
         loader.add(irb_messages)
-        Require.new(:eval_road, "zr/irb_session", IRB_SESSION, loader.add(IRB_SESSION), 0)
+        Require.new(:hidden, "zr/irb_session", IRB_SESSION, loader.add(IRB_SESSION), 0)
       end
 
       # `rbconfig`, which ruby has loaded before a program's first line:
@@ -255,9 +255,9 @@ module Zr
       # Only a program that names an eval carries the compiler, so an
       # eval-free one links nothing extra. The program never asked for
       # it, so what it loads stays out of $LOADED_FEATURES.
-      def self.eval_road(loader, target = Target.default)
-        path = eval_road_file(target)
-        Require.new(:eval_road, "zr/eval", path, loader.hidden(path), 0)
+      def self.eval_require(loader, target = Target.default)
+        path = eval_file(target)
+        Require.new(:hidden, "zr/eval", path, loader.hidden(path), 0)
       end
 
       # A program that names one of these compiles ruby while it runs.
@@ -310,10 +310,10 @@ module Zr
         # finds the file then and compiles it, and so does an autoload of
         # a file outside `booted`, the files the boot reads.
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, ahead_road: nil)
+                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil)
           @deferred = deferred
           @data = {}
-          @ahead_road = external ? nil : ahead_road
+          @prebuilt_eval = external ? nil : prebuilt_eval
           @preloaded = preloaded
           @ahead = ahead
           @booted = booted
@@ -703,7 +703,7 @@ module Zr
           # every file the road holds as that build will, and reads
           # none of them: `require "rubygems"` evals at its first line,
           # and its hundred files were read, built and thrown away.
-          if @ahead_road && @evals && (entry = @ahead_road.units[path])
+          if @prebuilt_eval && @evals && (entry = @prebuilt_eval.units[path])
             return @index[path] = entry
           end
 
@@ -2234,7 +2234,7 @@ module Zr
       # decision and not a gap. The stop reads "<reason> is not
       # implemented yet" (`zr_unloadable`), so each of these finishes
       # that sentence.
-      UNCARRIED = {
+      UNSUPPORTED_LIBRARIES = {
         "mkmf" => "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured",
         "prism/ffi" => "prism/ffi, the FFI half of prism: this runtime's prism is a Ruby port of the C, so the C half"
       }.freeze
@@ -2247,7 +2247,7 @@ module Zr
         return unless FEATURES.include?(name)
 
         line = node.location.start_line
-        Stop.new(UNCARRIED[name] || "#{node.name} of #{feature.inspect}", line)
+        Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
       end
 
       # An autoload that registers nothing and answers nil, which is what

@@ -223,7 +223,7 @@ module Zr
       end
 
       # The short hash of HEAD, `-dirty` when the tree differs from it
-      # under `lib`, `rt` or `benchmark`, or `unknown` outside git.
+      # under `lib`, `runtime` or `benchmark`, or `unknown` outside git.
       def revision
         rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
         return "unknown" if rev.empty?

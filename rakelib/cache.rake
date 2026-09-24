@@ -2,9 +2,9 @@
 
 # The runtime caches, swept.
 #
-# `tmp/rt` gains a runtime object, a prelinked image, an eval road and a
+# `tmp/cache` gains a runtime object, a prelinked image, an eval road and a
 # symbol table for every digest this checkout has ever built, and a
-# digest moves whenever anything under `lib` or `rt` does. Nothing
+# digest moves whenever anything under `lib` or `runtime` does. Nothing
 # removed the old ones, so a week of work left 9.5 GB of caches for
 # compilers that no longer exist.
 #
@@ -27,7 +27,7 @@
 # more than the runtime's digest -- the program's own pending symbols,
 # the files the prelude loaded -- so those two kinds are kept by age
 # alone, and a hard prune costs the next wasm build its prelude.
-require_relative "../lib/zr/zr"
+require_relative "../lib/zr/runtime"
 require_relative "../lib/zr/native/build"
 
 module Caches
@@ -37,7 +37,7 @@ module Caches
   # the parsed trees (lib/zr/parse_cache.rb): one a file ever parsed,
   # seventy thousand after a season, and named by their source alone,
   # so only age says which are done with.
-  def files = Dir[File.join(Zr::Zr.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
+  def files = Dir[File.join(Zr.cache, "{*,binaries/*,parse/*}")].select { |path| File.file?(path) }
 
   # wasmtime's own cache of compiled modules, which `rake bench` and a
   # `zr run` under Cranelift fill (the tiers run Winch with the cache
@@ -57,19 +57,19 @@ module Caches
   end
 
   def live_for(target)
-    runtime = Zr::Zr.runtime(target)
-    object = File.join(Zr::Zr.cache, "rt-#{runtime.digest}.o")
-    metas = Dir[File.join(Zr::Zr.cache, "road-#{runtime.digest}-{jit,walk}.json")]
-    roads = metas.filter_map { |meta| road_object(meta) }
-    images = [prelink([object]), *roads.map { |road| prelink([object, road]) }]
-    [object, *metas, *roads, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
-      Dir[File.join(Zr::Zr.cache, "*-#{runtime.digest}.*")]
+    runtime = Zr.runtime(target)
+    object = File.join(Zr.cache, "rt-#{runtime.digest}.o")
+    metas = Dir[File.join(Zr.cache, "eval-#{runtime.digest}-{jit,walk}.json")]
+    evals = metas.filter_map { |meta| eval_object(meta) }
+    images = [prelink([object]), *evals.map { |eval| prelink([object, eval]) }]
+    [object, *metas, *evals, *images, *images.map { |image| image.sub("prelink-", "skeleton-") }] +
+      Dir[File.join(Zr.cache, "*-#{runtime.digest}.*")]
   end
 
   # The road's object, which only its meta names.
-  def road_object(meta)
+  def eval_object(meta)
     key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
-    key && File.join(Zr::Zr.cache, "road-#{key}.o")
+    key && File.join(Zr.cache, "eval-#{key}.o")
   end
 
   # The image `Native::Build.prelink` writes for those objects.

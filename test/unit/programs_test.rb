@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 require_relative "../support/harness/answer"
 
@@ -72,14 +72,14 @@ class ProgramsTest < Minitest::Test
     assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 
-  BOTH_ROADS = Dir[File.join(ROOT, "test/programs/*.rb")].sort.freeze
-  NATIVE_ROAD = Dir[File.join(ROOT, "test/programs/native/*.rb")].sort.freeze
+  EVERY_TARGET = Dir[File.join(ROOT, "test/programs/*.rb")].sort.freeze
+  NATIVE_ONLY = Dir[File.join(ROOT, "test/programs/native/*.rb")].sort.freeze
 
-  (BOTH_ROADS + NATIVE_ROAD).each do |rb|
+  (EVERY_TARGET + NATIVE_ONLY).each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_#{name}") do
       want = oracle(rb)
-      program = Zr::Zr.program(File.read(rb), rb)
+      program = Zr.program(File.read(rb), rb)
       Dir.mktmpdir("zr-programs-") do |dir|
         bin = File.join(dir, name)
         assert_nil Zr::Native::Build.program(program, bin, work: dir)
@@ -89,14 +89,14 @@ class ProgramsTest < Minitest::Test
       end
     end
 
-    next unless BOTH_ROADS.include?(rb)
+    next unless EVERY_TARGET.include?(rb)
 
     define_method("test_wasm_#{name}") do
       skip Checks.wasm_missing if Checks.wasm_missing
       skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZR_WASM_DEFECTS"] != "0"
 
       want = oracle(rb)
-      program = Zr::Zr.program(File.read(rb), rb, target: Zr::Target::WASM32_WASI)
+      program = Zr.program(File.read(rb), rb, target: Zr::Target::WASM32_WASI)
       Dir.mktmpdir("zr-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm_program(program, wasm)

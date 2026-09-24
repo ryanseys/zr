@@ -71,11 +71,11 @@ class EvalCallTest < Minitest::Test
 
   private
 
-  # Whether `def m`, holding `body`, arms the return catch. `road: false`
+  # Whether `def m`, holding `body`, arms the return catch. `eval_support: false`
   # leaves the compiler out: the question is what the front end decides,
   # and carrying the road would build its two hundred units for each row.
   def armed?(body)
-    program = Zr::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", road: false)
+    program = Zr::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", eval_support: false)
     defs(program.body).find { |d| d.name == :m }.evals
   end
 

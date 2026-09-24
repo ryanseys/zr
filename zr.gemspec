@@ -30,13 +30,13 @@ Gem::Specification.new do |spec|
   # the tasks stay in the repository.
   spec.files = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").select do |file|
-      file.match?(%r{\A(exe|lib|rt|vendor/(ext|lib|prelude))/}) ||
+      file.match?(%r{\A(exe|lib|runtime|vendor/(ext|lib|prelude))/}) ||
         %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
     end
   end
   spec.bindir = "exe"
   spec.executables = ["zr"]
-  # Only lib/: rt/ and vendor/ hold files named like ruby's own libraries
+  # Only lib/: runtime/ and vendor/ hold files named like ruby's own libraries
   # (rbconfig, set, json), and must never shadow them.
   spec.require_paths = ["lib"]
 

@@ -2,7 +2,7 @@
 
 require "test_helper"
 require_relative "../support/harness/prism_diff"
-require_relative "../../rt/ext/prism/ruby"
+require_relative "../../runtime/ext/prism/ruby"
 require "stringio"
 
 # The pure-Ruby prism held to ruby's C prism: its
@@ -43,7 +43,7 @@ class PrismTest < Minitest::Test
 
   def self.upstream_cases(...) = PrismDiff.upstream && PrismDiff.cases(...)
 
-  compare("the_writer_writes_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
+  compare("the_writer_writes_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[runtime lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
@@ -64,7 +64,7 @@ class PrismTest < Minitest::Test
   # The Ruby parser: Prism::Ruby.dump equal to Prism.dump byte for byte, on
   # zr's own Ruby and on every fixture and error file under each syntax
   # version.
-  compare("the_parser_dumps_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[rt lib]), at_least: 300) do |cases|
+  compare("the_parser_dumps_zrs_own_ruby_as_the_c_does", PrismDiff.cases(%w[runtime lib]), at_least: 300) do |cases|
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
@@ -199,7 +199,7 @@ end
   # What a fresh ruby that loaded `feature` lexes `source` into.
   def lexed(source, feature)
     program = "require #{feature.inspect}\nputs Prism.lex_compat(ARGV[0]).value.map(&:inspect)\n"
-    said = IO.popen(Zr::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", program, source],
+    said = IO.popen(Zr::Harness::CleanEnv.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", program, source],
                     unsetenv_others: true, err: %i[child out], &:read)
     assert_predicate $?, :success?, "the child did not lex with #{feature}: #{said}"
     said

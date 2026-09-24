@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/backend/aarch64/codegen"
 require_relative "../../lib/zr/backend/aarch64/stub"
 
@@ -94,8 +94,8 @@ class Aarch64Test < Minitest::Test
   def self.runtime
     @runtime ||= begin
       symbols = Zr::Machine::Symbols.new
-      unit = Zr::Machine.unit(Zr::Zr.kernel_files + [File.join(ROOT, "test/rt/puts.rb")], symbols: symbols)
-      functions, = Zr::Zr.core(unit, symbols)
+      unit = Zr::Machine.unit(Zr.kernel_files + [File.join(ROOT, "test/rt/puts.rb")], symbols: symbols)
+      functions, = Zr.core(unit, symbols)
       unit.functions + functions
     end
   end

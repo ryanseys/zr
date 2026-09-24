@@ -5,11 +5,11 @@
 # committed, so a stale one is a failing test rather than something you
 # have to remember to run.
 #
-#   rake gen:description             rt/ext/os/<os>/zr_description.rb
+#   rake gen:description             runtime/ext/os/<os>/zr_description.rb
 #   rake 'gen:description[wasm32-wasi]'
 #   rake gen:libsystem               lib/zr/obj/macho/libsystem.rb
-#   rake gen:prism_generate          rt/ext/prism/ruby/*.rb
-#   rake gen:prism_encoding_tables   rt/ext/prism/ruby/encoding_tables.rb
+#   rake gen:prism_generate          runtime/ext/prism/ruby/*.rb
+#   rake gen:prism_encoding_tables   runtime/ext/prism/ruby/encoding_tables.rb
 #
 # The generators live in `test/support/oracle/`, beside the tests that
 # run them, and the tasks here run the same scripts the same way:
@@ -34,11 +34,11 @@ module Snapshots
 end
 
 namespace :gen do
-  desc "Write rt/ext/os/<os>/zr_description.rb: rake 'gen:description[wasm32-wasi]'"
+  desc "Write runtime/ext/os/<os>/zr_description.rb: rake 'gen:description[wasm32-wasi]'"
   task(:description, [:triple]) do |_, args|
-    require_relative "../lib/zr/zr"
+    require_relative "../lib/zr/runtime"
     target = args[:triple] ? (Zr::Target.fetch(args[:triple]) || abort("no target #{args[:triple]}")) : Zr::Target.default
-    zr_write("rt/ext/os/#{target.os_layer}/zr_description.rb") { |io| io.print Snapshots.run("description", target.triple) }
+    zr_write("runtime/ext/os/#{target.os_layer}/zr_description.rb") { |io| io.print Snapshots.run("description", target.triple) }
   end
 
   desc "Write lib/zr/obj/macho/libsystem.rb"
@@ -46,9 +46,9 @@ namespace :gen do
     zr_write("lib/zr/obj/macho/libsystem.rb") { |io| io.print Snapshots.run("libsystem") }
   end
 
-  desc "Write rt/ext/prism/ruby/*.rb: rake 'gen:prism_generate[--check]'"
+  desc "Write runtime/ext/prism/ruby/*.rb: rake 'gen:prism_generate[--check]'"
   task(:prism_generate, [:opts]) { |_, args| puts Snapshots.run("prism_generate", *args[:opts].to_s.split) }
 
-  desc "Write rt/ext/prism/ruby/encoding_tables.rb: rake 'gen:prism_encoding_tables[--check]'"
+  desc "Write runtime/ext/prism/ruby/encoding_tables.rb: rake 'gen:prism_encoding_tables[--check]'"
   task(:prism_encoding_tables, [:opts]) { |_, args| puts Snapshots.run("prism_encoding_tables", *args[:opts].to_s.split) }
 end

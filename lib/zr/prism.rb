@@ -9,7 +9,7 @@ end
 
 # The host's prism: the vendored Ruby half of prism 1.9.0
 # (vendor/ext/prism/lib) over zr's Ruby port of prism's C
-# (rt/ext/prism/ruby), the same tree a zr binary carries. Both
+# (runtime/ext/prism/ruby), the same tree a zr binary carries. Both
 # directories go ahead of ruby's own prism; prism_backend holds
 # prism/prism.rb alone. A process that loaded ruby's prism first keeps
 # it: the two answer alike, object for object.
@@ -28,4 +28,4 @@ end
 
 # ruby's own prism parses fast enough without a cache, and a binary has no
 # cache to write.
-require_relative "parse_cache" if Zr::HOSTED && Prism.method(:parse).source_location&.first == File.expand_path("../../rt/ext/prism/prism.rb", __dir__)
+require_relative "parse_cache" if Zr::HOSTED && Prism.method(:parse).source_location&.first == File.expand_path("../../runtime/ext/prism/prism.rb", __dir__)

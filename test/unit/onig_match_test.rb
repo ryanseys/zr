@@ -4,13 +4,13 @@ require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/jit/fiddle"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 
-# The kernel matcher (rt/kernel/onig_*.rb) against ruby's own engine:
+# The kernel matcher (runtime/kernel/onig_*.rb) against ruby's own engine:
 # the core compiles each pattern under this ruby, the kernel unit is
 # JIT-loaded and searches, and `Regexp` on the same subject is the
 # oracle for the position and every capture's byte offsets.
-Zr::Zr.require_onig
+Zr.require_onig
 
 class OnigMatchTest < Minitest::Test
   O = Regexp::Onig
@@ -22,7 +22,7 @@ class OnigMatchTest < Minitest::Test
       Dir.mktmpdir("zr-onig-") do |dir|
         consts = File.join(dir, "consts.rb")
         File.write(consts, "CLOCK_MONOTONIC = 6\n")
-        lower = Zr::Machine.unit(Dir[File.join(ROOT, "rt/kernel/onig_*.rb")].sort + [consts])
+        lower = Zr::Machine.unit(Dir[File.join(ROOT, "runtime/kernel/onig_*.rb")].sort + [consts])
         unit = Zr::Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
         @symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
         @defs = lower.instance_variable_get(:@defs)

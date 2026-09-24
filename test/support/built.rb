@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "tmpdir"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/native/parallel"
 require_relative "harness/wasmtime"
@@ -13,7 +13,7 @@ module Zr
     # For a native target the build makes the runtime object, the
     # prelinked runtime image and the eval support object. For wasm it
     # makes the module prelude. Each is a file in the cache, named by a
-    # digest of its sources. After a change under `lib` or `rt`, the next
+    # digest of its sources. After a change under `lib` or `runtime`, the next
     # build makes them again: about three minutes, and five more for wasm.
     #
     # `ready!` builds what is missing before the tier forks its workers.
@@ -85,7 +85,7 @@ module Zr
       # Starts a child process that builds the caches of `target`, and
       # returns its pid. `ZR_JOBS` gives the child its number of workers.
       def start(target, jobs:, say:)
-        say&.puts("building the zr runtime for #{target.triple} (a few minutes after a change under lib/ or rt/)")
+        say&.puts("building the zr runtime for #{target.triple} (a few minutes after a change under lib/ or runtime/)")
         Process.fork do
           ENV["ZR_JOBS"] = jobs.to_s
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)

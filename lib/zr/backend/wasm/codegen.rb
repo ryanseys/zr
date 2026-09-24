@@ -19,11 +19,11 @@ module Zr
       # ladder of `block`s and a `br_table` on a block-index local: each IR
       # block sets the index of its successor and branches to the loop.
       # Stack slots live in a shadow stack in linear memory under a global
-      # stack pointer. The module answers a floor of libc calls itself
-      # where no function defines them (`FLOOR`): `malloc` bumps a heap
+      # stack pointer. The module answers a set of libc calls itself
+      # where no function defines them (`LIBC_SHIMS`): `malloc` bumps a heap
       # pointer above the shadow stack and grows the memory, `free` does
       # nothing, and `write` and `exit` become `fd_write` and `proc_exit`,
-      # for a unit with no OS layer. The OS layer, rt/kernel/os/wasi, answers
+      # for a unit with no OS layer. The OS layer, runtime/kernel/os/wasi, answers
       # every other call over its own imports. A function's address is its
       # index in the one table, from 1 so that a pointer is never zero;
       # `call_indirect` goes through that table.
@@ -54,7 +54,7 @@ module Zr
         # The libc calls a module answers itself, where no function of the
         # name is defined: memory, which only the module can own, and the
         # calls a unit with no OS layer makes to write, leave and stop.
-        FLOOR = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
+        LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
                   "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
                   "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze
 
@@ -74,7 +74,7 @@ module Zr
 
           def to_a = [@from, @name, @params, @results]
         end
-        # The imports the floor and `_start` call, which a module carries
+        # The imports the libc shims and `_start` call, which a module carries
         # whatever its functions import.
         OWN_IMPORTS = [Import.new(WASI, "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
                        Import.new(WASI, "proc_exit", [0x7F], [])].freeze
@@ -142,7 +142,7 @@ module Zr
           own = @functions.map { |f| Body.new(self, f).emit }
           bodies = @shims.map { |name| shim(name) } + (pre ? pre.bodies : []) + own + [start_body]
           sigs = (pre ? pre.sigs.values : []) + @functions.map { |f| signature(f) } + [[[], []]]
-          shim_sigs = @shims.map { |name| FLOOR.fetch(name) }
+          shim_sigs = @shims.map { |name| LIBC_SHIMS.fetch(name) }
           (@imports.map { |i| [i.params, i.results] } + shim_sigs + sigs).each { |t| type_index(t) }
 
           out = +"\0asm\x01\0\0\0".b
@@ -203,7 +203,7 @@ module Zr
             extra = imported.map(&:name) - @imports.map(&:name)
             raise Refused, "the prelude does not import #{extra.join(", ")}" unless extra.empty?
           end
-          @shims = pre ? pre.shims : FLOOR.keys - @functions.map(&:name) - (@pending ? @pending[:functions] : [])
+          @shims = pre ? pre.shims : LIBC_SHIMS.keys - @functions.map(&:name) - (@pending ? @pending[:functions] : [])
           @index = {}
           @imports.each_with_index { |import, i| @index[import.name] = i }
           @shims.each { |name| @index[name] = @index.size }
@@ -288,7 +288,7 @@ module Zr
         # The wasm parameter and result types a call to `name` must match;
         # nil for a function this module has not seen.
         def function_type(name)
-          return FLOOR[name] if @shims.include?(name)
+          return LIBC_SHIMS[name] if @shims.include?(name)
           return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
 
           @function_named ||= @functions.to_h { |x| [x.name, x] }
@@ -781,7 +781,7 @@ module Zr
                 set(i.results[0])
               end
             when :call
-              # A libc call's text signature may say i64 where the floor
+              # A libc call's text signature may say i64 where the shim
               # takes i32: the width follows the callee.
               name = callee(i.callee).symbol
               params, results = @m.function_type(name) || @m.sig_type(sig_named(callee(i.callee).sig))

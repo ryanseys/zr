@@ -1,6 +1,6 @@
 # The kernel dialect
 
-The kernel dialect is the language of `rt/kernel/`. It has Ruby's
+The kernel dialect is the language of `runtime/kernel/`. It has Ruby's
 syntax and a machine's semantics. `Zr::Machine` (`lib/zr/machine/lower.rb`)
 lowers it straight to the IR, one function for each `machine def`. Any
 form outside the dialect is refused by name at its line.

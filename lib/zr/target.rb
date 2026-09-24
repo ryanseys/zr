@@ -6,11 +6,11 @@ module Zr
   # host; a target says what it builds, and `refusal` says whether this
   # host can build it.
   class Target
-    attr_reader :triple, :arch, :os, :libc, :object_format, :word, :page, :symbol_prefix, :ruby_platform, :link, :roads
+    attr_reader :triple, :arch, :os, :libc, :object_format, :word, :page, :symbol_prefix, :ruby_platform, :link, :outputs
 
-    # `roads` are the outputs zr can build for the target today: `:native`
+    # `outputs` are the outputs zr can build for the target today: `:native`
     # (a binary), `:obj` (an object) and `:wasm` (a module).
-    def initialize(triple:, arch:, os:, object_format:, page:, symbol_prefix:, ruby_platform:, link:, roads:, libc: nil, word: 8)
+    def initialize(triple:, arch:, os:, object_format:, page:, symbol_prefix:, ruby_platform:, link:, outputs:, libc: nil, word: 8)
       @triple = triple
       @arch = arch
       @os = os
@@ -21,15 +21,15 @@ module Zr
       @symbol_prefix = symbol_prefix
       @ruby_platform = ruby_platform
       @link = link
-      @roads = roads
+      @outputs = outputs
     end
 
     def to_s = triple
 
-    # The runtime layer each OS's target is lowered with: rt/kernel/os/,
-    # rt/core/os/ and rt/ext/os/ each hold one directory per layer.
+    # The runtime layer each OS's target is lowered with: runtime/kernel/os/,
+    # runtime/core/os/ and runtime/ext/os/ each hold one directory per layer.
     OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze
-    # The machine layer, under rt/kernel/arch/.
+    # The machine layer, under runtime/kernel/arch/.
     ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze
 
     def os_layer = OS_LAYERS.fetch(os)
@@ -43,13 +43,13 @@ module Zr
 
     AARCH64_DARWIN = register(new(triple: "aarch64-apple-darwin", arch: :aarch64, os: :darwin, object_format: :macho,
                                   page: 16_384, symbol_prefix: "_", ruby_platform: "arm64-darwin23",
-                                  link: :darwin, roads: %i[native obj]))
+                                  link: :darwin, outputs: %i[native obj]))
     AARCH64_LINUX_MUSL = register(new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
                                       object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
-                                      link: :static, roads: %i[native obj]))
+                                      link: :static, outputs: %i[native obj]))
     WASM32_WASI = register(new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
                                page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
-                               link: nil, roads: %i[wasm]))
+                               link: nil, outputs: %i[wasm]))
 
     # The target named `triple`, or nil.
     def self.fetch(triple) = REGISTRY[triple]
@@ -87,7 +87,7 @@ module Zr
     def jits? = arch != :wasm32
 
     # The output `emit` names: `:native` for nil, else the symbol.
-    def self.road(emit) = emit ? emit.to_sym : :native
+    def self.output(emit) = emit ? emit.to_sym : :native
 
     # Whether this host can link a binary for this target. zr's own
     # Mach-O linker needs no tool, on any host, unless `ZR_LINK=cc`
@@ -121,9 +121,9 @@ module Zr
     # nil when this host can build `emit` (nil for a native binary, "obj"
     # or "wasm") for this target, else the message a refusal prints.
     def refusal(emit)
-      road = Target.road(emit)
-      return "zr does not build #{road == :native ? "a native binary" : "--emit #{emit}"} for #{triple}" unless roads.include?(road)
-      return nil unless road == :native
+      output = Target.output(emit)
+      return "zr does not build #{output == :native ? "a native binary" : "--emit #{emit}"} for #{triple}" unless outputs.include?(output)
+      return nil unless output == :native
       return nil if linkable?
 
       if native?

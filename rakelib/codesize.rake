@@ -13,7 +13,7 @@
 # shrank. Every run writes `tmp/codesize.tsv`, which is what a later one
 # is given to compare against.
 
-require "zr/zr"
+require "zr/runtime"
 require "zr/backend/aarch64/codegen"
 require "zr/ir/passes"
 
@@ -24,7 +24,7 @@ module Codesize
     all = argv.delete("--all")
     was = argv.shift
 
-    runtime = Zr::Zr.runtime
+    runtime = Zr.runtime
     functions = Zr::IR::Passes.inline(runtime.functions).each { |f| Zr::IR::Passes.prepare(f) }
     defined = functions.map(&:name).to_set
 

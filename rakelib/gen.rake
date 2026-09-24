@@ -520,11 +520,11 @@ end
 namespace :gen do
   {
     features: ["lib/zr/hir/features.rb", Gen::Features],
-    encodings: ["rt/core/encodings.rb", Gen::Encodings],
-    transcode: ["rt/core/transcode.rb", Gen::Transcode],
-    emoji: ["rt/core/emoji.rb", Gen::Emoji],
-    builtin_lines: ["rt/core/builtin_lines.rb", Gen::BuiltinLines],
-    unicode: ["rt/core/unicode.rb", Gen::Unicode]
+    encodings: ["runtime/core/encodings.rb", Gen::Encodings],
+    transcode: ["runtime/core/transcode.rb", Gen::Transcode],
+    emoji: ["runtime/core/emoji.rb", Gen::Emoji],
+    builtin_lines: ["runtime/core/builtin_lines.rb", Gen::BuiltinLines],
+    unicode: ["runtime/core/unicode.rb", Gen::Unicode]
   }.each do |name, (path, mod)|
     desc "Write #{path}"
     task(name) do

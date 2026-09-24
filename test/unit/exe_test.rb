@@ -73,8 +73,8 @@ class ExeTest < Minitest::Test
       bin = written(Zr::Native::Build.unit(functions, data), dir, "hello")
       assert_equal Zr::Native::Link::STACK, stacksize(bin)
       through_cc = File.join(dir, "hello-cc")
-      assert_nil Zr::Native::Build.binary(functions, data, through_cc, work: dir, road: "cc")
-      assert_equal stacksize(bin), stacksize(through_cc), "the two roads give different room"
+      assert_nil Zr::Native::Build.binary(functions, data, through_cc, work: dir, linker: "cc")
+      assert_equal stacksize(bin), stacksize(through_cc), "the two linkers give different stack sizes"
     end
   end
 
@@ -271,10 +271,10 @@ class ExeTest < Minitest::Test
       skeleton = File.join(dir, "skeleton")
       File.binwrite(skeleton, Zr::Obj::MachO::Skeleton.bytes(base))
       # One name in every directory: the signature carries the name.
-      whole, cloned = %w[whole cloned].zip([nil, skeleton]).map do |road_name, road|
-        bin = File.join(dir, road_name, "hooked")
+      whole, cloned = %w[whole cloned].zip([nil, skeleton]).map do |name, skeleton|
+        bin = File.join(dir, name, "hooked")
         Dir.mkdir(File.dirname(bin))
-        assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, bin, prelink: base, skeleton: road)
+        assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, bin, prelink: base, skeleton: skeleton)
         File.binread(bin)
       end
       assert_equal whole, cloned
@@ -307,7 +307,7 @@ class ExeTest < Minitest::Test
         functions, data = Zr::Native::Fixtures.build(name)
         mine = ran(written(Zr::Native::Build.unit(functions, data), dir, "#{name}-ruby"))
         theirs = File.join(dir, "#{name}-cc")
-        assert_nil Zr::Native::Build.binary(functions, data, theirs, work: dir, road: "cc")
+        assert_nil Zr::Native::Build.binary(functions, data, theirs, work: dir, linker: "cc")
         assert_equal mine, ran(theirs), "#{name} answers differently through cc"
       end
     end

@@ -38,7 +38,7 @@ module Zr
 
       def platform = PLATFORMS.fetch(@target.os)
 
-      def wasm? = @target.roads == [:wasm]
+      def wasm? = @target.outputs == [:wasm]
 
       # nil when this host runs what the target builds, else why not.
       def refusal

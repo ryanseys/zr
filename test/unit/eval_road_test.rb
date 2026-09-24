@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 
 # Which programs carry the compiler.
 #
@@ -59,7 +59,7 @@ class EvalRoadTest < Minitest::Test
   # back the moment it compiled anything. The rows go on from the
   # road's, as the symbol ids and the site indices already do.
   def test_a_program_numbers_its_using_rows_past_the_roads
-    road = Zr::Zr.road(Zr::Target.default)
+    road = Zr.eval_support(Zr::Target.default)
     assert_operator road.activations, :>, 0, "the road activates refinements of its own"
 
     loader = Zr::Hir::Build::Loader.new(Zr::Hir::Build.stdlib(Zr::Target.default), external: road)

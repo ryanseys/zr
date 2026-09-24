@@ -30,11 +30,11 @@ Add the gem's name to `GEMS` in `lib/zr/hir/build.rb`, so that a
 ## 2. Write the C half in Ruby
 
 The C half is the file the gem requires as a shared library, for
-example `require "digest.so"`. Write it as `rt/ext/<name>.so.rb`, in
+example `require "digest.so"`. Write it as `runtime/ext/<name>.so.rb`, in
 ordinary Ruby:
 
 ```ruby
-# rt/ext/digest.so.rb
+# runtime/ext/digest.so.rb
 # digest.c, in ruby: Digest.hexencode, the Digest::Instance protocol,
 # Digest::Class, and Digest::Base, ...
 module Digest
@@ -44,7 +44,7 @@ end
 
 Follow the C file closely: one Ruby method for each C function the gem
 defines, with the same checks and the same error messages. Code under
-`rt/ext/` can call kernel defs through `Primitive`, as the
+`runtime/ext/` can call kernel defs through `Primitive`, as the
 [core library](add-a-core-method.md) does.
 
 Provide everything the C half defines, not only what the Ruby half
@@ -60,7 +60,7 @@ committed sample.
 
 ## 4. Mind instance variables
 
-Instance variables that runtime code (`rt/`) writes are hidden from the
+Instance variables that runtime code (`runtime/`) writes are hidden from the
 program, as a C struct's fields are. When the gem's Ruby half reads an
 instance variable that the C half sets, put `Primitive.attr! :ivars` in
 the class body, so those instance variables stay visible.
@@ -81,5 +81,5 @@ $ rake 'oracle[test/spec/stdlib/digest]'
 
 When the extension needs numbers that each OS defines (errno values,
 socket constants, `fcntl` flags), do not write them by hand. `rake
-tables` writes them from the ruby of each OS, into `rt/core/os/<os>/`
-and `rt/ext/os/<os>/`.
+tables` writes them from the ruby of each OS, into `runtime/core/os/<os>/`
+and `runtime/ext/os/<os>/`.

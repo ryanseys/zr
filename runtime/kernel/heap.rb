@@ -1,0 +1,1847 @@
+# The heap: cells of four sizes (32, 64, 128 and 256 bytes) from
+# arenas, each cell's state a bit in its arena's bitmaps; a precise
+# mark-sweep collector rooted in the task's frame records and the
+# globals. A freed cell is poisoned and loses FL_ALLOCATED, and marking
+# aborts on a reference to one: a live object pointing at a freed cell
+# is a root the discipline missed. Under ZR_GC_STRESS every allocation
+# collects first, and allocation goes on past the last cell handed out,
+# so a stale pointer meets the poison, not a new object.
+#
+# An arena is ARENA_CELLS cells of one size after a head that names it,
+# aligned to ARENA_BYTES, so a cell's arena is its address with the low
+# bits cleared, and its four bitmaps sit between that head and its
+# cells: the marks, the ages, the remembered set and the allocated
+# cells. A mark is a bit and never a write into the cell, so a
+# collection leaves the pages a fork shares untouched, and a sweep
+# reads one word to step over sixty-four live cells.
+#
+# An allocation takes the first clear bit of the allocated word its
+# size class's cursor stands at (`zr_alloc`), and no cell is read or
+# written until it is handed out: a new arena costs its bitmaps and
+# nothing of its pages. The sweep frees exactly the cells that died
+# this collection -- `allocated & ~marks`, walked by `ctz` -- and
+# writes the marks over the allocated map; a cell that was free stays
+# untouched. What it counts free is a `popcnt` away. The arenas of a
+# size class that the sweep left with room make its list for the
+# cursor to go on with, in address order; an arena it found with no
+# live cell is reserved: no sweep reads it again, and the cursor takes
+# it when the list runs out. The collector runs when both are empty,
+# and grows each size to twice what the sweep found live of it. Every
+# size has the same count, so the heap a program starts with, and what
+# a collection sweeps of it, is the 32,768 cells of four arenas. The
+# arenas are listed in a malloc'd table that doubles when full, so the
+# heap has no ceiling but the machine's.
+ARENA_BYTES = 4194304
+ARENA_HEAD = 256
+ARENA_CELLS = 8192
+ARENA_TABLE = 64
+# The bytes of an arena's mark bitmap, one bit a cell, the count of
+# bitmaps of that shape an arena carries before its cells (the marks,
+# the ages, the remembered set, the allocated cells), and the word of a
+# map whose every cell is live. The compiler's own barrier reads the
+# first two (Zr::Function#cell_barrier).
+MARK_BYTES = ARENA_CELLS >> 3
+ARENA_MAPS = 4
+ALL_MARKED = 0 - 1
+CELL_MIN = 32
+CELL_MAX = 256
+SIZE_CLASSES = 4
+POISON = 57005 << 8
+
+# What an arena says of itself: its cell size, that size as a shift,
+# how many cells follow the head, and its size class's index. `next`
+# links it on its size class's list of arenas with room, or, where it
+# is reserved -- every cell free, no sweep reads it -- on the list of
+# those.
+Machine.struct :ArenaHead, cell: Word, shift: Word, ncells: Word, index: Word, reserved: Word, remembered: Word, next: Ptr, exivars: Ptr
+
+# One cell size: its cursor, the word of an allocated map the next cell
+# comes out of (`zr_full` while it stands in no arena); `origin`, what
+# a cursor word's address and bit make that cell's address from, by
+# `shift`, the cell size's; its arenas with room, in address order; the
+# cells the last sweep found free; its arena count; its reserved
+# arenas; and the objects it has handed out.
+Machine.struct :SizeClass, cursor: Ptr, origin: Ptr, shift: Word, room: Ptr, freed: Word, arenas: Word, reserve: Ptr, allocated: Word
+
+# Heap state: collections, stress flag, the arena count,
+# the time collecting, the arena table and its capacity, the malloc'd
+# payload bytes held (zr_xmalloc, zr_xfree), the count of them that
+# runs the collector, whether an allocation takes the slow path
+# (zr_heap_slow_update), the collections and the majors and what each
+# kind cost, whether ZR_GC_TRACE is on, the collection number of the
+# last major and what it freed.
+Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word, minors: Word, verify: Word, verifying: Word, live: Word, old_limit: Word, majors: Word, marking: Word, sweeping: Word, trace: Word, last_major: Word, reclaimed: Word
+
+# The payload a collection lets the heap take on before the next one
+# runs on that account, and the bounds on that increment. CRuby holds
+# the same counter between GC_MALLOC_LIMIT_MIN and GC_MALLOC_LIMIT_MAX,
+# 16 and 32 megabytes, and grows it by 1.4 of what was found live;
+# these are four times its bounds, since a collection here marks
+# everything where CRuby's marks the young.
+#
+# The rule these replace was a flat `malloced * 2` with no ceiling at
+# all, so a build holding four gigabytes of payload would not collect on
+# that account until it held eight.
+MALLOC_LIMIT = 67108864
+MALLOC_LIMIT_MAX = 134217728
+MALLOC_GROWTH = 140
+
+# The free cells a size class should hold once a collection has swept
+# it, as hundredths of its capacity, and the most one collection may
+# grow it by. The shape is CRuby's, whose
+# `heap_allocatable_slots_expand` grows a heap only where the sweep
+# left it under the floor free, grows it to the goal, and never by more
+# than the factor in one step (0.20, 0.40 and 1.8 in
+# gc/default/default.c). The goal here is half and not two fifths,
+# since every collection is major: a class this one grows is left
+# holding twice its live set, as the rule before this held every class.
+FREE_FLOOR = 20
+FREE_GOAL = 50
+GROWTH = 180
+
+# What the old generation may grow to before a major collection runs,
+# as a multiple of what the last major found live, and the least that
+# multiple may stand for. A minor frees what died young and steps over
+# everything older, so nothing else frees an old graph that has gone
+# dead, nor the floating garbage a minor leaves behind; this is what
+# bounds both. It is CRuby's `old_objects_limit`, which is likewise
+# twice what the last major counted.
+OLD_LIMIT_FACTOR = 2
+OLD_LIMIT_MIN = 16777216
+
+# A backstop under that: minor collections that run before a major one
+# whatever the old set has done. A program whose old generation never
+# grows still wants its weak references and its finalizers looked at.
+#
+# A heap that has reached its share of the machine asks for a major
+# sooner, since only a major gives an old dead graph back and the
+# machine has no more to give. Sooner, and not always: making every
+# collection past that line a major left the collector
+# non-generational exactly where its heap was largest and a trace cost
+# the most. Measured on a cold self-compile of the compiler, the line
+# was crossed at collection 166 of 265 and every one of the 100 after
+# it was a major -- 100 of the run's 114, and most of the 231.1 s it
+# spent marking.
+#
+# Sooner only while it pays: a pressed heap keeps the short cadence
+# while its last major freed at least this fraction of what stayed
+# live, and falls back to the plain one when it did not. The cold
+# self-compile under the compiled compiler held six gigabytes live and
+# nothing old dead, and every fourth collection traced the six
+# gigabytes in three seconds to free fifteen megabytes.
+MAJOR_EVERY = 16
+MAJOR_EVERY_PRESSED = 4
+MAJOR_YIELD = 16
+
+# The collections a major must be behind before a minor that left a
+# size class short may force another. Inside that window the class is
+# grown instead: the major just run has shown what fills it live, and
+# a second trace of the same heap would show the same. CRuby's
+# `gc_sweep_finish_heap` holds NOFREE majors off for RVALUE_OLD_AGE
+# collections the same way. Measured on the cold self-compile of the
+# compiler under the compiled compiler: 60 of the object phase's 62
+# majors were forced by a short class, each traced six gigabytes live
+# in four seconds to free four megabytes, and the class grew three.
+MAJOR_AGE = 3
+
+# The share of the machine's memory the cells may reach before growth
+# falls back to the floor, in hundredths. Past it a collection costs
+# less than a page-in does, so the collector runs more often rather than
+# asking for memory the machine has to find somewhere: six compiler
+# workers that each grew without a bound took a sixteen-gigabyte machine
+# into 16.4 GB of swap, and a run that swaps does not fail -- it takes
+# ten times as long.
+HEAP_SHARE = 50
+
+sig [] => Ptr
+machine def zr_heap
+  Machine.static(:heap, Heap.size)
+end
+
+sig [Word] => Ptr
+machine def zr_arena_at(i)
+  Machine.ptr(Machine.load64(Heap.table(zr_heap()) + (i * 8), 0))
+end
+
+# Room in the arena table for one more arena.
+sig [] => Void
+machine def zr_arena_table_grow
+  h = zr_heap()
+  n = Heap.arenas(h)
+  if n < Heap.capacity(h)
+    return
+  end
+  capacity = n == 0 ? ARENA_TABLE : n * 2
+  table = zr_xmalloc(capacity * 8)
+  if n != 0
+    zr_memcpy(table, Heap.table(h), n * 8)
+    zr_xfree(Heap.table(h))
+  end
+  Heap.set_table(h, table)
+  Heap.set_capacity(h, capacity)
+end
+
+sig [Value] => Ptr
+machine def zr_arena_of(v)
+  Machine.ptr(Machine.word(v) & (0 - ARENA_BYTES))
+end
+
+# The size class `c` (0 to 3): cells of CELL_MIN << c bytes.
+sig [Word] => Ptr
+machine def zr_size_class(c)
+  Machine.static(:size_classes, SizeClass.size * SIZE_CLASSES) + (c * SizeClass.size)
+end
+
+# The size class whose cells hold `bytes`, which is CELL_MAX at most:
+# each constructor asks for its struct's size, or clamps a payload to
+# the largest cell and mallocs the rest. One expression, so the
+# allocation inlines it.
+sig [Word] => Word
+machine def zr_size_class_for(bytes)
+  bytes <= CELL_MIN ? 0 : (bytes <= CELL_MIN * 2 ? 1 : (bytes <= CELL_MIN * 4 ? 2 : 3))
+end
+
+# The bytes of `v`'s cell: the size its arena holds.
+sig [Value] => Word
+machine def zr_cell_bytes(v)
+  ArenaHead.cell(zr_arena_of(v))
+end
+
+# Arena `a`'s mark bitmap, between its head and its cells: a fixed
+# offset, so reading a cell's bit asks the head for nothing but the
+# shift that turns its address into an index.
+sig [Ptr] => Ptr
+machine def zr_arena_marks(a)
+  a + ARENA_HEAD
+end
+
+# Arena `a`'s age bitmap, beside its marks: the marks the last
+# collection finished with, which is to say the cells that survived it.
+# Those are the old objects, and this is the map the write barrier and a
+# minor collection read. The marks themselves go back to zero at the end
+# of every collection, so nothing outside one is marked and ObjectSpace's
+# walk of what an object refers to (runtime/kernel/objspace.rb) still reads
+# the mark bitmap as its own scratch.
+sig [Ptr] => Ptr
+machine def zr_arena_ages(a)
+  a + ARENA_HEAD + MARK_BYTES
+end
+
+# Arena `a`'s remembered bitmap, beside its ages. A cell's bit is set
+# where the cell is old and has come to hold a young object, so a minor
+# collection has to read it again although it would stop at it.
+sig [Ptr] => Ptr
+machine def zr_arena_remembered(a)
+  a + ARENA_HEAD + (MARK_BYTES * 2)
+end
+
+# Arena `a`'s allocated bitmap, beside its remembered set: a cell's
+# bit is set from the allocation that hands it out to the sweep that
+# frees it. An allocation finds the cell by it, and every walk of the
+# heap's objects reads it instead of the cells, so a cell nothing has
+# handed out is never touched.
+sig [Ptr] => Ptr
+machine def zr_arena_allocated(a)
+  a + ARENA_HEAD + (MARK_BYTES * 3)
+end
+
+# The first cell of arena `a`, after its head and its bitmaps.
+sig [Ptr] => Ptr
+machine def zr_arena_first(a)
+  a + ARENA_HEAD + (MARK_BYTES * ARENA_MAPS)
+end
+
+# The index of the first allocated cell of `a` at `i` or after it,
+# ARENA_CELLS where there is none: what a walk of the heap's objects
+# steps by.
+sig [Ptr, Word] => Word
+machine def zr_arena_next_allocated(a, i)
+  map = zr_arena_allocated(a)
+  while i < ARENA_CELLS
+    word = Machine.load64(map + ((i >> 6) * 8), 0) >> (i & 63)
+    if word != 0
+      return i + Machine.ctz(word)
+    end
+    i = (i | 63) + 1
+  end
+  ARENA_CELLS
+end
+
+# The cells of `a` an allocation has handed out and no sweep has freed.
+sig [Ptr] => Word
+machine def zr_arena_live(a)
+  map = zr_arena_allocated(a)
+  n = 0
+  w = 0
+  while w < MARK_BYTES
+    n += Machine.popcnt(Machine.load64(map + w, 0))
+    w += 8
+  end
+  n
+end
+
+# The exivar slots of arena `a`, one a cell, or 0 where nothing in it
+# has taken a generic ivar yet. Every cell carried eight bytes of slot
+# before this -- a quarter of a 32-byte-cell arena, and resident from
+# the moment the arena was made, since the loop that poisons the cells
+# zeroed the slots beside them. But a generic ivar is reached only
+# where the kind has no ivar table of its own (`zr_ivtab_for_write`,
+# runtime/kernel/object.rb): an ivar on a String, an Array, a Float or a
+# Proc, and what a clone carries. Most arenas never hold one.
+sig [Ptr] => Ptr
+machine def zr_arena_exivars(a)
+  ArenaHead.exivars(a)
+end
+
+# The same, made now where the arena has none. CRuby keeps generic
+# ivars in a table off to the side for the same reason.
+sig [Ptr] => Ptr
+machine def zr_arena_exivars_for_write(a)
+  slots = ArenaHead.exivars(a)
+  if slots == 0
+    bytes = ArenaHead.ncells(a) * 8
+    slots = zr_xmalloc(bytes)
+    memset(slots, Machine.i32(0), bytes)
+    ArenaHead.set_exivars(a, slots)
+  end
+  slots
+end
+
+# The word of each of `a`'s bitmaps that holds cell `i`'s bit, and that
+# bit. The three maps have the same shape, so one bit serves all three.
+sig [Ptr, Word] => Ptr
+machine def zr_marks_word(a, i)
+  zr_arena_marks(a) + ((i >> 6) * 8)
+end
+
+sig [Ptr, Word] => Ptr
+machine def zr_ages_word(a, i)
+  zr_arena_ages(a) + ((i >> 6) * 8)
+end
+
+sig [Ptr, Word] => Ptr
+machine def zr_remembered_word(a, i)
+  zr_arena_remembered(a) + ((i >> 6) * 8)
+end
+
+sig [Word] => Word
+machine def zr_marks_bit(i)
+  1 << (i & 63)
+end
+
+# The index of cell `v` among arena `a`'s.
+sig [Ptr, Value] => Word
+machine def zr_cell_index_in(a, v)
+  (Machine.word(v) - zr_arena_first(a)) >> ArenaHead.shift(a)
+end
+
+# The index of `v`'s cell among its arena's.
+sig [Value] => Word
+machine def zr_cell_index(v)
+  zr_cell_index_in(zr_arena_of(v), v)
+end
+
+# Whether `v` is marked, and the two writes to its bit. A Proc or an Env
+# on the machine stack is in no arena and has no bit of its own, so
+# every caller here tests FL_STACK before it asks.
+sig [Value] => Bool
+machine def zr_marked_p(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  (Machine.load64(zr_marks_word(a, i), 0) & zr_marks_bit(i)) != 0
+end
+
+sig [Value] => Void
+machine def zr_mark_set(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  at = zr_marks_word(a, i)
+  Machine.store64(at, 0, Machine.load64(at, 0) | zr_marks_bit(i))
+end
+
+sig [Value] => Void
+machine def zr_mark_unset(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  at = zr_marks_word(a, i)
+  Machine.store64(at, 0, Machine.load64(at, 0) & (0 - 1 - zr_marks_bit(i)))
+end
+
+# Whether `v` survived a collection, which is what "old" means here. An
+# immediate has no cell, and a Proc or an Env on the machine stack is in
+# no arena, so neither has a bit to read.
+sig [Value] => Bool
+machine def zr_aged_p(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  (Machine.load64(zr_ages_word(a, i), 0) & zr_marks_bit(i)) != 0
+end
+
+sig [Value] => Bool
+machine def zr_old_p(v)
+  !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) == 0 && zr_aged_p(v)
+end
+Machine.inline :zr_old_p
+
+# `v`'s bit set in its arena's remembered map, and the arena flagged, so
+# a minor collection reads the map of that arena alone. The bits are a
+# map and not a list: there is nothing to allocate, nothing to
+# de-duplicate and nothing to overflow, which is what
+# `rgengc_rememberset_mark` gets out of CRuby's `remembered_bits`.
+sig [Value] => Void
+machine def zr_remember(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  at = zr_remembered_word(a, i)
+  Machine.store64(at, 0, Machine.load64(at, 0) | zr_marks_bit(i))
+  ArenaHead.set_remembered(a, 1)
+end
+
+# `owner` has come to hold `value`.
+#
+# A minor collection starts from the roots and from what is remembered
+# and stops at every object already marked, so an old object that comes
+# to refer to a young one has to be written down or the young one is
+# swept from under it. Nothing is owed where the owner is young -- a
+# minor collection reaches that one from the roots anyway -- nor where
+# the value is an immediate, or is old itself.
+#
+# CRuby needs this same barrier and cannot check it: every C function
+# that stores a VALUE into an object must call `RB_OBJ_WRITE` by hand,
+# which is why it carries wb-unprotected objects that are never promoted
+# and a whole second collector (gc/wbcheck) whose only job is to find
+# the calls that are missing. Here the compiler emits the store, so it
+# emits the barrier with it: `Machine::Lower#field` writes one after
+# every store into a Value field of a struct that begins with an
+# RBasic, which is to say into a cell.
+sig [Value, Value] => Void
+machine def zr_write_barrier(owner, value)
+  if zr_old_p(owner) && !zr_old_p(value)
+    zr_remember(owner)
+  end
+end
+Machine.inline :zr_write_barrier
+
+# `owner` remembered where it is old, whatever it has come to hold: what
+# a bulk write into a buffer it keeps owes the collector, where naming
+# each value one at a time would cost more than reading the cell again
+# will.
+sig [Value] => Void
+machine def zr_write_barrier_all(owner)
+  if zr_old_p(owner)
+    zr_remember(owner)
+  end
+end
+Machine.inline :zr_write_barrier_all
+
+# The bytes an arena of size class `c` takes: its head, its four
+# bitmaps and its cells. The exivar slots are not among them; an
+# arena that comes to want them mallocs them itself.
+sig [Word] => Word
+machine def zr_arena_bytes(c)
+  ARENA_HEAD + (MARK_BYTES * ARENA_MAPS) + (ARENA_CELLS * (CELL_MIN << c))
+end
+
+# The bytes of live cells the heap holds, which the sweep has counted.
+sig [] => Word
+machine def zr_live_bytes
+  bytes = 0
+  c = 0
+  while c < SIZE_CLASSES
+    sc = zr_size_class(c)
+    bytes += ((SizeClass.arenas(sc) * ARENA_CELLS) - SizeClass.freed(sc)) * (CELL_MIN << c)
+    c += 1
+  end
+  bytes
+end
+
+# The bytes of arenas the heap holds, live cells and free alike.
+sig [] => Word
+machine def zr_heap_bytes
+  bytes = 0
+  c = 0
+  while c < SIZE_CLASSES
+    bytes += SizeClass.arenas(zr_size_class(c)) * zr_arena_bytes(c)
+    c += 1
+  end
+  bytes
+end
+
+# What this machine has to hold a heap in, asked of the host once. A
+# host that will not say is treated as one of four gigabytes, which is
+# also all a wasm32 module can address.
+#
+# The question belongs to the OS layer, because the way to ask it is
+# not portable: `zr_os_machine_bytes` reads sysconf where there is one
+# and answers 0 where there is none.
+sig [] => Word
+machine def zr_machine_bytes
+  at = Machine.static(:machine_bytes, 8)
+  known = Machine.load64(at, 0)
+  if known != 0
+    return known
+  end
+  bytes = zr_os_machine_bytes()
+  if bytes == 0
+    bytes = 4294967296
+  end
+  Machine.store64(at, 0, bytes)
+  bytes
+end
+
+# A new arena of size class `c`, reserved: its head written and its
+# four bitmaps clear. Its cells are not touched: none is read before
+# an allocation hands it out and writes its header. It holds no exivar
+# slots; the first generic ivar taken in it makes them.
+sig [Word] => Void
+machine def zr_arena_add(c)
+  h = zr_heap()
+  zr_arena_table_grow()
+  n = Heap.arenas(h)
+  slot = Machine.slot(8)
+  if posix_memalign(slot, ARENA_BYTES, zr_arena_bytes(c)) != Machine.i32(0)
+    zr_memory_exhausted()
+  end
+  a = Machine.ptr(Machine.load64(slot, 0))
+  ArenaHead.set_cell(a, CELL_MIN << c)
+  ArenaHead.set_shift(a, 5 + c)
+  ArenaHead.set_ncells(a, ARENA_CELLS)
+  ArenaHead.set_index(a, c)
+  Machine.store64(Heap.table(h) + (n * 8), 0, Machine.word(a))
+  Heap.set_arenas(h, n + 1)
+  sc = zr_size_class(c)
+  SizeClass.set_arenas(sc, SizeClass.arenas(sc) + 1)
+  ArenaHead.set_exivars(a, 0)
+  memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES * ARENA_MAPS)
+  zr_arena_reserve(a)
+end
+
+# Arena `a`, every cell free, put by for its size class.
+sig [Ptr] => Void
+machine def zr_arena_reserve(a)
+  sc = zr_size_class(ArenaHead.index(a))
+  ArenaHead.set_reserved(a, 1)
+  ArenaHead.set_next(a, SizeClass.reserve(sc))
+  SizeClass.set_reserve(sc, a)
+end
+
+# A word every bit of which is set: where a size class's cursor stands
+# while it is in no arena, so `zr_alloc` finds no cell there and takes
+# the slow path, which moves it.
+sig [] => Ptr
+machine def zr_full
+  Machine.static(:full_word, 8)
+end
+
+# The cursor of size class `sc` at its arena's allocated word: `origin`
+# is what the word's address and a bit make the cell's address from
+# (`zr_cell_take`).
+sig [Ptr, Ptr, Ptr] => Void
+machine def zr_cursor_set(sc, a, at)
+  SizeClass.set_cursor(sc, at)
+  SizeClass.set_origin(sc, zr_arena_first(a) - (Machine.word(zr_arena_allocated(a)) << (3 + ArenaHead.shift(a))))
+end
+
+# The cursor of `sc` on to the next allocated word with a clear bit:
+# on in its arena, then from the start of each arena on its list of
+# those with room, then a reserved arena, whose words are all clear.
+# False where none of the three has one, which asks for a collection
+# or an arena.
+sig [Ptr] => Bool
+machine def zr_cursor_advance(sc)
+  at = SizeClass.cursor(sc)
+  if at != zr_full()
+    a = zr_arena_of(Machine.value(at))
+    stop = zr_arena_allocated(a) + MARK_BYTES
+    while at < stop
+      if Machine.load64(at, 0) != ALL_MARKED
+        SizeClass.set_cursor(sc, at)
+        return true
+      end
+      at += 8
+    end
+  end
+  while SizeClass.room(sc) != 0
+    a = SizeClass.room(sc)
+    SizeClass.set_room(sc, ArenaHead.next(a))
+    at = zr_arena_allocated(a)
+    stop = at + MARK_BYTES
+    while at < stop
+      if Machine.load64(at, 0) != ALL_MARKED
+        zr_cursor_set(sc, a, at)
+        return true
+      end
+      at += 8
+    end
+  end
+  a = SizeClass.reserve(sc)
+  if a == 0
+    SizeClass.set_cursor(sc, zr_full())
+    return false
+  end
+  SizeClass.set_reserve(sc, ArenaHead.next(a))
+  ArenaHead.set_reserved(a, 0)
+  zr_cursor_set(sc, a, zr_arena_allocated(a))
+  true
+end
+
+# The frame chain the collector walks: a record is a Frame followed by
+# `nvalues` Values.
+# `entry` is the method entry a method frame was called through, whose
+# `mid` is the name it was called by, an alias's own; 0 for a frame that
+# is no method's. `defined` is the class or proxy the method was found
+# in, which `super` continues from (a module included twice has two
+# proxies). `serial` tells one frame at an address from the next: 0
+# until something needs it (`zr_frame_serial`). `svars` is nil until
+# `$~` or `$_` is written under the frame, then a two-element Array of
+# them (`zr_svars`).
+Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, self: Value, cref: Value, blk: Value, entry: Ptr, defined: Value, serial: Word, nvalues: Word, svars: Value
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, missing: Word, found: Value, refine: Value, ractor: Word
+
+# The runtime's own roots: the core classes and the main object.
+G_BASIC_OBJECT = 0
+G_OBJECT = 1
+G_MODULE = 2
+G_CLASS = 3
+G_KERNEL = 4
+G_INTEGER = 5
+G_STRING = 6
+G_SYMBOL = 7
+G_NIL = 8
+G_TRUE = 9
+G_FALSE = 10
+G_MAIN = 11
+G_NUMERIC = 13
+G_COUNT = 63
+
+sig [] => Ptr
+machine def zr_globals
+  Machine.static(:globals, G_COUNT * 8)
+end
+
+sig [Word] => Value
+machine def zr_global(i)
+  Machine.value(Machine.load64(zr_globals() + (i * 8), 0))
+end
+
+sig [Word, Value] => Void
+machine def zr_set_global(i, v)
+  Machine.store64(zr_globals() + (i * 8), 0, Machine.word(v))
+end
+
+# One reserved arena per size class from the start, and a second of
+# 64-byte cells: the boot makes some ten thousand small Strings and
+# Arrays, and a program that runs no collection of its own runs none.
+sig [] => Void
+machine def zr_heap_init
+  h = zr_heap()
+  Heap.set_malloc_limit(h, MALLOC_LIMIT)
+  Heap.set_old_limit(h, OLD_LIMIT_MIN)
+  Machine.store64(zr_full(), 0, ALL_MARKED)
+  c = 0
+  while c < SIZE_CLASSES
+    SizeClass.set_cursor(zr_size_class(c), zr_full())
+    SizeClass.set_shift(zr_size_class(c), 5 + c)
+    zr_arena_add(c)
+    c += 1
+  end
+  zr_arena_add(1)
+  if getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
+    Heap.set_stress(h, 1)
+  end
+  if getenv(Machine.bytes("ZR_GC_VERIFY\0")) != 0
+    Heap.set_verify(h, 1)
+  end
+  if getenv(Machine.bytes("ZR_GC_TRACE\0")) != 0
+    Heap.set_trace(h, 1)
+  end
+  zr_heap_slow_update()
+end
+
+# The object whose children are being marked, so the abort below can
+# name what pointed at a freed cell.
+sig [] => Ptr
+machine def zr_marking
+  Machine.static(:marking, 8)
+end
+
+# The cells marked but not yet traced: a growable stack, so a long
+# chain of objects costs no machine stack.
+Machine.struct :MarkStack, ptr: Ptr, len: Word, capa: Word
+
+sig [] => Ptr
+machine def zr_mark_stack
+  Machine.static(:mark_stack, MarkStack.size)
+end
+
+# Mark `v` and queue it for tracing. Most references a collection reads
+# are immediates or cells it has marked already, so the test for those
+# is small enough to stand in each place a reference is read, and only
+# a cell still to mark costs a call. A Proc or an Env on the machine
+# stack lives as long as the frame that holds it and has no bit in any
+# arena, so the flag it carries takes it out of the collection here.
+sig [Value] => Void
+machine def zr_mark(v)
+  unless zr_special_p(v) || (RBasic.flags(v) & FL_STACK) != 0 || zr_marked_p(v)
+    zr_mark_cell(v)
+  end
+end
+
+# Nonzero while ObjectSpace reads what one object refers to, which
+# needs every cell it marks on the queue.
+sig [] => Ptr
+machine def zr_mark_every
+  Machine.static(:mark_every, 8)
+end
+
+# A freed cell here is a root the discipline missed, and the abort names
+# what pointed at it.
+sig [Value] => Void
+machine def zr_mark_cell(v)
+  flags = RBasic.flags(v)
+  if (flags & FL_ALLOCATED) == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("a live object points at a freed cell: from a cell of type "), 58)
+    parent = Machine.value(Machine.load64(zr_marking(), 0))
+    if parent == QNIL
+      zr_buf_push(b, Machine.bytes("root"), 4)
+    elsif zr_fixnum_p(parent)
+      zr_buf_push(b, Machine.bytes("root "), 5)
+      zr_buf_long(b, zr_fix2long(parent))
+    else
+      zr_buf_long(b, RBasic.flags(parent) & T_MASK)
+    end
+    zr_buf_push(b, Machine.bytes(" cell "), 6)
+    zr_buf_long(b, Machine.word(v))
+    zr_buf_push(b, Machine.bytes(" flags "), 7)
+    zr_buf_long(b, flags)
+    zr_buf_push(b, Machine.bytes(" index "), 7)
+    zr_buf_long(b, zr_cell_index(v))
+    zr_buf_push(b, Machine.bytes(" alloc "), 7)
+    zr_buf_long(b, Machine.load64(zr_arena_allocated(zr_arena_of(v)) + ((zr_cell_index(v) >> 6) * 8), 0) & zr_marks_bit(zr_cell_index(v)))
+    zr_buf_push(b, Machine.bytes(" mark "), 6)
+    zr_buf_long(b, zr_marked_p(v) ? 1 : 0)
+    zr_buf_push(b, Machine.bytes(" age "), 5)
+    zr_buf_long(b, zr_aged_p(v) ? 1 : 0)
+    zr_buf_push(b, Machine.bytes(" parent "), 8)
+    zr_buf_long(b, Machine.word(parent))
+    zr_buf_push(b, Machine.bytes(" collections "), 13)
+    zr_buf_long(b, Heap.collections(zr_heap()))
+    zr_buf_byte(b, 10)
+    zr_bug(Buf.ptr(b), Buf.len(b))
+  end
+  if zr_marked_p(v)
+    return
+  end
+  zr_mark_set(v)
+  if Heap.verifying(zr_heap()) != 0
+    zr_verify_reached(v)
+  end
+  # A String or a Float holds no Value: in a collection its class is
+  # marked here, and the queue never sees it. ObjectSpace's walk of one
+  # object's references reads them back off the queue, so there every
+  # cell goes on it.
+  t = flags & T_MASK
+  if (t == T_STRING || t == T_FLOAT) && (flags & FL_EXIVAR) == 0 && Machine.load64(zr_mark_every(), 0) == 0
+    zr_mark(RBasic.klass(v))
+    return
+  end
+  s = zr_mark_stack()
+  n = MarkStack.len(s)
+  if n == MarkStack.capa(s)
+    capa = n == 0 ? 1024 : n * 2
+    grown = zr_xmalloc(capa * 8)
+    if n > 0
+      zr_memcpy(grown, MarkStack.ptr(s), n * 8)
+      zr_xfree(MarkStack.ptr(s))
+    end
+    MarkStack.set_ptr(s, grown)
+    MarkStack.set_capa(s, capa)
+  end
+  Machine.store64(MarkStack.ptr(s) + (n * 8), 0, Machine.word(v))
+  MarkStack.set_len(s, n + 1)
+end
+
+# Trace every queued cell: its class, its children, its exivars.
+sig [] => Void
+machine def zr_mark_drain
+  s = zr_mark_stack()
+  while MarkStack.len(s) > 0
+    n = MarkStack.len(s) - 1
+    MarkStack.set_len(s, n)
+    v = Machine.value(Machine.load64(MarkStack.ptr(s) + (n * 8), 0))
+    Machine.store64(zr_marking(), 0, Machine.word(v))
+    zr_mark(RBasic.klass(v))
+    zr_mark_children(v)
+    if (RBasic.flags(v) & FL_EXIVAR) != 0
+      zr_mark_ivtab(zr_exivar_tab(v))
+    end
+  end
+end
+
+# The ivar tables of objects whose kind has none of its own: one slot
+# a cell in its arena's slot array, holding a table or 0. The array
+# itself may not be there, and then no cell of that arena holds a
+# table; `zr_exivar_slot_for_write` is what makes it.
+sig [Value] => Ptr
+machine def zr_exivar_slot(v)
+  slots = zr_arena_exivars(zr_arena_of(v))
+  slots == 0 ? Machine.ptr(0) : slots + (zr_cell_index(v) * 8)
+end
+
+sig [Value] => Ptr
+machine def zr_exivar_slot_for_write(v)
+  zr_arena_exivars_for_write(zr_arena_of(v)) + (zr_cell_index(v) * 8)
+end
+
+sig [Value] => Ptr
+machine def zr_exivar_tab(v)
+  at = zr_exivar_slot(v)
+  at == 0 ? Machine.ptr(0) : Machine.ptr(Machine.load64(at, 0))
+end
+
+# The table for `v`, made on first use, and with it the slot array of
+# the arena `v` sits in. The slot is found after the malloc and not
+# before, so no pointer into that array is held across a call that
+# may collect.
+sig [Value] => Ptr
+machine def zr_exivar_tab_for_write(v)
+  t = zr_exivar_tab(v)
+  if t == 0
+    t = zr_xmalloc(IvTab.size)
+    zr_ivtab_init(t)
+    Machine.store64(zr_exivar_slot_for_write(v), 0, Machine.word(t))
+    RBasic.set_flags(v, RBasic.flags(v) | FL_EXIVAR)
+  end
+  t
+end
+
+# Only a cell whose FL_EXIVAR is set reaches this, and that flag is
+# set with the table, so the arena has its slots.
+sig [Value] => Void
+machine def zr_exivar_free(v)
+  t = zr_exivar_tab(v)
+  zr_release_ivtab(t)
+  zr_xfree(t)
+  Machine.store64(zr_exivar_slot(v), 0, 0)
+end
+
+# Global variables: one table of (id, value) rows.
+sig [] => Ptr
+machine def zr_gvars
+  Machine.static(:gvars, IvTab.size)
+end
+
+# `alias $new $old`: the alias names the same row; the table maps an
+# alias to the name it stands for, already resolved.
+sig [] => Ptr
+machine def zr_gvar_aliases
+  Machine.static(:gvar_aliases, IvTab.size)
+end
+
+sig [Word] => Word
+machine def zr_gvar_resolve(id)
+  if IvTab.len(zr_gvar_aliases()) == 0
+    return id
+  end
+  target = zr_ivtab_get(zr_gvar_aliases(), id)
+  target == QUNDEF ? id : zr_fix2long(target)
+end
+
+sig [Word, Word] => Void
+machine def zr_gvar_alias(new_id, old_id)
+  zr_ivtab_set(zr_gvar_aliases(), new_id, zr_fix(zr_gvar_resolve(old_id)))
+end
+
+sig [Word] => Value
+machine def zr_gvar_get(id)
+  b = zr_box_current()
+  if b != QNIL
+    v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))
+    return v == QUNDEF ? Machine.value(QNIL) : v
+  end
+  v = zr_ivtab_get(zr_gvars(), zr_gvar_resolve(id))
+  if v == QUNDEF
+    return Machine.value(QNIL)
+  end
+  v
+end
+
+# A program's `$name` read: refused outside the main ractor unless the
+# global is one CRuby keeps for each ractor.
+sig [Word] => Value
+machine def zr_gvar_read(id)
+  r = zr_ractor_gvar_check(id)
+  return r if r == QUNDEF
+  zr_gvar_get(id)
+end
+
+sig [Word] => Value
+machine def zr_ractor_gvar_check(id)
+  if Task.ractor(zr_task()) == 0 || zr_gvar_ractor_local_p(id)
+    return Machine.value(QNIL)
+  end
+  args = Machine.slot(8)
+  Machine.store64(args, 0, Machine.word(zr_sym(id)))
+  zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:gvar_isolation!), 1, args)
+end
+
+# The globals CRuby keeps for each ractor (rb_gvar_ractor_local): the
+# rest are the main ractor's alone.
+sig [Word] => Bool
+machine def zr_gvar_ractor_local_p(id)
+  id == Machine.id(:$stdout) || id == Machine.id(:$stderr) || id == Machine.id(:$stdin) || id == Machine.id(:$>) ||
+    id == Machine.id(:$VERBOSE) || id == Machine.id(:$DEBUG) || id == Machine.id(:$/) || id == Machine.id(:$-0) ||
+    id == Machine.id(:$@) || id == Machine.id(:$?) || id == Machine.id(:$$) || id == Machine.id(:$-v) ||
+    id == Machine.id(:$-w) || id == Machine.id(:$-W) || id == Machine.id(:$-d) || id == Machine.id(:$-i) ||
+    id == Machine.id(:$-p) || id == Machine.id(:$-l) || id == Machine.id(:$-a)
+end
+
+sig [Word] => Value
+machine def zr_gvar_defined(id)
+  b = zr_box_current()
+  if b != QNIL
+    return zr_bool(zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id))) != QUNDEF)
+  end
+  zr_bool(zr_ivtab_row(zr_gvars(), zr_gvar_resolve(id)) != 0)
+end
+
+sig [Word, Value] => Value
+machine def zr_gvar_set(id, v)
+  b = zr_box_current()
+  if b != QNIL
+    zr_hash_store(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)), v)
+    return v
+  end
+  zr_ivtab_set(zr_gvars(), zr_gvar_resolve(id), v)
+  v
+end
+
+# `$name = v` as Ruby writes it. A name `alias` made stands for a global
+# ruby may hook, which checks the value.
+sig [Word, Value] => Value
+machine def zr_gvar_assign(id, v)
+  target = zr_gvar_resolve(id)
+  if target != id
+    return zr_gvar_hooked(id, target, v)
+  end
+  zr_gvar_store(id, v)
+end
+
+# `$name = v` for a global ruby hooks: Kernel's hook checks the value,
+# or refuses a read-only global under the name the program wrote, and
+# answers what to store.
+sig [Word, Word, Value] => Value
+machine def zr_gvar_hooked(shown, id, v)
+  argv = Machine.slot(24)
+  Machine.store64(argv, 0, Machine.word(zr_sym(shown)))
+  Machine.store64(argv, 8, Machine.word(zr_sym(id)))
+  Machine.store64(argv, 16, Machine.word(v))
+  stored = zr_send(zr_global(G_KERNEL), Machine.id(:hooked_global), 3, argv)
+  return stored if stored == QUNDEF
+  zr_gvar_store(id, stored)
+  v
+end
+
+# The value stored, then the commands trace_var put on the global run
+# with it. QUNDEF when one raised.
+sig [Word, Value] => Value
+machine def zr_gvar_store(id, v)
+  zr_gvar_set(id, v)
+  if Machine.load64(Machine.static(:gvar_traced, 8), 0) == 0
+    return v
+  end
+  argv = Machine.slot(16)
+  Machine.store64(argv, 0, Machine.word(zr_sym(zr_gvar_resolve(id))))
+  Machine.store64(argv, 8, Machine.word(v))
+  if zr_send(zr_global(G_KERNEL), Machine.id(:traced_assign), 2, argv) == QUNDEF
+    return Machine.value(QUNDEF)
+  end
+  v
+end
+
+# The first trace_var: from now on an assignment asks for commands.
+sig [] => Value
+machine def zr_gvar_traced
+  Machine.store64(Machine.static(:gvar_traced, 8), 0, 1)
+  Machine.value(QNIL)
+end
+
+# The name `alias $new $old` makes `name` stand for, or `name` itself.
+sig [Value] => Value
+machine def zr_gvar_resolve_m(name)
+  zr_sym(zr_gvar_resolve(zr_sym2id(name)))
+end
+
+# Whether the global `name` has a row: it was assigned.
+sig [Value] => Value
+machine def zr_gvar_defined_m(name)
+  zr_gvar_defined(zr_sym2id(name))
+end
+
+# `$name` and `$name = v` for the walking eval road, which names a
+# global by Symbol where compiled code names it by id. A write goes
+# through the hooked form, since the road is the program's own code
+# running a string the program wrote: `$stdout = 1` must raise there
+# as it does anywhere else.
+sig [Value] => Value
+machine def zr_gvar_get_m(name)
+  zr_gvar_get(zr_sym2id(name))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_gvar_hooked_m(shown, name, v)
+  zr_gvar_hooked(zr_sym2id(shown), zr_sym2id(name), v)
+end
+
+sig [Value, Value] => Value
+machine def zr_gvar_assign_m(name, v)
+  zr_gvar_assign(zr_sym2id(name), v)
+end
+
+sig [Value, Value] => Value
+machine def zr_gvar_alias_m(new_name, old_name)
+  zr_gvar_alias(zr_sym2id(new_name), zr_sym2id(old_name))
+  Machine.value(QNIL)
+end
+
+sig [] => Void
+machine def zr_mark_roots
+  i = 0
+  while i < G_COUNT
+    Machine.store64(zr_marking(), 0, Machine.word(zr_fix(1000 + i)))
+    zr_mark(zr_global(i))
+    i += 1
+  end
+  Machine.store64(zr_marking(), 0, Machine.word(zr_fix(2)))
+  zr_mark_ivtab(zr_gvars())
+  zr_mark(Machine.value(Machine.load64(Machine.static(:current_fiber, 8), 0)))
+  zr_mark(Machine.value(Machine.load64(Machine.static(:root_fiber, 8), 0)))
+  zr_mark_task(zr_task())
+  Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
+  zr_mark_kernel_roots()
+  zr_mark_finalizer_queue()
+end
+
+# A task's roots: its slots and its frame chain.
+sig [Ptr] => Void
+machine def zr_mark_task(t)
+  zr_mark(Task.pending(t))
+  zr_mark(Task.errinfo(t))
+  zr_mark(Task.guards(t))
+  zr_mark(Task.catches(t))
+  zr_mark(Task.throw_tag(t))
+  zr_mark(Task.found(t))
+  zr_mark(Task.refine(t))
+  rec = Task.top(t)
+  while rec != 0
+    Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))
+    zr_mark(Frame.self(rec))
+    zr_mark(Frame.cref(rec))
+    zr_mark(Frame.blk(rec))
+    zr_mark(Frame.svars(rec))
+    zr_mark(Frame.defined(rec))
+    n = Frame.nvalues(rec)
+    i = 0
+    while i < n
+      Machine.store64(zr_marking(), 0, Machine.word(zr_fix(100 + i)))
+      zr_mark(Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
+      i += 1
+    end
+    rec = Frame.prev(rec)
+  end
+end
+
+# Free an unmarked cell of `bytes` that was live: release what it owns,
+# and poison it.
+sig [Ptr, Word] => Void
+machine def zr_free_cell(cell, bytes)
+  flags = Machine.load64(cell, 0)
+  if (flags & FL_ALLOCATED) != 0
+    zr_release(Machine.value(cell))
+    if (flags & FL_EXIVAR) != 0
+      zr_exivar_free(Machine.value(cell))
+    end
+  end
+  if AllocTrace.used(zr_alloc_trace()) != 0
+    zr_alloc_trace_forget(cell)
+  end
+  Machine.store64(cell, 0, POISON)
+  # The header's poison is what mark checks; the payload's is only there
+  # to make a stale read loud, which stress mode is for.
+  if Heap.stress(zr_heap()) != 0
+    zr_poison_payload(cell, bytes)
+  end
+end
+
+# Every payload word of a cell of `bytes` made 0xDEAD: a Value that is
+# no fixnum, no nil and no cell, so a read of it stops the program at
+# once.
+sig [Ptr, Word] => Void
+machine def zr_poison_payload(cell, bytes)
+  j = RBasic.size
+  while j < bytes
+    Machine.store64(cell + j, 0, 57005)
+    j += 8
+  end
+end
+
+# One arena swept, a word of its maps at a time: the cells allocated
+# and not marked died in this collection, and each is freed by its
+# bit; the marks become the allocated map, then the ages, and go to
+# zero with the remembered set, so no cell is marked outside a
+# collection and ObjectSpace's walk of what one object refers to
+# (runtime/kernel/objspace.rb) marks and unmarks on that footing. A cell
+# that was free is never touched, and a word of live cells costs the
+# four stores alone. The cells found live come back; an arena with
+# none is reserved.
+sig [Ptr] => Word
+machine def zr_sweep_arena(a)
+  bytes = ArenaHead.cell(a)
+  first = zr_arena_first(a)
+  marks = zr_arena_marks(a)
+  ages = zr_arena_ages(a)
+  remembered = zr_arena_remembered(a)
+  allocated = zr_arena_allocated(a)
+  live = 0
+  w = 0
+  while w < MARK_BYTES
+    mark = Machine.load64(marks + w, 0)
+    dead = Machine.load64(allocated + w, 0) & (0 - 1 - mark)
+    while dead != 0
+      i = Machine.ctz(dead)
+      dead &= dead - 1
+      zr_free_cell(first + (((w << 3) + i) * bytes), bytes)
+    end
+    Machine.store64(allocated + w, 0, mark)
+    Machine.store64(ages + w, 0, mark)
+    Machine.store64(marks + w, 0, 0)
+    Machine.store64(remembered + w, 0, 0)
+    live += Machine.popcnt(mark)
+    w += 8
+  end
+  ArenaHead.set_remembered(a, 0)
+  if live == 0
+    zr_arena_reserve(a)
+  end
+  live
+end
+
+# Every arena swept, from the last to the first, so each size class's
+# list of arenas with room comes out in address order. A reserved
+# arena is all free already, and no sweep reads it; the cursor of a
+# class whose arena became one is parked (`zr_full`), since no cell
+# may come out of a reserved arena.
+sig [] => Void
+machine def zr_sweep
+  n = Heap.arenas(zr_heap())
+  c = 0
+  while c < SIZE_CLASSES
+    sc = zr_size_class(c)
+    SizeClass.set_freed(sc, 0)
+    SizeClass.set_room(sc, 0)
+    c += 1
+  end
+  i = n - 1
+  while i >= 0
+    a = zr_arena_at(i)
+    sc = zr_size_class(ArenaHead.index(a))
+    if ArenaHead.reserved(a) != 0
+      SizeClass.set_freed(sc, SizeClass.freed(sc) + ARENA_CELLS)
+    else
+      live = zr_sweep_arena(a)
+      SizeClass.set_freed(sc, SizeClass.freed(sc) + (ARENA_CELLS - live))
+      if live == 0
+        if SizeClass.cursor(sc) != zr_full() && zr_arena_of(Machine.value(SizeClass.cursor(sc))) == a
+          SizeClass.set_cursor(sc, zr_full())
+        end
+      elsif live < ARENA_CELLS
+        ArenaHead.set_next(a, SizeClass.room(sc))
+        SizeClass.set_room(sc, a)
+      end
+    end
+    i -= 1
+  end
+end
+
+# Collect for an allocation in size class `wanting` (SIZE_CLASSES when
+# none asked). A major collection runs where the minors before it have
+# had their turn, or where the heap has reached its share of the machine
+# and only a major can give any of it back; every other one is minor.
+sig [Word] => Void
+machine def zr_collect(wanting)
+  h = zr_heap()
+  major = Heap.live(h) > Heap.old_limit(h) || Heap.minors(h) >= zr_major_every()
+  zr_collect_kind(wanting, major)
+  # A minor that has left the class that ran out still short did not
+  # free what the program had finished with: what filled the heap was
+  # not the young dead, and only a major collection can give any of it
+  # back. CRuby forces one on the same footing
+  # (GPR_FLAG_MAJOR_BY_NOFREE), and the alternative is to grow the heap
+  # around objects that have been dead for sixteen collections -- unless
+  # a major has just run, in which case the class is full of what it
+  # found live, and the room has to come from growth.
+  short = zr_heap_short(wanting)
+  if !major && short && Heap.collections(h) - Heap.last_major(h) >= MAJOR_AGE
+    zr_collect_kind(wanting, true)
+    short = zr_heap_short(wanting)
+  end
+  zr_heap_grow(wanting, short)
+  zr_malloc_limit_set()
+  zr_heap_slow_update()
+end
+
+# Whether the cells have reached their share of the machine.
+sig [] => Bool
+machine def zr_heap_pressed
+  zr_heap_bytes() * 100 > zr_machine_bytes() * HEAP_SHARE
+end
+
+# The minors a major waits behind, which a pressed heap shortens while
+# its majors pay.
+sig [] => Word
+machine def zr_major_every
+  h = zr_heap()
+  if zr_heap_pressed() && Heap.reclaimed(h) * MAJOR_YIELD >= Heap.live(h)
+    return MAJOR_EVERY_PRESSED
+  end
+  MAJOR_EVERY
+end
+
+# Whether the sweep has left size class `c` under its floor of free
+# cells. SIZE_CLASSES is no class, which is what a collection nothing
+# asked for passes.
+sig [Word] => Bool
+machine def zr_heap_short(c)
+  if c >= SIZE_CLASSES
+    return false
+  end
+  sc = zr_size_class(c)
+  SizeClass.freed(sc) * 100 < SizeClass.arenas(sc) * ARENA_CELLS * FREE_FLOOR
+end
+
+# A collection of one kind or the other, then the growth the sweep asks
+# for.
+#
+# A **major** one marks from nothing, so it reaches every live object and
+# the sweep frees everything else.
+#
+# A **minor** one starts its marks from the ages -- the marks the last
+# collection finished with -- so the trace stops at every object that
+# survived it, and reaches only what has been allocated since. The
+# remembered arenas make up the difference: an old object that has come
+# to hold a young one is read again although the trace would step over
+# it. The sweep is the same sweep, and frees exactly the young dead.
+#
+# What a minor accepts is floating garbage, an old object that died after
+# the collection that marked it and waits for the next major, and no
+# demotion. Both are the ordinary generational trade.
+sig [Word, Bool] => Void
+machine def zr_collect_kind(wanting, major)
+  h = zr_heap()
+  started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
+  was = Heap.live(h)
+  why = 0
+  if Heap.trace(h) != 0
+    why = zr_gc_why(wanting)
+  end
+  Heap.set_collections(h, Heap.collections(h) + 1)
+  Heap.set_minors(h, major ? 0 : Heap.minors(h) + 1)
+  # `minors` is what is left before the next major and a major resets
+  # it, so it cannot say how many minors have run. The majors are
+  # counted, and the minors are the rest of `collections`.
+  if major
+    Heap.set_majors(h, Heap.majors(h) + 1)
+    Heap.set_last_major(h, Heap.collections(h))
+  end
+  Machine.store64(zr_marking(), 0, QNIL)
+  unless major
+    zr_marks_from_ages()
+  end
+  zr_mark_roots()
+  unless major
+    zr_mark_remembered()
+  end
+  zr_mark_drain()
+  zr_mark_fibers()
+  if !major && Heap.verify(h) != 0
+    zr_verify_minor()
+  end
+  zr_fiber_prune()
+  zr_weak_prune()
+  # What the trace cost and what the sweep cost, kept apart, as CRuby
+  # reports them beside the total. They answer different questions here:
+  # a minor traces only what has been allocated since the last
+  # collection, but the sweep walks every arena whatever the kind, so
+  # the two do not move together. The prunes read the marks, so they are
+  # counted with the trace.
+  marked = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
+  Heap.set_marking(h, Heap.marking(h) + (marked - started))
+  zr_sweep()
+  swept = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
+  Heap.set_sweeping(h, Heap.sweeping(h) + (swept - marked))
+  live = zr_live_bytes()
+  Heap.set_live(h, live)
+  if major
+    limit = live * OLD_LIMIT_FACTOR
+    Heap.set_old_limit(h, limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit)
+    Heap.set_reclaimed(h, was > live ? was - live : 0)
+  end
+  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (swept - started))
+  if Heap.trace(h) != 0
+    zr_gc_trace(why, major, was, marked - started, swept - marked)
+  end
+end
+
+# Why a collection is about to run, as bits: the payload is past its
+# limit (1), the live set is past the old limit (2), the minors before a
+# major have run (4), the heap is pressed (8), and nothing asked for
+# room (16: GC.start, or stress).
+sig [Word] => Word
+machine def zr_gc_why(wanting)
+  h = zr_heap()
+  why = 0
+  if Heap.malloced(h) > Heap.malloc_limit(h)
+    why = why | 1
+  end
+  if Heap.live(h) > Heap.old_limit(h)
+    why = why | 2
+  end
+  if Heap.minors(h) >= zr_major_every()
+    why = why | 4
+  end
+  if zr_heap_pressed()
+    why = why | 8
+  end
+  if wanting >= SIZE_CLASSES
+    why = why | 16
+  end
+  why
+end
+
+# Under ZR_GC_TRACE, one line to stderr a collection: its number and
+# kind, why it ran and why it was major, the heap's cells, the live
+# bytes before and after, the payload against its limit, and what the
+# trace and the sweep took. A major with none of the reasons in `why`
+# is the one zr_collect forces when a minor left the class short.
+sig [Word, Bool, Word, Word, Word] => Void
+machine def zr_gc_trace(why, major, was, mark_ns, sweep_ns)
+  h = zr_heap()
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("zr_gc "), 6)
+  zr_buf_long(b, Heap.collections(h))
+  if major
+    zr_buf_push(b, Machine.bytes(" major"), 6)
+    if (why & 2) != 0
+      zr_buf_push(b, Machine.bytes(" old"), 4)
+    end
+    if (why & 4) != 0
+      zr_buf_push(b, Machine.bytes(" every"), 6)
+    end
+    if (why & 22) == 0
+      zr_buf_push(b, Machine.bytes(" short"), 6)
+    end
+  else
+    zr_buf_push(b, Machine.bytes(" minor"), 6)
+  end
+  if (why & 16) != 0
+    zr_buf_push(b, Machine.bytes(" asked"), 6)
+  elsif (why & 1) != 0
+    zr_buf_push(b, Machine.bytes(" malloc"), 7)
+  else
+    zr_buf_push(b, Machine.bytes(" room"), 5)
+  end
+  if (why & 8) != 0
+    zr_buf_push(b, Machine.bytes(" pressed"), 8)
+  end
+  zr_buf_push(b, Machine.bytes(" heap "), 6)
+  zr_buf_long(b, zr_heap_bytes() >> 20)
+  zr_buf_push(b, Machine.bytes(" live "), 6)
+  zr_buf_long(b, was >> 20)
+  zr_buf_push(b, Machine.bytes(" -> "), 4)
+  zr_buf_long(b, Heap.live(h) >> 20)
+  zr_buf_push(b, Machine.bytes(" malloced "), 10)
+  zr_buf_long(b, Heap.malloced(h) >> 20)
+  zr_buf_push(b, Machine.bytes(" of "), 4)
+  zr_buf_long(b, Heap.malloc_limit(h) >> 20)
+  zr_buf_push(b, Machine.bytes(" MB mark "), 9)
+  zr_buf_long(b, mark_ns / 1000000)
+  zr_buf_push(b, Machine.bytes(" sweep "), 7)
+  zr_buf_long(b, sweep_ns / 1000000)
+  zr_buf_push(b, Machine.bytes(" ms\n"), 4)
+  write(2, Buf.ptr(b), Buf.len(b))
+  zr_buf_free(b)
+end
+
+# Every arena's marks started from its ages, which is what makes the
+# trace of a minor collection stop at what the last one kept.
+sig [] => Void
+machine def zr_marks_from_ages
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_marks(a), zr_arena_ages(a), MARK_BYTES)
+    i += 1
+  end
+end
+
+# The references of every remembered cell read again. Only the arenas
+# the barrier flagged are walked, and a word of the map with no bit in it
+# steps over sixty-four cells -- which is what CRuby's
+# `rgengc_rememberset_mark` gets from its `remembered_bits`.
+sig [] => Void
+machine def zr_mark_remembered
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    if ArenaHead.remembered(a) != 0
+      first = zr_arena_first(a)
+      bytes = ArenaHead.cell(a)
+      map = zr_arena_remembered(a)
+      j = 0
+      while j < ARENA_CELLS
+        word = Machine.load64(map + ((j >> 6) * 8), 0)
+        if word == 0 && (j & 63) == 0
+          j += 64
+        else
+          if (word & zr_marks_bit(j)) != 0
+            v = Machine.value(first + (j * bytes))
+            Machine.store64(zr_marking(), 0, Machine.word(v))
+            zr_mark(RBasic.klass(v))
+            zr_mark_children(v)
+            if (RBasic.flags(v) & FL_EXIVAR) != 0
+              zr_mark_ivtab(zr_exivar_tab(v))
+            end
+          end
+          j += 1
+        end
+      end
+    end
+    i += 1
+  end
+end
+
+# Under ZR_GC_VERIFY, what a minor collection marked is held against a
+# full trace: an object the full trace reaches and the minor did not is a
+# reference into the young that the barrier failed to write down, and it
+# is named here, where it was made, instead of turning up as a freed cell
+# some collections later. This is the job CRuby gives a whole second
+# collector, gc/wbcheck, and it is short here because the barrier is
+# emitted and not written by hand.
+#
+# The remembered map stands in as the scratch: a minor has read it by
+# now, and the sweep empties it either way.
+sig [] => Void
+machine def zr_verify_minor
+  n = Heap.arenas(zr_heap())
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_remembered(a), zr_arena_marks(a), MARK_BYTES)
+    memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES)
+    i += 1
+  end
+  Machine.store64(zr_marking(), 0, QNIL)
+  Heap.set_verifying(zr_heap(), 1)
+  zr_mark_roots()
+  zr_mark_drain()
+  zr_mark_fibers()
+  Heap.set_verifying(zr_heap(), 0)
+  i = 0
+  while i < n
+    zr_verify_arena(zr_arena_at(i))
+    i += 1
+  end
+  i = 0
+  while i < n
+    a = zr_arena_at(i)
+    zr_memcpy(zr_arena_marks(a), zr_arena_remembered(a), MARK_BYTES)
+    i += 1
+  end
+end
+
+# A cell the full trace has just marked. Where the minor collection did
+# not mark it, the reference that reached it here is one the write
+# barrier failed to write down, and the object that holds it is what
+# `zr_marking` names.
+sig [Value] => Void
+machine def zr_verify_reached(v)
+  a = zr_arena_of(v)
+  i = zr_cell_index_in(a, v)
+  if (Machine.load64(zr_remembered_word(a, i), 0) & zr_marks_bit(i)) != 0
+    return
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("the write barrier missed a store of a cell of type "), 51)
+  zr_buf_long(b, RBasic.flags(v) & T_MASK)
+  zr_buf_push(b, Machine.bytes(" into "), 6)
+  parent = Machine.value(Machine.load64(zr_marking(), 0))
+  if zr_fixnum_p(parent)
+    zr_buf_push(b, Machine.bytes("root "), 5)
+    zr_buf_long(b, zr_fix2long(parent))
+  elsif zr_special_p(parent)
+    zr_buf_push(b, Machine.bytes("a root"), 6)
+  else
+    zr_buf_push(b, Machine.bytes("a cell of type "), 15)
+    zr_buf_long(b, RBasic.flags(parent) & T_MASK)
+  end
+  zr_buf_byte(b, 10)
+  zr_bug(Buf.ptr(b), Buf.len(b))
+end
+
+# Every cell of `a` the full trace reached and the minor did not.
+sig [Ptr] => Void
+machine def zr_verify_arena(a)
+  marks = zr_arena_marks(a)
+  minor = zr_arena_remembered(a)
+  first = zr_arena_first(a)
+  bytes = ArenaHead.cell(a)
+  j = 0
+  while j < ARENA_CELLS
+    missed = Machine.load64(marks + ((j >> 6) * 8), 0) & (0 - 1 - Machine.load64(minor + ((j >> 6) * 8), 0))
+    if missed == 0 && (j & 63) == 0
+      j += 64
+    else
+      if (missed & zr_marks_bit(j)) != 0
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("a minor collection did not reach a live cell of type "), 53)
+        zr_buf_long(b, Machine.load64(first + (j * bytes), 0) & T_MASK)
+        zr_buf_push(b, Machine.bytes(": the write barrier missed a store into it\n"), 43)
+        zr_bug(Buf.ptr(b), Buf.len(b))
+      end
+      j += 1
+    end
+  end
+end
+
+# A size class is grown where the sweep left it under FREE_FLOOR
+# hundredths of its capacity free, and then to FREE_GOAL free. The
+# sweep has counted what came free, so every live set is known and the
+# heap reaches the size it wants in one step, with nothing to
+# overshoot.
+#
+# `wanting` -- the class whose empty free list ran this collection --
+# is grown whatever the sweep left it, and to free cells worth the
+# whole heap's live *bytes*. A collection marks every live object, of
+# every size, so the allocations it pays for are counted against all of
+# them, as they were when the heap had one size. That amortization is
+# what the rule before this one argued for and it is right; what was
+# wrong was its unit. It counted the heap's live **cells** across four
+# classes that hold 32, 64, 128 and 256 bytes, so the 256-byte class
+# was handed eight times the room the 32-byte class would have been for
+# the same count.
+#
+# The other half of that rule grew every class to twice its live set on
+# every collection whether or not the sweep had already left it room.
+# Measured on a program that builds a tree, a collection that freed
+# nothing and found the same 141,880 cells live grew that class from 23
+# arenas to 36.
+#
+# Reserved arenas are counted free, so a class holding one is a class
+# the last collection already paid for and this one leaves alone. That
+# is CRuby's tomb, which `gc_sweep_finish_heap` empties before it asks
+# the host for a page.
+#
+# `short` says the class that ran out is still under its floor after
+# the collection, and the collector did not (or could not) run a major
+# for it: what fills the class is live, and the class takes the whole
+# step of growth, pressed or not. Twenty percent free of a small class
+# in a large heap is a few megabytes, and a collection that sweeps the
+# whole heap for them runs again at once.
+sig [Word, Bool] => Void
+machine def zr_heap_grow(wanting, short)
+  # The machine bounds the heap. Once the cells reach their share of it
+  # every class is grown to the floor and no further, and none is given
+  # the amortization: the collector runs more often instead of asking
+  # for memory the host must find somewhere, and a collection costs less
+  # than a page-in does.
+  pressed = zr_heap_pressed()
+  goal = pressed ? FREE_FLOOR : FREE_GOAL
+  live_bytes = zr_live_bytes()
+  c = 0
+  while c < SIZE_CLASSES
+    sc = zr_size_class(c)
+    capacity = SizeClass.arenas(sc) * ARENA_CELLS
+    free = SizeClass.freed(sc)
+    live = capacity - free
+    want = capacity
+    most = (capacity * GROWTH) / 100
+    if c == wanting && !pressed
+      want = live + (live_bytes / (CELL_MIN << c))
+    elsif c == wanting && short
+      want = most
+    elsif free * 100 < capacity * FREE_FLOOR
+      want = (live * 100) / (100 - goal)
+    end
+    cells = want < most ? want : most
+    while SizeClass.arenas(sc) * ARENA_CELLS < cells
+      zr_arena_add(c)
+    end
+    c += 1
+  end
+end
+
+# The payload the heap may hold before the next collection runs on that
+# account: what it holds now, and a bounded increment over it.
+sig [] => Void
+machine def zr_malloc_limit_set
+  h = zr_heap()
+  malloced = Heap.malloced(h)
+  grown = (malloced * (MALLOC_GROWTH - 100)) / 100
+  step = grown < MALLOC_LIMIT ? MALLOC_LIMIT : grown
+  Heap.set_malloc_limit(h, malloced + (step > MALLOC_LIMIT_MAX ? MALLOC_LIMIT_MAX : step))
+end
+
+# The payload bytes held, and the count that runs the collector, for
+# GC.stat.
+sig [] => Value
+machine def zr_gc_malloced
+  zr_fix(Heap.malloced(zr_heap()))
+end
+
+sig [] => Value
+machine def zr_gc_malloc_limit
+  zr_fix(Heap.malloc_limit(zr_heap()))
+end
+
+# The nanoseconds every collection so far has taken.
+sig [] => Value
+machine def zr_gc_nanoseconds
+  zr_fix(Heap.nanoseconds(zr_heap()))
+end
+
+# The major collections so far, and the nanoseconds the traces and the
+# sweeps have taken: the three numbers behind `major_gc_count`,
+# `minor_gc_count`, `marking_time` and `sweeping_time`.
+sig [] => Value
+machine def zr_gc_phases
+  h = zr_heap()
+  out = zr_ary_new(3)
+  zr_ary_push(out, zr_fix(Heap.majors(h)))
+  zr_ary_push(out, zr_fix(Heap.marking(h)))
+  zr_ary_push(out, zr_fix(Heap.sweeping(h)))
+  out
+end
+
+# The GC module's view of the heap. `disable` and `enable` answer
+# whether collection was disabled before; while it is disabled, the
+# heap grows when the cells run out, as CRuby's does.
+sig [] => Value
+machine def zr_gc_start
+  zr_collect_kind(SIZE_CLASSES, true)
+  zr_heap_grow(SIZE_CLASSES, false)
+  zr_malloc_limit_set()
+  zr_heap_slow_update()
+  zr_finalizers_run()
+end
+
+sig [] => Value
+machine def zr_gc_count
+  zr_fix(Heap.collections(zr_heap()))
+end
+
+# The objects every size class has handed out.
+sig [] => Value
+machine def zr_gc_allocated
+  n = 0
+  c = 0
+  while c < SIZE_CLASSES
+    n += SizeClass.allocated(zr_size_class(c))
+    c += 1
+  end
+  zr_fix(n)
+end
+
+# Size class `c` for GC.stat_heap: its cell size, live cells, free
+# cells, arenas and the objects it has handed out. A pool past the
+# four has its size and nothing else.
+sig [Value] => Value
+machine def zr_gc_pool(c)
+  i = zr_fix2long(c)
+  bytes = CELL_MIN << i
+  live = 0
+  arenas = 0
+  allocated = 0
+  if i < SIZE_CLASSES
+    sc = zr_size_class(i)
+    arenas = SizeClass.arenas(sc)
+    allocated = SizeClass.allocated(sc)
+    a = 0
+    while a < Heap.arenas(zr_heap())
+      base = zr_arena_at(a)
+      if ArenaHead.index(base) == i
+        live += zr_arena_live(base)
+      end
+      a += 1
+    end
+  end
+  out = zr_ary_new(5)
+  zr_ary_push(out, zr_fix(bytes))
+  zr_ary_push(out, zr_fix(live))
+  zr_ary_push(out, zr_fix((arenas * ARENA_CELLS) - live))
+  zr_ary_push(out, zr_fix(arenas))
+  zr_ary_push(out, zr_fix(allocated))
+  out
+end
+
+sig [] => Value
+machine def zr_gc_arenas
+  zr_fix(Heap.arenas(zr_heap()))
+end
+
+# The cells of every arena, of every size.
+sig [] => Word
+machine def zr_heap_cells
+  Heap.arenas(zr_heap()) * ARENA_CELLS
+end
+
+sig [Value] => Value
+machine def zr_gc_set_disabled(flag)
+  h = zr_heap()
+  was = zr_bool(Heap.disabled(h) != 0)
+  Heap.set_disabled(h, flag == QTRUE ? 1 : 0)
+  was
+end
+
+sig [Value] => Value
+machine def zr_gc_set_stress(flag)
+  h = zr_heap()
+  Heap.set_stress(h, flag == QNIL || flag == QFALSE ? 0 : 1)
+  zr_heap_slow_update()
+  flag
+end
+
+sig [] => Value
+machine def zr_gc_stress
+  zr_bool(Heap.stress(zr_heap()) != 0)
+end
+
+# A cell of `type` whose class is `klass`, from the smallest size class
+# that holds `bytes`, the payload as the last owner left it: the
+# constructor writes every field before anything can collect or read
+# the cell, and under stress the payload is poison, so a field it left
+# out reads as 0xDEAD, not as an empty one. The caller stores the
+# result to its frame record before anything else can allocate.
+#
+# Inlined at every allocation: a clear bit in the word the cursor
+# stands at when there is one and `Heap.slow` is clear, else
+# `zr_alloc_slow`.
+sig [Word, Value, Word] => Value
+machine def zr_alloc(type, klass, bytes)
+  sc = zr_size_class(zr_size_class_for(bytes))
+  bits = Machine.load64(SizeClass.cursor(sc), 0)
+  if bits == ALL_MARKED || Heap.slow(zr_heap()) != 0
+    zr_alloc_slow(type, klass, bytes)
+  else
+    zr_cell_take(sc, bits, type, klass)
+  end
+end
+Machine.inline :zr_alloc
+
+# The cell of the first clear bit of `bits`, the word size class
+# `sc`'s cursor stands at: its bit set, its header written. The word's
+# address and the bit make the cell's address from the class's origin,
+# by its shift. Few enough instructions that the IR inliner copies it
+# into every constructor (Passes::Inline::LIMIT).
+sig [Ptr, Word, Word, Value] => Value
+machine def zr_cell_take(sc, bits, type, klass)
+  at = SizeClass.cursor(sc)
+  i = Machine.ctz(0 - 1 - bits)
+  Machine.store64(at, 0, bits | (1 << i))
+  SizeClass.set_allocated(sc, SizeClass.allocated(sc) + 1)
+  cell = SizeClass.origin(sc) + (((Machine.word(at) << 3) + i) << SizeClass.shift(sc))
+  Machine.store64(cell, 0, type | FL_ALLOCATED)
+  Machine.store64(cell, 8, Machine.word(klass))
+  Machine.value(cell)
+end
+
+# Whether an allocation must take `zr_alloc_slow`: under stress, while
+# allocations are traced, or once the payload passes its limit.
+# Written again wherever one of the three changes.
+sig [] => Void
+machine def zr_heap_slow_update
+  h = zr_heap()
+  slow = Heap.stress(h) != 0 || AllocTrace.on(zr_alloc_trace()) != 0 || Heap.malloced(h) > Heap.malloc_limit(h)
+  Heap.set_slow(h, slow ? 1 : 0)
+end
+
+# An allocation `zr_alloc` does not serve in place: the cursor moved on
+# to a word with room, a collection when there is none, the payload is
+# past its limit or stress asks for one, the poison of stress and the
+# trace's row.
+sig [Word, Value, Word] => Value
+machine def zr_alloc_slow(type, klass, bytes)
+  h = zr_heap()
+  c = zr_size_class_for(bytes)
+  sc = zr_size_class(c)
+  # A stress collection runs at every allocation whatever the room, so
+  # it asks for no more than the plain growth; the room it would buy
+  # only lengthens the next sweep.
+  if Heap.stress(h) != 0 && Heap.disabled(h) == 0
+    zr_collect(SIZE_CLASSES)
+  end
+  # The cursor takes a reserved arena before a collection: the reserve
+  # is room the last collection already paid for.
+  room = zr_cursor_advance(sc)
+  if (!room || Heap.malloced(h) > Heap.malloc_limit(h)) && Heap.disabled(h) == 0
+    zr_collect(c)
+    room = zr_cursor_advance(sc)
+  end
+  if !room
+    zr_arena_add(c)
+    zr_cursor_advance(sc)
+  end
+  v = zr_cell_take(sc, Machine.load64(SizeClass.cursor(sc), 0), type, klass)
+  cell = Machine.ptr(v)
+  if Heap.stress(h) != 0
+    zr_poison_payload(cell, CELL_MIN << c)
+  end
+  if AllocTrace.on(zr_alloc_trace()) != 0
+    zr_alloc_trace_record(cell)
+  end
+  zr_heap_slow_update()
+  v
+end
+
+# Every kernel function that may run the collector keeps its Values in
+# a root frame (`prev, n, values...`) the compiler links from here.
+Machine.collects :zr_collect
+Machine.collects :zr_collect_kind
+
+sig [] => Ptr
+machine def zr_kroots
+  Machine.static(:kroots, 8)
+end
+
+sig [] => Void
+machine def zr_mark_kernel_roots
+  zr_mark_kernel_roots_from(Machine.ptr(Machine.load64(zr_kroots(), 0)))
+end
+
+sig [Ptr] => Void
+machine def zr_mark_kernel_roots_from(frame)
+  while frame != 0
+    n = Machine.load64(frame, 8)
+    i = 0
+    while i < n
+      zr_mark(Machine.value(Machine.load64(frame + 16 + (i * 8), 0)))
+      i += 1
+    end
+    frame = Machine.ptr(Machine.load64(frame, 0))
+  end
+end
+
+# `global_variables`: every name with a row, and every alias of one.
+sig [] => Value
+machine def zr_global_variables
+  out = zr_ary_new(16)
+  zr_ivtab_names(zr_gvars(), out, 36)
+  zr_ivtab_names(zr_gvar_aliases(), out, 36)
+  out
+end

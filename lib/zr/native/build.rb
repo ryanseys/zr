@@ -15,7 +15,7 @@ require_relative "../obj/macho/object_file"
 require_relative "../obj/elf/object_file"
 require_relative "../obj/macho/prelink"
 require_relative "../machine/lower"
-require_relative "../zr"
+require_relative "../runtime"
 require_relative "../clock"
 require_relative "parallel"
 
@@ -29,11 +29,11 @@ module Zr
       module_function
 
       # Which linker writes a binary: `auto`, `ruby` or `cc`.
-      ROAD = ENV.fetch("ZR_LINK", "auto")
+      LINKER = ENV.fetch("ZR_LINK", "auto")
 
       # A unit of fewer IR instructions than this assembles in this
       # process: a worker costs more than a program's own functions do.
-      PARALLEL_FLOOR = 200_000
+      PARALLEL_THRESHOLD = 200_000
 
       # How many workers a large unit assembles in: `ZR_JOBS`, else one
       # per core up to six. Past six they take the memory from each
@@ -71,9 +71,9 @@ module Zr
       # prebuilt objects linked in beside this one; `strip` leaves out what
       # nothing calls. `road` (`ZR_LINK`) picks the linker where the
       # target has more than one.
-      def binary(functions, data, out, work:, raw: [], objects: [], strip: false, road: ROAD, target: Target.default, jobs: Build.jobs)
+      def binary(functions, data, out, work:, raw: [], objects: [], strip: false, linker: LINKER, target: Target.default, jobs: Build.jobs)
         image = unit(functions, data, raw: raw, export: !objects.empty?, target: target, jobs: jobs)
-        linker(target).link(image, out, work: work, objects: objects, strip: strip, road: road, target: target)
+        linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target)
       rescue Backend::Refused => e
         e.message
       end
@@ -85,7 +85,7 @@ module Zr
       # Functions already assembled (`assemble`) go in as they are.
       def program(program, out, work:, jobs: Build.jobs)
         objects = [runtime_object(program.runtime, jobs: jobs)]
-        objects << road_object(program.evals, jobs: jobs) if program.evals
+        objects << eval_support_object(program.evals, jobs: jobs) if program.evals
         functions, raw = program.functions.partition { |f| f.is_a?(IR::Function) }
         ::Zr.clock("program object written and linked") do
           binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
@@ -155,13 +155,13 @@ module Zr
       end
 
       # The compiler's object, built once per road.
-      def road_object(road, jobs: Build.jobs)
-        obj = road.object_path
+      def eval_support_object(support, jobs: Build.jobs)
+        obj = support.object_path
         return obj if File.exist?(obj)
 
-        Paths.scratch("zr-road-") do |work|
-          fresh = File.join(work, "road.o")
-          why = ::Zr.clock("eval road object assembled and written") { object(road.functions, road.data, fresh, export: true, target: road.target, jobs: jobs) }
+        Paths.tmpdir("zr-eval-") do |work|
+          fresh = File.join(work, "eval.o")
+          why = ::Zr.clock("eval support object assembled and written") { object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs) }
           raise "the compiler did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -174,7 +174,7 @@ module Zr
         obj = File.join(Zr.cache, "rt-#{runtime.digest}.o")
         return obj if File.exist?(obj)
 
-        Paths.scratch("zr-rt-") do |work|
+        Paths.tmpdir("zr-rt-") do |work|
           fresh = File.join(work, "rt.o")
           why = ::Zr.clock("runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs)
@@ -199,7 +199,7 @@ module Zr
       # loader both take. The inlining sees the whole unit, so it runs
       # here; each function's passes and assembly need only the function
       # and the unit's names, so a large unit runs them in `jobs` workers.
-      def unit(functions, data, raw: [], export: false, target: Target.default, jobs: Build.jobs, floor: PARALLEL_FLOOR)
+      def unit(functions, data, raw: [], export: false, target: Target.default, jobs: Build.jobs, floor: PARALLEL_THRESHOLD)
         IR::Passes.inline(functions)
         emitter = backend(target)
         emitter.unit(functions, data, raw: raw, export: export) do |all, defined|
@@ -239,9 +239,9 @@ module Zr
       # tree it builds.
       def wasm_program(program, out)
         rt = program.runtime
-        road = program.evals
-        functions = road ? program.functions + road.functions : program.functions
-        data = road ? program.data + road.data : program.data
+        support = program.evals
+        functions = support ? program.functions + support.functions : program.functions
+        data = support ? program.data + support.data : program.data
         pre = wasm_prelude(rt, pending_for(program))
         data = data.dup
         zero_words(functions, data, pre.data_at.keys)
@@ -257,9 +257,9 @@ module Zr
       # defines: what the runtime's prelude waits on.
       def pending_for(program)
         rt = program.runtime
-        road = program.evals
-        functions = road ? program.functions + road.functions : program.functions
-        data = road ? program.data + road.data : program.data
+        support = program.evals
+        functions = support ? program.functions + support.functions : program.functions
+        data = support ? program.data + support.data : program.data
         { functions: rt.wants[:functions] & functions.map(&:name), data: rt.wants[:data] & data.map(&:name) }
       end
 
@@ -307,7 +307,7 @@ module Zr
           params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name)
           stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data)
         end
-        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm.floor + known
+        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm.libc_shims + known
         functions.each do |f|
           f.callees.each do |c|
             next if c.from || defined.include?(c.symbol)

@@ -2,7 +2,7 @@
 
 require "etc"
 require "test_helper"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/native/build"
 
 # A unit assembled in workers: the answers in item order whatever the
@@ -30,7 +30,7 @@ class ParallelTest < Minitest::Test
 
   def test_the_kernel_object_is_the_same_bytes_from_any_number_of_workers
     one, three = [1, 3].map do |jobs|
-      unit = Zr::Machine.unit(Zr::Zr.kernel_files)
+      unit = Zr::Machine.unit(Zr.kernel_files)
       image = Zr::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
       Zr::Native::Build.writer(Zr::Target.default).write(image)
     end

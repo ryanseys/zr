@@ -13,7 +13,7 @@ describe "RSpec programs" do
       # with `require "ripper"`.
       #
       # That was once the reason this file was held back, and it is no longer
-      # true: `rt/ext/ripper.so.rb` answers `require "ripper"` over
+      # true: `runtime/ext/ripper.so.rb` answers `require "ripper"` over
       # `Prism::Translation::Ripper`, and `test/spec/stdlib/ripper/` holds it to
       # ruby. What holds this back now is that rspec is not installed -- it is
       # deliberately not vendored, and both engines are meant to read the same

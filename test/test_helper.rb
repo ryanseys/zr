@@ -3,12 +3,12 @@
 require "minitest/autorun"
 
 # The checks hold ruby's own road; a compiled compiler of the tree runs
-# only where a check asks for it (lib/zr/self_host.rb).
+# only where a check asks for it (lib/zr/compiled_compiler.rb).
 ENV["ZR_SELF"] ||= "0"
 
 require_relative "../lib/zr/target"
 require_relative "support/fork_pool"
-require_relative "support/harness/unbundled"
+require_relative "support/harness/clean_env"
 require "tmpdir"
 require "fileutils"
 
@@ -85,10 +85,10 @@ module Checks
   # passed and nil when it stopped on its own. `$?` is the child's, as
   # `IO.popen` leaves it.
   #
-  # The child runs outside this bundle; `Harness::Unbundled` says why.
+  # The child runs outside this bundle; `Harness::CleanEnv` says why.
   def bounded(env, argv, err:, chdir: Dir.pwd)
     why = nil
-    out = IO.popen(Zr::Harness::Unbundled.env(env), argv, err: err, chdir: chdir,
+    out = IO.popen(Zr::Harness::CleanEnv.env(env), argv, err: err, chdir: chdir,
                    unsetenv_others: true) do |io|
       watchdog = Thread.new { why = watch(io.pid) }
       io.read.tap { watchdog.kill }

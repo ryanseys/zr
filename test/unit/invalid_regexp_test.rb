@@ -94,7 +94,7 @@ class InvalidRegexpTest < Minitest::Test
 
   # The HIR of `source`, built as the eval road builds one: no road
   # carried, and the loader in the mode a run-time compile uses.
-  def build(source) = Zr::Hir.build(source, "pattern.rb", road: false)
+  def build(source) = Zr::Hir.build(source, "pattern.rb", eval_support: false)
 
   def capturing_stderr
     said = StringIO.new

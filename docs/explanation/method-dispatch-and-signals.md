@@ -62,7 +62,7 @@ Some operations skip the send when nobody changed them:
 A def of the same file with required positionals alone and a body of
 reads -- self's instance variables, readers and type questions of its
 arguments, fixnum arithmetic, branches and a return -- is copied into
-each site that calls it (`Zr::Function::Inline`). The site keeps its
+each site that calls it (`Zr::Lower::Function::Inline`). The site keeps its
 cell and its class-and-stamp test; when the hit's direct entry is the
 def's own body, the copy runs with no frame. Every guard inside the
 copy -- a cell that misses, a receiver of another kind, an operator
@@ -77,7 +77,7 @@ so no backtrace is ever taken inside one.
 ## An iterator run at its site
 
 `ary.each { |x| ... }`, `n.times { |i| ... }` and `(a..b).each { |i|
-... }` with a block literal run in place (`Zr::Function::Iterators`):
+... }` with a block literal run in place (`Zr::Lower::Function::Iterators`):
 the loop at the site, and the block's body in the site's own function,
 where the block's locals are record slots of the site's. The receiver
 is tested once -- an Array, a fixnum or a Range of fixnums, with the

@@ -68,7 +68,7 @@ module Zr
     # own.
     def built(source, file, line, scope)
       names = World.binding_scopes(scope)
-      Hir.build(source, file, road: false, line: line, scopes: [*names.reverse, []],
+      Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, []],
                                            method: World.binding_parameters(scope))
     end
 

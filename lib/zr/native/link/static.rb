@@ -22,8 +22,8 @@ module Zr
 
         # Answers nil, or the linker's message. There is no Ruby linker for
         # ELF yet, so `road` has nothing to choose between.
-        def link(image, out, work:, objects:, strip:, road:, target:)
-          return "no linker but cc writes an ELF binary" if road == "ruby"
+        def link(image, out, work:, objects:, strip:, linker:, target:)
+          return "no linker but cc writes an ELF binary" if linker == "ruby"
 
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image))

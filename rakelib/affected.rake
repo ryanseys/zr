@@ -6,7 +6,7 @@
 # runs those through `rake test`. It is for the desk; CI runs everything.
 #
 # The map is honest about what it knows. A spec file names itself, and
-# an edit under `rt/core` names the spec directory of that class, plus
+# an edit under `runtime/core` names the spec directory of that class, plus
 # every spec whose program names the class -- an edit to String reaches
 # a spec of Hash that keys on Strings, and the class's own name is the
 # one thing every such program spells. A vendored library or an

@@ -111,7 +111,7 @@ end
 # anything.
 class KernelEffectsTest < Minitest::Test
   def kernel
-    text = File.read(File.join(ROOT, "rt/ext/os/darwin/zr_description.rb"))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
+    text = File.read(File.join(ROOT, "runtime/ext/os/darwin/zr_description.rb"))[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
     Zr::Machine::Description.parse(text)
   end
 

@@ -34,15 +34,15 @@ module Zr
         # reaching for `cc`, and `cc` skips it. A program that does not
         # strip evals, and its JIT finds the runtime's functions by name
         # in the symbol table, which `Obj::MachO::Executable` sorts.
-        def link(image, out, work:, objects:, strip:, road:, target:)
-          unless road == "cc"
+        def link(image, out, work:, objects:, strip:, linker:, target:)
+          unless linker == "cc"
             why = begin
               Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), skeleton: Build.skeleton(objects))
             rescue Obj::MachO::Refused => e
               e.message
             end
             return nil unless why
-            return "Obj::MachO::Executable cannot link this: #{why}" if road == "ruby" || !target.tool("cc")
+            return "Obj::MachO::Executable cannot link this: #{why}" if linker == "ruby" || !target.tool("cc")
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))

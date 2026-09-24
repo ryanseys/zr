@@ -127,7 +127,7 @@ describe "Zlib programs" do
   it "deflate bytes match ruby at every level" do
     result = zr(<<~'RUBY')
       # Deflate writes the bytes ruby's zlib 1.3.1 writes, at every level.
-      # The port in rt/kernel/zlib_*.rb is held to them byte for byte: a
+      # The port in runtime/kernel/zlib_*.rb is held to them byte for byte: a
       # short stream is shown whole, a long one by its size and crc.
       require "zlib"
 

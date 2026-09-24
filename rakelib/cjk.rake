@@ -7,7 +7,7 @@
 #   rake gen:cjk
 #   rake gen:enc_mb
 #
-# `rt/core/cjk.rb` carries the code points. Where a character ends is
+# `runtime/core/cjk.rb` carries the code points. Where a character ends is
 # `gen:enc_mb`'s question, answered from Onigmo's own tables. Bytes
 # below 128 stand for themselves in every one of them.
 
@@ -323,7 +323,7 @@ module Gen
     end
 
     # How ruby words a failure for an encoding, read off a deliberate one,
-    # in the shape rt/core/transcode.rb writes: whether a conversion into it
+    # in the shape runtime/core/transcode.rb writes: whether a conversion into it
     # reads as one step, the name it answers to there, and whether a
     # conversion out of it reads as one step.
     UNMAPPED = "\u{1F600}"
@@ -421,7 +421,7 @@ module Gen
         # lies from the one before it in the row, folded onto the positive
         # numbers. Rows repeat between encodings, so each one is written once
         # in MB_ROWS. Where a character ends is another question, which
-        # rt/kernel/enc_mb.rb answers from Onigmo's own tables: ruby's
+        # runtime/kernel/enc_mb.rb answers from Onigmo's own tables: ruby's
         # converters are narrower than its own character counts.
         class Encoding
       HEAD
@@ -522,7 +522,7 @@ module Gen
       core << "  private_constant :MB, :MB_ROWS, :MB_PARTIAL, :MB_UTF8, :MB_ENCODE, :MB_MULTI, :MB_SHAPES, :MB_HUBS, :CONVERTERS,\n"
       core << "                   :ASCII_COMPAT, :CONVERTER_FLAGS\n"
       core << "end\n"
-      File.write(File.join(ROOT, "rt/core/cjk.rb"), core)
+      File.write(File.join(ROOT, "runtime/core/cjk.rb"), core)
 
       warn "tables: #{own.size}, partial: #{tables.select { |_, t| t.partial }.keys.map(&:name).join(',')}"
       warn "as UTF-8: #{utf8_like.map(&:name).join(',')}"
@@ -536,6 +536,6 @@ module Gen
 end
 
 namespace :gen do
-  desc "Write rt/core/cjk.rb"
+  desc "Write runtime/core/cjk.rb"
   task(:cjk) { Gen::Cjk.write }
 end

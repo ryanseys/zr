@@ -65,7 +65,7 @@ module Zr
     # `test/e2e/binaries_test.rb` is where a program names one.
     module Needs
       # libssl 3 where `require "openssl"` looks for it
-      # (rt/ext/openssl/ossl/library.rb): OPENSSL_DIR's lib alone when it
+      # (runtime/ext/openssl/ossl/library.rb): OPENSSL_DIR's lib alone when it
       # is set, else the Homebrew and MacPorts prefixes. Only a macOS
       # binary opens a library; the linux and wasi targets cannot.
       def self.libssl?(platform)

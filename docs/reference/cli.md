@@ -86,7 +86,7 @@ outputs that this host can make now.
 | `bin/setup` | installs the gems and builds the runtime |
 | `bin/test [paths] [minitest options]` | the tests; with no paths, the three tiers |
 | `rake build` | the runtime for this host: its object, the prelinked image and the eval support object |
-| `rake build:self` | the compiler compiled by itself, which `exe/zr` then uses until a file under `lib`, `rt`, `vendor` or the library tree changes (`ZR_SELF`) |
+| `rake build:self` | the compiler compiled by itself, which `exe/zr` then uses until a file under `lib`, `runtime`, `vendor` or the library tree changes (`ZR_SELF`) |
 | `rake` or `rake test` | the three tiers: unit, spec, e2e |
 | `rake test:unit` | zr's own internals |
 | `rake test:spec` | Ruby specs, each checked against ruby 4.0.6 |
@@ -95,7 +95,7 @@ outputs that this host can make now.
 | `rake test test/unit/zr_test.rb N=/gc/` | one file, or one example |
 
 `bin/test` and the tiers build the runtime first when it is missing or
-out of date. After a change under `lib` or `rt`, that build takes a
+out of date. After a change under `lib` or `runtime`, that build takes a
 few minutes.
 
 `N=` names the examples to run, `X=` the ones to leave out, `A=`

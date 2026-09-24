@@ -20,7 +20,7 @@ module Zr
     def self.current
       @current ||= plainly do
         require_relative "hir"
-        require_relative "zr/lower"
+        require_relative "lower"
         require_relative "backend/aarch64"
         require_relative "obj/jit"
         require "zr_description"
@@ -84,7 +84,7 @@ module Zr
       Eval.plainly do
         @count += 1
         name = "zr_load_#{@count}"
-        hir = Hir.build(File.read(path), path, road: false)
+        hir = Hir.build(File.read(path), path, eval_support: false)
         ext = path.start_with?("#{Hir::Build::EXT}/")
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
         Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
@@ -101,7 +101,7 @@ module Zr
       # they all stand taken before its first line, so a snippet takes
       # the rows after them -- and takes them at once, since nothing
       # runs between here and the next compile to take them for it.
-      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
+      hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
                                                     activations: @runtime.activations)
       @runtime.take_activations(hir.activations)
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
@@ -113,7 +113,7 @@ module Zr
     # The Outer chain for `scopes`, innermost first, as the lowering
     # walks it: one step out per Env the asking frame reaches.
     def outer(scopes)
-      scopes.reverse.reduce(nil) { |out, names| Zr::Outer.new(names, out) }
+      scopes.reverse.reduce(nil) { |out, names| Zr::Lower::Outer.new(names, out) }
     end
 
     # The argument as ruby takes a string of it: a String, or anything

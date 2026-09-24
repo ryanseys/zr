@@ -27,8 +27,8 @@ module Zr
 
     # The files a parse runs: these, and every Ruby file under the trees.
     GEM = File.join(Paths::VENDOR, "ext/prism/lib")
-    FILES = [File.join(Paths::RT, "ext/prism/prism.rb"), File.join(__dir__, "prism.rb"), __FILE__, File.join(GEM, "prism.rb")].freeze
-    TREES = [File.join(Paths::RT, "ext/prism/ruby"), File.join(__dir__, "prism_backend"), File.join(GEM, "prism")].freeze
+    FILES = [File.join(Paths::RUNTIME, "ext/prism/prism.rb"), File.join(__dir__, "prism.rb"), __FILE__, File.join(GEM, "prism.rb")].freeze
+    TREES = [File.join(Paths::RUNTIME, "ext/prism/ruby"), File.join(__dir__, "prism_backend"), File.join(GEM, "prism")].freeze
 
     # The source bytes whose parses a process keeps. A tree in memory is
     # some tens of times its source, so this is a proxy and not a
@@ -41,7 +41,7 @@ module Zr
     #
     # One result answers every caller. That is sound because a
     # ParseResult is written once and read after: the port's setters
-    # (rt/ext/prism/ruby/mutation.rb) run while it builds the tree, and
+    # (runtime/ext/prism/ruby/mutation.rb) run while it builds the tree, and
     # nothing downstream writes to a node.
     #
     # The bound is what makes the memo pay in both of the shapes that ask
@@ -218,7 +218,7 @@ module Zr
     def write(path, bytes)
       Zr.settled! if defined?(Zr)
       moved = (@stamps || {}).find { |file, was| stamp(file) != was }
-      raise (defined?(Zr::Moved) ? Zr::Moved : RuntimeError), "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
+      raise (defined?(Zr::SourceChanged) ? Zr::SourceChanged : RuntimeError), "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
 
       Paths.mkdir_p(directory)
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"

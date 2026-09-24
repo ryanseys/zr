@@ -23,10 +23,10 @@ argument types, and the error messages.
 ## 2. Write the method in Ruby
 
 The core library is ordinary Ruby, one file for each class, in
-`rt/core/`. Open the class's file and add the method:
+`runtime/core/`. Open the class's file and add the method:
 
 ```ruby
-# rt/core/string.rb
+# runtime/core/string.rb
 class String
   def each_byte
     return to_enum(:each_byte) { Primitive.zr_str_bytesize(self) } unless block_given?
@@ -54,16 +54,16 @@ answers a `Value`. zr refuses any other shape by name.
 Find an existing def first:
 
 ```console
-$ grep -n "machine def zr_str_" rt/kernel/string.rb
+$ grep -n "machine def zr_str_" runtime/kernel/string.rb
 ```
 
 ## 4. Add a kernel def, if you need one
 
-Kernel defs are in `rt/kernel/`, in the kernel dialect. Add one beside
+Kernel defs are in `runtime/kernel/`, in the kernel dialect. Add one beside
 its kin:
 
 ```ruby
-# rt/kernel/string.rb
+# runtime/kernel/string.rb
 sig [Value] => Value
 machine def zr_str_bytesize(s)
   zr_fix(RString.len(s))
@@ -83,8 +83,8 @@ $ ZR_BLESS=1 rake test:unit N=/Description/
 
 ## 5. Add a new file, if the class has none
 
-A new file in `rt/core/` must also go into `Zr::CORE_NAMES` in
-`lib/zr/zr.rb`. The list is in the order the files run, so put a
+A new file in `runtime/core/` must also go into `Zr::CORE_NAMES` in
+`lib/zr/runtime.rb`. The list is in the order the files run, so put a
 module before the classes that include it.
 
 ## 6. Run the case again
@@ -93,7 +93,7 @@ module before the classes that include it.
 $ ruby -Ilib -Itest test/spec/core/string/string_test.rb -n "/squeeze/"
 ```
 
-The first build after a change under `rt/` compiles the runtime again,
+The first build after a change under `runtime/` compiles the runtime again,
 so it takes longer. Then run the class's directory, to see that nothing
 else changed:
 

@@ -11,7 +11,7 @@ require_relative "harness/runner"
 require_relative "slow"
 require_relative "binaries"
 require_relative "../../lib/zr/native/build"
-require_relative "../../lib/zr/zr"
+require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/record"
 
 module Zr
