@@ -82,6 +82,6 @@ $ docker exec alpine bundle exec rake build
 $ docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e
 ```
 
-The container has no bundle binstubs on its `PATH`, so use
-`bundle exec rake` there. This needs an aarch64 host, for example an
+These are the commands of the `linux-musl` job in
+`.github/workflows/ci.yml`. They need an aarch64 host, for example an
 Apple Silicon Mac.
