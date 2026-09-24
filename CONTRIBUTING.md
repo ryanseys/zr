@@ -23,7 +23,7 @@ $ bin/test      # runs every tier: unit, spec, e2e
 2. Change the compiler (`lib/`) or the runtime (`runtime/`).
 3. Run the tests that cover the change, for example
    `bin/test test/spec/core/string`, then `bin/test` before you open a
-   pull request. See [How to run the checks](docs/how-to/run-the-checks.md).
+   pull request. See [How to run the tests](docs/how-to/run-the-tests.md).
 4. Add a line to `CHANGELOG.md` under `[Unreleased]`.
 
 ruby 4.0.6 is the reference: a compiled program must print what ruby

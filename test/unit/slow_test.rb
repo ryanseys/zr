@@ -4,7 +4,7 @@ require "test_helper"
 require "stringio"
 require_relative "../support/slow"
 
-# The report that `ZR_SLOW` enables: the slowest tests by name, and the
+# The report that `SLOW=1` enables: the slowest tests by name, and the
 # time that the examples that build a program spent, by directory. It
 # runs after all tests, so a fault in it shows only there, once, at the
 # end of a full tier.
