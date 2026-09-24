@@ -1,4 +1,4 @@
-# The program's surroundings: its arguments, its name, the process
+# The program's context: its arguments, its name, the process
 # environment and the working directory.
 Machine.import "setenv", [Ptr, Ptr, I32] => I32
 Machine.import "unsetenv", [Ptr] => I32
@@ -8,7 +8,7 @@ G_ARGV = 36
 G_AT_EXIT = 37
 G_ARGV0 = 53
 
-# `ARGV` from the C arguments, the program's own name left out.
+# Makes `ARGV` from the C arguments, without the program's name.
 sig [I32, Ptr] => Void
 machine def zr_args_init(argc, argv)
   args = zr_ary_new(4)
@@ -36,7 +36,8 @@ machine def zr_program_args
   zr_global(G_ARGV)
 end
 
-# `at_exit`: the handlers, run last first when the program ends.
+# `at_exit`: adds a handler. The handlers run in reverse order when the
+# program ends.
 sig [Value] => Value
 machine def zr_at_exit_add(blk)
   blk = zr_block_proc(blk)
@@ -49,12 +50,13 @@ machine def zr_at_exit_add(blk)
   blk
 end
 
-# The exit status of the program. While the handlers run, last first,
-# `$!` is the exception that ends it; a handler's error is printed and
-# makes the status 1, a handler's `exit` sets it. Then the uncaught
-# exception `exc`, if any, is printed, unless it is a SystemExit or a
-# signal other than Interrupt. An uncaught SignalException ends the
-# process by its signal.
+# Returns the exit status of the program. The handlers run in reverse
+# order, with `$!` set to the exception that ends the program. A
+# handler's error is printed and sets the status to 1. A handler's `exit`
+# sets the status. Then the uncaught exception `exc`, if there is one, is
+# printed, unless it is a SystemExit or a POSIX signal other than
+# Interrupt. An uncaught SignalException ends the process by its POSIX
+# signal.
 sig [Value] => Word
 machine def zr_program_end(exc)
   status = 0
@@ -62,9 +64,9 @@ machine def zr_program_end(exc)
     status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
     zr_errinfo_set(exc)
   end
-  # The main thread's fiber scheduler runs its fibers to their end
-  # first, then the EXIT trap, as rb_vm_trap_exit runs before the
-  # at_exit handlers.
+  # First the main thread's fiber scheduler runs its fibers to their
+  # end. Then the EXIT trap runs, because rb_vm_trap_exit runs before
+  # the at_exit handlers.
   status = zr_program_end_hook(zr_send(zr_global(G_FIBER), Machine.id(:finalize_scheduler), 0, 0), status, exc)
   status = zr_program_end_hook(zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0), status, exc)
   hooks = zr_global(G_AT_EXIT)
@@ -81,14 +83,13 @@ machine def zr_program_end(exc)
       zr_error_print(exc)
     end
   end
-  # Whatever the streams hold is written now, as CRuby's teardown
-  # writes it. `exit!` reaches none of this.
+  # Flush all stream buffers, as CRuby's teardown does. `exit!` skips
+  # all of this.
   if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
     Task.set_pending(zr_task(), Machine.value(QNIL))
   end
   zr_finalizers_at_exit()
-  # A finalizer writes like anything else, so what it wrote waits in a
-  # buffer of its own until now.
+  # A finalizer's output also goes to a buffer, so flush again.
   if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
     Task.set_pending(zr_task(), Machine.value(QNIL))
   end
@@ -98,8 +99,8 @@ machine def zr_program_end(exc)
   status
 end
 
-# A handler at exit ran and answered `r`: a SystemExit it raised sets
-# the status, and any other error is printed and makes the status 1.
+# Handles the result `r` of an exit handler. A SystemExit that it raised
+# sets the status. Any other error is printed and sets the status to 1.
 sig [Value, Word, Value] => Word
 machine def zr_program_end_hook(r, status, exc)
   if r != QUNDEF
@@ -114,7 +115,7 @@ machine def zr_program_end_hook(r, status, exc)
   1
 end
 
-# The signal an uncaught SignalException carries, or 0.
+# Returns the POSIX signal number of an uncaught SignalException, or 0.
 sig [Value] => Word
 machine def zr_signal_of(exc)
   if zr_special_p(exc) || !zr_is_a(exc, zr_core_class(Machine.id(:SignalException)))
@@ -128,8 +129,8 @@ machine def zr_signal_of(exc)
   zr_fix2long(n)
 end
 
-# The process ends by `signo` itself: the signal's default action back
-# in place, then the signal sent to this process, as CRuby's
+# Ends the process by the POSIX signal `signo`. It restores the signal's
+# default action, then sends the signal to this process, as CRuby's
 # ruby_default_signal does.
 sig [Word] => Void
 machine def zr_die_by_signal(signo)
@@ -147,7 +148,7 @@ machine def zr_system_exit_p(exc)
   !zr_special_p(exc) && zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
 end
 
-# The program's entry: `$0` and `$PROGRAM_NAME` name its file, in a
+# The program's entry. `$0` and `$PROGRAM_NAME` get its file name, in a
 # frozen String that `Process.argv0` keeps when `$0` changes.
 sig [Ptr, Word] => Void
 machine def zr_program_start(file, len)
@@ -171,7 +172,7 @@ machine def zr_environment_get(name)
   zr_str_new(p, zr_cstr_len(p))
 end
 
-# `ENV[name] = value`, or the variable removed for nil.
+# `ENV[name] = value`. A nil value removes the variable.
 sig [Value, Value] => Value
 machine def zr_environment_set(name, value)
   if value == QNIL
@@ -182,7 +183,7 @@ machine def zr_environment_set(name, value)
   value
 end
 
-# Every `NAME=value` string of the environment.
+# Returns each `NAME=value` string of the environment.
 sig [] => Value
 machine def zr_environment_list
   out = zr_ary_new(8)
@@ -199,7 +200,8 @@ machine def zr_environment_list
   out
 end
 
-# The working directory, or a stop where the host has none.
+# Returns the working directory. Stops with a bug message when the host
+# has none.
 sig [] => Value
 machine def zr_getcwd
   buf = zr_xmalloc(4096)
@@ -212,7 +214,7 @@ machine def zr_getcwd
   s
 end
 
-# The file of the frame that called the core method running now.
+# Returns the file of the frame that called the current core method.
 sig [] => Value
 machine def zr_caller_file
   rec = zr_frame_with_file(Frame.prev(Task.top(zr_task())))
@@ -237,7 +239,7 @@ Machine.import "geteuid", [] => I32
 Machine.import "getgid", [] => I32
 Machine.import "getegid", [] => I32
 
-# The process's ids: 0 uid, 1 euid, 2 gid, 3 egid.
+# Returns one of the process's ids: 0 uid, 1 euid, 2 gid, 3 egid.
 sig [Value] => Value
 machine def zr_process_ids(which)
   w = zr_fix2long(which)
@@ -251,7 +253,7 @@ machine def zr_process_ids(which)
   zr_fix(Machine.word(getegid()))
 end
 
-# 62 random bits from the system, for a seed nobody chose.
+# Returns 62 random bits from the system, for a default seed.
 sig [] => Value
 machine def zr_random_seed
   high = zr_os_random()
@@ -261,12 +263,13 @@ end
 
 Machine.sig :top, [] => Value
 
-# The files the runtime loaded out of the program's sight, which it
-# never sees in $LOADED_FEATURES: three slots per file, its path, the
-# hidden file that was loading when it started (nil for a root the eval
-# road loads), and the ids of Object's constants it defined or reopened
-# on the way, as an Array or nil. The program's own require of one
-# brings it into sight with everything it loaded and defined.
+# The files that the runtime loaded hidden from the program. They are not
+# in $LOADED_FEATURES. Each file has a record of three slots: its path,
+# the hidden file that was loading when it started (nil for a root that
+# eval support loads), and an Array (or nil) of the ids of Object's
+# constants that it defined or reopened. When the program requires one
+# of these files, the file becomes visible, with all that it loaded and
+# defined.
 G_HIDDEN_FEATURES = 50
 HIDDEN_ROW = 3
 
@@ -275,9 +278,9 @@ machine def zr_hidden_features
   zr_global_list(G_HIDDEN_FEATURES)
 end
 
-# The real paths of the files the program required, as CRuby's
-# loaded_features_realpaths holds them: a file reached again through a
-# symlink or another spelling of its directory runs no second time.
+# The real paths of the files that the program required, as in CRuby's
+# loaded_features_realpaths. A file found again through a symlink or a
+# different spelling of its directory does not run a second time.
 G_REAL_FEATURES = 60
 
 sig [] => Value
@@ -285,7 +288,7 @@ machine def zr_real_features
   zr_global_list(G_REAL_FEATURES)
 end
 
-# The Array the global `g` holds, made on its first read.
+# Returns the Array in the global `g`. The first read makes it.
 sig [Word] => Value
 machine def zr_global_list(g)
   list = zr_global(g)
@@ -296,14 +299,16 @@ machine def zr_global_list(g)
   list
 end
 
-# The file loading now, or 0: the innermost require or load in progress.
+# The file that is loading now, or 0: the innermost require or load in
+# progress.
 sig [] => Ptr
 machine def zr_loading
   Machine.static(:loading, 8)
 end
 
-# The hidden file loading now, or 0. While one loads, what it defines
-# on Object stays concealed and what it requires stays hidden too.
+# The hidden file that is loading now, or 0. While a hidden file loads,
+# the constants that it defines on Object stay hidden, and the files
+# that it requires also stay hidden.
 sig [] => Ptr
 machine def zr_hidden_loader
   Machine.static(:hidden_loader, 8)
@@ -314,13 +319,13 @@ machine def zr_loading_hidden
   Machine.load64(zr_hidden_loader(), 0) != 0
 end
 
-# The walking eval road (lib/zr/eval/walk.rb) runs the program's own
-# code inside the road's own files, which load out of the program's
-# sight. While it walks, what asks is the program: a constant a string
-# it evaluates defines on Object is the program's own and is never
-# concealed, and a require the string makes is the program's require.
-# The compiling road needs none of this -- the code it writes runs in
-# frames of its own, which are the program's already.
+# The tree-walking interpreter (lib/zr/eval/walk.rb) runs the program's
+# code inside its own files, which are hidden from the program. While it
+# runs, the program is the caller. Thus a constant that the evaluated
+# string defines on Object belongs to the program and is never hidden.
+# A require in the string is the program's require. The eval compiler
+# does not need this, because its code runs in its own frames, which
+# already belong to the program.
 sig [] => Ptr
 machine def zr_walking
   Machine.static(:walking, 8)
@@ -343,20 +348,21 @@ machine def zr_walk_leave
   Machine.value(QNIL)
 end
 
-# The path of the hidden file loading now, or nil.
+# Returns the path of the hidden file that is loading now, or nil.
 sig [] => Value
 machine def zr_hidden_loading_path
   loader = Machine.load64(zr_hidden_loader(), 0)
   Machine.value(loader == 0 ? QNIL : loader)
 end
 
-# Whether what loads now is the runtime's own, out of the program's
-# sight: a hidden file is loading, or the code that asks is written in
-# a file only the eval road loads, which the program never required for
-# itself. The road's lazy requires are the second case. A road file the
-# program requires itself loads in sight: it stands in $LOADED_FEATURES
-# before its body runs, or, for a native half's Ruby, which has no file
-# of its own to stand there, it is the file loading now.
+# Whether the current load belongs to the runtime and is hidden from the
+# program. This is true when a hidden file is loading, or when the
+# calling code is in a file that only eval support loads and the program
+# did not require. Lazy requires in eval support are the second case.
+# A file of eval support that the program requires itself is visible:
+# it is in $LOADED_FEATURES before its body runs. The Ruby part of a
+# native extension has no file of its own there, so it is visible when
+# it is the file that is loading now.
 sig [] => Bool
 machine def zr_hidden_now
   if zr_loading_hidden()
@@ -376,8 +382,9 @@ machine def zr_hidden_now
   !zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), FrameMeta.file(meta), FrameMeta.file_len(meta))
 end
 
-# The frame of the code that asks for a load or writes a constant: the
-# core library's own frames stand for whoever called them.
+# Returns the frame of the code that requests a load or writes a
+# constant. The core library's frames are skipped, so their caller is
+# used.
 sig [] => Ptr
 machine def zr_asking_frame
   rec = Task.top(zr_task())
@@ -391,8 +398,8 @@ machine def zr_asking_frame
   0
 end
 
-# Whether the file loading now is a native half's Ruby, under the
-# directory the runtime keeps them in.
+# Whether the file that is loading now is the Ruby part of a native
+# extension, in the runtime's directory for them.
 sig [] => Bool
 machine def zr_loading_internal
   loading = Machine.load64(zr_loading(), 0)
@@ -405,7 +412,7 @@ machine def zr_loading_internal
   RString.len(path) > n && zr_bytes_eq(RString.ptr(path), n, LoadTable.ext(t), n)
 end
 
-# The row of `path` among the hidden files, or -1.
+# Returns the index of the record for `path` in the hidden files, or -1.
 sig [Value] => Word
 machine def zr_hidden_row(path)
   rows = zr_hidden_features()
@@ -424,7 +431,8 @@ machine def zr_hidden_p(path)
   zr_hidden_row(path) >= 0
 end
 
-# `path` starts loading out of sight, under the hidden file loading now.
+# Records that `path` starts to load hidden, under the hidden file that
+# is loading now.
 sig [Value] => Void
 machine def zr_hidden_add(path)
   rows = zr_hidden_features()
@@ -433,7 +441,7 @@ machine def zr_hidden_add(path)
   zr_ary_push(rows, Machine.value(QNIL))
 end
 
-# `path` off the hidden list: its run failed.
+# Removes `path` from the hidden list, because its run failed.
 sig [Value] => Void
 machine def zr_hidden_forget(path)
   i = zr_hidden_row(path)
@@ -442,8 +450,9 @@ machine def zr_hidden_forget(path)
   end
 end
 
-# The hidden file loading now defined or reopened Object's constant
-# `id`: remembered, so a require of the file reveals the constant.
+# Records that the hidden file that is loading now defined or reopened
+# Object's constant `id`. A later require of the file makes the constant
+# visible.
 sig [Word] => Void
 machine def zr_hidden_defined(id)
   path = zr_hidden_loading_path()
@@ -463,9 +472,10 @@ machine def zr_hidden_defined(id)
   zr_ary_push(ids, zr_fix(id))
 end
 
-# The program required `path`, which the runtime had loaded out of sight:
-# it comes into $LOADED_FEATURES with its constants, and so does every
-# file it loaded on the way, as ruby's one require loads them all.
+# The program required `path`, which the runtime loaded hidden. The file
+# and its constants become visible and go into $LOADED_FEATURES. The
+# same occurs for each file that it loaded, because one ruby require
+# loads all of them.
 sig [Value] => Void
 machine def zr_feature_reveal(path)
   visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
@@ -487,8 +497,9 @@ machine def zr_feature_reveal(path)
   end
 end
 
-# realpath(3) of `path`, or `path` itself where no file is there, as for
-# a unit the program was compiled with and runs away from its source.
+# Returns realpath(3) of `path`, or `path` itself when no file is there.
+# That occurs for a compiled-in unit when the program runs away from its
+# source.
 sig [Value] => Value
 machine def zr_feature_real_path(path)
   p = zr_os_realpath(RString.ptr(path))
@@ -500,23 +511,24 @@ machine def zr_feature_real_path(path)
   real
 end
 
-# `require`, `require_relative` (kind 0 and 1) and `load` (2) of the
-# file at `path`, whose toplevel is `fn`: a require runs it once, as
-# $LOADED_FEATURES records; a failed run leaves no record.
+# `require`, `require_relative` (kind 0 and 1) and `load` (kind 2) of the
+# file at `path`, whose toplevel is `fn`. A require runs the file one
+# time, as recorded in $LOADED_FEATURES. A failed run leaves no record.
 #
-# Kind 3 is the eval road, which a program that evals carries: it, and
-# every require made while it runs, is recorded in the hidden list
-# instead. The program's own first require of one of those files runs
-# nothing again; it records the file and answers true, as the first
-# load would.
+# Kind 3 is eval support, which a program that uses eval links in. Its
+# files, and each require made while they run, go in the hidden list
+# instead. When the program first requires one of those files itself,
+# nothing runs again. The file is recorded and the call returns true, as
+# the first load does.
 sig [Value, Ptr, Word] => Value
 machine def zr_require(path, fn, kind)
   zr_require_run(path, fn, kind, true)
 end
 
-# The same for a require whose name the program computed: Kernel#require
-# found the file and stands in its own frame, so the file's toplevel runs
-# under that one. `fn` is the toplevel's address as an Integer.
+# The same, for a require with a name that the program computed.
+# Kernel#require found the file and has its own frame, so the file's
+# toplevel runs under that frame. `fn` is the toplevel's address as an
+# Integer.
 sig [Value, Value, Value] => Value
 machine def zr_require_computed(path, fn, kind)
   zr_require_run(path, Machine.ptr(zr_fix2long(fn)), zr_fix2long(kind), false)
@@ -524,7 +536,7 @@ end
 
 sig [Value, Ptr, Word, Bool] => Value
 machine def zr_require_run(path, fn, kind, framed)
-  # A file the program was not compiled with has no toplevel to run.
+  # A file that is not compiled into the program has no toplevel to run.
   if Machine.word(fn) == 0
     return zr_load_error_in(kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)), RString.ptr(path), RString.len(path))
   end
@@ -551,9 +563,9 @@ machine def zr_require_run(path, fn, kind, framed)
       zr_ary_push(visible, path)
     end
   end
-  # The file is compiled and about to run, which is where ruby fires
-  # `:script_compiled`. A file only the runtime loads is none of the
-  # program's business, so it fires nothing.
+  # The file is compiled and about to run, where ruby fires
+  # `:script_compiled`. A file that only the runtime loads is hidden from
+  # the program, so it fires nothing.
   if !hidden
     r = zr_trace_required(path, kind)
     return r if r == QUNDEF
@@ -572,7 +584,7 @@ machine def zr_require_run(path, fn, kind, framed)
   Machine.store64(zr_loading(), 0, outer)
   Machine.store64(zr_hidden_loader(), 0, outer_hidden)
   if r == QUNDEF
-    # The files it required on the way stay loaded.
+    # The files that it required stay loaded.
     if kind != 2 && hidden
       zr_hidden_forget(path)
     elsif kind != 2
@@ -583,20 +595,20 @@ machine def zr_require_run(path, fn, kind, framed)
     end
     return r
   end
-  # The file is provided now, so an autoload waiting for it stops
-  # waiting -- `autoload?` answers nil and `const_defined?` answers
-  # false, as ruby's do once `rb_feature_provided` is true of the
-  # feature. A literal require reaches here and not `Kernel.load_file`,
-  # which is where a computed one says the name it asked by as well.
+  # The file is provided, so an autoload that waits for it stops waiting.
+  # `autoload?` returns nil and `const_defined?` returns false, as in ruby
+  # after `rb_feature_provided` is true for the feature. A literal require
+  # comes here and not to `Kernel.load_file`. A computed require also
+  # gives the name that it used, in `Kernel.load_file`.
   if kind != 2
     zr_autoload_provided(Machine.value(QNIL), path)
   end
   Machine.value(QTRUE)
 end
 
-# The file's toplevel, run under the frame of the Kernel method `mid`,
-# as a backtrace through a require shows it; under the caller's frame
-# when `mid` is 0.
+# Runs the file's toplevel under the frame of the Kernel method `mid`,
+# as a backtrace through a require shows it. When `mid` is 0, it runs
+# under the caller's frame.
 sig [Ptr, Word] => Value
 machine def zr_run_top(fn, mid)
   if mid == 0
@@ -622,9 +634,9 @@ machine def zr_run_top(fn, mid)
   r
 end
 
-# What the compiler lays out for a require whose name the program
-# computes (lib/zr/runtime.rb, `load_tables`): the count of files compiled
-# in, their rows, and nine (bytes, length) texts.
+# The table that the compiler writes for a require with a computed name
+# (lib/zr/runtime.rb, `load_tables`): the count of compiled-in files,
+# their entries, and nine (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
                            preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,
                            coverable: Ptr, coverable_len: Word, branches: Ptr, branches_len: Word, defs: Ptr, defs_len: Word,
@@ -635,9 +647,9 @@ machine def zr_load_table
   Machine.ptr(Machine.load64(Machine.extern(:zr_load_tables), 0))
 end
 
-# The compiled toplevel of the program's file at `path`, as an Integer
-# address, or nil: each row is (path bytes, length, toplevel), so a
-# require whose name the program computes still finds a file compiled in.
+# Returns the compiled toplevel of the program's file at `path`, as an
+# Integer address, or nil. Each entry is (path bytes, length, toplevel),
+# so a require with a computed name can find a compiled-in file.
 sig [Value] => Value
 machine def zr_unit_for(path)
   t = zr_load_table()
@@ -652,15 +664,15 @@ machine def zr_unit_for(path)
   Machine.value(QNIL)
 end
 
-# What a require whose name the program computes reads, one name a line:
-# 0 for the library directories the program was compiled against, which
-# it searches after $LOAD_PATH; 1 for the features ruby carries that this
-# runtime has no file for; 2 for the features ruby loaded before the
-# program; 3 for the directory of this runtime's native halves; 4 for
-# error_highlight's spots; 5 for the lines Coverage counts; 6 for the
-# branches it names; 7 for the def and block spans a method row is named
-# by; 8 for the digest of each file the compiler a program carries was
-# built from, a path and a tab before each.
+# Returns a text that a require with a computed name reads, one name on
+# each line. 0: the library directories of the build, searched after
+# $LOAD_PATH. 1: the ruby features that this runtime has no file for.
+# 2: the features that ruby loads before the program. 3: the directory
+# of this runtime's native extensions. 4: error_highlight's spots.
+# 5: the lines that Coverage counts. 6: the branches that it reports.
+# 7: the def and block spans that identify a method entry. 8: the digest
+# of each source file of the compiler that the program links in, each
+# after a path and a tab.
 sig [Value] => Value
 machine def zr_load_names(which)
   t = zr_load_table()
@@ -685,7 +697,7 @@ machine def zr_load_names(which)
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end
 
-# Whether `e` is a String of the bytes the String `s` holds.
+# Whether `e` is a String with the same bytes as the String `s`.
 sig [Value, Value] => Bool
 machine def zr_string_of(e, s)
   zr_string_of_bytes(e, RString.ptr(s), RString.len(s))
@@ -727,7 +739,7 @@ machine def zr_ary_has_bytes(a, bytes, len)
   zr_ary_rindex_bytes(a, bytes, len) >= 0
 end
 
-# `a` without the last String equal to `s`.
+# Removes the last String equal to `s` from `a`.
 sig [Value, Value] => Void
 machine def zr_ary_delete_string(a, s)
   i = zr_ary_rindex_string(a, s)
@@ -736,14 +748,14 @@ machine def zr_ary_delete_string(a, s)
   end
 end
 
-# A LoadError for a file nothing answers, with CRuby's message, raised
-# under Kernel#require_relative's frame.
+# Raises a LoadError for a file that is not found, with CRuby's message,
+# under the frame of Kernel#require_relative.
 sig [Ptr, Word] => Value
 machine def zr_load_error(path, len)
   zr_load_error_in(Machine.id(:require_relative), path, len)
 end
 
-# The same under the frame of Kernel's `mid`.
+# The same, under the frame of Kernel's `mid`.
 sig [Word, Ptr, Word] => Value
 machine def zr_load_error_in(mid, path, len)
   e = zr_find_method(zr_global(G_KERNEL), mid)
@@ -792,7 +804,8 @@ machine def zr_path_kind(path)
   zr_fix(3)
 end
 
-# st_mode's file type bits, which POSIX names the same everywhere.
+# st_mode's file type bits, which POSIX defines with the same values on
+# all hosts.
 S_IFMT = 61440
 S_IFDIR = 16384
 S_IFREG = 32768
@@ -802,8 +815,8 @@ Machine.import "clock_getres", [I32, Ptr] => I32
 Machine.import "crypt", [Ptr, Ptr] => Ptr
 Machine.import "nanosleep", [Ptr, Ptr] => I32
 
-# Nanoseconds on the clock `id` names (darwin: 0 real time, 6
-# monotonic).
+# Returns the time in nanoseconds on the clock `id` (darwin: 0 real
+# time, 6 monotonic).
 sig [Value] => Value
 machine def zr_clock_ns(id)
   ts = Machine.slot(16)
@@ -811,7 +824,7 @@ machine def zr_clock_ns(id)
   zr_fix(Machine.load64(ts, 0) * 1000000000 + Machine.load64(ts, 8))
 end
 
-# The clock's resolution in nanoseconds.
+# Returns the clock's resolution in nanoseconds.
 sig [Value] => Value
 machine def zr_clock_res_ns(id)
   ts = Machine.slot(16)
@@ -819,7 +832,7 @@ machine def zr_clock_res_ns(id)
   zr_fix(Machine.load64(ts, 0) * 1000000000 + Machine.load64(ts, 8))
 end
 
-# crypt(3) of the text with the salt.
+# Returns crypt(3) of the text with the salt.
 sig [Value, Value] => Value
 machine def zr_str_crypt(text, salt)
   out = crypt(RString.ptr(text), RString.ptr(salt))
@@ -829,9 +842,9 @@ machine def zr_str_crypt(text, salt)
   zr_str_new(out, zr_cstr_len(out))
 end
 
-# The whole process sleeps `ns` nanoseconds, or until a signal comes:
-# true when the time passed, false when a signal cut the sleep short
-# and its handlers ran.
+# The full process sleeps `ns` nanoseconds, or until a POSIX signal
+# arrives. Returns true when the time passed. Returns false when a POSIX
+# signal stopped the sleep and its handlers ran.
 sig [Value] => Value
 machine def zr_nanosleep(ns)
   n = zr_fix2long(ns)
@@ -850,8 +863,9 @@ end
 Machine.import "tzset", [] => Void
 Machine.import "localtime_r", [Ptr, Ptr] => Ptr
 
-# The local zone at `secs` since the epoch: its offset east of UTC in
-# seconds, whether daylight time is in effect, and its abbreviation.
+# Returns the local zone at `secs` since the epoch: its offset east of
+# UTC in seconds, whether daylight time is in effect, and its
+# abbreviation.
 sig [Value] => Value
 machine def zr_time_local(secs)
   tzset()
@@ -869,7 +883,7 @@ end
 
 Machine.import "_exit", [I32] => Void
 
-# `exit!`: the process ends now, with no handler run.
+# `exit!`: the process ends immediately, and no handler runs.
 sig [Value] => Value
 machine def zr_exit_now(status)
   _exit(Machine.i32(zr_fix2long(status)))
@@ -879,8 +893,8 @@ end
 Machine.import "getpwnam", [Ptr] => Ptr
 Machine.import "getpwuid", [I32] => Ptr
 
-# A user's home directory, or nil where no such user exists. A nil name
-# asks for this process's.
+# Returns a user's home directory, or nil when there is no such user. A
+# nil name gives the home directory of this process's user.
 sig [Value] => Value
 machine def zr_home_dir(name)
   pw = name == QNIL ? getpwuid(getuid()) : getpwnam(RString.ptr(name))
@@ -908,7 +922,7 @@ Machine.import "pathconf", [Ptr, I32] => Word
 Machine.import "uname", [Ptr] => I32
 Machine.import "getlogin", [] => Ptr
 
-# A C string as a Ruby String, and a null pointer as nil.
+# Returns a C string as a Ruby String, or nil for a null pointer.
 sig [Ptr] => Value
 machine def zr_cstr_str(text)
   if text == 0
@@ -944,8 +958,8 @@ machine def zr_pw_done
   Machine.value(QNIL)
 end
 
-# The four fields of darwin's group: name at 0, password at 8, gid at 16,
-# and a null-ended array of member names at 24.
+# Returns the four fields of darwin's group: name at 0, password at 8,
+# gid at 16, and a null-terminated array of member names at 24.
 sig [Ptr] => Value
 machine def zr_gr_row(gr)
   if gr == 0
@@ -1001,7 +1015,7 @@ machine def zr_nprocessors
   zr_fix(sysconf(Machine.i32(SC_NPROCESSORS_ONLN)))
 end
 
-# A sysconf or pathconf answer, and nil where the name has no limit.
+# Returns a sysconf or pathconf value, or nil when the name has no limit.
 sig [Value] => Value
 machine def zr_sysconf(name)
   got = sysconf(Machine.i32(zr_fix2long(name)))
@@ -1020,8 +1034,8 @@ machine def zr_pathconf(path, name)
   zr_fix(got)
 end
 
-# A confstr answer. The first call asks for the length, which is what
-# confstr reports when the buffer is empty.
+# Returns a confstr value. The first call gets the length, which confstr
+# returns when the buffer is empty.
 sig [Value] => Value
 machine def zr_confstr(name)
   which = Machine.i32(zr_fix2long(name))
@@ -1042,8 +1056,8 @@ machine def zr_login_name
   zr_cstr_str(getlogin())
 end
 
-# uname's first five fields: sysname, nodename, release, version and
-# machine.
+# Returns uname's first five fields: sysname, nodename, release, version
+# and machine.
 sig [] => Value
 machine def zr_uname
   buf = Machine.slot(UTSNAME_LEN)

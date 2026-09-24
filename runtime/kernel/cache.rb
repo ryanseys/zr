@@ -1,44 +1,44 @@
-# Call-site caches. A site in compiled Ruby that sends a message, reads
-# a constant, or reads or writes an instance variable owns a cell in
-# `.bss`, zero at the start, which keeps the answer it last got there.
-# The kernel both fills and trusts every cell, so what makes an answer
-# stale is written down here and nowhere else.
+# Call-site caches. Each compiled site that sends a message, reads a
+# constant, or reads or writes an instance variable has a cache entry in
+# `.bss`. The entry starts as zero and keeps the last result of its site.
+# The kernel fills and trusts every cache entry, so this file is the one
+# place that defines when a cached result is stale:
 #
-# A cell answers only from what it was keyed on:
+# - A send's cache entry is keyed on the receiver's class and the method
+#   stamp. Each change to a method table or an ancestor list increments
+#   the stamp (`zr_methods_changed`). The kernel fills the entry only when
+#   the class alone decides the result: no refinement is in use, the
+#   class has no box shadow, and the caller's self cannot change the
+#   visibility. The site checks the class and the stamp, then calls the
+#   entry's `fn` directly (`Zr::Lower::Function::Sends#cached_send`). The
+#   site stamp follows the method stamp while caches are on. It is -1
+#   while caches are off or verified, so every send goes through
+#   `zr_send_cached`.
+# - A constant's cache entry is keyed on the cref (or the scope of `A::B`)
+#   and on the constant stamp. The stamp changes on each constant write,
+#   removal and flag change, each ancestor list change, and each cref that
+#   the collector frees (its address can come back as another cref). The
+#   entry never contains an autoload, a deprecated constant, or a read
+#   made inside a box.
+# - An instance variable's cache entry contains only a cached index: the
+#   ivar entry where the name was last time. Each use checks the name at
+#   that index, so the cache is never stale, only wrong. A wrong cached
+#   index costs one scan.
 #
-# - A send's cell keys on the receiver's class and the method stamp,
-#   which every change to a method table or a chain moves
-#   (`zr_methods_changed`). It is filled only when nothing else decided
-#   the answer: no refinement in use, no box shadow of the class, and a
-#   visibility the caller's self cannot change. The site tests the
-#   class and the stamp itself and calls the cell's `fn` straight
-#   (`Zr::Lower::Function::Sends#cached_send`); its stamp is the site stamp,
-#   which follows the method stamp while the cells are trusted and is
-#   -1 while they are off or verified, so that every send then comes
-#   through `zr_send_cached`.
-# - A constant's cell keys on the cref, or on the scope of `A::B`, and
-#   on the constant stamp, which moves on every constant write, removal
-#   and flag, on every chain change, and on every cref the collector
-#   frees (its address can come back as another cref). It never holds
-#   an autoload, a deprecated constant, or a read made inside a box.
-# - An instance variable's cell holds only a guess: the row the name sat
-#   in last time. Every use checks the guess against the row's name, so
-#   a cell is never stale, only wrong, and a wrong guess costs one scan.
-#
-# `ZR_MCACHE=0` fills no cell, and `ZR_MCACHE=verify` checks every hit
-# of a send's or a constant's cell against a fresh lookup.
+# `ZR_MCACHE=0` fills no cache entry. `ZR_MCACHE=verify` checks each hit
+# of a send or constant cache entry against a fresh lookup.
 Machine.struct :IvarCache, index: Word
-# `found` is the chain node the entry sat on, which a call hands the
-# frame as a lookup would. `fn` is what a hit calls, with the method
-# signature whatever the entry's kind (`zr_entry_fn`). A site owns
-# CALL_WAYS cells in a row: the first it tests itself, the rest the
-# kernel tests when the first misses, so a site whose receivers come
-# from a few classes hits on each.
-# `shape` says what a site may do in place of the call: an accessor's
-# ivar the site reads or writes itself (`Zr::Lower::Function::Sends
-# #accessor_in_place`), one of the core's type questions it answers
-# itself (`#in_place`), and SHAPE_NONE every other kind, which is
-# what a cell holds until a fill says otherwise.
+# `found` is the ancestor list node that contains the method entry. A call
+# gives it to the frame, as a lookup does. `fn` is the function that a hit
+# calls, with the method signature for all entry kinds (`zr_entry_fn`).
+# A site has CALL_WAYS consecutive cache entries. The site checks the
+# first one itself. The kernel checks the others when the first misses,
+# so a site with receivers from a few classes gets a hit for each.
+# `shape` tells what a site can do in place of the call. SHAPE_READER and
+# SHAPE_WRITER: the site reads or writes an accessor's ivar itself
+# (`Zr::Lower::Function::Sends#accessor_in_place`). The other shapes: the
+# site does one of the core's type checks itself (`#in_place`).
+# SHAPE_NONE is for all other kinds, and for a cache entry not yet filled.
 Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word, direct: Ptr
 CALL_WAYS = 4
 SHAPE_NONE = 0
@@ -50,33 +50,35 @@ SHAPE_NIL_P = 5
 SHAPE_FROZEN_P = 6
 SHAPE_ARY_LENGTH = 7
 SHAPE_MOD_EQQ = 8
-# BasicObject's `==` (and `equal?`), and its `!=` where the class's
-# `==` is BasicObject's too: identity, answered at the site.
+# BasicObject's `==` (and `equal?`), and its `!=` when the class also
+# uses BasicObject's `==`. The site compares identity itself.
 SHAPE_EQ = 9
 SHAPE_NE = 10
-# Object's `===` where the class's `==` is BasicObject's: identity, a
-# `case` arm over a symbol, nil, true or false.
+# Object's `===` when the class uses BasicObject's `==`. This is an
+# identity check, as in a `case` branch for a symbol, nil, true or false.
 SHAPE_EQQ = 11
-# Class#new itself: a `new` site allocates and sends `initialize` in
-# place (`Zr::Lower::Function::Sends#new_send`).
+# The builtin Class#new. A `new` site allocates the object and sends
+# `initialize` itself (`Zr::Lower::Function::Sends#new_send`).
 SHAPE_NEW = 12
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
-# A `super` site's cell: the chain node the method runs from and the
-# name, which together decide the next method, and what the lookup
-# found for them under the method stamp (runtime/kernel/send.rb, zr_super).
+# The cache entry of a `super` site. The ancestor list node that the
+# method runs from and the name together decide the next method. The
+# entry keeps them and the lookup result for the method stamp
+# (runtime/kernel/send.rb, zr_super).
 Machine.struct :SuperCache, node: Value, mid: Word, stamp: Word, entry: Ptr, found: Value, fn: Ptr
 
-# Any change a constant lookup could see.
+# Records a change that a constant lookup can see.
 sig [] => Void
 machine def zr_consts_changed
   s = Machine.static(:const_stamp, 8)
   Machine.store64(s, 0, Machine.load64(s, 0) + 1)
 end
 
-# The entry `cc` holds for a send of `mid` to `recv`, or 0 when it
-# holds none that stands. A heap receiver's class is its header's, as
-# `zr_class_of` reads it; a special constant's is asked for. The task is
-# read from its static word: every send comes through here.
+# Returns the method entry that `cc` contains for a send of `mid` to
+# `recv`, or 0 when it has no valid one. A heap receiver's class comes
+# from its header, as in `zr_class_of`. A special constant's class comes
+# from `zr_class_of`. The task comes directly from its static word,
+# because every send goes through here.
 sig [Ptr, Value, Word, Word] => Ptr
 machine def zr_call_cache_hit(cc, recv, mid, mode)
   w = Machine.word(recv)
@@ -98,8 +100,8 @@ machine def zr_call_cache_hit(cc, recv, mid, mode)
   e
 end
 
-# The answer `zr_dispatch` just found for `klass`, into the cell when
-# the class and the stamp alone decided it.
+# Writes the method entry that `zr_dispatch` found for `klass` into the
+# cache entry, when the class and the stamp alone decided the result.
 sig [Ptr, Value, Ptr, Word, Word, Word] => Void
 machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
@@ -109,14 +111,14 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   if (Task.refine(t) != QNIL && (mode & SEND_USING) == 0) || ClassExt.boxed(RClass.ext(klass)) != QNIL
     return
   end
-  # A private or protected method refuses an explicit receiver by who
-  # calls, not by the class.
+  # For a private or protected method with an explicit receiver, the
+  # caller decides the result, not the class.
   if (mode & SEND_MODE) >= 2 && MEntry.vis(e) != VIS_PUBLIC
     return
   end
-  # A core send's own entry is not the chain's when the program has
-  # redefined the method: the verifier, which asks the chain, leaves
-  # such a cell empty rather than read it as wrong.
+  # When the program redefines a method, a core send's entry is different
+  # from the ancestor list's entry. The verifier reads the ancestor list,
+  # so it leaves such a cache entry empty and does not report it as wrong.
   if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && (mode & SEND_CORE) != 0 && e != zr_fresh_method(klass, mid)
     return
   end
@@ -126,9 +128,9 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   CallCache.set_found(cc, zr_entry_found(e))
   CallCache.set_fn(cc, zr_entry_fn(e))
   CallCache.set_shape(cc, zr_entry_shape(klass, e))
-  # The direct entry, for a site that hands the def exactly the
-  # arguments it declares: what zr_direct_fn would check is settled
-  # here, once.
+  # The direct entry is for a site that gives the def exactly the
+  # arguments that it declares. This does the checks of zr_direct_fn
+  # one time, here.
   direct = 0
   if MEntry.kind(e) == KIND_DEF && MEntry.arity(e) == argc
     direct = MEntry.direct(e)
@@ -136,11 +138,11 @@ machine def zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   CallCache.set_direct(cc, direct)
 end
 
-# The generic entry of a def that has a direct one: the keyword word
-# and the count checked, as the def's own prologue would, then the
-# body with the arguments in registers. A count the def did not
-# declare raises under a frame of the def's, as the prologue's check
-# did, so the backtrace names it.
+# The generic entry of a def that has a direct entry. It checks the
+# keyword word and the argument count, as the def's prologue does, then
+# calls the body with the arguments in registers. A wrong count raises
+# under a frame of the def, as the prologue's check does, so the
+# backtrace shows the def.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_direct_fn(recv, argc, argv, e, blk, found)
   t = zr_task()
@@ -171,8 +173,8 @@ machine def zr_direct_fn(recv, argc, argv, e, blk, found)
   Machine.call(:direct4, direct, recv, e, blk, found, a, b, c, Machine.value(Machine.load64(argv, 24)))
 end
 
-# The arity error of a def with a direct entry, raised under a frame
-# of the def's own: its meta, its line, its self and block.
+# Raises the arity error of a def with a direct entry, under a frame of
+# the def: its meta, its line, its self and its block.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_direct_arity(recv, argc, e, blk, found)
   t = zr_task()
@@ -198,14 +200,14 @@ machine def zr_direct_arity(recv, argc, e, blk, found)
   r
 end
 
-# What a site may do in place of the call to `e`: an accessor's whole
-# body, one guessed row read or written, which is what
-# `zr_attr_reader_fn` and `zr_attr_writer_fn` do and nothing more;
-# or one of the core's type questions, named by the builtin that
-# answers it. The builtin is the test, not the name: a class that
-# defines its own `is_a?` finds another entry, and its cell holds
-# SHAPE_NONE. `!=` is identity only where `klass` answers `==` by
-# identity as well, since BasicObject's `!=` asks `==`.
+# Returns what a site can do in place of the call to `e`. For an
+# accessor, the site does the full body: one ivar read or write at the
+# cached index, which is all that `zr_attr_reader_fn` and
+# `zr_attr_writer_fn` do. For some core type checks, the builtin function
+# identifies the shape. The check is on the builtin, not the name: a
+# class that defines its own `is_a?` finds a different entry, and gets
+# SHAPE_NONE. `!=` is an identity check only when `klass` also uses
+# identity for `==`, because BasicObject's `!=` calls `==`.
 sig [Value, Ptr] => Word
 machine def zr_entry_shape(klass, e)
   kind = MEntry.kind(e)
@@ -252,17 +254,18 @@ machine def zr_entry_shape(klass, e)
   SHAPE_NONE
 end
 
-# `is_a?` at a site whose cell holds Kernel#is_a?, for a receiver of
-# class `klass`: where both are ranked classes (FL_RANKED), a class's
-# rank settles it in one load, as `zr_class_inherits` does. Anything
-# else answers nil and the site calls the builtin, which builds the
-# tables, walks a module's chain, reads a box's view, and raises for
-# what is neither a class nor a module. A box shadow stands for the
-# shared class (`zr_is_a`), so a target that has one is the builtin's
-# too. A site writes the same tests out (`Sends#is_a_in_place`).
+# `is_a?` at a site whose cache entry contains Kernel#is_a?, for a
+# receiver of class `klass`. When both are ranked classes (FL_RANKED),
+# one load of the rank gives the result, as in `zr_class_inherits`. In
+# all other cases this returns nil and the site calls the builtin. The
+# builtin builds the tables, walks a module's ancestor list, reads a
+# box's view, and raises for a value that is not a class or module. A
+# box shadow is in place of the shared class (`zr_is_a`), so a target
+# with a shadow also goes to the builtin. A site does the same checks
+# inline (`Sends#is_a_in_place`).
 #
-# One test a line, each returning: an `||` chain is lowered as the
-# booleans it joins, where these want a branch each.
+# Each check is on its own line with its own return. The lowering turns
+# an `||` expression into booleans, but these checks need one branch each.
 sig [Value, Value] => Value
 machine def zr_is_a_fast(klass, mod)
   w = Machine.word(mod)
@@ -286,10 +289,11 @@ machine def zr_is_a_fast(klass, mod)
   zr_bool(Machine.value(Machine.load64(ClassExt.supers(ext) + ((r - 1) * 8), 0)) == mod)
 end
 
-# `mod === obj` at a site whose cell holds Module#===, which is what
-# `case obj when mod` asks: `obj.is_a?(mod)` as the builtin answers
-# it (`zr_mod_eqq`), never through a method `obj` defines. A cell's
-# class is its header's; any other value's is `zr_class_of`'s.
+# `mod === obj` at a site whose cache entry contains Module#===, which is
+# what `case obj when mod` calls. It returns `obj.is_a?(mod)` as the
+# builtin does (`zr_mod_eqq`), and never calls a method that `obj`
+# defines. A heap cell's class comes from its header. The class of any
+# other value comes from `zr_class_of`.
 sig [Value, Value] => Value
 machine def zr_mod_eqq_fast(mod, obj)
   w = Machine.word(obj)
@@ -299,11 +303,11 @@ machine def zr_mod_eqq_fast(mod, obj)
   zr_is_a_fast(zr_class_of(obj), mod)
 end
 
-# `instance_of?` at a site whose cell holds Kernel#instance_of?, for
-# a receiver of class `klass`: whether its real class, past a
-# singleton class and the proxies of what it extends, is `c`
-# (`zr_real_class`). Nil where `c` is neither a class nor a module,
-# which the builtin raises for.
+# `instance_of?` at a site whose cache entry contains
+# Kernel#instance_of?, for a receiver of class `klass`. It checks whether
+# the real class is `c`. The real class skips a singleton class and the
+# proxies of extended modules (`zr_real_class`). It returns nil when `c`
+# is not a class or module, because the builtin raises for that.
 sig [Value, Value] => Value
 machine def zr_instance_of_fast(klass, c)
   if !zr_module_p(c) || !zr_class_inherits(klass, zr_global(G_OBJECT))
@@ -316,9 +320,10 @@ machine def zr_instance_of_fast(klass, c)
   zr_bool(k == c)
 end
 
-# What a hit on entry `e` calls with the method signature: a compiled
-# def itself, an accessor's own function, and for any other kind the
-# dispatch's steps, which push the frame and check the arity.
+# Returns the function that a hit on entry `e` calls with the method
+# signature. For a compiled def, it is the def. For an accessor, it is
+# the accessor's function. For all other kinds, it runs the dispatch
+# steps, which push the frame and check the arity.
 sig [Ptr] => Ptr
 machine def zr_entry_fn(e)
   kind = MEntry.kind(e)
@@ -346,20 +351,19 @@ machine def zr_entry_fn(e)
   Machine.addr(:zr_invoke_fn)
 end
 
-# A hit on an entry that is not a compiled def: what a dispatch would
-# do with it. A keywords Hash the site flagged is taken here, as the
-# dispatch takes it.
+# Runs a hit on an entry that is not a compiled def, as a dispatch does.
+# It takes a keywords Hash that the site flagged, as the dispatch does.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_invoke_fn(recv, argc, argv, e, blk, found)
   Task.set_found(zr_task(), found)
   zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
 end
 
-# A hit on a builtin entry: the dispatch's steps for a builtin alone
-# (runtime/kernel/send.rb, zr_invoke), with no kind to test. A keyword
-# table becomes one Hash argument first; the frame pushed here names
-# the builtin in a backtrace and takes the stack check a compiled
-# prologue makes; the arity is checked under it.
+# Runs a hit on a builtin entry. It does only the dispatch steps for a
+# builtin (runtime/kernel/send.rb, zr_invoke), with no kind check. First,
+# a keyword table becomes one Hash argument. The frame that it pushes
+# shows the builtin in a backtrace and does the stack check of a compiled
+# prologue. The arity check runs under that frame.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_builtin_fn(recv, argc, argv, e, blk, found)
   t = zr_task()
@@ -397,19 +401,19 @@ machine def zr_builtin_fn(recv, argc, argv, e, blk, found)
   r
 end
 
-# An accessor has no frame, so its arity error is the caller's. The
-# ivar's id is the entry's `fn`, and the row guess is the entry's own.
+# An accessor has no frame, so its arity error comes from the caller.
+# The entry's `fn` contains the ivar's id, and the entry has its own
+# cached index.
 #
-# The guessed row is read here rather than asked of
-# `zr_ivar_get_cached`, which asks `zr_ivar_row_guessed` for it. A site
-# that reads `@name` of its own tests the guess inline (the lowering's
-# `guessed_ivar_row`); a site that calls a reader pays a call for the
-# same three loads, and two more under it. Sampling bm_attr_accessor
-# put 261 of 389 samples in these three frames, 131 of them in
-# `zr_ivar_row_guessed` alone. So the test stands here, where the
-# entry already is, and only a receiver the guess does not settle --
-# a class, a module, a special constant, a ractor's object, a wrong
-# guess -- goes on to the kernel's own read, which sets the guess.
+# This reads the ivar entry at the cached index directly, and does not
+# call `zr_ivar_get_cached` (which calls `zr_ivar_row_guessed`). A site
+# that reads its own `@name` checks the cached index inline (the
+# lowering's `guessed_ivar_row`). Through a reader call, a site pays for
+# the same three loads plus two calls. A profile of bm_attr_accessor had
+# 261 of 389 samples in these three frames, 131 in `zr_ivar_row_guessed`
+# alone. Only a receiver that the cached index does not resolve (a class,
+# a module, a special constant, a ractor's object, a wrong cached index)
+# goes on to the kernel's read, which updates the cached index.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_attr_reader_fn(recv, argc, argv, e, blk, found)
   if argc != 0
@@ -430,10 +434,9 @@ machine def zr_attr_reader_fn(recv, argc, argv, e, blk, found)
   zr_ivar_get_cached(recv, id, ic)
 end
 
-# The frozen bit rides with the type here, as it does in
-# `zr_ivar_set_cached`: a frozen receiver is not a plain unfrozen
-# object, so it takes the kernel's write, which raises at the caller's
-# line.
+# The type check also checks the frozen bit, as in `zr_ivar_set_cached`.
+# A frozen receiver is not a plain unfrozen object, so it goes to the
+# kernel's write, which raises at the caller's line.
 sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_attr_writer_fn(recv, argc, argv, e, blk, found)
   if argc != 1
@@ -456,10 +459,10 @@ machine def zr_attr_writer_fn(recv, argc, argv, e, blk, found)
   zr_ivar_set_cached(recv, id, v, ic)
 end
 
-# The row of table `t` the cell `ic` guesses, when the table is long
-# enough and that row holds `id`; else 0. What `zr_ivar_row_guessed`
-# does once it knows the table, and small enough that an accessor
-# carries a copy rather than a call.
+# Returns the ivar entry of table `t` at the cached index in `ic`, when
+# the table is long enough and that entry contains `id`. Otherwise it
+# returns 0. This is the part of `zr_ivar_row_guessed` after it finds the
+# table. It is small, so an accessor contains a copy in place of a call.
 sig [Ptr, Word, Ptr] => Ptr
 machine def zr_ivar_guess_row(t, id, ic)
   i = IvarCache.index(ic)
@@ -470,20 +473,20 @@ machine def zr_ivar_guess_row(t, id, ic)
   IvEntry.id(e) == id ? e : 0
 end
 
-# A send through the site's cell, for a site whose own test of the cell
-# did not hit (a special constant, a stale cell, a refinement in use,
-# the cells off or verified). A hit here calls the cell's `fn`; a miss
-# is a dispatch, which fills the cell.
+# A send through the site's cache entries, when the site's own check
+# did not hit (a special constant, a stale cache entry, a refinement in
+# use, caches off or verified). A hit calls the entry's `fn`. A miss does
+# a dispatch, which fills a cache entry.
 sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
 machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
   using = (mode & SEND_USING) != 0
   if Task.refine(zr_task()) == QNIL || using
-    # The class and the stamp once, then each way in place. The site
-    # tested the first way itself, whatever the receiver, so the ways
-    # after it are what is left; under ZR_MCACHE=verify no site's own
-    # test hits, so the first way is tested here and every hit is held
-    # to the chain. A site under `using` tests no way itself, and its
-    # cells hold what the lookup under its refinements answered.
+    # Read the class and the stamp one time, then check each way. The
+    # site already checked the first way for all receivers, so this
+    # checks the other ways. Under ZR_MCACHE=verify, no site check hits,
+    # so this checks the first way too, and verifies each hit against
+    # the ancestor list. A site under `using` checks no way itself. Its
+    # cache entries contain the lookup results under its refinements.
     w = Machine.word(recv)
     verify = Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
     if (w & 7) == 0 && w > QUNDEF
@@ -503,8 +506,8 @@ machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
           zr_bug(Machine.bytes("a call cache answered what the chain does not\n"), 46)
         end
         r = Machine.call(:method, CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
-        # The refinements the site activated were for this send alone,
-        # as zr_dispatch leaves them.
+        # The site activated the refinements for this send only, so clear
+        # them, as zr_dispatch does.
         if using
           Task.set_refine(zr_task(), Machine.value(QNIL))
         end
@@ -516,8 +519,8 @@ machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
   zr_dispatch(zr_call_cache_slot(cc), recv, mid, argc, argv, mode, blk)
 end
 
-# The chain's own answer, from no cache: under the refinements in
-# force, or the plain walk.
+# Returns the method entry from the ancestor list, with no cache. It
+# uses the active refinements, or a plain lookup when there are none.
 sig [Value, Word] => Ptr
 machine def zr_fresh_method(klass, mid)
   if Task.refine(zr_task()) != QNIL
@@ -526,8 +529,9 @@ machine def zr_fresh_method(klass, mid)
   zr_search_method(klass, mid)
 end
 
-# The cell a dispatch fills: the first that is empty or stale, else
-# the last, so the class the site tests itself keeps the first.
+# Returns the cache entry that a dispatch fills: the first empty or
+# stale one, else the last. Thus the class that the site checks itself
+# keeps the first way.
 sig [Ptr] => Ptr
 machine def zr_call_cache_slot(cc)
   i = 0
@@ -541,13 +545,13 @@ machine def zr_call_cache_slot(cc)
   cc + ((CALL_WAYS - 1) * CallCache.size)
 end
 
-# A `new` call, CRuby's `opt_new` (and a `new` with a block, which
-# `Class#new` hands to `initialize`), with a cell for each of
+# A `new` call, as CRuby's `opt_new` (and a `new` with a block, which
+# `Class#new` gives to `initialize`). It has cache entries for each of
 # its two lookups: `new` on the receiver's class, then `initialize` on
-# the object it makes. The builtin `Class#new` reached as a public
-# method runs with no frame of its own, so a backtrace goes from
-# `initialize` straight to the caller; any other `new` is a send through
-# the cell the lookup filled.
+# the new object. When the lookup finds the public builtin `Class#new`,
+# it runs with no frame, so a backtrace goes from `initialize` directly
+# to the caller. Any other `new` is a send through the cache entry that
+# the lookup filled.
 sig [Ptr, Value, Word, Ptr, Value, Word] => Value
 machine def zr_new_cached(cc, recv, argc, argv, blk, mode)
   e = zr_call_cache_hit(cc, recv, Machine.id(:new), mode)
@@ -558,12 +562,12 @@ machine def zr_new_cached(cc, recv, argc, argv, blk, mode)
       zr_call_cache_fill(cc, klass, e, Machine.id(:new), mode, 0 - 2)
     end
   end
-  # `Array.new` and `String.new` are rows of their own (zr_class_s_new),
-  # so a program's backtrace passes through them, and a `new` with a
-  # block is a call of `Class#new` with a frame, as opt_new is only the
-  # blockless one. A `new` the core library makes is C's rb_ary_new or
-  # rb_class_new_instance, with no frame, and takes the road below
-  # either way.
+  # `Array.new` and `String.new` have their own method entries
+  # (zr_class_s_new), so a program's backtrace includes them. A `new`
+  # with a block is a call of `Class#new` with a frame, because opt_new
+  # applies only without a block. A `new` from the core library is like
+  # C's rb_ary_new or rb_class_new_instance, with no frame, so it always
+  # takes the fast path below.
   core = (mode & SEND_CORE) != 0
   plain = e != 0 && (blk == QNIL || core) && (MEntry.fn(e) == Machine.addr(:zr_class_new_instance) || (core && MEntry.fn(e) == Machine.addr(:zr_class_s_new)))
   if !plain || MEntry.vis(e) != VIS_PUBLIC
@@ -571,25 +575,26 @@ machine def zr_new_cached(cc, recv, argc, argv, blk, mode)
   end
   o = zr_class_new_object(recv)
   return o if o == QUNDEF
-  # `initialize` is private, so it goes as an implicit send; a `new` the
-  # core library makes keeps SEND_CORE, and reaches the core's own row
-  # where the program wrote over it (`Array.new` in the core is
+  # `initialize` is private, so this is an implicit send. A `new` from
+  # the core library keeps SEND_CORE, so it finds the core's own method
+  # entry when the program redefines it (`Array.new` in the core is
   # rb_ary_new, which runs no program's initialize).
   r = zr_send_cached(cc + (CallCache.size * CALL_WAYS), o, Machine.id(:initialize), argc, argv, blk, mode & (SEND_USING | SEND_CORE))
   return r if r == QUNDEF
   o
 end
 
-# Whether row `e`'s value may stand in a cell: set (not an autoload
-# still to run), not deprecated (each read warns), and read outside a
-# box (a box sees rows and classes of its own).
+# Whether a cache entry can contain the value of constant entry `e`. The
+# value must be set (not an autoload still to run), not deprecated (each
+# read warns), and read outside a box (a box sees its own constant
+# entries and classes).
 sig [Ptr] => Bool
 machine def zr_const_cacheable(e)
   CEntry.value(e) != QUNDEF && CEntry.deprecated(e) == 0 && zr_box_current() == QNIL
 end
 
-# `stamp` is the one read before the lookup: whatever the lookup set
-# off leaves the cell stale at once.
+# `stamp` is the value read before the lookup. Thus, a change that the
+# lookup causes makes the cache entry stale immediately.
 sig [Ptr, Value, Word, Value] => Void
 machine def zr_const_cache_fill(cc, key, stamp, v)
   if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
@@ -600,8 +605,8 @@ machine def zr_const_cache_fill(cc, key, stamp, v)
   ConstCache.set_value(cc, v)
 end
 
-# `ZR_MCACHE=verify`: the row a fresh lookup finds holds what the cell
-# answered.
+# `ZR_MCACHE=verify`: checks that the constant entry from a fresh lookup
+# contains the value that the cache entry returned.
 sig [Ptr, Ptr] => Void
 machine def zr_const_cache_verify(cc, e)
   if e == 0 || !zr_const_cacheable(e) || CEntry.value(e) != ConstCache.value(cc)
@@ -609,7 +614,8 @@ machine def zr_const_cache_verify(cc, e)
   end
 end
 
-# A bare constant under `cref` at a site: `zr_const_get`'s answer.
+# Reads a bare constant under `cref` at a site. Returns the same value as
+# `zr_const_get`.
 sig [Ptr, Value, Word] => Value
 machine def zr_const_get_cached(cc, cref, id)
   stamp = Machine.load64(Machine.static(:const_stamp, 8), 0)
@@ -627,9 +633,9 @@ machine def zr_const_get_cached(cc, cref, id)
   zr_const_get(cref, id)
 end
 
-# A program's bare constant. Outside the main ractor the value must be
-# one the ractor may share, and the cell is left alone so that every
-# read there asks (the stamp moves as a ractor's task comes and goes).
+# Reads a program's bare constant. Outside the main ractor, the value
+# must be shareable. There, the cache entry is not used, so each read does
+# a lookup (the stamp changes when a ractor's task starts and stops).
 sig [Ptr, Value, Word] => Value
 machine def zr_const_read_cached(cc, cref, id)
   if Task.ractor(zr_task()) == 0
@@ -644,7 +650,7 @@ machine def zr_const_read_cached(cc, cref, id)
   zr_ractor_const(CEntry.owner(e), id, v)
 end
 
-# A program's `scope::Name`, asked the same way.
+# Reads a program's `scope::Name` in the same way.
 sig [Ptr, Value, Word] => Value
 machine def zr_const_read_at_cached(cc, scope, id)
   if Task.ractor(zr_task()) == 0
@@ -662,8 +668,8 @@ machine def zr_const_read_at_cached(cc, scope, id)
   zr_ractor_const(CEntry.owner(e), id, v)
 end
 
-# `v`, a constant `owner` holds, read outside the main ractor: the
-# ractor may read it only if it is shareable.
+# Checks `v`, a constant of `owner`, read outside the main ractor. The
+# ractor can read it only if it is shareable.
 sig [Value, Word, Value] => Value
 machine def zr_ractor_const(owner, id, v)
   if zr_special_p(v)
@@ -676,8 +682,9 @@ machine def zr_ractor_const(owner, id, v)
   zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:const_read), 3, args)
 end
 
-# `scope::Name` at a site: `zr_const_get_at`'s answer. A private
-# constant raises here each time, so its row stays out of the cell.
+# Reads `scope::Name` at a site. Returns the same value as
+# `zr_const_get_at`. A private constant raises each time, so its constant
+# entry never goes into the cache entry.
 sig [Ptr, Value, Word] => Value
 machine def zr_const_get_at_cached(cc, scope, id)
   stamp = Machine.load64(Machine.static(:const_stamp, 8), 0)
@@ -697,8 +704,8 @@ machine def zr_const_get_at_cached(cc, scope, id)
   zr_const_get_at(scope, id)
 end
 
-# `@name` at a site whose cell `ic` guesses its row: `zr_ivar_get`'s
-# answer.
+# Reads `@name` at a site with the cached index `ic`. Returns the same
+# value as `zr_ivar_get`.
 sig [Value, Word, Ptr] => Value
 machine def zr_ivar_get_cached(obj, id, ic)
   e = zr_ivar_row_guessed(obj, id, ic)
@@ -721,8 +728,8 @@ machine def zr_ivar_get_cached(obj, id, ic)
   IvEntry.value(e)
 end
 
-# `@name = v` at a site whose cell `ic` guesses its row: `zr_ivar_set`'s
-# answer.
+# Writes `@name = v` at a site with the cached index `ic`. Does the same
+# as `zr_ivar_set`.
 sig [Value, Word, Value, Ptr] => Value
 machine def zr_ivar_set_cached(obj, id, v, ic)
   e = zr_ivar_row_guessed(obj, id, ic)
@@ -731,10 +738,10 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
     zr_write_barrier(obj, v)
     return v
   end
-  # A plain object outside a ractor, not frozen, whose guess is the row
-  # past its last: the first assignment in an `initialize`, whose row
-  # goes there when none holds `id` yet, with no more of the kernel
-  # between.
+  # A plain object outside a ractor, not frozen, whose cached index is
+  # one past its last ivar entry. This is the first assignment in an
+  # `initialize`. When no entry contains `id`, the new entry goes at the
+  # end, with no more kernel calls.
   if !zr_special_p(obj) && (RBasic.flags(obj) & (T_MASK | FL_FREEZE)) == T_OBJECT && Task.ractor(zr_task()) == 0
     t = RObject.iv(obj)
     if IvarCache.index(ic) == IvTab.len(t) && zr_ivtab_row(t, id) == 0
@@ -753,7 +760,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   t = zr_ivtab_for_write(obj)
   e = zr_ivtab_guess(t, id, ic)
   if e == 0
-    # A new row goes last, where the next guess finds it.
+    # A new ivar entry goes at the end, where the next cached index finds it.
     IvarCache.set_index(ic, IvTab.len(t))
     zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
   else
@@ -763,11 +770,12 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   v
 end
 
-# The row of an object's, class's or module's own table the cell
-# guesses, when it holds `id` and the read is outside a ractor (a
-# ractor's isolation rule is `zr_ractor_guard`'s); else 0. What a site
-# tests inline before it calls here (the lowering's
-# `guessed_ivar_row`); an accessor's entry comes straight here.
+# Returns the ivar entry at the cached index in the table of an object,
+# class or module, when that entry contains `id` and the read is outside
+# a ractor (`zr_ractor_guard` applies the ractor isolation rule).
+# Otherwise it returns 0. A site does this check inline before it calls
+# here (the lowering's `guessed_ivar_row`). An accessor entry calls here
+# directly.
 sig [Value, Word, Ptr] => Ptr
 machine def zr_ivar_row_guessed(obj, id, ic)
   if zr_special_p(obj) || Task.ractor(zr_task()) != 0
@@ -784,8 +792,9 @@ machine def zr_ivar_row_guessed(obj, id, ic)
   zr_ivar_guess_row(t, id, ic)
 end
 
-# The row for `id` in the table `t`, or 0: the guessed one when it holds
-# `id`, else the one a scan finds, which becomes the guess.
+# Returns the ivar entry for `id` in the table `t`, or 0. It first tries
+# the cached index. Otherwise a scan finds the entry, and its index
+# becomes the new cached index.
 sig [Ptr, Word, Ptr] => Ptr
 machine def zr_ivtab_guess(t, id, ic)
   i = IvarCache.index(ic)

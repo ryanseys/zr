@@ -1,13 +1,13 @@
-# Objects: a class and an ivar table (id, value rows); a class or
-# module keeps the same table in its extension. An object's first rows
-# live in its cell after the table, and rows past them are malloc'd:
-# a release or a copy frees only those. A site reads and writes the
-# row its cell guesses inline (the lowering's `guessed_ivar_row`), and
-# comes here for the rest. Reflection, identity, inspect and p live
-# here too.
-# `names` has bit `id & 63` set for every name a row was given, so a
-# clear bit answers that no row holds the name without a scan; a row
-# taken out leaves its bit.
+# Objects: a class and an ivar table of (id, value) ivar entries. A
+# class or module keeps the same table in its extension. An object's
+# first ivar entries are in its cell after the table. Entries past them
+# are malloc'd, and a release or a copy frees only those. A site reads
+# and writes the ivar entry at its cached index inline (the lowering's
+# `guessed_ivar_row`), and calls here for all other cases. This file
+# also contains reflection, identity, inspect and p.
+# `names` has bit `id & 63` set for each name that an ivar entry got. A
+# clear bit shows, with no scan, that no entry contains the name. A
+# removed entry keeps its bit.
 Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word, names: Word
 Machine.struct :IvEntry, id: Word, value: Value
 Machine.struct :RObject, basic: RBasic, iv: IvTab
@@ -20,14 +20,15 @@ machine def zr_ivtab_init(t)
   IvTab.set_names(t, 0)
 end
 
-# The bit of `IvTab.names` that stands for `id`.
+# The bit of `IvTab.names` that represents `id`.
 sig [Word] => Word
 machine def zr_ivtab_name_bit(id)
   Machine.word(1) << (id & 63)
 end
 
-# The ivar table of `v`, or 0 when it has none yet: an object's or a
-# class's own, else the one kept beside the arena.
+# Returns the ivar table of `v`, or 0 when it has none. This is the
+# table of the object or class itself, else the table kept next to the
+# arena.
 sig [Value] => Ptr
 machine def zr_ivtab(v)
   if zr_special_p(v)
@@ -45,8 +46,8 @@ machine def zr_ivtab(v)
   end
 end
 
-# The table a write goes to: made now when the kind has none of its
-# own. A special constant is frozen.
+# Returns the table for a write. It makes the table when the type has no
+# table of its own. A special constant is frozen.
 sig [Value] => Ptr
 machine def zr_ivtab_for_write(v)
   t = zr_ivtab(v)
@@ -76,21 +77,21 @@ machine def zr_release_ivtab(t)
   end
 end
 
-# Whether `t`'s rows sit in the cell right behind the table, which is
-# how `zr_obj_ivtab_init` lays a T_OBJECT out. The address alone does
-# not say so: a table on the heap whose rows were allocated right after
-# its header answers the same, and a bump allocator makes that the
-# common case rather than a curiosity. So this is asked only of a table
-# an object owns, where the rows can be inside the cell or on the heap
-# and nothing else can land between.
+# Whether `t`'s ivar entries are in the cell immediately after the
+# table, which is the T_OBJECT layout of `zr_obj_ivtab_init`. The address
+# alone is not sufficient: a heap table whose entries were allocated
+# immediately after its header gives the same result, and a bump
+# allocator makes that case common. Thus, call this only for a table
+# that an object owns, where the entries are in the cell or on the heap
+# and nothing else can be between.
 sig [Ptr] => Bool
 machine def zr_ivtab_embedded_p(t)
   IvTab.rows(t) == t + IvTab.size
 end
 
-# The object whose cell holds `t`'s rows, or nil where they are on the
-# heap. Only a T_OBJECT lays its rows inside its own cell, so only a
-# T_OBJECT can answer.
+# Returns the object whose cell contains `t`'s ivar entries, or nil when
+# they are on the heap. Only a T_OBJECT keeps its entries in its own
+# cell, so only a T_OBJECT can return non-nil.
 sig [Value] => Value
 machine def zr_ivtab_owner(obj)
   if !zr_special_p(obj) && (RBasic.flags(obj) & T_MASK) == T_OBJECT
@@ -99,9 +100,9 @@ machine def zr_ivtab_owner(obj)
   Machine.value(QNIL)
 end
 
-# An instance of `klass` in the cell its class's instances have needed
-# so far (ClassExt.obj_bytes): room for one row in 64 bytes, 5 in 128,
-# 13 in 256.
+# Makes an instance of `klass` in a cell of the size that the class's
+# instances needed until now (ClassExt.obj_bytes): one ivar entry in 64
+# bytes, 5 in 128, 13 in 256.
 sig [Value] => Value
 machine def zr_obj_alloc(klass)
   o = zr_alloc(T_OBJECT, klass, ClassExt.obj_bytes(RClass.ext(klass)))
@@ -109,8 +110,9 @@ machine def zr_obj_alloc(klass)
   o
 end
 
-# An object's table outgrew its cell: the class's next instances get a
-# cell with room for `n` rows, or the largest.
+# An object's table became too large for its cell. The class's next
+# instances get a cell with space for `n` ivar entries, or the largest
+# cell.
 sig [Value, Word] => Void
 machine def zr_obj_ivars_seen(o, n)
   ext = RClass.ext(zr_real_class(o))
@@ -123,7 +125,8 @@ machine def zr_obj_ivars_seen(o, n)
   end
 end
 
-# An object's table over the rows in its own cell, empty.
+# Sets up an empty object table, with its ivar entries in the object's
+# own cell.
 sig [Value] => Void
 machine def zr_obj_ivtab_init(o)
   t = RObject.iv(o)
@@ -133,7 +136,7 @@ machine def zr_obj_ivtab_init(o)
   IvTab.set_names(t, 0)
 end
 
-# The row for `id` in the table `t`, or 0.
+# Returns the ivar entry for `id` in the table `t`, or 0.
 sig [Ptr, Word] => Ptr
 machine def zr_ivtab_row(t, id)
   if (IvTab.names(t) & zr_ivtab_name_bit(id)) == 0
@@ -151,7 +154,7 @@ machine def zr_ivtab_row(t, id)
   0
 end
 
-# The value for `id` in the table, or undef.
+# Returns the value for `id` in the table, or undef.
 sig [Ptr, Word] => Value
 machine def zr_ivtab_get(t, id)
   e = zr_ivtab_row(t, id)
@@ -162,12 +165,12 @@ machine def zr_ivtab_get(t, id)
 end
 
 # An instance variable of a shareable object that can still change
-# belongs to the main ractor alone, and a Ractor is such an object: what
-# it holds is not frozen. A deeply frozen graph is read from any ractor,
-# because nothing can change it, and a write to one raises for being
-# frozen. A Ractor keeps its own state in hidden slots, which carry no
-# `@` and which no program names, so every instance variable one holds
-# here belongs to the program and answers the program's rule.
+# belongs only to the main ractor. A Ractor is such an object, because
+# its contents are not frozen. Any ractor can read a deeply frozen
+# graph, because nothing can change it, and a write to it raises a
+# frozen error. A Ractor keeps its own state in hidden slots, which have
+# no `@` and no program can refer to. Thus each instance variable of a
+# Ractor here belongs to the program and follows the program's rule.
 sig [Value] => Value
 machine def zr_ractor_guard(obj)
   t = zr_task()
@@ -193,9 +196,9 @@ machine def zr_ivar_defined(obj, id)
   zr_bool(zr_ivtab_row(t, id) != 0)
 end
 
-# `defined?(recv.name)`: a method the call could reach, so not a
-# private one with an explicit receiver, nor a protected one from
-# outside the owner.
+# `defined?(recv.name)`: whether the call can reach a method. A private
+# method with an explicit receiver does not count, and a protected
+# method from outside the owner does not count.
 sig [Value, Word, Bool] => Value
 machine def zr_method_defined(recv, id, explicit)
   e = zr_find_method(zr_box_view(zr_class_of(recv)), id)
@@ -211,7 +214,7 @@ machine def zr_method_defined(recv, id, explicit)
   Machine.value(QTRUE)
 end
 
-# A receiver with no table reads nil.
+# A receiver with no table returns nil.
 sig [Value, Word] => Value
 machine def zr_ivar_get(obj, id)
   t = zr_ivtab(obj)
@@ -225,9 +228,9 @@ machine def zr_ivar_get(obj, id)
   v
 end
 
-# A hidden instance variable: one whose name has no `@`, which
-# `instance_variables` and `inspect` leave out and no Ruby name can
-# reach. Struct keeps its members and values in them, as CRuby does.
+# A hidden instance variable has a name with no `@`. `instance_variables`
+# and `inspect` do not show it, and no Ruby name can refer to it. Struct
+# keeps its members and values in them, as CRuby does.
 sig [Value, Value] => Value
 machine def zr_hidden_get(obj, name)
   zr_ivar_get(obj, zr_sym2id(name))
@@ -238,8 +241,8 @@ machine def zr_hidden_set(obj, name, v)
   zr_ivar_set(obj, zr_sym2id(name), v)
 end
 
-# Core-only state that `freeze` does not hold still: a Mutex still
-# locks after it is frozen, as the C fields of CRuby's do.
+# Core-only state that `freeze` does not lock: a frozen Mutex can still
+# lock, as with the C fields of CRuby's Mutex.
 sig [Value, Value, Value] => Value
 machine def zr_state_set(obj, name, v)
   zr_ivtab_set_in(zr_ivtab_for_write(obj), zr_sym2id(name), v, zr_ivtab_owner(obj))
@@ -247,9 +250,9 @@ machine def zr_state_set(obj, name, v)
   v
 end
 
-# An object a ractor moved away: its class becomes the husk class, so
-# every message it still gets finds only methods that refuse. The cell
-# keeps the type it had, so the collector walks it as what it was.
+# An object that a ractor moved away. Its class becomes the husk class,
+# so each message that it gets finds only methods that raise. The cell
+# keeps its type, so the collector still scans it as that type.
 sig [Value, Value] => Value
 machine def zr_moved_m(obj, klass)
   if zr_special_p(obj)
@@ -259,10 +262,10 @@ machine def zr_moved_m(obj, klass)
   Machine.value(QNIL)
 end
 
-# `object_id`: a fixnum's is 2n + 1, nil's 4, true's 20, false's 0;
-# a heap object's comes from a counter (8, 16, 24, ...) at its first
-# call, kept in a hidden ivar. A symbol's or a flonum's is its word,
-# as CRuby answers, so a symbol's differs from CRuby's by the id.
+# `object_id`: 2n + 1 for a fixnum, 4 for nil, 20 for true, 0 for false.
+# A heap object gets a value from a counter (8, 16, 24, ...) at its first
+# call, kept in a hidden ivar. For a symbol or a flonum it is the word,
+# as in CRuby, so a symbol's value is different from CRuby's by the id.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_object_id(recv, argc, argv, cref, blk)
   if zr_fixnum_p(recv)
@@ -278,7 +281,7 @@ machine def zr_obj_object_id(recv, argc, argv, cref, blk)
     return zr_fix(0)
   end
   if zr_special_p(recv)
-    # The word itself, past the fixnum range too, as CRuby answers it.
+    # The word itself, also outside the fixnum range, as in CRuby.
     return zr_int_from_word(Machine.word(recv))
   end
   t = zr_ivtab_for_write(recv)
@@ -295,7 +298,7 @@ machine def zr_obj_object_id(recv, argc, argv, cref, blk)
   id
 end
 
-# Whether an instance variable's name shows: it starts with `@`.
+# Whether an instance variable's name is visible: it starts with `@`.
 sig [Word] => Bool
 machine def zr_ivar_id_visible_p(id)
   Machine.word(Machine.load8(zr_symbol_name_ptr(id), 0)) == 64
@@ -312,8 +315,8 @@ machine def zr_ivar_set(obj, id, v)
   v
 end
 
-# A row in a table no object owns: the class variables, the globals,
-# the caches. Their rows are always on the heap.
+# Sets an entry in a table that no object owns: the class variables,
+# the globals, the caches. Their entries are always on the heap.
 sig [Ptr, Word, Value] => Void
 machine def zr_ivtab_set(t, id, v)
   zr_ivtab_set_in(t, id, v, Machine.value(QNIL))
@@ -329,8 +332,8 @@ machine def zr_ivtab_set_in(t, id, v, owner)
   end
 end
 
-# A row for `id`, which no row holds yet, past the last; the rows grow
-# when full.
+# Adds an entry for `id`, which no entry contains yet, after the last
+# entry. The entries grow when full.
 sig [Ptr, Word, Value, Value] => Void
 machine def zr_ivtab_append(t, id, v, owner)
   n = IvTab.len(t)
@@ -342,9 +345,9 @@ machine def zr_ivtab_append(t, id, v, owner)
     rows = zr_xmalloc(cap * IvEntry.size)
     if IvTab.rows(t) != 0
       zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
-      # The rows that were in the cell are left where they are, and the
-      # class is told that its objects want room for one more. Anything
-      # else is a heap block this table is done with.
+      # Entries in the cell stay where they are, and the class records
+      # that its objects need space for one more. Otherwise, the old
+      # entries are a heap block that the table no longer needs.
       if owner != QNIL && zr_ivtab_embedded_p(t)
         zr_obj_ivars_seen(owner, n + 1)
       else
@@ -361,19 +364,19 @@ machine def zr_ivtab_append(t, id, v, owner)
   IvEntry.set_value(e, v)
 end
 
-# A Range is a plain frozen object of class Range with three ivars;
-# its methods are the core library's.
+# A Range is a plain frozen object of class Range with three ivars. Its
+# methods are in the core library.
 G_RANGE = 12
 G_RANGE_LITERALS = 51
 
-# The object a literal's site made, from the table in global `g`, or
-# nil before the site has run.
+# Returns the object that a literal's site made, from the table in
+# global `g`, or nil before the site runs.
 #
-# A table is a Hash by the site's index, not an Array. Every site in
-# the program -- each call cache as well -- takes an index from one
-# count, so a literal's index runs to tens of thousands, and an Array
-# long enough to hold it was that many nils the collector read through
-# at every collection.
+# The table is a Hash keyed by the site's index, not an Array. All sites
+# in the program (each call cache too) get an index from one counter, so
+# a literal's index can be tens of thousands. An Array of that length
+# would contain that many nils, which the collector reads at each
+# collection.
 sig [Word, Word] => Value
 machine def zr_site_literal(g, index)
   table = zr_global(g)
@@ -394,9 +397,10 @@ machine def zr_site_literal_set(g, index, v)
   zr_hash_store(table, zr_fix(index), v)
 end
 
-# A range literal whose ends are Integer or nil literals: made the
-# first time its site runs, then the same frozen object, as CRuby's
-# putobject gives, held in the literal table by the site's index.
+# A range literal whose ends are Integer or nil literals. It is made the
+# first time its site runs, and after that it is the same frozen object,
+# as with CRuby's putobject. The literal table keeps it by the site's
+# index.
 sig [Word, Value, Value, Word] => Value
 machine def zr_range_literal(index, low, high, excl)
   r = zr_site_literal(G_RANGE_LITERALS, index)
@@ -409,10 +413,10 @@ machine def zr_range_literal(index, low, high, excl)
   r
 end
 
-# The first and the last fixnum of `range` into `out`, as fixnums,
-# where both ends are fixnums (an exclusive end one less): what a site
-# runs `each` over in place (Function::Iterators). False for any
-# other Range, which takes the call.
+# Writes the first and the last fixnum of `range` into `out`, when both
+# ends are fixnums (an exclusive end gives one less). A site uses them to
+# run `each` inline (Function::Iterators). Returns false for any other
+# Range, which then makes the call.
 sig [Value, Ptr] => Bool
 machine def zr_range_fix_bounds(range, out)
   low = zr_ivar_get(range, Machine.id(:begin))
@@ -425,8 +429,8 @@ machine def zr_range_fix_bounds(range, out)
   if zr_ivar_get(range, Machine.id(:excl)) != QFALSE
     last -= 2
   end
-  # The site steps past the last value before it compares again; the
-  # greatest fixnum has no word past it.
+  # The site increments past the last value before it compares again,
+  # and the largest fixnum has no word after it.
   if last == 9223372036854775807
     return false
   end
@@ -453,13 +457,13 @@ machine def zr_range_new(low, high, excl)
   r
 end
 
-# `Class#allocate`: the shape the class's builtin ancestor gives, not
-# yet initialized, or CRuby's TypeError for a class whose allocator is
-# undefined.
+# `Class#allocate`: returns an uninitialized object of the type that the
+# class's builtin ancestor gives. Raises CRuby's TypeError for a class
+# whose allocator is undefined.
 sig [Value] => Value
 machine def zr_class_allocate(recv)
   recv = zr_alloc_class(recv)
-  # CRuby's class_call_alloc_func checks, in its order.
+  # The checks of CRuby's class_call_alloc_func, in the same order.
   if RClass.superclass(recv) == QNIL && recv != zr_global(G_BASIC_OBJECT)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't instantiate uninitialized class"), 37)
   end
@@ -477,9 +481,10 @@ machine def zr_class_allocate(recv)
   zr_alloc_shape(recv, kind)
 end
 
-# The object a core constructor builds for its class, whether or not
-# Ruby may call `allocate` on it, as CRuby's Thread.new calls
-# thread_alloc and Rational's constructors call nurat_s_alloc.
+# Returns the object that a core constructor builds for its class, also
+# when Ruby cannot call `allocate` on it. CRuby's Thread.new calls
+# thread_alloc, and Rational's constructors call nurat_s_alloc, the
+# same way.
 sig [Value] => Value
 machine def zr_class_build(recv)
   recv = zr_alloc_class(recv)
@@ -487,8 +492,8 @@ machine def zr_class_build(recv)
   zr_alloc_shape(recv, zr_alloc_undefined_p(kind) ? ALLOC_OBJECT : kind)
 end
 
-# A box shadow allocates what the class it stands over allocates, so
-# an object a box makes is one main knows.
+# A box shadow allocates the same type as the class that it is in place
+# of, so main knows the objects that a box makes.
 sig [Value] => Value
 machine def zr_alloc_class(recv)
   shared = zr_box_current() == QNIL ? Machine.value(QNIL) : zr_box_origin(recv)
@@ -500,8 +505,8 @@ machine def zr_alloc_shape(recv, kind)
   if kind == ALLOC_OBJECT
     return zr_obj_alloc(recv)
   end
-  # A subclass of Class or Module allocates the kind its ancestor does,
-  # never a plain object.
+  # A subclass of Class or Module allocates the same type as its
+  # ancestor, never a plain object.
   if kind == ALLOC_CLASS
     return zr_class_alloc(T_CLASS, Machine.value(QNIL), recv)
   end
@@ -522,8 +527,8 @@ machine def zr_alloc_shape(recv, kind)
   elsif kind == ALLOC_HASH
     o = zr_hash_new()
   else
-    # CRuby's allocator makes a binary String; `String.new("x")` takes
-    # the source's encoding after.
+    # CRuby's allocator makes a binary String. `String.new("x")` then
+    # sets the source's encoding.
     o = zr_str_new(Machine.bytes(""), 0)
     zr_str_set_binary(o)
   end
@@ -531,12 +536,12 @@ machine def zr_alloc_shape(recv, kind)
   o
 end
 
-# The kind of object a class allocates: the kind the class or its
-# nearest superclass records, as CRuby's rb_get_alloc_func walks the
+# The type of object that a class allocates: the type that the class or
+# its nearest superclass records, as CRuby's rb_get_alloc_func walks the
 # superclasses. The builtin roots record theirs at boot
-# (zr_alloc_table), and core records its own classes' kinds as it
-# defines them (zr_undef_alloc, zr_define_alloc). A class that records
-# none keeps its superclass's kind once found, since a class's
+# (zr_alloc_table). Core records the types of its own classes when it
+# defines them (zr_undef_alloc, zr_define_alloc). A class with no record
+# keeps its superclass's type after the first lookup, because a class's
 # superclass never changes.
 ALLOC_OBJECT = 1
 ALLOC_CLASS = 2
@@ -550,9 +555,10 @@ ALLOC_REGEXP = 9
 ALLOC_NONE = 10
 ALLOC_FIBER = 11
 
-# Whether a class of `kind` has no allocator Ruby may call: ALLOC_UNDEF
-# for a class whose `new` is gone too (Integer, Binding), ALLOC_NONE for
-# one whose `new` is still Class#new (Zlib::ZStream).
+# Whether a class of `kind` has no allocator that Ruby can call.
+# ALLOC_UNDEF is for a class that also has no `new` (Integer, Binding).
+# ALLOC_NONE is for a class whose `new` is still Class#new
+# (Zlib::ZStream).
 sig [Word] => Bool
 machine def zr_alloc_undefined_p(kind)
   kind == ALLOC_UNDEF || kind == ALLOC_NONE
@@ -566,9 +572,9 @@ machine def zr_alloc_kind(klass)
   end
   sup = zr_real_superclass(klass)
   if sup == QNIL
-    # A class `Class.allocate` made has no allocator until its
-    # superclass arrives, so its answer is not kept; a subclass under
-    # it keeps the answer, as CRuby's does even after that arrival.
+    # A class from `Class.allocate` has no allocator until it gets its
+    # superclass, so this result is not kept. A subclass of it keeps the
+    # result, as in CRuby, also after the superclass is set.
     return klass == zr_global(G_BASIC_OBJECT) ? ALLOC_OBJECT : ALLOC_NONE
   end
   kind = zr_alloc_kind(sup)
@@ -581,9 +587,9 @@ machine def zr_alloc_record(g, kind)
   ClassExt.set_alloc(RClass.ext(zr_global(g)), kind)
 end
 
-# The builtin roots' kinds. The value classes, Proc and the method
-# objects have none that Ruby may call (CRuby's rb_undef_alloc_func),
-# and neither have their subclasses.
+# The allocation types of the builtin roots. The value classes, Proc and
+# the method objects have no allocator that Ruby can call (CRuby's
+# rb_undef_alloc_func), and their subclasses also have none.
 sig [] => Void
 machine def zr_alloc_table
   zr_alloc_record(G_CLASS, ALLOC_CLASS)
@@ -605,24 +611,24 @@ machine def zr_alloc_table
   zr_alloc_record(G_FIBER, ALLOC_FIBER)
 end
 
-# rb_undef_alloc_func, for a class core defines: `allocate` on it, and
-# on a subclass that records no kind of its own, raises TypeError.
+# rb_undef_alloc_func, for a class that core defines. `allocate` raises
+# TypeError on it, and on a subclass that records no type of its own.
 sig [Value] => Value
 machine def zr_undef_alloc(klass)
   ClassExt.set_alloc(RClass.ext(klass), ALLOC_UNDEF)
   Machine.value(QNIL)
 end
 
-# rb_undef_alloc_func alone, for a class an extension defines: `new`
-# stays Class#new, and it and `allocate` raise TypeError.
+# rb_undef_alloc_func only, for a class that an extension defines. `new`
+# stays Class#new, and both `new` and `allocate` raise TypeError.
 sig [Value] => Value
 machine def zr_undef_allocator(klass)
   ClassExt.set_alloc(RClass.ext(klass), ALLOC_NONE)
   Machine.value(QNIL)
 end
 
-# rb_define_alloc_func with a plain object, for a class core makes under
-# one whose allocator is undefined (Struct.new, Data.define).
+# rb_define_alloc_func with a plain object, for a class that core makes
+# under a class whose allocator is undefined (Struct.new, Data.define).
 sig [Value] => Value
 machine def zr_define_alloc(klass)
   ClassExt.set_alloc(RClass.ext(klass), ALLOC_OBJECT)
@@ -634,8 +640,8 @@ machine def zr_class_allocate_m(recv, argc, argv, cref, blk)
   zr_class_allocate(recv)
 end
 
-# The object `Class#new` makes before `initialize` runs, or a
-# NoMethodError for a class whose allocator is undefined.
+# Returns the object that `Class#new` makes before `initialize` runs.
+# Raises NoMethodError for a class whose allocator is undefined.
 sig [Value] => Value
 machine def zr_class_new_object(recv)
   if zr_alloc_kind(recv) == ALLOC_UNDEF
@@ -658,8 +664,9 @@ machine def zr_class_new_instance(recv, argc, argv, cref, blk)
   o
 end
 
-# `Array.new` and `String.new`: `Class#new` as each class's own row, as
-# CRuby defines them, so a backtrace from `initialize` passes through it.
+# `Array.new` and `String.new`: `Class#new` as a method entry of each
+# class, as CRuby defines them, so a backtrace from `initialize` includes
+# it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_s_new(recv, argc, argv, cref, blk)
   zr_class_new_instance(recv, argc, argv, cref, blk)
@@ -698,7 +705,8 @@ machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
   zr_bool(zr_real_class(recv) == c)
 end
 
-# `Object#eql?`: identity; `Object#hash`: a number the identity gives.
+# `Object#eql?` compares identity. `Object#hash` returns a number from
+# the identity.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_eql_p(recv, argc, argv, cref, blk)
   zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
@@ -706,7 +714,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_hash(recv, argc, argv, cref, blk)
-  # An Integer hashes by its value: a fixnum is its own code.
+  # An Integer hashes by its value, so a fixnum is its own code.
   if zr_fixnum_p(recv)
     return recv
   end
@@ -716,9 +724,9 @@ machine def zr_obj_hash(recv, argc, argv, cref, blk)
   zr_fix(zr_obj_id_code(recv) & 4611686018427387903)
 end
 
-# The hash code of a heap object, from its object_id, which the first
-# hash gives it, as CRuby's objid_hash does: an object's code and its
-# id both stay put, and a hash counts as an id handed out.
+# Returns the hash code of a heap object, from its object_id, as CRuby's
+# objid_hash does. The first hash gives the object its id. An object's
+# code and id do not change, and a hash counts as an issued id.
 sig [Value] => Word
 machine def zr_obj_id_code(obj)
   if zr_special_p(obj)
@@ -727,7 +735,8 @@ machine def zr_obj_id_code(obj)
   zr_hash_mix(zr_fix2long(zr_obj_object_id(obj, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))))
 end
 
-# A bignum's hash, from its sign and limbs, so two that are equal share it.
+# Returns a bignum's hash, from its sign and limbs, so equal bignums
+# have the same hash.
 sig [Value] => Value
 machine def zr_big_hash(v)
   limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
@@ -740,9 +749,9 @@ machine def zr_big_hash(v)
   zr_fix(h & 4611686018427387903)
 end
 
-# `String#hash`: FNV-1a over the bytes with the process's seed, and
-# over the encoding too when the bytes are not all ASCII, so that two
-# strings which do not compare do not share a code.
+# `String#hash`: FNV-1a over the bytes with the process's seed. When the
+# bytes are not all ASCII, the encoding is also hashed, so two strings
+# that are not comparable have different codes.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_hash(recv, argc, argv, cref, blk)
   h = zr_str_bytes_hash(recv)
@@ -752,7 +761,8 @@ machine def zr_str_hash(recv, argc, argv, cref, blk)
   zr_fix(h & 4611686018427387903)
 end
 
-# `Object#send`: the method named by the first argument, with the rest.
+# `Object#send`: calls the method that the first argument gives, with
+# the other arguments.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_send(recv, argc, argv, cref, blk)
   if argc == 0
@@ -764,7 +774,7 @@ machine def zr_obj_send(recv, argc, argv, cref, blk)
   zr_send_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
 end
 
-# `public_send`: as `send`, with visibility applied.
+# `public_send`: the same as `send`, with visibility applied.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_public_send(recv, argc, argv, cref, blk)
   if argc == 0
@@ -779,15 +789,15 @@ machine def zr_obj_public_send(recv, argc, argv, cref, blk)
   zr_dispatch(0, recv, Machine.load64(slot, 0), argc - 1, argv + 8, 3, blk)
 end
 
-# `Object#===`: `==`.
+# `Object#===`: the same as `==`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_eqq(recv, argc, argv, cref, blk)
-  # Identity first, then `==` as a truth value, as CRuby's rb_equal.
+  # Identity first, then `==` as a truth value, as in CRuby's rb_equal.
   if recv == Machine.value(Machine.load64(argv, 0))
     return Machine.value(QTRUE)
   end
-  # A receiver whose `==` is BasicObject's answers identity, with no
-  # send: a `case` over symbols asks this of every arm that misses.
+  # A receiver that uses BasicObject's `==` compares identity, with no
+  # send. A `case` over symbols calls this for each branch that misses.
   if zr_key_builtin_p(recv, Machine.id(:==), Machine.addr(:zr_obj_eq))
     return Machine.value(QFALSE)
   end
@@ -806,7 +816,7 @@ machine def zr_obj_eq(recv, argc, argv, cref, blk)
   zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
 end
 
-# `!=` asks `==`, so a class that defines `==` gets `!=` for free.
+# `!=` calls `==`, so a class that defines `==` also gets `!=`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_ne(recv, argc, argv, cref, blk)
   r = zr_send(recv, Machine.id(:==), 1, argv)
@@ -814,8 +824,8 @@ machine def zr_obj_ne(recv, argc, argv, cref, blk)
   zr_bool(r == QNIL || r == QFALSE)
 end
 
-# The receiver's own `respond_to_missing?(mid, all)` as true or false,
-# or undef when it raises.
+# Returns the result of the receiver's own `respond_to_missing?(mid,
+# all)` as true or false, or undef when it raises.
 sig [Value, Word, Value] => Value
 machine def zr_respond_to_missing(recv, mid, all)
   e = zr_find_method(zr_class_of(recv), Machine.id(:respond_to_missing?))
@@ -830,8 +840,8 @@ machine def zr_respond_to_missing(recv, mid, all)
   zr_bool(r != QNIL && r != QFALSE)
 end
 
-# Whether the receiver's own `respond_to_missing?` claims `mid`, asked
-# with include_all, as `defined?` and `method` ask it.
+# Whether the receiver's own `respond_to_missing?` returns true for
+# `mid`, called with include_all, as `defined?` and `method` call it.
 sig [Value, Word] => Bool
 machine def zr_respond_to_missing_p(recv, mid)
   zr_respond_to_missing(recv, mid, Machine.value(QTRUE)) == QTRUE
@@ -875,7 +885,7 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
 end
 
-# `#<Name:0x...` with sixteen hex digits, into `b`.
+# Writes `#<Name:0x...` with sixteen hex digits into `b`.
 sig [Ptr, Value] => Void
 machine def zr_buf_obj_head(b, obj)
   zr_buf_push(b, Machine.bytes("#<"), 2)
@@ -894,9 +904,9 @@ machine def zr_buf_obj_head(b, obj)
   end
 end
 
-# A class's path, as rb_class_path answers it: its name, or
-# `#<Class:0x...>` (`#<Module:0x...>`) for one that has none. It runs no
-# Ruby, so any message can name any class.
+# Returns a class's path, as rb_class_path does: its name, or
+# `#<Class:0x...>` (`#<Module:0x...>`) when it has no name. It runs no
+# Ruby, so any message can include any class.
 sig [Value] => Value
 machine def zr_class_path(klass)
   if RClass.name(klass) != QNIL
@@ -905,7 +915,7 @@ machine def zr_class_path(klass)
   zr_any_to_s(klass)
 end
 
-# The path of `v`'s class into `b`, as a message names it.
+# Writes the path of `v`'s class into `b`, as a message shows it.
 sig [Ptr, Value] => Void
 machine def zr_buf_class_of(b, v)
   zr_buf_str(b, zr_class_name_of(v))
@@ -921,9 +931,10 @@ machine def zr_any_to_s(v)
   zr_buf_take_at(b, ENC_BINARY)
 end
 
-# An object's `#<...>` form as the core library's C writes it, into a
-# String it starts in binary (rb_str_buf_new): binary while the text is
-# plain ASCII, else the encoding a piece past ASCII brought to it.
+# Returns an object's `#<...>` form, as the core library's C code writes
+# it, in a String that starts as binary (rb_str_buf_new). It stays
+# binary while the text is plain ASCII. Otherwise it gets the encoding
+# of the first non-ASCII piece.
 sig [Value] => Value
 machine def zr_obj_form(text)
   if !zr_str_ascii_bytes_p(text)
@@ -935,9 +946,9 @@ machine def zr_obj_form(text)
   zr_str_set_index(text, ENC_BINARY)
 end
 
-# rb_obj_as_string: a String as it is, else what `to_s` answers, and
-# when that is no String either, `v` as rb_any_to_s writes it. Undef
-# when `to_s` raised.
+# rb_obj_as_string: returns a String unchanged, else the result of
+# `to_s`. When that is also not a String, it returns `v` as rb_any_to_s
+# writes it. Returns undef when `to_s` raised.
 sig [Value] => Value
 machine def zr_obj_as_string(v)
   if !zr_special_p(v) && (RBasic.flags(v) & T_MASK) == T_STRING
@@ -951,10 +962,10 @@ machine def zr_obj_as_string(v)
   zr_any_to_s(v)
 end
 
-# rb_inspect: what `inspect` answers, made a String by rb_obj_as_string.
-# Text past ASCII in an encoding other than UTF-8, the default external
-# one, comes back escaped, so every answer joins every other. Undef when
-# any of those raised.
+# rb_inspect: the result of `inspect`, made a String by
+# rb_obj_as_string. Non-ASCII text in an encoding other than UTF-8 (the
+# default external encoding) is escaped, so all results are compatible
+# with each other. Returns undef when one of these calls raised.
 sig [Value] => Value
 machine def zr_inspect(v)
   s = zr_send(v, Machine.id(:inspect), 0, 0)
@@ -967,13 +978,13 @@ machine def zr_inspect(v)
   zr_send(s, Machine.id(:escape), 0, 0)
 end
 
-# `#<Name:0x... @a=1, @b=2>`; the ivar values' `inspect` may run Ruby,
-# so the table is re-read after each.
+# `#<Name:0x... @a=1, @b=2>`. The `inspect` of an ivar value can run
+# Ruby, so the table is read again after each one.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_inspect(recv, argc, argv, cref, blk)
-  # As rb_obj_inspect: only a plain object shows its instance
-  # variables; anything else (a fixnum under a redefined Integer#inspect
-  # calling super) takes the address form.
+  # As in rb_obj_inspect, only a plain object shows its instance
+  # variables. All others (for example a fixnum, when a redefined
+  # Integer#inspect calls super) use the address form.
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
@@ -994,7 +1005,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
     zr_buf_class_of(m, filter)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), m)
   end
-  # An object reached again inside its own inspect shows ` ...` in place
+  # An object found again inside its own inspect shows ` ...` in place
   # of its instance variables (rb_exec_recursive).
   if zr_guard_enter(recv, Machine.id(:inspect))
     zr_buf_push(b, Machine.bytes(" ...>"), 5)
@@ -1010,9 +1021,9 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   zr_buf_take_at(b, ENC_BINARY)
 end
 
-# ` @a=1, @b=2` into `b`: the visible instance variables `filter` lets
-# through (nil lets all), each value inspected. Undef when an inspect
-# raised.
+# Writes ` @a=1, @b=2` into `b`: the visible instance variables that
+# `filter` accepts (nil accepts all), each value inspected. Returns undef
+# when an inspect raised.
 sig [Ptr, Value, Value] => Value
 machine def zr_buf_ivars(b, recv, filter)
   i = 0
@@ -1043,14 +1054,14 @@ machine def zr_ident_byte_p(c)
   (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 95 || c >= 128
 end
 
-# One of the punctuation marks ruby lets a global name be made of.
+# Whether `c` is a punctuation mark that ruby accepts as a global name.
 sig [Word] => Bool
 machine def zr_gvar_punct_p(c)
   c == 126 || c == 42 || c == 36 || c == 63 || c == 33 || c == 64 || c == 47 || c == 92 || c == 59 || c == 44 || c == 46 || c == 61 || c == 58 || c == 60 || c == 62 || c == 34 || c == 38 || c == 96 || c == 39 || c == 43 || c == 48
 end
 
-# A special global name, the part after the `$`: one punctuation mark,
-# a `-` and one character, or digits alone.
+# Whether the part after the `$` is a special global name: one
+# punctuation mark, a `-` and one character, or only digits.
 sig [Ptr, Word] => Bool
 machine def zr_special_gvar_p(p, n)
   if n == 0
@@ -1087,8 +1098,8 @@ machine def zr_special_gvar_p(p, n)
   true
 end
 
-# Whether `n` bytes are a symbol literal's plain name: an identifier
-# that may end in `?`, `!` or `=`, or one with a `@`, `@@` or `$`
+# Whether `n` bytes are a plain name for a symbol literal: an identifier
+# that can end in `?`, `!` or `=`, an identifier with a `@`, `@@` or `$`
 # sigil (then without the suffix), or an operator.
 sig [Ptr, Word] => Bool
 machine def zr_symname_plain_p(p, n)
@@ -1140,23 +1151,23 @@ machine def zr_symname_plain_p(p, n)
   true
 end
 
-# `:name`, quoted when the name is not a plain identifier or operator.
-# A name that is not UTF-8 holds bytes past ASCII, so it is quoted with
-# those bytes in hex.
+# `:name`, with quotes when the name is not a plain identifier or
+# operator. A name that is not UTF-8 contains non-ASCII bytes, so it is
+# quoted with those bytes in hex.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
-  # A name that holds a character outside ASCII is shown or escaped by
-  # the category that character carries, and that table is in Ruby. The
-  # Ruby side comes back here for a name that needs no escape.
+  # A name with a non-ASCII character is shown or escaped by that
+  # character's category, and that table is in Ruby. The Ruby code calls
+  # back here for a name that needs no escape.
   if zr_symbol_tag(id) == 0 && !zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
     return zr_send(recv, Machine.id(:utf8_inspect), 0, 0)
   end
   zr_sym_inspect_bytes(recv)
 end
 
-# Whether every byte in a run is ASCII, asked before anything is
-# allocated, so the run's pointer cannot move first.
+# Whether each byte in a run is ASCII. Call it before any allocation, so
+# the run's pointer cannot move first.
 sig [Ptr, Word] => Bool
 machine def zr_bytes_ascii_only_p(p, n)
   i = 0
@@ -1169,8 +1180,8 @@ machine def zr_bytes_ascii_only_p(p, n)
   true
 end
 
-# The name as the runtime writes it: bare when it is a plain one, and
-# quoted with escapes when it is not.
+# Returns the name as the runtime writes it: bare for a plain name, and
+# quoted with escapes for all others.
 sig [Value] => Value
 machine def zr_sym_inspect_bytes(sym)
   id = zr_sym2id(sym)
@@ -1181,7 +1192,7 @@ machine def zr_sym_inspect_bytes(sym)
   zr_buf_byte(b, 58)
   if zr_symbol_tag(id) == 0 && zr_symname_plain_p(p, n)
     zr_buf_push(b, p, n)
-    # A plain name keeps the symbol's encoding, US-ASCII for plain ASCII.
+    # A plain name keeps the symbol's encoding: US-ASCII for plain ASCII.
     return zr_buf_take_at(b, ENC_USASCII)
   end
   zr_buf_str_escaped(b, p, n, zr_symbol_tag(id) != 0)
@@ -1207,8 +1218,8 @@ machine def zr_operator_name_p(p, n)
   end
 end
 
-# The length of the valid UTF-8 sequence at `p`, or 0 when the byte
-# does not start one.
+# Returns the length of the valid UTF-8 sequence at `p`, or 0 when the
+# byte does not start one.
 sig [Ptr, Word] => Word
 machine def zr_utf8_char_len(p, n)
   c = Machine.word(Machine.load8(p, 0))
@@ -1226,8 +1237,8 @@ machine def zr_utf8_char_len(p, n)
   if len == 0 || len > n
     return 0
   end
-  # The second byte's range is narrower after four leads, as enc/utf_8.c
-  # has it: no overlong form, no surrogate, nothing past U+10FFFF.
+  # After four lead bytes, the second byte's range is smaller, as in
+  # enc/utf_8.c: no overlong form, no surrogate, nothing past U+10FFFF.
   low = 128
   high = 191
   if c == 224
@@ -1254,9 +1265,9 @@ machine def zr_utf8_char_len(p, n)
   len
 end
 
-# A double-quoted, escaped rendering of `n` bytes, as String#inspect:
-# a binary string spells every high byte in hex; a text string keeps a
-# valid UTF-8 character and spells the rest in hex.
+# Writes `n` bytes double-quoted and escaped, as String#inspect does. A
+# binary string writes each high byte in hex. A text string keeps a
+# valid UTF-8 character and writes all other bytes in hex.
 sig [Ptr, Ptr, Word, Bool] => Void
 machine def zr_buf_str_escaped(b, p, n, binary)
   zr_buf_byte(b, 34)
@@ -1318,19 +1329,19 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_inspect(recv, argc, argv, cref, blk)
-  # UTF-16 and UTF-32 inspect by characters, and their dummy names by
-  # bytes, in Ruby.
+  # UTF-16 and UTF-32 inspect by characters, and their dummy encodings by
+  # bytes. That code is in Ruby.
   index = zr_str_encoding_index(recv)
   if !zr_enc_ascii_compat_p(index)
     return zr_send(recv, Machine.id(:unit_inspect), 0, 0)
   end
-  # A multibyte encoding's characters stand for no Unicode point, so each
-  # one prints as the number its own bytes spell, in Ruby.
+  # A multibyte encoding's characters are not Unicode code points, so
+  # each one prints as the number of its own bytes. That code is in Ruby.
   if zr_enc_mb_p(index)
     return zr_send(recv, Machine.id(:mb_inspect), 0, 0)
   end
-  # A character outside ASCII is shown or escaped by the category it
-  # carries, and the table of those categories is in Ruby.
+  # A non-ASCII character is shown or escaped by its category, and the
+  # table of those categories is in Ruby.
   if zr_str_wide_p(recv) && !zr_str_ascii_only(recv)
     return zr_send(recv, Machine.id(:utf8_inspect), 0, 0)
   end
@@ -1355,8 +1366,8 @@ machine def zr_class_name(recv, argc, argv, cref, blk)
   RClass.name(recv)
 end
 
-# A class's name in a message, or its `#<Class:0x...>` form when it has
-# none; QUNDEF when an inspect along the way raised.
+# Writes a class's name in a message, or its `#<Class:0x...>` form when
+# it has no name. Returns QUNDEF when an inspect raised.
 sig [Ptr, Value] => Value
 machine def zr_buf_class(b, klass)
   if RClass.name(klass) != QNIL && !zr_singleton_p(klass)
@@ -1369,8 +1380,8 @@ machine def zr_buf_class(b, klass)
   Machine.value(QNIL)
 end
 
-# An anonymous class prints as `#<Class:0x...>`, a singleton class as
-# `#<Class:` around what it is attached to.
+# An anonymous class prints as `#<Class:0x...>`. A singleton class
+# prints as `#<Class:` around the object that it is attached to.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_to_s(recv, argc, argv, cref, blk)
   refined = ClassExt.refined(RClass.ext(recv))
@@ -1401,12 +1412,12 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
   if RClass.name(recv) == QNIL
     return zr_any_to_s(recv)
   end
-  # The name is the class's own, frozen; `to_s` answers a copy of it.
+  # The class's name is frozen, so `to_s` returns a copy of it.
   name = RClass.name(recv)
   zr_str_copy_encoding(zr_str_new(RString.ptr(name), RString.len(name)), name)
 end
 
-# The superclass past the proxies of included modules.
+# Returns the superclass, after the proxies of included modules.
 sig [Value] => Value
 machine def zr_real_superclass(klass)
   k = RClass.superclass(klass)
@@ -1425,13 +1436,13 @@ machine def zr_class_superclass(recv, argc, argv, cref, blk)
   zr_real_superclass(recv)
 end
 
-# `Exception#to_s`: the message, or the class name when there is none;
-# a message that is not a String is `to_s`ed.
+# `Exception#to_s`: the message, or the class name when there is no
+# message. A message that is not a String goes through `to_s`.
 sig [Value] => Value
 machine def zr_exc_to_s(recv)
   m = RException.message(recv)
-  # A fresh copy of the class's name, as rb_class_name gives one: the
-  # caller may change the message it gets.
+  # A new copy of the class's name, as rb_class_name gives, because the
+  # caller can change the message that it gets.
   if m == QNIL
     name = zr_class_name_of(recv)
     return zr_str_new_at(RString.ptr(name), RString.len(name), zr_str_encoding_index(name))
@@ -1442,8 +1453,8 @@ machine def zr_exc_to_s(recv)
   m
 end
 
-# The message as it was given, nil when the class name stands in for it.
-# Marshal needs the two apart.
+# Returns the message as it was given, or nil when the class name is in
+# place of it. Marshal must know the difference.
 sig [Value] => Value
 machine def zr_exc_raw_message(recv)
   RException.message(recv)
@@ -1455,8 +1466,8 @@ machine def zr_exc_set_message(recv, m)
   m
 end
 
-# `detailed_message`: `message (Class)`, the class after the first
-# line; `unhandled exception` for an empty message.
+# `detailed_message`: `message (Class)`, with the class after the first
+# line. `unhandled exception` for an empty message.
 sig [Value] => Value
 machine def zr_exc_detailed_message(recv)
   m = zr_send(recv, Machine.id(:message), 0, 0)
@@ -1484,7 +1495,7 @@ machine def zr_exc_detailed_message(recv)
   zr_buf_take(b)
 end
 
-# `#<Klass: to_s>`, or the class name alone when `to_s` is empty; a
+# `#<Klass: to_s>`, or only the class name when `to_s` is empty. A
 # message with a newline is shown inspected.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_inspect(recv, argc, argv, cref, blk)
@@ -1512,7 +1523,7 @@ machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   zr_buf_take_at(b, ENC_BINARY)
 end
 
-# The byte `c` in `n` bytes at `p`: its index, or -1.
+# Returns the index of the byte `c` in `n` bytes at `p`, or -1.
 sig [Ptr, Word, Word] => Word
 machine def zr_bytes_index(p, n, c)
   i = 0
@@ -1536,8 +1547,8 @@ machine def zr_exc_initialize(recv, argc, argv, cref, blk)
   Machine.value(QNIL)
 end
 
-# `p`: each argument's inspect on its own line; answers the argument,
-# or an Array of several.
+# `p`: writes each argument's inspect on its own line. Returns the
+# argument, or an Array of the arguments when there are several.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_p(recv, argc, argv, cref, blk)
   i = 0
@@ -1557,8 +1568,8 @@ machine def zr_p(recv, argc, argv, cref, blk)
   Machine.value(Machine.load64(argv, 0))
 end
 
-# A FrameMeta placed where the frame `rec` stands now: the file and
-# line an attribute is declared at.
+# Returns a FrameMeta for the current position of the frame `rec`: the
+# file and line where an attribute is declared.
 sig [Ptr] => Ptr
 machine def zr_meta_at(rec)
   from = Frame.meta(rec)
@@ -1580,8 +1591,9 @@ machine def zr_meta_at(rec)
   meta
 end
 
-# `attr_reader`, `attr_writer`, `attr_accessor`: one entry per name,
-# with the visibility the class body is at; the names defined answer.
+# `attr_reader`, `attr_writer`, `attr_accessor`: one method entry for
+# each name, with the class body's current visibility. Returns the
+# defined names.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_attr(klass, argc, argv, which)
   defined = zr_ary_new(argc * 2)
@@ -1607,14 +1619,14 @@ machine def zr_attr(klass, argc, argv, which)
     ivar = zr_intern(Buf.ptr(b), Buf.len(b))
     caller = Frame.prev(Task.top(zr_task()))
     # The runtime's own attributes, which its class bodies define on
-    # themselves, read the fields its instance variables stand for, which
-    # it keeps without their `@`. A program's call that a builtin makes on
-    # its behalf, as `each(&method(:attr_reader))` does, is the program's.
+    # themselves, read hidden fields: the runtime keeps these instance
+    # variables without the `@`. A call that a builtin makes for the
+    # program, as in `each(&method(:attr_reader))`, is the program's call.
     if zr_internal_meta_p(zr_meta_at(caller)) && Frame.self(caller) == klass
       ivar = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
     end
-    # The scope's visibility verb applies only inside this class's own
-    # body; from anywhere else the attribute is public.
+    # The scope's visibility keyword applies only inside this class's own
+    # body. From any other place, the attribute is public.
     cref = Frame.cref(caller)
     if cref != QNIL && zr_cref_klass(zr_cref_lexical(cref)) != klass
       cref = Machine.value(QNIL)
@@ -1658,8 +1670,8 @@ machine def zr_mod_attr_accessor(recv, argc, argv, cref, blk)
   zr_attr(recv, argc, argv, 3)
 end
 
-# `dig` continued into `v` with `rest`: CRuby's rb_obj_dig asks only
-# an Array, Hash, Struct or an object with a public `dig`.
+# Continues `dig` into `v` with `rest`. CRuby's rb_obj_dig continues only
+# into an Array, Hash, Struct or an object with a public `dig`.
 sig [Value, Value] => Value
 machine def zr_dig_into(v, rest)
   klass = zr_class_of(v)
@@ -1674,16 +1686,16 @@ machine def zr_dig_into(v, rest)
   zr_send(v, Machine.id(:dig), RArray.len(rest), RArray.ptr(rest))
 end
 
-# CRuby's rb_equal: the same object is equal to itself and `==` is
-# never asked. Every container reads its elements this way, which is
-# what makes `[nan].include?(nan)` true while `nan == nan` is false.
+# CRuby's rb_equal: an object is equal to itself, with no call of `==`.
+# All containers compare their elements this way. That is why
+# `[nan].include?(nan)` is true while `nan == nan` is false.
 sig [Value, Value] => Value
 machine def zr_rb_equal(a, b)
   if a == b
     return Machine.value(QTRUE)
   end
-  # Two fixnums that differ, or a receiver whose `==` is BasicObject's
-  # (a Symbol's, an Object's), differ with no send.
+  # Two different fixnums, or a receiver that uses BasicObject's `==`
+  # (a Symbol, an Object), are not equal, with no send.
   if zr_fixnum_p(a) && zr_fixnum_p(b)
     return Machine.value(QFALSE)
   end

@@ -1,8 +1,9 @@
-# Dispatch: the receiver's class chain, then the call through the
-# entry's code pointer. A miss is a NoMethodError.
+# Dispatch: a lookup in the receiver's ancestor list, then a call
+# through the method entry's code pointer. A miss raises NoMethodError.
 
-# CRuby's message. A bare identifier (`vcall`) is a NameError, and
-# names main as `main`; a `super` with nothing above says so.
+# Raises the error for a miss, with CRuby's message. A bare identifier
+# (`vcall`) raises NameError and shows main as `main`. A `super` with no
+# method above it has its own message.
 sig [Value, Word, Bool, Bool, Word, Ptr] => Value
 machine def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
   b = Machine.slot(Buf.size)
@@ -24,9 +25,9 @@ machine def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
   if !vcall
     zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
   end
-  # The locals of the Ruby scope the send was written in, which
-  # NameError#local_variables answers, as name_err_init_attr keeps the
-  # frame's ISEQ for it.
+  # Keep the locals of the Ruby scope that contains the send, for
+  # NameError#local_variables. CRuby's name_err_init_attr keeps the
+  # frame's ISEQ for the same purpose.
   source = zr_frame_with_file(Task.top(zr_task()))
   if source != 0
     zr_exc_detail(e, Machine.id(:local_variables), zr_local_names(FrameMeta.locals(Frame.meta(source))))
@@ -34,9 +35,9 @@ machine def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
   zr_raise(e)
 end
 
-# `wrong number of arguments (given 3, expected 1..2)`: `max` is the
-# same as `min` for an exact count, and -1 for no limit. A def with
-# required keywords names them after the count.
+# Raises `wrong number of arguments (given 3, expected 1..2)`. `max` is
+# equal to `min` for an exact count, and -1 for no limit. For a def with
+# required keywords, the message gives them after the count.
 sig [Word, Word, Word, Ptr, Word] => Value
 machine def zr_wrong_arity_kw(given, min, max, ids, nkw)
   b = Machine.slot(Buf.size)
@@ -85,22 +86,23 @@ machine def zr_wrong_arity_min(given, min)
   zr_wrong_arity_kw(given, min, 0 - 1, 0, 0)
 end
 
-# A call passing keywords sets the task's word right before the send:
-# 1 for a flagged trailing Hash, or the address (above 1) of a table
-# -- the count, then the ids -- whose values are the call's last
-# arguments, which is how `k: v` pairs with plain Symbol keys travel. A
-# compiled def takes the word in its prologue: one declaring keywords
-# reads a table's values by column (`zr_kw_shape`), one declaring none
-# makes a table's values one Hash argument (`zr_kw_undeclared`); a
-# builtin, an accessor or a `method_missing` sees a flagged Hash, made
-# on the way (`zr_kw_tab_in`).
+# A call that passes keywords sets the task's keyword word immediately
+# before the send. The word is 1 for a flagged trailing Hash. Otherwise
+# it is the address (above 1) of a table: the count, then the ids. The
+# table's values are the call's last arguments. This is how `k: v` pairs
+# with plain Symbol keys go to the callee. A compiled def reads the word
+# in its prologue. A def that declares keywords reads the table's values
+# by position (`zr_kw_shape`). A def that declares none makes the values
+# one Hash argument (`zr_kw_undeclared`). A builtin, an accessor or a
+# `method_missing` gets a flagged Hash, made from the table
+# (`zr_kw_tab_in`).
 sig [] => Void
 machine def zr_kw_pass
   Task.set_kw(zr_task(), 1)
 end
 
-# A table's values as one Hash, in place of the first of them: the count
-# the call has then.
+# Puts the table's values into one Hash, in place of the first value.
+# Returns the new argument count.
 sig [Word, Word, Ptr] => Word
 machine def zr_kw_tab_in(tab, argc, argv)
   n = Machine.load64(tab, 0)
@@ -115,8 +117,8 @@ machine def zr_kw_tab_in(tab, argc, argv)
   count + 1
 end
 
-# The count a send passes when its last argument is the keywords
-# Hash: an empty one, as `**{}` makes, is not passed at all.
+# Returns the argument count of a send whose last argument is the
+# keywords Hash. An empty Hash, as from `**{}`, is not passed.
 sig [Word, Ptr] => Word
 machine def zr_kw_argc(argc, argv)
   h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
@@ -127,7 +129,7 @@ machine def zr_kw_argc(argc, argv)
   argc
 end
 
-# `ruby2_keywords`: the methods marked, by their function address.
+# `ruby2_keywords`: the marked methods, by their function address.
 sig [] => Ptr
 machine def zr_ruby2_fns
   Machine.static(:ruby2_fns, IvTab.size)
@@ -140,8 +142,8 @@ machine def zr_ruby2_mark_m(klass, name)
   return r if r == QUNDEF
   e = zr_find_method(klass, Machine.load64(slot, 0))
   if e != 0 && MEntry.kind(e) == KIND_BMETHOD
-    # A define_method method runs its block, whose function binds the
-    # rest, so the mark goes on that.
+    # A define_method method runs its block, and the block's function
+    # binds the rest argument, so the mark goes on the block's function.
     zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc.fn(MEntry.cref(e))), Machine.value(QTRUE))
   elsif e != 0 && MEntry.fn(e) != 0
     zr_ivtab_set(zr_ruby2_fns(), Machine.word(MEntry.fn(e)), Machine.value(QTRUE))
@@ -155,11 +157,11 @@ machine def zr_ruby2_mark_proc(pr)
   pr
 end
 
-# A def or block declaring no keywords, called with the word `kw` set:
-# a table's values become one Hash argument, and a `ruby2_keywords`
-# rest (the function `fn`, 0 for no rest) flags the Hash it takes, so a
-# later `*rest` passes it on as keywords again. The count the call has
-# then.
+# For a def or block that declares no keywords, called with the keyword
+# word `kw` set. A table's values become one Hash argument. A
+# `ruby2_keywords` rest (the function `fn`, 0 for no rest) flags the Hash
+# that it gets, so a later `*rest` passes it as keywords again. Returns
+# the new argument count.
 sig [Word, Word, Ptr, Ptr] => Word
 machine def zr_kw_undeclared(kw, argc, argv, fn)
   if kw > 1
@@ -172,8 +174,8 @@ machine def zr_kw_undeclared(kw, argc, argv, fn)
   argc
 end
 
-# A splat whose last element is a flagged Hash passes it as keywords,
-# as a fresh Hash without the flag.
+# A splat whose last element is a flagged Hash passes that Hash as
+# keywords, in a new Hash without the flag.
 sig [Word, Ptr] => Word
 machine def zr_kw_ruby2_out(argc, argv)
   if argc == 0
@@ -197,18 +199,18 @@ machine def zr_kw_take
   kw
 end
 
-# Why a call reached `method_missing`, which the base one turns into
-# the message: nothing defined the name (called with a receiver, as a
-# bare identifier, or explicitly), or the method was private or
-# protected.
+# Why a call went to `method_missing`. The base `method_missing` uses it
+# for the message. Either no method has the name (called with an
+# implicit receiver, as a bare identifier, or with an explicit
+# receiver), or the method is private or protected.
 MISS_IMPLICIT = 1
 MISS_VCALL = 2
 MISS_EXPLICIT = 3
 MISS_PRIVATE = 4
 MISS_PROTECTED = 5
 
-# A miss goes to the receiver's `method_missing` with the name in
-# front of the arguments; the base one raises as a plain miss does.
+# Sends a miss to the receiver's `method_missing`, with the name before
+# the arguments. The base `method_missing` raises as a plain miss does.
 sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
 machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
   if kw > 1
@@ -239,7 +241,7 @@ machine def zr_miss_error(recv, mid, reason, argc, argv)
   zr_no_method(recv, mid, reason == MISS_VCALL, argc, argv)
 end
 
-# `BasicObject#method_missing`: the NoMethodError a miss raises.
+# `BasicObject#method_missing`: raises the NoMethodError for a miss.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_method_missing(recv, argc, argv, cref, blk)
   if argc < 1
@@ -260,7 +262,7 @@ machine def zr_no_method(recv, mid, vcall, argc, argv)
   zr_no_method_from(recv, mid, vcall, false, argc, argv)
 end
 
-# `private method 'x' called for ...`, or protected.
+# Raises `private method 'x' called for ...`, or the protected form.
 sig [Value, Word, Word, Word, Ptr] => Value
 machine def zr_hidden_method(recv, mid, vis, argc, argv)
   b = Machine.slot(Buf.size)
@@ -274,13 +276,13 @@ machine def zr_hidden_method(recv, mid, vis, argc, argv)
   zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
   zr_exc_detail(e, Machine.id(:receiver), recv)
   zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
-  # `private_call?` says the call had no explicit receiver, which one
-  # that meets a hidden method always has.
+  # `private_call?` is true when the call had no explicit receiver. A
+  # call that finds a private or protected method always has one.
   zr_exc_detail(e, Machine.id(:private_call), Machine.value(QFALSE))
   zr_raise(e)
 end
 
-# How a message names the receiver: main, a special constant, its
+# Writes how a message shows the receiver: main, a special constant,
 # `#<Foo:0x...>` when it has a singleton class, else `an instance of Foo`.
 sig [Ptr, Value] => Value
 machine def zr_buf_receiver(b, recv)
@@ -307,11 +309,12 @@ machine def zr_buf_receiver(b, recv)
   Machine.value(QNIL)
 end
 
-# Whether a call from the frame on top may reach `e` with `mode` (0 an
-# implicit or self receiver, 2 an explicit one, 3 `public_send`, whose
-# caller is the frame below its own): a private method only
-# implicitly, a protected one when the caller's self is of the owner.
-# Answers 0, or the visibility that refused the call.
+# Whether a call from the top frame can call `e` with `mode`. `mode` is 0
+# for an implicit or self receiver, 2 for an explicit receiver, and 3 for
+# `public_send` (its caller is the frame below its own). A private method
+# needs an implicit receiver. A protected method needs a caller whose
+# self is an instance of the owner. Returns 0, or the visibility that
+# stopped the call.
 sig [Ptr, Word] => Word
 machine def zr_visibility_refused(e, mode)
   mode = mode & SEND_MODE
@@ -328,27 +331,28 @@ machine def zr_visibility_refused(e, mode)
   MEntry.vis(e)
 end
 
-# A send the core library makes to a name outside the protocol CRuby's C
-# sends by name: it reaches the core library's own method on a class the
-# runtime made, whatever the program wrote over it (zr_find_core_method).
+# A send from the core library, to a name outside the protocol that
+# CRuby's C code sends by name. It finds the core library's own method on
+# a class that the runtime made, also when the program redefines the
+# method (zr_find_core_method).
 SEND_CORE = 8
 SEND_MODE = 7
-# A send written under `using`: the refinements in force at the site
-# are the site's own, told to the task before every send it makes
-# (the lowering's `activate`, in place) and taken back after, so what
-# the lookup answers under them is the class's and the stamp's alone
-# at that site, and its cells may hold it; the site tests its cell and
-# takes an operator's road as any site does. A refinement's definition
-# moves the stamp as any does, and closes the gate of the name it
-# stands over (zr_method_add_row); so does a `using` move the stamp.
+# A send written under `using`. The site sets its own active
+# refinements on the task before each send (the lowering's `activate`,
+# inline), and clears them after. Thus at that site the lookup result
+# depends only on the class and the stamp, and its cache entries can
+# keep it. The site checks its cache entry and takes an operator's fast
+# path, as any site does. A refinement's definition increments the
+# stamp, as any definition does, and closes the gate of the name that it
+# refines (zr_method_add_row). A `using` also increments the stamp.
 SEND_USING = 16
 
-# `argv` points at `argc` Values the caller keeps rooted. `mode` is 0
-# for an implicit or self receiver, 1 for a bare identifier, 2 for an
-# explicit receiver, with SEND_CORE added for a send the core library
-# makes. A builtin runs under a frame pushed here, so a backtrace names
-# it; a compiled method pushes its own. `cc` is the send site's cell
-# (cache.rb), which takes the answer, or 0 for a send that has none.
+# `argv` points at `argc` Values that the caller keeps rooted. `mode` is
+# 0 for an implicit or self receiver, 1 for a bare identifier, 2 for an
+# explicit receiver, plus SEND_CORE for a send from the core library. A
+# builtin runs under a frame that this pushes, so a backtrace shows it.
+# A compiled method pushes its own frame. `cc` is the send site's cache
+# entry (cache.rb), which gets the result, or 0 for a send without one.
 sig [Ptr, Value, Word, Word, Ptr, Word, Value] => Value
 machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
@@ -380,18 +384,19 @@ machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
     zr_call_cache_fill(cc, klass, e, mid, mode, argc)
   end
   r = zr_invoke(e, recv, argc, argv, blk, kw)
-  # The refinements a site activated were for this send alone: the
-  # lookup, and a builtin such as `send` or `respond_to?` that asks
-  # under them. A site that tests its own cell never asks for them.
+  # A site activates refinements for this send only: for the lookup, and
+  # for a builtin such as `send` or `respond_to?` that uses them. A site
+  # that checks its own cache entry never uses them.
   Task.set_refine(zr_task(), Machine.value(QNIL))
   r
 end
 
-# `super`: the next method named as the frame's is, past the frame's
-# owner in the receiver's chain; the frame's block passes on unless
-# `blk` is one of its own. In a method `define_method` made, the
-# owner is the entry's and the name the one it was defined under,
-# which an alias keeps (`orig`), as a def's frame names the def.
+# `super`: calls the next method with the frame's method name, after the
+# frame's owner in the receiver's ancestor list. The frame's block goes
+# to the callee unless `blk` is a different block. In a method from
+# `define_method`, the owner is the method entry's owner, and the name is
+# the name of the definition. An alias keeps that name (`orig`), as a
+# def's frame keeps the def's name.
 sig [Ptr, Ptr, Word, Ptr, Value] => Value
 machine def zr_super(cc, rec, argc, argv, blk)
   recv = Frame.self(rec)
@@ -409,9 +414,9 @@ machine def zr_super(cc, rec, argc, argv, blk)
     mid = FrameMeta.name(meta)
   end
   k = zr_super_from(rec, recv, owner)
-  # The site's cell answers for the node and name it was filled for,
-  # under the method stamp, as a send's cell does; the callee reads
-  # the keywords the site left.
+  # The site's cache entry is valid for the node and name that it was
+  # filled for, under the method stamp, as for a send. The callee reads
+  # the keywords that the site set.
   t = zr_task()
   if cc != 0 && k != QNIL && SuperCache.node(cc) == k && SuperCache.mid(cc) == mid && SuperCache.stamp(cc) == Machine.load64(Machine.static(:mcache_stamp, 8), 0) && Task.refine(t) == QNIL
     return Machine.call(:method, SuperCache.fn(cc), recv, argc, argv, SuperCache.entry(cc), blk, SuperCache.found(cc))
@@ -420,9 +425,9 @@ machine def zr_super(cc, rec, argc, argv, blk)
   e = 0
   refined = false
   if k != QNIL && zr_type(k) == T_MODULE && ClassExt.refined(RClass.ext(k)) != QNIL
-    # `super` in a refined method reaches what the refinement overrode:
-    # the refined class's own chain, with no refinement asked, or the
-    # refinement would answer itself again.
+    # `super` in a refined method finds the method that the refinement
+    # overrides. It searches the refined class's ancestor list with no
+    # refinements, because the refinement would otherwise find itself.
     e = zr_search_method(ClassExt.refined(RClass.ext(k)), mid)
     refined = true
   elsif k != QNIL
@@ -440,13 +445,14 @@ machine def zr_super(cc, rec, argc, argv, blk)
     SuperCache.set_fn(cc, zr_entry_fn(e))
   end
   r = zr_invoke(e, recv, argc, argv, blk, kw)
-  # The refinements the site activated were for this super alone.
+  # The site activated the refinements for this super only.
   Task.set_refine(t, Machine.value(QNIL))
   r
 end
 
-# The chain node the method the frame runs in (through its blocks)
-# was found on; nil for a frame the kernel pushed.
+# Returns the ancestor list node where the lookup found the frame's
+# method (through its blocks). Returns nil for a frame that the kernel
+# pushed.
 sig [Ptr] => Value
 machine def zr_frame_defined(rec)
   meta = zr_method_meta_of(rec)
@@ -460,7 +466,8 @@ machine def zr_frame_defined(rec)
   Frame.defined(r)
 end
 
-# The entry of the `define_method` method the frame runs in, or 0.
+# Returns the method entry of the `define_method` method that the frame
+# runs in, or 0.
 sig [Ptr] => Ptr
 machine def zr_bmethod_entry(rec)
   cref = Frame.cref(rec)
@@ -470,8 +477,8 @@ machine def zr_bmethod_entry(rec)
   RCref.entry(cref)
 end
 
-# The meta of the def the frame is in, through its blocks and evals, or
-# 0 in a class body or at the top level.
+# Returns the meta of the def that contains the frame, through its
+# blocks and evals. Returns 0 in a class body or at the top level.
 sig [Ptr] => Ptr
 machine def zr_method_meta_of(rec)
   meta = Frame.meta(rec)
@@ -484,7 +491,7 @@ machine def zr_method_meta_of(rec)
   meta
 end
 
-# `defined?(super)`: whether a method waits past this frame's owner.
+# `defined?(super)`: whether a method is after this frame's owner.
 sig [Ptr] => Value
 machine def zr_super_defined(rec)
   entry = zr_bmethod_entry(rec)
@@ -506,10 +513,11 @@ machine def zr_super_defined(rec)
   zr_bool(zr_find_method(RClass.superclass(k), mid) != 0)
 end
 
-# The node a `super` in the frame continues past: the method frame's
-# own defining node when it stands for `owner` (a module included
-# twice has two), else the first node of `owner` in the receiver's
-# chain; nil when there is none.
+# Returns the node after which a `super` in the frame continues. This is
+# the method frame's defining node when that node represents `owner` (a
+# module included twice has two nodes). Otherwise it is the first node
+# of `owner` in the receiver's ancestor list. Returns nil when there is
+# none.
 sig [Ptr, Value, Value] => Value
 machine def zr_super_from(rec, recv, owner)
   k = zr_frame_defined(rec)
@@ -523,9 +531,8 @@ machine def zr_super_from(rec, recv, owner)
   k
 end
 
-# A bare `super` in a block: when the block runs as a method
-# `define_method` made, CRuby refuses implicit arguments, whatever def
-# the block was written in.
+# A bare `super` in a block. When the block runs as a method from
+# `define_method`, CRuby raises for implicit arguments, in all defs.
 sig [Ptr] => Value
 machine def zr_zsuper_in_block(rec)
   if zr_bmethod_entry(rec) != 0
@@ -534,8 +541,8 @@ machine def zr_zsuper_in_block(rec)
   Machine.value(QNIL)
 end
 
-# A bare `super` with no def around it: refused in a method
-# `define_method` made; elsewhere there is no method.
+# A bare `super` outside a def. In a method from `define_method` it
+# raises the implicit-argument error. Elsewhere there is no method.
 sig [Ptr] => Value
 machine def zr_zsuper_outside(rec)
   r = zr_zsuper_in_block(rec)
@@ -543,8 +550,9 @@ machine def zr_zsuper_outside(rec)
   zr_raise_msg(zr_global(G_NO_METHOD_ERROR), Machine.bytes("super called outside of method"), 30)
 end
 
-# The call through the entry `e`: a compiled def gets the keywords flag
-# back and pushes its own frame; a builtin runs under one pushed here.
+# Calls through the method entry `e`. A compiled def gets the keywords
+# flag and pushes its own frame. A builtin runs under a frame that this
+# pushes.
 sig [Ptr, Value, Word, Ptr, Value, Word] => Value
 machine def zr_invoke(e, recv, argc, argv, blk, kw)
   kind = MEntry.kind(e)
@@ -555,8 +563,8 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   if kind == KIND_DEF
     arity = MEntry.arity(e)
     if arity >= 0
-      # A table's values are one Hash argument to a def with a fixed
-      # count, which declares no keywords.
+      # For a def with a fixed count, which declares no keywords, the
+      # table's values are one Hash argument.
       given = kw > 1 ? argc - Machine.load64(kw, 0) + 1 : argc
       if given != arity
         return zr_wrong_arity_in(given, arity, e, recv)
@@ -565,7 +573,7 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
     Task.set_kw(zr_task(), kw)
     return Machine.call(:method, MEntry.fn(e), recv, argc, argv, e, blk, zr_entry_found(e))
   end
-  # An accessor has no frame, so its arity error is the caller's.
+  # An accessor has no frame, so its arity error comes from the caller.
   if MEntry.kind(e) == KIND_ATTR_READER
     if argc != 0
       return zr_wrong_arity(argc, 0)
@@ -603,9 +611,9 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()
-  # A builtin can run Ruby that calls builtins again, all without a
-  # compiled frame between: its frame takes the stack check a compiled
-  # prologue makes, before anything is linked.
+  # A builtin can run Ruby that calls builtins again, with no compiled
+  # frame between them. Thus its frame does the stack check of a
+  # compiled prologue, before it links the frame.
   if Machine.word(rec) < Machine.word(Task.stack_limit(t))
     return zr_stack_overflow()
   end
@@ -617,8 +625,8 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   Frame.set_cref(rec, Machine.value(QNIL))
   Frame.set_blk(rec, blk)
   Frame.set_nvalues(rec, 0)
-  # The name the builtin was called by, which an alias makes its own: an
-  # enumerator it answers records it.
+  # The entry gives the name used in the call, which can be an alias. An
+  # enumerator that the builtin returns records that name.
   Frame.set_entry(rec, e)
   Frame.set_svars(rec, Machine.value(QNIL))
   Frame.set_defined(rec, Machine.value(QNIL))
@@ -635,8 +643,8 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   r
 end
 
-# An arity error in a compiled method is raised under that method's
-# frame, as CRuby's backtrace shows it.
+# Raises an arity error of a compiled method under that method's frame,
+# as CRuby's backtrace shows it.
 sig [Word, Word, Ptr, Value] => Value
 machine def zr_wrong_arity_in(given, expected, e, recv)
   rec = Machine.slot(Frame.size)
@@ -658,23 +666,23 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   r
 end
 
-# The chain node a method's frame records as where it was defined: the
-# one an alias or a visibility copy came from, else the one the lookup
-# just found it on.
+# Returns the ancestor list node that a method's frame records as its
+# definition point. For an alias or a visibility copy, it is the source
+# node. Otherwise it is the node where the lookup found the method.
 sig [Ptr] => Value
 machine def zr_entry_found(e)
   from = MEntry.from(e)
   from != QNIL ? from : Task.found(zr_task())
 end
 
-# The kernel's own sends, which have no site and so no cell. Compiled
-# Ruby sends through `zr_send_cached` (cache.rb).
+# The kernel's own sends, which have no site and thus no cache entry.
+# Compiled Ruby sends through `zr_send_cached` (cache.rb).
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_send(recv, mid, argc, argv)
   zr_dispatch(0, recv, mid, argc, argv, 0, Machine.value(QNIL))
 end
 
-# A send with an explicit receiver: visibility applies.
+# A send with an explicit receiver, so visibility applies.
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_call(recv, mid, argc, argv)
   zr_dispatch(0, recv, mid, argc, argv, 2, Machine.value(QNIL))
@@ -685,8 +693,8 @@ machine def zr_send_blk(recv, mid, argc, argv, blk)
   zr_dispatch(0, recv, mid, argc, argv, 0, blk)
 end
 
-# `Hash.ruby2_keywords_hash`: a copy carrying the flag, and the test
-# for it.
+# `Hash.ruby2_keywords_hash`: a copy with the flag. The next function
+# checks for the flag.
 sig [Value] => Value
 machine def zr_ruby2_hash_new(h)
   copy = zr_hash_new()
@@ -700,18 +708,18 @@ machine def zr_ruby2_hash_p(h)
   zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic.flags(h) & FL_RUBY2) != 0)
 end
 
-# Preemption. A green thread that only computes reaches no blocking
-# call, so nothing else would ever run. The poll word (`zr_poll_slot`,
-# beside the task word) is the word every safe point reads -- a compiled loop's back edge, a compiled
-# method's entry, and the kernel's own loops through `zr_preempt` --
-# and the kernel runs at a safe point only when it is set: by the
-# timer thread every 100 ms once a second thread started
-# (`zr_os_poll_start`), by a caught signal, and by a collection that
-# queued a finalizer. Under wasm there is no timer thread, so the count
-# is the clock: compiled back edges count it down and the kernel's
-# loops tick it here. Thread arms the receiver and the message when a
-# second thread appears, so a one-thread program hands the turn to no
-# one.
+# Preemption. A green thread that only computes makes no blocking call,
+# so no other thread can run. Every safe point reads the poll word
+# (`zr_poll_slot`, next to the task word): a compiled loop's back edge,
+# a compiled method's entry, and the kernel's loops through
+# `zr_preempt`. The kernel acts at a safe point only when the word is
+# set. The timer thread sets it every 100 ms after a second thread starts
+# (`zr_os_poll_start`). A caught POSIX signal and a collection that
+# queued a finalizer also set it. Under wasm there is no timer thread,
+# so a count is the clock: compiled back edges decrement it, and the
+# kernel's loops decrement it here. Thread sets the receiver and message
+# when a second thread starts, so a one-thread program never yields to
+# the scheduler.
 PREEMPT_TICKS = 20_000
 
 sig [Value, Value] => Value
@@ -722,15 +730,15 @@ machine def zr_preempt_arm(receiver, message)
   Machine.value(QNIL)
 end
 
-# Something wants the next safe point: a signal, a finalizer, the
-# timer.
+# Requests action at the next safe point, for a POSIX signal, a
+# finalizer, or the timer.
 sig [] => Void
 machine def zr_poll_set
   Machine.store64(zr_poll_slot(), 0, 1)
 end
 
-# Whether a second thread ever started. Until one does, every task is
-# alone, and IO need not ask the scheduler before a system call.
+# Whether a second thread started. Until then, each task is alone, and
+# IO does not need to call the scheduler before a system call.
 sig [] => Value
 machine def zr_threaded
   zr_bool(Machine.load64(Machine.static(:preempt_to, 8), 0) != 0)
@@ -747,10 +755,10 @@ machine def zr_preempt
   zr_preempt_expired()
 end
 
-# A safe point that was asked for: the poll word and the count start
-# again, the handlers of any signal that came run, the finalizers a
-# collection queued run, and the turn goes on if a second thread armed
-# the preemption.
+# Runs a requested safe point. It resets the poll word and the count,
+# runs the handlers of POSIX signals that arrived, and runs the
+# finalizers that a collection queued. Then, if a second thread set up
+# preemption, it yields to the scheduler.
 sig [] => Value
 machine def zr_preempt_expired
   Machine.store64(zr_poll_slot(), 0, 0)
@@ -768,9 +776,9 @@ machine def zr_preempt_expired
   zr_preempt_send(mid)
 end
 
-# The turn goes on through the armed receiver, and never while this
-# task is already inside one of those sends: the scheduler runs
-# compiled Ruby of its own, back edges and all.
+# Yields to the scheduler through the receiver that Thread set. It never
+# does this while this task is already in one of those sends, because
+# the scheduler runs its own compiled Ruby, with back edges.
 sig [Word] => Value
 machine def zr_preempt_send(mid)
   busy = Machine.static(:preempt_busy, 8)
@@ -784,11 +792,12 @@ machine def zr_preempt_send(mid)
   r
 end
 
-# Whether `v` takes `mid`, as rb_check_funcall decides before a
-# conversion calls it: a respond_to? of the program's own that says no
-# refuses; a method answers; else a respond_to_missing? of the program's
-# own that says yes lets method_missing answer. QUNDEF when a hook
-# raised.
+# Whether `v` responds to `mid`, as rb_check_funcall decides before a
+# conversion calls it. If the program defines respond_to? and it returns
+# false, the result is false. If a method exists, the result is true.
+# Otherwise, if the program defines respond_to_missing? and it returns
+# true, the result is true and method_missing handles the call. Returns
+# QUNDEF when a hook raised.
 sig [Value, Word] => Value
 machine def zr_check_funcall(v, mid)
   klass = zr_class_of(v)

@@ -1,22 +1,22 @@
-# Hashes: entries in insertion order outside the arena, each a key, a
-# value, its hash code and whether it is live (a deleted entry stays
-# until the table grows), plus an open-addressing index of bins that
-# maps a hash code to an entry. A String key is kept as a frozen copy,
-# as CRuby keeps it. `gen` counts the times the entries or the bins were
-# built again, so a probe that ran a key's own `eql?` can see that the
-# table under it changed (CRuby's st "rebuilt" check).
+# Hashes. The entries are in insertion order, outside the arena. Each
+# entry has a key, a value, its hash code, and a live flag (a deleted
+# entry stays until the table grows). An open-addressing index of bins
+# maps a hash code to an entry. A String key is kept as a frozen copy, as
+# in CRuby. `gen` counts the rebuilds of the entries or the bins. Thus a
+# probe that ran a key's own `eql?` can see that the table changed
+# (CRuby's st "rebuilt" check).
 Machine.struct :RHash, basic: RBasic, entries: Ptr, len: Word, live: Word, cap: Word, default: Value, default_proc: Value, bins: Ptr, nbins: Word, iter: Word, gen: Word
 Machine.struct :HEntry, key: Value, value: Value, live: Word, hash: Word
 T_HASH = 8
 G_HASH = 30
 G_KEY_ERROR = 31
 
-# How a probe ends when a key's own `hash` or `eql?` raised: the
-# exception is pending in the task, and the probe answers this in place
+# The result of a probe when a key's own `hash` or `eql?` raised. The
+# exception is pending in the task, and the probe returns this in place
 # of an entry.
 HASH_RAISED = 1
 
-# The answers of zr_key_eql.
+# The return values of zr_key_eql.
 KEY_DIFFERENT = 0
 KEY_SAME = 1
 KEY_RAISED = 2
@@ -59,10 +59,10 @@ machine def zr_mark_hash(h)
   end
 end
 
-# Whether two keys are the same key: `eql?` for the builtin kinds
-# here, the object's own `eql?` for an object with an ivar table
-# (Struct, Data and the program's classes), identity for the rest. An
-# `eql?` that raises answers KEY_RAISED, with the exception pending.
+# Whether two keys are the same key. It uses `eql?` for the builtin types
+# here, the object's own `eql?` for an object with an ivar table (Struct,
+# Data and the program's classes), and identity for all others. An
+# `eql?` that raises gives KEY_RAISED, with the exception pending.
 sig [Value, Value] => Word
 machine def zr_key_eql(a, b)
   if a == b
@@ -85,8 +85,8 @@ machine def zr_key_eql(a, b)
     if RArray.len(a) != RArray.len(b)
       return KEY_DIFFERENT
     end
-    # The same two Arrays met again inside their own comparison is a
-    # recursion, which answers equal (rb_exec_recursive_paired).
+    # The same two Arrays found again inside their own comparison is a
+    # recursion, and the result is equal (rb_exec_recursive_paired).
     if zr_guard_enter_paired(a, b, Machine.id(:eql?))
       return KEY_SAME
     end
@@ -97,8 +97,8 @@ machine def zr_key_eql(a, b)
   if t == T_REGEXP
     return RRegexp.options(a) == RRegexp.options(b) ? zr_key_eql(RRegexp.source(a), RRegexp.source(b)) : KEY_DIFFERENT
   end
-  # Kernel#eql? is identity, which the first test answered; any other
-  # eql? is the key's own, whatever kind of object it is.
+  # Kernel#eql? is identity, which the first check already did. Any
+  # other eql? belongs to the key, for all types of object.
   if zr_key_builtin_p(a, Machine.id(:eql?), Machine.addr(:zr_obj_eql_p))
     return KEY_DIFFERENT
   end
@@ -111,9 +111,9 @@ machine def zr_key_eql(a, b)
   r != QNIL && r != QFALSE ? KEY_SAME : KEY_DIFFERENT
 end
 
-# Whether two Arrays of one length hold the same keys, each against
-# each. Each round reads the lengths again, as an `eql?` can change
-# either Array.
+# Whether two Arrays of the same length contain the same keys, element
+# by element. Each step reads the lengths again, because an `eql?` can
+# change either Array.
 sig [Value, Value] => Word
 machine def zr_key_eql_elements(a, b)
   i = 0
@@ -130,19 +130,19 @@ machine def zr_key_eql_elements(a, b)
   KEY_SAME
 end
 
-# A word mixed into a hash code.
+# Mixes a word into a hash code.
 sig [Word] => Word
 machine def zr_hash_mix(x)
   x = (x ^ (x >> 31)) * 7046029254386353131
   x ^ (x >> 29)
 end
 
-# The hash code of a key as the table sees it, written to `out`: the
-# value itself for a fixnum, Symbol or special constant, the double's
-# bits for a Float (with -0.0 as 0.0), the bytes for a String, the parts
-# for a Regexp, and the object's own `hash` for the rest. Under
-# compare_by_identity every key hashes as itself. False when the key's
-# own `hash` raised; the exception is then pending.
+# Writes the table's hash code of a key to `out`. The code comes from
+# the value itself for a fixnum, Symbol or special constant, the
+# double's bits for a Float (with -0.0 as 0.0), the bytes for a String,
+# the parts for a Regexp, and the object's own `hash` for all others.
+# Under compare_by_identity, each key hashes as itself. Returns false
+# when the key's own `hash` raised, with the exception pending.
 sig [Value, Value, Ptr] => Bool
 machine def zr_key_hash(h, key, out)
   Machine.store64(out, 0, zr_key_code(h, key))
@@ -153,8 +153,9 @@ machine def zr_key_hash(h, key, out)
   if t == T_STRING || t == T_REGEXP
     return true
   end
-  # Kernel#hash answers the code of the object's id, or a bignum's
-  # own code: the same code the method answers, mixed as a table mixes.
+  # Kernel#hash returns the code of the object's id, or a bignum's own
+  # code. Use the same code that the method returns, mixed as the table
+  # mixes codes.
   if zr_key_builtin_p(key, Machine.id(:hash), Machine.addr(:zr_obj_hash))
     code = zr_big_p(key) ? zr_fix2long(zr_big_hash(key)) : zr_obj_id_code(key) & 4611686018427387903
     Machine.store64(out, 0, zr_hash_mix(code))
@@ -164,7 +165,7 @@ machine def zr_key_hash(h, key, out)
   if r == QUNDEF
     return false
   end
-  # A bignum folds to a fixnum, as rb_any_hash folds one.
+  # Fold a bignum to a fixnum, as rb_any_hash does.
   if zr_big_p(r)
     r = zr_send(r, Machine.id(:hash), 0, 0)
     if r == QUNDEF
@@ -177,16 +178,17 @@ machine def zr_key_hash(h, key, out)
   true
 end
 
-# Whether `key` answers `mid` with the builtin at `builtin`, which the
-# table's own identity rule already stands for.
+# Whether `key`'s method `mid` is the builtin at `builtin`. The table's
+# own identity rule already gives the same result as that builtin.
 sig [Value, Word, Ptr] => Bool
 machine def zr_key_builtin_p(key, mid, builtin)
   e = zr_find_method(zr_class_of(key), mid)
   e != 0 && MEntry.fn(e) == builtin
 end
 
-# The code of a key that runs no Ruby code to find it; for a key whose
-# own `hash` answers the code, its identity, which zr_key_hash replaces.
+# Returns the code of a key when no Ruby code must run to find it. For a
+# key whose own `hash` gives the code, it returns the identity code, and
+# zr_key_hash replaces it.
 sig [Value, Value] => Word
 machine def zr_key_code(h, key)
   if (RBasic.flags(h) & FL_IDENTITY) != 0
@@ -212,15 +214,15 @@ machine def zr_key_code(h, key)
   zr_hash_mix(Machine.word(key))
 end
 
-# A String's bytes hashed with the process's seed, so a String's hash
-# differs from run to run as ruby's does: a program that keys its
-# behaviour on one cannot be replayed against it.
+# Hashes a String's bytes with the process's seed. Thus a String's hash
+# is different in each run, as in ruby, and a program cannot depend on
+# a particular hash value.
 sig [Value] => Word
 machine def zr_str_bytes_hash(s)
   zr_bytes_hash(RString.ptr(s), RString.len(s)) ^ Machine.load64(zr_hash_seed(), 0)
 end
 
-# The seed, drawn once at boot.
+# The seed, set one time at boot.
 sig [] => Ptr
 machine def zr_hash_seed
   Machine.static(:hash_seed, 8)
@@ -231,10 +233,11 @@ machine def zr_hash_seed_init
   Machine.store64(zr_hash_seed(), 0, (zr_os_random() << 32) | zr_os_random())
 end
 
-# A hash of the bytes, a word at a time: each word folded into the
-# state and mixed, the last one to seven bytes as one word, and the
-# length first, so that a string and one that only adds zero bytes to
-# it differ. Not a hash any spec can pin: the seed is the process's.
+# Hashes the bytes, one word at a time. Each word is folded into the
+# state and mixed. The last one to seven bytes are one word. The length
+# goes in first, so a string and the same string plus zero bytes are
+# different. No spec can check a particular value, because the seed is
+# different in each process.
 sig [Ptr, Word] => Word
 machine def zr_bytes_hash(p, n)
   x = 1469598103934665603 ^ n
@@ -256,9 +259,9 @@ machine def zr_bytes_hash(p, n)
   x
 end
 
-# The live entry for `key`, 0 when there is none, or HASH_RAISED: the
-# bins are probed from the code's slot until an empty bin; a dead entry
-# in the way is passed over.
+# Returns the live entry for `key`, 0 when there is none, or
+# HASH_RAISED. The probe starts at the code's bin and stops at an empty
+# bin. It skips dead entries.
 sig [Value, Value] => Ptr
 machine def zr_hash_entry(h, key)
   if RHash.live(h) == 0
@@ -271,9 +274,9 @@ machine def zr_hash_entry(h, key)
   zr_hash_find(h, key, Machine.load64(code, 0))
 end
 
-# A key's own `eql?` can add to the table, and so build its entries and
-# bins again. The probe then starts over on the new table, as CRuby's
-# st does when it sees the table rebuilt.
+# A key's own `eql?` can add to the table, which rebuilds its entries
+# and bins. The probe then starts again on the new table, as CRuby's st
+# does when it finds that the table was rebuilt.
 sig [Value, Value, Word] => Ptr
 machine def zr_hash_find(h, key, code)
   identity = (RBasic.flags(h) & FL_IDENTITY) != 0
@@ -312,9 +315,9 @@ machine def zr_hash_find(h, key, code)
   0
 end
 
-# A small table has no bins: its entries are read in order, the code
-# first, as the probe reads a bin's. A key's `eql?` that changes the
-# table starts the lookup over, bins or none.
+# A small table has no bins. The scan reads its entries in order and
+# checks the code first, as the probe does for a bin. If a key's `eql?`
+# changes the table, the lookup starts again, with or without bins.
 sig [Value, Value, Word, Bool, Word] => Ptr
 machine def zr_hash_scan(h, key, code, identity, gen)
   i = 0
@@ -343,9 +346,9 @@ machine def zr_hash_scan(h, key, code, identity, gen)
   0
 end
 
-# The value for `key` in a table the runtime keeps for itself, or undef
-# when there is none. The key must be a Symbol, a fixnum or a String:
-# the lookup then runs no Ruby code and cannot raise.
+# Returns the value for `key` in an internal table of the runtime, or
+# undef when there is none. The key must be a Symbol, a fixnum or a
+# String, so the lookup runs no Ruby code and cannot raise.
 sig [Value, Value] => Value
 machine def zr_hash_lookup(h, key)
   e = zr_hash_entry(h, key)
@@ -358,7 +361,7 @@ machine def zr_hash_lookup(h, key)
   HEntry.value(e)
 end
 
-# Entry `n` (its index in the entries) placed in the bins.
+# Puts entry `n` (its index in the entries) into the bins.
 sig [Value, Word] => Void
 machine def zr_hash_bin(h, n)
   if RHash.nbins(h) == 0
@@ -373,9 +376,10 @@ machine def zr_hash_bin(h, n)
   Machine.store64(RHash.bins(h) + (i * 8), 0, n + 1)
 end
 
-# The bins rebuilt from the live entries, twice the entry room so the
-# probes stay short. A table of HASH_SMALL entries or fewer keeps no
-# bins: a scan of that many codes costs less than the bins do.
+# Rebuilds the bins from the live entries, with two times the entry
+# capacity, so the probes stay short. A table of HASH_SMALL entries or
+# fewer has no bins, because a scan of that many codes costs less than
+# the bins.
 HASH_SMALL = 8
 
 sig [Value] => Void
@@ -409,8 +413,8 @@ machine def zr_hash_rebins(h)
   end
 end
 
-# Room for one more entry: the table doubles, dropping deleted entries
-# on the way, and the bins follow.
+# Makes room for one more entry. The table doubles, deleted entries are
+# removed, and the bins are rebuilt.
 sig [Value] => Void
 machine def zr_hash_reserve(h)
   n = RHash.len(h)
@@ -439,9 +443,10 @@ machine def zr_hash_reserve(h)
   zr_hash_rebins(h)
 end
 
-# Every key's code computed again and the bins rebuilt: after
-# compare_by_identity, or `rehash`. A key's own `hash` can change the
-# table; the walk then starts over. False when a `hash` raised.
+# Computes the code of each key again and rebuilds the bins, after
+# compare_by_identity or `rehash`. A key's own `hash` can change the
+# table, and then the loop starts again. Returns false when a `hash`
+# raised.
 sig [Value] => Bool
 machine def zr_hash_recode(h)
   code = Machine.slot(8)
@@ -469,8 +474,8 @@ machine def zr_hash_recode(h)
   true
 end
 
-# `h[key] = value` for the runtime: the value, or undef when the key's
-# own `hash` or `eql?` raised.
+# `h[key] = value` for the runtime. Returns the value, or undef when the
+# key's own `hash` or `eql?` raised.
 sig [Value, Value, Value] => Value
 machine def zr_hash_store(h, key, value)
   slot = Machine.slot(8)
@@ -489,7 +494,8 @@ machine def zr_hash_store(h, key, value)
   end
   if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
     copy = zr_str_copy_encoding(zr_str_new(RString.ptr(key), RString.len(key)), key)
-    # The frozen copy keeps a subclass, as CRuby's rb_str_new_frozen does.
+    # The frozen copy keeps the key's subclass, as CRuby's
+    # rb_str_new_frozen does.
     RBasic.set_klass(copy, zr_real_class(key))
     key = copy
     RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
@@ -497,8 +503,9 @@ machine def zr_hash_store(h, key, value)
   zr_hash_append(h, key, code, value)
 end
 
-# A new entry for `key`, whose code is `code`, after the last: the
-# caller knows the key is not in `h`, so no method of the key runs.
+# Adds a new entry for `key`, with the code `code`, after the last
+# entry. The caller knows that the key is not in `h`, so no method of
+# the key runs.
 sig [Value, Value, Word, Value] => Value
 machine def zr_hash_append(h, key, code, value)
   zr_hash_reserve(h)
@@ -516,7 +523,8 @@ machine def zr_hash_append(h, key, code, value)
   value
 end
 
-# The value for a missing key: the default proc's answer, or the default.
+# Returns the value for a missing key: the default proc's result, or the
+# default.
 sig [Value, Value] => Value
 machine def zr_hash_default(h, key)
   if RHash.default_proc(h) != QNIL
@@ -538,9 +546,9 @@ machine def zr_hash_aref(recv, argc, argv, cref, blk)
   HEntry.value(e)
 end
 
-# The value for a missing `key`, as rb_hash_default_value answers it: a
-# `default` of the receiver's own is called, and otherwise the default
-# proc's answer or the default.
+# Returns the value for a missing `key`, as rb_hash_default_value does.
+# If the receiver has its own `default`, it calls it. Otherwise it
+# returns the default proc's result or the default.
 sig [Value, Value] => Value
 machine def zr_hash_missing(h, key)
   if zr_basic_method_p(h, Machine.id(:default))
@@ -639,7 +647,8 @@ machine def zr_hash_size(recv, argc, argv, cref, blk)
   zr_fix(RHash.live(recv))
 end
 
-# The live count as a fixnum, for core code that must not dispatch.
+# Returns the live count as a fixnum, for core code that must not
+# dispatch.
 sig [Value] => Value
 machine def zr_hash_len_m(h)
   zr_fix(RHash.live(h))
@@ -650,7 +659,7 @@ machine def zr_hash_empty_p(recv, argc, argv, cref, blk)
   zr_bool(RHash.live(recv) == 0)
 end
 
-# The live entry at or after index `i`, or 0.
+# Returns the live entry at or after index `i`, or 0.
 sig [Value, Word] => Ptr
 machine def zr_hash_next(h, i)
   while i < RHash.len(h)
@@ -700,25 +709,25 @@ machine def zr_hash_assoc(e)
   pair
 end
 
-# Whether `each` can hand a block the key and the value as two
-# arguments rather than the `[key, value]` Array ruby yields.
+# Whether `each` can give a block the key and the value as two
+# arguments, in place of the `[key, value]` Array that ruby yields.
 #
-# It can when the block would have taken that Array apart again: a
-# `spread` block binds a lone Array over its parameters, so two
-# arguments reach the same names. A lambda is not one of those -- it
-# binds strictly and `h.each(&->(k, v) { })` is an ArgumentError in
-# ruby, which only happens if it is handed one argument. Nor is
-# `{ |pair| }` or `{ |*x| }`, and `spread` already says so.
+# This is possible when the block splits that Array again. A `spread`
+# block binds a single Array over its parameters, so two arguments go to
+# the same names. A lambda is different: it binds strictly, and
+# `h.each(&->(k, v) { })` is an ArgumentError in ruby, which occurs only
+# with one argument. `{ |pair| }` and `{ |*x| }` are also different, and
+# `spread` is already false for them.
 #
-# The Array is what `each` spends: a cell and a malloc for every entry
-# of every iteration, thrown away at the end of the block.
+# The Array is the main cost of `each`: a cell and a malloc for each
+# entry of each iteration, discarded at the end of the block.
 sig [Value] => Bool
 machine def zr_block_takes_pair(blk)
   RProc.spread(blk) != 0 && RProc.lambda(blk) == 0
 end
 
-# `each`: one `[key, value]` per entry, re-reading the table after every
-# yield, since the block may change it.
+# `each`: yields one `[key, value]` for each entry. It reads the table
+# again after each yield, because the block can change it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_each(recv, argc, argv, cref, blk)
   if blk == QNIL
@@ -742,8 +751,8 @@ machine def zr_hash_each(recv, argc, argv, cref, blk)
   recv
 end
 
-# rb_hash_foreach: `blk` over each pair of `h`'s own table, as `each`
-# walks it, whatever a subclass writes over `each`.
+# rb_hash_foreach: yields each pair of `h`'s own table to `blk`, as
+# `each` does, also when a subclass redefines `each`.
 sig [Value, Value] => Value
 machine def zr_hash_foreach(h, blk)
   zr_hash_each(h, 0, 0, Machine.value(QNIL), blk)
@@ -763,8 +772,8 @@ machine def zr_hash_to_a(recv, argc, argv, cref, blk)
   out
 end
 
-# A Symbol key prints as `key: value`, quoted when its name is not a
-# plain identifier; any other key as `key => value`.
+# A Symbol key prints as `key: value`, with quotes when its name is not
+# a plain identifier. Any other key prints as `key => value`.
 sig [Value] => Bool
 machine def zr_symbol_key_simple_p(key)
   if !zr_symbol_p(key)
@@ -805,8 +814,8 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 123)
-  # The text takes the first key's encoding, and each piece after joins
-  # it, as inspect_i appends them.
+  # The text gets the first key's encoding, and each next piece is
+  # appended to it, as inspect_i does.
   index = ENC_USASCII
   ascii = true
   first = true
@@ -865,7 +874,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
   zr_str_set_index(zr_buf_take(b), index)
 end
 
-# `==`: the same keys, each with `==` values.
+# `==`: the same keys, and each value is `==` to the other.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -876,7 +885,7 @@ machine def zr_hash_eq(recv, argc, argv, cref, blk)
     return Machine.value(QFALSE)
   end
   # The same two Hashes compared again inside their own comparison is a
-  # recursion, which answers equal (rb_exec_recursive_paired).
+  # recursion, and the result is equal (rb_exec_recursive_paired).
   if recv == other || zr_guard_enter_paired(recv, other, Machine.id(:==))
     return Machine.value(QTRUE)
   end
@@ -910,9 +919,9 @@ machine def zr_hash_eq_entries(recv, other)
 end
 
 # `Hash#initialize`: `Hash.new`, `Hash.new(default)`, `Hash.new { |hash, key| }`.
-# rb_hash_init: a default proc from the block, or the default value
-# `ifnone`, which a block leaves no room for. `unset` is true where no
-# default value was given. The capacity only reserves room.
+# rb_hash_init: sets a default proc from the block, or the default value
+# `ifnone`. A block and `ifnone` cannot both be given. `unset` is true
+# when no default value was given. The capacity only reserves space.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_hash_init(recv, capacity, unset, ifnone, blk)
   if zr_modify_frozen_p(recv)
@@ -941,7 +950,7 @@ machine def zr_hash_default_m(recv, argc, argv, cref, blk)
   RHash.default(recv)
 end
 
-# `{k => v, ...}` from `n` pairs staged in `argv`.
+# Makes `{k => v, ...}` from `n` pairs in `argv`.
 sig [Word, Ptr] => Value
 machine def zr_hash_of(n, argv)
   h = zr_hash_new()
@@ -954,8 +963,8 @@ machine def zr_hash_of(n, argv)
   h
 end
 
-# The keywords a method declares come as `n` symbol ids at `ids`; the
-# call's keywords are `hash`, or nil when none were passed.
+# The keywords that a method declares are `n` symbol ids at `ids`. The
+# call's keywords are `hash`, or nil when the call passed none.
 sig [Value, Word] => Value
 machine def zr_kw_get(hash, id)
   if hash == QNIL
@@ -976,8 +985,9 @@ machine def zr_kw_declared(ids, n, id)
   false
 end
 
-# `missing keyword: :a` or `missing keywords: :a, :b` for the required
-# keywords `hash` lacks; nil when it has them all.
+# Raises `missing keyword: :a` or `missing keywords: :a, :b` for the
+# required keywords that are not in `hash`. Returns nil when all are
+# there.
 sig [Value, Ptr, Word] => Value
 machine def zr_kw_missing(hash, ids, n)
   count = 0
@@ -1011,10 +1021,11 @@ machine def zr_kw_missing(hash, ids, n)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
-# `unknown keyword: :x` or `unknown keywords: :x, :y` for the keys of
-# `hash` the method does not declare; nil when there are none.
+# zr_kw_unknown (below) raises `unknown keyword: :x` or `unknown
+# keywords: :x, :y` for the keys of `hash` that the method does not
+# declare. It returns nil when there are none.
 sig [Value, Ptr, Word] => Value
-# `**nil`: any keyword at all is refused.
+# `**nil`: raises for any keyword.
 sig [Value] => Value
 machine def zr_kw_none(hash)
   if hash == QNIL || RHash.live(hash) == 0
@@ -1064,8 +1075,8 @@ machine def zr_kw_unknown(hash, ids, n)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
-# A call's keyword table (`zr_kw_pass`): the count, then the ids. The
-# column of `id` in it, or -1.
+# A call's keyword table (`zr_kw_pass`) has the count, then the ids.
+# Returns the position of `id` in it, or -1.
 sig [Ptr, Word] => Word
 machine def zr_kw_tab_index(tab, id)
   n = Machine.load64(tab, 0)
@@ -1079,11 +1090,12 @@ machine def zr_kw_tab_index(tab, id)
   0 - 1
 end
 
-# A def's shape cell for the call's table: the column of each of the
-# `m` keywords the def declares (`ids`), or -1, filled once per table
-# after the checks a Hash gets. `mode` 0 refuses an undeclared keyword,
-# 1 leaves it to a `**rest`, 2 (`**nil`) refuses any. nil, or undef
-# with the error pending and the cell as it was.
+# Fills a def's keyword shape cache for the call's table: the position
+# of each of the `m` keywords that the def declares (`ids`), or -1. It
+# fills it one time for each table, after the same checks as for a Hash.
+# `mode` 0 raises for an undeclared keyword, 1 gives it to a `**rest`,
+# and 2 (`**nil`) raises for any keyword. Returns nil, or undef with the
+# error pending and the shape cache unchanged.
 sig [Ptr, Ptr, Ptr, Word, Ptr, Word, Word] => Value
 machine def zr_kw_shape(shape, tab, ids, m, required, nreq, mode)
   if Machine.load64(shape, 0) == Machine.word(tab)
@@ -1180,8 +1192,8 @@ machine def zr_kw_unknown_tab(tab, ids, m)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
-# `**rest` from a table: the columns of `vals` the method does not
-# declare, as a Hash.
+# `**rest` from a table: a Hash of the values in `vals` whose keywords
+# the method does not declare.
 sig [Ptr, Ptr, Ptr, Word] => Value
 machine def zr_kw_rest_tab(tab, vals, ids, m)
   out = zr_hash_new()
@@ -1197,9 +1209,9 @@ machine def zr_kw_rest_tab(tab, vals, ids, m)
   out
 end
 
-# `**rest`: the keywords of `hash` the method does not declare. The
-# entries are copied with their codes, as rb_hash_dup copies them: a
-# key's own `hash` ran at the call and does not run again here.
+# `**rest`: the keywords of `hash` that the method does not declare. The
+# entries are copied with their codes, as rb_hash_dup does. A key's own
+# `hash` ran at the call and does not run again here.
 sig [Value, Ptr, Word] => Value
 machine def zr_kw_rest(hash, ids, n)
   out = zr_hash_new()
@@ -1217,8 +1229,8 @@ machine def zr_kw_rest(hash, ids, n)
   out
 end
 
-# `**value` in a hash literal or a call: the value's pairs, which must
-# be a Hash (nil adds nothing).
+# `**value` in a hash literal or a call: adds the value's pairs. The
+# value must be a Hash (nil adds nothing).
 sig [Value, Value] => Value
 machine def zr_hash_update(h, other)
   if other == QNIL
@@ -1261,9 +1273,9 @@ machine def zr_hash_update(h, other)
   h
 end
 
-# The keywords of an array literal made only of `**` splats: `[h]` to
-# splat into the literal, or `[]` when `h` is empty, as CRuby's
-# pushtoarraykwsplat adds no element for an empty Hash.
+# The keywords of an array literal made only of `**` splats. Returns
+# `[h]` to splat into the literal, or `[]` when `h` is empty, because
+# CRuby's pushtoarraykwsplat adds no element for an empty Hash.
 sig [Value] => Value
 machine def zr_ary_kw_element(h)
   if RHash.live(h) == 0
@@ -1274,7 +1286,7 @@ machine def zr_ary_kw_element(h)
   a
 end
 
-# The primitives runtime/core/hash.rb builds on.
+# The primitives that runtime/core/hash.rb uses.
 sig [Value] => Value
 machine def zr_hash_default_proc(h)
   RHash.default_proc(h)
@@ -1300,7 +1312,7 @@ machine def zr_hash_set_default_proc(h, p)
   p
 end
 
-# Every entry dropped; the defaults stay.
+# Removes all entries. The defaults stay.
 sig [Value] => Value
 machine def zr_hash_clear(h)
   if zr_modify_frozen_p(h)
@@ -1322,7 +1334,7 @@ machine def zr_hash_clear(h)
   h
 end
 
-# `compare_by_identity`: from now on a key matches only itself.
+# `compare_by_identity`: after this, a key matches only itself.
 sig [Value] => Value
 machine def zr_hash_compare_by_identity(h)
   if (RBasic.flags(h) & FL_IDENTITY) != 0
@@ -1344,8 +1356,8 @@ machine def zr_hash_iterating_p(h)
   zr_bool(RHash.iter(h) != 0)
 end
 
-# compare_by_identity on or off, as `replace` takes it from the other
-# Hash; the codes are made again for the keys already here.
+# Sets compare_by_identity on or off, as `replace` copies it from the
+# other Hash. It computes the codes again for the keys in the table.
 sig [Value, Value] => Value
 machine def zr_hash_set_identity(h, on)
   if on != QNIL && on != QFALSE
@@ -1357,7 +1369,7 @@ machine def zr_hash_set_identity(h, on)
   h
 end
 
-# `rehash`: the codes computed again after keys changed under the table.
+# `rehash`: computes the codes again after keys changed in the table.
 sig [Value] => Value
 machine def zr_hash_rehash(h)
   if zr_modify_frozen_p(h)
@@ -1377,16 +1389,16 @@ machine def zr_hash_identity_p(h)
   zr_bool((RBasic.flags(h) & FL_IDENTITY) != 0)
 end
 
-# The default value alone, for the core.
+# Returns only the default value, for the core.
 sig [Value] => Value
 machine def zr_hash_default_value(h)
   RHash.default(h)
 end
 
-# `h[key]`, `h[key] = value`, `key?`, `fetch` and `replace` for the core,
-# which reach the table as rb_hash_aref, rb_hash_aset, rb_hash_has_key,
-# rb_hash_fetch and rb_hash_replace do: never through a method a subclass
-# can replace.
+# `h[key]`, `h[key] = value`, `key?`, `fetch` and `replace` for the core.
+# They use the table directly, as rb_hash_aref, rb_hash_aset,
+# rb_hash_has_key, rb_hash_fetch and rb_hash_replace do, and never call a
+# method that a subclass can replace.
 sig [Value, Value] => Value
 machine def zr_hash_aref_m(h, key)
   slot = Machine.slot(8)
@@ -1421,7 +1433,7 @@ machine def zr_hash_replace_m(h, other)
   zr_hash_copy_from(h, other)
 end
 
-# `delete(key)` for the core: the value, or nil.
+# `delete(key)` for the core. Returns the value, or nil.
 sig [Value, Value] => Value
 machine def zr_hash_delete_m(h, key)
   slot = Machine.slot(8)
