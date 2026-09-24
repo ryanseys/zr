@@ -4,7 +4,7 @@
 module Prism
   module Ruby
     # extension.c: the entry points of prism's C extension over the Ruby
-    # parser. Each answers what the C answers, down to the encoding and
+    # parser. Each returns what the C returns, down to the encoding and
     # frozenness of each String, and raises what the C raises for a bad
     # argument.
     class << self
@@ -45,9 +45,9 @@ module Prism
         nil
       end
 
-      # Prism.parse_stream: pm_parse_stream over an object that answers gets
-      # and eof?. The lines read so far parse again while the source is cut
-      # inside a string, heredoc or other lex mode.
+      # Prism.parse_stream: pm_parse_stream over an object that responds to
+      # gets and eof?. The lines read so far parse again while the source is
+      # cut inside a string, heredoc or other lex mode.
       def parse_stream(stream, **keywords)
         options = Options.new(**keywords)
         buffer = String.new(encoding: ::Encoding::BINARY)
@@ -305,9 +305,9 @@ module Prism
 
       # pm_parse_stream_read: lines appended to the buffer until the end of
       # the stream (true) or an __END__ line (false). A line is read as
-      # `gets(4095)`; a line that fills the buffer is read on from without
-      # the checks. eof? counts as true for any answer but false, as C tests the
-      # VALUE itself.
+      # `gets(4095)`; a line that fills the buffer continues to be read
+      # without the checks. eof? counts as true for any value but false,
+      # because C tests the VALUE itself.
       def parse_stream_read(buffer, stream)
         while (line = stream.gets(STREAM_LINE_SIZE - 1))
           buffer << line.b

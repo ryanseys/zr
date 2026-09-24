@@ -17,8 +17,8 @@ class Socket < BasicSocket
   end
 
   class << self
-    # rsock_raise_resolution_error: what the resolver answered, in its
-    # own words; a failure in a system call is that call's error.
+    # rsock_raise_resolution_error: the resolver's result, in its own
+    # words; a failure in a system call is that call's error.
     def resolution_error(reason, code)
       Primitive.attr! :hidden
       raise SystemCallError.new(reason, -code) if code.negative?
@@ -28,7 +28,7 @@ class Socket < BasicSocket
       raise error
     end
 
-    # rb_syserr_fail_str: the errno's error, carrying `message`.
+    # rb_syserr_fail_str: the errno's error, with `message`.
     def syserr_fail(errno, message)
       Primitive.attr! :hidden
       raise SystemCallError.new(message, errno)
@@ -328,7 +328,7 @@ class Socket < BasicSocket
       end
     end
 
-    # rb_getnameinfo, raising what the resolver answered.
+    # rb_getnameinfo, raising the resolver's error.
     def nameinfo(sockaddr, flags, want = 3)
       Primitive.attr! :hidden
       answer = Primitive.zr_sock_getnameinfo(sockaddr, flags, want)
@@ -378,7 +378,7 @@ class Socket < BasicSocket
       sockaddr_head(AF_UNIX, UNIX_PATH_MAX + 2) + path.b + ("\0" * (UNIX_PATH_MAX - path.bytesize))
     end
 
-    # The most bytes of path a sockaddr_un holds.
+    # The maximum number of path bytes that a sockaddr_un contains.
     def unix_path_max
       Primitive.attr! :hidden
       UNIX_PATH_MAX

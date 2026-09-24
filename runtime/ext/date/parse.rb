@@ -89,8 +89,8 @@ class Date
 
     private
 
-    # The date shapes, in the order ruby tries them: the first that fits
-    # answers, and the rest never see the text it read.
+    # The date shapes, in the order that ruby tries them: the first that
+    # fits wins, and the others never see the text it read.
     def parse_date(str, found)
       return if ascii?(str, :alpha, :digit) && (parse_eu(str, found) || parse_us(str, found))
       return if ascii?(str, :digit, :dash) && parse_iso(str, found)
@@ -204,8 +204,8 @@ class Date
       end
     end
 
-    # The half day an "am" or a "pm" names is counted in a machine int,
-    # so an hour past its range has no answer.
+    # The half day that an "am" or a "pm" gives is counted in a machine
+    # int, so an hour past its range has no result.
     def int_hour(hour)
       raise RangeError, "integer #{hour} too big to convert to 'int'" unless (-2**31...2**31).cover?(hour)
 
@@ -341,7 +341,7 @@ class Date
       found[:sec] = time[4, 2].to_i if time.length >= 6
     end
 
-    # A zone in brackets holds an offset, and after a colon its name.
+    # A zone in brackets contains an offset, and after a colon its name.
     def ddd_zone(found, text)
       found[:zone] = text
       return unless text.start_with?("[")

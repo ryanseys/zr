@@ -53,8 +53,8 @@ module Psych
       FLOW_INDICATORS = ",?[]{}".bytes.freeze
 
       # yaml_emitter_emit: queue the event, and write out every event that
-      # no longer needs the events after it. Answers false on an error;
-      # `problem` names it.
+      # does not need the events after it. Returns false on an error;
+      # `problem` describes it.
       def emit(event)
         @events.push(event)
 
@@ -97,7 +97,7 @@ module Psych
         @line += 1
       end
 
-      # WRITE: copy the character at `pointer` in `string`. Answers the
+      # WRITE: copy the character at `pointer` in `string`. Returns the
       # offset after it.
       def write(string, pointer)
         flush_if_full
@@ -112,7 +112,7 @@ module Psych
       end
 
       # WRITE_BREAK: copy the line break at `pointer` in `string`; LF goes
-      # out as the emitter's line break. Answers the offset after it.
+      # out as the emitter's line break. Returns the offset after it.
       def write_break(string, pointer)
         flush_if_full
         if string.getbyte(pointer) == 0x0A

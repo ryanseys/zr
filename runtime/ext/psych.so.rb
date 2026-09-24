@@ -31,9 +31,9 @@ module Psych
   class ClassLoader
     private
 
-    # rb_path_to_class: each segment a constant the module before it
-    # holds itself, from Object on; the refusal names the path as far as
-    # it read.
+    # rb_path_to_class: each segment is a constant that the module before
+    # it defines itself, from Object on. The refusal gives the path as far
+    # as it read.
     def path2class(path)
       raise ArgumentError, "invalid class path encoding (non ASCII)" unless path.encoding.ascii_compatible?
       raise ArgumentError, "can't retrieve anonymous class #{path}" if path.empty? || path.start_with?("#")
@@ -191,7 +191,7 @@ module Psych
         internal ? export_to_encoding(string, internal) : string
       end
 
-      # rb_protect: run the block and answer the exception it raises, or
+      # rb_protect: run the block and return the exception it raises, or
       # nil.
       def protect
         yield
@@ -224,7 +224,7 @@ module Psych
       end
 
       # io_reader: IO#read(size), cut back to a character boundary when
-      # the IO answers more than it may.
+      # the IO returns more than the limit.
       def read_io(io, size)
         string = io.read(size)
         return String.new(encoding: Encoding::BINARY) if string.nil?

@@ -5,9 +5,9 @@ module Prism
   module Ruby
     # pm_token_buffer_t, and with `regexp:` pm_regexp_token_buffer_t: the
     # bytes of a string token whose escapes are read. Until the first escape
-    # the cursor is nil and the token is a slice of the source. From then on
-    # `bytes` holds the token up to the cursor, and for a regexp,
-    # `regexp_bytes` holds the source the regexp engine reads.
+    # the cursor is nil and the token is a slice of the source. After that,
+    # `bytes` contains the token up to the cursor, and for a regexp,
+    # `regexp_bytes` contains the source that the regexp engine reads.
     class TokenBuffer
       attr_reader :bytes, :regexp_bytes
       attr_accessor :cursor
@@ -685,7 +685,7 @@ module Prism
       end
 
       # pm_heredoc_strspn_inline_whitespace: past the indentation at `cursor`
-      # that the heredoc's kind skips. Answers the columns it takes in a <<~
+      # that the heredoc's kind skips. Returns the columns it takes in a <<~
       # heredoc (a tab to the next multiple of 8, else 0) and where it ends.
       def heredoc_indentation(cursor, indent)
         columns = 0

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# The eval forms that take a string of ruby, over the compiler the
-# program carries. Each one compiles the string and runs it under a self
-# and a cref of its own; a program that names no eval keeps the
-# block-only builtins these stand over.
+# The eval forms that take a string of ruby, over the compiler that the
+# program links in. Each one compiles the string and runs it under a self
+# and a cref of its own. A program that does not call eval by name keeps
+# the block-only builtins that these replace.
 
 module Kernel
   # Ruby run where this call stands: over the locals and under the cref
@@ -25,10 +25,10 @@ module Kernel
     Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref, Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 
-  # As ruby has it: private where it is written, public where it is
-  # called on Kernel itself. `module_function` is what makes the second
-  # copy, and the copy must be made here, since the stub this method
-  # stands over left one of its own behind.
+  # As in ruby: private where it is written, public where it is
+  # called on Kernel itself. `module_function` makes the second
+  # copy, and the copy must be made here, because the stub that this
+  # method replaces left a copy of its own.
   module_function :eval
 end
 
@@ -44,7 +44,7 @@ end
 
 class Module
   # The module is the self and the definee, and a lexical scope on top
-  # of the one the call stands in.
+  # of the scope of the call.
   def class_eval(*args, &block)
     if block
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?

@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# The eval forms that take a string of ruby, over the walk the program
-# carries where it cannot write machine code (lib/zr/eval/walk.rb).
-# Each one hands the walk the scope the frame that asked stands in, the
-# self the string runs under and the lexical scope its constants read;
-# the block forms are the ones every program keeps, and stand here
-# unchanged.
+# The eval forms that take a string of ruby, over the tree-walking
+# interpreter that a program includes where it cannot write machine code
+# (lib/zr/eval/walk.rb). Each one gives the interpreter the scope of the
+# calling frame, the self for the string and the lexical scope that its
+# constants read. The block forms are the ones that every program keeps,
+# and are here without changes.
 
 module Kernel
   # Ruby run where this call stands: over the locals and under the cref
@@ -32,7 +32,7 @@ end
 
 class Module
   # The module is the self and the definee, and a lexical scope on top
-  # of the one the call stands in.
+  # of the scope of the call.
   def class_eval(*args, &block)
     if block
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?

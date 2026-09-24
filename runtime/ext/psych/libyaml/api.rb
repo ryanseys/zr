@@ -60,9 +60,9 @@ module Psych
         end
       end
 
-      # yaml_parser_set_input: read from a handler that takes the most
-      # bytes it may answer and answers a binary string (empty at the end
-      # of the input), or nil for an input error.
+      # yaml_parser_set_input: read from a handler that takes the maximum
+      # number of bytes it can return and returns a binary string (empty at
+      # the end of the input), or nil for an input error.
       def set_input(&handler)
         @read_handler = handler
       end
@@ -129,7 +129,7 @@ module Psych
       def inspect = "#<#{self.class}>"
 
       # yaml_emitter_set_output: write through a handler that takes a
-      # binary string and answers whether it wrote it.
+      # binary string and returns whether it wrote it.
       def set_output(&handler)
         @write_handler = handler
       end
@@ -166,7 +166,7 @@ module Psych
     end
 
     # The event constructors. libyaml checks that every string is valid
-    # UTF-8 and answers 0 when one is not; these answer nil then.
+    # UTF-8 and returns 0 when one is not; these return nil then.
     module Events
       module_function
 

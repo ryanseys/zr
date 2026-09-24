@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# The `Ruby` namespace names the running ruby. `Ruby::Box` is a world
-# of its own inside the program: its own toplevel constants, its own
-# globals, and its own patches to the classes everybody shares. What a
-# box reads of the shared world is what the runtime held when the
-# program started, never what the program has written since.
+# The `Ruby` namespace represents the running ruby. `Ruby::Box` is a
+# separate world inside the program: its own toplevel constants, its own
+# globals, and its own patches to the shared classes. A box reads the
+# shared world as the runtime had it when the program started, never
+# with the program's later writes.
 module Ruby
   VERSION = RUBY_VERSION
   ENGINE = RUBY_ENGINE
@@ -69,10 +69,10 @@ module Ruby
 
     private
 
-    # The class this box sees in place of a shared one: its own, with
-    # the shared class underneath, so what the box does not patch it
-    # reads from there. A shared MODULE's stand-in goes into every
-    # shadow whose chain already holds the module.
+    # The class that this box sees in place of a shared one: its own, with
+    # the shared class under it, so the box reads what it does not patch
+    # from there. A shared MODULE's replacement goes into every shadow
+    # whose chain already includes the module.
     def __shadow__(shared)
       found = @shadows[shared]
       return found if found
@@ -139,8 +139,8 @@ module Ruby
   end
 end
 
-# The boxes ruby makes for itself carry the rows that name them, and
-# those rows exist only where the gate is open.
+# The boxes that ruby makes for itself contain the entries that identify
+# them, and those entries exist only where the gate is open.
 if Ruby::Box.enabled?
   class Ruby::Box
     def main? = @kind == :main

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# ancdata.c: the control messages sendmsg and recvmsg carry, and the two
-# calls themselves. A cmsghdr here is 12 bytes, and its data is padded
-# to a multiple of 4.
+# ancdata.c: the control messages that sendmsg and recvmsg send and
+# receive, and the two calls themselves. A cmsghdr here is 12 bytes, and
+# its data is padded to a multiple of 4.
 class Socket < BasicSocket
   class AncillaryData
     def initialize(family, level, type, data)
@@ -200,7 +200,7 @@ class Socket < BasicSocket
       bytes
     end
 
-    # make_io_for_unix_rights: each descriptor a message carried, as a
+    # make_io_for_unix_rights: each descriptor in a message, as a
     # Socket when it is one and an IO otherwise.
     def take_rights
       Primitive.attr! :hidden
@@ -214,8 +214,8 @@ class Socket < BasicSocket
         kind = rows[2] & 0o170000
         next Socket.new_sock(Socket, fd) if kind == 0o140000
 
-        # rb_io_fdopen opens it for reading and writing whatever the
-        # descriptor allows; a stream here holds to what it allows.
+        # rb_io_fdopen opens it for reading and writing, whatever the
+        # descriptor allows; a stream here keeps to what it allows.
         mode = %w[r w r+].fetch(Primitive.zr_io_flags(fd) & 3, "r+")
         kind == 0o100000 ? File.for_fd(fd, mode) : IO.for_fd(fd, mode)
       end.freeze
@@ -223,8 +223,8 @@ class Socket < BasicSocket
   end
 
   class << self
-    # discard_cmsg: the descriptors an SCM_RIGHTS message carried, closed,
-    # since no one asked for them.
+    # discard_cmsg: closes the descriptors in an SCM_RIGHTS message,
+    # because no caller asked for them.
     def discard_rights(control)
       Primitive.attr! :hidden
       AncillaryData.cmsgs(control).each do |level, type, data|

@@ -86,7 +86,7 @@ module Prism
       end
 
       # update_parameter_state: the order after the parameter that starts with
-      # `token`, or an error when it is out of order. Answers the new order
+      # `token`, or an error when it is out of order. Returns the new order
       # and whether the parameter was in order.
       def update_parameter_state(token, current)
         state = PARAMETERS_ORDERING[token.type]
@@ -677,7 +677,7 @@ module Prism
         end
 
         if numbered_parameter > 0
-          # The scopes around may no longer use numbered parameters.
+          # The scopes around this one cannot use numbered parameters after this.
           scope = @current_scope.previous
           until scope.nil? || scope.closed?
             scope.parameters |= Scope::NUMBERED_INNER
@@ -878,7 +878,7 @@ module Prism
         end
       end
 
-      # push_block_exits: a new list of block exits; answers the one before.
+      # push_block_exits: a new list of block exits; returns the one before.
       def push_block_exits(current_block_exits)
         previous_block_exits = @current_block_exits
         @current_block_exits = current_block_exits
@@ -914,7 +914,7 @@ module Prism
       end
 
       # parse_predicate: an if's or unless's predicate and what closes it;
-      # answers the predicate and the `then` keyword (or NOT_PROVIDED).
+      # returns the predicate and the `then` keyword (or NOT_PROVIDED).
       def parse_predicate(binding_power, context, then_keyword, depth)
         context_push(:predicate)
         error_id = context == :if ? :conditional_if_predicate : :conditional_unless_predicate

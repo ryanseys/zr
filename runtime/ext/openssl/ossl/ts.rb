@@ -109,15 +109,15 @@ module OpenSSL
       Lib.TS_TST_INFO_new.tap { |info| raise Ossl.error(Timestamp::TimestampError) if info.zero? }
     })
 
-    # ossl_tsfac_serial_cb: hands the library the serial ASN1_INTEGER the
-    # data word holds, which the library frees from here.
+    # ossl_tsfac_serial_cb: gives the library the serial ASN1_INTEGER in
+    # the data word, which the library frees after this.
     TS_SERIAL_CB = Lib.callback do |_ctx, data|
       serial = Lib.read_pointer(data)
       Lib.write(data, [0].pack("J"))
       serial
     end
 
-    # ossl_tsfac_time_cb: the seconds the data word holds, no microseconds.
+    # ossl_tsfac_time_cb: the seconds in the data word, no microseconds.
     TS_TIME_CB = Lib.callback do |_ctx, data, sec, usec|
       Lib.write(sec, Lib.read(data, 8))
       Lib.write(usec, [0].pack("q"))
@@ -167,7 +167,7 @@ module OpenSSL
         PKCS7_STRUCT.wrap(OpenSSL::PKCS7, copy)
       end
 
-      # The signed content of a TS token: the PKCS7_SIGNED its union holds.
+      # The signed content of a TS token: the PKCS7_SIGNED in its union.
       def pkcs7_signed(p7) = Lib.read_pointer(p7 + Lib::PKCS7_D)
     end
   end

@@ -12,8 +12,8 @@ class Date
                           "v" => "%e-%b-%Y", "+" => "%a %b %e %H:%M:%S %Z %Y" }.freeze
   private_constant :STRPTIME_ZONE_RE, :NUMERIC_DIRECTIVES, :COMPOUND_DIRECTIVES
 
-  # One run of a format over a text. The reader holds where it stands,
-  # so a compound directive goes on from where the last one stopped.
+  # One run of a format over a text. The reader keeps its position,
+  # so a compound directive continues from where the last one stopped.
   class Reader
     def initialize(text, found)
       @text = text
@@ -55,8 +55,8 @@ class Date
       fi + 1
     end
 
-    # The directive at `fi`, which starts with a `%`. Answers where the
-    # format goes on.
+    # The directive at `fi`, which starts with a `%`. Returns the position
+    # where the format continues.
     def directive(format, fi)
       start = fi
       fi += 1
@@ -68,8 +68,8 @@ class Date
       fi + 1
     end
 
-    # "%E" and "%O" stand before a few letters only, and "%:z" holds up
-    # to three colons; anything else leaves the "%" as it stands.
+    # "%E" and "%O" come before only a few letters, and "%:z" has up
+    # to three colons; anything else leaves the "%" as it is.
     def modifier?(format, fi)
       case format[fi]
       when "E" then "cCxXyY".include?(format[fi + 1].to_s)
@@ -140,7 +140,7 @@ class Date
       true
     end
 
-    # A width of two, unless a space stands for the leading digit.
+    # A width of two, unless a space is in place of the leading digit.
     def spaced(width)
       return digits(width) unless @text[@at] == " "
 

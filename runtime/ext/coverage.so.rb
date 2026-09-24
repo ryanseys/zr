@@ -70,10 +70,10 @@ module Coverage
     answer
   end
 
-  # A string an eval compiles is not a file the build read, so no line
-  # of it is measurable: an eval while `eval: true` measures stops here
-  # by name, rather than a result that leaves the eval out. A program
-  # that asks for eval coverage and never evals answers as ruby does.
+  # A string that eval compiles is not a file that the build read, so no
+  # line of it is measurable. An eval while `eval: true` measures is a
+  # refusal, not a result that leaves the eval out. A program that asks
+  # for eval coverage and never calls eval gets the same result as ruby.
   def self.eval_compiled!
     Primitive.attr! :hidden
     mode = Primitive.zr_hidden_get(self, :__mode__)
@@ -87,8 +87,8 @@ module Coverage
   class << self
     private
 
-    # The targets `setup` takes: none for the compatible mode, which
-    # answers each file's lines alone.
+    # The targets that `setup` takes: none for the compatible mode, which
+    # returns only each file's lines.
     def mode_of(args)
       return {} if args.empty?
       return { lines: true, branches: true, methods: true, eval: true } if args[0] == :all
@@ -150,12 +150,12 @@ module Coverage
       out
     end
 
-    # Each method a definition claimed while coverage was set up, as
+    # Each method that a definition claimed while coverage was set up, as
     # `{path => {[owner, name, start line, start column, end line, end
-    # column] => count}}`. The claim carries the owner and the name, and
-    # the def-site row it names carries the span; a file coverage did not
-    # measure drops out with its lines, and two claims of one key add,
-    # which is what the C extension does with a method defined twice.
+    # column] => count}}`. The claim contains the owner and the name, and
+    # its def-site entry contains the span. A file that coverage did not
+    # measure drops out with its lines. Two claims of one key add, as the
+    # C extension does with a method defined twice.
     def claimed(rows)
       sites = def_table
       out = {}

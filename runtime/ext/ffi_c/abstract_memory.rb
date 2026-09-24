@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# AbstractMemory.c: an address, how many bytes past it may be touched,
-# whether they may be read and written, and every typed read and write
-# of them. A memory object of any class holds these four, which the other
-# files reach through the hidden ffi_ methods.
+# AbstractMemory.c: an address, how many bytes past it can be used,
+# whether they can be read and written, and every typed read and write
+# of them. A memory object of any class contains these four, which the
+# other files reach through the hidden ffi_ methods.
 module FFI
   class NullPointerError < RuntimeError; end
 
@@ -333,7 +333,7 @@ module FFI
   end
 
   class << self
-    # get_pointer_value: the address a value stands for.
+    # get_pointer_value: the address that a value represents.
     def pointer_value(value)
       Primitive.attr! :hidden
       case value
@@ -352,7 +352,7 @@ module FFI
       value ? 1 : 0
     end
 
-    # A number a memory op read, as the ruby value it stands for.
+    # A number that a memory op read, as the ruby value it represents.
     def from_native_number(kind, raw)
       Primitive.attr! :hidden
       case kind

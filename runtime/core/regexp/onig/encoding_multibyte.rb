@@ -16,7 +16,7 @@ class Regexp
       end
 
       # An encoding whose mbc_enc_len walks a `trans` table from its lead
-      # byte: the answers of each step's end of text come from `need`.
+      # byte: the result for each step's end of text comes from `need`.
       class Automaton < Base
         attr_reader :name
 
@@ -127,9 +127,9 @@ class Regexp
           buf
         end
 
-        # The tail every left_adjust_char_head of these encodings shares:
-        # from the head `q` found, the character there if it holds `p`,
-        # else the even offset past it.
+        # The tail that every left_adjust_char_head of these encodings
+        # shares: from the head that `q` found, the character there if it
+        # contains `p`, else the even offset past it.
         def adjust_tail(p, q, len)
           return q if q + len > p
 
@@ -502,8 +502,8 @@ class Regexp
         S_ODD_CM_EVEN_C4CM = 22
 
         # For each state, what each byte class (C1, C2, C4, CM) does: a
-        # state to move to, or [:back, n] to answer the position n bytes
-        # before the one asked about.
+        # state to move to, or [:back, n] to return the position n bytes
+        # before the given one.
         MOVES = [
           [[:back, 0], S_ONE_C2, S_ONE_C4, S_ONE_CM],
           [[:back, 0], [:back, 0], [:back, 0], S_ODD_CM_ONE_CX],
@@ -530,7 +530,7 @@ class Regexp
           [[:back, 0], [:back, 0], [:back, 0], S_EVEN_CM_EVEN_C4CM],
         ].freeze
 
-        # What each state answers when the text runs out, as bytes back.
+        # What each state returns when the text runs out, as bytes back.
         AT_START = [0, 0, 0, 0, 1, 0, 1, 1, 1, 3, 3, 3, 1, 1, 3, 0, 2, 2, 0, 0, 2, 2, 0].freeze
 
         # gb18030_left_adjust_char_head

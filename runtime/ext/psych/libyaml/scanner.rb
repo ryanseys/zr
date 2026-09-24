@@ -35,10 +35,10 @@ module Psych
 
       private
 
-      # yaml_parser_fetch_more_tokens: make sure the token queue holds a
-      # token the parser can take. A token may still become a simple key
-      # while a potential simple key refers to it, so the scanner reads on
-      # until no such key remains.
+      # yaml_parser_fetch_more_tokens: make sure the token queue contains a
+      # token that the parser can take. A token can still become a simple
+      # key while a potential simple key refers to it, so the scanner reads
+      # on until no such key remains.
       def fetch_more_tokens
         loop do
           need_more_tokens = false
@@ -66,7 +66,7 @@ module Psych
 
       # --- Buffer macros ---------------------------------------------------
 
-      # CACHE: make sure the buffer holds `length` characters.
+      # CACHE: make sure the buffer contains `length` characters.
       def cache(length)
         update_buffer(length) if @unread < length
       end
@@ -1089,7 +1089,7 @@ module Psych
       end
 
       # yaml_parser_scan_block_scalar_breaks: eat indentation spaces and
-      # line breaks, and find the indentation when it is still 0. Answers
+      # line breaks, and find the indentation when it is still 0. Returns
       # the indentation and the end mark, which C passes back through
       # pointers.
       def scan_block_scalar_breaks(indent, breaks, start_mark, end_mark)

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# What every file of the C half shares: ruby's C conversions (NUM2INT and
-# its kin) with the words their errors use, native memory the collector
-# frees with the object that holds it, and libffi's ffi_type.
+# What every file of the C part shares: ruby's C conversions (NUM2INT and
+# the related macros) with the words their errors use, native memory that
+# the collector frees with the object that owns it, and libffi's ffi_type.
 module FFI
   class << self
     # NUM2INT.
@@ -38,7 +38,7 @@ module FFI
       end
     end
 
-    # NUM2UINT: as NUM2ULONG, then within what an unsigned int holds.
+    # NUM2UINT: as NUM2ULONG, then within the range of an unsigned int.
     def uint_value(value)
       Primitive.attr! :hidden
       number = ulong_value(value)
@@ -135,7 +135,7 @@ module FFI
     end
 
     # TypedData_Get_Struct and Check_Type: `value` itself, when it is
-    # what the C half holds it as.
+    # the type that the C part expects.
     def typed(value, klass, expected = klass.name)
       Primitive.attr! :hidden
       return value if value.is_a?(klass)
@@ -143,8 +143,8 @@ module FFI
       raise TypeError, "wrong argument type #{__send__(:conversion_name, value)} (expected #{expected})"
     end
 
-    # Bytes the collector frees once nothing holds them: the String keeps
-    # them, and its bytes never move while it is not written through.
+    # Bytes that the collector frees when nothing refers to them: the
+    # String keeps them, and its bytes never move while no write goes through it.
     def storage(size)
       Primitive.attr! :hidden
       raise NoMemoryError, "failed to allocate memory" if size.negative?

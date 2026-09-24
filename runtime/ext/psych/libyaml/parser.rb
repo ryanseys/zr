@@ -39,7 +39,7 @@
 #                            FLOW-MAPPING-END
 #   flow_mapping_entry   ::= flow_node | KEY flow_node? (VALUE flow_node?)?
 #
-# One object holds the state of the reader, the scanner and the parser,
+# One object contains the state of the reader, the scanner and the parser,
 # as yaml_parser_t does. api.rb gives it its constructor and its input.
 module Psych
   module LibYAML
@@ -83,7 +83,7 @@ module Psych
                   :context, :context_mark, :encoding
 
       # yaml_parser_parse: the next event, or an event of type NO_EVENT
-      # after the stream ends. Answers nil when an error stops the parser;
+      # after the stream ends. Returns nil when an error stops the parser;
       # `error`, `problem` and the marks then describe it.
       def parse
         return Event.new(NO_EVENT) if @stream_end_produced || @error != NO_ERROR || @state == PARSE_END_STATE
@@ -730,7 +730,7 @@ module Psych
       end
 
       # yaml_parser_process_directives: read the %YAML and %TAG directives
-      # before a document, and add the default tag handles. Answers the
+      # before a document, and add the default tag handles. Returns the
       # version directive and the document's own tag directives.
       def process_directives
         version_directive = nil

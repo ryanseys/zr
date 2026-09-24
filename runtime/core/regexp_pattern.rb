@@ -29,11 +29,11 @@ class Regexp
 
     # rb_reg_initialize_str and rb_reg_initialize: `source` compiled under
     # the option `bits`, as [encoding, bits, compiled, warnings]: the
-    # pattern's encoding, the bits with the flags ruby keeps beside them
-    # (FIXEDENCODING where a character or an escape fixed the encoding,
-    # or the option did), and what Regexp::Onig.compile answered. Ruby
+    # pattern's encoding, the bits with the flags that ruby keeps next to
+    # them (FIXEDENCODING when a character, an escape or the option fixed
+    # the encoding), and the result of Regexp::Onig.compile. Ruby
     # preprocesses under the source's own encoding (BINARY under /n), and
-    # the engine reads the text under the pattern's. RegexpError names
+    # the engine reads the text under the pattern's. RegexpError gives
     # the reason, then the pattern as written (rb_reg_raise_str).
     def compile(source, bits)
       enc = source.encoding
@@ -217,15 +217,15 @@ class Regexp
     end
 
     # rb_reg_expr_str: `text` as a message or inspect shows it between
-    # `term`s. Read under `enc`; `resenc` is the encoding the reader
-    # sees (nil for none). Text of an ASCII-compatible encoding that is
-    # valid, all printable, has no bare `term` and no non-ASCII character
-    # a reader could not show goes as it is; otherwise an escape keeps
-    # its next character, a bare `term` takes a backslash, a character
-    # past ASCII is written as \uXXXX (or \xHH) when there is a reader, a
-    # character that is neither printable nor a space as \xHH, the rest
-    # as they are. "Printable" and "space" are the encoding's own
-    # classes. The answer is bytes; the caller sets the encoding.
+    # `term`s. It is read under `enc`; `resenc` is the encoding that the
+    # reader sees (nil for none). Text that is in a valid ASCII-compatible
+    # encoding, all printable, with no bare `term` and no non-ASCII
+    # character that a reader cannot show, goes as it is. Otherwise an
+    # escape keeps its next character, a bare `term` gets a backslash, a
+    # character past ASCII is written as \uXXXX (or \xHH) when there is a
+    # reader, a character that is not printable and not a space as \xHH,
+    # and the others as they are. "Printable" and "space" are the
+    # encoding's own classes. The result is bytes; the caller sets the encoding.
     def expr_str(text, enc, resenc, term)
       bytes = text.b
       onig = Onig::Enc.reader(enc)
@@ -288,11 +288,11 @@ class Regexp
       end
     end
     
-    # rb_reg_preprocess: the text the engine compiles for `source` read in
-    # `enc`, and the encoding its characters and escapes fix, or nil:
-    # [text (BINARY), fixed]. Ruby decodes the `\u` escapes and the byte
-    # escapes that name a character past ASCII, drops comments, and
-    # keeps the rest as written. RegexpError carries the reason alone.
+    # rb_reg_preprocess: the text that the engine compiles for `source`
+    # read in `enc`, and the encoding that its characters and escapes fix,
+    # or nil: [text (BINARY), fixed]. Ruby decodes the `\u` escapes and the
+    # byte escapes that give a character past ASCII, drops comments, and
+    # keeps the rest as written. RegexpError contains only the reason.
     def preprocess(source, enc, extended)
       scan = Preprocess.new(source.b, enc)
       scan.walk(extended, false)
