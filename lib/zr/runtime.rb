@@ -13,35 +13,34 @@ require_relative "clock"
 require_relative "record"
 
 module Zr
-  # The zr runtime: the kernel files, the core library written in Ruby
-  # over them, and the data that the compiler lays out beside them.
-  # The core library files, in the order their toplevels run: a module
-  # before the classes that include it. An `os/` name is the OS layer's
-  # file of that name, under runtime/core/os/<os>/: the numbers each OS
-  # gives the constants the portable file after it goes on to use, in
-  # the order ruby defines them.
-  # Regexp::Onig, the regular expression compiler (runtime/core/regexp/onig),
-  # in the order its files define what the next one reads.
+  # The zr runtime: the kernel files, the core library written in Ruby on
+  # top of them, and the data that the compiler lays out next to them.
+  #
+  # Regexp::Onig, the regular expression compiler (runtime/core/regexp/onig).
+  # Each file defines what the next file reads.
   ONIG_NAMES = %w[regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding_tables regexp/onig/encoding regexp/onig/encoding_unicode regexp/onig/encoding_multibyte regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize regexp/onig/compile regexp/onig/program regexp/onig].freeze
+  # The core library files, in the order their toplevels run: a module
+  # before the classes that include it. An `os/` name is a file of the OS
+  # layer, under runtime/core/os/<os>/. It gives each OS's values for the
+  # constants that the next portable file uses, in ruby's order.
   CORE_NAMES = (%w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack] + ONIG_NAMES + %w[regexp_pattern regexp pathname rational complex objectspace rubyvm box]).freeze
 
-  # Regexp::Onig under the host ruby, for the tools and checks that
-  # hold it to ruby's engine.
+  # Loads Regexp::Onig under the host ruby, for the tools and tests that
+  # check it against ruby's engine.
   def self.require_onig
     ONIG_NAMES.each { |name| require File.join(Paths::RUNTIME, "core/#{name}.rb") }
   end
 
-  # Where the runtime's built forms live, keyed on the digest of
-  # everything they depend on: the runtime sources and the compiler.
-  # A stage of the bootstrap takes its own, so that it emits the
-  # runtime itself instead of reading a form another stage wrote.
+  # The cache directory for the runtime's build output. Its files are
+  # keyed on the digest of all their inputs: the runtime sources and the
+  # compiler. Each bootstrap stage uses its own cache, so it emits the
+  # runtime itself and does not read another stage's output.
   def self.cache = Paths.cache
 
-  # The kernel and the core library, lowered once per process, and as
-  # little of them as a build needs: a program's lowering reads the
-  # kernel's description and the symbol table, both from the cache;
-  # only a build with no cached runtime object lowers the kernel and
-  # the core.
+  # The kernel and the core library, lowered once per process, and only
+  # as much as a build needs. A program's lowering reads the kernel's
+  # description and the symbol table from the cache. Only a build with
+  # no cached runtime object lowers the kernel and the core.
   class Runtime
     attr_reader :target
 
@@ -49,16 +48,16 @@ module Zr
       @target = target
     end
 
-    # Every source, read once: the digest covers the bytes the kernel
-    # and the core were lowered from, never a later edit of them, so a
-    # build under way while a file changes cannot cache the old form
-    # under the new digest.
+    # Every source, read once. The digest covers the bytes that the
+    # kernel and the core were lowered from, not a later edit. So a build
+    # that runs while a file changes cannot cache old output under the
+    # new digest.
     def sources
       @sources ||= Zr.sources(target).to_h { |path| [path, File.read(path)] }
     end
 
-    # The kernel, lowered: what the core's lowering and the runtime
-    # object need, and nothing a program's own lowering does.
+    # The lowered kernel. The core's lowering and the runtime object need
+    # it. A program's own lowering does not.
     def unit
       raise "the runtime's IR was released" if @released
 
@@ -67,8 +66,9 @@ module Zr
       end
     end
 
-    # The kernel's defs, constants and layouts, which is all a program's
-    # lowering asks of it: from the cache, or from the unit.
+    # The kernel's defs, constants and layouts: all that a program's
+    # lowering needs from the kernel. It comes from the cache, or from
+    # the unit.
     def description
       @description ||= Machine::Description.parse(cached.fetch(:description))
     end
@@ -79,11 +79,11 @@ module Zr
     def object_path = File.join(Zr.cache, "runtime-#{digest}.o")
 
     def digest
-      # The target goes in first: two targets never share a built form.
-      # A path goes in beside its bytes: the runtime object carries the
-      # core's file names, so two checkouts never share one either. A
-      # build under a path root (`Paths.root`) writes other names, so
-      # the root goes in too.
+      # The target is the first input, so two targets never share build
+      # output. Each path is an input with its bytes, because the runtime
+      # object contains the core's file names; so two checkouts never
+      # share one. A build with a path root (`Paths.root`) writes
+      # different names, so the root is also an input.
       @digest ||= begin
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
@@ -91,16 +91,14 @@ module Zr
       end
     end
 
-    # The file the digest covers that has changed on disk since the
-    # digest was taken, or nil. The digest is taken once and the
-    # bytes it covers are kept, so a build reads one form of the
-    # runtime; but a road, a prelude and the harness read files again
-    # from disk, and an edit while a build runs would put the new
-    # form of what they read under the old digest's name in every
-    # cache. So nothing is cached while a file has moved
-    # (`Zr.write_cache`, `UnitCache#keep`, the parse cache, the
-    # harness's binaries): the build stops naming the file. A stat a
-    # file is what it costs, which is nothing beside a cache write.
+    # A file in the digest that changed on disk after the digest was
+    # computed, or nil. The build keeps the bytes that the digest covers.
+    # But eval support, the prelude and the harness read files again from
+    # disk. An edit during a build would put new content under the old
+    # digest in every cache. So nothing is cached after a file changes
+    # (`Zr.write_cache`, `UnitCache#keep`, the parse cache, the harness's
+    # binaries), and the build stops with the file's name. The cost is one
+    # stat per file, which is small compared to a cache write.
     def moved
       return nil unless @stamps
 
@@ -108,11 +106,11 @@ module Zr
       nil
     end
 
-    # The files the gem prelude loads, which only its loader knows:
-    # read from the cache under the digest of everything else, or
-    # found by building the prelude's HIR. A change to one of them that
-    # reaches another file changes the digest, and the list is found
-    # again.
+    # The files that the gem prelude loads. Only its loader knows them.
+    # The list comes from the cache (keyed on the digest of all other
+    # inputs), or from building the prelude's HIR. If a change to one of
+    # them adds or removes a file, the digest changes and the list is
+    # computed again.
     def gem_prelude_files
       @gem_prelude_files ||= begin
         path = File.join(Zr.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
@@ -133,14 +131,14 @@ module Zr
       end.hexdigest
     end
 
-    # The symbol table after the core library: from the cache when the
-    # core was lowered before under this digest.
+    # The symbol table after the core library. It comes from the cache if
+    # an earlier build lowered the core with this digest.
     def symbols
       cached.fetch(:symbols)
     end
 
-    # The function and data symbols the runtime names and does not
-    # define, for a program to define: `{ functions:, data: }`.
+    # The function and data symbols that the runtime refers to but does
+    # not define. A program defines them. `{ functions:, data: }`.
     def wants
       cached.fetch(:wants)
     end
@@ -149,12 +147,12 @@ module Zr
 
     def data = unit.data + lowered.last
 
-    # The kernel's and the core's IR let go, once the runtime object
-    # and the cache carry everything a build reads of them: a program
-    # lowered after this never stands in memory beside them. What the
-    # IR answered is refused from then on rather than lowered again. A
-    # warm build never lowered the kernel, and lowers it not even now
-    # for the raw functions, which only the runtime object holds.
+    # Releases the kernel's and the core's IR, after the runtime object
+    # and the cache contain all that a build reads from them. So a program
+    # lowered after this is not in memory at the same time. After this, a
+    # call that needs the IR raises; it does not lower again. A warm build
+    # never lowers the kernel, not even for the raw functions (only the
+    # runtime object contains them).
     def release
       @raw = @unit&.raw
       @unit = @lowered = nil
@@ -167,9 +165,9 @@ module Zr
       @kernel_symbols ||= Machine::Symbols.new
     end
 
-    # The symbol table, the wanted symbols and the kernel's description,
-    # read from the cache or found by lowering the kernel and the core
-    # and then cached. A file missing any row is a miss, never a guess.
+    # The symbol table, the wanted symbols and the kernel's description.
+    # They come from the cache, or from lowering the kernel and the core
+    # (then cached). A cache file with a missing field is a miss.
     def cached
       @cached ||= read_cached || write_cached
     end
@@ -205,11 +203,11 @@ module Zr
     end
   end
 
-  # A program's own functions and data over its runtime. Destructures
+  # A program's own functions and data, and its runtime. It destructures
   # as `[functions, data, raw]` with the runtime included, for a build
-  # that takes everything as one unit. `evals` says the program carries
-  # the compiler, whose JIT finds kernel functions by name: it is the
-  # Road the program links beside the runtime, or nil.
+  # that uses one unit for everything. `evals` is the EvalSupport that
+  # the program links next to the runtime, or nil. Its JIT finds kernel
+  # functions by name.
   class Program < Record
     FIELDS = %i[runtime functions data evals].freeze
     attr_accessor :runtime, :functions, :data, :evals
@@ -228,13 +226,13 @@ module Zr
     def to_ary = [runtime.functions + functions, runtime.data + data, raw]
   end
 
-  # The compiler a program that evals carries, lowered once over the
-  # runtime's symbols and assembled into an object of its own, so a
-  # program that evals lowers and assembles only itself. The cache keeps,
-  # beside the object, what a program needs to know of it: the entry of
-  # each file it holds, what it needs beside it, and the symbol table
-  # after it. The key is the runtime's digest and the bytes of every
-  # file the road holds, so an edit to any of them builds it again.
+  # Eval support: the compiler that a program with eval links in. zr
+  # lowers it once with the runtime's symbols and assembles it into its
+  # own object, so a program with eval lowers and assembles only itself.
+  # Next to the object, the cache keeps the metadata that a program
+  # needs: the entry of each file, its dependencies, and the symbol table
+  # after it. The key is the runtime's digest and the bytes of each file
+  # in eval support, so an edit to any of them builds it again.
   class EvalSupport
     def initialize(runtime)
       @runtime = runtime
@@ -249,25 +247,25 @@ module Zr
     def irbs? = meta.fetch("irbs")
     def gems? = meta.fetch("gems")
 
-    # A fresh table to lower a program over, which goes on from the
-    # road's.
+    # A new symbol table for a program's lowering. It continues from the
+    # eval support table.
     def symbols = Machine::Symbols.new(meta.fetch("names"), sites: meta.fetch("sites"))
 
-    # How many `using` rows the road itself holds. The road's files
-    # activate refinements as they load -- the prism port reaches its
-    # node writers through one -- and they load on the first eval, so
-    # a program's rows must start past these or the road takes them.
+    # The number of `using` entries that eval support itself uses. Its
+    # files activate refinements when they load (the prism port gets its
+    # node setters through one), and they load at the first eval. So a
+    # program's entries must start after these.
     def activations = meta.fetch("activations")
 
-    # The SHA-256 of each file the road holds, as it was lowered, and
-    # of each the gem prelude loads, by path: what a compiled compiler
-    # carries to key its parse cache by the code it was built from
-    # (ParseCache.parser_digests, ParseCache.maker).
+    # The SHA-256 of each file in eval support (as lowered) and of each
+    # file that the gem prelude loads, by path. A compiled compiler keys
+    # its parse cache on these (ParseCache.parser_digests,
+    # ParseCache.maker).
     def digests = meta.fetch("digests")
 
-    # What names this road: the runtime's digest and the bytes of
-    # every file the road holds. A program fixed against this road's
-    # symbol table is cached under it.
+    # The key of eval support: the runtime's digest and the bytes of each
+    # file in eval support. The unit cache uses it for a program that
+    # uses this symbol table.
     def key = meta.fetch("key")
 
     def object_path = self.class.object_path(key)
@@ -283,9 +281,9 @@ module Zr
 
     private
 
-    # The road the target runs names the cache beside the digest: the
-    # compiling road and the walking one hold different files, and a
-    # meta of one must never answer for the other.
+    # The eval kind of the target is part of the cache name. The eval
+    # compiler (JIT) and the tree-walking interpreter contain different
+    # files, so the metadata of one must never be used for the other.
     def kind = Hir::Build.eval_file(target) == Hir::Build::EVAL_COMPILER ? "jit" : "walk"
 
     def meta_path = self.class.meta_path(@runtime, kind)
@@ -329,21 +327,19 @@ module Zr
 
   module_function
 
-  # Given a block, each function goes to it as soon as its file is
-  # lowered (`Lower#run`), with the names the lowering spells from, and
-  # the program holds what the block answers.
+  # With a block, each function goes to the block when its file is
+  # lowered (`Lower#run`), with the lowering's entry name. The program
+  # contains the block's results.
   def program(source, file, target: Target.default, &finish)
     rt = runtime(target)
     support = eval_support(target)
     hir = Zr.clock("hir built") { Hir.build(source, file, eval_support: support, target: target) }
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
-    # Every name the table already holds has an id no program can
-    # move; every other name is the link's to number, which is what
-    # keeps a unit's code free of the order it was compiled in.
-    # A unit's code is the file's own, so an earlier build's is this
-    # one's: the table a unit's ids are fixed against names the cache
-    # beside the runtime, since a program that evals is fixed against
-    # the road's larger one.
+    # Each name already in the table has a fixed id. The link numbers all
+    # other names, so a unit's code does not depend on the compile order.
+    # So an earlier build's code for a unit is correct for this build.
+    # The cache key includes the table that fixes the ids: the runtime's,
+    # or the larger eval support table for a program with eval.
     units = finish && UnitCache.for(hir, dir: Zr.cache, runtime: rt.digest, table: hir.evals ? support.key : "rt",
                                          entries: Lower.entries_of("zr_toplevel", hir.units))
     lower = Lower.new(hir, rt.description, symbols, target: target, fixed: symbols.ids.dup.freeze, units: units || nil)
@@ -358,11 +354,11 @@ module Zr
     Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && support)
   end
 
-  # The relocation kinds a unit leaves for the link to number.
+  # The relocation kinds that the link numbers.
   NUMBERED = %i[symid symval symbit site].freeze
 
-  # What the link writes into one of those words. A site is a place
-  # and not a name, so it takes the next slot rather than naming one.
+  # The value that the link writes into one of those words. A site is a
+  # location, not a name, so it gets the next free slot.
   def numbered(reloc, symbols, tag)
     return symbols.site if reloc.kind == :site
 
@@ -374,12 +370,11 @@ module Zr
     end
   end
 
-  # A unit spells a name and leaves the number to the link. This is
-  # where the numbers are chosen: over the program's data in order, so
-  # that one program always chooses the same ones, and written into
-  # the words that wait for them. Past here no relocation of these
-  # kinds is left, which is what every object writer and the wasm
-  # module rely on.
+  # A unit gives a name and the link gives its number. This method sets
+  # the numbers, in the order of the program's data, so a program always
+  # gets the same numbers, and writes them into their words. After this,
+  # no relocation of these kinds is left. Every object writer and the
+  # wasm module rely on this.
   def number_symbols(data, symbols, tag)
     data.each do |d|
       waiting, keep = d.relocs.partition { |r| NUMBERED.include?(r.kind) }
@@ -401,8 +396,8 @@ module Zr
     (@eval_supports ||= {})[target.triple] ||= EvalSupport.new(runtime(target))
   end
 
-  # The kernel files `target`'s runtime is lowered from: the portable
-  # kernel, then its OS layer, then its architecture layer.
+  # The kernel files of `target`'s runtime: the portable kernel, then its
+  # OS layer, then its architecture layer.
   def kernel_files(target = Target.default)
     Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
       Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
@@ -418,15 +413,14 @@ module Zr
     end
   end
 
-  # The compiler's own files that no runtime object can depend on: the
-  # command line, the linkers, and the images and processes they write
-  # into. Everything else under `lib` counts, so a file added to the
-  # compiler is covered until someone takes it out of here by name -- a
-  # stale runtime object is a silently wrong binary.
+  # The compiler files that no runtime object can depend on: the command
+  # line, the linkers, and the images and processes that they write.
+  # All other files under `lib` are in the digest, so a new compiler file
+  # is included until someone adds it here. A stale runtime object gives
+  # a wrong binary with no error.
   #
-  # They are not free of consequence, only of this one. `link_digest`
-  # is folded into the name of the prelinked image, because deciding
-  # that is exactly what they do.
+  # These files do change the link, so `link_digest` is part of the name
+  # of the prelinked image.
   LINK_ONLY = %w[
     cli.rb
     native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
@@ -434,15 +428,14 @@ module Zr
     obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb obj/macho/skeleton.rb
   ].map { |name| File.join(__dir__, name) }.freeze
 
-  # The compiler's own files that belong to one target: an instruction
-  # set's backend, and an object format's writer. A runtime object for
-  # another target holds no byte of either, so each stays out of every
-  # other target's digest, and a wasm backend edit no longer rebuilds
+  # The compiler files that belong to one target: an instruction set's
+  # backend, and an object format's writer. A runtime object for a
+  # different target contains no byte of them, so they are not in other
+  # targets' digests. For example, a wasm backend edit does not rebuild
   # the native runtime.
   #
-  # The rule is the same as LINK_ONLY's: by name, and the default is to
-  # count. A directory not here belongs to every target until someone
-  # takes it out.
+  # As with LINK_ONLY, the list is by name and the default is to include
+  # a file. A directory not listed here is in every target's digest.
   PER_TARGET = {
     "backend/aarch64" => ->(target) { target.arch == :aarch64 },
     "backend/wasm" => ->(target) { target.arch == :wasm32 },
@@ -450,8 +443,8 @@ module Zr
     "obj/elf" => ->(target) { target.object_format == :elf }
   }.freeze
 
-  # The files `target`'s runtime is lowered from, and the compiler that
-  # lowers them.
+  # The source files of `target`'s runtime, and the compiler files that
+  # lower them.
   def sources(target = Target.default)
     kernel_files(target) + core_files(target) + compiler_files(target)
   end
@@ -464,8 +457,8 @@ module Zr
     end
   end
 
-  # What the files above say, as one digest. A cache that the link
-  # writes names itself with this beside whatever else it depends on.
+  # One digest of the LINK_ONLY files. A cache that the link writes
+  # includes this digest in its name, with its other inputs.
   def link_digest
     @link_digest ||= Digest::SHA256.new.tap do |d|
       LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) }
@@ -473,15 +466,16 @@ module Zr
   end
 
 
-  # The source file that has changed under this process since a
-  # runtime's digest was taken, or nil (`Runtime#moved`).
+  # A source file that changed after a runtime's digest was computed,
+  # or nil (`Runtime#moved`).
   def moved
     (@runtimes || {}).each_value.filter_map(&:moved).first
   end
 
-  # A build whose sources moved under it stops before it caches
-  # anything: what it built came from a mix of the bytes the digest
-  # covers and the bytes now on disk, and no cache key names that.
+  # A build whose sources changed during the build stops before it
+  # caches anything. Its output came from a mix of the bytes that the
+  # digest covers and the new bytes on disk, and no cache key describes
+  # that mix.
   class SourceChanged < StandardError; end
 
   def settled!
@@ -489,18 +483,18 @@ module Zr
     raise SourceChanged, "#{file} changed while this build ran; nothing it built is kept -- run it again" if file
   end
 
-  # `content` at `path` under the cache, written whole: a parallel
-  # build never reads a half-written file. Nothing is written while
-  # a source has moved (`settled!`).
+  # Writes `content` to `path` in the cache atomically, so a parallel
+  # build never reads a half-written file. Writes nothing if a source
+  # changed (`settled!`).
   def write_cache(path, content)
     settled!
     Paths.write_atomic(path, content)
   end
 
-  # The core library over the kernel `unit`: `[functions, data]`, the
-  # functions ending with `zr_prelude`. Whether a program carries the
-  # compiler is the program's own question, so the core never asks for
-  # the eval road: a box or an eval brings it with the program.
+  # The core library on top of the kernel `unit`: `[functions, data]`,
+  # with `zr_prelude` as the last function. The program decides if it
+  # links in the compiler, so the core never requires eval support. A
+  # box or an eval in the program adds it.
   def core(unit, symbols, target = Target.default, sources = {})
     functions = []
     data = []
@@ -517,17 +511,17 @@ module Zr
     [functions.concat(f) << prelude(entries, unit), data.concat(d)]
   end
 
-  # CRuby's gem_prelude.rb, which loads the libraries ruby carries
-  # before a program's first line, and after it error_highlight's
-  # lookup for a program compiled ahead of time. Boot runs it once the
-  # core library stands, before the program.
+  # CRuby's gem_prelude.rb, which loads ruby's default libraries before
+  # a program's first line. After it comes error_highlight's lookup for
+  # a program compiled ahead of time. Boot runs it after the core
+  # library loads, before the program.
   GEM_PRELUDE = File.join(Paths::VENDOR, "prelude/gem_prelude.rb")
   SPOTTED = File.join(Paths::RUNTIME, "ext/zr/error_highlight.rb")
 
-  # The parsers the prelude's libraries require for work this runtime
-  # does another way: error_highlight's prism_find, which the compiled
-  # spots stand in for, and syntax_suggest's search, which only a
-  # program that carries the compiler can meet a SyntaxError for.
+  # The parsers that the prelude's libraries require for work that this
+  # runtime does differently. error_highlight's prism_find: the compiled
+  # spots replace it. syntax_suggest's search: only a program that links
+  # in the compiler can get a SyntaxError.
   DEFERRED = %w[prism syntax_suggest/api].freeze
 
   # The gem prelude as one program for `target`.
@@ -543,7 +537,7 @@ module Zr
   end
 
   # `zr_prelude`: boot runs each core file's toplevel in turn, and
-  # stops at the first that leaves a signal pending.
+  # stops at the first one that leaves a pending unwind.
   def prelude(entries, unit)
     f = IR::Function.new("zr_prelude", [], "i64")
     undef_value = f.iconst("i64", unit.const_for("QUNDEF"))
@@ -560,47 +554,47 @@ module Zr
     f
   end
 
-  # What a require whose name the program computes reads when it runs,
-  # behind the one word `zr_load_tables` points with: the count of files
-  # compiled in and their rows, (path bytes, length, toplevel) each;
-  # then, as (bytes, length), the library directories to search after
-  # $LOAD_PATH, the features ruby carries that this runtime has no file
-  # for, the features ruby loaded before the program, and the directory
-  # of native halves, one name a line. Only a program that carries the
-  # compiler can reach a require by a computed name, so only one of
-  # those gets the lines. Last come error_highlight's spots for each
-  # file, which every program carries, and Coverage's tables. Nothing
-  # here is read off the machine that builds: a binary carries no path
+  # The tables that `zr_load_tables` points to. A require with a computed
+  # name reads them at run time. They are, in order:
+  # - the count of compiled-in files, and one record (path bytes, length,
+  #   toplevel) for each;
+  # - as (bytes, length), one name per line: the library directories to
+  #   search after $LOAD_PATH, the ruby features that this runtime has no
+  #   file for, the features ruby loads before the program, and the
+  #   extensions directory. Only a program with eval can require a
+  #   computed name, so only such a program gets these lines;
+  # - error_highlight's spots for each file (every program has them), and
+  #   Coverage's tables;
+  # - for a program with eval, the digest of each eval support file
+  #   (`sources`, path to SHA-256). It keys its parse cache on these.
+  # Nothing here comes from the build machine: a binary contains no path
   # or flag of the ruby that compiled it. `units` are `[path, entry]`
-  # pairs; a unit that only stops has no path. Last of all, for a
-  # program that carries the compiler, the digest of each file the
-  # road holds (`sources`, path to SHA-256), which it keys its parses
-  # by.
+  # pairs. A unit that only stops has no path.
   def load_tables(units = [], evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {},
                   target: Target.default)
     shown = ->(path) { Paths.shown(path) }
     units = units.select { |path, _| path.start_with?("/") }.map { |path, entry| [shown[path], entry] }.sort
-    # A name ruby carries that no root here holds, and after a tab the
-    # reason where there is one to give, so a require the program
-    # computes stops for what a literal one stops for.
+    # A ruby feature that no root here contains, then a tab and the reason
+    # if there is one. So a computed require stops for the same reason as
+    # a literal one.
     uncarried = Hir::Build.missing_features(target).map { |name| [name, *Hir::Build::UNSUPPORTED_LIBRARIES[name]].join("\t") }
     names = evals ? [Hir::Build.stdlib(target).map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Hir::Build::EXT]]] : [[]] * 4
-    # error_highlight's spots, a file at a time: its name, a newline,
-    # then its rows, and a form feed before the next file.
+    # error_highlight's spots, one file at a time: its name, a newline,
+    # then its records, and a form feed before the next file.
     names << [spots.map { |file, rows| "#{shown[file]}\n#{rows}" }.join("\f")]
-    # The lines Coverage counts in each file, a row a file: its path,
-    # its line count, and the lines, tab-separated.
+    # The lines that Coverage counts, one record per file: its path, its
+    # line count, and the lines, tab-separated.
     names << coverable.map { |file, (count, lines)| "#{shown[file]}\t#{count}\t#{lines.uniq.join(',')}" }
-    # The branches Coverage names in each file, a row a file: its path,
+    # The branches that Coverage reports, one record per file: its path,
     # then one `kind,id,root,start line,start column,end line,end column`
-    # a branch, in the order Coverage numbers them. `id` is the counter
-    # this branch bumps, and `root` the side's own root by its place in
-    # the file, empty for a root.
+    # for each branch, in Coverage's order. `id` is the counter that this
+    # branch increments. `root` is the index in the file of the branch's
+    # root, or empty for a root.
     names << branches.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
-    # Where each def and each block of a measured file was written, a
-    # row a file: its path, then one `id,start line,start column,end
-    # line,end column` a scope. A definition claims the row by its id,
-    # which is how a method row learns its span.
+    # The location of each def and block in a measured file, one record
+    # per file: its path, then one `id,start line,start column,end
+    # line,end column` for each scope. A definition finds its record by
+    # its id, and so gets its span.
     names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(',') }.join("\t")}" }
     names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
     out = []
@@ -625,8 +619,8 @@ module Zr
     out << Obj::Data.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
   end
 
-  # `zr_symbol_names`: a row of (bytes, length) per symbol id, the bytes
-  # in their own read-only objects.
+  # `zr_symbol_names`: one (bytes, length) record per symbol id. The bytes
+  # are in their own read-only objects.
   def symbol_names(symbols)
     names = symbols.ids.keys
     bytes = names.each_with_index.map { |name, i| Obj::Data.new("zr_symname_#{i}", :text_const, name.b, align: 1) }
