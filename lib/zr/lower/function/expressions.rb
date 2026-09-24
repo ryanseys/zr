@@ -246,7 +246,8 @@ module Zr
         end
 
         # A Float literal that fits a flonum is its rotated bits, computed
-        # now, exactly as zr_float_new makes it. +0.0 is the flonum zero.
+        # at compile time, exactly as zr_float_new makes it. +0.0 is the
+        # flonum zero.
         # All other doubles are heap cells made at run time.
         def float_literal(v)
           word = flonum_word(v)
@@ -280,7 +281,7 @@ module Zr
 
         # A part of an interpolation: the shared String if it is a UTF-8
         # literal of this file, else lowered as usual. The shared table
-        # keys only on bytes and cannot tell two encodings apart, so a file
+        # keys only on bytes and cannot distinguish two encodings, so a file
         # with a different script encoding uses the plain form.
         def interp_part(node)
           text = node.is_a?(Hir::Literal) ? node.value : nil

@@ -75,7 +75,7 @@ module Zr
     EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze
 
     # Exit status 3: zr does not support the program or the target. The
-    # test harness counts this apart from zr's defects.
+    # test harness counts this separately from zr's defects.
     REFUSED = 3
 
     module_function
@@ -218,7 +218,7 @@ module Zr
       end
     end
 
-    # The target that `--target` names. `--emit wasm` alone means
+    # The target that `--target` gives. `--emit wasm` alone means
     # wasm32-wasi.
     def target_for(triple, emit, command)
       return emit == "wasm" ? Target::WASM32_WASI : Target.default unless triple
@@ -227,7 +227,7 @@ module Zr
     end
 
     # A table of each target, the outputs zr makes for it, and the
-    # outputs that this host can make now.
+    # outputs that this host can make.
     def targets
       name = ->(output) { output == :native ? "binary" : output.to_s }
       rows = Target.all.map do |target|
