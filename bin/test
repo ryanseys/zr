@@ -58,9 +58,10 @@ end
 
 $LOAD_PATH.unshift(File.join(root, "lib"), test_dir)
 require "zr/cli"
-Zr::CLI.tune!(__FILE__) # a test is a compile: the same GC limits and YJIT
+Zr::CLI.tune!(__FILE__) # the tests use the GC limits and YJIT of a compile
 
-# Before the helper forks its workers, so they share one loaded copy.
+# Load this before the helper forks its workers, so that all workers
+# share one loaded copy.
 require "support/built"
 Zr::Test::Built.ready!
 

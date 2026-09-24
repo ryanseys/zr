@@ -4,8 +4,7 @@ require_relative "../../../lib/zr/record"
 
 module Zr
   module Harness
-    # What a program said, what the machine it runs on must have, and
-    # the scrubs that let two answers be compared.
+    # The output of a program: stdout, stderr, exit status and signal.
     class Answer < ::Zr::Record
       FIELDS = %i[stdout stderr code signal].freeze
       attr_accessor :stdout, :stderr, :code, :signal
@@ -27,12 +26,12 @@ module Zr
         signal ? "signal #{signal}" : "exit #{code}"
       end
 
-      # What ruby answered for the program at `path`, read from the
-      # files beside it: `<name>.out` always, and `<name>.err`,
-      # `<name>.status` and `<name>.signal` when there is something to
-      # say. Each holds those bytes and no others, so there is nothing
-      # to parse and nothing to escape. `rake record` writes them, and
-      # nil means nobody has yet.
+      # The recording of ruby's output for the program at `path`. It is
+      # read from the files next to the program: always `<name>.out`, and
+      # `<name>.err`, `<name>.status` and `<name>.signal` when they are
+      # not empty. Each file contains only the raw bytes, so there is
+      # nothing to parse or unescape. `rake record` writes these files.
+      # Returns nil when there is no recording.
       def self.beside(path)
         base = path.delete_suffix(".rb")
         return nil unless File.file?("#{base}.out")
@@ -42,7 +41,7 @@ module Zr
             Integer(part.call("status") || 0), part.call("signal")&.then { |n| Integer(n) })
       end
 
-      # The parts of `other` that part from these, in words.
+      # A text that tells how `other` is different from this output.
       def apart_from(other)
         out = []
         %i[stdout stderr].each do |what|
@@ -61,13 +60,14 @@ module Zr
       end
     end
 
-    # What a `needs:` name asks of the machine that runs a program.
-    # `test/e2e/binaries_test.rb` is where a program names one.
+    # The host requirement for each `needs:` name. A program gives a
+    # `needs:` name in `test/e2e/binaries_test.rb`.
     module Needs
-      # libssl 3 where `require "openssl"` looks for it
-      # (runtime/ext/openssl/ossl/library.rb): OPENSSL_DIR's lib alone when it
-      # is set, else the Homebrew and MacPorts prefixes. Only a macOS
-      # binary opens a library; the linux and wasi targets cannot.
+      # True when libssl 3 is where `require "openssl"` looks for it
+      # (runtime/ext/openssl/ossl/library.rb). That is only OPENSSL_DIR's
+      # lib when OPENSSL_DIR is set, else the Homebrew and MacPorts
+      # prefixes. Only a macOS binary opens a library. The linux and wasi
+      # targets cannot.
       def self.libssl?(platform)
         return false unless platform == "macos"
 
@@ -81,14 +81,16 @@ module Zr
       def self.met?(name, platform) = CHECKS.fetch(name).call(platform)
     end
 
-    # The scrubs that make two answers comparable: CRLF, the program's
-    # absolute path back to its run-directory-relative spelling, the run
-    # directory itself, object addresses, panic thread ids.
+    # Removes the parts of an output that change from run to run, so that
+    # two outputs can be compared. It changes CRLF to LF, and the
+    # program's absolute path to its path relative to the run directory.
+    # It also removes the run directory, object addresses and panic
+    # thread ids.
     module Normalize
       module_function
 
-      # A process a signal ended has no exit status: only the signal
-      # counts.
+      # A process that a signal stopped has no exit status. Only the
+      # signal counts.
       def answer(a, source, run_cwd)
         Answer.new(bytes(a.stdout, source, run_cwd), bytes(a.stderr, source, run_cwd), a.signal ? nil : a.code, a.signal)
       end

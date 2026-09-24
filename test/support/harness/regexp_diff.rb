@@ -9,12 +9,13 @@ require File.join(Zr::Paths::RUNTIME, "core/regexp_pattern.rb")
 
 module Zr
   module Harness
-    # The Ruby Onigmo held to ruby's own engine, in one process: a case
-    # is a pattern with its option bits, a subject, a byte start and a
-    # mode (search, backward, at); ruby compiles and matches it as the
-    # oracle, the core compiles it and the JIT-loaded kernel matches it
-    # as the candidate, and the two answers -- the error, the warnings,
-    # the position and every capture's byte offsets -- are compared.
+    # Compares the Ruby Onigmo with ruby's own regexp engine, in one
+    # process. A case is a pattern with its option bits, a subject, a byte
+    # start and a mode (search, backward, at). Ruby compiles and matches it
+    # as the reference. The core library compiles it and the kernel,
+    # loaded with the JIT, matches it. The test compares the two results:
+    # the error, the warnings, the position and the byte offsets of each
+    # capture.
     module RegexpDiff
       IGNORECASE = 1
       EXTENDED = 2
@@ -24,8 +25,8 @@ module Zr
       MODES = %w[search backward at].freeze
       LIMIT_NS = 2_000_000_000
 
-      # An exception as the runner compares it: its class, its message bytes
-      # and, past ASCII, the encoding the message is in.
+      # An exception as the runner compares it: its class, its message
+      # bytes, and the message encoding when the message is not ASCII.
       def self.shown_error(e)
         text = "#{e.class}: #{e.message.b.inspect[1..-2]}"
         e.message.ascii_only? ? text : "#{text} (#{e.message.encoding})"
@@ -39,7 +40,7 @@ module Zr
         def self.from_h(h) = new(read(h, "p"), h["o"], read(h, "s"), h["at"], h["m"])
 
         # A String as JSON: its text when it is valid UTF-8, else its
-        # bytes in hex, with its encoding named when it is not UTF-8.
+        # bytes in hex. The encoding name is included when it is not UTF-8.
         def self.text(s, key)
           utf8 = s.encoding == Encoding::UTF_8 && s.valid_encoding?
           { key => (utf8 ? s : nil), "#{key}b" => (utf8 ? nil : s.b.unpack1("H*")),
@@ -60,9 +61,9 @@ module Zr
         end
       end
 
-      # What ruby answers for a pattern: [:error, message] or
-      # [:ok, warnings_quiet, warnings_verbose], the warning texts with
-      # the file prefix dropped.
+      # Ruby's result for a pattern: [:error, message] or
+      # [:ok, regexp, warnings_quiet, warnings_verbose]. The warning texts
+      # do not include the file prefix.
       class Oracle
         def initialize
           @compiled = {}
@@ -78,8 +79,8 @@ module Zr
           end
         end
 
-        # [position or nil, offsets] as tools/regexp_diff.rb compares them,
-        # nil for no match, [:error, text] for a refusal, :timeout.
+        # [position or nil, offsets] as the runner compares them. nil for no
+        # match, [:error, text] for an error, or :timeout.
         def match(re, subject, start, mode)
           warnings(false) { match_quietly(re, subject, start, mode) }.first
         end
@@ -87,10 +88,10 @@ module Zr
         def match_quietly(re, subject, start, mode)
           char_start = subject.byteslice(0, start).length
           if mode == "at" && (len = at_start(re, subject, start))
-            # The captures come from a search, which finds the same match
-            # first unless ruby's search optimizer passes over it (a map
-            # of folded bytes that misses a byte folding to one of them):
-            # then only the length is known.
+            # The captures come from a search. The search finds the same
+            # match first, unless ruby's search optimizer skips it (its map
+            # of case-folded bytes can miss a byte that folds to one of
+            # them). In that case, only the length is known.
             md = re.match(subject, char_start)
             return [len, :elsewhere] unless md && md.byteoffset(0)[0] == start
           end
@@ -117,17 +118,18 @@ module Zr
         private
 
         # onig_match at byte `start` over the whole subject, as
-        # StringScanner#match? runs it with a fixed anchor: the length
-        # matched from `start` (to the end, past any `\K`) or nil. A
-        # search from `start` then finds that same match first.
+        # StringScanner#match? runs it with a fixed anchor. Returns the
+        # length matched from `start` (to the end, including any text
+        # before `\K`) or nil. A search from `start` then finds the same
+        # match first.
         def at_start(re, subject, start)
           scanner = StringScanner.new(subject, fixed_anchor: true)
           scanner.pos = start
           scanner.match?(re)
         end
 
-        # [what the block answers, the warnings it gave] with ruby's
-        # verbosity set as asked and every warning taken instead of printed.
+        # [block result, warnings]. It sets ruby's verbosity to `verbose`,
+        # and collects each warning instead of printing it.
         def warnings(verbose)
           out = []
           was = $VERBOSE
@@ -147,9 +149,10 @@ module Zr
         end
       end
 
-      # What the port answers: Regexp.seat's and Regexp#program_for's
-      # steps under host ruby (Regexp::Pattern and Regexp::Onig, the
-      # same code the runtime runs) and the kernel's search under the JIT.
+      # The result of the port. It runs the steps of Regexp.seat and
+      # Regexp#program_for under host ruby (Regexp::Pattern and
+      # Regexp::Onig, the same code that the runtime runs), and the
+      # kernel's search under the JIT.
       class Candidate
         Compiled = Struct.new(:source, :program, :programs, :reg, :encoding, :quiet, :verbose, :options)
 
@@ -192,8 +195,8 @@ module Zr
 
         private
 
-        # Regexp#program_for: [program, reg] for the subject's encoding,
-        # the engine's encoding moving with each compile again.
+        # As Regexp#program_for: [program, reg] for the subject's encoding.
+        # Each recompile changes the engine's encoding.
         def program_for(compiled, subject)
           raise ArgumentError, "invalid byte sequence in #{subject.encoding}" unless subject.ascii_only? || subject.valid_encoding?
 
@@ -215,7 +218,7 @@ module Zr
         end
       end
 
-      # One case compared: nil when the two agree, else a Divergence.
+      # A case where ruby and the kernel give different results.
       Divergence = Struct.new(:kase, :what, :want, :got) do
         def to_s
           "DIFF #{kase.label}\n  #{what}\n  ruby:   #{want.inspect}\n  kernel: #{got.inspect}"
@@ -256,8 +259,8 @@ module Zr
           actual = @candidate.match(got[1], kase.subject, kase.start, kase.mode)
           t2 = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
           @timings << [t2 - t1, t1 - t0, kase] if @bench
-          # A match ruby itself spends a good part of the limit on, which
-          # the slower kernel runs past: a speed gap, not a wrong answer.
+          # Ruby used a large part of the time limit, and the slower kernel
+          # went past it. This is a speed difference, not a wrong result.
           if actual == :timeout && expected != :timeout && t1 - t0 > LIMIT_NS / 8
             @slow << [kase, t1 - t0]
             return nil
@@ -287,14 +290,15 @@ module Zr
       ].map { |s| s.dup.force_encoding(Encoding::UTF_8).freeze }.freeze
       BINARY_SUBJECTS = ["\xFF\xFEab".b, "abc\xE9".b, "\xE3\x81\x82".b, "plain".b].map(&:freeze).freeze
 
-      # The cases of one pattern: the fixed subjects (unless `fixed` is
-      # false) and `extra` ones, each searched from the start and from
-      # the middle, searched backward from the end and matched at the start.
+      # The cases of one pattern, over the fixed subjects (unless `fixed`
+      # is false) and the `extra` subjects. Each subject is searched from
+      # the start and from the middle, searched backward from the end, and
+      # matched at the start.
       def self.cases_for(pattern, options, extra = [], fixed: true)
         subjects = (fixed ? SUBJECTS + BINARY_SUBJECTS : []) + extra
         subjects.flat_map do |subject|
-          # The character boundary nearest the middle, as a character
-          # index ruby turns back into bytes lands on it.
+          # The character boundary nearest the middle. The start must be on
+          # a boundary, because ruby changes a character index into bytes.
           half = subject.bytesize / 2
           mid = 0
           subject.each_char do |c|
@@ -310,11 +314,11 @@ module Zr
       end
 
       # The regexp literals, Regexp.new strings and string literals of a
-      # Ruby file, through prism: [[pattern, options], ...] and subjects.
+      # Ruby file, found with prism: [[pattern, options], ...] and subjects.
       def self.harvest_file(path) = harvest(File.read(path))
 
-      # The patterns and the subjects `source` writes, from its syntax
-      # tree. `depth` bounds the walk into strings, described below.
+      # The patterns and subjects in `source`, from its syntax tree.
+      # `depth` limits the search into strings (see below).
       def self.harvest(source, depth = 0)
         require "prism"
         result = Prism.parse(source)
@@ -335,10 +339,10 @@ module Zr
           when Prism::StringNode
             s = node.unescaped
             subjects << s if s.bytesize.between?(1, 120) && s.valid_encoding?
-            # A spec holds the program it compiles as a string, so the
-            # patterns that program writes are inside one. Anything long
-            # enough to be a program is parsed again; a string that is
-            # not Ruby yields nothing and costs one parse.
+            # A spec contains the program that it compiles as a string, so
+            # that program's patterns are inside a string. A string that is
+            # long enough to be a program is parsed again. A string that is
+            # not Ruby gives nothing, and costs one parse.
             patterns.concat(harvest(s, depth + 1).first) if depth.zero? && s.bytesize > 40 && s.include?("\n") && s.valid_encoding?
           when Prism::CallNode
             if node.name == :new && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Regexp && node.arguments
@@ -404,8 +408,8 @@ module Zr
           end
         end
 
-        # Every encoding ruby reads a pattern or a subject in; the ones
-        # whose engine differs most from UTF-8's come up more often.
+        # All encodings that ruby can read a pattern or subject in. The
+        # encodings whose engine is most different from UTF-8 occur more often.
         ENCODINGS = (Encoding.list.reject(&:dummy?).map(&:name) +
                      %w[US-ASCII BINARY EUC-JP Windows-31J Shift_JIS ISO-8859-1 UTF-16LE UTF-16BE UTF-32LE UTF-32BE GB18030 Big5 EUC-TW CESU-8 Emacs-Mule]).freeze
 
@@ -414,16 +418,17 @@ module Zr
           (@rng.rand(12)).times.map { alphabet.sample(random: @rng) }.join
         end
 
-        # A String in UTF-8 most of the time, else carried to another
-        # encoding: converted where it can be, its bytes relabeled where not.
+        # Usually the String in UTF-8, else the String in another encoding
+        # (see `carry`).
         def recode(s, pattern: false)
           return s if @rng.rand < (pattern ? 0.5 : 0.4)
 
           carry(s, Encoding.find(ENCODINGS.sample(random: @rng)))
         end
 
-        # `s` in `encoding`: converted, a character the encoding lacks
-        # as "?", or now and then its bytes relabeled as they are.
+        # `s` in `encoding`. Usually it is converted, with "?" for a
+        # character that the encoding does not have. Sometimes its bytes
+        # stay the same and only the encoding label changes.
         def carry(s, encoding)
           return s.dup.force_encoding(encoding) if @rng.rand < 0.1
 
@@ -453,12 +458,12 @@ module Zr
         end
       end
 
-      # Well-formed patterns and subjects written in one encoding at a
-      # time, from characters that encoding holds: what the engine reads
-      # of each encoder (lengths, heads, folds, classes, properties,
-      # newlines) meets text it can match.
+      # Makes valid patterns and subjects in one encoding at a time, from
+      # characters of that encoding. Thus the engine's encoding data
+      # (lengths, lead bytes, case folds, classes, properties, newlines)
+      # meets text that it can match.
       class EncodingFuzz
-        # One of each encoder family ruby has, and a replica or two.
+        # One encoding of each encoder family in ruby, and some replicas.
         ENCODINGS = %w[
           US-ASCII ASCII-8BIT UTF-8 UTF8-MAC CESU-8 UTF-16LE UTF-16BE UTF-32LE UTF-32BE
           EUC-JP eucJP-ms CP51932 Shift_JIS Windows-31J MacJapanese SJIS-KDDI Big5 Big5-HKSCS CP950 GBK CP949 EUC-KR GB2312
@@ -488,14 +493,14 @@ module Zr
           @repertoire = {}
         end
 
-        # The characters of `enc` to build from: ASCII, what converts,
-        # and random byte sequences ruby calls valid.
+        # The characters of `enc` to build from: ASCII, the characters
+        # that convert, and random byte sequences that ruby accepts as valid.
         def repertoire(enc)
           @repertoire[enc] ||= begin
             ascii = ASCII.map { |c| c.encode(enc) }
             wide = UNICODE.filter_map do |c|
-              # A converter marks what it writes valid without looking; the
-              # bytes are scanned again under the encoding itself.
+              # A converter marks its output as valid without a check, so
+              # the bytes are checked again in the encoding.
               s = c.encode(enc).b.force_encoding(enc)
               s.valid_encoding? && s.length == 1 ? s : nil
             rescue EncodingError
@@ -519,7 +524,7 @@ module Zr
 
         def char(enc) = repertoire(enc).sample(random: @rng)
 
-        # A character written so the pattern means it literally.
+        # A character, escaped so that the pattern matches it literally.
         def literal(enc)
           c = char(enc)
           c.ascii_only? || c.encode("UTF-8", invalid: :replace, undef: :replace).match?(/\A[\w\p{L}]\z/) ? Regexp.escape(c) : c
@@ -570,9 +575,10 @@ module Zr
           [0, 0, IGNORECASE, IGNORECASE, MULTILINE, IGNORECASE | MULTILINE, EXTENDED, FIXEDENCODING].sample(random: @rng)
         end
 
-        # The cases of one pattern over subjects in its encoding: searched
-        # from each character boundary, backward from the end and from
-        # the middle, and matched at the start and a boundary.
+        # The cases of one pattern over subjects in its encoding. Each
+        # subject is searched from each character boundary, searched
+        # backward from the end and from the middle, and matched at the
+        # start and at a random boundary.
         def cases(count)
           out = []
           while out.size < count

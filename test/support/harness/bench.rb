@@ -11,46 +11,46 @@ require_relative "runner"
 
 module Zr
   module Harness
-    # `rake bench`: how long the binary zr built takes, beside the ruby
-    # that recorded its answer.
+    # `rake bench`: the run time of the binary that zr builds, compared
+    # with the run time of ruby, which made the recording.
     #
-    # `benchmark/` holds whole programs the way `test/e2e` does -- a
-    # `.rb` file, with what ruby answered in `<name>.out` beside it --
-    # so what is here is the clock and the comparison columns, and
-    # nothing that reads a program.
+    # `benchmark/` contains whole programs, as `test/e2e` does: a `.rb`
+    # file with ruby's output in `<name>.out` next to it. This class only
+    # measures time and makes the comparison columns.
     #
-    # **The answer is checked before any time is kept.** The speed of a
-    # wrong answer means nothing, and a codegen step that trades an
-    # answer for a time is the one thing the contract does not allow.
+    # **The output is checked before a time is kept.** The speed of a
+    # wrong output has no meaning. A codegen step must never make the
+    # output wrong to make a program faster.
     #
-    # Serial from end to end. The tiers run a worker per core because
-    # they only ask what a program said; a time measured beside three
-    # other compiles is not a time.
+    # All runs are serial. The test tiers run one worker for each core,
+    # because they check only the output. A time measured while other
+    # compiles run is not correct.
     class Bench
-      # Long enough for the slowest program, and short enough that one
-      # that loops does not hold the suite.
+      # Long enough for the slowest program, and short enough that a
+      # program in an infinite loop does not stop the suite.
       LIMIT = 300
 
-      # Five runs and the middle one: enough that one scheduling
-      # accident is not the answer, few enough that the suite is minutes.
-      # `bm_startup` prints one line: its row is the floor every other
-      # row stands on, the process's start-up, and reads apart from it.
+      # Five runs, and the median is kept. This is sufficient to ignore
+      # one scheduling delay, and the suite takes only minutes.
+      # `bm_startup` prints one line: its time is the process start-up,
+      # which is part of every other time. Read the other times with this
+      # in mind.
       RUNS = 5
 
-      # Where a report goes. A run of the whole bank is written under
-      # `benchmark/results/` as `<stamp>-<revision>.txt` -- when it was
-      # taken, in UTC, so the files list in order, and the commit it
-      # measured -- and committed with the code, so a later run reads
-      # against it by hash; a run of some rows goes under `tmp`, since
-      # a partial report says nothing about the rest.
+      # Where a report goes. A run of all benchmarks goes to
+      # `benchmark/results/<stamp>-<revision>.txt`: the UTC time of the
+      # run (so the files sort in order) and the measured commit. It is
+      # committed with the code, so a later run can compare with it by
+      # hash. A run of some benchmarks goes under `tmp`, because a
+      # partial report does not tell about the others.
       RESULTS = "benchmark/results"
       SCRATCH = "tmp/bench"
       LATEST = "latest.txt"
 
-      # `build` is the compile, in seconds; the three others are the
-      # program, each a `Benchmark::Tms` of the median run: its wall
-      # clock in `real`, and the child's own user and system time as
-      # `utime` and `stime`. A row with no time carries `why` instead.
+      # `build` is the compile time, in seconds. `zr`, `ruby` and `yjit`
+      # are each a `Benchmark::Tms` of the median run: the wall clock in
+      # `real`, and the child's user and system time in `utime` and
+      # `stime`. A result with no time has a reason in `why`.
       class Row
         attr_reader :rb, :bucket, :why, :build, :zr, :ruby, :yjit
 
@@ -67,11 +67,11 @@ module Zr
         def name = File.basename(rb, ".rb")
         def timed? = bucket == :timed
 
-        # The CPU the binary spent, apart from the wall clock: what the
-        # program cost, with the machine's other work left out of it.
+        # The CPU time of the binary. Unlike the wall clock, it does not
+        # include other work on the machine.
         def cpu = zr.total
 
-        # zr's wall clock over `other`'s, a Tms or nil.
+        # zr's wall clock divided by the wall clock of `other` (a Tms or nil).
         def against(other) = timed? && other && other.real.positive? ? zr.real / other.real : nil
       end
 
@@ -82,7 +82,7 @@ module Zr
         @runner = Runner.new(root, target, compiler: "cranelift")
       end
 
-      # Every program under `benchmark/`, or the ones a filter names.
+      # All programs under `benchmark/`, or the programs that match a filter.
       def matching(filters)
         rows = Dir[File.join(@root, "benchmark/*.rb")].sort
         @whole = filters.empty?
@@ -91,9 +91,10 @@ module Zr
         rows.select { |rb| filters.any? { |f| File.basename(rb).include?(f) } }
       end
 
-      # One child, bounded in time, and in memory where `megabytes` is
-      # given. A timed run gives none: the sampler is a `ps` forked five
-      # times a second, and its time would be read as the program's.
+      # Runs one child with a time limit, and a memory limit when
+      # `megabytes` is given. A timed run has no memory limit: the memory
+      # sampler starts `ps` five times a second, and its time would count
+      # as the program's time.
       def bounded(argv, cwd, stdin, megabytes, env)
         Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: LIMIT, megabytes: megabytes).first
       end
@@ -110,7 +111,7 @@ module Zr
         end
       end
 
-      # Build, check the answer, then time the three of them.
+      # Builds the program, checks its output, then times zr, ruby and yjit.
       def one(rb, work)
         recorded = Answer.beside(rb)
         return Row.new(rb, :skipped, "no recording") unless recorded
@@ -134,11 +135,10 @@ module Zr
         Row.new(rb, :timed, build: build.real, zr: got, ruby: plain, yjit: jit)
       end
 
-      # The run at the middle of `@runs` wall clocks, as a Tms, and what
-      # the first run of the binary got wrong when `want` is given. A
-      # later run is not checked again: a program whose answer depends
-      # on the run is a defect the spec tier is there to find, not
-      # something to spend a comparison on.
+      # Returns the median run of `@runs` by wall clock, as a Tms. When
+      # `want` is given, also returns the difference in the first run's
+      # output. Later runs are not checked. The spec tier finds a program
+      # whose output changes from run to run.
       def medians(label, argv, cwd, stdin, env, rb, want)
         times = []
         @runs.times do |n|
@@ -149,8 +149,8 @@ module Zr
             got = Normalize.answer(out, rb, cwd)
             return [nil, want.apart_from(got)] if got != want
           elsif want.nil? && out.code != 0
-            # ruby could not run it -- an old `--yjit`, a gem it wants.
-            # The column stays empty and the row keeps its zr time.
+            # ruby could not run it (for example, no `--yjit`, or a
+            # missing gem). The column stays empty; the zr time stays.
             return [nil, nil]
           end
           times << took
@@ -158,12 +158,12 @@ module Zr
         [times.sort_by(&:real)[@runs / 2], nil]
       end
 
-      # The block's answer and what it took, as a `Benchmark::Tms` of
-      # the child's own: `Benchmark.measure` reads the user and system
-      # time of the children the block waited for -- the one child it
-      # ran, as nothing else forks meanwhile -- and the wall clock, and
-      # the Tms kept has those as its `utime`, `stime` and `real`, so
-      # that it prints and adds as any Tms does.
+      # Returns the time of the block, as a `Benchmark::Tms`, and the
+      # block's result. `Benchmark.measure` reads the wall clock and the
+      # user and system time of the children that the block waited for.
+      # There is only one child, because nothing else forks at that time.
+      # The returned Tms has these times as `utime`, `stime` and `real`,
+      # so it prints and adds as a usual Tms.
       def clocked(label)
         answer = nil
         took = Benchmark.measure { answer = yield }
@@ -175,8 +175,9 @@ module Zr
         (text.lines.first&.strip || "(no message)").sub(/\Azr: /, "")
       end
 
-      # The table, the two geometric means, and whether every program
-      # answered. A slow row is a result; a wrong row is a failure.
+      # Prints the table and the two geometric means. Returns true when
+      # no program failed. A slow program is a result; a wrong output
+      # is a failure.
       def report(rows, io = $stdout)
         io.puts
         io.puts format("%-26s %8s %8s %8s %8s %8s %9s %9s", "program", "build", "zr", "cpu", "ruby", "yjit", "vs ruby", "vs yjit")
@@ -205,15 +206,16 @@ module Zr
       def seconds(t) = t ? format("%.3f", t.real) : "-"
       def times(r) = r ? format("%.2fx", r) : "-"
 
-      # The geometric mean, because these are ratios: the arithmetic one
-      # would let a single slow program speak for the suite.
+      # The geometric mean, because these are ratios. With the arithmetic
+      # mean, one slow program would control the result of the suite.
       def geomean(values) = Math.exp(values.sum { |v| Math.log(v) } / values.size)
 
-      # The report as the benchmark gem prints one -- `Benchmark::CAPTION`
-      # over a `Tms#format` line a runner, under the program's name --
-      # at `benchmark/results/<stamp>-<revision>.txt` for the whole bank
-      # (with `-dirty` where the tree has changes the hash does not
-      # name), or `tmp/bench/latest.txt` for some of it.
+      # Writes the report in the benchmark gem's format: for each program,
+      # its name, `Benchmark::CAPTION`, and one `Tms#format` line for each
+      # runner. A run of all benchmarks goes to
+      # `benchmark/results/<stamp>-<revision>.txt` (with `-dirty` when the
+      # tree has uncommitted changes). A partial run goes to
+      # `tmp/bench/latest.txt`.
       def save(rows)
         taken = Time.now.utc
         path = @whole ? File.join(@root, RESULTS, "#{taken.strftime("%Y%m%d-%H%M")}-#{revision}.txt") : File.join(@root, SCRATCH, LATEST)
@@ -222,8 +224,8 @@ module Zr
         path
       end
 
-      # The short hash of HEAD, `-dirty` when the tree differs from it
-      # under `lib`, `runtime` or `benchmark`, or `unknown` outside git.
+      # The short hash of HEAD, with `-dirty` when the tree has changes
+      # under `lib`, `runtime` or `benchmark`. `unknown` outside git.
       def revision
         rev = `git -C #{@root} rev-parse --short HEAD 2>/dev/null`.strip
         return "unknown" if rev.empty?
@@ -232,11 +234,11 @@ module Zr
         changed.empty? ? rev : "#{rev}-dirty"
       end
 
-      # The reports under `benchmark/results/`, newest last: the name
-      # starts with the stamp.
+      # The reports under `benchmark/results/`, newest last. Each file
+      # name starts with its time, so they sort by time.
       def self.results(root) = Dir[File.join(root, RESULTS, "*.txt")].sort
 
-      # The report a revision's hash names there, or nil.
+      # The report for the revision hash `rev`, or nil.
       def self.result_of(root, rev) = Dir[File.join(root, RESULTS, "*-#{rev}.txt")].max
 
       LABEL = "%-8n"
@@ -260,8 +262,8 @@ module Zr
         "#{lines.join("\n")}\n"
       end
 
-      # `{ "bm_fib" => 0.1438, ... }`: the wall clock of `label`'s line
-      # under each program in a report `save` wrote.
+      # `{ "bm_fib" => 0.1438, ... }`: the wall clock on the `label` line
+      # for each program, in a report that `save` wrote.
       def self.reals(text, label = "zr")
         program = nil
         text.each_line.with_object({}) do |line, reals|

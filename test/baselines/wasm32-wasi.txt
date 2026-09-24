@@ -1,30 +1,30 @@
-# The end-to-end programs wasm32-wasi is allowed to fail, and why. One
-# path and reason a line, separated by a tab; a `#` line is a comment.
+# The end-to-end programs that can fail on wasm32-wasi, and why. Each
+# line is a path and a reason, separated by a tab. A `#` line is a comment.
 #
-# A named program that fails is skipped with its reason. A named program
-# that PASSES fails the run and says to take it off this file, so a row
-# cannot go stale without anyone noticing.
+# The run skips a listed program that fails, and prints its reason. A
+# listed program that PASSES fails the run, with a message to remove it
+# from this file. Thus the file cannot become out of date.
 
 # wasi has no processes and no signals.
 e2e/core/process/process_spawn.rb	spawn() is unimplemented on wasi
 e2e/core/process/signal_trap.rb	kill has no wasm form
 
-# wasi has no way to allocate a fiber stack, so every Thread and Fiber stops.
+# wasi cannot allocate a fiber stack, so no Thread or Fiber can start.
 e2e/core/fiber/fiber_resume.rb	can't allocate fiber stack: Function not implemented
 e2e/core/thread/threads_join.rb	can't allocate fiber stack: Function not implemented
 
-# A program that evals walks the tree (lib/zr/eval/walk.rb). Three of
-# the five that do now answer what ruby answers, and what stops these
-# two is not the eval road.
+# On wasi, eval uses the tree-walking interpreter (lib/zr/eval/walk.rb).
+# These two programs use eval, but eval support does not cause their
+# failure.
 e2e/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
 e2e/stdlib/rubygems/require_rubygems.rb	rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory
 
-# A 32-bit module wants more memory than the bound allows, to build or to run.
+# A 32-bit module needs more memory than the limit, to build or to run.
 e2e/stdlib/bundler/bundler_resolves_a_gemfile.rb	the build holds more than 2048 MB
 e2e/stdlib/bundler/require_bundler.rb	the build holds more than 3072 MB
 e2e/stdlib/testing/a_minitest_suite_runs.rb	the build holds more than 2048 MB
 e2e/core/thread/thread_queue_handoff.rb	the program holds more than 1024 MB
 e2e/stdlib/zlib/zlib_roundtrip.rb	the program holds more than 1024 MB
 
-# socket's wasi half is not written: `socket/constants` has no wasi table.
+# socket has no wasi part yet: `socket/constants` has no wasi table.
 e2e/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants

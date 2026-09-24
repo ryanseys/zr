@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-# runtime/ext/prism/ruby/encoding_tables.rb from prism 1.9.0's
-# src/encoding.c and include/prism/encoding.h: the Unicode code point
-# ranges, the byte tables, the UTF-8 decoder's state table, each
-# encoding's name and functions in pm_encoding_t order, and the names
-# pm_encoding_find answers to. The C comes from the v1.9.0 tag of
-# ~/dev/prism.
+# Writes runtime/ext/prism/ruby/encoding_tables.rb from prism 1.9.0's
+# src/encoding.c and include/prism/encoding.h. The file contains the
+# Unicode code point ranges, the byte tables, the UTF-8 decoder's state
+# table, each encoding's name and functions in pm_encoding_t order, and
+# the names that pm_encoding_find accepts. The C comes from the v1.9.0
+# tag of ~/dev/prism.
 #
 #   rake gen:prism_encoding_tables           writes the table
-#   rake 'gen:prism_encoding_tables[--check]'  fails on a stale one
+#   rake 'gen:prism_encoding_tables[--check]'  fails when the table is out of date
 module PrismEncodingTables
   ROOT = File.expand_path("../../..", __dir__)
   OUT = File.join(ROOT, "runtime/ext/prism/ruby/encoding_tables.rb")
@@ -23,7 +23,7 @@ module PrismEncodingTables
 
   def numbers(text) = text.scan(/0x\h+|\d+/).map { |n| Integer(n) }
 
-  # `static const T name[...] = { ... };` as its numbers.
+  # The numbers of `static const T name[...] = { ... };`.
   def array(source, name)
     body = source[/\b#{name}\[[^\]]*\]\s*=\s*\{(.*?)\};/m, 1] or raise "no #{name}"
     numbers(body.gsub(%r{//[^\n]*}, ""))

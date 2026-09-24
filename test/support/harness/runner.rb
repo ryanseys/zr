@@ -8,19 +8,19 @@ require_relative "wasmtime"
 
 module Zr
   module Harness
-    # How a whole program is built for one target and what it built is
-    # run, and whose recording the answer is held to. A native binary
-    # runs on its own host; a wasm module runs under wasmtime, with the
-    # test directory preopened and the environment passed in by name.
+    # Builds a whole program for one target, runs the result, and selects
+    # the recording to check the output against. A native binary runs on
+    # its own host. A wasm module runs under wasmtime, with the test
+    # directory preopened and each environment variable passed by name.
     class Runner
-      # The recording's name for each OS.
+      # The platform name in recording file names, for each OS.
       PLATFORMS = { darwin: "macos", linux: "linux", wasi: "wasi" }.freeze
 
       attr_reader :target
 
-      # The target a run builds for: the host's own, or the one
-      # `ZR_TARGET` names, as the cross-target rows of CI do. A triple
-      # no target answers to is named here rather than failing later.
+      # The target to build for: the host's target, or the target that
+      # `ZR_TARGET` gives, as in the cross-target CI jobs. An unknown
+      # triple raises an error here, not later.
       def self.named(triple)
         return Target.default if triple.nil? || triple.empty?
 
@@ -28,8 +28,8 @@ module Zr
       end
 
 
-      # `compiler` is wasmtime's, for a module: the checks' choice, or
-      # Cranelift where the speed of what runs is the answer (`rake bench`).
+      # `compiler` is the wasmtime compiler for a module: the tests'
+      # default, or Cranelift when run speed is the result (`rake bench`).
       def initialize(root, target = Target.default, compiler: Wasmtime.compiler)
         @root = root
         @target = target
@@ -40,7 +40,7 @@ module Zr
 
       def wasm? = @target.outputs == [:wasm]
 
-      # nil when this host runs what the target builds, else why not.
+      # nil when this host can run the target's output, else the reason.
       def refusal
         if wasm?
           return nil if Wasmtime.installed?
@@ -52,9 +52,10 @@ module Zr
         "#{@target.triple} binaries run only on their own host, and this host is #{Target.host_triple}"
       end
 
-      # The build of `rel` into `out`: ruby without rubygems, which the
-      # compiler never asks for, under the collector tuning `zr` would
-      # otherwise start a second process to get.
+      # The command that builds `rel` into `out`. It runs ruby without
+      # rubygems, which the compiler does not use, with the GC tuning in
+      # `build_env`. Without it, `zr` starts a second process to set that
+      # tuning.
       def build_argv(rel, out)
         [RbConfig.ruby, "--disable-gems", File.join(@root, "exe/zr"), "build", rel, "-o", out,
          "--target", @target.triple]
@@ -62,14 +63,13 @@ module Zr
 
       def build_env = CLI::GC_ENV
 
-      # The run of `out` with `args` under `env`: the command, and the
-      # environment the process itself takes.
+      # The command that runs `out` with `args` under `env`, and the
+      # environment for the process itself.
       #
-      # A module is asked the same question as a binary or it is not the
-      # same question, so the guest gets the test directory and a
-      # temporary directory of its own. Without the second, `Dir.tmpdir`
-      # finds nothing to answer with -- a WASI guest sees no filesystem
-      # it was not given and no environment it was not passed -- and a
+      # A module must run under the same conditions as a binary. Thus the
+      # guest gets the test directory and its own temporary directory. A
+      # WASI guest sees only the directories and variables that it is
+      # given. Without a temporary directory, `Dir.tmpdir` fails, and a
       # program that writes a file fails where the binary does not.
       def run(out, args, env)
         return [[out, *args], env] unless wasm?
@@ -78,8 +78,8 @@ module Zr
         [Wasmtime.run(out, *args, dirs: dirs, env: { "TMPDIR" => "/tmp" }.merge(env), compiler: @compiler), {}]
       end
 
-      # wasmtime's report of a trap, which ends the module as abort(3)
-      # ends a process, and counts as a crash.
+      # True when wasmtime reports a trap. A trap stops the module as
+      # abort(3) stops a process, so it counts as a crash.
       def trapped?(answer) = wasm? && answer.stderr.include?("wasm trap: ")
     end
   end

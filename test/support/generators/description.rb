@@ -1,6 +1,6 @@
-# The three kernel tables a lowering reads, written as the text an eval
-# carries instead of the kernel sources. Each OS layer's kernel has its
-# own, so the target names which.
+# Writes the three kernel tables that a lowering reads, as text. Eval
+# support includes this text in place of the kernel sources. The kernel
+# of each OS layer has its own tables, so the target selects the layer.
 #
 #   rake gen:description             this host's OS layer
 #   rake 'gen:description[wasm32-wasi]'

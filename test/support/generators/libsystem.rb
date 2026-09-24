@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# The libSystem names zr imports, as the list `Obj::MachO::Executable` reads: every
-# `Machine.import` and `Machine.extern` in darwin's kernel and test/machine, and
-# every callee the native fixtures make, that this host's libSystem defines. With the list
-# committed, whether `Obj::MachO::Executable` can link a unit answers the same on
-# every host.
+# Writes the list of libSystem names that zr imports, which
+# `Obj::MachO::Executable` reads. The list contains each `Machine.import` and
+# `Machine.extern` in darwin's kernel and test/machine, and each callee of the
+# native fixtures, that this host's libSystem defines. The list is committed,
+# so `Obj::MachO::Executable` gives the same link result on every host.
 #
 #   rake gen:libsystem
 require "fiddle"

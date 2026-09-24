@@ -1,18 +1,19 @@
 # frozen_string_literal: true
 
-# The generated files of the pure-Ruby prism, and a check of the vendored
-# gem's own. Both render from prism 1.9.0's config.yml with the locals of
-# its template driver (vendor/ext/prism/templates/template.rb):
+# Writes the generated files of the pure-Ruby prism, and checks the
+# generated files of the vendored gem. Both render from prism 1.9.0's
+# config.yml with the locals of its template driver
+# (vendor/ext/prism/templates/template.rb):
 #
 # * zr's templates (test/support/generators/prism/templates/*.rb.erb) render into
-#   runtime/ext/prism/ruby/*.rb;
+#   runtime/ext/prism/ruby/*.rb.
 # * upstream's templates (vendor/ext/prism/templates/lib) must render the
-#   vendored vendor/ext/prism/lib files byte for byte. Vendored files are
-#   never written; a difference fails.
+#   vendored vendor/ext/prism/lib files byte for byte. This script never
+#   writes vendored files; a difference is a failure.
 #
 #   rake gen:prism_generate             writes zr's generated files
-#   rake 'gen:prism_generate[--check]'  writes nothing, and fails on a
-#                                       stale or differing file
+#   rake 'gen:prism_generate[--check]'  writes nothing, and fails on a file
+#                                       that is out of date or different
 require "erb"
 require "fileutils"
 require "tmpdir"
@@ -42,8 +43,8 @@ module PrismGenerate
     end
   end
 
-  # Each of zr's templates rendered: `{ path => text }`. A template sees
-  # config.yml's locals and `upstream`, the vendored templates directory.
+  # Each of zr's templates, rendered: `{ path => text }`. A template gets
+  # config.yml's locals, and `upstream`, the vendored templates directory.
   def ours
     locals = driver.send(:locals).merge(upstream: File.join(UPSTREAM, "templates"))
     Dir.glob("*.rb.erb", base: TEMPLATES).sort.to_h do |erb|

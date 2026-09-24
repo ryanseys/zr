@@ -5,31 +5,31 @@ require_relative "clean_env"
 
 module Zr
   module Harness
-    # A child with both streams captured, bounded in wall-clock time and in
-    # memory. The bound on memory is what keeps a runaway build or binary
-    # from taking the whole machine down with it: macOS does not enforce
-    # RLIMIT_AS, so the group's resident size is read while it runs, and
-    # the group is killed once it holds more than the limit.
+    # Runs a child process, captures stdout and stderr, and limits its
+    # wall-clock time and memory. The memory limit stops a runaway build
+    # or binary from using all of the machine. macOS does not enforce
+    # RLIMIT_AS, so this reads the group's resident size while it runs,
+    # and kills the group when it uses more than the limit.
     #
-    # The whole process group goes when either bound is hit, so a child of
-    # the program cannot hold the pipes open.
+    # At either limit, all of the process group is killed, so a child of
+    # the program cannot keep the pipes open.
     module Child
-      # The most a build and a run may hold, in megabytes, summed over the
-      # process group.
+      # The memory limit of a build and of a run, in megabytes, summed
+      # over the process group.
       BUILD_MB = Integer(ENV.fetch("ZR_TEST_BUILD_MB", "2048"))
       RUN_MB = Integer(ENV.fetch("ZR_TEST_RUN_MB", "1024"))
 
-      # The environment a program gets when the question is "what does
-      # ruby say", which is not the environment `bundle exec rake` runs
-      # in: bundler puts its own `GEM_HOME` and `BUNDLE_GEMFILE` there,
-      # the child's `require` then finds bundler's gems rather than the
-      # ones ruby ships, and `Kernel#require` is not even the same
-      # method -- `[[:req, :name]]` under bundler where a bare ruby has
-      # rubygems' `[[:req, :path]]`.
+      # The environment for a program that ruby runs to get the expected
+      # output. It is not the environment of `bundle exec rake`, where
+      # bundler sets its own `GEM_HOME` and `BUNDLE_GEMFILE`. Under
+      # bundler, the child's `require` finds bundler's gems, not the gems
+      # that ruby ships. `Kernel#require` is also a different method:
+      # `[[:req, :name]]` under bundler, and rubygems' `[[:req, :path]]`
+      # in a bare ruby.
       #
-      # The recordings were made by a bare ruby, so a road that asks
-      # ruby for an answer merges this. A road that builds with zr does
-      # not: the compiler needs the gems bundler set up.
+      # A bare ruby made the recordings, so a caller that runs ruby merges
+      # this. A caller that builds with zr does not, because the compiler
+      # needs the gems that bundler set up.
       BARE_RUBY = { "GEM_HOME" => nil, "GEM_PATH" => nil, "BUNDLE_GEMFILE" => nil,
                     "BUNDLE_BIN_PATH" => nil, "BUNDLE_LOCKFILE" => nil,
                     "BUNDLER_SETUP" => nil, "BUNDLER_VERSION" => nil }.freeze
@@ -39,12 +39,13 @@ module Zr
 
       module_function
 
-      # The answer and the seconds it took. The answer's code is :timeout
-      # past `seconds` and :memory past `megabytes`. With `megabytes` nil
-      # nothing samples the group's memory, and nothing forks beside
-      # the child: what a benchmark asks, since its CPU time is read
-      # from the process's children as a whole. With `merge`, stderr
-      # goes into stdout, in the order the child writes them.
+      # Returns the output and the seconds it took. The output's code is
+      # :timeout after `seconds`, and :memory above `megabytes`. When
+      # `megabytes` is nil, nothing samples the group's memory and no
+      # other process starts next to the child. A benchmark needs this,
+      # because it reads its CPU time from all children of this process.
+      # With `merge`, stderr goes into stdout, in the order that the child
+      # writes them.
       def run(argv, cwd:, seconds:, megabytes:, stdin: nil, env: {}, merge: false)
         env = CleanEnv.env(env)
         out_r, out_w = IO.pipe
@@ -72,14 +73,13 @@ module Zr
         [Answer.new(stdout, stderr, status.exitstatus || -1, status.termsig), seconds]
       end
 
-      # How often the bounds are looked at while the child runs.
+      # How often the limits are checked while the child runs, in seconds.
       LOOK = 0.05
 
-      # Waits for `pid`: its status, or nil and the bound it went past.
-      # A thread blocks in `wait2`, so the answer comes the moment the
-      # child ends; polling it on a grid of up to 20 ms added that much
-      # to every one of a tier's runs. This thread looks at the bounds
-      # between joins.
+      # Waits for `pid`. Returns its status, or nil and the limit that it
+      # went above. A thread blocks in `wait2`, so the result comes as
+      # soon as the child ends. Polling would add up to one poll interval
+      # to each run of a tier. This thread checks the limits between joins.
       def watch(pid, deadline, megabytes)
         Watch.add(pid) if megabytes
         waiter = Thread.new { Process.wait2(pid).last }
@@ -99,10 +99,10 @@ module Zr
         Watch.drop(pid) if megabytes
       end
 
-      # One reader of every group's memory: a thread that runs `ps` once
-      # every EVERY seconds while any child is watched, and stops when
-      # none is. Twelve children each running their own `ps` five times
-      # a second was a load of its own.
+      # One thread reads the memory of all watched groups. It runs `ps`
+      # once every EVERY seconds while a child is watched, and stops when
+      # none is. One `ps` for each child five times a second causes too
+      # much load when twelve children run.
       module Watch
         @groups = {}
         @sample = {}
@@ -121,16 +121,16 @@ module Zr
           @lock.synchronize { @groups.delete(pid) }
         end
 
-        # The resident kilobytes of the group `pid` leads at the last
-        # sample, or 0 before the first one or where ps cannot say
-        # (busybox's ps has no -o pgid).
+        # The resident kilobytes of the group that `pid` leads, at the last
+        # sample. It is 0 before the first sample, or when ps cannot give
+        # it (busybox's ps has no -o pgid).
         def resident_kb(pid)
           @lock.synchronize { @sample.fetch(pid, 0) }
         end
 
-        # The thread ends under the lock, so an `add` sees either a live
-        # thread or none and never a dying one; a thread that dies of an
-        # error lets go the same way, so the next `add` starts another.
+        # The thread ends under the lock, so `add` sees a live thread or
+        # no thread, never a thread that is ending. A thread that stops on
+        # an error also clears `@thread`, so the next `add` starts a new one.
         def sample_until_idle
           loop do
             groups = @lock.synchronize do

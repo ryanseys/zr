@@ -7,18 +7,19 @@ require_relative "../../../lib/zr/record"
 
 module Zr
   module Harness
-    # The pure-Ruby prism (runtime/ext/prism/ruby) held to ruby's
-    # own C prism, file by file, with ruby as the only oracle.
+    # Compares the pure-Ruby prism (runtime/ext/prism/ruby) with ruby's
+    # own C prism, file by file. The C prism is the reference.
     #
-    # `writer` proves Prism::Ruby::Dump before a parser exists: each file's
-    # C dump is read back by a loader that also keeps what a tree does not
-    # carry (the constant pool's entries, which strings are slices of the
-    # source, which integers are a negated zero), the writer writes it
-    # again, and the two dumps must be equal byte for byte.
+    # `writer` tests Prism::Ruby::Dump without the Ruby parser. A loader
+    # reads each file's C dump back, and also keeps the data that a tree
+    # does not contain: the constant pool entries, which strings are
+    # slices of the source, and which integers are a negated zero. The
+    # writer writes the dump again, and the two dumps must be equal byte
+    # for byte.
     module PrismDiff
       ROOT = File.expand_path("../../..", __dir__)
       UPSTREAM = File.join(ROOT, "tmp/prism-1.9.0")
-      # The prism checkout test/prism is extracted from.
+      # The prism checkout that test/prism is extracted from.
       CHECKOUT = File.expand_path("~/dev/prism")
       # test_helper.rb's SYNTAX_VERSIONS.
       SYNTAX_VERSIONS = %w[3.3 3.4 4.0 4.1].freeze
@@ -40,12 +41,13 @@ module Zr
 
       module_function
 
-      # The parts of prism's v1.9.0 tag the checks read, extracted on first
-      # use: the tests and the snapshots they compare against.
+      # The parts of prism's v1.9.0 tag that the tests read: prism's tests
+      # and the snapshots that they compare with. They are extracted on
+      # first use.
       UPSTREAM_PARTS = %w[test/prism snapshots].freeze
 
-      # test/prism at prism's v1.9.0 tag, extracted on first use; nil when
-      # there is no checkout to extract it from.
+      # The path of test/prism at prism's v1.9.0 tag, extracted on first
+      # use. nil when there is no checkout to extract it from.
       def upstream
         tests = File.join(UPSTREAM, "test/prism")
         missing = UPSTREAM_PARTS.reject { |part| File.directory?(File.join(UPSTREAM, part)) }
@@ -57,10 +59,10 @@ module Zr
         tests
       end
 
-      # The directory whose prism/prism.rb stands in for the C extension.
+      # The directory whose prism/prism.rb is used in place of the C extension.
       RUBY_BACKEND = File.join(ROOT, "lib/zr/prism_backend")
 
-      # A test file's counts as test-unit reports them.
+      # The counts of one test file, as test-unit reports them.
       class TestRun < ::Zr::Record
         FIELDS = %i[file tests assertions failures errors pendings omissions output].freeze
         attr_accessor :file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output
@@ -83,10 +85,10 @@ module Zr
         def counts = to_a[1..6]
       end
 
-      # prism's own test files (test/prism/**/*_test.rb at v1.9.0), each run
-      # in its own ruby, on the C extension or on the Ruby port (`backend`
-      # :c or :ruby), at most `jobs` at a time, each bounded in time and in
-      # resident memory. Answers a TestRun per file.
+      # Runs prism's own test files (test/prism/**/*_test.rb at v1.9.0) on
+      # the C extension or the Ruby port (`backend` :c or :ruby). Each file
+      # runs in its own ruby, with a time and memory limit, and at most
+      # `jobs` run at a time. Returns one TestRun for each file.
       def upstream_tests(backend, only: nil, jobs: 3, seconds: 600, megabytes: 3000)
         base = File.dirname(upstream || raise("no prism checkout at #{CHECKOUT}"))
         check = "exit(Prism.method(:parse).source_location.nil? ? 1 : 0)"
@@ -117,8 +119,9 @@ module Zr
         TestRun.new(file, *(counts ? Regexp.last_match.captures.map(&:to_i) : Array.new(6)), output)
       end
 
-      # test_helper.rb's ruby_versions_for: `3.4/x.txt` from 3.4 on,
-      # `3.3-3.3/x.txt` for 3.3 alone, a file at the top for every version.
+      # The same as test_helper.rb's ruby_versions_for: `3.4/x.txt` is for
+      # 3.4 and later, `3.3-3.3/x.txt` is for 3.3 only, and a file at the
+      # top is for all versions.
       def versions_for(path)
         parts = path.split("/")
         return SYNTAX_VERSIONS if parts.size == 1
@@ -127,10 +130,10 @@ module Zr
         last ? SYNTAX_VERSIONS[SYNTAX_VERSIONS.index(first)..SYNTAX_VERSIONS.index(last)] : SYNTAX_VERSIONS[SYNTAX_VERSIONS.index(first)..]
       end
 
-      # The cases of each corpus: `fixtures` and `errors` are prism's own,
-      # each under every syntax version its directory names; `runtime`, `lib`,
-      # `test` and `vendor` are zr's .rb files. `only` is a glob over the
-      # case names.
+      # The cases of each corpus. `fixtures` and `errors` are prism's own,
+      # with one case for each syntax version that the directory gives.
+      # `runtime`, `lib`, `test` and `vendor` are zr's .rb files. `only` is
+      # a glob that selects case names.
       def cases(corpora, only: nil)
         corpora.flat_map do |corpus|
           case corpus
@@ -138,7 +141,7 @@ module Zr
             base = File.join(upstream || raise("no prism checkout at #{CHECKOUT}"), corpus)
             Dir.glob("**/*.txt", base: base).sort.flat_map do |path|
               source = File.binread(File.join(base, path))
-              # errors_test.rb: the annotation lines go, and so do trailing newlines.
+              # As in errors_test.rb: remove the annotation lines and trailing newlines.
               source = source.lines.grep_v(/^\s*\^/).join.gsub(/\n*\z/, "") if corpus == "errors"
               versions_for(path).map { |version| Case.new("#{corpus}/#{path}@#{version}", source, { version: version }) }
             end
@@ -152,9 +155,10 @@ module Zr
         end.select { |c| only.nil? || File.fnmatch?(only, c.name, File::FNM_PATHNAME | File::FNM_EXTGLOB) }
       end
 
-      # The constant pool of a C dump: each entry's bytes and source offset
-      # (nil when owned). Owned entries come in the order their bytes follow
-      # the table, which is the order of the C pool's buckets.
+      # The constant pool of a C dump: the bytes and source offset of each
+      # entry (the offset is nil for an owned entry). Owned entries are in
+      # the order of their bytes after the table, which is the order of the
+      # C pool's hash buckets.
       class RecordedPool
         attr_reader :size
 
@@ -177,7 +181,7 @@ module Zr
 
       Serialize = Prism.const_get(:Serialize)
 
-      # Serialize::Loader, which also keeps the encoding's name as written,
+      # A Serialize::Loader that also keeps the encoding name as written,
       # the source offset of each string that is a slice, and the ids of
       # the nodes whose integer is a negated zero.
       class Recorder < Serialize.const_get(:Loader)
@@ -190,8 +194,8 @@ module Zr
           @node_ids = []
         end
 
-        # The id of the node being read, for load_integer: it follows the
-        # type byte.
+        # Keeps the id of the node that is being read, for load_integer.
+        # The id follows the type byte.
         def load_node(constant_pool, encoding, freeze)
           at = io.pos
           io.getbyte
@@ -228,8 +232,8 @@ module Zr
           end
         end
 
-        # Serialize.load_parse's steps: the result, and Dump.parse's other
-        # arguments.
+        # The steps of Serialize.load_parse. Returns the result, and the
+        # other arguments of Dump.parse.
         def self.load_parse(input, serialized)
           input = input.dup
           source = Prism::Source.for(input)
@@ -254,7 +258,7 @@ module Zr
         end
       end
 
-      # The first byte two dumps differ at, with the bytes around it.
+      # The first byte where two dumps differ, with the bytes around it.
       def difference(expected, actual)
         common = [expected.bytesize, actual.bytesize].min
         at = (0...common).find { |i| expected.getbyte(i) != actual.getbyte(i) } || common
@@ -262,8 +266,8 @@ module Zr
         "sizes #{expected.bytesize}/#{actual.bytesize}, first difference at byte #{at}\n  C:    #{window.(expected)}\n  Ruby: #{window.(actual)}"
       end
 
-      # Each case's C dump written again by the Ruby writer: the cases that
-      # differ, as `[name, why]`.
+      # Writes the C dump of each case again with the Ruby writer. Returns
+      # the cases that differ, as `[name, why]`.
       def writer(cases)
         require File.join(ROOT, "runtime/ext/prism/ruby/dump")
         cases.filter_map do |c|
@@ -278,9 +282,9 @@ module Zr
         end
       end
 
-      # The Ruby parser against the C: each case's Prism.dump written by
-      # Prism::Ruby.dump, byte for byte. Answers the cases that differ as
-      # `[name, why]`.
+      # Compares the Ruby parser with the C parser: Prism::Ruby.dump must
+      # write the same bytes as Prism.dump for each case. Returns the cases
+      # that differ, as `[name, why]`.
       def dump(cases)
         require File.join(ROOT, "runtime/ext/prism/ruby")
         cases.filter_map do |c|
@@ -294,11 +298,11 @@ module Zr
         end
       end
 
-      # The first place two object graphs differ, as `path: why`, or nil.
-      # Objects compare by class, frozenness and instance variables; Strings
-      # by bytes and encoding; Floats by their bits. An object met again must
-      # be met again at the same place in the other graph, as every node
-      # shares its result's Source.
+      # The first place where two object graphs differ, as `path: why`, or
+      # nil. Objects compare by class, frozen state and instance variables.
+      # Strings compare by bytes and encoding, and Floats by their bits. An
+      # object that occurs again in one graph must also occur again at the
+      # same place in the other, because all nodes share the result's Source.
       class Graph
         def self.difference(expected, actual) = new.difference(expected, actual, "result")
 
@@ -343,8 +347,8 @@ module Zr
         end
       end
 
-      # The entry points compared object for object (Graph) with the C
-      # extension's: each case through `Prism.<method>` and
+      # Compares an entry point with the C extension's, object by object
+      # (Graph). Each case goes through `Prism.<method>` and
       # `Prism::Ruby.<method>` with its options.
       def api(cases, method, **extra)
         require File.join(ROOT, "runtime/ext/prism/ruby")
@@ -354,10 +358,10 @@ module Zr
         end
       end
 
-      # How what the block answers given the C extension's receiver (Prism,
-      # Prism::Pack, Prism::StringQuery) differs from what it answers given the
-      # Ruby port's, or nil. A raised error is an answer too, compared by class
-      # and message.
+      # How the block's result with the C extension's receiver (Prism,
+      # Prism::Pack, Prism::StringQuery) differs from its result with the
+      # Ruby port's receiver, or nil. A raised error is also a result, and
+      # compares by class and message.
       def call_difference(c, ruby)
         expected = answer { yield c }
         actual = answer { yield ruby }
@@ -367,7 +371,7 @@ module Zr
         "#{why}\n  #{actual[1]}: #{actual[2]}\n  #{actual[3].join("\n  ")}"
       end
 
-      # What the block answers, or `[:raised, class, message, backtrace]`.
+      # `[result]` of the block, or `[:raised, class, message, backtrace]`.
       def answer
         [yield]
       rescue StandardError, SystemStackError => e
@@ -378,9 +382,9 @@ module Zr
       # constructs.
       FUZZ_BYTES = "()[]{}|&*,.:;=<>?!@$#%'\"`\\/\n -+^~_1aZ".b
 
-      # `count` broken variants of each case, seeded by `seed`: truncated at
-      # a random offset, a random range deleted, or a random byte inserted.
-      # Answers cases named `name~n`.
+      # Makes `count` broken variants of each case, with the random seed
+      # `seed`. A variant is cut at a random offset, has a random range
+      # removed, or has a random byte added. Returns cases named `name~n`.
       def fuzz(cases, count, seed)
         random = Random.new(seed)
         cases.flat_map do |c|
@@ -398,12 +402,12 @@ module Zr
         end
       end
 
-      # The lexer alone against Prism.lex: each token's type and byte range,
-      # and with `states` its lex state. A lexer with no parser behind it
-      # differs wherever the parser moves the lex state, so this compares the
-      # tokens up to the first difference and names it. Cases that reach a
-      # lex mode not written yet count as `unsupported`. Answers
-      # `[failures, unsupported]`, a failure as `[name, why]`.
+      # Compares the lexer alone with Prism.lex: the type and byte range of
+      # each token, and with `states` its lex state. Without the parser, the
+      # lexer differs where the parser changes the lex state. Thus this
+      # compares tokens up to the first difference, and reports it. A case
+      # that needs an unimplemented lex mode counts as `unsupported`.
+      # Returns `[failures, unsupported]`, each failure as `[name, why]`.
       def lex(cases, states: false)
         require File.join(ROOT, "runtime/ext/prism/ruby")
         unsupported = 0

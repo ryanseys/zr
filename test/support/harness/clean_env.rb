@@ -2,24 +2,22 @@
 
 module Zr
   module Harness
-    # The environment this process was started in, before bundler.
+    # The environment that this process started with, before bundler.
     #
-    # A child of the checks must not inherit this bundle. `bundle exec`
-    # puts `-rbundler/setup` in `RUBYOPT` and names it again in
-    # `BUNDLER_SETUP`, so a ruby started from here loads bundler before
-    # it reads the program. A ruby that has loaded bundler has already
-    # handed out fifty-six object ids, and answers 464 where a plain
-    # ruby answers 16 -- so `test/programs/reflection_more.rb` asked the
-    # oracle a question a compiled program cannot be asked, since a
-    # binary has no `RUBYOPT` to read. It also stops a child loading a
-    # gem ruby bundles but this Gemfile does not name, which is what
-    # kept prism's own test suite from running at all.
+    # A child of the tests must not inherit this bundle. `bundle exec`
+    # puts `-rbundler/setup` in `RUBYOPT` and also in `BUNDLER_SETUP`, so
+    # a ruby started from here loads bundler before the program. Bundler
+    # uses 56 object ids, so the next object id is 464, not 16 as in a
+    # plain ruby. A compiled binary does not read `RUBYOPT`, so the two
+    # outputs differ (`test/programs/reflection_more.rb`). Bundler also
+    # stops a child from loading a gem that ruby bundles but this Gemfile
+    # does not list; prism's own test suite needs such gems.
     module CleanEnv
       ORIGINAL = (defined?(Bundler) ? Bundler.original_env : ENV).to_h.freeze
 
-      # `ORIGINAL` with `overlay` over it. A nil in `overlay` leaves the
-      # variable out, and the caller passes `unsetenv_others: true`, so
-      # what the child gets is this hash and nothing else.
+      # `ORIGINAL` merged with `overlay`. A nil in `overlay` removes the
+      # variable. The caller passes `unsetenv_others: true`, so the child
+      # gets only this hash.
       def self.env(overlay = {}) = ORIGINAL.merge(overlay).compact
     end
   end
