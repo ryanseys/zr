@@ -3,57 +3,38 @@
 module Zr
   module Obj
     module MachO
-      # The bytes of a binary that every program linked beside one base
-      # shares, kept as a file the link clones instead of writing -- or
-      # left where they are, when the last binary at the same path holds
-      # them already.
+      # The skeleton: the bytes that all binaries linked against one base
+      # share. A binary starts with a header page and the runtime's
+      # `__TEXT` (18 MB of 22 MB), at the same file offsets for every
+      # program. A link never writes into that text (dyld fills slots in
+      # the GOT and the data), so the link does not write it again. A spec
+      # tier links about 7000 times, so this saves about 160 GB a run.
       #
-      # A binary linked beside the runtime begins with a header page and
-      # the runtime's `__TEXT`, 18 MB of the 22 the whole binary is, and
-      # both stand at the same file offsets whatever the program: the
-      # base is placed at fixed addresses, and the program's code comes
-      # after it. Nothing a link does writes into the text blob -- the
-      # slots dyld fills are in the GOT and the data -- so a link that
-      # wrote the binary from the first byte wrote 18 MB that were the
-      # same as the last link's. A spec tier links seven thousand times:
-      # 160 GB a run.
-      #
-      # APFS clones a file in one call and shares its blocks until either
-      # copy is written, so a link clones the skeleton and writes the
-      # header page and everything after the text. The bytes are the same
-      # as the plain road writes; a check holds the two equal.
-      #
-      # A clone is not free to run, though. Its pages are nobody's yet, so
-      # the first exec reads the whole text from disk (measured: 20 MB
-      # and 40 ms a binary, and eight workers reading at once wait on
-      # each other), where a file written whole runs from the pages the
-      # write left in memory -- and is flushed to disk for that. So where
-      # a binary stands at `out` already with the base's text in it, the
-      # link writes over it: the header page and everything after the
-      # text, the text's pages untouched, clean and in memory. That is
-      # the road the checks take, one file a worker; `zr build` to the
-      # same path takes it too. The clone is for a path with nothing at
-      # it, and the plain road for a filesystem that will not clone.
-      #
-      # `clonefile(2)` is reached through Fiddle, which the checks' ruby
-      # has. Where the clone is refused -- another volume, a filesystem
-      # that is not APFS, a compiler with no Fiddle -- the answer is false
-      # and the link takes the plain road, so nothing here decides what
-      # a binary holds.
+      # The link uses one of three paths, in this order:
+      # 1. When `out` already contains the base's text, the link writes
+      #    only the header page and the bytes after the text. The text
+      #    pages stay clean and in memory. The tests and a repeated
+      #    `zr build` to one path use this path.
+      # 2. Otherwise, on APFS, the link clones the skeleton file with
+      #    `clonefile(2)` (through Fiddle). A clone shares blocks until a
+      #    write, but its first exec reads the text from disk (20 MB and
+      #    40 ms a binary, and parallel workers wait on each other).
+      # 3. Otherwise (another volume, not APFS, no Fiddle) the link writes
+      #    the full file. All three paths give the same bytes; a test
+      #    checks this.
       module Skeleton
         PAGE = Prelink::PAGE
 
-        # `bytes` of the skeleton of `base`: the header page, blank, and
-        # the text blob after it.
+        # Returns the skeleton of `base`: a blank header page, then the
+        # text blob.
         def self.bytes(base) = ("\0".b * PAGE) + base.blobs.fetch(:text)
 
-        # Opens `out` for a binary whose bytes past the header page begin
-        # with `text`: over the binary there when it holds that text,
-        # else over a clone of `skeleton`, else fresh. Yields the file at
-        # its start and whether the text is in place; the block writes the
-        # header page, seeks past the text where it is in place and writes
-        # it where it is not, then writes the rest. The file ends where
-        # the block stopped, and is left executable.
+        # Opens `out` for a binary whose bytes after the header page start
+        # with `text`. It uses the existing file when it contains that
+        # text, else a clone of `skeleton`, else a new file. Yields the
+        # file at offset 0 and whether the text is in place. The block
+        # writes the header page, skips or writes the text, then writes the
+        # rest. The file ends where the block stops and is executable.
         def self.write_over(out, skeleton, text)
           size = PAGE + text.bytesize
           kept = kept?(out, text) || clone(skeleton, out, size)
@@ -65,9 +46,9 @@ module Zr
           written[out] = [stamp(out), text]
         end
 
-        # Whether the file at `out` holds `text` after its header page:
-        # read and compared, unless this process wrote it there and the
-        # file has not changed since.
+        # Checks whether the file at `out` contains `text` after its header
+        # page. It reads and compares the bytes, unless this process wrote
+        # the text there and the file did not change after that.
         def self.kept?(out, text)
           stamp = stamp(out) or return false
           left, held = written[out]
@@ -78,12 +59,11 @@ module Zr
           false
         end
 
-        # The files this process wrote a text into, each with the stamp
-        # it left and the text.
+        # The files that this process wrote a text into, each with its
+        # file stamp and the text.
         def self.written = @written ||= {}
 
-        # What tells one file's contents from the next: the inode and the
-        # size, and when it was last written or changed.
+        # The file stamp: the inode, the size, the mtime and the ctime.
         def self.stamp(out)
           stat = File.stat(out)
           [stat.ino, stat.size, stat.mtime, stat.ctime]
@@ -91,9 +71,10 @@ module Zr
           nil
         end
 
-        # Clones `skeleton` to `out`, or answers false. `size` is what the
-        # skeleton must be: the binary's `__TEXT` as a file; a skeleton of
-        # any other size is somebody else's and is left alone.
+        # Clones `skeleton` to `out`, or returns false. `size` is the
+        # expected skeleton size (the binary's `__TEXT` as a file). A
+        # skeleton of a different size belongs to another base; this does
+        # not use it.
         def self.clone(skeleton, out, size)
           return false unless skeleton && File.size?(skeleton) == size && (fn = clonefile)
 
@@ -103,7 +84,8 @@ module Zr
           false
         end
 
-        # `clonefile` from libSystem, once, or nil where it cannot be had.
+        # Returns `clonefile` from libSystem (looked up once), or nil when
+        # it is not available.
         def self.clonefile
           return @clonefile if defined?(@clonefile)
 

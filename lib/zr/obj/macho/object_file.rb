@@ -6,11 +6,11 @@ require_relative "../../record"
 module Zr
   module Obj
     module MachO
-      # A relocatable Mach-O 64 for arm64 (`MH_OBJECT`), from an `Obj::Unit`.
-      # One unnamed segment holds `__TEXT,__text`, `__TEXT,__const`,
+      # Writes a relocatable Mach-O 64 object for arm64 (`MH_OBJECT`) from
+      # an `Obj::Unit`. One unnamed segment contains `__TEXT,__text`, `__TEXT,__const`,
       # `__DATA,__const`, `__DATA,__data` and `__DATA,__bss`; then `LC_BUILD_VERSION`,
-      # `LC_SYMTAB` and `LC_DYSYMTAB`. Symbols are ordered local, exported,
-      # imported, each group by name, which is the order `ld` reads. The
+      # `LC_SYMTAB` and `LC_DYSYMTAB`. The symbol order is local, exported,
+      # imported, each group sorted by name, because `ld` reads that order. The
       # layout follows <mach-o/loader.h>, <mach-o/nlist.h> and
       # <mach-o/arm64/reloc.h>.
       module ObjectFile
@@ -43,7 +43,7 @@ module Zr
         }.freeze
         ARM64_RELOC_ADDEND = 10
 
-        # The sections, in file order, with the `Obj` sections that land in each.
+        # The sections, in file order, with the `Obj` sections that go in each.
         SECTIONS = [
           ["__text", "__TEXT", S_REGULAR | S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS, [:function]],
           ["__const", "__TEXT", S_REGULAR, [:text_const]],
@@ -65,10 +65,10 @@ module Zr
           def to_a = [@item, @section, @addr]
         end
 
-        # An object as `read` answers it. `symbols` holds two words a
-        # symbol, as `nlist_64` packs them: the string offset, type,
-        # section and description in the first, the value in the second.
-        # `strings` is the string table.
+        # An object as `read` returns it. `symbols` contains two words for
+        # each symbol, packed as in `nlist_64`: the string offset, type,
+        # section and description in the first word, the value in the
+        # second. `strings` is the string table.
         class Read < Record
           FIELDS = %i[sections symbols strings].freeze
           attr_accessor :sections, :symbols, :strings
@@ -87,10 +87,10 @@ module Zr
           def sect(index) = (symbols[index * 2] >> 40) & 0xFF
           def value(index) = symbols[(index * 2) + 1]
 
-          # A symbol's name. The table is split once and each name kept by
-          # its offset: a search for its end from the offset would count
-          # characters from the start of the table in the compiled runtime,
-          # once for each of hundreds of thousands of symbols.
+          # A symbol's name. This splits the table once and keeps each name
+          # by its offset. In the compiled runtime, a search for the end of
+          # the name from the offset counts characters from the start of
+          # the table, once for each of hundreds of thousands of symbols.
           def name(index)
             @names ||= begin
               table = {}
@@ -105,8 +105,8 @@ module Zr
           end
         end
 
-        # A section as `read` answers it: `relocs` holds two words a
-        # `relocation_info`, the address and the packed rest.
+        # A section as `read` returns it. `relocs` contains two words for
+        # each `relocation_info`: the address and the packed other fields.
         class Section < Record
           FIELDS = %i[name segment addr size align flags bytes relocs].freeze
           attr_accessor :name, :segment, :addr, :size, :align, :flags, :bytes, :relocs
@@ -127,10 +127,10 @@ module Zr
 
         module_function
 
-        # An object this module wrote, read back: what a link needs of it.
-        # It reads the one shape `write` makes, and refuses any other. Each
-        # field is sliced out before it is unpacked: the compiled runtime's
-        # `unpack` copies the whole string it is given.
+        # Reads back an object that this module wrote, and returns what a
+        # link needs. It reads only the layout that `write` makes, and
+        # refuses all others. It slices each field before it unpacks it,
+        # because `unpack` in the compiled runtime copies the full string.
         def read(bytes)
           magic, cpu, _sub, type, ncmds = bytes.byteslice(0, 20).unpack("L<5")
           unless magic == MH_MAGIC_64 && cpu == CPU_TYPE_ARM64 && type == MH_OBJECT
@@ -162,13 +162,10 @@ module Zr
           Read.new(sections: sections, symbols: symbols || [], strings: strings || "\0".b)
         end
 
-        # A unit as `read` answers it, without writing an object at all.
-        #
-        # The linker's input is that shape, and it used to reach it by
-        # writing the whole object into a string and parsing the string
-        # straight back -- 18% of every link zr makes, between two
-        # pieces of zr that already agree. `read(write(unit))` and
-        # `of(unit)` must stay equal, and `macho_test.rb` holds them so.
+        # Returns a unit in the form that `read` returns, without writing an
+        # object. The linker takes this form as input; writing and reading
+        # the object instead costs 18% of a link. `read(write(unit))` must
+        # equal `of(unit)`; `test/unit/macho_test.rb` checks this.
         def of(unit)
           laid = laid_out(unit)
           sections = laid.sections.map do |s|
@@ -183,16 +180,15 @@ module Zr
         # n_sect and a zero n_desc in the first, n_value in the second.
         def nlist_words(sym) = [sym[:strx] | (sym[:type] << 32) | (sym[:sect] << 40), sym[:value]]
 
-        # One symbol as `nlist_64` packs it.
+        # One symbol, packed as `nlist_64`.
         def nlist(sym) = nlist_words(sym).pack("Q<2")
 
-        # The file's bytes.
+        # Returns the bytes of the object file.
         def write(unit, minos: [14, 0, 0]) = bytes(laid_out(unit), minos)
 
-        # Where everything lands before any of it is written: the
-        # sections and their bytes, the symbol table, the relocations and
-        # the string table. Both roads out of a unit -- an object's bytes
-        # and `of` -- start here.
+        # The layout before any bytes are written: the sections and their
+        # bytes, the symbol table, the relocations and the string table.
+        # Both `write` and `of` start from this layout.
         class Laid < Record
           FIELDS = %i[sections symbols strtab vmsize data_start data_end symoff stroff sizeofcmds segment_cmd].freeze
           attr_accessor :sections, :symbols, :strtab, :vmsize, :data_start, :data_end, :symoff, :stroff, :sizeofcmds, :segment_cmd
@@ -220,8 +216,8 @@ module Zr
           sections = SECTIONS.map do |name, seg, flags, _kinds|
             { name: name, seg: seg, flags: flags, bytes: +"".b, size: 0, align: 0, items: [], relocs: [] }
           end
-          # Place every item: addresses run through the segment, each section
-          # aligned to the widest item it holds.
+          # Places every item. Addresses increase through the segment. Each
+          # section uses the largest alignment of its items.
           addr = 0
           sections.each_with_index do |s, si|
             kinds = SECTIONS[si][3]
@@ -243,7 +239,7 @@ module Zr
           vmsize = addr
 
           symbols = symbol_table(unit, placed)
-          # By the name a relocation spells, without the leading `_`.
+          # Symbol index by the name in a relocation, without the leading `_`.
           index = {}
           symbols.each_with_index { |sym, i| index[sym[:bare]] = i }
           sections.each do |s|
@@ -252,8 +248,8 @@ module Zr
                 s[:relocs] << relocation(at + r.offset, r, index.fetch(r.symbol))
               end
             end
-            # Highest address first, an ADDEND entry ahead of its partner:
-            # the words of every relocation_info in order.
+            # The words of all relocation_info entries: highest address
+            # first, each ADDEND entry before its paired entry.
             s[:relocs] = s[:relocs].sort_by { |group| -group[0] }.flat_map { |group| group[1] }
           end
 
@@ -326,7 +322,7 @@ module Zr
           out
         end
 
-        # Every defined symbol, then every import, in the order `ld` wants.
+        # Every defined symbol, then every import, in the order that `ld` needs.
         def symbol_table(unit, placed)
           defined = placed.map do |p|
             { name: "_#{p.item.name}", bare: p.item.name, linkage: p.item.linkage, sect: p.section + 1, value: p.addr,
@@ -340,8 +336,8 @@ module Zr
           end
         end
 
-        # An item's bytes. An `abs64` relocation keeps its addend in the slot
-        # it patches, which is where `ld` reads it.
+        # Returns an item's bytes. An `abs64` relocation puts its addend in
+        # the slot that it patches, because `ld` reads it there.
         def with_addends(item)
           sums = item.relocs.select { |r| r.kind == :abs64 && r.addend.to_i != 0 }
           return item.bytes if sums.empty?
@@ -349,9 +345,9 @@ module Zr
           sums.each_with_object(item.bytes.dup) { |r, bytes| bytes[r.offset, 8] = [r.addend].pack("q<") }
         end
 
-        # `[address, words]`: the relocation_info rows for one relocation,
-        # two 32-bit words a row, an ADDEND row first when the addend is
-        # not zero.
+        # Returns `[address, words]`: the relocation_info entries for one
+        # relocation, two 32-bit words each. An ADDEND entry comes first
+        # when the addend is not zero.
         def relocation(address, r, symbol)
           type, pcrel, length = RELOC.fetch(r.kind) { raise ArgumentError, "no arm64 relocation for #{r.kind}" }
           rows = []

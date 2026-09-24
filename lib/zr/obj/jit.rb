@@ -6,17 +6,17 @@ require_relative "../backend/aarch64/relocs"
 
 module Zr
   module Obj
-    # Loads an `Obj::Unit` into this process: code into a `MAP_JIT` mapping
-    # written under `pthread_jit_write_protect_np`, data into a writable
-    # mapping placed within reach of the code, relocations applied here,
-    # imports resolved with `dlsym`. Answers the address of every symbol.
+    # Loads an `Obj::Unit` into this process. It writes code into a
+    # `MAP_JIT` mapping under `pthread_jit_write_protect_np`, and data into
+    # a writable mapping within reach of the code. It applies relocations
+    # and resolves imports with `dlsym`. Returns the address of every symbol.
     #
-    # A `bl` reaches 128 MB, and libSystem is not that close, so each
+    # A `bl` reaches 128 MB, and libSystem is farther away. Thus each
     # imported function gets a stub in the code region that jumps through
     # an absolute address.
     #
-    # The system calls are a `host`: `JIT::Fiddle` under CRuby, and the
-    # runtime's own over the same libSystem functions.
+    # A `host` makes the system calls: `JIT::Fiddle` under CRuby, or the
+    # runtime's own host, which calls the same libSystem functions.
     class JIT
       MAP_ANON_PRIVATE = 0x1002
       MAP_FIXED = 0x10
@@ -31,8 +31,8 @@ module Zr
         new(host).place(unit)
       end
 
-      # The system half: the runtime's own inside a program it runs,
-      # Fiddle under CRuby, which is where no runtime is linked.
+      # The host for system calls: the runtime's host in a zr program, or
+      # Fiddle under CRuby (where no runtime is linked).
       def self.host
         require "zr/obj/jit/runtime"
         Runtime.new
@@ -55,14 +55,13 @@ module Zr
         got = imports.each_with_index.to_h { |name, i| [name, data[:size] + (i * 8)] }
         data_size = [align(data[:size] + (imports.size * 8), PAGE), PAGE].max
 
-        # One reservation holds both halves, so the data is within adrp's
-        # reach of the code: a hint alone left the kernel free to put the
-        # data anywhere, and in a busy process it did. The data is mapped
-        # into the reservation at its address; a MAP_JIT mapping may not
-        # be (EINVAL), so its half is released first and mapped by hint,
-        # which the kernel honours into a hole it has just been handed.
-        # A host with no reservation maps by hint alone. Either way the
-        # reach is checked.
+        # One reservation contains both parts, so the data is within adrp
+        # reach of the code. With only a hint, the kernel can put the data
+        # anywhere, and in a busy process it does. The data is mapped at its
+        # address in the reservation. A MAP_JIT mapping cannot use
+        # MAP_FIXED (EINVAL), so this releases the code part first and maps
+        # it by hint; the kernel then uses the free hole. A host with no
+        # reservation maps by hint only. This checks the reach in both cases.
         if (base = @host.reserve(code_size + data_size))
           data_base = map(data_size, exec: false, at: base + code_size)
           @host.release(base, code_size)
@@ -112,11 +111,10 @@ module Zr
         @host.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"
       end
 
-      # `item`'s bytes with every relocation applied, for the item at
-      # `base`. A symbol this unit defines is at its own address unless
-      # the host owns it; an import is reached through its GOT slot when
-      # the relocation asks for one, through its stub for a call, and by
-      # its address otherwise.
+      # Returns the bytes of `item` at `base`, with all relocations applied.
+      # A symbol that this unit defines uses its own address, unless it is
+      # also an import. An import uses its GOT slot for a GOT relocation,
+      # its stub for a call, and its address for all other relocations.
       def patched(item, base, addresses, data_base, got)
         Patch.apply(item, base, Backend::Aarch64::Relocs) do |r|
           if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]

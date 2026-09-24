@@ -3,18 +3,18 @@
 module Zr
   module Obj
     module MachO
-      # What a link writes into a binary that no input decides. `ld` gives
-      # every link a fresh UUID, and the ad-hoc signature hashes the pages
-      # that UUID sits in, so two links of the same objects differ in these
-      # two places and nowhere else. Reading them out of the load commands
-      # is what lets the stage ladder compare everything else byte for byte.
+      # Finds the bytes of a binary that do not depend on the link inputs.
+      # `ld` gives every link a new UUID, and the ad-hoc signature hashes
+      # the pages that contain the UUID. Thus two links of the same objects
+      # differ only in these two ranges. With these ranges from the load
+      # commands, the stage builds can compare all other bytes.
       module Stamps
         MH_MAGIC_64 = 0xFEEDFACF
         LC_UUID = 0x1B
         LC_CODE_SIGNATURE = 0x1D
         HEADER = 32
 
-        # The byte ranges of `bytes` that the linker stamps, lowest first.
+        # The byte ranges of `bytes` that differ for each link, lowest first.
         def self.of(bytes)
           magic, _cpu, _sub, _type, commands, = bytes.unpack("L<4L<")
           raise ArgumentError, "not a 64-bit Mach-O" unless magic == MH_MAGIC_64

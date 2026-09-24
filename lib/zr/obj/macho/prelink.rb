@@ -7,46 +7,44 @@ require_relative "../../record"
 module Zr
   module Obj
     module MachO
-      # The objects every program of one runtime links beside -- the
-      # runtime's, and the eval road's -- linked once at addresses that no
-      # program moves, and kept in the cache.
+      # The base: the objects that every program of one runtime links
+      # against (the runtime and eval support objects). They are linked
+      # once, at fixed addresses, and kept in the cache.
       #
       # An image puts the base first: its code and constants in `__TEXT`
-      # after a page for the header, its GOT in `__DATA_CONST` and its data
-      # in `__DATA`. A program's own parts go in segments of their own,
-      # `__PROGRAM` for code after `__TEXT` and `__DATA_PROGRAM` for data
-      # after `__DATA`. `__DATA_CONST` starts `RESERVE` bytes after
-      # `__TEXT` ends, whatever the program's size, so every address in
-      # the base is the same in every image, and so is every relocation
-      # inside it. The program's code sits next to the base's, within a
-      # branch's reach of it.
+      # after the header page, its GOT in `__DATA_CONST`, and its data in
+      # `__DATA`. The program's own parts go in `__PROGRAM` (code, after
+      # `__TEXT`) and `__DATA_PROGRAM` (data, after `__DATA`).
+      # `__DATA_CONST` always starts `RESERVE` bytes after the end of
+      # `__TEXT`. Thus all base addresses and relocations are the same in
+      # every image, and the program's code is within branch reach of the
+      # base's code.
       #
-      # What does change from program to program is kept here to write
-      # again: the slots of the base's externals (`late`), which a program
-      # may define or libSystem binds. A slot holds a chain entry, and the
-      # chain through each page is the same in every image, so only the
-      # entry's target changes.
+      # Only the slots of the base's externals (`late`) change for each
+      # program: a program can define them, or libSystem binds them. A slot
+      # contains a chain entry. The chain on each page is the same in every
+      # image, so only the entry's target changes.
       class Prelink
         PAGE = 0x4000
         # A code signature hashes pages of this size.
         HASH_PAGE = 4096
-        # Where the image goes, above the four unmapped gigabytes that make
-        # a null dereference a fault.
+        # The image address, above the 4 GB unmapped zero page that makes a
+        # null dereference a fault.
         BASE = 0x1_0000_0000
-        # The address space `__PROGRAM` has between `__TEXT` and
-        # `__DATA_CONST`. A branch reaches 128 MB, so no program that links
-        # fits more code than this.
+        # The address space for `__PROGRAM` between `__TEXT` and
+        # `__DATA_CONST`. A branch reaches 128 MB, so a program that links
+        # cannot have more code than this.
         RESERVE = 0x4000_0000
-        # The image sections the base's parts are, counting from one:
-        # `__TEXT`'s three, `__PROGRAM`'s three, then `__DATA_CONST`'s GOT
-        # and `__DATA`'s three.
+        # The image section number (from one) of each part of the base:
+        # three in `__TEXT`, three in `__PROGRAM`, the GOT in
+        # `__DATA_CONST`, then three in `__DATA`.
         ORDINALS = { text: 1, stubs: 2, const: 3, got: 7, dconst: 8, data: 9, bss: 10 }.freeze
         MAGIC = "zr prelink 1\n".b
         SEGMENTS = %i[got data].freeze
 
-        # A slot that holds an external's address: in which segment, where
-        # in its bytes, the distance to the next slot's entry, the name,
-        # and the addend.
+        # A slot that contains an external's address: its segment, its
+        # offset in the segment's bytes, the distance to the next slot's
+        # entry, the name, and the addend.
         class Late < Record
           FIELDS = %i[segment offset next name addend].freeze
           attr_accessor :segment, :offset, :next, :name, :addend
@@ -65,7 +63,7 @@ module Zr
         attr_reader :parts, :text_size, :got_vm, :got_size, :data_vm, :data_filesize, :data_vmsize,
                     :externals, :late, :starts, :symbols, :strings, :names, :addresses, :blobs, :hashes
 
-        # The objects' bytes, linked. Answers an empty base for no objects.
+        # Links the objects' bytes. Returns an empty base for no objects.
         def self.build(objects)
           return new if objects.empty?
 
@@ -86,7 +84,7 @@ module Zr
                     data: [%i[dconst data], data_vm, data_filesize] }.transform_values do |parts, start, size|
             parts.inject(+"".b) { |out, part| pad(out, block.at(part) - start) << block.bytes(part) }.then { |out| pad(out, size) }
           end
-          # A slot lies in the bytes the file holds: the zero-fill tail has none.
+          # A slot must be in the file bytes. The zero-fill tail has no slots.
           bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] }
           rows = block.fixups.group_by do |slot, *|
             SEGMENTS.find { |s| slot >= bounds[s][0] && slot < bounds[s][0] + bounds[s][1] } or
@@ -108,9 +106,9 @@ module Zr
             end
             [segment, chain]
           end
-          # The names are the words' own order: the base's table is sorted
-          # by name, and a link merges a program's entries into it by
-          # these (`Executable#merged_symbols`).
+          # The names are in the order of the words. The base's table is
+          # sorted by name, and a link uses the names to merge a program's
+          # entries into it (`Executable#merged_symbols`).
           words, strings, names = block.symbols(ORDINALS, 0)
           addresses = block.exports.to_h
           globals = names.map { |name| [name, addresses.fetch(name)] }
@@ -121,8 +119,8 @@ module Zr
               addresses: globals.map(&:last), blobs: blobs, hashes: blobs.transform_values { |b| page_hashes(b) })
         end
 
-        # Places `part` at the first address at or after `at` its alignment
-        # allows, and answers where it ends.
+        # Places `part` at the first aligned address at or after `at`.
+        # Returns the end address.
         def self.place(block, part, at)
           at = Patch.align(at, 1 << block.align(part))
           block.place(part, at)
@@ -141,9 +139,9 @@ module Zr
           end
         end
 
-        # `strings` one after another, each ended by a zero byte. Every piece
-        # is binary: in the compiled runtime, text of another encoding
-        # appended to a long binary string reads the whole string again.
+        # Joins `strings`, each followed by a zero byte. Every part is
+        # binary: in the compiled runtime, appending text of another
+        # encoding to a long binary string scans the full string again.
         def self.joined(strings)
           strings.each_with_object(+"".b) { |string, out| out << string << "\0".b }
         end
@@ -173,13 +171,11 @@ module Zr
 
         # The address of the global `name` ("_zr_send"), or nil.
         #
-        # The answer is kept, not the whole table. A link asks this once
-        # for every name it defines and every name it needs, against a
-        # runtime that holds a quarter of a million symbols, and the
-        # search through the sorted names was 12% of a link -- but only
-        # because the image outlives the link now, and the next link asks
-        # the same questions. Building the whole table instead would cost
-        # a single `zr build` 33 ms it never gets back.
+        # This caches each result, not a full table. A link calls this once
+        # for each name that it defines or needs, and the runtime has about
+        # 250,000 symbols. The search took 12% of a link, and the image stays
+        # in memory for the next link, which looks up the same names. A full
+        # table would add 33 ms to a single `zr build`.
         def global(name)
           @addressed ||= {}
           @addressed.fetch(name) { @addressed[name] = search(name) }
@@ -194,8 +190,8 @@ module Zr
 
         # --- the cache ------------------------------------------------------
 
-        # The base as bytes: a magic line, then each field as its size and
-        # its bytes.
+        # Returns the base as bytes: a magic line, then each field as its
+        # size and its bytes.
         def dump
           layout = [@text_size, @got_vm, @got_size, @data_vm, @data_filesize, @data_vmsize] +
                    Block::PARTS.flat_map { |part| @parts.fetch(part) }
@@ -207,8 +203,8 @@ module Zr
           fields.inject(MAGIC.dup) { |out, field| out << [field.bytesize].pack("Q<") << field }
         end
 
-        # A base `dump` wrote, or nil for bytes that are not one: a cache
-        # file cut short or of another format is a miss, never a guess.
+        # Reads a base that `dump` wrote. Returns nil for other bytes: a
+        # truncated cache file or a file of another format is a cache miss.
         def self.load(bytes)
           return nil unless bytes.start_with?(MAGIC)
 

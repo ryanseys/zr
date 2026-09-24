@@ -5,18 +5,19 @@ require_relative "resident"
 
 module Zr
   module Native
-    # A map over many items in forked workers, for work that only computes
-    # (a cold unit's passes and assembly): each worker takes a bin of
-    # items, dealt heaviest first to the lightest bin, and hands its
-    # answers back through a pipe. The answers come back in item order
-    # whatever the bins, so the result does not depend on `jobs`.
+    # Maps work over many items in forked workers. Use it only for work
+    # that computes and has no side effects (a cold unit's passes and
+    # assembly). Each worker gets a bin of items: the heaviest item goes
+    # first, to the lightest bin. Each worker writes its results to a pipe.
+    # The results are in item order, so they do not depend on `jobs`.
     module Parallel
       module_function
 
-      # `work` over `items`, in `jobs` workers at most. `weight` answers an
-      # item's cost; below `floor` in all, or with one job, or where there
-      # is no fork, the map runs here. A worker that raises raises here the
-      # error of the first item, in item order, that raised.
+      # Runs `work` over `items` in `jobs` workers at most. `weight` returns
+      # the cost of an item. The map runs in this process when the total
+      # cost is below `floor`, when there is one job, or when fork is not
+      # available. When workers raise, this raises the error of the first
+      # item (in item order) that raised.
       def map(items, jobs:, weight:, floor: 0, &work)
         weights = items.map(&weight)
         jobs = [jobs, items.size].min
@@ -32,42 +33,31 @@ module Zr
         answers
       end
 
-      # What the parent owes its workers before it forks.
-      # `Process.warmup` runs a full collection, compacts what is left and
-      # promotes it to the old generation, then frees the pages that came
-      # empty: a worker then inherits a heap whose objects a minor
-      # collection steps over, instead of one it marks again and dirties
-      # a page at a time.
+      # Prepares the heap before the fork. `Process.warmup` runs a full
+      # collection, compacts the heap, promotes the live objects to the old
+      # generation and frees empty pages. A minor collection in a worker
+      # then skips the inherited objects. It does not mark them again and
+      # dirty the shared pages one at a time.
       #
-      # Sampled while a self-compile ran, a worker spent 92% of its
-      # running time in ruby's collector and the parent 64%, and nearly
-      # all of the worker's was marking what the fork had given it.
+      # Without this, a sampled self-compile worker spent 92% of its time
+      # in ruby's collector (the parent 64%). Almost all of it was marking
+      # the objects that the fork gave it.
       def warmed
         Process.warmup if Process.respond_to?(:warmup)
       end
 
-      # No more workers than this machine will hold.
+      # Limits the worker count to the number that fits in this machine's
+      # memory. Memory is the limit, not cores. A worker shares the
+      # parent's heap (copy on write) and then grows a heap of about the
+      # same size. Thus the parent's live set (after `warmed`) is the cost
+      # of one worker, and the free memory divided by that cost is the count.
       #
-      # Memory bounds this and not cores. A worker inherits the parent's
-      # heap -- which the fork shares, page by page, until one of them
-      # writes -- and then grows a heap of its own of about the same size
-      # again while it works through its bin. So what the parent holds,
-      # which `warmed` has just settled to the live set, is what one more
-      # worker costs, and what this machine has over that is how many of
-      # them fit.
+      # A fixed count does not work for both compilers: a worker of the
+      # compiled compiler uses about 10 GB. Six such workers put a 16 GB
+      # machine into swap, and a run that swaps takes about ten times as long.
       #
-      # The number this replaces was a flat six, and the comment beside
-      # it -- "each worker holds half a gigabyte or more" -- was measured
-      # of the compiler running under ruby. A worker of the *compiled*
-      # compiler holds ten gigabytes: six of them drove this sixteen
-      # gigabyte machine into 16.4 GB of swap, and `rake stage2` had not
-      # finished at seventeen minutes. A run that swaps does not fail, it
-      # takes ten times as long, which is the worst way for this to go
-      # wrong. Reading the live set covers both compilers with no
-      # constant to keep true.
-      #
-      # `ZR_JOBS` overrules it, which is how a row of the table above
-      # `Build.jobs` is measured.
+      # `ZR_JOBS` overrides this limit. Use it to measure an entry of the
+      # table above `Build.jobs`.
       def afforded(jobs)
         return jobs if ENV.key?("ZR_JOBS")
 
@@ -77,14 +67,13 @@ module Zr
         [[(machine_bytes - held) / held, jobs].min, 1].max
       end
 
-      # What this process holds, which a worker forked from it starts
-      # with and grows from: what it resides in, where the system says
-      # (`Resident`); else its heap, the cells of every pool and the
-      # payload they hold (`malloc_increase_bytes` is zr's live payload,
-      # and under ruby what grew since the last collection -- the floor
-      # ruby reads without Fiddle). The compiled compiler's bytes are
-      # mostly payload: a worker of it held ten gigabytes where its
-      # cells said one.
+      # Returns the memory of this process, which a forked worker starts
+      # with. It is the resident size when the system gives it
+      # (`Resident`). Otherwise it is the heap: the cells of every pool
+      # plus their payload. `malloc_increase_bytes` is zr's live payload;
+      # under ruby it is only the growth since the last collection (the
+      # lower bound that ruby can read without Fiddle). The compiled
+      # compiler's memory is mostly payload: 10 GB where its cells gave 1 GB.
       def held_bytes
         Resident.bytes_of(Process.pid) || heap_bytes
       end
@@ -95,16 +84,16 @@ module Zr
         0
       end
 
-      # What this machine has. POSIX answers on macOS and on musl alike;
-      # a machine that will not say is treated as a small one.
+      # Returns the physical memory. POSIX gives it on macOS and on musl.
+      # When the system does not give it, this assumes a small machine (8 GB).
       def machine_bytes
         Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE)
       rescue StandardError, NotImplementedError
         8 * (1 << 30)
       end
 
-      # The item indexes of each bin: the heaviest item first, each to the
-      # bin that weighs least so far (the lowest such bin on a tie).
+      # Returns the item indexes of each bin. It puts the heaviest item
+      # first, each into the lightest bin so far (the lowest bin on a tie).
       def dealt(weights, jobs)
         bins = Array.new(jobs) { [] }
         loads = Array.new(jobs, 0)
@@ -116,8 +105,8 @@ module Zr
         bins.reject(&:empty?)
       end
 
-      # A worker over the items of `bin`, and a thread that reads its
-      # answer as it writes, so a full pipe never stops it.
+      # Forks a worker for the items of `bin`. A thread reads the worker's
+      # result while the worker writes, so a full pipe does not block it.
       def started(items, bin, work)
         r, w = IO.pipe
         pid = fork do
@@ -131,8 +120,8 @@ module Zr
         [pid, Thread.new { r.binmode.read.tap { r.close } }, bin]
       end
 
-      # `[:ok, answers]`, or `[:raised, index, class name, message]` for
-      # the first item of the bin that raised.
+      # Returns `[:ok, results]`, or `[:raised, index, class name, message]`
+      # for the first item of the bin that raised.
       def answered(items, bin, work)
         done = []
         bin.each do |i|
@@ -143,7 +132,7 @@ module Zr
         [:ok, done]
       end
 
-      # The worker's answers placed at their indexes; its failure, if any.
+      # Puts the worker's results at their indexes. Returns its failure, if any.
       def collected(pid, reader, bin, answers)
         bytes = reader.value
         _, status = Process.wait2(pid)
@@ -156,8 +145,8 @@ module Zr
         nil
       end
 
-      # The failure of the lowest item, raised as its own class when that
-      # class takes a message alone.
+      # Raises the failure of the lowest item. It uses the original error
+      # class when that class accepts only a message.
       def raise_first(failures)
         _, name, message = failures.min_by(&:first)
         error = begin

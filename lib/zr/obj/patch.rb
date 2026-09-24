@@ -2,22 +2,21 @@
 
 module Zr
   module Obj
-    # Applying relocations against addresses that are already decided.
-    # `abs64` is every format's own; an instruction's relocations belong to
-    # its instruction set, and `relocs` (`Backend::Aarch64::Relocs`) holds
-    # their bit patterns.
+    # Applies relocations against known addresses. All formats have
+    # `abs64`. Instruction relocations are specific to the instruction set;
+    # `relocs` (`Backend::Aarch64::Relocs`) contains their bit patterns.
     #
-    # `Obj::JIT` patches for addresses in this process and
-    # `Obj::MachO::Executable` for addresses in an image it is writing.
-    # Where a symbol lives is the only thing the two disagree about, so that
-    # is all either one says.
+    # `Obj::JIT` patches for addresses in this process, and
+    # `Obj::MachO::Executable` for addresses in the image that it writes.
+    # The two differ only in the address of a symbol, so each caller gives
+    # only that.
     module Patch
       module_function
 
-      # `item`'s bytes with every relocation applied, the item itself
-      # placed at `base`. The block is given each relocation and answers
-      # the address its symbol has -- the relocation and not just the
-      # name, so a caller can tell a GOT slot from the symbol it holds.
+      # Returns the bytes of `item`, placed at `base`, with all relocations
+      # applied. The block gets each relocation and returns the address of
+      # its symbol. It gets the full relocation, not only the name, so that
+      # a caller can tell a GOT slot from the symbol in that slot.
       def apply(item, base, relocs)
         bytes = item.bytes.b.dup
         item.relocs.each do |r|
@@ -31,9 +30,9 @@ module Zr
         bytes
       end
 
-      # `items` one after another, each at its own alignment or `least`,
-      # whichever is coarser. Answers the offset of each and the size of
-      # them all.
+      # Places `items` one after another. Each item uses the larger of its
+      # own alignment and `least`. Returns the offset of each item and the
+      # total size.
       def layout(items, least)
         at = []
         size = 0

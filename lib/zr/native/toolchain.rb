@@ -2,17 +2,16 @@
 
 module Zr
   module Native
-    # The C toolchain zr runs: `cc` to link, the target's own
-    # (`Target#tool`).
+    # The C toolchain that zr runs: the target's `cc` (`Target#tool`), to link.
     #
-    # On macOS `cc` finds its SDK and its `ld` on two roads that can part:
-    # clang takes the newest SDK it finds, and `ld` comes from the
-    # developer directory `xcode-select` names. An Xcode older than the
-    # Command Line Tools pairs an `ld` with an SDK whose `.tbd` files it
-    # cannot read ("tapi error: malformed file"). So every tool runs with
-    # DEVELOPER_DIR and SDKROOT pinned to the one install the SDK comes
-    # from. A DEVELOPER_DIR or SDKROOT already set is the user's choice,
-    # and stands.
+    # On macOS, `cc` finds its SDK and its `ld` in two ways that can
+    # differ. Clang uses the newest SDK that it finds, and `ld` comes from
+    # the developer directory that `xcode-select` gives. An Xcode older
+    # than the Command Line Tools can pair an `ld` with an SDK whose `.tbd`
+    # files it cannot read ("tapi error: malformed file"). Thus every tool
+    # runs with DEVELOPER_DIR and SDKROOT set to the install that contains
+    # the SDK. When the user already set DEVELOPER_DIR or SDKROOT, zr
+    # keeps those values.
     module Toolchain
       module_function
 
@@ -21,18 +20,19 @@ module Zr
         @env ||= pinned
       end
 
-      # The command `target`'s `name` ("cc") runs as: the host's
-      # own or a cross toolchain's, else the plain name, whose failure to
-      # run says what is missing.
+      # The command for the tool `name` ("cc") of `target`: the host's
+      # tool or a cross toolchain's tool. Else the plain name; if it fails
+      # to run, its error tells what is missing.
       def command(target, name) = target.tool(name) || name
 
-      # Runs `argv` under `env`: `[output, success]`, both streams in one.
+      # Runs `argv` under `env`. Returns `[output, success]`; the output
+      # contains stdout and stderr together.
       def run(argv)
         log = IO.popen(env, argv, err: %i[child out], &:read)
         [log, $?.success?]
       end
 
-      # The user's own DEVELOPER_DIR and SDKROOT come back as they are.
+      # Returns the user's DEVELOPER_DIR and SDKROOT unchanged when set.
       def pinned
         chosen = ENV.slice("DEVELOPER_DIR", "SDKROOT")
         return chosen unless chosen.empty?
@@ -50,7 +50,7 @@ module Zr
         {}
       end
 
-      # The developer directory an SDK belongs to:
+      # The developer directory that contains an SDK:
       # `/Library/Developer/CommandLineTools` for
       # `/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk`, and
       # `/Applications/Xcode.app/Contents/Developer` for an SDK under that

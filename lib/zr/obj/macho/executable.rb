@@ -11,43 +11,40 @@ require_relative "../../record"
 module Zr
   module Obj
     module MachO
-      # A program's unit, linked beside a `Prelink`, to a complete, signed
-      # `MH_EXECUTE` that runs: the link step, in Ruby, for a program whose
-      # every import is libSystem's.
+      # The link step, in Ruby. It links a program's unit against a
+      # `Prelink` into a complete, signed `MH_EXECUTE`. All imports of the
+      # program must come from libSystem.
       #
-      # Beside a base -- the runtime's objects, linked once -- the base
-      # keeps the addresses it was linked at, and the program's parts go in
-      # segments of their own: `__PROGRAM` after `__TEXT`, and
-      # `__DATA_PROGRAM` after `__DATA`. Only the program is relocated here,
-      # and only the base's external slots are written again; the base's
-      # other pages keep the hashes they were kept with. Without a base the
-      # unit is the whole image, in `__TEXT`, `__DATA_CONST` and `__DATA`.
+      # With a base (the runtime's objects, linked once), the base keeps its
+      # link addresses. The program's parts go in their own segments:
+      # `__PROGRAM` after `__TEXT`, and `__DATA_PROGRAM` after `__DATA`.
+      # This relocates only the program and writes only the base's external
+      # slots again; the other base pages keep their stored hashes. Without
+      # a base, the unit is the full image, in `__TEXT`, `__DATA_CONST` and
+      # `__DATA`.
       #
-      # What is added is the Mach-O container, chained fixups so a
-      # position-independent image can be rebased and bound, a symbol
-      # table sorted by name, which a program's JIT searches in place for
-      # the runtime's functions (`zr_os_symbol`) -- an exports trie over a
-      # third of a million names was six megabytes and a second a link --
-      # and the ad-hoc code signature Apple Silicon will not run a binary
-      # without.
+      # This adds the Mach-O container, chained fixups (so dyld can rebase
+      # and bind the position-independent image), a symbol table sorted by
+      # name, and the ad-hoc code signature that Apple Silicon requires. A
+      # program's JIT searches the sorted table in place for runtime
+      # functions (`zr_os_symbol`). An exports trie for about 330,000 names
+      # is 6 MB and adds one second to each link.
       #
-      # It does not strip: nearly all of the runtime is reachable from its
-      # dispatch tables, and `ld -dead_strip` removed less than one percent.
+      # It does not strip: the dispatch tables reach almost all of the
+      # runtime, and `ld -dead_strip` removed less than 1%.
       #
-      # It refuses rather than guesses. A symbol nothing defines and
-      # libSystem does not define either would not be found by dyld, and
-      # this says which symbol it is.
+      # It refuses a symbol that no input and no libSystem entry defines,
+      # because dyld cannot find it. The message gives the symbol.
       class Executable
         PAGE = Prelink::PAGE
         HASH_PAGE = Prelink::HASH_PAGE
         BASE = Prelink::BASE
-        # The main stack, which holds ruby frames as native frames. `ld`
-        # writes this from `-stack_size`; nothing writes it for an image
-        # that no linker touched, so this does, and the two roads give a
-        # program the same room.
+        # The main stack size. Ruby frames are native frames on this stack.
+        # `ld` writes this value from `-stack_size`. This linker writes the
+        # same value, so the stack size is the same with both linkers.
         STACK = 0x400_0000
-        # The oldest macOS a binary loads on, and the SDK it says it was
-        # built against, which is the same: no SDK is read.
+        # The oldest macOS that a binary loads on. The SDK version is the
+        # same value, because this linker reads no SDK.
         MIN_MACOS = (14 << 16) | (0 << 8)
         SDK = MIN_MACOS
 
@@ -79,26 +76,27 @@ module Zr
         DYLINKER = "/usr/lib/dyld"
         LIBSYSTEM = "/usr/lib/libSystem.B.dylib"
 
-        # One 8-byte pointer a slot, threaded page by page: the only chained
-        # format an ordinary arm64 image needs.
+        # One 8-byte pointer for each slot, chained page by page. An
+        # ordinary arm64 image needs only this chained format.
         PTR_64_OFFSET = 6
         IMPORT_FORMAT = 1
 
-        # Each part's section: its name, and its flags.
+        # The section name and flags for each part.
         SECTIONS = { text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
                      got: ["__got", S_REGULAR], dconst: ["__const", S_REGULAR], data: ["__data", S_REGULAR],
                      bss: ["__bss", S_ZEROFILL] }.freeze
-        # The image sections a program's parts are beside a base: after
-        # `__TEXT`'s three, `__PROGRAM`'s; after `__DATA`'s, `__DATA_PROGRAM`'s.
+        # The image sections of a program's parts when there is a base: the
+        # `__PROGRAM` sections after the three `__TEXT` sections, and the
+        # `__DATA_PROGRAM` sections after the `__DATA` sections.
         TOP_ORDINALS = { text: 4, stubs: 5, const: 6, got: 11, dconst: 12, data: 13, bss: 14 }.freeze
         # The segments of an image without a base, and the parts in each.
         PLAIN = [["__TEXT", %i[text stubs const], READ | EXEC, 0],
                  ["__DATA_CONST", %i[got dconst], READ | WRITE, SG_READ_ONLY],
                  ["__DATA", %i[data bss], READ | WRITE, 0]].freeze
 
-        # A segment of the image. `pieces` are its file bytes, one after
-        # another, each `[bytes, hashes, dirty pages]`: `hashes` are the
-        # pages' hashes kept with a base, and nil for bytes made here.
+        # A segment of the image. `pieces` are its file bytes, in order,
+        # each `[bytes, hashes, dirty pages]`. `hashes` are the page hashes
+        # stored with a base, or nil for bytes that this linker makes.
         class Segment < Record
           FIELDS = %i[name vm vmsize fileoff filesize prot flags sections pieces starts].freeze
           attr_accessor :name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts
@@ -137,12 +135,11 @@ module Zr
 
         Refused = MachO::Refused
 
-        # Writes `out` from `unit` beside `prelink`, or beside the object
-        # files `objects` (their bytes) linked now, and answers nil; or
-        # answers why it cannot link them and writes nothing. `exports`
-        # puts every global in the exports trie, where `dlsym` finds it.
-        # `skeleton` is a file of the base's `Skeleton.bytes`, cloned and
-        # written into rather than written whole where the system allows.
+        # Writes `out` from `unit`, linked against `prelink` or against the
+        # object files `objects` (their bytes), and returns nil. When it
+        # cannot link, it writes nothing and returns the reason.
+        # `skeleton` is a file of the base's `Skeleton.bytes`. When the
+        # system allows, this clones it and writes into the clone.
         def self.write(unit, out, objects: [], prelink: nil, stack: STACK, entry: "main", skeleton: nil)
           prelink ||= Prelink.build(objects)
           new(unit, prelink, out, stack: stack, entry: entry, skeleton: skeleton).write
@@ -150,9 +147,9 @@ module Zr
           e.message
         end
 
-        # Whether libSystem defines `name`. The answer comes from the
-        # committed list, not from this host's libSystem, so it is the same
-        # on every host; a name missing from the list is refused.
+        # Checks whether libSystem defines `name`. It reads the committed
+        # list, not this host's libSystem, so the result is the same on
+        # every host. The link refuses a name that is not in the list.
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
         def initialize(unit, prelink, out, stack: STACK, entry: "main", skeleton: nil)
@@ -185,8 +182,8 @@ module Zr
             File.open(@out, "wb") { |file| write_after(file, 0, signed) }
             File.chmod(0o755, @out)
           else
-            # The first segment is the header page and the base's text:
-            # what the file at `out`, or the skeleton, holds already.
+            # The first segment is the header page and the base's text.
+            # The file at `out`, or the skeleton, already contains it.
             Skeleton.write_over(@out, @skeleton, @base.blobs.fetch(:text)) do |file, kept|
               file.write(@header)
               kept ? file.seek(@segments.first.filesize) : file.write(@base.blobs.fetch(:text))
@@ -198,7 +195,7 @@ module Zr
 
         private
 
-        # The segments from the `first`th on, the linkedit and the signature.
+        # Writes the segments from index `first`, the linkedit and the signature.
         def write_after(file, first, signed)
           @segments.drop(first).each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
           file.write(@linkedit)
@@ -207,9 +204,9 @@ module Zr
 
         # --- layout --------------------------------------------------------
 
-        # Beside a base: the base's segments where it was linked, the
-        # program's code at the end of `__TEXT` and its data at the end of
-        # `__DATA`. The file holds the segments in address order.
+        # Layout with a base: the base's segments at their link addresses,
+        # the program's code after `__TEXT` and its data after `__DATA`.
+        # The file contains the segments in address order.
         def beside_base
           b = @base
           code_at = BASE + b.text_size
@@ -244,11 +241,11 @@ module Zr
           @ordinals = TOP_ORDINALS
         end
 
-        # Without a base: the unit is the image. The header shares the
-        # first page with the code, so where the code starts depends on how
-        # long the load commands are, which depends only on how many
-        # segments and sections there are. A segment with nothing in it is
-        # not written: an image with a zero-length one does not load.
+        # Layout without a base: the unit is the image. The header and the
+        # code share the first page. Thus the code start depends on the
+        # size of the load commands, which depends only on the number of
+        # segments and sections. This does not write an empty segment,
+        # because an image with a zero-length segment does not load.
         def plain
           groups = PLAIN.select { |name, parts, _, _| name == "__TEXT" || parts.any? { |part| @top.size(part).positive? } }
           at = BASE + Patch.align(32 + command_size(groups.size, groups.sum { |_, parts, _, _| parts.size }), 16)
@@ -260,8 +257,8 @@ module Zr
             at = start + [Patch.align(vm_end - start, PAGE), filesize].max
             [name, parts, prot, flags, start, filesize, at - start]
           end
-          # A part of a segment not written is empty, and has an address all
-          # the same.
+          # A part of a segment that is not written is empty, but it still
+          # has an address.
           (PLAIN.flat_map { |_, parts, _, _| parts } - placed.flat_map { |_, parts, *| parts }).each { |part| @top.place(part, at) }
           @top.addresses!
           @segments = placed.map do |name, parts, prot, flags, start, filesize, vmsize|
@@ -275,8 +272,8 @@ module Zr
           @ordinals = placed.flat_map { |_, parts, *| parts }.each_with_index.to_h { |part, n| [part, n + 1] }
         end
 
-        # Places the program's `part` at the first address at or after `at`
-        # its alignment allows, and answers where it ends.
+        # Places the program's `part` at the first aligned address at or
+        # after `at`. Returns the end address.
         def place(part, at)
           at = Patch.align(at, 1 << @top.align(part))
           @top.place(part, at)
@@ -305,8 +302,8 @@ module Zr
           end
         end
 
-        # The program's `parts`, relocated, in `size` bytes from `start`.
-        # The parts are in address order, so each is appended.
+        # Returns the program's `parts`, relocated, in `size` bytes from
+        # `start`. The parts are in address order, so this appends each one.
         def top_bytes(parts, start, size)
           out = parts.inject(+"".b) do |bytes, part|
             pad(bytes, @top.at(part) - start)
@@ -318,9 +315,9 @@ module Zr
 
         # --- fixups --------------------------------------------------------
 
-        # The slots dyld writes: each of the base's externals, a rebase to
-        # the program's definition or a bind; and every slot of the
-        # program's own, threaded page by page in its segment.
+        # Fills the slots that dyld writes. Each external of the base
+        # becomes a rebase to the program's definition, or a bind. Each slot
+        # of the program is chained page by page in its segment.
         def fill
           @base.late.each do |slot|
             bytes, _, dirty = @late.fetch(slot.segment).pieces.first
@@ -333,7 +330,7 @@ module Zr
             Chains.put(bytes, slot.offset, word)
             dirty << (slot.offset / HASH_PAGE)
           end
-          # By index: a segment's hash would hash its bytes.
+          # Group by index, not by segment: a segment's hash hashes all its bytes.
           own = @segments.select { |s| s.pieces.first[1].nil? && (s.prot & WRITE) != 0 }
           @top.fixups.group_by { |slot, *| own.index { |s| slot >= s.vm && slot < s.vm + s.filesize } }.each do |n, rows|
             raise Refused, "a fixup outside the data" unless n
@@ -354,8 +351,8 @@ module Zr
           Chains.bind(@ordinal.fetch(name), nxt)
         end
 
-        # The `LC_DYLD_CHAINED_FIXUPS` blob: a header, one starts table a
-        # segment, the imports, and the names they go by.
+        # The `LC_DYLD_CHAINED_FIXUPS` blob: a header, one starts table for
+        # each segment, the imports, and their names.
         def chained_fixups
           names = +"".b
           imports = @imports.map do |name|
@@ -370,8 +367,8 @@ module Zr
 
             here = 4 + (order.size * 4) + table.bytesize
             # size, page_size, pointer_format, segment_offset,
-            # max_valid_pointer, page_count: twenty-two bytes before the
-            # array of page starts.
+            # max_valid_pointer, page_count: 22 bytes before the array of
+            # page starts.
             table << [22 + (s.starts.size * 2), PAGE, PTR_64_OFFSET].pack("L<S<2")
             table << [s.vm - BASE].pack("Q<") << [0, s.starts.size].pack("L<S<") << s.starts.pack("S<*")
             table << ("\0".b * (-table.bytesize % 4))
@@ -386,9 +383,9 @@ module Zr
 
         # --- __LINKEDIT ----------------------------------------------------
 
-        # The fixups, the exports, the symbol table, and the names:
-        # everything the loader reads and nothing the program runs. The
-        # signature goes after it, and its size is fixed by where it starts.
+        # The fixups, the exports, the symbol table and the names: data for
+        # the loader, not code for the program. The signature comes after
+        # it; the start of the signature sets its size.
         def linkedit
           @link_at = after(@segments.last)
           @link_vm = Patch.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
@@ -420,12 +417,12 @@ module Zr
           @linkedit = out
         end
 
-        # The program's symbol table entries merged into the base's, both
-        # sorted by name (`Block#symbols`), so the image's whole table is:
-        # the runtime finds any global in it by a binary search
-        # (runtime/kernel/os/darwin/jit.rb, `zr_os_symbol`). The base's names
-        # are the table's order, and a program's name never equals one of
-        # them (`write` refuses that first).
+        # Merges the program's symbol table entries into the base's. Both
+        # are sorted by name (`Block#symbols`), so the merged table is also
+        # sorted. The runtime finds a global in it with a binary search
+        # (runtime/kernel/os/darwin/jit.rb, `zr_os_symbol`). The base's
+        # names give the order. A program name never equals a base name,
+        # because `write` refuses that first.
         def merged_symbols(words, names)
           out = +"".b
           at = 0
@@ -438,18 +435,17 @@ module Zr
           out << @base.symbols.byteslice(at * 16, @base.symbols.bytesize - (at * 16))
         end
 
-        # The exports trie: the image's own header at offset zero, which is
-        # all `-no_exported_symbols` leaves behind; every other name is
-        # found in the symbol table. Each node is its terminal (flags and
-        # address, if a name ends there) and its edges, each an edge's
-        # bytes and the offset of the node it leads to. An offset's size
-        # depends on where the nodes land, so the layout runs until no
-        # offset moves.
+        # The exports trie. It contains only the image header at offset
+        # zero, as `-no_exported_symbols` gives; all other names are in the
+        # symbol table. Each node has a terminal (flags and address, if a
+        # name ends there) and its edges (the edge bytes and the offset of
+        # the child node). The size of an offset depends on the node
+        # positions, so the layout repeats until no offset changes.
         def exports_trie
           entries = [["__mh_execute_header", 0]]
           nodes = []
           trie_node(entries, 0, entries.size, 0, nodes)
-          # Each node's size less its offsets, which is all that moves.
+          # Each node's size without its offsets. Only the offsets change.
           fixed = nodes.map do |address, edges|
             terminal = address ? 1 + uleb_size(address) : 0
             uleb_size(terminal) + terminal + 1 + edges.sum { |edge, _| edge.bytesize + 1 }
@@ -471,11 +467,11 @@ module Zr
           out << ("\0".b * (-out.bytesize % 8))
         end
 
-        # The node for `entries[lo...hi]`, which share their first `depth`
-        # bytes, added to `nodes` before the nodes under it: `[address or
-        # nil, [[edge bytes, node index], ...]]`. The entries are sorted, so
-        # a run of them that shares a next byte shares as much as its first
-        # and last do.
+        # Adds the node for `entries[lo...hi]` to `nodes`, before its child
+        # nodes. These entries share their first `depth` bytes. A node is
+        # `[address or nil, [[edge bytes, node index], ...]]`. The entries
+        # are sorted, so a run with the same next byte has the same common
+        # prefix as its first and last entries.
         def trie_node(entries, lo, hi, depth, nodes)
           node = [nil, []]
           nodes << node
@@ -498,8 +494,8 @@ module Zr
           node
         end
 
-        # One node onto `out`. A terminal is two ULEB128s, flags (none) and
-        # the address, and its size fits in one byte.
+        # Appends one node to `out`. A terminal is two ULEB128s, the flags
+        # (none) and the address, and its size fits in one byte.
         def trie_bytes(out, address, edges, offsets)
           if address
             out << (1 + uleb_size(address)) << 0
@@ -526,9 +522,9 @@ module Zr
 
         # --- load commands -------------------------------------------------
 
-        # How long the load commands are with `segments` segments of
-        # `sections` sections besides `__PAGEZERO` and `__LINKEDIT`: every
-        # other command is the same size in every image.
+        # The size of the load commands for `segments` segments with
+        # `sections` sections, in addition to `__PAGEZERO` and
+        # `__LINKEDIT`. All other commands have the same size in every image.
         def command_size(segments, sections)
           others = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
           (72 * (segments + 2)) + (80 * sections) + others
@@ -564,7 +560,7 @@ module Zr
           out.join
         end
 
-        # A load command, padded to the eight bytes the next one starts on.
+        # A load command, padded so that the next one starts on 8 bytes.
         def command(cmd, body)
           body += "\0".b * (-(body.bytesize + 8) % 8)
           [cmd, body.bytesize + 8].pack("L<2") + body
@@ -581,11 +577,11 @@ module Zr
           command(LC_SEGMENT_64, body)
         end
 
-        # --- the stamps ----------------------------------------------------
+        # --- UUID and signature --------------------------------------------
 
-        # The hash of every page before the signature. A base's pages keep
-        # the hashes they were kept with, less the pages its external slots
-        # were written into.
+        # The hash of every page before the signature. A base's pages use
+        # their stored hashes, except the pages where this wrote external
+        # slots.
         def page_hashes
           hashes = +"".b
           @segments.each do |s|
@@ -604,10 +600,10 @@ module Zr
           hashes << Prelink.page_hashes(@linkedit)
         end
 
-        # The UUID is the hash of every page's hash, so two links of the
-        # same program agree; `ld` gives every link a fresh one, which is
-        # why `Obj::MachO::Stamps` blanks it. The signature then hashes the
-        # header's page again, now that the UUID is in it.
+        # The UUID is the hash of all page hashes, so two links of the same
+        # program give the same UUID. (`ld` gives every link a new UUID, so
+        # `Obj::MachO::Stamps` ignores it.) The signature then hashes the
+        # header page again, because the UUID is now in it.
         #
         # `CSMAGIC_EMBEDDED_SIGNATURE` over one ad-hoc `CodeDirectory`, all of
         # it big-endian.

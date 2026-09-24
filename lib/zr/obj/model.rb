@@ -3,23 +3,24 @@
 require_relative "../record"
 
 module Zr
-  # The backend-neutral object model: what every native road produces and
-  # every object writer or loader consumes. A function is its machine code
-  # with the relocations the code needs; a data object is bytes in a
-  # section; a relocation names a symbol and how to patch for it.
+  # The backend-neutral object model. Every native backend produces it,
+  # and every object writer and loader reads it. A function is machine
+  # code plus the relocations that the code needs. A data object is bytes
+  # in a section. A relocation gives a symbol and how to patch for it.
   module Obj
     # `kind`: :branch26, :page21, :pageoff12, :got_page21, :got_pageoff12,
     # :abs64. `offset` is from the start of the owning function or data.
     #
-    # Three more kinds stand only in data, and only until the link
-    # numbers the program's symbols: :symid writes the id the program
-    # gives `symbol`, :symval writes that id as a tagged Symbol, and
-    # :symbit the bit an ivar table's `names` keeps for it, and :site
-    # the slot the program gives one literal site in the run-time table
-    # of literal objects. A unit spells a name, or asks for a slot, and
-    # leaves the number to the link, so that its code does not depend
-    # on what was compiled before it; no object writer ever sees one of
-    # these (`Zr.number_symbols`).
+    # Four more kinds occur only in data, and only until the link numbers
+    # the program's symbols (`Zr.number_symbols`):
+    # - :symid writes the id that the program gives `symbol`.
+    # - :symval writes that id as a tagged Symbol.
+    # - :symbit writes the bit for the symbol in an ivar table's `names`.
+    # - :site writes the slot of one literal site in the run-time table of
+    #   literal objects.
+    # A unit gives a name or requests a slot, and the link sets the number.
+    # Thus a unit's code does not depend on what compiled before it. No
+    # object writer sees these kinds.
     class Reloc < Record
       FIELDS = %i[offset kind symbol addend].freeze
       attr_accessor :offset, :kind, :symbol, :addend
@@ -54,7 +55,7 @@ module Zr
       end
     end
 
-    # `section`: :text_const (pure bytes), :data_const (holds pointers,
+    # `section`: :text_const (pure bytes), :data_const (contains pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
     class Data < Record
@@ -77,8 +78,9 @@ module Zr
       end
     end
 
-    # One object: its functions and data, in definition order. Every
-    # symbol a relocation names and nothing here defines is an import.
+    # One object: its functions and data, in definition order. A symbol
+    # that a relocation refers to and that this unit does not define is
+    # an import.
     class Unit
       attr_reader :functions, :data
 

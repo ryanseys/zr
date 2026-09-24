@@ -6,16 +6,16 @@ require_relative "../../record"
 module Zr
   module Obj
     module Elf
-      # A relocatable ELF64 for aarch64 (`ET_REL`), from an `Obj::Unit`: the
-      # object `cc` links on an aarch64-linux host. Every function and data
-      # object is a section of its own (`.text.<name>`, `.rodata.<name>`,
-      # ...), so `--gc-sections` can leave out what nothing reaches.
-      # Relocations are `SHT_RELA`, each with its addend in the row. Symbols
-      # carry no prefix; locals come first, as the format requires. The
-      # layout follows the System V gABI and the AArch64 ELF ABI.
+      # Writes a relocatable ELF64 object for aarch64 (`ET_REL`) from an
+      # `Obj::Unit`, for `cc` to link on an aarch64-linux host. Each function
+      # and data object has its own section (`.text.<name>`,
+      # `.rodata.<name>`, ...), so `--gc-sections` can remove what nothing
+      # refers to. Relocations are `SHT_RELA`, each with its addend in the
+      # entry. Symbols have no prefix; locals come first, as the format
+      # requires. The layout follows the System V gABI and the AArch64 ELF ABI.
       #
-      # The runtime alone is tens of thousands of sections, so past
-      # `SHN_LORESERVE` the file takes the gABI's extended numbering.
+      # The runtime alone has tens of thousands of sections, so at
+      # `SHN_LORESERVE` and above the file uses the gABI's extended numbering.
       module ObjectFile
         EM_AARCH64 = 183
         ET_REL = 1
@@ -35,12 +35,12 @@ module Zr
         STT_OBJECT = 1
         STT_FUNC = 2
         SHN_UNDEF = 0
-        # From here up a section index does not fit its 16-bit field: the
-        # header, section 0 and `.symtab_shndx` carry the real one.
+        # A section index at or above this does not fit its 16-bit field.
+        # The header, section 0 and `.symtab_shndx` contain the real index.
         SHN_LORESERVE = 0xFF00
         SHN_XINDEX = 0xFFFF
 
-        # The AArch64 relocation types for the kinds `Backend::Aarch64`
+        # The AArch64 relocation type for each kind that `Backend::Aarch64`
         # records.
         RELOC = {
           abs64: 257,          # R_AARCH64_ABS64
@@ -84,7 +84,7 @@ module Zr
 
         module_function
 
-        # The file's bytes.
+        # Returns the bytes of the object file.
         def write(unit)
           items = unit.functions.map { |f| [:function, f] } + unit.data.map { |d| [d.section, d] }
           sections = [Section.new(name: "", type: 0, flags: 0, bytes: "".b, size: 0, align: 0, link: 0, info: 0, entsize: 0)]
@@ -160,8 +160,8 @@ module Zr
           shoff = out.bytesize
           shnum = sections.size
           shstrndx = shnum - 1
-          # Section 0 holds the count and the names' index when the header
-          # fields cannot.
+          # Section 0 contains the section count and the index of the
+          # section names when the header fields are too small.
           sections[0].size = shnum >= SHN_LORESERVE ? shnum : 0
           sections[0].link = shstrndx >= SHN_LORESERVE ? shstrndx : 0
           sections.each_with_index do |s, i|

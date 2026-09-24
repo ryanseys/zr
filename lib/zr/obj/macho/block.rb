@@ -7,19 +7,19 @@ require_relative "../../backend/aarch64/relocs"
 module Zr
   module Obj
     module MachO
-      # These objects are not ones zr's linker links, and here is why.
+      # zr's linker cannot link these objects. The message gives the reason.
       class Refused < StandardError; end
 
-      # Objects linked together: the runtime's and the eval road's in a
-      # `Prelink`, or a program's own. Each input section goes into the
-      # part of its kind, in input order. A symbol one input leaves
-      # undefined is another input's global, an address `outside` answers
-      # for it, or an external: a name the block reaches through a stub
-      # and a GOT slot, which the image binds or rebases.
+      # Objects linked together: the runtime and eval support objects in a
+      # `Prelink`, or a program's own objects. Each input section goes into
+      # the part of its kind, in input order. An undefined symbol resolves
+      # to another input's global, to an address that `outside` returns, or
+      # to an external. The block reaches an external through a stub and a
+      # GOT slot, which the image binds or rebases.
       #
-      # The caller places each part at an address, and then asks for its
-      # bytes. The bytes have every relocation applied; the slots dyld has
-      # to write are in `fixups`, as `[address, :rebase, target]` or
+      # The caller places each part at an address, then reads its bytes.
+      # The bytes have all relocations applied. The slots that dyld must
+      # write are in `fixups`, as `[address, :rebase, target]` or
       # `[address, :external, name, addend]`.
       class Block
         # <mach-o/nlist.h>: a symbol's type byte.
@@ -32,27 +32,27 @@ module Zr
         # `adrp x16, got@PAGE; ldr x16, [x16, got@PAGEOFF]; br x16`
         STUB = 12
 
-        # The relocation kind of each arm64 relocation type an object holds.
+        # The relocation kind for each arm64 relocation type in an object.
         KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze
         ABS64 = ObjectFile::RELOC.fetch(:abs64).first
         BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first
         GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze
 
-        # The parts, in the order an image lays them out, and the input
-        # sections each part holds. `stubs` and `got` are the block's own.
+        # The parts, in image order, and the input sections that each part
+        # contains. The block makes `stubs` and `got` itself.
         PARTS = %i[text stubs const got dconst data bss].freeze
         FROM = { %w[__TEXT __text] => :text, %w[__TEXT __const] => :const, %w[__DATA __const] => :dconst,
                  %w[__DATA __data] => :data, %w[__DATA __bss] => :bss }.freeze
-        # The parts an absolute relocation may be in: dyld writes it, and
-        # it writes only into data.
+        # The parts that can contain an absolute relocation. dyld writes
+        # the relocation, and dyld writes only into data.
         WRITABLE = %i[got dconst data].freeze
 
         attr_reader :externals, :fixups
 
-        # `objects` are object files' bytes, or what `ObjectFile.read`
-        # answers for them -- which `ObjectFile.of` builds from a unit
-        # without writing an object at all. `outside` answers the address
-        # of a name no input defines, or nil.
+        # `objects` are object file bytes, or the result of
+        # `ObjectFile.read` for them. `ObjectFile.of` builds that result from
+        # a unit without writing an object. `outside` returns the address of
+        # a name that no input defines, or nil.
         def initialize(objects, outside: nil)
           @inputs = objects.map { |o| o.is_a?(String) ? ObjectFile.read(o) : o }
           @outside = outside
@@ -148,13 +148,15 @@ module Zr
           end
         end
 
-        # Every defined symbol as a local `nlist_64`, two words each, at its
-        # address, in the image section `ordinals` gives its part, **in the
-        # order of their names**; the names, the inputs' own string tables
-        # one after another, whose offsets start at `strings_at`; and the
-        # names in the words' order. A table sorted by name is one the
-        # runtime searches in place (`zr_os_symbol`), which is what lets
-        # an image carry no exports trie.
+        # Returns three values:
+        # - Every defined symbol as a local `nlist_64` (two words each), at
+        #   its address, in the image section that `ordinals` gives for its
+        #   part, **sorted by name**.
+        # - The names: the string tables of the inputs, one after another,
+        #   with offsets from `strings_at`.
+        # - The names, in the order of the words.
+        # The runtime searches the sorted table in place (`zr_os_symbol`),
+        # so an image does not need an exports trie.
         def symbols(ordinals, strings_at)
           strings = +"".b
           rows = []
@@ -174,10 +176,11 @@ module Zr
 
         private
 
-        # Every global each input defines, then what each undefined symbol
-        # is: `[input, symbol]` for another input's global, an address
-        # `outside` knows, or an external's name. `@links[input]` holds the
-        # answer for each undefined symbol; a defined symbol is its own.
+        # Collects the globals that each input defines, then resolves each
+        # undefined symbol to `[input, symbol]` (another input's global), an
+        # address from `outside`, or an external's name. `@links[input]`
+        # contains the result for each undefined symbol. A defined symbol
+        # resolves to itself.
         def resolve
           @globals = {}
           undefined = []
@@ -205,12 +208,12 @@ module Zr
           @externals = externals.values.sort
         end
 
-        # What symbol `s` of input `i` stands for: `[input, symbol]`, an
-        # address, or an external's name.
+        # The resolved value of symbol `s` of input `i`: `[input, symbol]`,
+        # an address, or an external's name.
         def meaning(i, s) = @links[i].fetch(s) { [i, s] }
 
-        # One GOT slot an external, then one each for whatever else some
-        # code loads an address of through the GOT.
+        # One GOT slot for each external, then one for each other symbol
+        # whose address some code loads through the GOT.
         def got_slots
           @got = @externals.dup
           seen = @got.to_h { |name| [name, true] }
@@ -233,8 +236,9 @@ module Zr
           end
         end
 
-        # Each input section's part and its offset in the part: each starts
-        # at its own alignment, and the part at the widest of them.
+        # Finds the part of each input section and its offset in the part.
+        # Each section starts at its own alignment. A part uses the largest
+        # alignment of its sections.
         def chunks
           @chunks = FROM.values.to_h { |part| [part, []] }
           @sizes = PARTS.to_h { |part| [part, 0] }
@@ -263,10 +267,11 @@ module Zr
           @sizes[:got] = @got.size * 8
         end
 
-        # Applies one input section's relocations to its bytes at `off` in
-        # `out`. A call reaches an external through its stub and an address
-        # through its GOT slot; everything else is at its own place. An
-        # `abs64` slot is a fixup, its addend what the slot held.
+        # Applies the relocations of one input section to its bytes at `off`
+        # in `out`. A call to an external goes through its stub, and a GOT
+        # load goes through its GOT slot. All other relocations use the
+        # symbol's own address. An `abs64` slot becomes a fixup; its addend
+        # is the value that the slot contained.
         def relocate(part, out, off, i, words)
           addr = @addr[i]
           base = at(part) + off
@@ -310,15 +315,15 @@ module Zr
           end
         end
 
-        # The little-endian word at `at`. A link makes a million of these,
-        # and reading bytes allocates nothing, where unpacking would: in the
-        # compiled compiler every allocation brings the next collection of
-        # a large heap nearer.
+        # The little-endian word at `at`. A link reads about a million of
+        # these. `getbyte` does not allocate, but `unpack` does. In the
+        # compiled compiler, each allocation makes the next collection of a
+        # large heap occur sooner.
         def word(bytes, at)
           bytes.getbyte(at) | (bytes.getbyte(at + 1) << 8) | (bytes.getbyte(at + 2) << 16) | (bytes.getbyte(at + 3) << 24)
         end
 
-        # One stub an external, jumping through its GOT slot.
+        # One stub for each external. The stub jumps through its GOT slot.
         def stub_bytes
           @externals.each_with_index.inject(+"".b) do |out, (name, n)|
             here = at(:stubs) + (n * STUB)
@@ -330,8 +335,9 @@ module Zr
           end
         end
 
-        # A GOT slot an external, which the image binds or rebases; then
-        # one a symbol the code reaches through the GOT, a rebase.
+        # One GOT slot for each external, which the image binds or rebases.
+        # Then one rebase slot for each other symbol that code loads through
+        # the GOT.
         def got_bytes
           @got.each_with_index do |key, n|
             slot = at(:got) + (n * 8)
@@ -349,8 +355,8 @@ module Zr
         end
       end
 
-      # Chained fixups: each slot dyld writes holds the entry, which says
-      # where the next slot on its page is and what to write here.
+      # Chained fixups. Each slot that dyld writes contains an entry. The
+      # entry gives the next slot on the page and the value for this slot.
       module Chains
         PAGE = 0x4000
         STRIDE = 4
@@ -358,13 +364,13 @@ module Zr
 
         module_function
 
-        # For the slot addresses `slots` in a segment at `start` whose file
-        # holds `size` bytes: the start of each page's chain, and each
-        # slot's distance to the next, in strides. The starts cover the file
-        # bytes and not the zero-fill tail: dyld maps `page_count` pages of
-        # the file for the kernel to fix up, and a count past the file maps
-        # the next segment's bytes over the tail, where the kernel's pager
-        # then finds and caches them unfixed.
+        # For the slot addresses `slots` in a segment at `start` with `size`
+        # file bytes, returns the start of the chain on each page and the
+        # distance (in strides) from each slot to the next. The starts cover
+        # only the file bytes, not the zero-fill tail. dyld maps
+        # `page_count` pages of the file for the kernel to fix up. A count
+        # past the file maps the next segment's bytes over the tail, and the
+        # kernel's pager then caches those bytes without fixups.
         def thread(slots, start, size)
           starts = Array.new(Patch.align(size, PAGE) / PAGE, START_NONE)
           nexts = {}
@@ -375,14 +381,14 @@ module Zr
           [starts, nexts]
         end
 
-        # Where the slot points, as an offset from the image base: what the
-        # loader adds the slide to.
+        # The slot's target as an offset from the image base. The loader
+        # adds the slide to it.
         def rebase(offset, nxt) = (offset & ((1 << 36) - 1)) | (nxt << 51)
 
         def bind(ordinal, nxt) = (ordinal & 0xFF_FFFF) | (nxt << 51) | (1 << 63)
 
-        # Writes the eight-byte little-endian `word` at `at`, byte by byte:
-        # the compiled runtime's `bytesplice` makes the whole string again.
+        # Writes the eight-byte little-endian `word` at `at`, one byte at a
+        # time. In the compiled runtime, `bytesplice` copies the full string.
         def put(bytes, at, word)
           8.times { |n| bytes.setbyte(at + n, (word >> (8 * n)) & 0xFF) }
         end

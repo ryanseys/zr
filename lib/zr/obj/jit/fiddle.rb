@@ -6,7 +6,7 @@ require_relative "../jit"
 module Zr
   module Obj
     class JIT
-      # The system half of the loader, under CRuby.
+      # The system calls of the loader, under CRuby.
       class Fiddle
         def initialize
           @lib = ::Fiddle::Handle::DEFAULT
@@ -16,15 +16,15 @@ module Zr
           @invalidate = fn("sys_icache_invalidate", [:voidp, :size_t], :void)
         end
 
-        # A region of `size` bytes nothing can touch yet, for `map` to
-        # place its halves in.
+        # Reserves `size` bytes with no access, where `map` places its two
+        # parts.
         def reserve(size) = mapped(@mmap.call(0, size, 0, MAP_ANON_PRIVATE, -1, 0))
 
-        # `size` bytes at `at` given back, for a mapping to take by hint.
+        # Unmaps `size` bytes at `at`, so that a mapping can use them by hint.
         def release(at, size) = @munmap.call(at, size)
 
-        # A mapping of `size` bytes: at `at` exactly, where the caller
-        # reserved it; else near `near` when the kernel agrees.
+        # Maps `size` bytes: exactly at `at` when the caller reserved it,
+        # else near `near` if the kernel accepts the hint.
         def map(size, exec:, at: nil, near: 0)
           flags = MAP_ANON_PRIVATE | (exec ? MAP_JIT : 0) | (at ? MAP_FIXED : 0)
           mapped(@mmap.call(at || near, size, exec ? 7 : 3, flags, -1, 0))
