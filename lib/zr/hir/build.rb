@@ -12,102 +12,105 @@ module Zr
   module Hir
     class Refused < Zr::Refused; end
 
-    # A form ruby itself refuses as it compiles, rather than one the HIR
-    # does not hold yet. A build treats it as any other refusal -- it
-    # stops and names the line -- but a program that compiles this while
-    # it runs must see what ruby raises there, which is a SyntaxError,
-    # and `Zr::Eval` makes it one.
+    # A form that ruby itself refuses when it compiles, not one that the
+    # HIR does not support yet. A build treats it as any other refusal: it
+    # stops and gives the line. But a program that compiles this at run
+    # time must get what ruby raises, a SyntaxError, and `Zr::Eval` makes
+    # it one.
     class Invalid < Refused; end
 
-    # Prism to HIR. A form the HIR does not hold yet is refused by name at
-    # its line: the contract is CRuby-identical or refused, never a guess.
+    # Prism to HIR. A form that the HIR does not support yet is refused,
+    # with a message that gives the form and the line. The rule: the same
+    # as CRuby, or refused. Never a guess.
     class Build
-      # Ruby's own pure-ruby stdlib, unedited: the pinned gems' files and
-      # vendor/lib's, found when a build asks (lib/zr/libraries.rb).
+      # Ruby's own pure-Ruby stdlib, unchanged: the pinned gems' files and
+      # vendor/lib's, found when a build calls this (lib/zr/libraries.rb).
       def self.pure = Libraries.root
 
-      # The extensions whose native half is ours. A file here is part of
-      # the runtime, so it may name a kernel def through `Primitive`.
+      # The extensions whose native part is zr's. A file here is part of
+      # the runtime, so it can call a kernel def through `Primitive`.
       EXT = File.join(Paths::RUNTIME, "ext")
-      # The runtime's files whose instance variables a program sees as ruby
-      # shows them: prism's port, which changes the prism gem's nodes after
-      # they are built, and openssl's, whose C names every instance
-      # variable it shows and keeps the rest in hidden slots.
+      # The runtime files whose instance variables a program sees as in
+      # ruby: prism's port, which changes the prism gem's nodes after they
+      # are built, and openssl's port (its C creates each visible instance
+      # variable by name and keeps the rest in hidden slots).
       VISIBLE_IVARS = [
         *%w[mutation ast].map { |name| File.join(EXT, "prism/ruby/#{name}.rb") },
         File.join(EXT, "openssl.so.rb"), *Dir[File.join(EXT, "openssl/ossl/*.rb")].sort
       ].freeze
       # The runtime's own Ruby, the core library and the extensions: code
-      # a TracePoint never sees.
+      # that a TracePoint never sees.
       RUNTIME = Paths::RUNTIME
-      # The named calls a site lowers to a kernel entry with a core fast
-      # path (Zr::Lower::Function::Sends::OPT_ENTRIES), by the arguments each
-      # takes. A call of any other count, or with a block, keywords or a
-      # splat, raises or means something else, and only the call says.
+      # The named calls that a site lowers to a kernel entry with a core
+      # fast path (Zr::Lower::Function::Sends::OPT_ENTRIES), with each
+      # one's argument count. A call with a different count, or with a
+      # block, keywords or a splat, raises or does something different,
+      # and only the real call can tell.
       OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
 
       def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
 
-      # The ruby half of an extension, as its gem ships it. A gem is on
-      # the path only once its native half answers, so a require of one
-      # we do not carry stops by name instead of failing halfway in.
+      # The Ruby part of an extension, as its gem ships it. A gem is on
+      # the path only after zr ports its native part, so a require of an
+      # unsupported one stops with a message, and does not fail halfway.
       GEMS = %w[prism json psych bigdecimal digest syslog socket ffi openssl].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
-      # A bundled gem that tells its own files from a program's by the
-      # directory they are in, which must hold that gem alone.
+      # A bundled gem that identifies its own files by their directory.
+      # That directory must contain only this gem.
       def self.bundled = Libraries.apart
 
-      # The library roots a program for `target` requires from: ruby's own,
-      # then the OS layer's native halves and tables, then the portable
-      # ones, then the gems' ruby halves, then the bundled gems kept apart.
+      # The library roots for `target`, in search order: ruby's own, then
+      # the OS layer's native parts and tables, then the portable ones,
+      # then the gems' Ruby parts, then the bundled gems in their own
+      # directories.
       def self.stdlib(target = Target.default)
         (@stdlib ||= {})[target.triple] ||= [pure, File.join(EXT, "os", target.os_layer), EXT, *GEMS, *bundled].freeze
       end
 
-      # The compiler itself, which a program that evals carries, and the
-      # walk a program carries where it cannot write machine code into
-      # itself. Both hold the same front end; `Zr::Eval` names the back
-      # half each one runs.
+      # The compiler that a program with eval links in, and the
+      # tree-walking interpreter for a program that cannot write machine
+      # code into itself. Both contain the same front end. `Zr::Eval`
+      # gives the back end that each one runs.
       EVAL_COMPILER = File.expand_path("../eval.rb", __dir__)
       EVAL_INTERPRETER = File.expand_path("../eval/walk.rb", __dir__)
 
-      # The road for `target`. `ZR_EVAL=walk` asks for the walk where
-      # machine code would do, which is how the walk is checked against
-      # the answers the compiling road gives.
+      # The eval support file for `target`. `ZR_EVAL=walk` selects the
+      # tree-walking interpreter where the eval compiler (JIT) could run.
+      # The tests use this to check the interpreter against the JIT.
       def self.eval_file(target = Target.default)
         target.jits? && ENV["ZR_EVAL"] != "walk" ? EVAL_COMPILER : EVAL_INTERPRETER
       end
 
-      # `road` is false for an eval: the program it runs inside already
-      # carries the compiler, so the eval must not compile it again. It is
-      # true to build the compiler into a program that evals, or a road
-      # built already (`Zr::Road`): a program that evals then names its
-      # units instead of building them, and so does every file the program
-      # shares with it. Only the end of a build knows whether the program
-      # evals, so a program that does is built a second time over the road.
-      # `method` is the parameters of the method an eval's string runs
-      # inside, as Method#parameters answers them, or nil outside one: a
-      # `yield` has a block to reach only inside a method, and a bare
-      # `super` passes those parameters on.
+      # `eval_support` is false for an eval: the program already contains
+      # the compiler, so the eval must not compile it again. It is true to
+      # build the compiler into a program with eval, or an EvalSupport that
+      # is already built (`Zr::EvalSupport`). Then a program with eval
+      # refers to eval support's units and does not build them, also for
+      # every file that it shares with eval support. Only the end of a
+      # build knows if the program evals, so such a program is built again
+      # with eval support.
+      # `method` is the parameters of the method that an eval's string
+      # runs inside, as from Method#parameters, or nil outside a method:
+      # a `yield` has a block only inside a method, and a bare `super`
+      # passes those parameters.
       def self.program(source, file, roots: [], eval_support: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
         # The main file's name came from the build's command line, in the
-        # build's locale; a program's locale is UTF-8 (Encoding.locale_charmap),
-        # and the name must not carry the machine it was built on.
+        # build's locale. A program's locale is UTF-8
+        # (Encoding.locale_charmap), and the name must not depend on the
+        # build machine.
         file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + stdlib(target), eval: !eval_support, external: external, trace: trace, evals: evals,
                               covers: covers, activations: activations, prebuilt_eval: eval_support.respond_to?(:units) ? eval_support : nil)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
-        # Three things a build learns only by reading every file: that
-        # the program evals, that it names TracePoint, and that it names
-        # Coverage. Each asks for a build of its own -- one over the
-        # road, where a file the road holds is named rather than read,
-        # one with the events armed, and one with the branch counters --
-        # and a prelude read here is what asks for any of them, since
-        # `binding.irb` loads fileutils and fileutils evals. So the
-        # build settles: read, take the preludes, and go again while any
-        # answer has moved. Each answer only ever turns on, so this
-        # stops.
+        # A build knows three facts only after it reads every file: that
+        # the program uses eval, TracePoint, or Coverage. Each fact needs
+        # a different build: with eval support (its files are referred to,
+        # not read), with the events armed, or with the branch counters. A
+        # prelude can also cause any of them (`binding.irb` loads
+        # fileutils, and fileutils evals). So the build repeats: read, add
+        # the preludes, and build again while any fact changed. Each fact
+        # can only change from false to true, so the loop ends.
         loader = main = preludes = nil
         evals = trace = covers = false
         external = nil
@@ -122,11 +125,11 @@ module Zr
           trace = loader.traces?
           covers = loader.covers?
         end
-        # A program that evals numbers its `using` rows here, but a
-        # build it makes while it runs cannot see how far they reach --
-        # a row under a condition is made only where the condition
-        # holds. So the rows are all taken before the first line, and a
-        # build at run time starts after the last of them.
+        # A program with eval numbers its `using` entries here. A compile
+        # at run time cannot see how many there are, because an entry
+        # under a condition is made only if the condition is true. So all
+        # entries are taken before the first line, and a compile at run
+        # time starts after the last of them.
         preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.evals? && loader.activations.positive?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
@@ -144,15 +147,15 @@ module Zr
         ConstWrite.new(nil, :DATA, made, 0)
       end
 
-      # Each prelude under the loader flag that asks for it, in the order
-      # a program loads them: rbconfig ahead of the gems that read it,
-      # and the compiler ahead of whatever a compile at run time reaches.
+      # Each prelude whose loader flag is set, in the program's load
+      # order: rbconfig before the gems that read it, and the compiler
+      # before all that a compile at run time can reach.
       #
-      # A prelude is read as it is taken, and what it reads can ask for
-      # another -- `irb_session` requires irb, which requires fileutils,
-      # which evals -- so the table is walked again until a walk takes
-      # nothing. What comes back is in the table's order and not in the
-      # order the flags turned on.
+      # A prelude is read when it is taken, and it can set another flag
+      # (`irb_session` requires irb, which requires fileutils, which
+      # evals). So the table is walked again until a walk takes nothing.
+      # The result is in table order, not in the order that the flags
+      # were set.
       def self.preludes(loader, target)
         asking = {
           configures?: -> { [rbconfig(loader)] },
@@ -170,12 +173,12 @@ module Zr
         asking.each_key.flat_map { |flag| taken.fetch(flag, []) }
       end
 
-      # The compiler alone, as the units a road holds: the loader has
-      # built them, and its flags say what a program that carries them
-      # needs beside them. The road holds the preludes too (rbconfig,
-      # the normalizer, the pretty printer, the syntax tree translator):
-      # a program that evals may need any of them, and lowered here they
-      # are lowered once, not with every such program.
+      # Only the compiler, as the units of eval support. The loader built
+      # them, and its flags tell what else a program that links them in
+      # needs. Eval support also contains the preludes (rbconfig, the
+      # normalizer, the pretty printer, the syntax tree translator): a
+      # program with eval can need any of them, and here they are lowered
+      # once, not with each such program.
       def self.eval_support(target = Target.default)
         Loader.new(stdlib(target)).tap do |loader|
           eval_require(loader, target)
@@ -189,12 +192,12 @@ module Zr
       end
 
       # rubygems and bundled_gems, which ruby loads before a program's
-      # first line. A program here loads them as it boots when a file of
-      # it names Gem or Bundler, calls `gem` or requires rubygems; the
-      # compiler it carries then holds them already.
+      # first line. A zr program loads them at boot if one of its files
+      # uses Gem or Bundler, calls `gem` or requires rubygems. Its
+      # compiler then already contains them.
       def self.rubygems_files = %w[rubygems bundled_gems].map { |name| File.join(pure, "#{name}.rb") }
       def self.ahead = [File.join(pure, "rubygems"), *rubygems_files]
-      # The files rubygems' autoloads name that its boot reads.
+      # The files of rubygems' autoloads that its boot reads.
       def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(pure, "rubygems/#{name}.rb") }
 
       def self.rubygems(loader)
@@ -202,9 +205,8 @@ module Zr
       end
 
       # The file that arms String#unicode_normalize's load of ruby's own
-      # normalize.rb. It is the runtime's, so it stays out of
-      # $LOADED_FEATURES; the load it arms, which runs on the first call,
-      # does not.
+      # normalize.rb. It is a runtime file, so it is not in
+      # $LOADED_FEATURES. The load that it arms (at the first call) is.
       NORMALIZER = File.join(EXT, "zr/normalizer.rb")
 
       def self.normalizer(loader)
@@ -217,9 +219,9 @@ module Zr
       IRB_SESSION = File.join(EXT, "zr/irb_session.rb")
       SYNTAX_TREE = File.join(EXT, "zr/syntax_tree.rb")
 
-      # The file that loads RubyVM::AbstractSyntaxTree's translator,
-      # which a program that names the module carries ahead of its body.
-      # Both stay out of $LOADED_FEATURES.
+      # The file that loads RubyVM::AbstractSyntaxTree's translator. A
+      # program that uses the module loads it before its body. Both are
+      # not in $LOADED_FEATURES.
       def self.ast_translator(loader)
         Require.new(:hidden, "zr/syntax_tree", SYNTAX_TREE, loader.hidden(SYNTAX_TREE), 0)
       end
@@ -228,12 +230,11 @@ module Zr
         Require.new(:hidden, "zr/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
       end
 
-      # The messages irb loads for the locale it runs under. irb finds
-      # this file by walking $LOAD_PATH and reading the first one it
-      # lands on, which a program that carries its files rather than
-      # standing beside them cannot answer. So the program carries it:
-      # added and not required, since irb loads it and a load leaves
-      # $LOADED_FEATURES alone.
+      # The messages that irb loads for its locale. irb finds this file by
+      # a search of $LOAD_PATH, and reads the first match. A zr program
+      # contains its files and has no directory to search. So the program
+      # includes it: added and not required, because irb loads it and a
+      # load does not change $LOADED_FEATURES.
       def self.irb_messages = File.join(pure, "irb/lc/error.rb")
 
       # The file that arms Binding#irb's load of irb, as CRuby's prelude
@@ -243,42 +244,42 @@ module Zr
         Require.new(:hidden, "zr/irb_session", IRB_SESSION, loader.add(IRB_SESSION), 0)
       end
 
-      # `rbconfig`, which ruby has loaded before a program's first line:
-      # rubygems requires it as ruby boots. A program here carries it when
-      # some file of it names `RbConfig` or requires it, so the constant is
-      # there to read and `require "rbconfig"` answers false, as in ruby.
+      # `rbconfig`, which ruby loads before a program's first line
+      # (rubygems requires it at boot). A zr program includes it if one of
+      # its files uses `RbConfig` or requires it. So the constant exists
+      # and `require "rbconfig"` returns false, as in ruby.
       def self.rbconfig(loader)
         path = loader.resolve(:require, "rbconfig", EXT)
         Require.new(:require, "rbconfig", path, loader.add(path), 0)
       end
 
-      # A require of the eval road, ahead of everything the program does.
-      # Only a program that names an eval carries the compiler, so an
-      # eval-free one links nothing extra. The program never asked for
-      # it, so what it loads stays out of $LOADED_FEATURES.
+      # A require of eval support, before all other code of the program.
+      # Only a program that uses eval links in the compiler, so a program
+      # without eval links nothing more. The program did not require it,
+      # so what it loads is not in $LOADED_FEATURES.
       def self.eval_require(loader, target = Target.default)
         path = eval_file(target)
         Require.new(:hidden, "zr/eval", path, loader.hidden(path), 0)
       end
 
-      # A program that names one of these compiles ruby while it runs.
-      # The block forms do not: only a string argument needs a compiler.
+      # A program that calls one of these compiles ruby at run time. The
+      # block forms do not: only a string argument needs a compiler.
       EVAL_FORMS = %i[class_eval module_eval instance_eval].freeze
 
-      # The sends that call the method a leading Symbol names, and the
-      # fetches that hand it back to be called later.
+      # The sends that call the method given by a leading Symbol, and the
+      # fetches that return it for a later call.
       SENDS = %i[send __send__ public_send].freeze
       FETCHES = %i[method public_method instance_method].freeze
 
       # Whether a call of `name` with `argc` arguments compiles ruby that
-      # runs in the frame the call stands in. `named` is the Symbol the
-      # first argument holds where it is a literal one, so a send or a
-      # fetch is read through to the method it names.
+      # runs in the caller's frame. `named` is the first argument if it is
+      # a literal Symbol, so the check sees through a send or a fetch to
+      # the method.
       #
-      # Two questions have this one answer. A program that holds such a
-      # call carries the compiler; and the method such a call stands in
-      # arms the catch for a `return` the source writes, since that
-      # return belongs to the method rather than to the eval.
+      # This result has two uses. A program with such a call links in the
+      # compiler. And the enclosing method arms the catch for a `return`
+      # in the source, because that return belongs to the method, not to
+      # the eval.
       def self.eval_call?(name, named: nil, argc: 0)
         return eval_call?(named, argc: argc - 1) if named && SENDS.include?(name)
         # The call comes later, with arguments this site cannot see.
@@ -287,29 +288,30 @@ module Zr
         name == :eval || (EVAL_FORMS.include?(name) && argc.positive?)
       end
 
-      # The files a program reaches through require, require_relative
+      # The files that a program reaches through require, require_relative
       # and load, each parsed and built once. A require searches the
-      # roots: the -I roots, and the directories a file adds to
+      # roots: the -I roots, and the directories that a file adds to
       # $LOAD_PATH with a literal (`$LOAD_PATH.unshift(File.expand_path
-      # ("lib", __dir__))` and the like), read before the file's body.
+      # ("lib", __dir__))` and similar), read before the file's body.
       class Loader
         attr_reader :units
 
-        # `external` is a road built already: a file it holds is named by
-        # the entry it answers, and needs nothing the road does not.
-        # The prism node id each HIR node came from, by identity.
+        # The prism node id of each HIR node, by identity.
         attr_reader :node_ids
 
-        # `deferred` names features a literal require leaves to the run,
-        # which finds them under $LOAD_PATH then, as a computed name is
-        # found: the gem prelude's libraries name a parser they reach only
-        # for an error this runtime spots another way.
-        # `preloaded` are the features a require answers false for, which
-        # the gem prelude's own build loads.
-        # `ahead` names the files that load at boot only what they run
-        # there: in one, a require inside a method waits for the run, which
-        # finds the file then and compiles it, and so does an autoload of
-        # a file outside `booted`, the files the boot reads.
+        # `external` is an EvalSupport that is already built. A file in it
+        # is referred to by its entry, and needs nothing that eval support
+        # does not have.
+        # `deferred` lists features that a literal require leaves to run
+        # time, which finds them in $LOAD_PATH as for a computed name. The
+        # gem prelude's libraries require a parser only for an error that
+        # this runtime finds differently.
+        # `preloaded` are the features for which a require returns false.
+        # The gem prelude's own build loads them.
+        # `ahead` lists the files that load at boot only what they run
+        # there. In these files, a require inside a method waits for run
+        # time, which finds and compiles the file then. So does an autoload
+        # of a file outside `booted` (the files that the boot reads).
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil)
           @deferred = deferred
