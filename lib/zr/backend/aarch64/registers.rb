@@ -44,7 +44,7 @@ module Zr
 
         module_function
 
-        # The registers by number, for a slot a loop counts.
+        # The registers by number, for a loop that counts over slots.
         def x(i) = const_get(:"X#{i}")
         def w(i) = const_get(:"W#{i}")
         def d(i) = const_get(:"D#{i}")

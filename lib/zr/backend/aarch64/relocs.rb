@@ -3,17 +3,17 @@
 module Zr
   module Backend
     module Aarch64
-      # The arm64 relocations `Codegen` records, applied against an address
-      # that is already decided: the bit patterns, once. `Obj::Patch` hands
-      # each one here with the address its symbol has, and
-      # `Obj::MachO::Executable` asks for the word itself.
+      # Applies the arm64 relocations that `Codegen` records to a known
+      # address. The bit patterns are in this file only. `Obj::Patch` gives
+      # each relocation with the address of its symbol.
+      # `Obj::MachO::Executable` calls `word` directly.
       module Relocs
         KINDS = %i[branch26 page21 got_page21 pageoff12 got_pageoff12].freeze
 
         module_function
 
-        # Patches `bytes` for `r` at `place`, its symbol at `target`; false
-        # for a kind that is not arm64's.
+        # Patches `bytes` for `r` at `place`, with its symbol at `target`.
+        # Returns false for a kind that is not an arm64 kind.
         def patch(bytes, r, target, place)
           return false unless KINDS.include?(r.kind)
 
@@ -24,9 +24,9 @@ module Zr
           true
         end
 
-        # The instruction `word` at `place` with its field for `kind` set to
-        # reach `target`, or nil when the field cannot hold it: a target out
-        # of reach would be written as some other address.
+        # Returns the instruction `word` at `place` with its field for `kind`
+        # set to reach `target`. Returns nil when the field cannot contain the
+        # offset, because a target out of range would encode a different address.
         def encode(kind, word, target, place)
           case kind
           when :branch26
@@ -46,7 +46,7 @@ module Zr
           end
         end
 
-        # Whether a field of `bits` signed bits holds `value`.
+        # Whether a signed field of `bits` bits can contain `value`.
         def fits?(value, bits) = value.between?(-(1 << (bits - 1)), (1 << (bits - 1)) - 1)
       end
     end

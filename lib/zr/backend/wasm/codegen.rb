@@ -11,23 +11,25 @@ require_relative "../../flags"
 module Zr
   module Backend
     module Wasm
-      # The wasm32 emitter: IR functions and data objects to one WASI module.
+      # The wasm32 emitter: writes IR functions and data objects as one WASI module.
       #
-      # Every value is kept in a local of its type, shared with values whose
-      # lives do not overlap (Locals; an i8 is an i32 local; an i64
-      # stays i64, so a pointer is a 64-bit value whose address wraps to 32
-      # bits at every memory access). Control flow is one `loop` around a
-      # ladder of `block`s and a `br_table` on a block-index local: each IR
-      # block sets the index of its successor and branches to the loop.
-      # Stack slots live in a shadow stack in linear memory under a global
-      # stack pointer. The module answers a set of libc calls itself
-      # where no function defines them (`LIBC_SHIMS`): `malloc` bumps a heap
-      # pointer above the shadow stack and grows the memory, `free` does
-      # nothing, and `write` and `exit` become `fd_write` and `proc_exit`,
-      # for a unit with no OS layer. The OS layer, runtime/kernel/os/wasi, answers
-      # every other call over its own imports. A function's address is its
-      # index in the one table, from 1 so that a pointer is never zero;
-      # `call_indirect` goes through that table.
+      # Values: each value is in a local of its type (`Locals`). Values whose
+      # live ranges do not overlap share a local. An i8 uses an i32 local. An
+      # i64 stays i64, so a pointer is 64 bits and wraps to 32 bits at each
+      # memory access.
+      #
+      # Control flow: one `loop` around nested `block`s and a `br_table` on a
+      # block-index local. Each IR block sets the index of its successor and
+      # branches to the loop. Stack slots are in a shadow stack in linear
+      # memory, below a global stack pointer.
+      #
+      # `LIBC_SHIMS`: the module defines some libc calls when no function
+      # defines them. `malloc` increments a heap pointer above the shadow
+      # stack and grows the memory, `free` does nothing, and `write` and
+      # `exit` become `fd_write` and `proc_exit` for a unit with no OS layer.
+      # The OS layer, runtime/kernel/os/wasi, implements every other call with
+      # its own imports. A function's address is its index in the one table,
+      # starting at 1 so that a pointer is never zero. `call_indirect` uses that table.
       class Codegen
         class Refused < Backend::Refused; end
 
@@ -38,9 +40,9 @@ module Zr
         DATA_BASE = 32
         STACK_PAGES = 16
         # Data objects at most this many bytes apart share a segment.
-        # wasmtime 48 checks each segment against its own alias region in a
-        # module's startup function, and a function holds at most 65,535
-        # regions; wasm itself allows 100,000 segments.
+        # wasmtime 48 checks each segment against its own alias region in the
+        # module's startup function, and a function can have at most 65,535
+        # regions. wasm itself allows 100,000 segments.
         SEGMENT_GAP = 16
 
         TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze
@@ -52,9 +54,9 @@ module Zr
                      and: 0x83, or: 0x84, xor: 0x85, shl: 0x86, shr_s: 0x87, shr_u: 0x88,
                      eq: 0x51, ne: 0x52, lt_s: 0x53, lt_u: 0x54, gt_s: 0x55, gt_u: 0x56, le_s: 0x57, le_u: 0x58, ge_s: 0x59, ge_u: 0x5A }
         }.freeze
-        # The libc calls a module answers itself, where no function of the
-        # name is defined: memory, which only the module can own, and the
-        # calls a unit with no OS layer makes to write, leave and stop.
+        # The libc calls that the module defines itself when no function has
+        # the name: memory calls, because only the module can own memory, and
+        # the write, exit and abort calls of a unit with no OS layer.
         LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
                   "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
                   "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze
@@ -75,8 +77,8 @@ module Zr
 
           def to_a = [@from, @name, @params, @results]
         end
-        # The imports the libc shims and `_start` call, which a module carries
-        # whatever its functions import.
+        # The imports that the libc shims and `_start` call. Every module
+        # includes them, whatever its functions import.
         OWN_IMPORTS = [Import.new(WASI, "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
                        Import.new(WASI, "proc_exit", [0x7F], [])].freeze
 
@@ -86,12 +88,12 @@ module Zr
         COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
                  "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
 
-        # The runtime's half of a module, emitted once and kept: its
-        # function names and signatures, their bodies, the types they use,
-        # its data placed and patched, its table, and the symbols it names
-        # that a program defines, at the indices and addresses promised to
-        # its bodies. A program's module lays its own part after this one
-        # and must honour the promises (`pending`).
+        # The runtime part of a module, emitted one time and kept. It contains
+        # the function names and signatures, their bodies, the types they use,
+        # the placed and patched data, the table, and the symbols that it refers
+        # to but a program defines. Those symbols have fixed indices and
+        # addresses (`pending`). A program's module puts its own part after
+        # this one and must define those symbols at those positions.
         class Prelude < Record
           FIELDS = %i[imports shims sigs bodies types data_at data_end segments table pending].freeze
           attr_accessor :imports, :shims, :sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending
@@ -115,9 +117,9 @@ module Zr
           def functions = sigs.keys
         end
 
-        # `prelude`: a Prelude this module extends. `pending`: when emitting
-        # a prelude, the function names and the data names another module
-        # will define, in the order it must define them.
+        # `prelude`: a Prelude that this module extends. `pending`: when this
+        # emits a prelude, the function and data names that another module
+        # defines, in the order that it must define them.
         def initialize(functions, data, prelude: nil, pending: nil)
           @functions = functions
           @data = data
@@ -125,7 +127,7 @@ module Zr
           @pending = pending
         end
 
-        # A Prelude of these functions and data, for modules to extend.
+        # Returns a Prelude of these functions and data, for modules to extend.
         def prelude
           layout
           bodies = @functions.map { |f| Body.new(self, f).emit }
@@ -133,7 +135,7 @@ module Zr
                       @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }, @table, @promised)
         end
 
-        # The module's bytes.
+        # Returns the module's bytes.
         def emit
           layout
           pre = @prelude
@@ -168,10 +170,10 @@ module Zr
           out
         end
 
-        # The names of the functions, as a custom section. Nothing at run
-        # time reads it: wasmtime does, and a trap that says
-        # `<wasm function 1097>` says `zr_ivtab_append` instead. It is
-        # the size of every symbol name, so it waits to be asked for.
+        # The function names, as a custom section. The program does not read
+        # it, but wasmtime does: a trap then shows `zr_ivtab_append` in place
+        # of `<wasm function 1097>`. It is as large as all symbol names, so
+        # it is emitted only on request.
         def names_section
           rows = @index.sort_by(&:last).map { |symbol, index| leb(index) + name(symbol) }
           section(0, name("name") + section(1, vec(rows)))
@@ -192,11 +194,11 @@ module Zr
           end
         end
 
-        # Function index space: imports first, then the shims, then the
-        # prelude's functions, then ours (the prelude's pending ones first,
-        # where it promised them). Data after the prelude's, the pending
-        # objects first, at the addresses promised. Imports, shims, types
-        # and the table continue the prelude's.
+        # Function index space: imports, then the shims, then the prelude's
+        # functions, then this module's functions (the prelude's pending
+        # ones first, at their fixed indices). Data comes after the prelude's
+        # data, with the pending objects first at their fixed addresses.
+        # Imports, shims, types and the table continue from the prelude's.
         def layout
           pre = @prelude
           @imports = pre ? pre.imports : imports
@@ -216,8 +218,8 @@ module Zr
             first = pre.pending[:functions]
             @functions = @functions.sort_by.with_index { |f, i| [first.index(f.name) || first.size, i] }
           end
-          # Initialized data before bss, so that the bytes a module writes
-          # are one run and not one segment between each two zero objects.
+          # Initialized data comes before bss, so the written bytes are one
+          # run, not one segment between each pair of zero objects.
           first = pre ? pre.pending[:data].keys : []
           @data = @data.sort_by.with_index { |d, i| [first.index(d.name) || first.size, d.section == :bss ? 1 : 0, i] }
           @functions.each { |f| @index[f.name] = @index.size }
@@ -237,8 +239,8 @@ module Zr
           @table = ((pre ? pre.table : []) + taken + named).uniq
         end
 
-        # The module's own imports, then each its functions name, in the
-        # order they first do.
+        # The module's own imports, then each import that its functions
+        # refer to, in order of first use.
         def imports
           (OWN_IMPORTS + imported).each_with_object({}) do |import, by_name|
             known = by_name[import.name] ||= import
@@ -246,7 +248,7 @@ module Zr
           end.values
         end
 
-        # What the functions import, as the IR signature of each call says.
+        # The imports of the functions, with types from the IR signature of each call.
         def imported
           @functions.flat_map do |f|
             f.callees.select(&:from).map do |c|
@@ -256,9 +258,10 @@ module Zr
           end
         end
 
-        # When emitting a prelude, the pending functions take the indices
-        # right after ours, and the pending data the addresses right after
-        # ours, each eight bytes wide but the last, which may be any size.
+        # When this emits a prelude, the pending functions get the indices
+        # directly after this module's functions. The pending data gets the
+        # addresses directly after this module's data, 8 bytes each, except
+        # the last, which can be any size.
         def promise(_used)
           @promised = { functions: [], data: {} }
           return unless @pending
@@ -286,8 +289,8 @@ module Zr
           @index.fetch(name) { raise Refused, "no function named #{name}" }
         end
 
-        # The wasm parameter and result types a call to `name` must match;
-        # nil for a function this module has not seen.
+        # Returns the wasm parameter and result types for a call to `name`,
+        # or nil for a function that this module does not know.
         def function_type(name)
           return LIBC_SHIMS[name] if @shims.include?(name)
           return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
@@ -299,7 +302,7 @@ module Zr
           @imports.find { |import| import.name == name }&.then { |import| [import.params, import.results] }
         end
 
-        # The table index that stands for `name`'s address.
+        # The table index that represents the address of `name`.
         def table_index(name)
           @table.index(name) + 1
         end
@@ -309,8 +312,8 @@ module Zr
           [s.params.map { |t| TYPE.fetch(t) }, s.ret ? [TYPE.fetch(s.ret)] : []]
         end
 
-        # A data object's bytes with every absolute relocation filled in: a
-        # function's address is its table index, as `func_addr` answers.
+        # Returns a data object's bytes with every absolute relocation filled
+        # in. A function's address is its table index, as for `func_addr`.
         def patched(d)
           bytes = d.bytes.dup
           d.relocs.each do |r|
@@ -352,7 +355,7 @@ module Zr
             code << "\x00".b
           when "malloc"
             # r = heap; heap += n rounded to 16; grow when heap passes the
-            # memory's end; answer r.
+            # memory's end; return r.
             code << "\x23\x01".b << "\x21\x01".b
             code << "\x23\x01".b << "\x20\x00".b << "\xA7".b << i32c(15) << "\x6A".b << i32c(-16) << "\x71".b << "\x6A".b << "\x24\x01".b
             code << "\x23\x01".b << "\x3F\x00".b << i32c(16) << "\x74".b << "\x4B".b
@@ -362,8 +365,8 @@ module Zr
             code << "\x0B".b
             code << "\x20\x01".b << "\xAD".b
           when "posix_memalign"
-            # *slot = (malloc(size + align) + align - 1) & -align; answer 0.
-            # The heap never gives memory back, so the slack costs nothing.
+            # *slot = (malloc(size + align) + align - 1) & -align; return 0.
+            # The heap never frees memory, so the extra bytes cost nothing.
             code << "\x20\x00".b << "\xA7".b
             code << "\x20\x01".b << "\x20\x02".b << "\x7C".b << "\x10".b << leb(function_index("malloc"))
             code << "\x20\x01".b << "\x7C".b << "\x42\x01".b << "\x7D".b
@@ -372,10 +375,10 @@ module Zr
           when "free"
             code << "".b
           when "memmove"
-            # memory.copy handles ranges that overlap; answer the destination.
+            # memory.copy handles ranges that overlap; return the destination.
             code << "\x20\x00\xA7\x20\x01\xA7\x20\x02\xA7".b << "\xFC\x0A\x00\x00".b << "\x20\x00".b
           when "memset"
-            # memory.fill with the low byte of c; answer the destination.
+            # memory.fill with the low byte of c; return the destination.
             code << "\x20\x00\xA7\x20\x01\x20\x02\xA7".b << "\xFC\x0B\x00".b << "\x20\x00".b
           end
           code << "\x0B".b
@@ -383,7 +386,7 @@ module Zr
           vec_bytes(vec(n ? [leb(n) + "\x7F".b] : []) + code)
         end
 
-        # `_start`: main(0, 0), then proc_exit with what it answered.
+        # `_start`: main(0, 0), then proc_exit with its return value.
         def start_body
           params, results = function_type("main")
           raise Refused, "no main" unless params
@@ -448,12 +451,11 @@ module Zr
 
         # One function's body.
         class Body
-          # Past this many blocks a function is dispatched in two steps,
-          # in groups of the same size. Measured on the shape zr emits, a
-          # group of 256 is the cheapest to compile at every size tried --
-          # 8,000 blocks take 20.0 s in groups of 128, 9.9 s in groups of
-          # 256, 11.3 s in 512 -- and the square root the count suggests
-          # is well off it.
+          # A function with more blocks than this dispatches in two steps,
+          # in groups of this size. For the code that zr emits, a group of
+          # 256 compiles fastest at every size tested: 8,000 blocks take
+          # 20.0 s in groups of 128, 9.9 s in 256, and 11.3 s in 512. The
+          # square root of the block count is much slower.
           LADDER = 256
           WIDTH = Integer(ENV.fetch("ZR_WASM_WIDTH", LADDER))
 
@@ -476,14 +478,14 @@ module Zr
 
           private
 
-          # Parameters first, then the shared locals every other value is
-          # kept in, then the block index and the frame base. A constant has
-          # no local: it is written where it is read (`CONSTANTS`).
+          # Parameters first, then the shared locals for all other values,
+          # then the block index and the frame base. A constant has no local:
+          # it is written where it is read (`CONSTANTS`).
           def assign
             n = 0
             @const = {}
-            # Every value's type is the IR's to say (`IR::Types`), so this
-            # backend cannot read a value as anything the others do not.
+            # The IR gives the type of every value (`IR::Types`), so this
+            # backend and the other backends read each value as the same type.
             @type = IR::Types.of(@f)
             @f.blocks.first.params.each { |v, _| @local[v] = n; n += 1 }
             values = []
@@ -510,7 +512,7 @@ module Zr
             @frame = @m.align(off, 16)
           end
 
-          # Each by its key, the first row winning as `find` would.
+          # Each callee by its key. The first entry wins, as with `find`.
           def callee(fn)
             @callee ||= @f.callees.each_with_object({}) { |c, index| index[c.fn] ||= c }
             @callee[fn]
@@ -535,11 +537,11 @@ module Zr
             @type.fetch(v) == "i64"
           end
 
-          # A division, as the IR says it answers (lib/zr/ir/inst.rb): by
-          # zero, `udiv`/`sdiv` answer 0 and `urem`/`srem` the dividend; the
-          # most negative number over -1 wraps. wasm's own `div` traps on
-          # both, so each is guarded. `rem_s` of that pair answers 0, as the
-          # IR does, and needs no guard.
+          # A division, with the IR result (lib/zr/ir/inst.rb). For a zero
+          # divisor, `udiv`/`sdiv` return 0 and `urem`/`srem` return the
+          # dividend. The most negative number divided by -1 wraps. wasm's
+          # `div` traps on both, so each has a guard. wasm's `rem_s` of that
+          # pair returns 0, as the IR does, so it needs no guard.
           def divide(i)
             a, b = i.args
             wide = wide?(a)
@@ -579,11 +581,11 @@ module Zr
             @code << "\x20".b << @m.leb(@local.fetch(v))
           end
 
-          # The instructions whose value is known without running anything,
-          # or from the frame base alone: read where they are used, they need
-          # no local, and the constants and slot addresses a function makes in
-          # its entry block are not live across every block after it. That
-          # life is most of what sharing locals costs.
+          # The instructions whose value is a constant or comes from the frame
+          # base only. They are written where they are used, so they need no
+          # local. Thus the constants and slot addresses in the entry block are
+          # not live across all later blocks. That liveness is most of the
+          # cost of shared locals.
           CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze
 
           def constant(i)
@@ -607,8 +609,8 @@ module Zr
             @code << "\x21".b << @m.leb(@local.fetch(v))
           end
 
-          # The frame: global 0 is the stack pointer, saved in the frame
-          # base local and bumped past the slots.
+          # The frame: global 0 is the stack pointer. It is saved in the
+          # frame base local and incremented past the slots.
           def prologue
             @code << "\x23\x00".b << "\x22".b << @m.leb(@fp)
             @code << @m.i32c(@frame) << "\x6A".b << "\x24\x00".b
@@ -620,15 +622,14 @@ module Zr
           end
 
           # loop { block ... block { br_table } body0 end body1 end ... }
-          # The blocks, each reached by branching out of the `block` that
-          # ends where it begins. A ladder of N of them nests N deep, and a
-          # wasm compiler spends time on that depth that grows with its
-          # square: 1,000 blocks take 0.2 s and 14,000 take 78. The core
-          # library has one function of 14,793 -- the table
-          # UnicodeNormalize builds -- so a function past LADDER blocks
-          # takes two steps instead: the index picks a group, and the
-          # group picks the block. The deepest nesting is then about twice
-          # the square root of the count.
+          # Each block starts where a wasm `block` ends, and a branch out of
+          # that `block` reaches it. N blocks nest N deep, and the wasm compile
+          # time grows with the square of that depth: 1,000 blocks take 0.2 s
+          # and 14,000 take 78 s. The core library has one function with 14,793
+          # blocks (the table that UnicodeNormalize builds). Thus a function with
+          # more than `LADDER` blocks dispatches in two steps: the index selects
+          # a group, and the group selects the block. The deepest nesting is then
+          # about two times the square root of the block count.
           def dispatch
             n = @f.blocks.size
             @code << "\x03\x40".b
@@ -650,15 +651,15 @@ module Zr
               end
             end
             @code << "\x0B".b
-            # Every block ends in a branch or a return; the loop's end is
-            # never reached, and `unreachable` tells the validator so.
+            # Every block ends in a branch or a return, so the end of the
+            # loop is unreachable. `unreachable` tells this to the validator.
             @code << "\x00".b
           end
 
-          # One run of blocks under a `br_table` of its own. `first` is the
-          # index its first block carries, and `outer` how many constructs
-          # stand between this run's loop and the function's own, which is
-          # nothing when the run is the whole function.
+          # One group of blocks with its own `br_table`. `first` is the index
+          # of its first block. `outer` is the number of constructs between
+          # the group's loop and the function's loop. It is 0 when the group
+          # is the whole function.
           def ladder(blocks, first, outer)
             m = blocks.size
             m.times { @code << "\x02\x40".b }
@@ -676,8 +677,8 @@ module Zr
             end
           end
 
-          # `br_table` over `count` labels, the first of them the default:
-          # an index past the end cannot happen, since every branch names
+          # `br_table` over `count` labels, with the first as the default.
+          # An index past the end cannot occur, because every branch goes to
           # a block of this function.
           def table(count)
             @code << "\x0E".b << @m.leb(count)
@@ -685,28 +686,26 @@ module Zr
             @code << @m.leb(0)
           end
 
-          # A branch to `name`: the block index, then a branch to the
-          # `br_table` that reads it -- this run's own loop when the block
-          # is in this run, and the function's loop when it is not.
+          # A branch to `name`: set the block index, then branch to the
+          # `br_table` that reads it. That is the group's loop when the block
+          # is in this group, and the function's loop when it is not.
           #
-          # Leaving the `block` that ends where a later block begins would
-          # reach that block directly, and cost no index at all. Measured,
-          # it is between 8 and 20 times slower to compile: 2,000 blocks
-          # take 0.24 s this way and 4.93 s that way. So every branch goes
-          # through a `br_table`.
+          # A branch out of the `block` that ends where a later block starts
+          # reaches that block directly with no index. But it is 8 to 20 times
+          # slower to compile: 2,000 blocks take 0.24 s with the `br_table` and
+          # 4.93 s without it. Thus every branch goes through a `br_table`.
           def go(name)
             at = @f.blocks.index { |b| b.name == name }
             @code << @m.i32c(at) << "\x21".b << @m.leb(@bb)
             @code << "\x0C".b << @m.leb((@span - 1 - @row + @bias) + reach(at))
           end
 
-          # How much further than this group's own loop a branch to the
-          # block at `at` has to go. Nothing, when the block is in this
-          # group. A group ahead of this one is a `block` this one sits
-          # inside, so leaving it reaches that group's own `br_table` --
-          # which is what keeps the function's one loop from gathering a
-          # predecessor for every branch that leaves its group. Only a
-          # branch to a group behind this one goes all the way out.
+          # The number of constructs past this group's loop that a branch to the
+          # block at `at` must leave. It is 0 when the block is in this group.
+          # A later group is a `block` that contains this group, so a branch out
+          # of it reaches that group's `br_table`. Thus the function's loop does
+          # not get a predecessor for each branch that leaves a group. Only a
+          # branch to an earlier group goes to the function's loop.
           def reach(at)
             return 0 if @group.cover?(at)
 
@@ -717,10 +716,9 @@ module Zr
           WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze
           NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze
 
-          # wasm has no byte swap: the bytes trade places in pairs, then
-          # the pairs, then the halves -- `(x & m) << k | (x >> k) & m`
-          # for each mask, and a rotate for the halves. Each step reads
-          # the result's own local.
+          # wasm has no byte swap. Swap the bytes in pairs, then the pairs,
+          # then the halves: `(x & m) << k | (x >> k) & m` for each mask, and a
+          # rotate for the halves. Each step reads the result's local.
           def emit_bswap(i)
             v = i.results[0]
             wide = wide?(i.args[0])
@@ -760,8 +758,8 @@ module Zr
               @code << (wide?(i.args[0]) ? WIDE_BITOPS : NARROW_BITOPS).fetch(i.op)
               set(i.results[0])
             when :bswap then emit_bswap(i)
-            # The gate word is global 2: read as it is when read, since
-            # a call may set it before a later read of the value.
+            # The gate word is global 2. Each use reads it again, because a
+            # call can set it before a later read of the value.
             when :gates
               @code << "\x23\x02".b
               set(i.results[0])
@@ -776,14 +774,14 @@ module Zr
               params, results = @m.sig_type(sig_named(i.callee))
               @code << "\x11".b << @m.leb(@m.type_index([params, results])) << "\x00".b
               if i.results.empty?
-                # An answer the instruction does not take is dropped.
+                # Drop a return value that the instruction does not use.
                 @code << "\x1A".b unless results.empty?
               else
                 set(i.results[0])
               end
             when :call
-              # A libc call's text signature may say i64 where the shim
-              # takes i32: the width follows the callee.
+              # A libc call's text signature can give i64 where the shim
+              # takes i32. The callee sets the width.
               name = callee(i.callee).symbol
               params, results = @m.function_type(name) || @m.sig_type(sig_named(callee(i.callee).sig))
               i.args.zip(params).each do |a, want|
@@ -793,7 +791,7 @@ module Zr
               end
               @code << "\x10".b << @m.leb(@m.function_index(name))
               if i.results.empty?
-                # An answer the text does not name is dropped.
+                # Drop a return value that the text signature does not give.
                 @code << "\x1A".b unless results.empty?
               else
                 @code << "\xA7".b if results.first == 0x7E && !wide?(i.results[0])

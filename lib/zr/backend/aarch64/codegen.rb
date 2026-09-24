@@ -12,93 +12,92 @@ require_relative "../../obj/model"
 module Zr
   module Backend
     module Aarch64
-      # The aarch64 backend: an `IR::Function` to an `Obj::Function` of Apple
-      # arm64 machine code, with relocations for every symbol it names.
+      # Compiles an `IR::Function` to an `Obj::Function` of Apple arm64
+      # machine code, with a relocation for each symbol that it refers to.
       #
-      # A value lives in the register `Regalloc` gives it, or in an 8-byte
-      # slot of the frame when it gives none; a constant one instruction
-      # makes or read once, a slot's address, and an address a constant
-      # past a base are made where they are read and live nowhere. An
-      # instruction reads a frame operand into x9..x12, computes in a
-      # register, and stores a frame result from one. A compare read once
-      # by a branch or a select leaves its answer in the flags. The frame
-      # is `[x29, x30) [slots) [values) [saved callee registers)`, addressed
-      # from sp with unsigned scaled offsets (x17 holds a page of it when
-      # one does not fit): one pre-indexed `stp` makes the whole of a
-      # frame of 496 bytes or less and one post-indexed `ldp` unmakes it,
-      # and a larger frame keeps the x29 pair at its top with `sub sp`
-      # below. x29 keeps the frame chain either way, x18 is never used,
-      # and sp stays 16-byte aligned.
+      # A value is in the register that `Regalloc` gives it, or else in an
+      # 8-byte frame slot. These are made at each read and have no home: a
+      # constant that one instruction makes or that is read once, a slot's
+      # address, and a base plus a constant. An instruction loads frame
+      # operands into x9..x12, computes in a register, and stores a frame
+      # result from a register. A compare that one branch or select reads
+      # leaves its result in the flags.
       #
-      # Encodings come from `Backend::Aarch64`; relocations are recorded
-      # here at the instruction's offset.
+      # The frame is `[x29, x30) [slots) [values) [saved callee registers)`,
+      # addressed from sp with unsigned scaled offsets (x17 contains a page
+      # base when an offset does not fit). A frame of 496 bytes or less uses
+      # one pre-indexed `stp` and one post-indexed `ldp`. A larger frame keeps
+      # the x29 pair at its top and uses `sub sp` below it. x29 keeps the
+      # frame chain, x18 is never used, and sp stays 16-byte aligned.
+      #
+      # Encodings come from `Backend::Aarch64`. This class records each
+      # relocation at the instruction's offset.
       class Codegen
         include Registers
 
-        # The two registers `parallel_copy` carries values in. x11 and
-        # x12 are named where an instruction needs more; x13 to x15 are
-        # the allocator's, in `Regalloc::CALLER`.
+        # The two registers that `parallel_copy` moves values through. An
+        # instruction that needs more uses x11 and x12. x13 to x15 belong to
+        # the allocator, in `Regalloc::CALLER`.
         SCRATCH = [X9, X10].freeze
-        # The IR's condition codes to arm64's.
+        # Maps IR condition codes to arm64 condition codes.
         CONDS = {
           "eq" => :eq, "ne" => :ne, "slt" => :lt, "sle" => :le, "sgt" => :gt, "sge" => :ge,
           "ult" => :lo, "ule" => :ls, "ugt" => :hi, "uge" => :hs
         }.freeze
         # Float comparisons after fcmp: NaN on either side sets C and V and
-        # clears N and Z, which every condition but `ne` reads as false.
+        # clears N and Z. Every condition except `ne` then reads as false.
         FCONDS = { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }.freeze
-        # The condition that holds exactly when the other does not: arm64
-        # numbers them in pairs, so this is the code with its low bit
-        # flipped, written out to stay readable.
-        # The condition that holds for `b op a` when the IR asked `a op b`.
+        # The condition that is true for `b op a` when the IR gives `a op b`.
         SWAPPED = {
           "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle",
           "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule"
         }.freeze
-        # The bits an operand of each type carries into an instruction:
-        # the width its load gives it.
+        # The bits that an operand of each type gives to an instruction:
+        # the width that its load gives it.
         WIDTH_MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
+        # The condition that is true only when the other is false. arm64
+        # numbers them in pairs, so this is the code with its low bit
+        # inverted, written out so that it is easy to read.
         INVERSE = {
           eq: :ne, ne: :eq, lt: :ge, ge: :lt, le: :gt, gt: :le,
           lo: :hs, hs: :lo, ls: :hi, hi: :ls, mi: :pl, pl: :mi, vs: :vc, vc: :vs
         }.freeze
-        # The branch that goes when the other does not.
+        # The branch that is taken when the other is not taken.
         OPPOSITE = { cbz: :cbnz, cbnz: :cbz, tbz: :tbnz, tbnz: :tbz }.freeze
-        # The opcodes whose lowering leaves NZCV alone, so a compare's
-        # flags survive them on the way to the branch or select that reads
-        # them. A compare, a select made with its own `cmp`, an overflow
-        # check and a call all write the flags; a terminator ends the block.
+        # The opcodes whose lowering does not change NZCV. A compare's flags
+        # stay valid across them until the branch or select that reads the
+        # flags. A compare, a select with its own `cmp`, an overflow check and
+        # a call all write the flags. A terminator ends the block.
         FLAG_NEUTRAL = (%i[iconst load store stack_addr symbol_value func_addr ireduce uextend sextend bitcast
                            fcvt_from_sint fcvt_to_sint_sat gates] +
                         IR::Inst::BINOPS + IR::Inst::BITOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze
 
-        # The mnemonics the one-operand float instructions go by.
+        # The mnemonics of the one-operand float instructions.
         FUNOPS = { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm,
                    ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze
-        # The d registers an f64 value stays in between the instruction
-        # that makes or loads it and the ones in the same block that read
-        # it: caller-saved, so a call empties them, and never saved.
+        # The d registers that keep an f64 value from the instruction that
+        # makes or loads it to its reads in the same block. They are
+        # caller-saved, so a call clears them, and they are never saved.
         DOUBLES = [D16, D17, D18, D19, D20, D21, D22, D23].freeze
-        # The register `popcnt` counts in: outside `DOUBLES`, so it
-        # displaces nothing held there.
+        # The register that `popcnt` counts in. It is not in `DOUBLES`, so
+        # it does not replace a value there.
         COUNTER = D24
 
         class Refused < Backend::Refused; end
 
-        # `far` branches past the megabyte a conditional branch reaches,
-        # which only a function that large pays for.
-        # The assembler the compile drove, which a caller that gave its own
-        # reads its listing out of.
+        # The assembler that the compile used. A caller that gave its own
+        # assembler reads the listing from it.
         attr_reader :asm
 
-        # `defined`: every symbol this unit defines, which decides whether a
-        # symbol is reached directly or through the GOT. A Set, because a
-        # unit names thousands of them and this is asked once per symbol in
-        # every function; `to_set` on a Set is the Set, so a caller that
-        # already made one pays nothing here.
-        # `allocate: false` leaves every value in its frame home, the
-        # road the allocator's own answers are checked against: the two
-        # must run alike, and the checks hold them to it.
+        # `defined`: every symbol that this unit defines. It sets whether a
+        # symbol is reached directly or through the GOT. It is a Set, because
+        # a unit has thousands of symbols and each function checks it once per
+        # symbol. `to_set` on a Set returns the same Set, so it costs nothing.
+        # `far`: every conditional branch can reach past the 1 MB range of a
+        # conditional branch. Only a function that large pays for it.
+        # `allocate: false` keeps every value in its frame home. This is the
+        # reference for the allocator: both modes must give the same result,
+        # and the tests check it.
         def initialize(function, defined: [], assembler: Assembler, far: false, allocate: true)
           @f = function
           @defined = defined.to_set
@@ -138,12 +137,12 @@ module Zr
           end
           Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
         rescue Assembler::OutOfReach
-          # A conditional branch that cannot reach its block: the whole
-          # function again, every such branch the long way.
+          # A conditional branch cannot reach its block. Compile the
+          # function again, with every such branch in the far form.
           raise if @far
 
-          # This attempt's code and plans are as big as the function, and
-          # nothing reads them again: let them go before the second is made.
+          # The code and plans of this attempt are as large as the function,
+          # and nothing reads them again. Release them before the second attempt.
           assembler = @asm.class
           @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = @epilogue = @pairs = @paired = nil
           again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
@@ -169,27 +168,25 @@ module Zr
           raise Refused, e.message
         end
 
-        # An `icmp` whose one use is a `brif` or a `select` in the same
-        # block, with nothing that writes the flags between them, needs no
-        # boolean at all: the compare sets the flags and the branch or the
-        # select reads them.
+        # An `icmp` whose only use is a `brif` or a `select` in the same block,
+        # with no flag write between them, needs no boolean. The compare sets
+        # the flags and the branch or select reads them.
         #
-        # Without it the pair costs `cmp`, `cset`, a store of the byte, a
-        # load of it back, a `uxtb` and a `cbz`. `Zr::Lower::Function#checked`
-        # writes one after every call a compiled Ruby method makes, so this
-        # is the shape most branches in the program have. The stack check
-        # at the top of every Ruby function has a load between the two.
+        # Without this, the pair costs `cmp`, `cset`, a byte store, a byte
+        # load, a `uxtb` and a `cbz`. `Zr::Lower::Function#checked` writes this
+        # pair after every call in a compiled Ruby method, so most branches in
+        # the program have this shape. The stack check at the start of every
+        # Ruby function has a load between the two.
         #
-        # A branch on one bit of a word (`brif (band x, 2^n) != 0`) is a
-        # `tbz` or `tbnz` on the word itself: the `band` and the compare
-        # emit nothing (`@silent`), and the branch reads the word, which
-        # the allocator then keeps live to it (`@via`).
+        # A branch on one bit of a word (`brif (band x, 2^n) != 0`) is a `tbz`
+        # or `tbnz` on the word. The `band` and the compare emit nothing
+        # (`@silent`), and the allocator keeps the word live to the branch (`@via`).
         def plan_fusion
           @fused = {}
           @bit_tests = {}
           @mask_tests = {}
           @f.blocks.each do |b|
-            # What emits nothing where it stands does not part a compare
+            # An instruction that emits nothing does not separate a compare
             # from its reader.
             insts = b.insts.reject { |i| @silent.include?(i.results[0]) }
             insts.each_with_index do |cmp, n|
@@ -199,7 +196,7 @@ module Zr
               reader = insts[(n + 1)..].find { |i| !FLAG_NEUTRAL.include?(i.op) }
               next unless reader && (reader.op == :brif || reader.op == :select) && reader.args[0] == r
 
-              # Either way the boolean is never made, so it has no home.
+              # In both cases the boolean is never made, so it has no home.
               @silent << r
               if cmp.op == :icmp && reader.op == :brif && (test = bit_test(cmp))
                 @bit_tests[reader] = test
@@ -209,7 +206,7 @@ module Zr
                 @fused[cmp] = reader
                 next unless cmp.op == :icmp && (test = mask_test(cmp))
 
-                # `tst` reads the word: the `band` is never made.
+                # `tst` reads the word, so the `band` is never made.
                 @mask_tests[cmp] = test
                 m = cmp.args.find { |a| @def_of[a]&.op == :band }
                 @silent << m
@@ -219,16 +216,16 @@ module Zr
           end
         end
 
-        # The instructions whose second result is a flag they leave in
-        # NZCV as well: an overflow check, whose branch reads `vs`
-        # straight when nothing parts them (`emit_overflow`).
+        # The instructions whose second result is a flag that they also set
+        # in NZCV: the overflow checks. Their branch reads `vs` directly when
+        # nothing is between them (`emit_overflow`).
         FLAG_SETTERS = %i[sadd_overflow ssub_overflow smul_overflow].to_set.freeze
 
-        # Two stores of words to the same base, the second eight bytes
-        # past the first with nothing that emits between them, are one
-        # `stp`: the nil fills after every send and in every prologue are
-        # runs of these. `@pairs` maps the first to the second, and
-        # `@paired` holds the seconds, which emit nothing of their own.
+        # Two word stores to the same base, the second 8 bytes after the
+        # first, with no emitted instruction between them, become one `stp`.
+        # The nil fills after every send and in every prologue are runs of
+        # these. `@pairs` maps the first store to the second. `@paired`
+        # contains the second stores, which emit nothing.
         def plan_pairs
           @pairs = {}
           @paired = Set.new
@@ -244,9 +241,9 @@ module Zr
           end
         end
 
-        # `[word, bit, branch]` when `cmp` asks whether one bit of a word
-        # is set: it compares a `band` of the word and a power of two with
-        # zero, and nothing else reads the `band`.
+        # Returns `[word, bit, branch]` when `cmp` tests one bit of a word:
+        # it compares a `band` of the word and a power of two with zero, and
+        # nothing else reads the `band`.
         def bit_test(cmp)
           return unless cmp.cond == "eq" || cmp.cond == "ne"
 
@@ -264,10 +261,10 @@ module Zr
           [x, mask.bit_length - 1, cmp.cond == "ne" ? :tbnz : :tbz]
         end
 
-        # `[word, mask]` when `cmp` asks whether any of some bits of a
-        # word are set: a `band` of the word and a bitmask immediate,
-        # compared with zero, and nothing else reads the `band`. That is
-        # one `tst`, where the `and` and `cmp` were two.
+        # Returns `[word, mask]` when `cmp` tests whether any of some bits of
+        # a word are set: a `band` of the word and a bitmask immediate,
+        # compared with zero, and nothing else reads the `band`. This is one
+        # `tst` in place of an `and` and a `cmp`.
         def mask_test(cmp)
           return unless cmp.cond == "eq" || cmp.cond == "ne"
 
@@ -285,15 +282,14 @@ module Zr
           [x, mask]
         end
 
-        # A `gates` value is the word as it was when read: an instruction
-        # that reads it later reads that, whatever the register holds by
-        # then. One whose every read is in its own block before anything
-        # that can change the register -- a call, since a callee may set
-        # a gate, or a set of the register itself -- is read out of the
-        # register where it is read (`@pinned`): no register of its own,
-        # no home, nothing emitted at its definition, and a bit test of
-        # it is one `tbz` of `x28`. Any other is copied out of the
-        # register at its definition, a value like any other.
+        # A `gates` value is the gate word at the time of the read. A later
+        # instruction that uses the value must see that word, not the current
+        # contents of the register. When every read is in the defining block
+        # and before anything that can change the register (a call, because a
+        # callee can set a gate, or a write to the register), each read uses
+        # `x28` directly (`@pinned`). It then has no register, no home, and no
+        # code at its definition, and a bit test of it is one `tbz` of `x28`.
+        # Any other `gates` value is copied from the register at its definition.
         def plan_pinned
           @pinned = Set.new
           @f.blocks.each do |b|
@@ -312,15 +308,15 @@ module Zr
           end
         end
 
-        # How many times each value is read: by an instruction, or by a
-        # jump that carries it to a block. What is read once or never is
-        # planned differently from what is read again and again.
+        # Counts the reads of each value, by an instruction or by a jump
+        # that gives it to a block. A value read once or never gets a
+        # different plan from a value read many times.
         def count_uses
           @uses = Hash.new(0)
           @def_of = {}
           @returns = 0
-          # Whether this function is entered from foreign code, which
-          # loads the gate register and gives it back as it was.
+          # Whether foreign code calls this function. Such a function loads
+          # the gate register and restores it before it returns.
           @enters = false
           @f.blocks.each do |b|
             b.insts.each do |i|
@@ -333,14 +329,14 @@ module Zr
           end
         end
 
-        # Where each slot sits above sp. Slots come first in the frame,
-        # past the x29 pair, so this is known before any value has a home.
+        # The offset of each slot above sp. Slots come first in the frame,
+        # after the x29 pair, so the offsets are known before any value has a home.
         #
-        # A slot's address is made where it is read, as a small constant
-        # is (`@stack`): `IR::Function#hoisted` puts every `stack_addr` in
-        # the entry block, so each one held a register for the whole
-        # function, and the frame saved and restored that register. A load
-        # or a store through it addresses sp directly and makes nothing.
+        # A slot's address is made at each read, as for a small constant
+        # (`@stack`). `IR::Function#hoisted` puts every `stack_addr` in the
+        # entry block, so otherwise each one uses a register for the whole
+        # function, and the frame saves and restores it. A load or store
+        # through a slot address uses sp directly and makes nothing.
         def plan_slots
           off = PAIR
           @slot_at = @f.slots.map do |s|
@@ -361,30 +357,27 @@ module Zr
           end
         end
 
-        # Every `iconst` by the value it names. A value is defined once, so
-        # wherever it is used its number is known, and an instruction with
-        # an immediate form can take the number instead of a register.
+        # Maps every `iconst` to its value. A value is defined once, so its
+        # number is known at each use, and an instruction with an immediate
+        # form can use the number in place of a register.
         #
-        # A constant is made again at every read and nowhere else
-        # (`@remade`) when one instruction makes it, or when it is read at
-        # most once: no register, no slot, and nothing at its definition. A
-        # read that takes it as an immediate makes nothing at all, and one
-        # that does not pays the `movz` where it paid an `ldr`. A constant
-        # read once costs the same made at its read as made once, and a
-        # constant read nowhere then costs nothing: the line words
-        # `Zr::Lower::Function` stores before every send are read once each, and
-        # `IR::Function#hoisted` put every one in the entry block, where
-        # each held a register for the whole function. What is read again
-        # and again and takes several instructions is still made once.
+        # A constant is made at each read and nowhere else (`@remade`) when
+        # one instruction makes it, or when it is read at most once. It has no
+        # register, no slot, and no code at its definition. A read that takes
+        # it as an immediate makes nothing. Another read pays a `movz` in place
+        # of an `ldr`. A constant read nowhere costs nothing. Example: the line
+        # words that `Zr::Lower::Function` stores before every send are each
+        # read once, and `IR::Function#hoisted` puts them in the entry block,
+        # where each one otherwise uses a register for the whole function. A
+        # constant that is read many times and takes several instructions is
+        # made once.
         #
-        # A symbol's address read once (`adrp` and `add`, or a GOT load)
-        # is made at its read the same way: `IR::Function#hoisted` puts
-        # every one in the entry block, where made once it held a
-        # callee-saved register for the whole function, which the
-        # prologue saves and the epilogue restores at every call. One
-        # read more than once keeps its register: a send reads its
-        # site's cell five times on the way to the call, and made at
-        # each read the address cost `fib` 6%.
+        # A symbol's address that is read once (`adrp` and `add`, or a GOT
+        # load) is also made at its read. `IR::Function#hoisted` puts it in the
+        # entry block, where it otherwise uses a callee-saved register for the
+        # whole function. An address read more than once keeps its register:
+        # a send reads its site's cell five times before the call, and making
+        # the address at each read makes `fib` 6% slower.
         def plan_constants
           @const = {}
           @symbol = {}
@@ -408,27 +401,24 @@ module Zr
           end
         end
 
-        # An address a constant past a base folds into the loads and stores
-        # that read through it: `ldr x, [base, #k + off]` where the `iadd`
-        # made a register hold `base + k` first. The `iadd` is then emitted
-        # nowhere (`@silent`), and its base is what the allocator keeps
-        # live at each read (`@via`). A chain of such additions folds to
-        # its first base with the constants summed.
+        # Folds an address that is a base plus a constant into the loads and
+        # stores that use it: `ldr x, [base, #k + off]` in place of an `iadd`
+        # into a register. The `iadd` then emits nothing (`@silent`), and the
+        # allocator keeps its base live at each read (`@via`). A chain of such
+        # additions folds to its first base with the sum of the constants.
         #
-        # Only an addition every use reads through folds, and only when
-        # every read's offset fits the scaled immediate: one that is also
-        # read as a value, or reaches past the immediate somewhere, is
-        # made as before and its reads go through it. The record slots
-        # `Zr::Lower::Function` stages a send's arguments in are addressed this
-        # way at every send, and a struct field a kernel def reads is
-        # `iadd` of the pointer and the field's offset.
+        # An addition folds only when every use is a load or store through it,
+        # and every offset fits the scaled immediate. Otherwise it is made as a
+        # value and its reads use it. Examples: the record slots where
+        # `Zr::Lower::Function` puts a send's arguments, and a struct field
+        # that a kernel def reads (an `iadd` of the pointer and the offset).
         def plan_addresses
           @derived = {}
           @via = {}
           @silent = @remade | @pinned
           memory = Hash.new { |h, k| h[k] = [] }
-          # `[value, base, root, k]` a sum: its own base, and the first
-          # base of its chain with the constants added up.
+          # `[value, base, root, k]` for each sum: its own base, and the
+          # first base of its chain with the sum of the constants.
           sums = []
           chain = {}
           @f.blocks.each do |b|
@@ -447,9 +437,9 @@ module Zr
               end
             end
           end
-          # The reads an addition is not folded into still hold it as a
-          # value; a later addition folded away lets go of its base, so
-          # the outer additions of a chain are decided first.
+          # A read that an addition does not fold into still uses it as a
+          # value. A later addition that folds releases its base, so the
+          # outer additions of a chain are decided first.
           other = @uses.dup
           memory.each { |v, reads| other[v] -= reads.size }
           @from_sp = {}
@@ -460,17 +450,17 @@ module Zr
               @silent << v
               other[base] -= 1
             elsif (at = @stack[root])
-              # Read as a value, but a slot's address and a constant: one
-              # `add` from sp, which reads none of the chain. The argument
-              # vector `Zr::Lower::Function` passes a send is one of these.
+              # Read as a value, but it is a slot address plus a constant:
+              # one `add` from sp, which reads nothing of the chain. The
+              # argument vector that `Zr::Lower::Function` gives a send is one.
               @from_sp[v] = at + k
               other[base] -= 1
             end
           end
         end
 
-        # `[base, k]` for an `iadd` of a value and a constant, taken as
-        # signed; nil for any other addition.
+        # Returns `[base, k]` for an `iadd` of a value and a signed
+        # constant, or nil for any other addition.
         def summed(i)
           return nil unless type_of(i.results[0]) == "i64"
 
@@ -482,9 +472,9 @@ module Zr
           [a, k >= 1 << 63 ? k - (1 << 64) : k]
         end
 
-        # Whether `off` past `root` is an offset one load or store of
-        # `width` bytes can name: from sp when `root` is a slot's address,
-        # from the register that holds `root` otherwise.
+        # Whether one load or store of `width` bytes can encode `off` past
+        # `root`: from sp when `root` is a slot's address, or else from the
+        # register that contains `root`.
         def reaches?(root, off, width)
           at = @stack[root]
           off += at if at
@@ -493,19 +483,18 @@ module Zr
 
         def immediate?(off, width) = off >= 0 && (off % width).zero? && off / width <= 4095
 
-        # The bytes a load or store of each type moves.
+        # The number of bytes that a load or store of each type moves.
         WIDTHS = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
 
-        # The `i8` values whose register holds nothing above the byte, which
-        # an operation may then read straight out of its home.
+        # The `i8` values whose register has zeros above the byte. An operation
+        # can read these directly from their home.
         #
-        # A register home holds a whole word, and most bytes leave junk
-        # above them -- a narrowing keeps the word it narrowed, a call's
-        # answer is only its low byte -- so reading one takes a `uxtb`. A
-        # comparison's `cset`, a byte load and a small constant write zero
-        # above, and so do `and`, `orr` and `eor` of two such bytes. Those
-        # are most of the bytes a kernel function has: every `&&` and `||`
-        # over tests joins two of them.
+        # A register home contains a whole word, and most bytes have unknown
+        # bits above them (a narrowing keeps the old word, and a call returns
+        # only its low byte), so a read needs a `uxtb`. A `cset`, a byte load
+        # and a small constant write zeros above the byte, and so do `and`,
+        # `orr` and `eor` of two such bytes. Most bytes in a kernel function
+        # are of this kind: every `&&` and `||` of tests joins two of them.
         def plan_bytes
           @clean = Set.new
           @f.blocks.each do |b|
@@ -522,7 +511,7 @@ module Zr
           end
         end
 
-        # The number `v` holds, as `type` wide, when it is a constant.
+        # The value of `v` at the width of `type`, when `v` is a constant.
         def constant(v, type)
           k = @const[v]
           k && k & WIDTH_MASK.fetch(type, 0xFFFF_FFFF_FFFF_FFFF)
@@ -538,8 +527,8 @@ module Zr
               off += 8
             end
           end
-          # A callee-saved register this function uses has to come back to
-          # its caller as it was, so the frame keeps a place for each.
+          # The function must restore each callee-saved register that it
+          # uses, so the frame has a place for each one.
           @saved_at = {}
           saved = @reg.values.uniq.select { |r| Regalloc.callee?(r) }
           saved << Regalloc::GATES if @enters
@@ -554,10 +543,10 @@ module Zr
           (n + a - 1) & ~(a - 1)
         end
 
-        # The bytes the x29 pair takes at the bottom of the frame.
+        # The bytes of the x29 pair at the bottom of the frame.
         PAIR = 16
-        # The largest frame one pre-indexed `stp` makes and one
-        # post-indexed `ldp` unmakes: seven signed bits of eights reach
+        # The largest frame that one pre-indexed `stp` makes and one
+        # post-indexed `ldp` removes. Seven signed bits in units of 8 reach
         # 504, and a frame is a multiple of 16.
         SMALL = 496
 
@@ -571,16 +560,16 @@ module Zr
 
         # --- frame access -------------------------------------------------
 
-        # `[base, offset]` for `off` from sp, the offset small enough for a
-        # scaled immediate of `width` bytes; x17 holds a page base when not.
+        # Returns `[base, offset]` for `off` from sp, with an offset that fits
+        # a scaled immediate of `width` bytes. When it does not fit, x17
+        # contains a page base.
         #
-        # x17 and not a scratch register: a store to a far offset comes
-        # here from inside an instruction whose scratch registers are
-        # already carrying its operands (`parallel_copy` holds a broken
-        # cycle's value in x10 across several stores), so a page base in
-        # one of them would destroy what was about to be stored. x16 and
-        # x17 are the linker's veneer registers, dead across every call
-        # and named nowhere else in the backend.
+        # x17, not a scratch register: an instruction can call this while its
+        # scratch registers contain its operands (`parallel_copy` keeps a
+        # broken cycle's value in x10 across several stores). A page base in
+        # a scratch register would overwrite the value to store. x16 and x17
+        # are the linker's veneer registers. They are dead across every call
+        # and the backend uses them nowhere else.
         def address(off, width)
           return [SP, off] if off % width == 0 && off / width <= 4095
 
@@ -589,7 +578,7 @@ module Zr
           [X17, off & 0xFFF]
         end
 
-        # `reg = sp + off`: one `add` for twelve bits, two past them.
+        # `reg = sp + off`: one `add` for an offset of 12 bits, two for a larger one.
         def frame_address(reg, off)
           return @asm.add(reg, SP, off) if off <= 4095
 
@@ -597,7 +586,7 @@ module Zr
           @asm.add reg, reg, off & 0xFFF unless (off & 0xFFF).zero?
         end
 
-        # An f64 value lives in its slot as bits and moves through the
+        # An f64 value is in its slot as bits and moves through the
         # integer registers.
         def load_value(v, reg)
           return @asm.mov(reg, Regalloc::GATES) if @pinned.include?(v)
@@ -617,17 +606,17 @@ module Zr
           end
         end
 
-        # The register an operand can be read out of: its own home when it
-        # has one, and `scratch` after a load when it does not.
+        # The register to read an operand from: its register home, or else
+        # `scratch` after a load.
         #
-        # Only operands are read this way. A result always goes to a scratch
-        # register and is stored from there, because an instruction that
-        # writes its destination before reading every source would otherwise
-        # clobber an operand that shares the register.
+        # Only operands use this. A result always goes to a scratch register
+        # and is stored from there. Otherwise, an instruction that writes its
+        # destination before it reads all sources can overwrite an operand
+        # in the same register.
         #
-        # An `i8` has no direct form unless it is `@clean`: its home holds
-        # the whole word, and a w-register read would carry the bits above
-        # the byte into an operation that is 32 bits wide.
+        # An `i8` is read directly only when it is `@clean`. Its home contains
+        # the whole word, and a w-register read gives the bits above the
+        # byte to a 32-bit operation.
         def value_in(v, scratch)
           return Regalloc::GATES if @pinned.include?(v)
 
@@ -638,17 +627,16 @@ module Zr
           scratch
         end
 
-        # Where a result is computed: its own register home when it has
-        # one, and a scratch register to be stored from when it does not.
+        # The register for a result: its register home, or else a scratch
+        # register to store from.
         #
-        # Only an instruction that reads every operand before it writes its
-        # destination may use this. One that reads an operand again
-        # afterwards -- `emit_rem` and `emit_mul_overflow` do -- would find
-        # the operand overwritten.
+        # Use this only in an instruction that reads every operand before it
+        # writes its destination. An instruction that reads an operand after
+        # that (`emit_rem`, `emit_mul_overflow`) finds the operand overwritten.
         def result_in(v, scratch) = @reg[v] || scratch
 
-        # A register home holds the whole word, so a narrower value takes
-        # the low bits of it, which is what the narrow load gives.
+        # A register home contains the whole word, so a narrower value uses
+        # its low bits, the same bits that the narrow load gives.
         def narrow(reg, home, type)
           case type
           when "i64", "f64" then @asm.mov reg, home unless reg.equal?(home)
@@ -698,10 +686,10 @@ module Zr
 
         # --- prologue and epilogue ---------------------------------------
 
-        # A small frame is made by one `stp` that also moves sp; a large
-        # one keeps the pair where `stp` alone puts it, above the whole
-        # frame, and moves sp the frame below, so the pair's own `PAIR`
-        # bytes at the bottom go unused.
+        # One `stp` makes a small frame and also moves sp. A large frame
+        # keeps the pair where `stp` puts it, above the whole frame, and
+        # moves sp down by the frame size. The `PAIR` bytes at the bottom
+        # are then not used.
         def prologue
           if small_frame?
             @asm.stp X29, X30, [SP, -@frame], :!
@@ -712,19 +700,18 @@ module Zr
           sub_sp(@frame) unless small_frame?
           saved_registers(:stp, :str)
           entry = @f.blocks.first
-          # Eight is where the registers run out and the ABI starts pushing
-          # arguments onto the stack. Nothing reaches it: every lowering
-          # keeps a signature to eight, and the whole runtime -- 4732
-          # functions -- sits at eight parameters and eight call arguments
-          # and never above. So this refuses rather than growing a stack
-          # argument path no program would take.
+          # After eight arguments, the ABI puts arguments on the stack. Every
+          # lowering keeps a signature to eight, and the whole runtime (4732
+          # functions) has at most eight parameters and eight call arguments.
+          # Thus this refuses, in place of a stack argument path that no
+          # program uses.
           raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > IR::REGISTER_ARGS
 
           ints, floats = entry.params.partition { |_, t| t != "f64" }.map { |list| list.map(&:first) }
-          # The integer parameters arrive in x0.. and a home may be one
-          # of those registers, so they move as one parallel copy. The
-          # floats move after them: a float's home may be an argument
-          # register too, one an integer had yet to leave.
+          # The integer parameters arrive in x0.., and a home can be one of
+          # those registers, so they move as one parallel copy. The floats
+          # move after them, because a float's home can also be an argument
+          # register that an integer has not left yet.
           move_registers(ints.map { |v| [place(v), v] }, ints.each_index.map { |n| Registers.x(n) })
           floats.each_with_index do |v, n|
             @asm.fmov X9, Registers.d(n)
@@ -732,12 +719,11 @@ module Zr
           end
         end
 
-        # Parallel moves between registers and values: each `[to, v]` of
-        # `dests` takes the source at the same index of `srcs`, where a
-        # source is a value or a register, and `to` is a register or the
-        # value whose place takes it. No destination is written while a
-        # pending copy still reads it; a cycle is broken through
-        # `SCRATCH[1]`.
+        # Parallel moves between registers and values. Each `[to, v]` of
+        # `dests` gets the source at the same index of `srcs`. A source is a
+        # value or a register, and `to` is a register or the value whose place
+        # gets it. No destination is written while a pending copy reads it.
+        # `SCRATCH[1]` breaks a cycle.
         def move_registers(dests, srcs)
           pending = {}
           reads = Hash.new(0)
@@ -773,8 +759,8 @@ module Zr
           end
         end
 
-        # One move of `move_registers`: into the register `to`, or into
-        # the home of the value `v`.
+        # One move of `move_registers`: to the register `to`, or to the
+        # home of the value `v`.
         def move_register(to, v, src)
           if v.nil?
             src.is_a?(Register) ? @asm.mov(to, src) : load_value(src, to)
@@ -785,8 +771,8 @@ module Zr
           end
         end
 
-        # Two immediates reach 16 MiB less one page; a frame past that is
-        # refused by name rather than cut short.
+        # Two immediates reach 16 MiB less one page. A larger frame is a
+        # refusal, with a message that gives the function, not a truncated frame.
         def sub_sp(n)
           raise Refused, "#{@f.name} needs a frame of #{n} bytes, past the 16 MiB sub sp reaches" if n >= 1 << 24
 
@@ -794,9 +780,9 @@ module Zr
           @asm.sub SP, SP, n & 0xFFF if (n & 0xFFF) != 0
         end
 
-        # The saved registers to or from their places, two at a time
-        # where the pair form reaches (its offset is seven signed bits of
-        # eights), one at a time past that.
+        # Moves the saved registers to or from their places, two at a time
+        # where the pair form reaches (its offset is seven signed bits in
+        # units of 8), and one at a time after that.
         def saved_registers(pair, single)
           @saved_at.each_slice(2) do |(r1, off), (r2, _)|
             if r2 && off <= 504
@@ -809,9 +795,9 @@ module Zr
           end
         end
 
-        # A function with one return has its epilogue there; one with
-        # more shares a single epilogue every return branches to, and the
-        # last of them, ending the last block, falls into it.
+        # A function with one return has its epilogue at that return. A
+        # function with more returns shares one epilogue. Each return branches
+        # to it, except the last, which ends the last block and falls into it.
         def emit_return(i)
           unless i.args.empty?
             if (d = @doubles[i.args[0]])
@@ -839,8 +825,8 @@ module Zr
 
         # --- instructions -------------------------------------------------
 
-        # A float instruction's result waits in its d register until the
-        # instruction is out, then goes to its home too.
+        # A float instruction's result stays in its d register until the
+        # instruction is emitted. Then it is also stored to its home.
         def emit(i)
           lower(i)
           return unless @pending_double
@@ -891,8 +877,8 @@ module Zr
             emit_call_indirect(i)
             forget_doubles
           when :icmp, :fcmp
-            # The branch or select that follows reads the flags; there is
-            # no boolean. A bit test reads the word instead: nothing here.
+            # The next branch or select reads the flags, so there is no
+            # boolean. A bit test reads the word, so it emits nothing here.
             if (reader = @fused[i])
               @fused[reader] = i.op == :icmp ? emit_compare(i) : emit_fcompare(i)
               return
@@ -917,8 +903,8 @@ module Zr
           when :ctz, :clz, :bswap then emit_bitop(i)
           when :popcnt then emit_popcnt(i)
           when :ireduce, :uextend
-            # A narrower value reads the low bits of its slot; a wider one
-            # needs the high bits clear, which the narrow load gives.
+            # A narrower value reads the low bits of its slot. A wider value
+            # needs zeros in the high bits, which the narrow load gives.
             load_value(i.args[0], X9)
             store_value(i.results[0], X9)
           when :sextend
@@ -942,8 +928,8 @@ module Zr
             @asm.fcvtzs X11, double_in(i.args[0])
             store_value(i.results[0], X11)
           when :bitcast
-            # The same bits under another type: the d register that holds
-            # them holds the result as well.
+            # The same bits as another type: the d register that contains
+            # them also contains the result.
             load_value(i.args[0], X9)
             store_value(i.results[0], X9)
             remember_double(i.results[0], @doubles[i.args[0]]) if @doubles.key?(i.args[0])
@@ -954,10 +940,9 @@ module Zr
           end
         end
 
-        # A branch to one of two blocks. A fused compare left the answer
-        # in the flags; a bit test reads the word itself; else the branch
-        # is on the boolean. The block that follows needs no branch:
-        # control falls into it.
+        # A branch to one of two blocks. A fused compare puts the result in
+        # the flags. A bit test reads the word. Otherwise the branch tests
+        # the boolean. The next block needs no branch: control falls into it.
         def emit_brif(i)
           yes, no = i.targets.map(&:first)
           if (x, bit, op = @bit_tests[i])
@@ -974,8 +959,8 @@ module Zr
         end
 
         # `cbz`, `cbnz`, `tbz` or `tbnz` of `operands` to a block. A far
-        # one branches the other way over a `b`, which reaches 128
-        # megabytes to the megabyte of its own.
+        # branch uses the opposite condition to skip over a `b`. A `b`
+        # reaches 128 MB, and a conditional branch reaches 1 MB.
         def branch_if(op, target, *operands)
           return @asm.public_send(op, *operands, @labels.fetch(target)) unless @far
 
@@ -983,7 +968,7 @@ module Zr
           @asm.b @labels.fetch(target)
         end
 
-        # `csel` on the flags a fused compare left, else on its own `cmp`
+        # `csel` on the flags of a fused compare, or else on its own `cmp`
         # of the boolean. A constant zero operand is the zero register.
         def emit_select(i)
           c, a, b = i.args
@@ -1005,8 +990,8 @@ module Zr
           reg_for(v, value_in(v, scratch))
         end
 
-        # `b.cond` to a block, on the flags a fused compare left. A far one
-        # branches the other way over a `b`, as `branch_if` does.
+        # `b.cond` to a block, on the flags of a fused compare. A far branch
+        # uses the opposite condition to skip over a `b`, as in `branch_if`.
         def branch_on(cond, target)
           return @asm.b(@labels.fetch(target), cond: cond) unless @far
 
@@ -1025,7 +1010,7 @@ module Zr
           store_value(i.results[0], d)
         end
 
-        # The largest offset a pair reaches: seven signed bits of eights.
+        # The largest offset that a pair reaches: seven signed bits in units of 8.
         PAIR_REACH = 504
 
         def emit_store(i)
@@ -1039,12 +1024,12 @@ module Zr
           end
         end
 
-        # Two stores as one `stp` where the pair form reaches, and as two
-        # `str` through one address where it does not.
+        # Two stores as one `stp` where the pair form reaches, or else as
+        # two `str` through one address.
         def emit_store_pair(first, second)
           a = value_in(first.args[0], X9)
-          # One value, or one number, stored twice is read into one
-          # register: most pairs are two nils.
+          # When both stores write the same value or number, read it into
+          # one register. Most pairs are two nils.
           same = first.args[0] == second.args[0] ||
                  (constant(first.args[0], "i64") && constant(first.args[0], "i64") == constant(second.args[0], "i64"))
           b = same ? a : value_in(second.args[0], X12)
@@ -1053,19 +1038,18 @@ module Zr
             @asm.stp a, b, [base, off]
           else
             @asm.str a, [base, off]
-            # sp is no base for `reach`: the register-form `add` reads
-            # register 31 as xzr. `address` pages sp through x17.
+            # sp cannot be a base for `reach`: the register-form `add` reads
+            # register 31 as xzr. `address` puts the page of sp in x17.
             @asm.str b, base.equal?(SP) ? address(off + 8, 8) : reach(base, off + 8, 8)
           end
         end
 
-        # The memory operand for `off` past the address `base` holds: sp
-        # itself when `base` is a slot's address and the sum fits, else the
-        # address in a register, read into `scratch` when it has none. A
-        # base folded away (`@derived`) is its root and a constant more,
-        # and one made as a value from sp (`@from_sp`) is read from sp
-        # the same: the argument vector a send passes is read through
-        # by the direct call's loads of the arguments.
+        # The memory operand for `off` past the address in `base`. This is sp
+        # when `base` is a slot's address and the sum fits. Otherwise it is
+        # the address in a register, loaded into `scratch` when it has no
+        # register. A folded base (`@derived`) is its root plus a constant. A
+        # value made from sp (`@from_sp`) is also read from sp: the direct
+        # call loads its arguments this way from a send's argument vector.
         def through(base, scratch, off, width)
           root, k = @derived[base]
           if root
@@ -1078,9 +1062,9 @@ module Zr
           reach(value_in(base, scratch), off, width)
         end
 
-        # A base and an offset one load or store can hold: the offset
-        # scaled into twelve bits, else the whole address built in X11
-        # first, which neither emitter above uses.
+        # A base and an offset that one load or store can encode: the offset
+        # scaled into 12 bits, or else the whole address made in X11 first.
+        # The two methods above do not use X11.
         def reach(base, off, width)
           return [base, off] if immediate?(off, width)
 
@@ -1089,15 +1073,15 @@ module Zr
           [X11, 0]
         end
 
-        # A symbol's address: page plus offset for one this link defines,
-        # through the GOT for an import.
+        # A symbol's address: page plus offset for a symbol that this link
+        # defines, or through the GOT for an import.
         def emit_symbol(result, symbol, local)
           symbol_address(X9, symbol, local)
           store_value(result, X9)
         end
 
-        # `reg = &symbol`: the page and the offset in it for a symbol of
-        # this link, and the GOT's word for one of another.
+        # `reg = &symbol`: the page and the offset for a symbol of this link,
+        # or the GOT word for a symbol of another link.
         def symbol_address(reg, symbol, local)
           if local
             reloc(:page21, symbol)
@@ -1125,11 +1109,10 @@ module Zr
           store_result(i.results[0], sig.ret)
         end
 
-        # Integer arguments take x0.. and float arguments d0.., each in
-        # its own order, as the ABI says. The floats go first, read out
-        # of whatever register holds them; the integers move as one
-        # parallel copy, since an argument may live in the register
-        # another one wants.
+        # Integer arguments go in x0.. and float arguments in d0.., each in
+        # its own order, as the ABI specifies. The floats go first, read from
+        # their current registers. The integers move as one parallel copy,
+        # because an argument can be in the register of another argument.
         def load_args(args)
           ints = []
           floats = 0
@@ -1160,9 +1143,8 @@ module Zr
           store_value(v, X0)
         end
 
-        # The pointer goes to x16 before the arguments are in place: it
-        # may live in a register an argument wants, and no argument load
-        # touches x16.
+        # The pointer goes to x16 before the arguments move. It can be in
+        # an argument register, and no argument load uses x16.
         def emit_call_indirect(i)
           sig = sig_named(i.callee)
           ptr, *args = i.args
@@ -1176,7 +1158,7 @@ module Zr
           store_result(i.results[0], sig.ret)
         end
 
-        # `fcmp`, and the condition to read its flags by.
+        # `fcmp`, and the condition that reads its flags.
         def emit_fcompare(i)
           a = double_in(i.args[0])
           b = double_in(i.args[1])
@@ -1186,15 +1168,14 @@ module Zr
 
         # --- doubles ------------------------------------------------------
 
-        # An f64 value lives in its home as bits; on its way through a
-        # float instruction it passes through a d register, and stays
-        # there for the rest of its block (`@doubles`) so the next float
-        # instruction reading it moves nothing. The registers go round in
-        # turn, and a value whose register comes round again is simply
-        # read from its home next time.
+        # An f64 value is in its home as bits. A float instruction moves it
+        # into a d register, and it stays there for the rest of its block
+        # (`@doubles`), so the next float instruction that reads it moves
+        # nothing. The registers are used in rotation. When its register is
+        # used again, the next read loads the value from its home.
 
-        # The d register holding `v`, moved there from its home when it
-        # is in none.
+        # The d register that contains `v`. It loads `v` from its home when
+        # `v` is in no d register.
         def double_in(v)
           @doubles[v] || begin
             d = next_double
@@ -1203,8 +1184,8 @@ module Zr
           end
         end
 
-        # The d register a float instruction writes `v` into. `emit`
-        # stores it to `v`'s home once the instruction is out.
+        # The d register where a float instruction writes `v`. `emit` stores
+        # it to the home of `v` after the instruction.
         def double_out(v)
           d = next_double
           @pending_double = [v, d]
@@ -1227,11 +1208,10 @@ module Zr
           @double_turn = 0
         end
 
-        # `cmp`, and the arm64 condition to read its flags by. A constant
-        # of twelve bits is the immediate form and takes no register: the
-        # check `Zr::Lower::Function#checked` makes after every call is `cmp x, #52`.
-        # A constant on the left goes to the right, and the condition turns
-        # round with it.
+        # `cmp`, and the arm64 condition that reads its flags. A 12-bit
+        # constant uses the immediate form and no register. The check that
+        # `Zr::Lower::Function#checked` makes after every call is `cmp x, #52`.
+        # A constant on the left moves to the right, and the condition swaps.
         def emit_compare(i)
           if (x, mask = @mask_tests[i])
             @asm.tst reg_for(x, value_in(x, X9)), mask
@@ -1259,8 +1239,8 @@ module Zr
         SHIFTS = { ishl: :lsl, ushr: :lsr, sshr: :asr }.freeze
         LOGICAL = { band: :and, bor: :orr, bxor: :eor }.freeze
 
-        # A binary operation, with its constant operand as an immediate
-        # when the instruction has a form for one.
+        # A binary operation. A constant operand is an immediate when the
+        # instruction has an immediate form.
         def emit_binop(i)
           return if emit_immediate_binop(i)
 
@@ -1282,8 +1262,7 @@ module Zr
           store_value(i.results[0], dest)
         end
 
-        # `clz` is its own instruction, `ctz` the bits reversed and then
-        # `clz`, `bswap` is `rev`.
+        # `clz` is one instruction. `ctz` is `rbit` then `clz`. `bswap` is `rev`.
         def emit_bitop(i)
           dest = result_in(i.results[0], X11)
           d, a = [dest, value_in(i.args[0], X9)].map { |x| reg_for(i.args[0], x) }
@@ -1297,10 +1276,10 @@ module Zr
           store_value(i.results[0], dest)
         end
 
-        # The set bits, counted a byte at a time in a d register: the
-        # word moved in (`fmov s, w` for an i32, which clears the rest),
-        # each byte's count (`cnt`), their sum in the low byte (`addv`),
-        # and the register read back whole.
+        # Counts the set bits one byte at a time in a d register: move the
+        # word in (`fmov s, w` for an i32, which clears the rest), count each
+        # byte (`cnt`), add them into the low byte (`addv`), and read the
+        # whole register back.
         def emit_popcnt(i)
           @asm.fmov COUNTER, reg_for(i.args[0], value_in(i.args[0], X9))
           @asm.cnt COUNTER, COUNTER
@@ -1310,14 +1289,13 @@ module Zr
           store_value(i.results[0], d)
         end
 
-        # `add`/`sub` of twelve bits, a shift by a number in the register,
-        # and `and`/`orr`/`eor` of a bitmask immediate. False when the
-        # constant fits no form, and nothing is emitted.
+        # `add`/`sub` of 12 bits, a shift by less than the register width, and
+        # `and`/`orr`/`eor` of a bitmask immediate. Returns false, and emits
+        # nothing, when the constant fits no form.
         #
-        # The constant is taken as wide as its type, which is what loading
-        # it would have given; the instruction then runs at the width the
-        # register form would have, so the low bits of the answer are the
-        # same bits.
+        # The constant has the width of its type, the same as a load gives.
+        # The instruction runs at the width of the register form, so the low
+        # bits of the result are the same.
         def emit_immediate_binop(i)
           a, b = i.args
           type = type_of(a)
@@ -1347,7 +1325,7 @@ module Zr
           true
         end
 
-        # `a - (a / b) * b`, as arm64 spells a remainder.
+        # `a - (a / b) * b`, the arm64 form of a remainder.
         def emit_rem(i)
           d, a, b = [X11, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
           i.op == :urem ? @asm.udiv(d, a, b) : @asm.sdiv(d, a, b)
@@ -1388,55 +1366,48 @@ module Zr
           store_value(i.results[1], X12)
         end
 
-        # Block arguments as a parallel copy: every destination ends up
-        # holding what its source held before the jump, whatever order the
-        # copies go in.
-        #
-        # No limit on how many an edge carries. There was one -- seven,
-        # one `SCRATCH` register an argument -- because the old form held
-        # every source at once. The resolver holds one.
+        # Block arguments as a parallel copy: every destination gets the
+        # value that its source had before the jump, in any copy order.
+        # There is no limit on the number of arguments on an edge, because
+        # the resolver keeps only one value in a `SCRATCH` register at a time.
         def emit_jump(i)
           name, args = i.targets[0]
           parallel_copy(block_named(name).params.map(&:first), args)
           @asm.b @labels.fetch(name) unless name == @next
         end
 
-        # Where a value is between instructions: the register the allocator
-        # gave it, or the offset of its frame slot. Two values share a
-        # place only by sharing a register, because every slot has its own
-        # offset.
+        # The location of a value between instructions: the register from
+        # the allocator, or the offset of its frame slot. Two values share a
+        # place only when they share a register, because each slot has its
+        # own offset.
         #
-        # A Register and an Integer in one Hash, and not a pair naming
-        # which: a Register carries the identity every register object is
-        # compared by and is never equal to a number, so the two kinds
-        # cannot collide -- and this runs several times for every edge in
-        # the program, which is no place to make an Array.
+        # A Register or an Integer, with no tag. A Register compares by
+        # identity and is never equal to a number, so the two kinds cannot
+        # be confused. This runs several times for every edge in the program,
+        # so it must not make an Array.
         #
-        # A constant made where it is read has no place, and is never a
-        # destination: its own name stands for it, which no Register and no
-        # Integer equals.
+        # A constant made at its reads has no place and is never a
+        # destination. Its name is in place of a location, and no Register or
+        # Integer is equal to it.
         def place(v) = @reg[v] || @home.fetch(v) { @remade.include?(v) ? v : @pinned.include?(v) ? Regalloc::GATES : raise(KeyError, v) }
 
-        # The copies an edge asks for, in an order where no destination is
-        # written while a source still has to be read out of it.
+        # The copies of an edge, in an order where no destination is written
+        # while a source must still be read from it.
         #
-        # Loading every source into `SCRATCH` and then storing every one is
-        # always correct and almost always wasteful. An argument the
-        # allocator already put where its parameter lives -- a loop
-        # variable carried along the back edge unchanged, which is most of
-        # what a `while` passes -- needs no instruction at all; one that is
-        # not there needs a single load, `mov` or store; and a temporary is
-        # needed only for a real cycle, where two parameters trade places.
+        # An argument that is already in its parameter's place (for example a
+        # loop variable that the back edge passes without change) needs no
+        # instruction. Another argument needs one load, `mov` or store. A
+        # temporary is necessary only for a real cycle, where two parameters
+        # swap places.
         #
-        # It is worth less than it looks: every `if`, `while`, `&&` and
-        # `||` merge in the zr road comes through here, but the allocator
-        # hands out ten registers, so most arguments and most parameters
-        # are in the frame and a slot to a slot still costs a load and a
-        # store. The saving is on the edges where one end got a register.
+        # The saving is small: the allocator gives out ten registers, so most
+        # arguments and parameters are in the frame, and a slot-to-slot copy
+        # still costs a load and a store. The saving is on edges where one end
+        # has a register.
         #
-        # `SCRATCH[0]` carries one copy and is dead after it. `SCRATCH[1]`
-        # holds the value a broken cycle took out of the way, and is live
-        # until that cycle's last copy.
+        # `SCRATCH[0]` contains one copy and is dead after it. `SCRATCH[1]`
+        # contains the value that a broken cycle moved out, and is live until
+        # the last copy of that cycle.
         def parallel_copy(dests, srcs)
           pending = {}
           reads = Hash.new(0)
@@ -1444,9 +1415,8 @@ module Zr
             s = srcs[n]
             to = place(d)
             from = place(s)
-            # Already there. The types have to agree as well: a place holds
-            # a whole word, and a narrower value is read out of it by its
-            # own width.
+            # Already in place. The types must also be the same: a place
+            # contains a whole word, and a narrower value is read at its own width.
             next if to == from && type_of(d) == type_of(s)
 
             pending[to] = [d, s]
@@ -1456,8 +1426,8 @@ module Zr
           break_cycle(pending) until pending.empty?
         end
 
-        # Every copy whose destination no pending copy still reads, and
-        # then every copy that one freed, until only cycles are left.
+        # Emits every copy whose destination no pending copy reads, then
+        # every copy that this frees, until only cycles are left.
         def drain(pending, reads)
           ready = pending.keys.reject { |p| reads[p].positive? }
           while (p = ready.pop)
@@ -1469,12 +1439,12 @@ module Zr
           end
         end
 
-        # What `drain` leaves behind is cycles and nothing else: every
-        # remaining destination is still read, and a copy reads one place,
-        # so the places left map one to one onto themselves.
+        # After `drain`, only cycles are left: every remaining destination is
+        # still read, and a copy reads one place, so the remaining places map
+        # one to one onto themselves.
         #
-        # Take one copy out of the way -- its source into a scratch
-        # register -- and the rest of its cycle falls into order behind it.
+        # Move the source of one copy into a scratch register. Then the rest
+        # of its cycle can be emitted in order.
         def break_cycle(pending)
           start = pending.keys.first
           held, source = pending.delete(start)
@@ -1488,11 +1458,11 @@ module Zr
           store_value(held, SCRATCH[1])
         end
 
-        # One value to where another one lives. A source with a register
-        # home is stored straight out of it; only a slot needs the load.
+        # Copies one value to the place of another. A source with a register
+        # home is stored directly from it. Only a slot source needs a load.
         def copy(dest, source) = store_value(dest, value_in(source, SCRATCH[0]))
 
-        # How many instructions `materialize` spends on `n`.
+        # The number of instructions that `materialize` uses for `n`.
         def materialized(n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
           chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }
@@ -1500,8 +1470,8 @@ module Zr
           [chunks.count { |c| c != filler }, 1].max
         end
 
-        # `reg = n`, 16 bits at a time; a negative value starts from its
-        # complement so the high halves need no instruction.
+        # `reg = n`, 16 bits at a time. A negative value starts from its
+        # complement, so the high halves need no instruction.
         def materialize(reg, n)
           n &= 0xFFFF_FFFF_FFFF_FFFF
           chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }

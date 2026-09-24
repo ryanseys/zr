@@ -6,17 +6,17 @@ require_relative "../../record"
 module Zr
   module Backend
     module Aarch64
-      # An arm64 encoder: the instructions the two backends emit, and
-      # nothing else. An instruction is a word, or an object that answers
-      # `encode` with its own index once every label has a place.
+      # An arm64 encoder for only the instructions that the two backends
+      # emit. An instruction is a word, or an object whose `encode` takes its
+      # own index and returns a word after every label has a position.
       #
-      # A label holds an instruction index, not a byte offset, so a branch
+      # A label contains an instruction index, not a byte offset, so a branch
       # encodes its distance as `target - here`.
       class Assembler
         include Registers
 
         class Refused < StandardError; end
-        # A branch whose target lies past what its field can name.
+        # A branch whose target is out of the range of its field.
         class OutOfReach < Refused; end
 
         CONDITIONS = {
@@ -66,20 +66,19 @@ module Zr
           end
         end
 
-        # `[N, immr, imms]` for a logical immediate, or nil for a value
-        # arm64 cannot name in one word.
+        # Returns `[N, immr, imms]` for a logical immediate, or nil for a
+        # value that arm64 cannot encode in one instruction.
         #
         # The only constants `AND`, `ORR` and `EOR` take are a run of
         # ones, rotated, in an element of 2, 4, 8, 16, 32 or 64 bits that
-        # repeats to fill the register -- 0x5555555555555555 is one, 5 is
-        # not. All ones and no ones are excluded: every element would
-        # encode them, so the encoding gives their place to `N`.
+        # repeats to fill the register. 0x5555555555555555 is one, 5 is
+        # not. All ones and all zeros are excluded: every element size would
+        # encode them, so the encoding uses that space for `N`.
         #
-        # Memoized, and one table a width rather than one keyed by both:
-        # a compiler asks the same handful of questions about the same
-        # handful of masks a few million times, and a pair key would
-        # make an Array at every one of them. A value that is no bitmask
-        # memoizes as nil and is not asked again.
+        # Memoized, with one table for each width, not one table keyed by
+        # both. A compile makes the same few calls on the same few masks
+        # millions of times, and a pair key makes an Array for each call.
+        # A value that is not a bitmask memoizes as nil.
         def self.bitmask(value, width)
           (width == 64 ? BITMASK64 : BITMASK32)[value]
         end
@@ -93,7 +92,7 @@ module Zr
           return nil if value.zero? || value == full
 
           # The smallest element that repeats: halve while the two halves
-          # of the element agree.
+          # of the element are equal.
           size = width
           while size > 2
             half = size / 2
@@ -106,14 +105,14 @@ module Zr
           element = (1 << size) - 1
           return nil if value.zero? || value == element
 
-          # The rotation that brings the run down to bit zero, if the
-          # element is one run at all: `x & (x + 1)` is zero exactly for
-          # a value that is all ones below some bit and nothing above.
+          # The rotation that moves the run down to bit zero, if the element
+          # is one run: `x & (x + 1)` is zero only for a value that is all
+          # ones below a bit and all zeros above it.
           rotation = (0...size).find { |r| (t = rotated(value, r, size, element)) & (t + 1) == 0 }
           return nil if rotation.nil?
 
-          # `immr` says how far to rotate the run right to make the value,
-          # which is the other way round from how it was found.
+          # `immr` gives the right rotation of the run that makes the value.
+          # This is the opposite direction of the search above.
           length = rotated(value, rotation, size, element).bit_length
           [size == 64 ? 1 : 0, (size - rotation) % size, (~(size - 1) << 1 & 0x3F) | (length - 1)]
         end
@@ -138,8 +137,8 @@ module Zr
           self
         end
 
-        # The byte offset the next instruction takes, which is where a
-        # relocation on it points.
+        # The byte offset of the next instruction. A relocation on that
+        # instruction points here.
         def patch_location
           yield @insns.length * 4
         end
@@ -170,10 +169,10 @@ module Zr
         def eor(d, n, m) = logical(0b10, d, n, m)
         def ands(d, n, m) = logical(0b11, d, n, m)
         def tst(n, m) = ands(n.zr, n, m)
-        # A register amount shifts by whatever it holds; an Integer one
-        # is a bitfield move, which is what arm64 calls these by. The
-        # signatures are the gem's, so `aarch64_test` holds both forms to
-        # the ARM specification.
+        # A register amount shifts by the value in the register. An Integer
+        # amount is a bitfield move, which is the arm64 name for these forms.
+        # The signatures are the same as the gem's, so `aarch64_test` checks
+        # both forms against the ARM specification.
         def lsl(d, n, m) = m.is_a?(Integer) ? ubfm(d, n, (d.size - shift(d, m)) % d.size, d.size - 1 - m) : variable_shift(0b00, d, n, m)
         def lsr(d, n, m) = m.is_a?(Integer) ? ubfm(d, n, shift(d, m), d.size - 1) : variable_shift(0b01, d, n, m)
         def asr(d, n, m) = m.is_a?(Integer) ? sbfm(d, n, shift(d, m), d.size - 1) : variable_shift(0b10, d, n, m)
@@ -202,8 +201,8 @@ module Zr
 
         # --- moves --------------------------------------------------------
 
-        # The stack pointer has no place in a logical instruction, so a move
-        # that names it is an add of nothing.
+        # A logical instruction cannot use the stack pointer, so a move that
+        # uses sp is an add of zero.
         def mov(d, m)
           d.sp? || m.sp? ? addsub(0, 0, d, m, 0, 0) : logical(0b01, d, d.zr, m)
         end
@@ -226,7 +225,7 @@ module Zr
 
         # --- SIMD&FP, doubles only ----------------------------------------
 
-        # `fmov d, x`, `fmov x, d` or `fmov d, d`: the registers say which.
+        # `fmov d, x`, `fmov x, d` or `fmov d, d`: the registers select the form.
         # `fmov d, x` and `fmov s, w` (the rest of the register cleared),
         # `fmov d, d` and `fmov x, d`.
         def fmov(d, n)
@@ -247,7 +246,7 @@ module Zr
         def frintz(d, n) = float2(0x1E65_C000, d, n)
         def frintn(d, n) = float2(0x1E64_4000, d, n)
         def fcmp(n, m) = emit(0x1E60_2000 | m.to_i << 16 | n.to_i << 5)
-        # `scvtf d, x` or `scvtf d, w`: the integer register's width says which.
+        # `scvtf d, x` or `scvtf d, w`: the integer register's width selects the form.
         def scvtf(d, n) = emit((n.wide? ? 0x9E62_0000 : 0x1E62_0000) | n.to_i << 5 | d.to_i)
         def fcvtzs(d, n) = emit(0x9E78_0000 | n.to_i << 5 | d.to_i)
 
@@ -262,9 +261,9 @@ module Zr
 
         # --- control ------------------------------------------------------
 
-        # `B` to a label, or `B.cond` when a condition is named. The
-        # signature is the gem's, so `aarch64_test` holds the encoding to
-        # the ARM specification like every other one.
+        # `B` to a label, or `B.cond` when a condition is given. The
+        # signature is the same as the gem's, so `aarch64_test` checks the
+        # encoding against the ARM specification.
         def b(label, cond: nil)
           return branch(0x1400_0000, label, 0, 26) if cond.nil?
 
@@ -279,7 +278,7 @@ module Zr
         def tbz(rt, bit, label) = test_bit(0x3600_0000, rt, bit, label)
         def tbnz(rt, bit, label) = test_bit(0x3700_0000, rt, bit, label)
 
-        # The page a relocation fills in, so the encoded one is zero.
+        # A relocation fills in the page, so the encoded page is zero.
         def adrp(d, page)
           page = Integer(page)
           emit(0x9000_0000 | (page & 0b11) << 29 | (page >> 2 & 0x7FFFF) << 5 | d.to_i)
@@ -292,10 +291,10 @@ module Zr
           self
         end
 
-        # Every caller inside the repo already holds the Symbol the table
-        # is keyed by, and this runs once an instruction: `:eq.to_s.downcase.to_sym`
-        # made two Strings and interned one of them, for every `cset` and
-        # every conditional branch the backend wrote.
+        # Every caller in the repository gives the Symbol key of the table.
+        # This runs once per instruction, so it reads the Symbol first and
+        # converts the name only as a fallback: `:eq.to_s.downcase.to_sym`
+        # makes two Strings for each `cset` and each conditional branch.
         def condition(cond)
           CONDITIONS.fetch(cond) { CONDITIONS.fetch(cond.to_s.downcase.to_sym) }
         end
@@ -307,9 +306,9 @@ module Zr
         end
 
         # An Integer third operand is an immediate, shifted left twelve when
-        # `lsl` says so; a register operand takes an optional shift.
-        # An immediate operand shifts by 0 or by 12, which is the one
-        # shift the instruction has.
+        # `lsl` is set. A register operand takes an optional shift.
+        # An immediate operand shifts by 0 or by 12, the only shift that
+        # the instruction has.
         def addsub(op, s, d, n, m, lsl, shift = :lsl, amount = 0)
           if m.is_a?(Integer)
             raise Refused, "an immediate add or sub shifts by 0 or 12, not #{lsl}" unless [0, 12].include?(lsl)
@@ -325,9 +324,9 @@ module Zr
         # A register third operand, or a bitmask immediate, which is a
         # different instruction family with the same name.
         #
-        # The Integer branch has to come first and has to be here.
-        # `Integer#to_i` answers, so without it `and d, a, 7` encoded as
-        # `and d, a, x7` and said nothing.
+        # The Integer branch must come first and must be here.
+        # `Integer#to_i` exists, so without this branch `and d, a, 7`
+        # encodes as `and d, a, x7` with no error.
         def logical(opc, d, n, m)
           return logical_immediate(opc, d, n, m) if m.is_a?(Integer)
 
@@ -339,8 +338,8 @@ module Zr
           emit(0x1200_0000 | d.sf << 31 | opc << 29 | bit << 22 | immr << 16 | imms << 10 | n.to_i << 5 | d.to_i)
         end
 
-        # A shift out of the register is not a shift arm64 can name:
-        # the field is as wide as the register and holds nothing else.
+        # arm64 cannot encode a shift larger than the register: the
+        # field has the width of the register and contains nothing else.
         def shift(d, m)
           raise Refused, "a shift of #{m} in #{d.size} bits" unless m.between?(0, d.size - 1)
 

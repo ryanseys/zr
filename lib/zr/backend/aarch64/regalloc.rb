@@ -5,41 +5,34 @@ require_relative "registers"
 module Zr
   module Backend
     module Aarch64
-      # Which values live in a register for the whole of their life, and
-      # which stay in the frame.
+      # Selects the values that stay in a register for all of their life.
+      # The other values stay in the frame.
       #
-      # Linear scan over intervals in block layout order. Every value
-      # keeps the frame home the backend already gives it, so a value this
-      # answers nothing for behaves exactly as it did before: the
-      # allocator can be conservative without ever being wrong, and when
-      # it runs out of registers it spills by leaving a value where it
-      # already was.
+      # Linear scan over intervals in block layout order. Every value keeps
+      # its frame home from the backend. A value that gets no register uses
+      # that home, so the allocator can be conservative and still correct.
+      # When it has no free register, it spills a value by leaving it in its home.
       #
-      # Two pools. A value live across a call takes one of `x19`..`x27`,
-      # which are callee-saved, so it survives the call with no work at
-      # the call site; the frame saves and restores each one the function
-      # uses. A value that crosses no call takes one of `CALLER` first,
-      # which nothing saves: most values in a kernel function are made
-      # and read between two calls, and giving each a callee-saved
-      # register cost every function the saves of all ten. Such a value
-      # takes a callee-saved register only when `CALLER` is empty; a
-      # crossing value never takes a caller-saved one. The argument
-      # registers `x0`..`x7` are in `CALLER`: a call clobbers them, but
-      # a value that crosses no call is dead by then, and the arguments
-      # of the call and the parameters of the function move between
-      # them and their homes as one parallel copy (`Codegen#load_args`,
-      # `#prologue`), so a value may live in the register an argument
-      # wants. `x9`..`x12` are the lowering's scratch, `x16` and `x17`
-      # the linker's, `x18` is reserved on this platform and never
-      # touched, and `x28` holds the gate word for the whole program
-      # (`GATES`): a `gates` value is read out of it and gets no
-      # register of its own.
+      # Two pools. A value live across a call gets one of the callee-saved
+      # `x19`..`x27`. The frame saves and restores each one that the function
+      # uses. A value that crosses no call gets one of `CALLER` first, which
+      # nothing saves: most values in a kernel function live between two
+      # calls, and a callee-saved register for each costs the saves of all
+      # ten. It gets a callee-saved register only when `CALLER` is empty. A
+      # crossing value never gets a caller-saved register.
       #
-      # Every value, block and instruction is given a number first, and
-      # what follows indexes arrays by those numbers. This is most of what
-      # the backend spends -- compiling the compiler is twenty seconds of
-      # backend against four of everything before it -- and a String key
-      # costs a hash of its bytes at every single use.
+      # The argument registers `x0`..`x7` are in `CALLER`. A call clobbers
+      # them, but a value that crosses no call is dead at that point. Arguments
+      # and parameters move as one parallel copy (`Codegen#load_args`,
+      # `#prologue`), so a value can use an argument register. Reserved:
+      # `x9`..`x12` (lowering scratch), `x16` and `x17` (linker), `x18`
+      # (platform), and `x28` (the program's gate word, `GATES`; a `gates`
+      # value reads it and gets no register).
+      #
+      # Every value, block and instruction gets a number first, and the
+      # code indexes arrays by these numbers. Allocation is most of the
+      # backend time (20 seconds of backend against 4 for all earlier steps
+      # when compiling the compiler), and a String key hashes its bytes at each use.
       class Regalloc
         include Registers
 
@@ -51,11 +44,11 @@ module Zr
         def self.callee?(reg) = reg.to_i >= 19
         def self.value?(name) = IR.value?(name)
 
-        # `{ "v3" => X19, ... }` for the values worth a register. `skip`
-        # names values the backend makes where they are read instead, so
-        # they need no register and must not keep one from anything else.
-        # `via` maps a value the backend reads through another to that
-        # other, which is then live at every read of the first.
+        # Returns `{ "v3" => X19, ... }` for the values that get a register.
+        # `skip` gives the values that the backend makes at each read. They
+        # need no register and must not block one. `via` maps a value that
+        # the backend reads through another value to that other value, which
+        # is then live at every read of the first.
         def self.of(function, skip: nil, via: nil) = new(function, skip, via).assign
 
         def initialize(function, skip = nil, via = nil)
@@ -65,40 +58,39 @@ module Zr
         end
 
         def assign
-          # A block emitted twice would give one name two places in the
-          # numbering, and every interval below would be nonsense. The
-          # builder does not do it; if it ever does, spill everything.
+          # A block emitted two times gives one name two positions in the
+          # numbering, and every interval is then wrong. The builder does
+          # not do this. If it does, spill all values.
           return {} if @f.blocks.map(&:name).uniq.size != @f.blocks.size
 
           number
           named(scan(*intervals))
         end
 
-        # The numbers of the instructions that call: where a value's
-        # register is lost unless the callee saves it.
+        # The instructions that call. At these, a value loses its register
+        # unless the callee saves it.
         CALLS = %i[call call_indirect].freeze
         NOTHING = [].freeze
 
         private
 
         # A number for every block, every instruction and every value.
-        # `@uses` and `@results` hold value numbers at an instruction's
-        # own number, so nothing below hashes a name or an object again.
+        # `@uses` and `@results` contain value numbers at the index of the
+        # instruction, so the code below does not hash a name or an object again.
         #
-        # A block's first point is its entry, where its parameters arrive
-        # and a value live into it is already live, and its instructions
-        # follow from the next point. A call at the first instruction then
-        # lies strictly after both, which is what `crosses_call?` asks.
+        # A block's first point is its entry, where its parameters arrive and
+        # its live-in values are live. Its instructions start at the next
+        # point. Thus a call at the first instruction is strictly after both,
+        # as `crosses_call?` requires.
         #
-        # A value in `skip` gets no number at all: it has no interval, so
-        # it must not make work for the liveness below either. Leaving it
-        # out keeps the others in the order they had, so the numbers that
-        # break ties in `intervals` order them the same way.
+        # A value in `skip` gets no number: it has no interval, so it must not
+        # add liveness work. The other values keep their order, so the tie
+        # breaks in `intervals` do not change.
         def number
           @order = {}
           @f.blocks.each_with_index { |b, i| @order[b.name] = i }
-          # A Hash that numbers what it is asked for is one lookup where
-          # `@id[name] ||= @id.size` is two.
+          # A Hash that numbers each new key does one lookup.
+          # `@id[name] ||= @id.size` does two.
           @id = Hash.new { |h, name| h[name] = h.size }
           @first = []
           @last = []
@@ -126,11 +118,11 @@ module Zr
           @points = at
         end
 
-        # `name`'s number, or nil when the backend makes it at its reads.
+        # Returns the number of `name`, or nil when the backend makes it at its reads.
         def numbered(name) = (@id[name] unless @skip&.include?(name))
 
-        # The values an instruction reads, by number: its own operands,
-        # and the arguments it carries to a block it branches to.
+        # The values that an instruction reads, by number: its operands, and
+        # the arguments that it gives to a branch target block.
         def operands(inst)
           used = []
           inst.args.each { |a| (v = read(a)) && used << v }
@@ -138,8 +130,8 @@ module Zr
           used
         end
 
-        # The number of the value a read of `a` keeps live, or nil when
-        # `a` is not a value or is made at its reads.
+        # Returns the number of the value that a read of `a` keeps live, or
+        # nil when `a` is not a value or is made at its reads.
         def read(a)
           return nil unless Regalloc.value?(a)
 
@@ -159,22 +151,20 @@ module Zr
           end
         end
 
-        # One interval a value, covering every point it can be read at:
-        # where it is defined, where it is used, and the whole of any
-        # block it is live across. Covering the holes as well is
-        # conservative, and conservative here means correct.
+        # One interval for each value. It covers every point where the value
+        # can be read: its definition, its uses, and all of each block that
+        # it is live across. The interval also covers the holes. This is
+        # conservative, and thus correct.
         #
-        # `[order, from, to, crossing]`: the values that have an interval,
-        # in scan order, where each one begins and ends, and whether a
-        # call lies strictly inside it. Arrays and not a list of tuples,
-        # because a triple a value was a fifth of everything the backend
-        # allocated.
+        # Returns `[order, from, to, crossing]`: the values that have an
+        # interval in scan order, the start and end of each, and whether a
+        # call is strictly inside it. These are parallel Arrays, not tuples,
+        # because one tuple for each value is a fifth of all backend allocations.
         def intervals
           count = @id.size
           from = Array.new(count)
           to = Array.new(count)
-          # The blocks each value is read in away from the block that
-          # makes it.
+          # For each value, the blocks other than its defining block that read it.
           away = Array.new(count)
           @f.blocks.each_index do |bi|
             first = @first[bi]
@@ -189,11 +179,11 @@ module Zr
           end
           live = Array.new(@f.blocks.size)
           before = predecessors
-          # A value the entry block makes -- every constant is one -- is
-          # live through every block that runs into a block reading it, so
-          # its interval ends where the latest of those does, which one
-          # pass over the blocks answers for all of them at once. A walk a
-          # value was blocks times constants of time.
+          # A value that the entry block makes (every constant is one) is
+          # live through every block that flows into a block that reads it.
+          # Its interval ends at the latest of those blocks. One pass over the
+          # blocks finds this for all such values, in place of one walk for
+          # each value (blocks times constants).
           entry = @order.fetch(@f.entry_block.name)
           latest = before[entry].empty? && away.any? && latest_before(before, entry)
           away.each_with_index do |blocks, v|
@@ -205,12 +195,10 @@ module Zr
               blocks.each { |bi| live_into(bi, v, from, to, live, before) }
             end
           end
-          # By start, then by end, then by the value's own number. Ruby's
-          # sort is not a stable one, so without that last term which of
-          # two intervals that begin and end together keeps a register
-          # would be the sort's own business. Naming the value settles it
-          # outright, and owes nothing to the order anything above was
-          # walked in. One Integer carries all three.
+          # Sort by start, then by end, then by the value's number. Ruby's
+          # sort is not stable. Without the last key, the sort alone selects
+          # which of two intervals with the same start and end gets a register.
+          # The value number makes the order fixed. One Integer contains all three keys.
           span = @points + 1
           order = (0...count).select { |v| from[v] }
           order.sort_by! { |v| (((from[v] * span) + to[v]) * count) + v }
@@ -219,36 +207,35 @@ module Zr
           [order, from, to, crossing]
         end
 
-        # Whether a call sits strictly between `from` and `to`. A value a
-        # call makes begins at it, and one a call reads last ends at it:
-        # neither needs to survive the call.
+        # Whether a call is strictly between `from` and `to`. A value that a
+        # call makes starts at the call, and a value that a call reads last
+        # ends at the call. Neither value must survive the call.
         def crosses_call?(from, to)
           i = @calls.bsearch_index { |c| c > from }
           !i.nil? && @calls[i] < to
         end
 
-        # An interval covers its holes, so a call in a hole counts as
-        # crossed by the hull test above, and the value takes a
-        # callee-saved register it needs nowhere: a method's argument
-        # count is read by the arity check and by the call the check
-        # makes when it fails, and the stack check's call lies between
-        # the two in the layout, in a block the count is not live in. A
-        # value is live at a call only where a read of it lies ahead on
-        # some path from the call, so each value the hull test counts
-        # crossing is asked again by the blocks it is live in: the
-        # answer is no where every call in its hull sits in a block it
-        # is not live in, or after its last read in a block it leaves
-        # dead. The register it then takes is safe: nothing reads it
-        # past the call. Bounded, since a walk is a value times the
-        # blocks: a function past the bound keeps the hull's answers.
+        # An interval covers its holes, so the hull test above counts a call
+        # in a hole as crossed. The value then gets a callee-saved register
+        # that it does not need. Example: the arity check and its failure
+        # call read a method's argument count, and the stack check's call is
+        # between them, in a block where the count is not live.
+        #
+        # A value is live at a call only when some path from the call reads
+        # it. Thus each crossing value is checked again against the blocks it
+        # is live in. It does not cross when each call in its hull is in a
+        # block where it is not live, or after its last read in a block where
+        # it dies. Then nothing reads its register after the call, so a
+        # caller-saved register is safe. The cost is values times blocks, so
+        # a function past this bound keeps the hull test's result.
         REFINE_BOUND = 1_000_000
 
         def refine_crossing(crossing, from, to, away, before)
           candidates = crossing.select { |_, c| c }.keys
           return if candidates.empty? || candidates.size * @f.blocks.size > REFINE_BOUND
 
-          # The block each call is in, and, for each candidate, the last
-          # point of each block that reads it: one pass over the points.
+          # The block of each call and, for each candidate, the last point
+          # of each block that reads it. One pass over the points finds both.
           call_block = @calls.map { |c| block_of(c) }
           last_read = {}
           candidates.each { |v| last_read[v] = {} }
@@ -264,15 +251,15 @@ module Zr
           end
         end
 
-        # The block holding `point`.
+        # The block that contains `point`.
         def block_of(point)
           b = @first.bsearch_index { |s| s > point }
           b.nil? ? @first.size - 1 : b - 1
         end
 
-        # `{ block => true }` for every block `v` is live into: the block
-        # it is read in away from its definition, and every block that
-        # runs into one of those, back to the block that makes it.
+        # Marks `{ block => true }` for every block that `v` is live into:
+        # each block other than its definition that reads it, and every block
+        # that flows into one of those, back to the block that makes it.
         def mark_live_in(bi, v, live_in, before)
           return if live_in[bi]
 
@@ -289,9 +276,9 @@ module Zr
           end
         end
 
-        # Whether `v` is live at some call in its hull: in a block it is
-        # live into or defined in, before its last read there, or in one
-        # it leaves live, which is one some successor is live into.
+        # Whether `v` is live at a call in its hull. That is a call in a
+        # block where `v` is live-in or defined, before its last read there,
+        # or a call in a block where `v` is live-out (live into a successor).
         def crossed?(v, from, to, live_in, call_block, last_read)
           i = @calls.bsearch_index { |c| c > from }
           return false if i.nil?
@@ -309,19 +296,16 @@ module Zr
           false
         end
 
-        # `v` is read in block `bi` and made somewhere else, so it is live
-        # into `bi`, and out of every block that runs into one where it is
-        # live, back to the block that makes it. Its interval covers each
-        # of those whole.
+        # Block `bi` reads `v`, and another block makes it. Thus `v` is live
+        # into `bi`, and live out of every block that flows into a block where
+        # it is live, back to its definition. Its interval covers all of those blocks.
         #
-        # This asks per value rather than keeping the set of live values a
-        # block: a value made in the entry block and read at the end of a
-        # long function sat in the set of every block between, so the sets
-        # grew as blocks times values. `live` says which value last marked
-        # a block live-in; every read of one value is walked before the
-        # next value's, so a block is walked once a value. The walk is a
-        # list rather than recursion, as a chain of blocks is as long as
-        # the function.
+        # This works per value, not with a set of live values for each block,
+        # because those sets grow as blocks times values. `live` gives the
+        # value that last marked a block live-in. All reads of one value are
+        # walked before the next value, so each block is walked once per
+        # value. The walk uses a list, not recursion, because a chain of
+        # blocks can be as long as the function.
         def live_into(bi, v, from, to, live, before)
           return if live[bi] == v
 
@@ -340,12 +324,12 @@ module Zr
           end
         end
 
-        # For each block, the last point of the latest block that runs into
-        # it or into any block that runs into it, the entry block's own
-        # predecessors aside: how far a value made in the entry block and
-        # read there stays live. A loop raises a block's answer after its
-        # successors have read it, so the pass repeats until nothing moves,
-        # which is once more than the deepest nest of back edges.
+        # For each block, the last point of the latest block that flows into
+        # it, directly or not, excluding the entry block's predecessors. This
+        # is how long a value made in the entry block and read in that block
+        # stays live. A loop can increase a block's result after its successors
+        # have read it, so the pass repeats until no result changes. That is
+        # one more pass than the deepest nest of back edges.
         def latest_before(before, entry)
           latest = Array.new(@f.blocks.size, -1)
           moved = true
@@ -366,7 +350,7 @@ module Zr
           latest
         end
 
-        # `v` reaches `point`, so its interval holds it.
+        # `v` reaches `point`, so its interval must contain it.
         def reach(from, to, v, point)
           low = from[v]
           if low.nil?
@@ -378,17 +362,15 @@ module Zr
           to[v] = point if point > to[v]
         end
 
-        # Linear scan: hand a register to each interval in start order,
-        # giving back the ones whose values are dead. When the pools an
-        # interval may draw on are empty, the longest-lived interval it
-        # could take a register from loses it, because that one would
-        # hold a register longest for the least.
+        # Linear scan: give a register to each interval in start order, and
+        # free the registers of dead values. When the pools for an interval
+        # are empty, the longest interval that could give up a register
+        # loses it, because it uses a register for the longest time.
         #
         # The lowest free register goes first. The frame saves and restores
-        # every callee-saved register a function uses, so a function whose
-        # values live a line each should touch two registers, not cycle
-        # through all ten: for a three-line predicate that was twenty of
-        # its sixty-two instructions.
+        # every callee-saved register that a function uses. Thus a function
+        # whose values each live for one line must use two registers, not all
+        # ten. In a three-line predicate, the saves for ten were 20 of 62 instructions.
         def scan(order, from, to, crossing)
           free = { callee: CALLEE.dup, caller: CALLER.dup }
           active = []
@@ -402,8 +384,8 @@ module Zr
               release(free, taken.fetch(other))
               true
             end
-            # A parameter that crosses no call takes the register it
-            # arrives in when that is free: nothing then moves it.
+            # A parameter that crosses no call keeps its arrival register
+            # when that register is free, so no move is necessary.
             reg = free[:caller].delete(arrives[value]) || free[:caller].shift unless crossing[value]
             reg ||= free[:callee].shift
             if reg.nil?
@@ -420,8 +402,8 @@ module Zr
           taken
         end
 
-        # `{ value number => register }` for the integer parameters of
-        # the entry block, by the argument register each arrives in.
+        # Returns `{ value number => register }` for the integer parameters
+        # of the entry block, from the argument register of each.
         def arrival_registers
           arrives = {}
           ints = 0
@@ -435,15 +417,15 @@ module Zr
           arrives
         end
 
-        # `reg` back in its pool, which stays in pool order.
+        # Puts `reg` back in its pool, in pool order.
         def release(free, reg)
           pool = free[Regalloc.callee?(reg) ? :callee : :caller]
           at = pool.index { |other| other.to_i > reg.to_i } || pool.size
           pool.insert(at, reg)
         end
 
-        # The backend asks by name, so the numbers go back to names here
-        # and nowhere else.
+        # The backend looks up values by name, so this is the one place
+        # where numbers change back to names.
         def named(taken)
           return {} if taken.empty?
 

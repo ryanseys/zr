@@ -6,17 +6,17 @@ require_relative "../obj/model"
 
 module Zr
   module Backend
-    # The aarch64 backend: `Codegen` writes each function's machine code
-    # over our own `Assembler`, `Relocs` patches what it records, and
-    # `Stub` holds the functions no dialect can write.
+    # The aarch64 backend. `Codegen` writes each function's machine code
+    # with our own `Assembler`. `Relocs` patches the relocations that it
+    # records. `Stub` contains the functions that the machine dialect cannot express.
     module Aarch64
       module_function
 
-      # `functions` compiled, `raw` functions as they are, and `data`, as
-      # one `Obj::Unit`. `export` makes every data object visible to the
-      # link, for an object another refers to. A block given assembles the
-      # functions itself, in order, from the functions and the unit's
-      # defined names (`Native::Build.unit` assembles in workers).
+      # Returns one `Obj::Unit` from the compiled `functions`, the `raw`
+      # functions without change, and `data`. `export` makes every data object
+      # visible to the linker, for an object that another object refers to.
+      # A given block assembles the functions, in order, from the functions and
+      # the unit's defined names (`Native::Build.unit` assembles in workers).
       def unit(functions, data, raw: [], export: false, allocate: true)
         out = Obj::Unit.new
         defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
@@ -26,8 +26,8 @@ module Zr
         out
       end
 
-      # One function's machine code. `defined` answers whether a symbol is
-      # the unit's own.
+      # Returns one function's machine code. `defined` returns true when a
+      # symbol is defined in this unit.
       def assemble(function, defined, allocate: true)
         imported = function.callees.find(&:from)
         raise Refused, "#{imported.symbol} is a wasm import from #{imported.from}, which no native link has" if imported
@@ -35,9 +35,9 @@ module Zr
         Codegen.new(function, defined: defined, allocate: allocate).compile
       end
 
-      # The names a lowering gives what it makes: its entry, and every
-      # name it spells from the entry. A unit assembled as it is lowered
-      # knows its own symbols by these before it has made them all.
+      # The names that a lowering gives to its output: its entry, and every
+      # name that it makes from the entry. A unit that is assembled during
+      # lowering uses these to know its own symbols before all of them exist.
       class Spelled
         attr_reader :entry
 

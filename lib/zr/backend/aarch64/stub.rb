@@ -7,24 +7,24 @@ require_relative "../../obj/model"
 module Zr
   module Backend
     module Aarch64
-      # The functions no dialect can write: machine code assembled here and
-      # delivered as raw bytes on every road.
+      # The functions that the machine dialect cannot express. This file
+      # assembles their machine code and gives it as raw bytes to every target path.
       module Stub
         include Registers
 
         # The context `zr_switch` saves and restores: the callee-saved
         # registers x19..x27, the frame pair x29 and x30, sp, and d8..d15.
-        # Not x28: it holds the gate word, which is the whole program's
-        # and not a stack's, so a switch leaves it as it is and a stack
-        # resumed sees the gates as they are now, not as they were.
+        # Not x28: it contains the gate word. The gate word belongs to the
+        # whole program, not to one stack. Thus a switch does not change it,
+        # and a resumed stack sees the current gates.
         CONTEXT = { x19: 0, x21: 16, x23: 32, x25: 48, x27: 64, x29: 80, x30: 88, sp: 96, d8: 104 }.freeze
         CONTEXT_BYTES = 176
 
         module_function
 
-        # `zr_switch(from: Ptr, to: Ptr)`: park this stack in `from`, resume
-        # the one `to` holds. A fresh context needs only x30 (where to start)
-        # and sp (its stack top).
+        # `zr_switch(from: Ptr, to: Ptr)`: saves this stack in `from`, and
+        # resumes the stack in `to`. A new context needs only x30 (the start
+        # address) and sp (its stack top).
         def switch(assembler: Assembler)
           a = assembler.new
           pairs = [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X29, X30]]

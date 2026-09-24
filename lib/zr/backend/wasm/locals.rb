@@ -3,34 +3,29 @@
 module Zr
   module Backend
     module Wasm
-      # Which wasm local each value of a function is kept in: values whose
-      # lives never overlap share one, if their wasm types agree.
+      # Gives the wasm local for each value of a function. Values with the
+      # same wasm type whose live ranges do not overlap share one local.
       #
-      # A local for every value is what a wasm compiler pays for. Cranelift
-      # makes each local a variable and builds SSA for it again, through
-      # the one loop every block is dispatched from, and its memory grows
-      # faster than the count: a function of 11,420 locals took 617 MB to
-      # compile, and 165 MB once they were shared down to 718.
+      # The wasm compiler pays for each local. Cranelift builds SSA again for
+      # each local through the dispatch loop, and its memory grows faster
+      # than the local count: 11,420 locals took 617 MB to compile, and
+      # 718 shared locals took 165 MB.
       #
-      # Liveness is found from the uses: a value read in a block other than
-      # the one defining it is live into that block, and out of each
-      # predecessor, and so on back to its definition. Most values are
-      # read only where they are made and cost nothing here. Colouring
-      # then walks the blocks in reverse postorder, so a value's
-      # definition, which dominates its uses, comes before them, and every
-      # value live where another is defined already has its local. That is
-      # enough for greedy colouring to be right: of two values live at once,
-      # one is live where the other is defined.
+      # Liveness comes from the uses: a value read in a block other than its
+      # defining block is live into that block and out of each predecessor,
+      # back to its definition. Colouring walks the blocks in reverse
+      # postorder, so a definition comes before its uses. Of two values live
+      # at the same time, one is live where the other is defined, so greedy
+      # colouring is correct.
       #
-      # Two writes need more than liveness. A jump writes all of a block's
-      # parameters, a dead one too, so the parameters hold distinct locals.
-      # And an instruction's results never take the local of one of its own
-      # arguments: the overflow instructions read their arguments again
-      # after writing the first result.
+      # Two rules add to liveness. A jump writes all block parameters, also
+      # dead ones, so each parameter gets its own local. An instruction's
+      # results never share a local with its arguments, because the overflow
+      # instructions read their arguments again after they write the first result.
       class Locals
-        # `{ value => local index }` over `values`, `[value, wasm type]`
-        # pairs, and the wasm type of each local from `base` on, where the
-        # shared locals begin.
+        # Returns `{ value => local index }` for `values` (`[value, wasm type]`
+        # pairs), and the wasm type of each local from `base`, the first
+        # shared local.
         def self.of(f, values, base) = new(f, values, base).assign
 
         def initialize(f, values, base)
@@ -48,9 +43,9 @@ module Zr
 
         private
 
-        # A number for each value, the block defining it, each block's
-        # successors and predecessors, and the index of the instruction
-        # that last reads each value in its block.
+        # Finds a number for each value, the block that defines it, each
+        # block's successors and predecessors, and the index of the last
+        # instruction that reads each value in its block.
         def number
           @id = {}
           @wasm = []
@@ -71,8 +66,8 @@ module Zr
             last = {}
             id = @id
             b.insts.each_with_index do |i, k|
-              # Only a value has a number: an immediate or an entity name
-              # finds none.
+              # Only a value has a number. An immediate or an entity name
+              # has no number.
               i.args.each { |a| (n = id[a]) && last[n] = k }
               i.targets&.each { |(_, args)| args.each { |a| (n = id[a]) && last[n] = k } }
               i.results.each { |v| (n = id[v]) && @home[n] = bi }
@@ -85,8 +80,9 @@ module Zr
           end
         end
 
-        # `@in[block]`, the values live into it, and `@out[block]`, those
-        # live out of it as a Hash, walking back from each use.
+        # Sets `@in[block]`, the values live into the block, and
+        # `@out[block]`, a Hash of the values live out of it. It walks back
+        # from each use.
         def live
           n = @f.blocks.size
           @in = Array.new(n) { [] }
@@ -114,8 +110,8 @@ module Zr
           end
         end
 
-        # Postorder of the blocks reached from the entry; `@reached` is
-        # how many, and the ones nothing reaches follow.
+        # Returns the postorder of the blocks reachable from the entry.
+        # `@reached` is their count. The unreachable blocks come after them.
         def postorder
           seen = Array.new(@f.blocks.size, false)
           order = []
@@ -144,9 +140,9 @@ module Zr
           order = postorder
           @colour = Array.new(@wasm.size)
           @types = []
-          # Per type: the locals of that type, those given back in the block
-          # being coloured, and how far into the first a search has gone.
-          # `@busy[local]` is the block whose walk holds it, so nothing is
+          # For each type: the locals of that type, the locals freed in the
+          # current block, and a search cursor into the first list.
+          # `@busy[local]` is the block that uses the local, so no data is
           # cleared between blocks.
           @of_type = Hash.new { |h, t| h[t] = [] }
           @freed = Hash.new { |h, t| h[t] = [] }
@@ -160,11 +156,10 @@ module Zr
           @values.each { |v, _| @local[v] = @base + @colour[@id[v]] }
         end
 
-        # A block's values their locals. A local is free when no value
-        # live at this point holds it: those given back in this block wait
-        # on a stack, and the rest are found by a cursor over each type's
-        # locals, so a block costs what is live in it and not every local
-        # the function has.
+        # Gives locals to the values of one block. A local is free when no
+        # live value uses it. Locals freed in this block go on a stack. A
+        # cursor over each type's locals finds the others. Thus the cost of a
+        # block depends on its live values, not on all locals of the function.
         def colour_block(bi)
           b = @f.blocks[bi]
           @stamp += 1
@@ -181,8 +176,8 @@ module Zr
           last = @last[bi]
           id = @id
           unless b.params.empty?
-            # A jump writes every parameter, a dead one too, so they all
-            # hold a local of their own until the last is written.
+            # A jump writes every parameter, also a dead one. Thus each
+            # parameter keeps its own local until the jump writes the last one.
             params = b.params.filter_map { |v, _| id[v] }
             params.each { |n| take(n) }
             params.each { |n| release(n) unless last.key?(n) || out.key?(n) }
@@ -199,8 +194,8 @@ module Zr
           end
         end
 
-        # A value read for the last time in its block, and not live out of
-        # it, gives its local back; once, however many times it is read.
+        # A value that is not live out of its block frees its local at its
+        # last read in the block. It frees the local one time only.
         def free_read(n, last, out)
           return if out.key?(n)
 

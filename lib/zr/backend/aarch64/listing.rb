@@ -9,22 +9,21 @@ module Zr
     module Aarch64
       # The instructions a compile chose, as arm64 text.
       #
-      # `Codegen` takes its assembler as an argument, so this stands in
-      # for the encoder: it records every call and forwards it, and the
-      # bytes it answers are the encoder's own. What it renders is therefore
-      # the backend's selection, not a reading of the bytes back. The
-      # encoding itself is a separate question, and `aarch64_test.rb` holds
-      # it to the `aarch64` gem.
+      # `Codegen` takes its assembler as an argument, so this class is in
+      # place of the encoder. It records every call and forwards it, and it
+      # returns the encoder's bytes. Thus the output shows the backend's
+      # instruction selection, not a decode of the bytes. `aarch64_test.rb`
+      # checks the encoding against the `aarch64` gem.
       #
-      # A relocation is part of the selection -- a call to a symbol this
-      # link defines and a call to an import assemble to the same `bl` -- so
-      # each is written after the instruction that carries it.
+      # A relocation is part of the selection: a call to a local symbol and
+      # a call to an import both assemble to the same `bl`. Thus each
+      # relocation is written after its instruction.
       class Listing
         Assembler = Aarch64::Assembler
         Register = Aarch64::Registers::Register
 
-        # A number this size or larger reads as a bit pattern, so it is
-        # written in hex; below it a number is a count or an offset.
+        # A number this size or larger is a bit pattern, so it is written
+        # in hex. A smaller number is a count or an offset.
         HEX = 256
 
         # The listing of `function`, as `Codegen` compiles it.
@@ -49,14 +48,14 @@ module Zr
           self
         end
 
-        # The methods this class answers itself; every other mnemonic the
-        # encoder has is defined below. They are defined rather than caught
-        # by `method_missing`, which no class here may override -- and a
-        # defined method answers `respond_to?` without being asked to.
+        # The methods that this class defines by hand. Every other encoder
+        # mnemonic is defined below. They are defined, not caught by
+        # `method_missing`, because no class here can override it. Also, a
+        # defined method makes `respond_to?` return true with no more code.
         OWN = %i[make_label put_label patch_location to_binary b].freeze
 
-        # `b` alone, or `b.cond` when a condition is named. The generated
-        # form would read the condition as a shift amount, and a Symbol has
+        # `b` alone, or `b.cond` when a condition is given. The generated
+        # form reads the condition as a shift amount, and a Symbol has
         # no `to_i`.
         def b(label, cond: nil)
           record("  #{cond ? "b.#{cond}" : "b"} #{operands([label]).first}")
@@ -85,17 +84,16 @@ module Zr
 
         private
 
-        # Every mnemonic the backend calls assembles to exactly one word, so
-        # the index a relocation names counts the recorded lines.
+        # Every mnemonic that the backend calls assembles to one word. Thus
+        # the index in a relocation is also the index of a recorded line.
         def record(line)
           @lines << [@at, line]
           @at += 1
         end
 
-        # The operands as arm64 writes them: a register by name, an address
-        # in brackets with whichever index form follows it, an immediate
-        # with a `#`. `rest` is consumed by a memory operand that reaches
-        # past itself.
+        # The operands in arm64 syntax: a register by name, an address in
+        # brackets with its index form, an immediate with a `#`. A memory
+        # operand that uses the operands after it takes them from `rest`.
         def operands(args)
           rest = args.dup
           out = []
