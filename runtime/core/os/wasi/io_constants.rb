@@ -1,5 +1,5 @@
-# wasi-libc's lseek(2) whence values, which IO names, and O_NONBLOCK and
-# the access modes, which File::Constants also names: IO answers its own
+# wasi-libc's lseek(2) whence values, which IO defines, and O_NONBLOCK and
+# the access modes, which File::Constants also defines. IO opens its own
 # descriptors before File exists, so those are IO's own here.
 class IO
   SEEK_SET = 0

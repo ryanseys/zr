@@ -6,8 +6,8 @@
 # under the BSD-2-Clause license reproduced in runtime/core/regexp.rb. This
 # is an altered version: the same algorithms in Ruby.
 #
-# The files load under CRuby too (Zr.require_onig), so
-# tools/regexp_diff.rb and the checks can hold them to ruby's own
+# The files also load under CRuby (Zr.require_onig), so
+# tools/regexp_diff.rb and the tests can check them against ruby's own
 # engine on the host.
 
 class Regexp

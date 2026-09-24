@@ -17,7 +17,7 @@ class Regexp
       ].freeze
       HEADER_SIZE = FIELDS.size * 8
       MAGIC = 0x3067696e4f # "Onig0" little-endian
-      # ONIG_INFINITE_DISTANCE as the kernel holds it: a signed word that
+      # ONIG_INFINITE_DISTANCE as the kernel stores it: a signed word that
       # no real distance reaches, so signed comparisons stay valid.
       INFINITE = 1 << 62
 

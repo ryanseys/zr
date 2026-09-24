@@ -605,7 +605,7 @@ class Regexp
     end
 
     # The Unicode tables as the engine reads them. The generated file
-    # holds each as a String; a table is decoded the first time a
+    # contains each as a String. A table is decoded the first time a
     # pattern needs it, so a program that uses no property and no case
     # folding decodes none.
     module Unicode

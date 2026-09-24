@@ -1,5 +1,5 @@
 # A tree in the shape of Onigmo's print_indent_tree (regcomp.c, under
-# ONIG_DEBUG_PARSE_TREE), for the checks and for reading a parse.
+# ONIG_DEBUG_PARSE_TREE), for the tests and for reading a parse.
 class Regexp
   module Onig
     module Dump

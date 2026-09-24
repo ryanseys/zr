@@ -1,6 +1,6 @@
-# WASI's clocks, as ruby names them there: wasi-libc's clockid_t is a
-# pointer, so ruby names each clock with a Symbol, and CLOCK_IDS gives
-# the WASI clock id each Symbol stands for.
+# WASI's clocks, as ruby identifies them there: wasi-libc's clockid_t is
+# a pointer, so ruby identifies each clock with a Symbol, and CLOCK_IDS
+# gives the WASI clock id that each Symbol represents.
 module Process
   CLOCK_REALTIME = :CLOCK_REALTIME
   CLOCK_MONOTONIC = :CLOCK_MONOTONIC

@@ -2,8 +2,8 @@
 
 # Comparable over `<=>`.
 module Comparable
-  # A `<=>` that comes back to `==` (Kernel's does) answers nil, so the
-  # two never chase each other.
+  # A `<=>` that calls `==` (Kernel's does) returns nil, so the two
+  # never call each other in a loop.
   def ==(other)
     return true if equal?(other)
     return false if Primitive.zr_recursive_enter(self, :==)

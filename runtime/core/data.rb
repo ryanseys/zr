@@ -79,7 +79,7 @@ class Data
   # A member may be named `class`, so the class comes from the kernel.
   def members = member_names.dup
 
-  # The names as the class holds them, which rb_data_members reads: a
+  # The names as the class stores them, which rb_data_members reads: a
   # subclass's own `members`, instance or class, is not called.
   def member_names
     Primitive.attr! :hidden

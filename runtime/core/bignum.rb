@@ -418,8 +418,8 @@ class Integer
       xn ? -c : c
     end
 
-    # Bitwise operations run over two's complement limbs, the sign
-    # carried by an infinite run of ones.
+    # Bitwise operations run over two's complement limbs, with the sign
+    # represented by an infinite run of ones.
     def big_twos(x, len)
       Primitive.attr! :hidden
       if big_neg?(x)

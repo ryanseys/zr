@@ -36,7 +36,7 @@ module Signal
     private
 
     # sig_trap: the signal, then the command, or the block as the
-    # command. Answers the handler the signal had before.
+    # command. Returns the signal's previous handler.
     def trap_signal(args, block)
       Primitive.attr! :hidden
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
