@@ -4,13 +4,13 @@ require_relative "../hir"
 
 module Zr
   class Lower
-    # What a scope's body asks of its frame record: an Env for the locals
-    # a block of its own may capture, and staging slots for sends.
+    # What a scope's body needs in its frame record: an Env for the locals
+    # that its blocks can capture, and staging slots for sends.
     module Scope
       module_function
 
-      # Whether `node` holds a block literal of this scope (not one inside
-      # a nested def or body, which is its own scope).
+      # Whether `node` contains a block literal of this scope (not one in
+      # a nested def or body, which is a different scope).
       def holds_block?(node)
         case node
         when Hir::Send, Hir::Super
@@ -26,11 +26,11 @@ module Zr
         end
       end
 
-      # How many assignments `node` makes to each local of the scope it is
-      # the body of, as a Hash counting from zero. A block reaches the
-      # scope's locals one level further out; a def, class or module body
-      # is a scope of its own, and only the expressions that stand in this
-      # scope around it (a singleton def's receiver, a superclass) are read.
+      # The count of assignments that the body `node` makes to each local
+      # of its scope, as a Hash with default zero. A block sees the scope's
+      # locals one level further out. A def, class or module body is a
+      # different scope, so only its expressions in this scope (a singleton
+      # def's receiver, a superclass) are read.
       def assignments(node, level = 0, counts = Hash.new(0))
         case node
         when Hir::Assign
@@ -47,23 +47,23 @@ module Zr
       end
 
       # The sends that make a scope keep its locals in an Env: an eval
-      # reads and writes them there, a Binding holds them after the frame
-      # is gone, and `local_variables` names them.
+      # reads and writes them there, a Binding keeps them after the frame
+      # is gone, and `local_variables` lists them.
       OPEN_FORMS = %i[eval binding local_variables].freeze
 
-      # The evals that run a string under another self, which reads this
-      # scope's locals as `eval` does; the block forms do not.
+      # The evals that run a string with a different self. The string
+      # reads this scope's locals as `eval` does. The block forms do not.
       STRING_EVALS = %i[class_eval module_eval instance_eval].freeze
 
-      # The sends that carry a method name as their first argument, so
-      # `send(:binding)` opens the scope that `binding` would.
+      # The sends that take a method name as their first argument, so
+      # `send(:binding)` opens the scope as `binding` does.
       BY_NAME = %i[send __send__ public_send method public_method].freeze
 
-      # Whether `node` names one of those in this scope's own body. The
-      # receiver is not read: `Kernel.binding` and `self.binding` answer
-      # for this scope as the bare form does. A scope that holds a block
-      # already has an Env, so a block body is not walked: it answers for
-      # itself.
+      # Whether this scope's own body `node` calls one of those. The
+      # receiver is ignored: `Kernel.binding` and `self.binding` open this
+      # scope as the bare form does. A scope that contains a block already
+      # has an Env, so this does not walk a block body; the block is
+      # checked separately.
       def opens_locals?(node)
         case node
         when Hir::Send
@@ -78,8 +78,8 @@ module Zr
         end
       end
 
-      # `send(:binding)` and the rest of BY_NAME, where the name is a
-      # symbol the compile can read.
+      # `send(:binding)` and the rest of BY_NAME, when the name is a
+      # literal symbol.
       def named_open_form?(node)
         return false unless BY_NAME.include?(node.name)
 
@@ -87,17 +87,16 @@ module Zr
         first.is_a?(Hir::Literal) && OPEN_FORMS.include?(first.value)
       end
 
-      # The iterators a site with a block literal runs in place
-      # (Function::Iterators), each with the most parameters its block
-      # may take.
+      # The iterators that a site with a block literal runs inline
+      # (Function::Iterators), each with the maximum parameter count of
+      # its block.
       ITERATORS = { each: 1, times: 1 }.freeze
 
-      # Whether `node` is a send of one of ITERATORS with a block literal
-      # a site may run in place: no arguments, an explicit receiver, a
-      # block of plain parameters (a name at most) that holds no block
-      # of its own, opens no binding, and is a body `loop_body?` takes.
-      # A template's block keeps its locals in the site's record, so a
-      # scope counts them among its slots (`staging`).
+      # Whether `node` is a send of one of ITERATORS that a site can run
+      # inline. It needs no arguments, an explicit receiver, and a block
+      # literal with at most one plain parameter. The block must contain no
+      # block, open no binding, and pass `loop_body?`. The block keeps its
+      # locals in the site's record, so `staging` counts them.
       def iterator_template?(node)
         return false unless node.is_a?(Hir::Send) && node.block.is_a?(Hir::Block) && ITERATORS.key?(node.name)
         return false unless node.args.empty? && node.kwargs.nil? && node.recv && node.using.nil?
@@ -109,10 +108,10 @@ module Zr
         !holds_block?(body) && !opens_locals?(body) && loop_body?(body)
       end
 
-      # Whether a block body may run in the frame of the scope that
-      # holds it: nothing in it names the block's own frame or defines
-      # under it -- no super, no def or class body, no trace or cover
-      # row (a traced program keeps every frame).
+      # Whether a block body can run in the frame of its enclosing scope.
+      # Nothing in it can need the block's own frame or define under it:
+      # no super, no def or class body, and no trace or coverage entry (a
+      # traced program keeps every frame).
       def loop_body?(node)
         case node
         when Hir::Super, Hir::ZSuper, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef, Hir::Trace, Hir::Cover then false
@@ -122,12 +121,12 @@ module Zr
         end
       end
 
-      # How many record slots the sends under `node` need at once, past
-      # `base`: a send holds its receiver and arguments while an
-      # argument's own sends run above them. An ensure body may run from
-      # a jump anywhere inside its region, above the value the jump
-      # carries. An operator assignment keeps its receiver, arguments
-      # and current value while the read and the write are sent.
+      # The maximum record slots above `base` that the sends under `node`
+      # need at one time. A send keeps its receiver and arguments while an
+      # argument's own sends run above them. An ensure body can run from a
+      # jump anywhere in its region, above the jump's value. An operator
+      # assignment keeps its receiver, arguments and current value during
+      # the read and the write.
       def staging(node, base = 0)
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
@@ -135,8 +134,8 @@ module Zr
           # A safe call keeps its receiver, and a `new` its new object.
           extra = keyword_slots(node.kwargs) + (node.safe ? 1 : 0) + (node.name == :new ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
-          # An iterator run in place keeps its block's locals and its
-          # index above the receiver, and the body stages above those.
+          # An inline iterator keeps its block's locals and its index
+          # above the receiver, and the body stages above those.
           inside = iterator_template?(node) ? staging(node.block.body, top + node.block.locals.size + 1) : top
           [top, inside, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
@@ -175,21 +174,21 @@ module Zr
           [top + 2, staging(node.recv, top), staging(node.value, top + 2)].max
         when Hir::MultiAssign
           top = base + 1 + prepared(node.target)
-          # A literal list whose value nothing takes stays in its slots
-          # while the targets, nested ones taking theirs apart, read it.
+          # A literal list whose value is not used stays in its slots
+          # while the targets (and nested targets) read it.
           spread = node.value.is_a?(Hir::ArrayLit) && !spread?(node.value.elements) ? node.value.elements.size : 0
           [staging(node.value, top), top + spread + targets(node.target), *staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
-          # An ensure keeps three slots, and on the signal's way out its
-          # body runs under a region of two more that puts `$!` back if
-          # the body jumps away.
+          # An ensure keeps three slots. During a pending unwind, its body
+          # runs in a region with two more slots, which restores `$!` if
+          # the body jumps out.
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 3 : 0)
           inside = [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top)].max
           node.ensure_body ? [inside + 2, staging(node.ensure_body, inside + 3)].max : inside
         when Hir::Rescue
-          # A `rescue => a.b` or `=> h[k]` target holds its receiver,
-          # arguments and value in slots under the clause's own two.
+          # A `rescue => a.b` or `=> h[k]` target keeps its receiver,
+          # arguments and value in slots below the clause's own two.
           held = node.target.is_a?(Hir::Send) ? 2 + node.target.args.size : 0
           [staging(node.target, base), staging(node.body, base + held + 2), *node.classes.map { |c| staging(c, base) }].max
         when Hir::ClassDef then [staging(node.scope, base), staging(node.superclass, base)].max
@@ -203,7 +202,7 @@ module Zr
         end
       end
 
-      # The slots a MultiTarget's targets stage ahead of the value: a
+      # The slots that a MultiTarget's targets stage before the value: a
       # receiver and arguments for each send, and the scope of each
       # constant written through an expression (`a::B, c = ...`).
       def prepared(target)
@@ -221,7 +220,7 @@ module Zr
         end
       end
 
-      # The slots destructuring into `target` takes: one Array per level.
+      # The slots for destructuring into `target`: one Array per level.
       def targets(target)
         nested = (target.lefts + [target.rest] + target.rights).grep(Hir::MultiTarget).map { |t| targets(t) }.max || 0
         1 + nested
@@ -233,14 +232,14 @@ module Zr
         [top, *parts.map { |p| staging(p, top) }].max
       end
 
-      # `parts` pushed one after another into one collection kept in a
-      # slot: the form a splat takes.
+      # `parts` pushed one after another into one collection in a slot,
+      # as for a splat.
       def gathered(parts, base)
         [base + 1, *parts.map { |p| staging(p, base + 1) }].max
       end
 
       # A hash literal with a `**`: the hash in one slot, each plain pair
-      # staged as a row of two above it, each spread evaluated there.
+      # staged in two slots above it, and each spread evaluated there.
       def spread_pairs(pairs, base)
         tops = pairs.each_slice(2).map do |key, value|
           key.is_a?(Hir::HashSplat) ? staging(key.value, base + 1) : row([key, value], base + 1)
@@ -253,15 +252,15 @@ module Zr
       end
 
       # Whether a call's keywords are `k: v` pairs with distinct Symbol
-      # keys and no `**`: those travel as trailing values under a static
-      # table of the keys (runtime/kernel/send.rb, `zr_kw_pass`); any other
+      # keys and no `**`. These go as trailing values with a static table
+      # of the keys (runtime/kernel/send.rb, `zr_kw_pass`). All other
       # keywords go as one Hash.
       def literal_keywords?(kwargs)
         keys = kwargs.pairs.each_slice(2).map(&:first)
         keys.all? { |key| key.is_a?(Hir::Literal) && key.value.is_a?(Symbol) } && keys.map(&:value).uniq.size == keys.size
       end
 
-      # The record slots a call's keywords take beside its arguments.
+      # The record slots for a call's keywords, in addition to its arguments.
       def keyword_slots(kwargs)
         return 0 unless kwargs
 
