@@ -86,6 +86,15 @@ jobs:
       - name: Build the runtime for the checks
         run: bundle exec rake build
       - run: bundle exec ruby tool/zr-dev.rb stage 1
+      # The tools, compiled by zr: they must build, and answer as they do
+      # under ruby. A zr binary reads RUBYOPT, so it runs outside the bundle.
+      - name: Build the tools with zr and check them against ruby
+        run: |
+          bundle exec rake build:tools
+          bin/zr-dev help
+          bin/zr-dev spec check test/spec/core/string
+          cmp <(bin/zr-dev spec fingerprint test/spec/core/string) <(ruby tool/zr-dev.rb spec fingerprint test/spec/core/string)
+          bin/zr-dev cache live
 
   # One program built from two copies of the tree at two paths, under
   # another home, clock zone, locale and job count, with one path root:

@@ -50,6 +50,16 @@ task("build:self") do
   puts "the compiled compiler: #{Zr::CompiledCompiler.binary}"
 end
 
+desc "Build the zr-dev tools with zr, to bin/zr-dev (bin/zr-dev runs them under ruby when a source changes)"
+task("build:tools") do
+  require_relative "tool/lib/zr/dev"
+  # A zr binary reads RUBYOPT as ruby does, so it runs outside the bundle.
+  help = ->(*command) { IO.popen(Zr::Dev::BUNDLE.to_h { |name| [name, nil] }, [*command, "help"], &:read) }
+  built = Zr::Dev.tools.build { |out| help.(out) == help.(RbConfig.ruby, Zr::Dev.path("tool/zr-dev.rb")) }
+  abort("rake build:tools: bin/zr-dev did not build") unless built
+  puts "the tools: #{Zr::Dev.tools.binary}"
+end
+
 # The tiers. bin/test tunes the collector, builds the runtime when it is
 # missing, and reads TARGET=, GC=stress, SLOW=, N=, X=, A= and MT_CPU=.
 # `bin/test <paths>` runs only some test files.

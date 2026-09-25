@@ -3,6 +3,7 @@
 require "rbconfig"
 require_relative "paths"
 require_relative "version"
+require_relative "self_built"
 
 module Zr
   # The compiler that zr compiled, run in place of the one that ruby runs.
@@ -36,10 +37,15 @@ module Zr
       File.join(Paths.user_cache, "self-#{VERSION}-#{Digest::SHA256.hexdigest(Paths::ROOT)[0, 12]}")
     end
 
-    # The file stamps of the sources the binary was built from, and the
-    # lock that one build holds. Both are beside the binary.
-    def manifest = "#{binary}.manifest"
-    def lock_path = "#{binary}.lock"
+    # The compiler as a SelfBuilt program: `exe/zr`, built from lib/,
+    # runtime/, vendor/ and the library tree. The library tree is
+    # included, because a changed pin refers to a different tree.
+    def program = SelfBuilt.new(entry: "exe/zr", binary: binary, dirs: %w[lib runtime vendor]) { library_files }
+
+    def manifest = program.manifest
+    def sources = program.sources
+    def stamps(files = sources) = program.stamps(files)
+    def current? = program.current?
 
     # Sends the command to the compiled compiler when it is current. If
     # this build is permitted to build one, it builds it first. Does
@@ -54,12 +60,6 @@ module Zr
       exec({ "ZR_HOST_RUBY" => RbConfig.ruby }, binary, *argv) if current?
     end
 
-    # Every source file of a compiled compiler. The library tree is
-    # included, because a changed pin refers to a different tree.
-    def sources
-      [File.join(Paths::ROOT, "exe/zr"), *Dir[File.join(Paths::ROOT, "{lib,runtime,vendor}/**/*")], *library_files].select { |f| File.file?(f) }.sort
-    end
-
     # The files of the library tree, found by ruby's rubygems when the
     # manifest is stale. If the tree does not resolve, this returns a
     # placeholder path. Ruby then runs the build and reports the cause.
@@ -70,49 +70,25 @@ module Zr
       [File.join(Libraries.dir, "unresolved")]
     end
 
-    def stamps(files = sources)
-      files.to_h do |f|
-        s = File.stat(f)
-        [f, [s.size, s.mtime.to_r, s.ctime.to_r, s.ino]]
-      end
-    end
-
-    def current?
-      return false unless File.file?(binary) && File.executable?(binary) && File.file?(manifest)
-
-      Marshal.load(File.binread(manifest)) == stamps
-    rescue StandardError
-      false
-    end
-
-    # Builds the compiled compiler with ruby from this tree, and records
-    # the file stamps of its sources. It keeps nothing if a file changed
-    # during the build, or if the binary's output differs from ruby's.
-    # Then ruby runs the command. A second build that waits for the lock
-    # also runs under ruby.
+    # Builds the compiled compiler with ruby from this tree. It keeps
+    # nothing if the binary's `zr version` differs from ruby's. Then ruby
+    # runs the command.
     def build
-      Paths.mkdir_p(File.dirname(binary))
-      File.open(lock_path, File::RDWR | File::CREAT, 0o644) do |lock|
-        return unless lock.flock(File::LOCK_EX | File::LOCK_NB)
-        return if current?
-
-        before = stamps
-        out = "#{binary}.#{Process.pid}"
+      began = nil
+      quiet = { "ZR_COMPILED" => "0" }
+      announce = lambda do
         warn "zr: building the compiler with itself for faster builds, once for this zr (about a minute)"
-        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        ok = system({ "ZR_COMPILED" => "0" }, RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "build",
-                    File.join(Paths::ROOT, "exe/zr"), "-o", out, out: File::NULL)
-        answers = ok && IO.popen({ "ZR_COMPILED" => "0" }, [out, "version"], &:read) ==
-                        IO.popen({ "ZR_COMPILED" => "0" }, [RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "version"], &:read)
-        if answers && stamps == before
-          File.rename(out, binary)
-          Paths.write_atomic(manifest, Marshal.dump(before))
-          warn format("zr: built the compiled compiler in %.0f s", Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
-        else
-          warn "zr: the compiled compiler did not build; ruby runs zr"
-        end
-      ensure
-        File.unlink(out) if out && File.exist?(out)
+        began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
+      built = program.build(env: quiet, started: announce) do |out|
+        IO.popen(quiet, [out, "version"], &:read) == IO.popen(quiet, [RbConfig.ruby, program.entry, "version"], &:read)
+      end
+      return unless began
+
+      if built
+        warn format("zr: built the compiled compiler in %.0f s", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
+      else
+        warn "zr: the compiled compiler did not build; ruby runs zr"
       end
     end
   end

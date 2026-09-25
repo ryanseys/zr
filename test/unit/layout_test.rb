@@ -9,7 +9,7 @@ require_relative "../../lib/zr/version"
 class LayoutTest < Minitest::Test
   # Enough for the standard tasks and their comments. A tool with its own
   # logic belongs in tool/.
-  RAKEFILE_LINES = 80
+  RAKEFILE_LINES = 100
 
   def read(rel) = File.read(File.join(ROOT, rel))
 

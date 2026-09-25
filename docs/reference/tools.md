@@ -50,7 +50,8 @@ no arguments. Give paths and minitest options to `bin/test`.
 | `rake build` | Builds the runtime for this host: the runtime object, the prelinked image and eval support. `bin/test` also does this when the runtime is not built. |
 | `rake build:wasm` | Builds the runtime for `wasm32-wasi`. |
 | `rake build:all` | Builds the runtime for this host and for `wasm32-wasi`. |
-| `rake build:self` | Builds the compiled compiler. `exe/zr` then uses it until a file under `lib`, `runtime`, `vendor` or the library tree changes (see `ZR_COMPILED`). |
+| `rake build:self` | Builds the compiled compiler, `bin/zr`. `exe/zr` then uses it until a file under `lib`, `runtime`, `vendor` or the library tree changes (see `ZR_COMPILED`). |
+| `rake build:tools` | Compiles the `zr-dev` tools with zr, to `bin/zr-dev`. See [The compiled tools](#the-compiled-tools). |
 
 ### Test, lint and generate
 
@@ -208,3 +209,21 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 | `zr-dev cache live` | Lists the cache files of this checkout, and whether each is built. |
 | `zr-dev cache prune [--days N]` | Deletes all cache files that this checkout does not use and that are older than one day (`ZR_CACHE_DAYS`). `--days 3` keeps files used in the last 3 days. |
 | `zr-dev cache clear` | Deletes all the cache, also the files of this checkout. |
+
+## The compiled tools
+
+`rake build:tools` compiles `tool/zr-dev.rb` with zr, to `bin/zr-dev`.
+The binary runs the same commands as `ruby tool/zr-dev.rb`, and gives
+the same output. It is a test of zr: the tools are ordinary Ruby, and zr
+must compile them. git ignores `bin/zr`, `bin/zr-dev` and their
+manifests.
+
+- **A stale binary runs nothing.** The binary holds a copy of `lib/zr`.
+  When a file under `lib`, `runtime`, `vendor`, `tool` or
+  `test/support` changes, the binary gives the command to
+  `ruby tool/zr-dev.rb`. Run `rake build:tools` again to use the binary.
+- **Some commands run under ruby.** A generator that reads the running
+  ruby's own tables, the oracle, `record` and the `spec` commands that
+  ask ruby are `host_ruby!` commands. The binary gives them to ruby.
+- **Run it outside `bundle exec`.** A zr binary reads `RUBYOPT` as ruby
+  does, and bundler's setup does not run in a zr binary.

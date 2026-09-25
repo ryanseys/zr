@@ -24,6 +24,7 @@ module Zr
     }.freeze
 
     def self.start(argv)
+      hand_to_ruby!(argv) if Zr.compiled? && !tools.current?
       word = argv.first
       return help if word.nil? || %w[help -h --help].include?(word)
 

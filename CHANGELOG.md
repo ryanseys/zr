@@ -40,6 +40,8 @@ The first release as a RubyGem.
 - `bin/setup`, `bin/test` and `bin/console` for work in a checkout.
   `bin/test` builds the runtime when it is missing or out of date.
 - `zr help <command>` and `zr <command> --help`.
+- `rake build:self` writes the compiled compiler to `bin/zr`, and
+  `rake build:tools` compiles the `zr-dev` tools with zr to `bin/zr-dev`.
 
 ### Changed
 
