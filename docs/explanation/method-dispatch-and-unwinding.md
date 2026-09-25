@@ -51,6 +51,16 @@ Some operations do not send while nobody changed them:
   (`FL_RANKED`) that tells that it is in Object's family and that no box
   changed it. Then `klass.is_a?(mod)` is two ranks and one load, inline
   at the site. A module, or a class without ranks, does the call.
+- A `case` whose `when` values are six or more constant paths (`when
+  Hir::Send, Hir::Call`) has a table from the subject's class to the
+  arm. The table is valid for one cref, one method stamp and one
+  constant stamp. On a hit, a tree of branches on the arm index goes to
+  the arm's body, with no `===` send. On a miss, the `when` chain runs as
+  before, and the kernel adds a row only if each value that the chain
+  tested came from its constant's cache entry and has Module#===. A
+  `def Foo.===`, a changed Module#===, a Range constant or a box thus
+  keeps the chain. A traced program keeps the chain too, so each `===`
+  gives its event.
 - A cache entry for an attribute reader or writer, `nil?`, `frozen?`,
   `Array#size`, BasicObject's `==`/`!=` or one of the type checks has a
   *shape*. The site then does the body in place, with the entry's own
