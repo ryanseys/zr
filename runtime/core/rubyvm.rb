@@ -144,25 +144,30 @@ class RubyVM
     alias disassemble disasm
 
     def to_a = Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#to_a")
-    # The :line events a compiled string's top level fires: one on each
-    # line a statement starts, as the compiler puts them.
+    # The :line events of this code: each statement that starts a line,
+    # as prism flags it, outside the methods, blocks and class bodies in
+    # it, which are code of their own.
     def trace_points
-      code = Primitive.zr_hidden_get(self, :__source__)
-      return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#trace_points of a block or a method") if code.nil?
+      node = syntax or return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#trace_points of a block or a method")
 
-      statements = ::Prism.parse(code, line: first_lineno).value.statements.body
-      statements.select(&:newline?).map { |node| node.location.start_line }.uniq.map { |line| [line, :line] }
+      # The :call, :b_call or :class event of a def, block or class body
+      # is on its first line, so a statement there gives no :line event.
+      seed = scope?(node) ? [node.location.start_line] : []
+      lines = seed.dup
+      line_events(node, lines)
+      lines.drop(seed.size).map { |line| [line, :line] }
     end
-    # The code that a compiled string contains directly: each method, block
-    # and class body it writes, in the order the compiler finds them. A
-    # block's or a method's own code has no kept source to read.
-    def each_child(&block)
-      code = Primitive.zr_hidden_get(self, :__source__)
-      return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#each_child of a block or a method") if code.nil?
 
-      children = []
-      nested(::Prism.parse(code, line: first_lineno).value, children)
-      children.each(&block)
+    # The code that this code contains directly: each method, block and
+    # class body it writes, in the order the compiler finds them.
+    def each_child(&block)
+      node = syntax or return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#each_child of a block or a method")
+
+      # The rescue and ensure clauses come first, from the catch table.
+      handlers, rest = [], []
+      nested(node, handlers, rest)
+      handlers.each(&block)
+      rest.each(&block)
       self
     end
 
@@ -179,7 +184,7 @@ class RubyVM
     # The child code under `node`, as iseqs made of their labels: a def
     # is its name, a block is "block in" the code around it, a class
     # body "<class:Name>". Their own children are theirs, not these.
-    def nested(node, out)
+    def nested(node, handlers, out)
       Primitive.attr! :hidden
       node.compact_child_nodes.each do |child|
         name = case child
@@ -188,12 +193,77 @@ class RubyVM
                when ::Prism::ClassNode then "<class:#{child.constant_path.slice}>"
                when ::Prism::ModuleNode then "<module:#{child.constant_path.slice}>"
                when ::Prism::SingletonClassNode then +"singleton class"
+               when ::Prism::RescueNode then "rescue in #{label}" unless node.is_a?(::Prism::RescueNode)
+               when ::Prism::EnsureNode then "ensure in #{label}"
                end
-        next nested(child, out) unless name
+        next nested(child, handlers, out) unless name
 
-        base = child.is_a?(::Prism::BlockNode) || child.is_a?(::Prism::LambdaNode) ? label : name
-        out << self.class.send(:made, nil, nil, name, base, path, child.location.start_line)
+        handler = child.is_a?(::Prism::RescueNode) || child.is_a?(::Prism::EnsureNode)
+        base = handler || child.is_a?(::Prism::BlockNode) || child.is_a?(::Prism::LambdaNode) ? label : name
+        # An ensure clause's code starts at its first statement.
+        line = (child.statements&.location&.start_line if child.is_a?(::Prism::EnsureNode)) || child.location.start_line
+        iseq = self.class.send(:made, nil, nil, name, base, path, line)
+        Primitive.zr_hidden_set(iseq, :__syntax__, child)
+        (handler ? handlers : out) << iseq
       end
+    end
+
+    # The tree of this code: the parsed string, or the node of a child.
+    # The code of a running frame has neither.
+    def syntax
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__syntax__) || Primitive.zr_hidden_get(self, :__source__)&.then do |code|
+        Primitive.zr_hidden_set(self, :__syntax__, ::Prism.parse(code, line: first_lineno).value)
+      end
+    end
+
+    # A :line event for each statement under `node` that starts a line
+    # other than the last event's, as the compiler emits them, outside the
+    # code of its own that a def, block, class body or rescue clause is.
+    # An ensure clause is both: the compiler puts a copy of it inline.
+    def line_events(node, lines)
+      Primitive.attr! :hidden
+      node.compact_child_nodes.each do |child|
+        line = child.location.start_line
+        live = live_branch(child)
+        # A begin compiles to nothing before its first statement, whose
+        # event takes the place of its own; so does a condition that is a
+        # literal, which leaves only the branch it takes. With no branch,
+        # the last statement of a list still gives its value, a nil.
+        own = live.nil? || (live == false && node.is_a?(::Prism::StatementsNode) && child.equal?(node.body.last))
+        lines << line if child.newline? && lines.last != line && !(child.is_a?(::Prism::BeginNode) && child.statements) && own
+        next if scope?(child) || (child.is_a?(::Prism::RescueNode) && !node.is_a?(::Prism::RescueNode))
+        if live
+          # An elsif is a statement of its own there.
+          lines << live.location.start_line if live.is_a?(::Prism::IfNode) && lines.last != live.location.start_line
+          next line_events(live, lines)
+        end
+        next if live == false
+
+        line_events(child, lines)
+      end
+    end
+
+    # The branch that an if or unless with a literal condition takes (false
+    # when there is none), or nil for any other node.
+    def live_branch(node)
+      Primitive.attr! :hidden
+      return nil unless node.is_a?(::Prism::IfNode) || node.is_a?(::Prism::UnlessNode)
+
+      truth = case node.predicate
+              when ::Prism::TrueNode, ::Prism::IntegerNode, ::Prism::FloatNode, ::Prism::StringNode, ::Prism::SymbolNode then true
+              when ::Prism::FalseNode, ::Prism::NilNode then false
+              else return nil
+              end
+      taken = truth == node.is_a?(::Prism::IfNode) ? node.statements : (node.is_a?(::Prism::IfNode) ? node.subsequent : node.else_clause)
+      taken || false
+    end
+
+    # Whether `node` is code of its own: a def, a block or a class body.
+    def scope?(node)
+      Primitive.attr! :hidden
+      node.is_a?(::Prism::DefNode) || node.is_a?(::Prism::BlockNode) || node.is_a?(::Prism::LambdaNode) ||
+        node.is_a?(::Prism::ClassNode) || node.is_a?(::Prism::ModuleNode) || node.is_a?(::Prism::SingletonClassNode)
     end
   end
 

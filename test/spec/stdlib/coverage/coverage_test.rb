@@ -281,4 +281,44 @@ describe "Coverage programs" do
       Hash
     OUT
   end
+
+  it "line_stub and trace_points see the lines in branches, blocks and handlers" do
+    result = zr(<<~'RUBY')
+      require "coverage"
+      path = File.join(Dir.pwd, "covered.rb")
+      File.write(path, <<~SRC)
+        x = 1
+        if x > 0
+          y = 2
+        else
+          w = 4
+        end
+        def m(a)
+          [a].each do |i|
+            puts i
+          end
+        end
+        begin
+          z = 1
+        rescue => e
+          e2 = 2
+        ensure
+          e3 = 3
+        end
+        q = 1 if false
+      SRC
+      p Coverage.line_stub(path)
+      iseq = RubyVM::InstructionSequence.compile_file(path)
+      p iseq.trace_points.select { |_, type| type == :line }.map(&:first)
+      iseq.each_child { |child| p [child.label, child.first_lineno, child.trace_points.select { |_, type| type == :line }.map(&:first)] }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [0, 0, 0, nil, 0, nil, 0, 0, 0, nil, nil, nil, 0, nil, 0, nil, 0, nil, 0]
+      [1, 2, 3, 5, 7, 13, 17, 19]
+      ["rescue in <main>", 14, [15]]
+      ["ensure in <main>", 17, [17]]
+      ["m", 7, [8]]
+    OUT
+  end
 end

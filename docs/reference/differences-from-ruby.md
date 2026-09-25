@@ -21,7 +21,7 @@ Each row gives the spec that tests the behavior, where there is one.
 |---|---|---|
 | `RubyVM::InstructionSequence#disasm`, `#disassemble`, `#to_a` | `NotImplementedError`: zr compiles to machine code, and has no YARV bytecode to show | the bytecode |
 | `RubyVM::InstructionSequence#to_binary` of a compiled string | `NotImplementedError`, for the same reason | the bytecode as a String |
-| `#each_child` and `#trace_points` of the iseq of a block or a method | `NotImplementedError`: the binary does not keep the source of a block | the child iseqs, and the events |
+| `#each_child` and `#trace_points` of the iseq of a running block or method (`RubyVM::InstructionSequence.of`) | `NotImplementedError`: the binary does not keep the source of a block. The children of a compiled string answer both. | the child iseqs, and the events |
 | `Coverage.setup(eval: true)`, then an eval while coverage runs | `NotImplementedError` at the eval: the string is not a file that the build read, so zr cannot measure its lines. A program that asks for eval coverage and never evals gets ruby's result. | the lines of the eval in the result |
 | The message of a `SyntaxError` from `RubyVM::AbstractSyntaxTree.parse` | prism's message: zr parses only with prism | the message of ruby's older parser, parse.y |
 | `GC::Profiler.raw_data` and `GC::Profiler.result` | an empty list and an empty report: the collector keeps no data for each run | data for each run |
