@@ -5,7 +5,7 @@ require "test_helper"
 # The compiler's layers are the first directory under `lib/zr` (hir, ir,
 # lower, machine, backend, obj, native, eval, libraries, prism_backend),
 # or "top" for a file directly under `lib/zr`. `top` holds both the leaf
-# utilities (`Zr::Record`, `Zr::Refused`, `Zr::Bytes`, `Zr::Target`,
+# utilities (`Zr::Refused`, `Zr::Bytes`, `Zr::Target`,
 # `Zr::Paths`, ...) that every layer may use, and each subsystem's own
 # aggregator file (`hir.rb`, `ir.rb`, `lower.rb`, `eval.rb`, ...), which
 # may in turn use any layer to assemble it.

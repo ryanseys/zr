@@ -16,7 +16,7 @@ require_relative "../support/e2e"
 # The test loads the library itself. It does not examine what earlier
 # tests loaded, so the result does not depend on the load order.
 class MethodNameCollisionTest < Minitest::Test
-  # A Zr::Record is equal by value, like a Struct.
+  # A Struct or Data record is equal by value.
   DELIBERATE = %i[initialize to_s inspect == eql? hash].freeze
 
   # Examine only the library. The tests also put modules in `Zr`, and

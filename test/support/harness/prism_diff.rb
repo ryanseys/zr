@@ -3,7 +3,6 @@
 require "fileutils"
 require "prism"
 require_relative "child"
-require_relative "../../../lib/zr/record"
 
 module Zr
   module Harness
@@ -26,18 +25,7 @@ module Zr
       # zr's own Ruby, parsed under the latest syntax.
       OWN = %w[runtime lib test vendor].freeze
 
-      class Case < ::Zr::Record
-        FIELDS = %i[name source options].freeze
-        attr_accessor :name, :source, :options
-
-        def initialize(name = nil, source = nil, options = nil)
-          @name = name
-          @source = source
-          @options = options
-        end
-
-        def to_a = [@name, @source, @options]
-      end
+      Case = Struct.new(:name, :source, :options)
 
       module_function
 
@@ -63,24 +51,7 @@ module Zr
       RUBY_BACKEND = File.join(ROOT, "lib/zr/prism_backend")
 
       # The counts of one test file, as test-unit reports them.
-      class TestRun < ::Zr::Record
-        FIELDS = %i[file tests assertions failures errors pendings omissions output].freeze
-        attr_accessor :file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output
-
-        def initialize(file = nil, tests = nil, assertions = nil, failures = nil, errors = nil, pendings = nil, omissions = nil,
-                       output = nil)
-          @file = file
-          @tests = tests
-          @assertions = assertions
-          @failures = failures
-          @errors = errors
-          @pendings = pendings
-          @omissions = omissions
-          @output = output
-        end
-
-        def to_a = [@file, @tests, @assertions, @failures, @errors, @pendings, @omissions, @output]
-
+      TestRun = Struct.new(:file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output) do
         def passed? = !tests.nil? && failures.zero? && errors.zero?
         def counts = to_a[1..6]
       end

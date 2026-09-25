@@ -1,23 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "../../../lib/zr/record"
 
 module Zr
   module Harness
     # The output of a program: stdout, stderr, exit status and signal.
-    class Answer < ::Zr::Record
-      FIELDS = %i[stdout stderr code signal].freeze
-      attr_accessor :stdout, :stderr, :code, :signal
-
-      def initialize(stdout = nil, stderr = nil, code = nil, signal = nil)
-        @stdout = stdout
-        @stderr = stderr
-        @code = code
-        @signal = signal
-      end
-
-      def to_a = [@stdout, @stderr, @code, @signal]
-
+    Answer = Struct.new(:stdout, :stderr, :code, :signal) do
       def self.blank
         new(+"".b, +"".b, 0, nil)
       end

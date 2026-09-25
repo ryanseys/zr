@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "../gen"
-require_relative "../../lib/zr/record"
 
 module Zr
   module Dev
@@ -134,36 +133,12 @@ module Zr
         # end of the encoding (GB18030's four-byte characters cause this).
         # `irregular` is true when the walk found a form these rules cannot
         # represent.
-        class Walk < Zr::Record
-          FIELDS = %i[trails lengths partial irregular].freeze
-          attr_accessor :trails, :lengths, :partial, :irregular
-
-          def initialize(trails = nil, lengths = nil, partial = nil, irregular = nil)
-            @trails = trails
-            @lengths = lengths
-            @partial = partial
-            @irregular = irregular
-          end
-
-          def to_a = [@trails, @lengths, @partial, @irregular]
-        end
+        Walk = Struct.new(:trails, :lengths, :partial, :irregular)
 
         # The data that a conversion from an encoding needs: the code point of
         # each character that its converter reads, the few characters that need
         # more than one code point, and the rows that contain both.
-        class Rows < Zr::Record
-          FIELDS = %i[rows mapped multi partial].freeze
-          attr_accessor :rows, :mapped, :multi, :partial
-
-          def initialize(rows = nil, mapped = nil, multi = nil, partial = nil)
-            @rows = rows
-            @mapped = mapped
-            @multi = multi
-            @partial = partial
-          end
-
-          def to_a = [@rows, @mapped, @multi, @partial]
-        end
+        Rows = Struct.new(:rows, :mapped, :multi, :partial)
 
         # Yields each prefix that a character can start with, one at a time.
         # `kind` is the method (`probe` or `convert`) that classifies a byte

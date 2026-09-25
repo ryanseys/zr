@@ -26,7 +26,7 @@ Lint:
 Lint/AmbiguousOperatorPrecedence: { Enabled: false } # style
 Lint/AmbiguousBlockAssociation: { Enabled: false }   # style
 Lint/DuplicateBranch: { Enabled: false }             # a case keeps one branch per form
-Lint/MissingSuper: { Enabled: false }                # a Record sets its own fields
+Lint/MissingSuper: { Enabled: false }                # a record's initialize can set its own fields
 Lint/UselessConstantScoping: { Enabled: false }      # style
 Lint/RedundantDirGlobSort: { Enabled: false }        # zr's own Dir.glob, in a compiled compiler, may not sort
 Lint/HashCompareByIdentity: { Enabled: false }       # style

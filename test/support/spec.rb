@@ -13,7 +13,6 @@ require_relative "slow"
 require_relative "binaries"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/runtime"
-require_relative "../../lib/zr/record"
 
 module Zr
   # Runs spec examples. An example is a Ruby program that zr compiles and
@@ -28,19 +27,7 @@ module Zr
     # The output of a compiled program. When a POSIX signal stopped the
     # process, `signal` is set and `status` is nil, because such a
     # process has no exit status.
-    class Result < ::Zr::Record
-      FIELDS = %i[stdout stderr status signal].freeze
-      attr_accessor :stdout, :stderr, :status, :signal
-
-      def initialize(stdout = nil, stderr = nil, status = nil, signal = nil)
-        @stdout = stdout
-        @stderr = stderr
-        @status = status
-        @signal = signal
-      end
-
-      def to_a = [@stdout, @stderr, @status, @signal]
-
+    Result = Struct.new(:stdout, :stderr, :status, :signal) do
       def success? = status.zero? && signal.nil?
     end
 
