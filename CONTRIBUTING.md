@@ -32,6 +32,8 @@ form by name. See [The contract](docs/explanation/the-contract.md).
 
 ## Style
 
+- Write idiomatic Ruby, and fix zr when zr makes it slow. See
+  [How zr's Ruby is written](docs/explanation/ruby-style.md).
 - Plain English in comments and docs: short sentences, active voice,
   one term for one concept. The [glossary](docs/reference/glossary.md)
   lists the terms.

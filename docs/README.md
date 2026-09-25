@@ -62,3 +62,4 @@ Why zr is as it is.
 - [How the tests run](explanation/how-the-tests-run.md)
 - [Bootstrapping](explanation/bootstrapping.md)
 - [Why zr has no C](explanation/why-zr-has-no-c.md)
+- [How zr's Ruby is written](explanation/ruby-style.md)
