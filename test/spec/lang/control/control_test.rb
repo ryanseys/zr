@@ -2391,4 +2391,30 @@ describe "Control programs" do
       :no_retry
     OUT
   end
+
+  it "a top-level return of a value warns as the file compiles" do
+    result = zr(<<~'RUBY')
+      puts 1
+      begin
+        return 5 if true
+      ensure
+        puts 2
+      end
+      puts 3
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "lang/control/control_test.rb: warning: argument of top-level return is ignored\n"
+      1
+      2
+    OUT
+  end
+
+  it "a return in a top-level block does not warn" do
+    result = zr(<<~'RUBY')
+      1.times { return 4 }
+      puts :not_reached
+    RUBY
+
+    _(result).must_answer ""
+  end
 end

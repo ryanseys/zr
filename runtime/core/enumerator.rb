@@ -10,6 +10,8 @@ class Enumerator
 
   class Yielder
     def initialize(&block)
+      raise LocalJumpError, +"no block given" unless block
+
       @block = block
     end
 

@@ -392,7 +392,7 @@ class Set
     if args.empty?
       args = [self]
     else
-      Warning.warn("#{Primitive.zr_warn_position}warning: passing arguments to Set#to_set is deprecated\n", category: :deprecated) if Warning[:deprecated]
+      Warning.send(:deprecated, "passing arguments to Set#to_set is deprecated")
       klass = args[0]
       args[0] = self
     end

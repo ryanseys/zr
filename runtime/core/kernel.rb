@@ -304,21 +304,39 @@ module Kernel
     Primitive.zr_obj_clone(self, freeze)
   end
 
-  # Each message on its own line. The first line contains the position
-  # `uplevel` frames above this call. A category that the program turned
-  # off writes nothing.
+  # warning.rb's Kernel#warn and rb_warn_m: the messages as `puts` writes
+  # them, after the position `uplevel` frames above this call. A category
+  # that the program turned off writes nothing.
   def warn(*msgs, uplevel: nil, category: nil)
     Primitive.attr! :ruby
-    # rb_warn_m: silence, with $VERBOSE nil, says nothing at all.
-    return nil if msgs.empty? || $VERBOSE.nil?
-    return nil if category && !Warning[category]
+    unless category.nil?
+      # rb_to_symbol_type: a Symbol, or what `to_sym` makes one.
+      unless category.is_a?(Symbol)
+        raise TypeError, "no implicit conversion of #{conversion_name(category)} into Symbol" unless category.respond_to?(:to_sym)
 
-    text = msgs.flatten.map { |m| m.to_s.end_with?("\n") ? m.to_s : "#{m}\n" }.join
-    unless uplevel.nil?
-      frame = caller(implicit_integer(uplevel) + 1, 1)&.first
-      text = "#{frame ? "#{frame.sub(/:in .*\z/, '')}: " : ''}warning: #{text}"
+        symbol = category.to_sym
+        unless symbol.is_a?(Symbol)
+          raise TypeError, "can't convert #{conversion_name(category)} to Symbol (#{conversion_name(category)}#to_sym gives #{conversion_name(symbol)})"
+        end
+        category = symbol
+      end
+      return nil unless Warning[category]
     end
-    Warning.warn(text, category: category)
+    return nil if msgs.empty? || $VERBOSE.nil?
+
+    text = msgs.first
+    unless msgs.size == 1 && uplevel.nil? && text.is_a?(String) && text.end_with?("\n")
+      text = +""
+      unless uplevel.nil?
+        level = implicit_integer(uplevel)
+        raise ArgumentError, "negative level (#{level})" if level.negative?
+
+        at = caller_locations(level + 1, 1)&.first
+        text << (at&.path ? "#{at.path}:#{at.lineno}: warning: " : "warning: ")
+      end
+      IO.send(:each_line_of, msgs) { |*parts| parts.each { |part| text << part } }
+    end
+    Warning.send(:emit, text, category)
     nil
   end
 

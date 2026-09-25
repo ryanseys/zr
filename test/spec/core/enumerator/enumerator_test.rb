@@ -277,4 +277,17 @@ describe "Enumerator" do
       [1, 2, 3]
     OUT
   end
+
+  it "Yielder.new needs a block" do
+    result = zr(<<~'RUBY')
+      begin; Enumerator::Yielder.new; rescue => e; p e.class, e.message; end
+      p Enumerator.new { |y| y << 1 << 2; y.yield 3 }.to_a
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      LocalJumpError
+      "no block given"
+      [1, 2, 3]
+    OUT
+  end
 end

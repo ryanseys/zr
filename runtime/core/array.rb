@@ -145,9 +145,7 @@ class Array
   # Array, whose own elements join the text as the rest do.
   def join(sep = nil)
     # rb_ary_join_m: a join that falls back to `$,` warns that it did.
-    if sep.nil? && !(sep = $,).nil? && Warning[:deprecated]
-      Warning.warn("#{Primitive.zr_warn_position}warning: $, is set to non-nil value\n", category: :deprecated)
-    end
+    Warning.send(:deprecated, "$, is set to non-nil value") if sep.nil? && !(sep = $,).nil?
     return Primitive.zr_str_usascii(+"") if (Primitive.zr_ary_len_m(self) == 0)
 
     sep = sep.nil? ? +"" : Primitive.zr_str_operand(sep)

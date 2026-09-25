@@ -359,7 +359,8 @@ module Zr
           @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
           @covers ||= !Build.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
           @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
-          build = Build.new(file, self, source_encoding(result, source), shadowed: shadowed(result.value), root: result.value)
+          build = Build.new(file, self, source_encoding(result, source), shadowed: shadowed(result.value), root: result.value,
+                                                                         eval: !scopes.nil?)
           build.within_method(method, scopes) if scopes && method
           # An activation entry belongs to the program, not the file, so
           # the unit cache cannot keep a file that takes one.

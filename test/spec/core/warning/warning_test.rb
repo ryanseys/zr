@@ -234,4 +234,97 @@ describe "Warning programs" do
       performance: core/warning/warning_test.rb:35: warning: Redefining 'NilClass#nil?' disables interpreter and JIT optimizations
     ERR
   end
+
+  it "Warning checks types and categories, and warn follows rb_warn_m" do
+    result = zr(<<~'RUBY')
+      $stderr = $stdout
+      def t(l) = (r = yield; puts "#{l}: #{r.inspect}") rescue puts("#{l}: #{$!.class}: #{$!.message}")
+      t(1) { Warning[:deprecated] = 1 }
+      t(2) { Warning[:deprecated] = nil; Warning[:deprecated] }
+      t(3) { Warning["deprecated"] }
+      t(4) { warn "x", category: "deprecated" }
+      t(5) { warn "x", category: nil }
+      t(6) { Warning[:performance] = true; warn "perf", category: :performance }
+      t(7) { warn "a\n", "b" }
+      t(8) { warn "q", uplevel: 1 }
+      t(9) { def w9 = warn("in w9", uplevel: 1); w9 }
+      t(10) { warn "x", uplevel: "1" }
+      t(11) { warn "x", uplevel: nil }
+      t(12) { warn 1, :sym, 2.5 }
+      t(13) { Warning.warn("no newline") ; puts }
+      t(14) { Warning.warn(:sym) }
+      t(15) { Warning.warn("x", category: :bogus) }
+      t(16) { module Warning; def self.warn(msg, category: nil, **kw) = print("W(#{category.inspect},#{kw}) #{msg}"); end; warn "via hook", category: :experimental; warn "d", category: :deprecated }
+      t(17) { Warning[:experimental] = true; warn "exp2", category: :experimental }
+      t(18) { $VERBOSE = nil; warn "silent?"; :after }
+      t(19) { $VERBOSE = false; warn "back" }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1: 1
+      2: false
+      3: TypeError: wrong argument type String (expected Symbol)
+      4: nil
+      x
+      5: nil
+      perf
+      6: nil
+      a
+      b
+      7: nil
+      core/warning/warning_test.rb:2: warning: q
+      8: nil
+      core/warning/warning_test.rb:11: warning: in w9
+      9: nil
+      10: TypeError: no implicit conversion of String into Integer
+      x
+      11: nil
+      1
+      sym
+      2.5
+      12: nil
+      no newline
+      13: nil
+      14: TypeError: wrong argument type Symbol (expected String)
+      15: ArgumentError: unknown category: bogus
+      W(:experimental,{}) via hook
+      16: nil
+      W(:experimental,{}) exp2
+      17: nil
+      18: :after
+      W(nil,{}) back
+      19: nil
+    OUT
+  end
+
+  it "a negative uplevel, a bad category and a one-argument Warning.warn" do
+    result = zr(<<~'RUBY')
+      def t(label)
+        p [label, yield]
+      rescue => e
+        p [label, e.class, e.message]
+      end
+      t(1) { warn "x", uplevel: -1 }
+      t(2) { warn "x", category: 5 }
+      t(3) { Warning.warn("x", category: "deprecated") }
+      t(4) { Warning[:deprecated] = :yes }
+      t(5) { Warning[:deprecated] }
+      t(6) { Warning.warn("x".encode("UTF-16LE")) }
+      module Warning
+        def self.warn(message) = print("ONE #{message}")
+      end
+      t(7) { warn "arity one", category: :experimental }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, ArgumentError, "negative level (-1)"]
+      [2, TypeError, "no implicit conversion of Integer into Symbol"]
+      [3, TypeError, "wrong argument type String (expected Symbol)"]
+      [4, :yes]
+      [5, true]
+      [6, Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+      ONE arity one
+      [7, nil]
+    OUT
+  end
 end

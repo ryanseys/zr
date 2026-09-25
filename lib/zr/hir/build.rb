@@ -133,8 +133,9 @@ module Zr
                     loader.covers? ? loader.defs : {})
       end
 
-      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {}, root: nil)
+      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {}, root: nil, eval: false)
         @file = file
+        @eval = eval
         @loader = loader
         @root = root
         @node_ids = loader&.node_ids
@@ -190,6 +191,15 @@ module Zr
       # The warnings ruby's compiler gives for the file's regexp literals,
       # after the parser's own.
       attr_reader :warnings
+
+      # Ruby's compiler warns as it compiles a file (not an eval) with a
+      # `return` of a value at its top level, where the value goes
+      # nowhere. The warning has the file and no line.
+      def top_return_warning
+        return if @eval || @in_def || @block_depth.positive? || @path != [Object.name]
+
+        @warnings << "#{Paths.shown(@file)}: warning: argument of top-level return is ignored"
+      end
 
       # The hidden locals the toplevel scope needs.
       def temps = @temps.first
@@ -521,7 +531,9 @@ module Zr
           body, = branch_covers(:until, span(node.location), loop_sides(node))
           While.new(falsy(expr(node.predicate), line), covered(body, node.statements && seq(node.statements, taken: false), line), line,
                     node.begin_modifier?)
-        when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
+        when Prism::ReturnNode
+          top_return_warning if node.arguments
+          Return.new(jump_value(node.arguments, line), line)
         # The left side decides, so its value is always used. The right
         # side is the result, so it has the pair's `taken`.
         when Prism::AndNode then And.new(expr(node.left), expr(node.right, taken: taken), line)
