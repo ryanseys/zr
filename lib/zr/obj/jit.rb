@@ -3,7 +3,7 @@
 require_relative "model"
 require_relative "patch"
 require_relative "../bytes"
-require_relative "../backend/aarch64/relocs"
+require_relative "relocs/aarch64"
 
 module Zr
   module Obj
@@ -51,10 +51,10 @@ module Zr
         code = layout(unit.functions, 16)
         imports = unit.imports
         stubs = imports.each_with_index.to_h { |name, i| [name, code[:size] + (i * 16)] }
-        code_size = [align(code[:size] + (imports.size * 16), PAGE), PAGE].max
+        code_size = [Bytes.align(code[:size] + (imports.size * 16), PAGE), PAGE].max
         data = layout(unit.data, 16)
         got = imports.each_with_index.to_h { |name, i| [name, data[:size] + (i * 8)] }
-        data_size = [align(data[:size] + (imports.size * 8), PAGE), PAGE].max
+        data_size = [Bytes.align(data[:size] + (imports.size * 8), PAGE), PAGE].max
 
         # One reservation contains both parts, so the data is within adrp
         # reach of the code. With only a hint, the kernel can put the data
@@ -106,7 +106,6 @@ module Zr
       private
 
       def layout(items, item_align) = Patch.layout(items, item_align)
-      def align(n, a) = Bytes.align(n, a)
 
       def map(size, exec:, at: nil, near: 0)
         @host.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"
@@ -117,7 +116,7 @@ module Zr
       # also an import. An import uses its GOT slot for a GOT relocation,
       # its stub for a call, and its address for all other relocations.
       def patched(item, base, addresses, data_base, got)
-        Patch.apply(item, base, Backend::Aarch64::Relocs) do |r|
+        Patch.apply(item, base, Relocs::Aarch64) do |r|
           if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]
           elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
           elsif r.kind == :branch26 then @symbols.fetch(r.symbol)

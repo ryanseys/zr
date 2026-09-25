@@ -69,7 +69,7 @@ module Zr
 
           blobs = { text: [%i[text stubs const], BASE + PAGE, text_size - PAGE], got: [%i[got], got_vm, got_size],
                     data: [%i[dconst data], data_vm, data_filesize] }.transform_values do |parts, start, size|
-            parts.inject(+"".b) { |out, part| pad(out, block.at(part) - start) << block.bytes(part) }.then { |out| pad(out, size) }
+            parts.inject(+"".b) { |out, part| Bytes.pad(out, block.at(part) - start) << block.bytes(part) }.then { |out| Bytes.pad(out, size) }
           end
           # A slot must be in the file bytes. The zero-fill tail has no slots.
           bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] }
@@ -113,8 +113,6 @@ module Zr
           block.place(part, at)
           at + block.size(part)
         end
-
-        def self.pad(bytes, to) = Bytes.pad(bytes, to)
 
         # The SHA-256 of each 4 KB page of `bytes`, one after another.
         def self.page_hashes(bytes)

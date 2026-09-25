@@ -275,10 +275,10 @@ module Zr
         # `start`. The parts are in address order, so this appends each one.
         def top_bytes(parts, start, size)
           out = parts.inject(+"".b) do |bytes, part|
-            pad(bytes, @top.at(part) - start)
+            Bytes.pad(bytes, @top.at(part) - start)
             bytes << @top.bytes(part)
           end
-          pad(out, size)
+          Bytes.pad(out, size)
           out
         end
 
@@ -378,11 +378,11 @@ module Zr
 
           out = +"".b
           out << fixups
-          pad(out, @trie_at - @link_at)
+          Bytes.pad(out, @trie_at - @link_at)
           out << trie
-          pad(out, @symoff - @link_at)
+          Bytes.pad(out, @symoff - @link_at)
           out << symbols << strings
-          pad(out, @sig_at - @link_at)
+          Bytes.pad(out, @sig_at - @link_at)
           @linkedit = out
         end
 
@@ -584,8 +584,6 @@ module Zr
           slots = (@sig_at + HASH_PAGE - 1) / HASH_PAGE
           20 + 88 + File.basename(@out).bytesize + 1 + (slots * 32)
         end
-
-        def pad(bytes, to) = Bytes.pad(bytes, to)
       end
     end
   end

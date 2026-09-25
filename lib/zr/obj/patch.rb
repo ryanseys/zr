@@ -6,7 +6,7 @@ module Zr
   module Obj
     # Applies relocations against known addresses. All formats have
     # `abs64`. Instruction relocations are specific to the instruction set;
-    # `relocs` (`Backend::Aarch64::Relocs`) contains their bit patterns.
+    # `relocs` (`Obj::Relocs::Aarch64`) contains their bit patterns.
     #
     # `Obj::JIT` patches for addresses in this process, and
     # `Obj::MachO::Executable` for addresses in the image that it writes.

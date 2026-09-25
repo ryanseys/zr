@@ -43,7 +43,6 @@ class LayeringTest < Minitest::Test
   # `backend/aarch64` for a detail (relocations, the frame stub) that
   # belongs to the object writer or the machine dialect instead.
   KNOWN = {
-    %w[obj backend] => %w[obj/jit.rb obj/macho/block.rb],
     %w[machine backend] => %w[machine/lower.rb],
   }.freeze
 

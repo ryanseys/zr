@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 module Zr
-  module Backend
-    module Aarch64
-      # Applies the arm64 relocations that `Codegen` records to a known
-      # address. The bit patterns are in this file only. `Obj::Patch` gives
-      # each relocation with the address of its symbol.
-      # `Obj::MachO::Executable` calls `word` directly.
-      module Relocs
+  module Obj
+    module Relocs
+      # Applies the arm64 relocations that `Backend::Aarch64::Codegen`
+      # records to a known address. The bit patterns are in this file only.
+      # `Obj::Patch` gives each relocation with the address of its symbol.
+      # `Obj::MachO::Block` calls `encode` directly.
+      module Aarch64
         KINDS = %i[branch26 page21 got_page21 pageoff12 got_pageoff12].freeze
 
         module_function

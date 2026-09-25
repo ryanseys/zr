@@ -3,7 +3,7 @@
 require_relative "object_file"
 require_relative "../patch"
 require_relative "../../bytes"
-require_relative "../../backend/aarch64/relocs"
+require_relative "../relocs/aarch64"
 require_relative "../../refused"
 
 module Zr
@@ -143,10 +143,10 @@ module Zr
           else
             out = +"".b
             @chunks.fetch(part).each do |i, k, off|
-              pad(out, off)
+              Bytes.pad(out, off)
               out << @inputs[i].sections[k].bytes
             end
-            pad(out, size(part))
+            Bytes.pad(out, size(part))
             @chunks.fetch(part).each { |i, k, off| relocate(part, out, off, i, @inputs[i].sections[k].relocs) }
             out
           end
@@ -310,7 +310,7 @@ module Zr
               elsif target.nil?
                 raise Refused, "#{@links[i][s]} has no place in the image"
               end
-              patched = Backend::Aarch64::Relocs.encode(kind, word(out, here), target + addend, place)
+              patched = Relocs::Aarch64.encode(kind, word(out, here), target + addend, place)
               raise Refused, "a #{kind} to #{@inputs[i].name(s).delete_prefix("_")} is out of reach" unless patched
 
               4.times { |n| out.setbyte(here + n, (patched >> (8 * n)) & 0xFF) }
@@ -353,8 +353,6 @@ module Zr
           end
           "\0".b * size(:got)
         end
-
-        def pad(bytes, to) = Bytes.pad(bytes, to)
       end
 
       # Chained fixups. Each slot that dyld writes contains an entry. The
