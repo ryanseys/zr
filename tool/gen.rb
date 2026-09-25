@@ -34,6 +34,8 @@ module Zr
                              -> { require_relative "gen/onig_encodings"; OnigEncodings }],
         "tables" => ["runtime/*/os/<os>/: this OS's errno, fcntl, etc and socket", -> { require_relative "gen/tables"; Tables }],
         "nkf" => ["runtime/ext/nkf/tables.rb: nkf's conversion tables", -> { require_relative "gen/nkf"; Nkf }],
+        "openssl_constants" => ["runtime/ext/openssl/ossl/constants.rb: openssl's Integer constants",
+                                -> { require_relative "gen/openssl_constants"; OpensslConstants }],
         "zlib_tables" => ["runtime/kernel/zlib_tables.rb: zlib's tables, computed as zlib's C computes them",
                           -> { require_relative "gen/zlib_tables"; ZlibTables }],
         "description" => ["runtime/ext/os/<os>/zr_description.rb: the kernel tables", -> { require_relative "gen/description"; Description }],
