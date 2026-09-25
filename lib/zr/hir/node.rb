@@ -10,6 +10,12 @@ module Zr
     # `parameters` and `local_variables` leave it out, as CRuby does.
     IT = :"%it"
 
+    # The evals that run a string, with a different self. A program that
+    # calls one with an argument compiles ruby at run time, and the
+    # string reads the locals of the scope, as `eval` does. The block
+    # forms do neither.
+    STRING_EVALS = %i[class_eval module_eval instance_eval].freeze
+
     # The class of every HIR node class below: `Node.new(:a, :b)` makes
     # a Struct class with the fields `a` and `b`, as `Struct.new` does.
     # Each node is thus equal by value, and a walk reads its fields in

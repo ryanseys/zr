@@ -320,7 +320,7 @@ module Zr
   def program(source, file, target: Target.default, &finish)
     rt = runtime(target)
     support = eval_support(target)
-    hir = Zr.clock("hir built") { Hir.build(source, file, eval_support: support, target: target) }
+    hir = Zr.clock("hir built") { Hir.build(source, file, prebuilt: support, target: target) }
     symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
     # Each name already in the table has a fixed id. The link numbers all
     # other names, so a unit's code does not depend on the compile order.

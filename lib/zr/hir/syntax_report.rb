@@ -2,6 +2,12 @@
 
 module Zr
   module Hir
+    # A SyntaxError about the file at `path`, whose `path` gives that file
+    # as the one from ruby's compiler does.
+    def self.syntax_error(message, path)
+      SyntaxError.new(message).tap { |e| e.instance_variable_set(:@path, path) }
+    end
+
     # The error for a source that does not parse, built as CRuby builds it
     # from prism's diagnostics (`pm_parse_process_error` in
     # prism_compile.c). It is a SyntaxError whose message gives the first
@@ -41,9 +47,7 @@ module Zr
           # each error is its own line of text instead.
           text << errors.map { |e| "#{@file}:#{e.location.start_line}: #{e.message}" }.join("\n").b
         end
-        exc = SyntaxError.new(text.force_encoding(@result.encoding))
-        exc.instance_variable_set(:@path, @file)
-        exc
+        Hir.syntax_error(text.force_encoding(@result.encoding), @file)
       end
 
       private

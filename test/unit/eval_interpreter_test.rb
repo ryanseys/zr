@@ -30,7 +30,7 @@ class EvalInterpreterTest < Minitest::Test
   # The tests can run the tree-walking interpreter on a JIT target. Thus
   # its output can be compared with the output of the eval compiler.
   def test_zr_eval_walk_selects_interpreter_on_jit_target
-    with_env("ZR_EVAL" => "walk") do
+    Zr::Config.with(ZR_EVAL: "walk") do
       assert_equal Build::EVAL_INTERPRETER, Build.eval_file(Target::AARCH64_DARWIN)
     end
   end
@@ -40,7 +40,7 @@ class EvalInterpreterTest < Minitest::Test
   # other, it refers to units that the program does not contain.
   def test_compiler_and_interpreter_use_different_caches
     jit = Zr.eval_support(Target::AARCH64_DARWIN).send(:meta_path)
-    walk = with_env("ZR_EVAL" => "walk") { Zr::EvalSupport.new(Zr.runtime(Target::AARCH64_DARWIN)).send(:meta_path) }
+    walk = Zr::Config.with(ZR_EVAL: "walk") { Zr::EvalSupport.new(Zr.runtime(Target::AARCH64_DARWIN)).send(:meta_path) }
 
     refute_equal jit, walk
     assert_includes jit, "-jit.json"

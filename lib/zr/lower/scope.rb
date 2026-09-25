@@ -50,10 +50,6 @@ module Zr
       # is gone, and `local_variables` lists them.
       OPEN_FORMS = %i[eval binding local_variables].freeze
 
-      # The evals that run a string with a different self. The string
-      # reads this scope's locals as `eval` does. The block forms do not.
-      STRING_EVALS = %i[class_eval module_eval instance_eval].freeze
-
       # The sends that take a method name as their first argument, so
       # `send(:binding)` opens the scope as `binding` does.
       BY_NAME = %i[send __send__ public_send method public_method].freeze
@@ -66,7 +62,7 @@ module Zr
       def opens_locals?(node)
         case node
         when Hir::Send
-          OPEN_FORMS.include?(node.name) || (STRING_EVALS.include?(node.name) && !node.args.empty?) || named_open_form?(node) ||
+          OPEN_FORMS.include?(node.name) || (Hir::STRING_EVALS.include?(node.name) && !node.args.empty?) || named_open_form?(node) ||
             node.to_a.any? { |v| opens_locals?(v) }
         when Hir::Block, Hir::Lambda, Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::Def then opens_locals?(node.receiver)

@@ -1,0 +1,152 @@
+# frozen_string_literal: true
+
+# `Hir::Build`'s requires and autoloads of a feature that is known at
+# compile time.
+
+module Zr
+  module Hir
+    class Build
+      # The calls that load a file. A send of one of them with a computed
+      # name can find a file that was not compiled in, and then the
+      # program links in the compiler to compile that file at run time.
+      REQUIRES = %i[require require_relative load].freeze
+
+      # A require's name at compile time: a String literal, or a path built
+      # from `__dir__` with a literal.
+      def literal_feature(node)
+        args = node.arguments&.arguments
+        return nil unless args&.size == 1
+
+        args[0].is_a?(Prism::StringNode) ? args[0].unescaped : @loader.literal_path(args[0], @file)
+      end
+
+      # The features that ruby loads before a program starts, so a require
+      # of one returns false. The runtime's gem prelude loads
+      # error_highlight, did_you_mean and syntax_suggest's core extension,
+      # as ruby's does. Ruby 4.0.6 also loads rubygems, which this runtime
+      # does not preload: a require of it stops with a message, and does
+      # not return false and then fail at the first use. Only pathname's C
+      # part is loaded, so `require "pathname"` still runs its Ruby part
+      # and returns true.
+      GEM_PRELOADED = %w[error_highlight did_you_mean syntax_suggest/core_ext].freeze
+      PRELOADED = (%w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig] + GEM_PRELOADED).freeze
+
+      # The ruby features that no library root here contains, and that
+      # ruby did not load before the program. A require of one stops with
+      # a message.
+      def self.missing_features(target = Target.default)
+        (@missing_features ||= {})[target.triple] ||= FEATURES.reject do |feature|
+          PRELOADED.include?(feature) || stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
+        end.sort.freeze
+      end
+
+      # A feature ruby loaded before the program, by any of its names:
+      # `thread`, `thread.rb` and `enumerator.so` all count.
+      def preloaded?(feature)
+        (@loader ? @loader.preloaded : PRELOADED).include?(feature.to_s.sub(/\.(?:rb|so|bundle)\z/, ""))
+      end
+
+      # A require of a literal name resolves at compile time: the file
+      # becomes a unit of the program. A ruby feature that no root here
+      # contains stops with a message. Every other name raises LoadError
+      # when it runs, as in ruby.
+      def require_node(node)
+        line = node.location.start_line
+        feature = literal_feature(node)
+        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && !Build.runtime_file?(@file)
+          # The prelude loaded rubygems as the program booted.
+          gems!(:Gem)
+          return Literal.new(false, line)
+        end
+        if node.name == :require && preloaded?(feature)
+          @loader.configures! if feature.to_s.delete_suffix(".rb") == "rbconfig"
+          return Literal.new(false, line)
+        end
+
+        return plain_call(node, compiles: false) if @loader.deferred?(feature) || (@in_def && @loader.ahead?(@file))
+
+        path = @loader.resolve(node.name, feature, @file)
+        stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
+        return stop if stop
+
+        # No file found: the call searches at run time, in the $LOAD_PATH
+        # that the program has then. The build never uses the host's
+        # rubygems for a gem with the feature. A binary contains only what
+        # zr vendors and what the program's own roots contain, so the same
+        # source builds the same bytes on any machine.
+        return plain_call(node, compiles: false) unless path
+
+        # A require in a file that only eval support loads belongs to the
+        # compiler. The runtime knows this at run time, so one unit serves
+        # eval support and a program that requires the same file.
+        Require.new(node.name, feature, path, @loader.add(path), line)
+      end
+
+      # The reason that a ruby library is not here, when the reason is a
+      # decision and not a gap. The stop message is "<reason> is not
+      # implemented yet" (`zr_unloadable`), so each value completes that
+      # sentence.
+      UNSUPPORTED_LIBRARIES = {
+        "mkmf" => "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured",
+        "prism/ffi" => "prism/ffi, the FFI half of prism: this runtime's prism is a Ruby port of the C, so the C half"
+      }.freeze
+
+      # A ruby feature that this runtime has no file for. The stop occurs
+      # only when the program runs the require, so a guarded require that
+      # never runs costs nothing.
+      def stop_for(node, feature)
+        name = feature.to_s.delete_suffix(".rb")
+        return unless FEATURES.include?(name)
+
+        line = node.location.start_line
+        Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
+      end
+
+      # An autoload that registers nothing and returns nil, as ruby's does
+      # for a feature that is already loaded. The receiver still runs:
+      # `whatever.autoload :X, "set"` calls `whatever` first.
+      def nothing(node, line)
+        recv = node.receiver && expr(node.receiver)
+        recv ? Seq.new([recv, Literal.new(nil, line)], line) : Literal.new(nil, line)
+      end
+
+      def literal_autoload?(node)
+        args = node.arguments&.arguments
+        args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))
+      end
+
+      # `autoload :Name, "feature"` resolves the feature as a require
+      # does, so the file is a unit of the program.
+      def autoload_node(node)
+        line = node.location.start_line
+        name_node, path_node = node.arguments.arguments
+        feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
+        # A feature that is already loaded gets no autoload entry, as in
+        # ruby: `require` would return false and read no file, so
+        # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`. The
+        # name is still declared, which is visible on any module except
+        # Object: `M.constants` lists it, and the constant is undefined
+        # there (not read from an outer scope).
+        #
+        # With no entry, the loader does not expect a file at run time,
+        # which is the only case that needs the compiler. Otherwise
+        # `autoload :Set, "set"` would add the compiler (44 MB) for a
+        # declaration that reads nothing.
+        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, feature, nil, line,
+                            true) if preloaded?(feature)
+
+        path = @loader.resolve(:require, feature, @file)
+        # An autoload that the gem prelude's boot does not read leaves its
+        # file to the program that reads the constant.
+        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line) if path && @loader.ahead?(@file) && !@loader.booted?(path)
+
+        stop = path.nil? && stop_for(node, feature)
+        unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
+        # No root contains the file: the first read requires the feature
+        # from the $LOAD_PATH that the program has then.
+        @loader.compiles_at_run_time! unless unit
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line)
+      end
+    end
+  end
+end

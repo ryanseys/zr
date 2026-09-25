@@ -43,7 +43,7 @@ class EvalPrebuiltTest < Minitest::Test
   def test_first_build_skips_eval_support_files_after_eval_found
     Counting::PARSED.clear
     Zr.singleton_class.prepend(Counting) unless Zr.singleton_class < Counting
-    program = Zr::Hir::Build.program("require \"rubygems\"\nputs Gem::VERSION\n", "probe.rb", eval_support: Prebuilt.new(HELD))
+    program = Zr::Hir::Build.program("require \"rubygems\"\nputs Gem::VERSION\n", "probe.rb", prebuilt: Prebuilt.new(HELD))
     assert program.evals, "rubygems evals"
 
     parsed = Counting::PARSED.keys.select { |path| path.start_with?(File.join(VENDOR, "rubygems")) }

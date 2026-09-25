@@ -10,8 +10,8 @@ require_relative "hir/dump"
 
 module Zr
   module Hir
-    def self.build(source, file, roots: [], eval_support: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
-      Build.program(source, file, roots: roots, eval_support: eval_support, line: line, scopes: scopes, method: method, activations: activations,
+    def self.build(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
+      Build.program(source, file, roots: roots, eval_support: eval_support, prebuilt: prebuilt, line: line, scopes: scopes, method: method, activations: activations,
                                   target: target)
     end
   end

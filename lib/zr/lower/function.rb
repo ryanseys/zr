@@ -259,7 +259,7 @@ module Zr
       # (VISIBLE_IVARS).
       def ivar_name(name)
         return name unless @l.internal?
-        return name if Hir::Build::VISIBLE_IVARS.include?(@l.file)
+        return name if Hir::VISIBLE_IVARS.include?(@l.file)
 
         fn = self
         fn = fn.outer while fn.kind == :block && fn.outer
